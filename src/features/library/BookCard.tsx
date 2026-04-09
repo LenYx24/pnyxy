@@ -5,6 +5,7 @@ interface BookCardProps {
   author: string;
   progress: number;
   coverColor?: string;
+  onClick?: () => void;
 }
 
 export function BookCard({
@@ -12,9 +13,13 @@ export function BookCard({
   author,
   progress,
   coverColor = "from-accent-purple/30 to-accent-blue/30",
+  onClick,
 }: BookCardProps) {
   return (
-    <GlassCard className="overflow-hidden">
+    <GlassCard
+      className={`overflow-hidden${onClick ? " cursor-pointer" : ""}`}
+      onClick={onClick}
+    >
       <div
         className={`flex h-48 items-center justify-center bg-gradient-to-br ${coverColor}`}
       >

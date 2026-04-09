@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+
+# Generated assets
+public/pdf-assets
 
 # Editor directories and files
 .vscode/*

@@ -4,9 +4,10 @@ import { cn } from "@/lib/cn";
 interface GlassCardProps {
   children: ReactNode;
   className?: string;
+  onClick?: () => void;
 }
 
-export function GlassCard({ children, className }: GlassCardProps) {
+export function GlassCard({ children, className, onClick }: GlassCardProps) {
   return (
     <div
       className={cn(
@@ -14,6 +15,7 @@ export function GlassCard({ children, className }: GlassCardProps) {
         "transition-colors hover:bg-glass-hover",
         className,
       )}
+      onClick={onClick}
     >
       {children}
     </div>

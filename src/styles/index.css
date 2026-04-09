@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "dockview/dist/styles/dockview.css";
+@import "./dockview-theme.css";
 
 @theme {
   /* Background colors */
