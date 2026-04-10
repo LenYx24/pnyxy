@@ -2,6 +2,7 @@ import { useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { createPdfAdapter } from "@/features/reader/adapters/pdf-adapter";
 import { useReaderStore } from "@/stores/reader-store";
+import { useUIStore } from "@/stores/ui-store";
 import { registerFile } from "@/lib/file-store";
 
 export function useOpenPdf() {
@@ -12,33 +13,40 @@ export function useOpenPdf() {
     fileInputRef.current?.click();
   }, []);
 
-  const handleFileSelect = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+  const openFile = useCallback(
+    async (file: File, shouldNavigate = true) => {
+      const { setLoading } = useUIStore.getState();
+      setLoading(true, "Loading document...");
 
-      const adapter = createPdfAdapter();
-      const meta = await adapter.load(file);
-      const toc = await adapter.extractToc();
+      try {
+        const adapter = createPdfAdapter();
 
-      registerFile(meta.id, file);
+        setLoading(true, "Extracting table of contents...");
+        const docId = await useReaderStore.getState().addDocument(adapter, file);
 
-      useReaderStore.setState({
-        adapter,
-        meta,
-        toc,
-        currentPage: 1,
-        totalPages: meta.totalPages,
-        zoomMode: "fit-width",
-        zoomLevel: 100,
-        scrollToPage: null,
-      });
+        registerFile(docId, file);
 
-      navigate(`/app/reader/${meta.id}`);
-      e.target.value = "";
+        if (shouldNavigate) {
+          navigate(`/app/reader/${docId}`);
+        }
+
+        return docId;
+      } finally {
+        setLoading(false);
+      }
     },
     [navigate],
   );
 
-  return { fileInputRef, triggerFilePicker, handleFileSelect };
+  const handleFileSelect = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      await openFile(file);
+      e.target.value = "";
+    },
+    [openFile],
+  );
+
+  return { fileInputRef, triggerFilePicker, handleFileSelect, openFile };
 }

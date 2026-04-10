@@ -1,6 +1,9 @@
 import { useMemo } from "react";
+import { FilePlus, FileText, StickyNote, PenTool } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useReaderStore } from "@/stores/reader-store";
+import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
+import { useNoteStore } from "@/stores/note-store";
+import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import type { TocItem } from "@/types/document";
 
 /** Flatten TOC into ordered list of page numbers for range-based active detection */
@@ -60,13 +63,36 @@ function TocEntry({
   );
 }
 
+interface ReaderSidebarContentProps {
+  onOpenFile?: () => void;
+  onOpenNote?: (noteId: string) => void;
+  onCreateNote?: () => void;
+  onOpenWhiteboard?: (whiteboardId: string) => void;
+  onCreateWhiteboard?: () => void;
+}
+
 /** Inner content component used by Dockview panel (no outer sizing wrapper) */
-export function ReaderSidebarContent() {
-  const meta = useReaderStore((s) => s.meta);
-  const toc = useReaderStore((s) => s.toc);
-  const currentPage = useReaderStore((s) => s.currentPage);
-  const totalPages = useReaderStore((s) => s.totalPages);
+export function ReaderSidebarContent({
+  onOpenFile,
+  onOpenNote,
+  onCreateNote,
+  onOpenWhiteboard,
+  onCreateWhiteboard,
+}: ReaderSidebarContentProps) {
+  const activeDoc = useActiveDocument();
+  const documents = useReaderStore((s) => s.documents);
+  const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
+  const setActiveDocument = useReaderStore((s) => s.setActiveDocument);
   const goToPage = useReaderStore((s) => s.goToPage);
+  const getDisplayTitle = useReaderStore((s) => s.getDisplayTitle);
+
+  const notes = useNoteStore((s) => s.notes);
+  const whiteboards = useWhiteboardStore((s) => s.whiteboards);
+
+  const meta = activeDoc?.meta ?? null;
+  const toc = activeDoc?.toc ?? [];
+  const currentPage = activeDoc?.currentPage ?? 1;
+  const totalPages = activeDoc?.totalPages ?? 0;
 
   // Range-based active TOC entry: find the TOC entry whose page is <= currentPage
   // and the next entry's page is > currentPage
@@ -86,19 +112,53 @@ export function ReaderSidebarContent() {
     return active;
   }, [toc, currentPage]);
 
+  const docEntries = Array.from(documents.entries());
+
   return (
     <div className="h-full flex flex-col bg-bg-secondary/50">
-      <div className="p-4 border-b border-glass-border">
+      {/* Header with + button */}
+      <div className="p-4 border-b border-glass-border flex items-center justify-between">
         <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
-          {meta ? "Table of Contents" : "Reader"}
+          {meta ? "Contents" : "Reader"}
         </h3>
-        {meta && (
-          <p className="mt-1 text-xs text-text-secondary truncate">
-            {meta.title}
-          </p>
+        {onOpenFile && (
+          <button
+            onClick={onOpenFile}
+            className="rounded-md p-1 text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+            title="Open another PDF"
+          >
+            <FilePlus size={16} />
+          </button>
         )}
       </div>
 
+      {/* Open documents list */}
+      {docEntries.length > 1 && (
+        <div className="border-b border-glass-border p-2 space-y-0.5">
+          <p className="px-3 py-1 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+            Open Documents
+          </p>
+          {docEntries.map(([id, doc]) => (
+            <button
+              key={id}
+              onClick={() => setActiveDocument(id)}
+              className={cn(
+                "flex items-center gap-2 w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors cursor-pointer",
+                activeDocumentId === id
+                  ? "bg-accent-purple/15 text-accent-purple"
+                  : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+              )}
+            >
+              <FileText size={14} className="shrink-0" />
+              <span className="truncate">
+                {getDisplayTitle(id)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* TOC for active document */}
       <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
         {!meta && (
           <p className="px-3 py-2 text-sm text-text-muted">
@@ -136,6 +196,74 @@ export function ReaderSidebarContent() {
             </button>
           ))}
       </nav>
+
+      {/* Notes section */}
+      <div className="border-t border-glass-border p-2">
+        <div className="flex items-center justify-between px-3 py-1">
+          <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+            Notes
+          </p>
+          {onCreateNote && (
+            <button
+              onClick={onCreateNote}
+              className="rounded-md p-1 text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              title="New note"
+            >
+              <StickyNote size={14} />
+            </button>
+          )}
+        </div>
+        {notes.length === 0 ? (
+          <p className="px-3 py-1 text-xs text-text-muted">No notes yet</p>
+        ) : (
+          <div className="space-y-0.5 max-h-32 overflow-y-auto">
+            {notes.map((note) => (
+              <button
+                key={note.id}
+                onClick={() => onOpenNote?.(note.id)}
+                className="flex items-center gap-2 w-full rounded-md px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              >
+                <StickyNote size={14} className="shrink-0" />
+                <span className="truncate">{note.title || "Untitled Note"}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Whiteboards section */}
+      <div className="border-t border-glass-border p-2">
+        <div className="flex items-center justify-between px-3 py-1">
+          <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+            Whiteboards
+          </p>
+          {onCreateWhiteboard && (
+            <button
+              onClick={onCreateWhiteboard}
+              className="rounded-md p-1 text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              title="New whiteboard"
+            >
+              <PenTool size={14} />
+            </button>
+          )}
+        </div>
+        {whiteboards.length === 0 ? (
+          <p className="px-3 py-1 text-xs text-text-muted">No whiteboards yet</p>
+        ) : (
+          <div className="space-y-0.5 max-h-32 overflow-y-auto">
+            {whiteboards.map((wb) => (
+              <button
+                key={wb.id}
+                onClick={() => onOpenWhiteboard?.(wb.id)}
+                className="flex items-center gap-2 w-full rounded-md px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              >
+                <PenTool size={14} className="shrink-0" />
+                <span className="truncate">{wb.title || "Untitled Whiteboard"}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

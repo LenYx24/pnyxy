@@ -9,8 +9,13 @@ import {
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
-import { useReaderStore } from "@/stores/reader-store";
+import { useReaderStore, useDocumentState } from "@/stores/reader-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useTextSelection } from "@/hooks/use-text-selection";
+import { HighlightLayer } from "./HighlightLayer";
+import { CommentMarkers } from "./CommentMarkers";
+import { AnnotationContextMenu } from "./AnnotationContextMenu";
+import { CommentPopover } from "./CommentPopover";
 import { Loader2 } from "lucide-react";
 
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf-assets/pdf.worker.min.mjs";
@@ -48,16 +53,27 @@ interface PageDimensions {
   height: number;
 }
 
-export function PdfViewer() {
-  const meta = useReaderStore((s) => s.meta);
-  const totalPages = useReaderStore((s) => s.totalPages);
-  const zoomMode = useReaderStore((s) => s.zoomMode);
-  const zoomLevel = useReaderStore((s) => s.zoomLevel);
-  const scrollToPage = useReaderStore((s) => s.scrollToPage);
-  const clearScrollRequest = useReaderStore((s) => s.clearScrollRequest);
+interface PdfViewerProps {
+  documentId?: string;
+}
+
+export function PdfViewer({ documentId }: PdfViewerProps) {
+  // If no documentId passed, use active document
+  const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
+  const docId = documentId ?? activeDocumentId;
+  const doc = useDocumentState(docId ?? "");
+
   const setCurrentPage = useReaderStore((s) => s.setCurrentPage);
+  const clearScrollRequest = useReaderStore((s) => s.clearScrollRequest);
+
+  const meta = doc?.meta ?? null;
+  const totalPages = doc?.totalPages ?? 0;
+  const zoomMode = doc?.zoomMode ?? "fit-width";
+  const zoomLevel = doc?.zoomLevel ?? 100;
+  const scrollToPage = doc?.scrollToPage ?? null;
 
   const containerRef = useRef<HTMLDivElement>(null);
+  useTextSelection(containerRef);
   const [containerWidth, setContainerWidth] = useState(0);
   const [containerHeight, setContainerHeight] = useState(0);
   const dimensionsRef = useRef<Map<number, PageDimensions>>(new Map());
@@ -66,21 +82,32 @@ export function PdfViewer() {
   const anchorRef = useRef<{ page: number; fraction: number } | null>(null);
   const programmaticScrollRef = useRef(false);
 
-  // Track container size
+  // Track container size — debounced to prevent flicker during panel resize
+  const resizeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
+    // Set initial size synchronously
+    setContainerWidth(el.clientWidth);
+    setContainerHeight(el.clientHeight);
+
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
-      if (entry) {
+      if (!entry) return;
+      // Debounce: only commit new dimensions after resize settles
+      clearTimeout(resizeTimerRef.current);
+      resizeTimerRef.current = setTimeout(() => {
         setContainerWidth(entry.contentRect.width);
         setContainerHeight(entry.contentRect.height);
-      }
+      }, 150);
     });
 
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      clearTimeout(resizeTimerRef.current);
+    };
   }, []);
 
   // Compute effective page width based on zoom mode
@@ -193,9 +220,9 @@ export function PdfViewer() {
         }
       }
 
-      setCurrentPage(closestPage);
+      setCurrentPage(closestPage, docId ?? undefined);
     });
-  }, [containerHeight, pageOffsets, getPageHeight, setCurrentPage]);
+  }, [containerHeight, pageOffsets, getPageHeight, setCurrentPage, docId]);
 
   // Read scroll settings
   const pageScrollBehavior = useSettingsStore((s) => s.pageScrollBehavior);
@@ -237,8 +264,8 @@ export function PdfViewer() {
         }, scrollAnimationDuration + 200);
       }
     }
-    clearScrollRequest();
-  }, [scrollToPage, pageOffsets, clearScrollRequest, pageScrollBehavior, scrollAnimationDuration]);
+    clearScrollRequest(docId ?? undefined);
+  }, [scrollToPage, pageOffsets, clearScrollRequest, pageScrollBehavior, scrollAnimationDuration, docId]);
 
   // Save anchor before zoom changes (on every scroll update)
   useEffect(() => {
@@ -308,7 +335,7 @@ export function PdfViewer() {
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="h-full w-full overflow-auto"
+      className="h-full w-full overflow-auto bg-bg-primary"
     >
       <Document
         file={meta.fileUrl}
@@ -345,26 +372,32 @@ export function PdfViewer() {
                 justifyContent: "center",
               }}
             >
-              <Page
-                pageNumber={pageNum}
-                {...getPageProps()}
-                loading={
-                  <div
-                    className="flex items-center justify-center gap-2 text-text-secondary"
-                    style={{
-                      height: getPageHeight(pageNum),
-                      width: effectivePageWidth,
-                    }}
-                  >
-                    <Loader2 size={16} className="animate-spin" />
-                  </div>
-                }
-                onRenderSuccess={() => handlePageRenderSuccess(pageNum)}
-              />
+              <div style={{ position: "relative" }}>
+                <Page
+                  pageNumber={pageNum}
+                  {...getPageProps()}
+                  loading={
+                    <div
+                      className="flex items-center justify-center gap-2 text-text-secondary"
+                      style={{
+                        height: getPageHeight(pageNum),
+                        width: effectivePageWidth,
+                      }}
+                    >
+                      <Loader2 size={16} className="animate-spin" />
+                    </div>
+                  }
+                  onRenderSuccess={() => handlePageRenderSuccess(pageNum)}
+                />
+                <HighlightLayer pageNum={pageNum} />
+                <CommentMarkers pageNum={pageNum} />
+              </div>
             </div>
           ))}
         </div>
       </Document>
+      <AnnotationContextMenu />
+      <CommentPopover />
     </div>
   );
 }

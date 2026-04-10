@@ -66,3 +66,8 @@
 .pnyxy-dockview-theme .dv-content-container {
   background-color: #0a0a0f;
 }
+
+/* Prevent white flash in panel views during resize */
+.pnyxy-dockview-theme .dv-view {
+  background-color: #0a0a0f;
+}

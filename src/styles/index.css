@@ -68,4 +68,26 @@
     background: var(--color-glass-border);
     border-radius: 3px;
   }
+
+  /* PDF text layer: keep text invisible for selection, fix font jumps */
+  .react-pdf__Page__textContent {
+    color: transparent !important;
+  }
+  .react-pdf__Page__textContent span {
+    font-family: inherit !important;
+    color: transparent !important;
+  }
+  .react-pdf__Page__textContent span::selection {
+    background-color: rgba(139, 92, 246, 0.3);
+    color: transparent;
+  }
+
+  /* Prevent white flash during resize/re-render of PDF pages */
+  .react-pdf__Document,
+  .react-pdf__Page {
+    background-color: var(--color-bg-primary) !important;
+  }
+  .react-pdf__Page canvas {
+    display: block;
+  }
 }
