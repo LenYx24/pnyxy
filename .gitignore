@@ -16,6 +16,10 @@ dist-ssr
 # Generated assets
 public/pdf-assets
 
+# Claude Code / agent configs
+.agents/
+.claude/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
