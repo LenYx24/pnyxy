@@ -31,14 +31,16 @@ interface ReaderToolbarProps {
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
   onToggleComments?: () => void;
-  onOpenPdfOnCanvas?: () => void;
+  isDrawMode?: boolean;
+  onToggleDrawMode?: () => void;
 }
 
 export function ReaderToolbar({
   isFullscreen,
   onToggleFullscreen,
   onToggleComments,
-  onOpenPdfOnCanvas,
+  isDrawMode,
+  onToggleDrawMode,
 }: ReaderToolbarProps) {
   const activeDoc = useActiveDocument();
   const goToPage = useReaderStore((s) => s.goToPage);
@@ -233,12 +235,17 @@ export function ReaderToolbar({
             </div>
           )}
         </div>
-        {/* Open PDF on canvas */}
-        {onOpenPdfOnCanvas && (
+        {/* Toggle draw mode on PDF */}
+        {onToggleDrawMode && (
           <button
-            onClick={onOpenPdfOnCanvas}
-            className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-            title="Draw on PDF (opens whiteboard with PDF background)"
+            onClick={onToggleDrawMode}
+            className={cn(
+              "rounded-md p-1.5 transition-colors cursor-pointer",
+              isDrawMode
+                ? "text-accent-purple bg-accent-purple/10"
+                : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+            )}
+            title={isDrawMode ? "Back to PDF viewer" : "Draw on PDF"}
           >
             <PenTool size={16} />
           </button>

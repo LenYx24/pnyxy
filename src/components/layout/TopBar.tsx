@@ -1,4 +1,4 @@
-import { Search, User } from "lucide-react";
+import { Search } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
 
@@ -23,9 +23,6 @@ export function TopBar({ title = "Library" }: TopBarProps) {
         <div className="flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5">
           <Search size={16} className="text-text-muted" />
           <span className="text-sm text-text-muted">Search...</span>
-        </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-glass-bg">
-          <User size={16} className="text-text-secondary" />
         </div>
       </div>
     </header>

@@ -374,25 +374,52 @@ export function ReaderPage() {
     }, []),
   });
 
-  const openPdfOnCanvas = useCallback(() => {
+  const [isDrawMode, setIsDrawMode] = useState(false);
+  const drawWhiteboardIdRef = useRef<string | null>(null);
+
+  const toggleDrawMode = useCallback(() => {
     const api = dockviewApiRef.current;
     if (!api) return;
-    const activeDoc = useReaderStore.getState().getActiveDoc();
-    if (!activeDoc?.meta?.fileUrl) return;
 
-    const whiteboardId = useWhiteboardStore.getState().createWhiteboard();
-    const panelId = `whiteboard-pdf-${whiteboardId}`;
-    api.addPanel({
-      id: panelId,
-      component: "whiteboard",
-      title: "PDF Canvas",
-      params: {
-        whiteboardId,
-        pdfDocumentUrl: activeDoc.meta.fileUrl,
-      },
-      position: { direction: "right" },
-    });
-  }, []);
+    if (isDrawMode) {
+      // Switch back: remove whiteboard panel, re-add PDF viewer
+      const wbPanel = api.getPanel("pdfCanvasWhiteboard");
+      if (wbPanel) api.removePanel(wbPanel);
+
+      // Re-add the PDF viewer panel
+      api.addPanel({
+        id: "pdfViewer",
+        component: "pdfViewer",
+        title: "Document",
+      });
+
+      setIsDrawMode(false);
+    } else {
+      // Switch to draw mode: remove PDF viewer, add whiteboard in its place
+      const activeDoc = useReaderStore.getState().getActiveDoc();
+      if (!activeDoc?.meta?.fileUrl) return;
+
+      const viewerPanel = api.getPanel("pdfViewer");
+      if (viewerPanel) api.removePanel(viewerPanel);
+
+      // Reuse existing whiteboard or create a new one
+      if (!drawWhiteboardIdRef.current) {
+        drawWhiteboardIdRef.current = useWhiteboardStore.getState().createWhiteboard();
+      }
+
+      api.addPanel({
+        id: "pdfCanvasWhiteboard",
+        component: "whiteboard",
+        title: "PDF Canvas",
+        params: {
+          whiteboardId: drawWhiteboardIdRef.current,
+          pdfDocumentUrl: activeDoc.meta.fileUrl,
+        },
+      });
+
+      setIsDrawMode(true);
+    }
+  }, [isDrawMode]);
 
   const toggleComments = useCallback(() => {
     const api = dockviewApiRef.current;
@@ -451,6 +478,30 @@ export function ReaderPage() {
       }
     });
 
+    // Dockview distributes space equally when panels are added or removed.
+    // Defer setSize to next frame so it runs after the distribute completes.
+    const TOC_WIDTH = 256;
+    const restoreTocWidth = () => {
+      requestAnimationFrame(() => {
+        try {
+          const tocPanel = api.getPanel("toc");
+          if (tocPanel) {
+            tocPanel.api.setSize({ width: TOC_WIDTH });
+          }
+        } catch {
+          // panel may not exist
+        }
+      });
+    };
+    api.onDidRemovePanel((removed) => {
+      if (removed.id === "toc") return;
+      restoreTocWidth();
+    });
+    api.onDidAddPanel((added) => {
+      if (added.id === "toc") return;
+      restoreTocWidth();
+    });
+
     // Try restoring saved layout
     const saved = loadDockviewLayout();
     if (saved) {
@@ -474,7 +525,9 @@ export function ReaderPage() {
       component: "toc",
       title: "Table of Contents",
       position: { direction: "left", referencePanel: "pdfViewer" },
-      initialWidth: 256,
+      initialWidth: TOC_WIDTH,
+      minimumWidth: 200,
+      maximumWidth: 320,
     });
 
     // Debounced layout persistence
@@ -505,7 +558,8 @@ export function ReaderPage() {
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
             onToggleComments={toggleComments}
-            onOpenPdfOnCanvas={openPdfOnCanvas}
+            isDrawMode={isDrawMode}
+            onToggleDrawMode={toggleDrawMode}
           />
           <DockviewReact
             className="pnyxy-dockview-theme flex-1"

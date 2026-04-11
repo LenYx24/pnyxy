@@ -1,7 +1,10 @@
 import { Link } from "react-router";
 import { Button } from "@/components/ui";
+import { useAuthStore } from "@/stores/auth-store";
 
 export function HeroSection() {
+  const { user } = useAuthStore();
+
   return (
     <section className="relative flex min-h-screen flex-col items-center justify-center px-6 text-center">
       {/* Floating geometric shapes */}
@@ -26,11 +29,21 @@ export function HeroSection() {
         retain knowledge from books.
       </p>
 
-      <div className="flex gap-4">
-        <Link to="/app/library">
-          <Button variant="primary">Get Started</Button>
-        </Link>
-        <Button variant="secondary">Learn More</Button>
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex gap-4">
+          <Link to={user ? "/app/library" : "/auth"}>
+            <Button variant="primary">Get Started</Button>
+          </Link>
+          <Button variant="secondary">Learn More</Button>
+        </div>
+        {!user && (
+          <Link
+            to="/app/library"
+            className="text-sm text-text-muted transition-colors hover:text-text-secondary"
+          >
+            Continue without an account &rarr;
+          </Link>
+        )}
       </div>
     </section>
   );

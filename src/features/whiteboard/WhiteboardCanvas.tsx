@@ -178,29 +178,43 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
       if (activeTool === "select") {
         const hit = hitTest(elements, world, zoom);
         if (hit) {
-          if (!selectedElementIds.has(hit.id)) {
+          const isMultiSelect = e.ctrlKey || e.metaKey;
+          if (isMultiSelect) {
+            // Toggle element in/out of selection
+            const next = new Set(selectedElementIds);
+            if (next.has(hit.id)) {
+              next.delete(hit.id);
+            } else {
+              next.add(hit.id);
+            }
+            store.getState().setSelection(next);
+          } else if (!selectedElementIds.has(hit.id)) {
             store.getState().setSelection(new Set([hit.id]));
           }
           // Start drag — snapshot all selected elements
-          isDraggingSelectionRef.current = true;
-          dragStartWorldRef.current = world;
-          dragSnapshotsRef.current = new Map();
           const sel = store.getState().selectedElementIds;
-          for (const el of elements) {
-            if (sel.has(el.id)) {
-              // Deep-clone pen points
-              dragSnapshotsRef.current.set(
-                el.id,
-                el.type === "pen"
-                  ? { ...el, points: el.points.map((p) => ({ ...p })) }
-                  : { ...el },
-              );
+          if (sel.size > 0) {
+            isDraggingSelectionRef.current = true;
+            dragStartWorldRef.current = world;
+            dragSnapshotsRef.current = new Map();
+            for (const el of elements) {
+              if (sel.has(el.id)) {
+                // Deep-clone pen points
+                dragSnapshotsRef.current.set(
+                  el.id,
+                  el.type === "pen"
+                    ? { ...el, points: el.points.map((p) => ({ ...p })) }
+                    : { ...el },
+                );
+              }
             }
+            // Push undo before drag
+            store.getState().pushUndo();
           }
-          // Push undo before drag
-          store.getState().pushUndo();
         } else {
-          store.getState().clearSelection();
+          if (!e.ctrlKey && !e.metaKey) {
+            store.getState().clearSelection();
+          }
         }
         return;
       }

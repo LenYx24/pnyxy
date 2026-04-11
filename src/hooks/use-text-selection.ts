@@ -53,14 +53,45 @@ function getSelectionData(): { selection: TextSelection; rects: PageRect[] } | n
 }
 
 /**
- * Find the highlight ID under a given point by checking data-highlight-id elements.
+ * Find the highlight ID under a given point using coordinate-based hit testing.
+ * Checks the annotation store's highlight rects against the point position
+ * relative to the PDF page, since highlight elements have pointer-events: none.
  */
 function findHighlightAtPoint(x: number, y: number): string | null {
+  // Find the page element at this point
   const els = document.elementsFromPoint(x, y);
+  let pageEl: HTMLElement | null = null;
   for (const el of els) {
-    const highlightId = (el as HTMLElement).dataset?.highlightId;
-    if (highlightId) return highlightId;
+    const found = (el as HTMLElement).closest?.("[data-page-number]") as HTMLElement | null;
+    if (found) {
+      pageEl = found;
+      break;
+    }
   }
+  if (!pageEl) return null;
+
+  const pageNum = parseInt(pageEl.dataset.pageNumber || "0", 10);
+  if (!pageNum) return null;
+
+  const pageBounds = pageEl.getBoundingClientRect();
+  const relX = (x - pageBounds.left) / pageBounds.width;
+  const relY = (y - pageBounds.top) / pageBounds.height;
+
+  const { highlights } = useAnnotationStore.getState();
+  for (const highlight of highlights.values()) {
+    for (const rect of highlight.selection.rects) {
+      if (rect.pageNum !== pageNum) continue;
+      if (
+        relX >= rect.x &&
+        relX <= rect.x + rect.width &&
+        relY >= rect.y &&
+        relY <= rect.y + rect.height
+      ) {
+        return highlight.id;
+      }
+    }
+  }
+
   return null;
 }
 
