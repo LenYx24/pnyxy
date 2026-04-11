@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
-import { BookOpen, FilePlus } from "lucide-react";
+import { BookOpen, FilePlus, Loader2 } from "lucide-react";
 import {
   DockviewReact,
   type DockviewReadyEvent,
@@ -10,7 +10,15 @@ import {
 import { ReaderSidebarContent } from "./ReaderSidebar";
 import { ReaderToolbar } from "./ReaderToolbar";
 import { PdfViewer } from "./PdfViewer";
+import { CommentsSidebar } from "./CommentsSidebar";
+import { NoteEditor } from "@/features/notes/NoteEditor";
+import { WhiteboardPanelWrapper } from "@/features/whiteboard/WhiteboardPanel";
 import { useReaderStore } from "@/stores/reader-store";
+import { useAnnotationStore } from "@/stores/annotation-store";
+import { useUndoStore } from "@/stores/undo-store";
+import { useUIStore } from "@/stores/ui-store";
+import { useNoteStore } from "@/stores/note-store";
+import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import { getFile } from "@/lib/file-store";
 import { createPdfAdapter } from "./adapters/pdf-adapter";
 import { useOpenPdf } from "@/hooks/use-open-pdf";
@@ -18,17 +26,117 @@ import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { Button } from "@/components/ui";
 import { saveDockviewLayout, loadDockviewLayout } from "@/stores/ui-store";
 
-function TocPanel(_props: IDockviewPanelProps) {
-  return <ReaderSidebarContent />;
+function TocPanel(props: IDockviewPanelProps) {
+  const dockviewApi = props.containerApi;
+  const { fileInputRef, triggerFilePicker, handleFileSelect, openFile } = useOpenPdf();
+
+  const handleOpenFile = useCallback(() => {
+    triggerFilePicker();
+  }, [triggerFilePicker]);
+
+  const handleOpenNote = useCallback(
+    (noteId: string) => {
+      const panelId = `note-${noteId}`;
+      const existing = dockviewApi.getPanel(panelId);
+      if (existing) {
+        existing.api.setActive();
+        return;
+      }
+      dockviewApi.addPanel({
+        id: panelId,
+        component: "note",
+        title: "Note",
+        params: { noteId },
+        position: { direction: "right" },
+      });
+    },
+    [dockviewApi],
+  );
+
+  const handleCreateNote = useCallback(() => {
+    const noteId = useNoteStore.getState().createNote();
+    const panelId = `note-${noteId}`;
+    dockviewApi.addPanel({
+      id: panelId,
+      component: "note",
+      title: "New Note",
+      params: { noteId },
+      position: { direction: "right" },
+    });
+  }, [dockviewApi]);
+
+  const handleOpenWhiteboard = useCallback(
+    (whiteboardId: string) => {
+      const panelId = `whiteboard-${whiteboardId}`;
+      const existing = dockviewApi.getPanel(panelId);
+      if (existing) {
+        existing.api.setActive();
+        return;
+      }
+      dockviewApi.addPanel({
+        id: panelId,
+        component: "whiteboard",
+        title: "Whiteboard",
+        params: { whiteboardId },
+        position: { direction: "right" },
+      });
+    },
+    [dockviewApi],
+  );
+
+  const handleCreateWhiteboard = useCallback(() => {
+    const whiteboardId = useWhiteboardStore.getState().createWhiteboard();
+    const panelId = `whiteboard-${whiteboardId}`;
+    dockviewApi.addPanel({
+      id: panelId,
+      component: "whiteboard",
+      title: "New Whiteboard",
+      params: { whiteboardId },
+      position: { direction: "right" },
+    });
+  }, [dockviewApi]);
+
+  return (
+    <>
+      <ReaderSidebarContent
+        onOpenFile={handleOpenFile}
+        onOpenNote={handleOpenNote}
+        onCreateNote={handleCreateNote}
+        onOpenWhiteboard={handleOpenWhiteboard}
+        onCreateWhiteboard={handleCreateWhiteboard}
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
+    </>
+  );
 }
 
-function ViewerPanel(_props: IDockviewPanelProps) {
-  return <PdfViewer />;
+function ViewerPanel(props: IDockviewPanelProps<{ documentId?: string }>) {
+  const documentId = props.params?.documentId;
+  return <PdfViewer documentId={documentId} />;
+}
+
+function CommentsPanel(_props: IDockviewPanelProps) {
+  return <CommentsSidebar />;
+}
+
+function NotePanelWrapper(props: IDockviewPanelProps<{ noteId?: string }>) {
+  const noteId = props.params?.noteId;
+  if (!noteId) return null;
+  return <NoteEditor noteId={noteId} />;
 }
 
 const dockviewComponents = {
   toc: TocPanel,
   pdfViewer: ViewerPanel,
+  comments: CommentsPanel,
+  note: NotePanelWrapper,
+  whiteboard: WhiteboardPanelWrapper,
 };
 
 function EmptyState() {
@@ -63,29 +171,52 @@ function EmptyState() {
 
 export function ReaderPage() {
   const { bookId } = useParams();
-  const meta = useReaderStore((s) => s.meta);
-  const openDocument = useReaderStore((s) => s.openDocument);
+  const documents = useReaderStore((s) => s.documents);
+  const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
+  const addDocument = useReaderStore((s) => s.addDocument);
+  const setActiveDocument = useReaderStore((s) => s.setActiveDocument);
   const goToPage = useReaderStore((s) => s.goToPage);
   const zoomIn = useReaderStore((s) => s.zoomIn);
   const zoomOut = useReaderStore((s) => s.zoomOut);
   const setZoomMode = useReaderStore((s) => s.setZoomMode);
 
+  const isLoadingDocument = useUIStore((s) => s.isLoadingDocument);
+  const loadingMessage = useUIStore((s) => s.loadingMessage);
+
+  const hasDocuments = documents.size > 0;
+
   const dockviewApiRef = useRef<DockviewApi | null>(null);
   const layoutSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenPdf();
+  const { fileInputRef, triggerFilePicker, handleFileSelect, openFile } = useOpenPdf();
 
   // Load document from file registry if navigated directly
   useEffect(() => {
-    if (bookId && !meta) {
+    if (bookId && !documents.has(bookId)) {
       const file = getFile(bookId);
       if (file) {
         const adapter = createPdfAdapter();
-        openDocument(adapter, file);
+        addDocument(adapter, file);
       }
     }
-  }, [bookId, meta, openDocument]);
+  }, [bookId, documents, addDocument]);
+
+  // Load annotations when active document changes
+  useEffect(() => {
+    if (activeDocumentId) {
+      useAnnotationStore.getState().loadAnnotations(activeDocumentId);
+    }
+    return () => {
+      useAnnotationStore.getState().clearAll();
+    };
+  }, [activeDocumentId]);
+
+  // Load notes and whiteboards on mount
+  useEffect(() => {
+    useNoteStore.getState().loadNotes();
+    useWhiteboardStore.getState().loadWhiteboards();
+  }, []);
 
   // Listen for fullscreen changes (e.g. user pressing Esc)
   useEffect(() => {
@@ -121,7 +252,7 @@ export function ReaderPage() {
     key: "=",
     ctrl: true,
     description: "Zoom in",
-    handler: zoomIn,
+    handler: useCallback(() => zoomIn(), [zoomIn]),
   });
 
   useKeyboardShortcut({
@@ -129,7 +260,7 @@ export function ReaderPage() {
     key: "-",
     ctrl: true,
     description: "Zoom out",
-    handler: zoomOut,
+    handler: useCallback(() => zoomOut(), [zoomOut]),
   });
 
   useKeyboardShortcut({
@@ -141,13 +272,13 @@ export function ReaderPage() {
   });
 
   const prevPageHandler = useCallback(() => {
-    const { currentPage } = useReaderStore.getState();
-    if (currentPage > 1) goToPage(currentPage - 1);
+    const activeDoc = useReaderStore.getState().getActiveDoc();
+    if (activeDoc && activeDoc.currentPage > 1) goToPage(activeDoc.currentPage - 1);
   }, [goToPage]);
 
   const nextPageHandler = useCallback(() => {
-    const { currentPage, totalPages } = useReaderStore.getState();
-    if (currentPage < totalPages) goToPage(currentPage + 1);
+    const activeDoc = useReaderStore.getState().getActiveDoc();
+    if (activeDoc && activeDoc.currentPage < activeDoc.totalPages) goToPage(activeDoc.currentPage + 1);
   }, [goToPage]);
 
   useKeyboardShortcut({
@@ -225,10 +356,151 @@ export function ReaderPage() {
     handler: toggleFullscreen,
   });
 
+  useKeyboardShortcut({
+    id: "reader:add-comment",
+    key: "c",
+    ctrl: true,
+    shift: true,
+    description: "Add comment to selection",
+    handler: useCallback(() => {
+      const { contextMenu } = useAnnotationStore.getState();
+      if (contextMenu.visible && contextMenu.selection) {
+        // If context menu is visible with a selection, prompt for comment
+        const text = prompt("Add comment:");
+        if (text?.trim()) {
+          useAnnotationStore.getState().addComment(contextMenu.selection, text.trim());
+        }
+      }
+    }, []),
+  });
+
+  const [isDrawMode, setIsDrawMode] = useState(false);
+  const drawWhiteboardIdRef = useRef<string | null>(null);
+
+  const toggleDrawMode = useCallback(() => {
+    const api = dockviewApiRef.current;
+    if (!api) return;
+
+    if (isDrawMode) {
+      // Switch back: remove whiteboard panel, re-add PDF viewer
+      const wbPanel = api.getPanel("pdfCanvasWhiteboard");
+      if (wbPanel) api.removePanel(wbPanel);
+
+      // Re-add the PDF viewer panel
+      api.addPanel({
+        id: "pdfViewer",
+        component: "pdfViewer",
+        title: "Document",
+      });
+
+      setIsDrawMode(false);
+    } else {
+      // Switch to draw mode: remove PDF viewer, add whiteboard in its place
+      const activeDoc = useReaderStore.getState().getActiveDoc();
+      if (!activeDoc?.meta?.fileUrl) return;
+
+      const viewerPanel = api.getPanel("pdfViewer");
+      if (viewerPanel) api.removePanel(viewerPanel);
+
+      // Reuse existing whiteboard or create a new one
+      if (!drawWhiteboardIdRef.current) {
+        drawWhiteboardIdRef.current = useWhiteboardStore.getState().createWhiteboard();
+      }
+
+      api.addPanel({
+        id: "pdfCanvasWhiteboard",
+        component: "whiteboard",
+        title: "PDF Canvas",
+        params: {
+          whiteboardId: drawWhiteboardIdRef.current,
+          pdfDocumentUrl: activeDoc.meta.fileUrl,
+        },
+      });
+
+      setIsDrawMode(true);
+    }
+  }, [isDrawMode]);
+
+  const toggleComments = useCallback(() => {
+    const api = dockviewApiRef.current;
+    if (!api) return;
+    const panel = api.getPanel("comments");
+    if (panel) {
+      api.removePanel(panel);
+    } else {
+      api.addPanel({
+        id: "comments",
+        component: "comments",
+        title: "Comments",
+        position: { direction: "right" },
+        initialWidth: 280,
+      });
+    }
+  }, []);
+
+  useKeyboardShortcut({
+    id: "reader:toggle-comments",
+    key: "m",
+    ctrl: true,
+    description: "Toggle comments panel",
+    handler: toggleComments,
+  });
+
+  useKeyboardShortcut({
+    id: "reader:undo",
+    key: "z",
+    ctrl: true,
+    description: "Undo last annotation action",
+    handler: useCallback(() => {
+      useUndoStore.getState().performUndo();
+    }, []),
+  });
+
   // Dockview ready handler
   const handleDockviewReady = useCallback((event: DockviewReadyEvent) => {
     const api = event.api;
     dockviewApiRef.current = api;
+
+    // Track active panel to update activeDocumentId
+    api.onDidActivePanelChange((e) => {
+      if (!e) return;
+      const panelId = e.id;
+      // If it's a viewer panel, extract the docId
+      if (panelId.startsWith("viewer-")) {
+        const docId = panelId.replace("viewer-", "");
+        useReaderStore.getState().setActiveDocument(docId);
+      } else if (panelId === "pdfViewer") {
+        // Legacy default viewer panel — use the first/only document
+        const docs = useReaderStore.getState().documents;
+        if (docs.size > 0) {
+          useReaderStore.getState().setActiveDocument(Array.from(docs.keys())[0]);
+        }
+      }
+    });
+
+    // Dockview distributes space equally when panels are added or removed.
+    // Defer setSize to next frame so it runs after the distribute completes.
+    const TOC_WIDTH = 256;
+    const restoreTocWidth = () => {
+      requestAnimationFrame(() => {
+        try {
+          const tocPanel = api.getPanel("toc");
+          if (tocPanel) {
+            tocPanel.api.setSize({ width: TOC_WIDTH });
+          }
+        } catch {
+          // panel may not exist
+        }
+      });
+    };
+    api.onDidRemovePanel((removed) => {
+      if (removed.id === "toc") return;
+      restoreTocWidth();
+    });
+    api.onDidAddPanel((added) => {
+      if (added.id === "toc") return;
+      restoreTocWidth();
+    });
 
     // Try restoring saved layout
     const saved = loadDockviewLayout();
@@ -253,7 +525,9 @@ export function ReaderPage() {
       component: "toc",
       title: "Table of Contents",
       position: { direction: "left", referencePanel: "pdfViewer" },
-      initialWidth: 256,
+      initialWidth: TOC_WIDTH,
+      minimumWidth: 200,
+      maximumWidth: 320,
     });
 
     // Debounced layout persistence
@@ -270,13 +544,22 @@ export function ReaderPage() {
   return (
     <div
       ref={readerContainerRef}
-      className="flex h-[calc(100vh-theme(spacing.14)-theme(spacing.12))] -m-6 -mt-0 flex-col bg-bg-primary"
+      className="relative flex h-[calc(100vh-theme(spacing.14)-theme(spacing.12))] -m-6 -mt-0 flex-col bg-bg-primary"
     >
-      {meta ? (
+      {isLoadingDocument && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-bg-primary/80 backdrop-blur-sm">
+          <Loader2 size={32} className="animate-spin text-accent-purple mb-3" />
+          <p className="text-sm text-text-secondary">{loadingMessage}</p>
+        </div>
+      )}
+      {hasDocuments ? (
         <>
           <ReaderToolbar
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
+            onToggleComments={toggleComments}
+            isDrawMode={isDrawMode}
+            onToggleDrawMode={toggleDrawMode}
           />
           <DockviewReact
             className="pnyxy-dockview-theme flex-1"

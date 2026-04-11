@@ -1,16 +1,21 @@
 import { NavLink } from "react-router";
 import {
+  Compass,
   Library,
   BookOpen,
   Flame,
   Settings,
+  Shield,
   PanelLeftClose,
   PanelLeft,
+  LogIn,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
+import { useAuthStore } from "@/stores/auth-store";
 
-const navItems = [
+const baseNavItems = [
+  { to: "/app/browse", icon: Compass, label: "Browse" },
   { to: "/app/library", icon: Library, label: "Library" },
   { to: "/app/reader", icon: BookOpen, label: "Reader" },
   { to: "/app/streaks", icon: Flame, label: "Streaks" },
@@ -19,6 +24,15 @@ const navItems = [
 
 export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
+  const { user, profile } = useAuthStore();
+
+  const navItems = profile?.role === "admin"
+    ? [...baseNavItems, { to: "/app/admin", icon: Shield, label: "Admin" }]
+    : baseNavItems;
+
+  const initial = (
+    profile?.display_name?.[0] ?? user?.email?.[0] ?? "?"
+  ).toUpperCase();
 
   return (
     <aside
@@ -61,6 +75,54 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
+
+      {/* Profile / Sign in section */}
+      {user ? (
+        <NavLink
+          to="/app/profile"
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-3 border-t border-glass-border px-3 py-3 transition-colors",
+              sidebarCollapsed && "justify-center px-0",
+              isActive
+                ? "bg-accent-purple/15 text-accent-purple"
+                : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+            )
+          }
+        >
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-purple/15">
+            <span className="text-sm font-bold text-accent-purple">
+              {initial}
+            </span>
+          </div>
+          {!sidebarCollapsed && (
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">
+                {profile?.display_name || "No name"}
+              </p>
+              <p className="truncate text-xs text-text-muted">
+                {user.email}
+              </p>
+            </div>
+          )}
+        </NavLink>
+      ) : (
+        <NavLink
+          to="/auth"
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-3 border-t border-glass-border px-3 py-3 transition-colors",
+              sidebarCollapsed && "justify-center px-0",
+              isActive
+                ? "bg-accent-purple/15 text-accent-purple"
+                : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+            )
+          }
+        >
+          <LogIn size={20} />
+          {!sidebarCollapsed && <span className="text-sm font-medium">Sign in</span>}
+        </NavLink>
+      )}
 
       <button
         onClick={toggleSidebar}

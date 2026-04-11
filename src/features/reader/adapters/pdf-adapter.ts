@@ -5,6 +5,14 @@ type PDFDocumentProxy = Awaited<
   ReturnType<typeof pdfjs.getDocument>["promise"]
 >;
 
+async function computeFileHash(file: File): Promise<string> {
+  const chunk = file.slice(0, 65536);
+  const buffer = await chunk.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export function createPdfAdapter(): DocumentAdapter {
   let doc: PDFDocumentProxy | null = null;
   let objectUrl: string | null = null;
@@ -21,9 +29,10 @@ export function createPdfAdapter(): DocumentAdapter {
 
       const pdfMeta = await loadedDoc.getMetadata();
       const info = pdfMeta.info as Record<string, unknown>;
+      const fileHash = await computeFileHash(file);
 
       return {
-        id: crypto.randomUUID(),
+        id: fileHash,
         title: (info?.Title as string) || file.name.replace(/\.pdf$/i, ""),
         author: (info?.Author as string) || "Unknown",
         format: "pdf",
