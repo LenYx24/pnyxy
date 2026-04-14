@@ -52,8 +52,49 @@ export interface UserLibraryEntry {
   id: string;
   user_id: string;
   catalog_book_id: string;
+  folder_id: string | null;
   added_at: string;
 }
+
+export interface LibraryBookEntry {
+  id: string;
+  catalog_book_id: string;
+  folder_id: string | null;
+  added_at: string;
+  catalog_book: CatalogBook;
+}
+
+// ── Unified library items (discriminated union) ─────────────
+
+export interface CatalogLibraryItem {
+  source: "catalog";
+  id: string;           // user_library row id
+  folder_id: string | null;
+  added_at: string;
+  catalog_book_id: string;
+  catalog_book: CatalogBook;
+}
+
+export interface UploadedLibraryItem {
+  source: "uploaded";
+  id: string;           // books row id
+  folder_id: string | null;
+  added_at: string;     // books.created_at
+  book: {
+    id: string;
+    title: string;
+    author: string | null;
+    cover_url: string | null;
+    page_count: number | null;
+    format: string;
+    file_hash: string | null;
+    storage_path: string;
+    size_bytes: number | null;
+    file_name: string;
+  };
+}
+
+export type UnifiedLibraryItem = CatalogLibraryItem | UploadedLibraryItem;
 
 // ── Download types ──────────────────────────────────────────
 

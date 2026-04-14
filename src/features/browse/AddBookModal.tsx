@@ -25,18 +25,37 @@ export function AddBookModal({ open, onClose }: AddBookModalProps) {
   const [tab, setTab] = useState<Tab>("search");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedCount, setSubmittedCount] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
   const addBookToCatalog = useBrowseStore((s) => s.addBookToCatalog);
+  const addBooksToCatalog = useBrowseStore((s) => s.addBooksToCatalog);
 
   const handleSubmit = async (book: CatalogBookInsert) => {
     setSubmitting(true);
     setError(null);
     try {
       await addBookToCatalog(book);
+      setSubmittedCount(1);
       setSubmitted(true);
     } catch {
       setError("Failed to submit book. It may already exist in the catalog.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleBatchSubmit = async (books: CatalogBookInsert[]) => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      await addBooksToCatalog(books);
+      setSubmittedCount(books.length);
+      setSubmitted(true);
+    } catch {
+      setError(
+        "Failed to submit books. Some may already exist in the catalog.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -73,7 +92,7 @@ export function AddBookModal({ open, onClose }: AddBookModalProps) {
 
         <div className="max-h-[70vh] overflow-y-auto p-4">
           {submitted ? (
-            <SuccessMessage onClose={handleClose} />
+            <SuccessMessage onClose={handleClose} count={submittedCount} />
           ) : (
             <>
               {/* Tab toggle */}
@@ -111,7 +130,7 @@ export function AddBookModal({ open, onClose }: AddBookModalProps) {
 
               {tab === "search" && (
                 <SearchTab
-                  onSubmit={handleSubmit}
+                  onBatchSubmit={handleBatchSubmit}
                   submitting={submitting}
                 />
               )}
@@ -139,17 +158,27 @@ export function AddBookModal({ open, onClose }: AddBookModalProps) {
 
 // ── Success message ─────────────────────────────────────────
 
-function SuccessMessage({ onClose }: { onClose: () => void }) {
+function SuccessMessage({
+  onClose,
+  count = 1,
+}: {
+  onClose: () => void;
+  count?: number;
+}) {
   return (
     <div className="flex flex-col items-center gap-3 py-8">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/20">
         <Check size={24} className="text-green-400" />
       </div>
       <p className="text-center text-sm text-text-primary">
-        Book submitted successfully!
+        {count > 1
+          ? `${count} books submitted successfully!`
+          : "Book submitted successfully!"}
       </p>
       <p className="text-center text-xs text-text-muted">
-        It will appear in the catalog once verified by an admin.
+        {count > 1
+          ? "They will appear in the catalog once verified by an admin."
+          : "It will appear in the catalog once verified by an admin."}
       </p>
       <Button variant="secondary" onClick={onClose}>
         Close
@@ -161,10 +190,10 @@ function SuccessMessage({ onClose }: { onClose: () => void }) {
 // ── Search tab (provider-based) ─────────────────────────────
 
 function SearchTab({
-  onSubmit,
+  onBatchSubmit,
   submitting,
 }: {
-  onSubmit: (book: CatalogBookInsert) => Promise<void>;
+  onBatchSubmit: (books: CatalogBookInsert[]) => Promise<void>;
   submitting: boolean;
 }) {
   const providers = getProviders();
@@ -172,16 +201,33 @@ function SearchTab({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ProviderBook[]>([]);
   const [searching, setSearching] = useState(false);
-  const [selected, setSelected] = useState<ProviderBook | null>(null);
+  const [selectedBooks, setSelectedBooks] = useState<
+    Map<string, ProviderBook>
+  >(() => new Map());
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const provider = providers.find((p) => p.id === providerId) ?? providers[0];
 
+  const getBookKey = (book: ProviderBook) => book.source_id ?? book.title;
+
+  const toggleBook = (book: ProviderBook) => {
+    const key = getBookKey(book);
+    setSelectedBooks((prev) => {
+      const next = new Map(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.set(key, book);
+      }
+      return next;
+    });
+  };
+
   const handleSearch = useCallback(
     (value: string) => {
       setQuery(value);
-      setSelected(null);
+      setSelectedBooks(new Map());
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (!value.trim()) {
         setResults([]);
@@ -203,6 +249,8 @@ function SearchTab({
     [provider],
   );
 
+  const selectionCount = selectedBooks.size;
+
   return (
     <>
       {/* Provider selector (shown when multiple providers exist) */}
@@ -214,7 +262,7 @@ function SearchTab({
             onChange={(e) => {
               setProviderId(e.target.value);
               setResults([]);
-              setSelected(null);
+              setSelectedBooks(new Map());
             }}
             className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary focus:border-accent-purple/50 focus:outline-none"
           >
@@ -251,52 +299,77 @@ function SearchTab({
       {/* Results */}
       {results.length > 0 && (
         <div className="mb-4 max-h-60 space-y-1 overflow-y-auto">
-          {results.map((book) => (
-            <button
-              key={book.source_id ?? book.title}
-              onClick={() => setSelected(book)}
-              className={cn(
-                "w-full rounded-lg px-3 py-2 text-left transition-colors cursor-pointer",
-                selected?.source_id === book.source_id
-                  ? "bg-accent-purple/15 border border-accent-purple/30"
-                  : "hover:bg-glass-hover border border-transparent",
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-text-primary">
-                    {book.title}
-                  </p>
-                  <p className="truncate text-xs text-text-muted">
-                    {book.authors?.join(", ") || "Unknown author"}
-                    {book.published_date && ` (${book.published_date})`}
-                  </p>
-                </div>
-                {book.downloadable && (
-                  <span className="ml-2 flex shrink-0 items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-semibold text-green-400">
-                    <Download size={10} />
-                    Free
-                  </span>
+          {results.map((book) => {
+            const key = getBookKey(book);
+            const isSelected = selectedBooks.has(key);
+            return (
+              <button
+                key={key}
+                onClick={() => toggleBook(book)}
+                className={cn(
+                  "w-full rounded-lg px-3 py-2 text-left transition-colors cursor-pointer",
+                  isSelected
+                    ? "bg-accent-purple/15 border border-accent-purple/30"
+                    : "hover:bg-glass-hover border border-transparent",
                 )}
-              </div>
-            </button>
-          ))}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <div
+                      className={cn(
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
+                        isSelected
+                          ? "border-accent-purple bg-accent-purple"
+                          : "border-glass-border",
+                      )}
+                    >
+                      {isSelected && (
+                        <Check size={10} className="text-white" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-text-primary">
+                        {book.title}
+                      </p>
+                      <p className="truncate text-xs text-text-muted">
+                        {book.authors?.join(", ") || "Unknown author"}
+                        {book.published_date && ` (${book.published_date})`}
+                      </p>
+                    </div>
+                  </div>
+                  {book.downloadable && (
+                    <span className="ml-2 flex shrink-0 items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-semibold text-green-400">
+                      <Download size={10} />
+                      Free
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {/* Submit */}
-      {selected && (
-        <Button
-          onClick={() => onSubmit(selected)}
-          disabled={submitting}
-          className="w-full"
-        >
-          {submitting ? (
-            <Loader2 size={16} className="animate-spin" />
-          ) : (
-            "Submit for Review"
-          )}
-        </Button>
+      {/* Submit bar */}
+      {selectionCount > 0 && (
+        <div className="sticky bottom-0 flex items-center justify-between rounded-lg border border-glass-border bg-bg-secondary/95 px-3 py-2 backdrop-blur-sm">
+          <span className="text-xs text-text-muted">
+            {selectionCount} {selectionCount === 1 ? "book" : "books"} selected
+          </span>
+          <Button
+            className="px-3 py-1.5 text-xs"
+            onClick={() =>
+              onBatchSubmit([...selectedBooks.values()] as CatalogBookInsert[])
+            }
+            disabled={submitting}
+          >
+            {submitting ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              `Add ${selectionCount} ${selectionCount === 1 ? "Book" : "Books"}`
+            )}
+          </Button>
+        </div>
       )}
     </>
   );

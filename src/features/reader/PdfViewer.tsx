@@ -335,6 +335,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     <div
       ref={containerRef}
       onScroll={handleScroll}
+      data-pdf-viewer
       className="h-full w-full overflow-auto bg-bg-primary"
     >
       <Document

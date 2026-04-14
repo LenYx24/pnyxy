@@ -1,5 +1,6 @@
-import { useMemo } from "react";
-import { FilePlus, FileText, StickyNote, PenTool } from "lucide-react";
+import { useMemo, useState } from "react";
+import { FilePlus, FileText, StickyNote, PenTool, List, LayoutGrid } from "lucide-react";
+import { ThumbnailToc } from "./ThumbnailToc";
 import { cn } from "@/lib/cn";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 import { useNoteStore } from "@/stores/note-store";
@@ -112,24 +113,55 @@ export function ReaderSidebarContent({
     return active;
   }, [toc, currentPage]);
 
+  const [tocViewMode, setTocViewMode] = useState<"outline" | "thumbnail">("outline");
   const docEntries = Array.from(documents.entries());
 
   return (
     <div className="h-full flex flex-col bg-bg-secondary/50">
-      {/* Header with + button */}
+      {/* Header with view mode toggle and + button */}
       <div className="p-4 border-b border-glass-border flex items-center justify-between">
         <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
           {meta ? "Contents" : "Reader"}
         </h3>
-        {onOpenFile && (
-          <button
-            onClick={onOpenFile}
-            className="rounded-md p-1 text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
-            title="Open another PDF"
-          >
-            <FilePlus size={16} />
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          {meta && (
+            <>
+              <button
+                onClick={() => setTocViewMode("outline")}
+                className={cn(
+                  "rounded-md p-1 transition-colors cursor-pointer",
+                  tocViewMode === "outline"
+                    ? "text-accent-purple bg-accent-purple/10"
+                    : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
+                )}
+                title="Outline view"
+              >
+                <List size={16} />
+              </button>
+              <button
+                onClick={() => setTocViewMode("thumbnail")}
+                className={cn(
+                  "rounded-md p-1 transition-colors cursor-pointer",
+                  tocViewMode === "thumbnail"
+                    ? "text-accent-purple bg-accent-purple/10"
+                    : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
+                )}
+                title="Thumbnail view"
+              >
+                <LayoutGrid size={16} />
+              </button>
+            </>
+          )}
+          {onOpenFile && (
+            <button
+              onClick={onOpenFile}
+              className="rounded-md p-1 text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              title="Open another PDF"
+            >
+              <FilePlus size={16} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Open documents list */}
@@ -138,7 +170,7 @@ export function ReaderSidebarContent({
           <p className="px-3 py-1 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
             Open Documents
           </p>
-          {docEntries.map(([id, doc]) => (
+          {docEntries.map(([id, _doc]) => (
             <button
               key={id}
               onClick={() => setActiveDocument(id)}
@@ -166,7 +198,10 @@ export function ReaderSidebarContent({
           </p>
         )}
 
+        {meta && tocViewMode === "thumbnail" && <ThumbnailToc />}
+
         {meta &&
+          tocViewMode === "outline" &&
           toc.length > 0 &&
           toc.map((item, i) => (
             <TocEntry
@@ -180,6 +215,7 @@ export function ReaderSidebarContent({
           ))}
 
         {meta &&
+          tocViewMode === "outline" &&
           toc.length === 0 &&
           Array.from({ length: totalPages }, (_, i) => (
             <button

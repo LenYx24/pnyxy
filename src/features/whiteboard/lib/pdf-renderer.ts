@@ -21,7 +21,7 @@ async function renderPage(
   const canvas = new OffscreenCanvas(viewport.width, viewport.height);
   const ctx = canvas.getContext("2d")!;
 
-  await page.render({ canvasContext: ctx as unknown as CanvasRenderingContext2D, viewport }).promise;
+  await page.render({ canvas: canvas as unknown as HTMLCanvasElement, canvasContext: ctx as unknown as CanvasRenderingContext2D, viewport }).promise;
 
   const bitmap = await createImageBitmap(canvas);
   return {

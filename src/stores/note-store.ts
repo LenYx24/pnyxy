@@ -3,7 +3,6 @@ import {
   loadAllNotes,
   saveNote as dbSaveNote,
   deleteNote as dbDeleteNote,
-  type StoredNote,
 } from "@/lib/annotation-storage";
 
 export interface Note {

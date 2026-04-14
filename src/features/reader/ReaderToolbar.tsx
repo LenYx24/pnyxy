@@ -11,6 +11,9 @@ import {
   MessageSquare,
   Undo2,
   PenTool,
+  Camera,
+  Printer,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
@@ -33,6 +36,9 @@ interface ReaderToolbarProps {
   onToggleComments?: () => void;
   isDrawMode?: boolean;
   onToggleDrawMode?: () => void;
+  onScreenshot?: () => void;
+  onPrint?: () => void;
+  onToggleSearch?: () => void;
 }
 
 export function ReaderToolbar({
@@ -41,6 +47,9 @@ export function ReaderToolbar({
   onToggleComments,
   isDrawMode,
   onToggleDrawMode,
+  onScreenshot,
+  onPrint,
+  onToggleSearch,
 }: ReaderToolbarProps) {
   const activeDoc = useActiveDocument();
   const goToPage = useReaderStore((s) => s.goToPage);
@@ -250,6 +259,31 @@ export function ReaderToolbar({
             <PenTool size={16} />
           </button>
         )}
+        <div className="mx-1 h-4 w-px bg-glass-border" />
+        {/* Screenshot */}
+        <button
+          onClick={onScreenshot}
+          className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+          title="Screenshot viewport (Ctrl+Shift+S)"
+        >
+          <Camera size={16} />
+        </button>
+        {/* Print */}
+        <button
+          onClick={onPrint}
+          className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+          title="Print (Ctrl+P)"
+        >
+          <Printer size={16} />
+        </button>
+        {/* Search */}
+        <button
+          onClick={onToggleSearch}
+          className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+          title="Search (Ctrl+F)"
+        >
+          <Search size={16} />
+        </button>
         {/* Comments panel toggle */}
         <button
           onClick={onToggleComments}

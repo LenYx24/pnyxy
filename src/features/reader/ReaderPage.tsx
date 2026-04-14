@@ -11,6 +11,7 @@ import { ReaderSidebarContent } from "./ReaderSidebar";
 import { ReaderToolbar } from "./ReaderToolbar";
 import { PdfViewer } from "./PdfViewer";
 import { CommentsSidebar } from "./CommentsSidebar";
+import { SearchPanel } from "./SearchPanel";
 import { NoteEditor } from "@/features/notes/NoteEditor";
 import { WhiteboardPanelWrapper } from "@/features/whiteboard/WhiteboardPanel";
 import { useReaderStore } from "@/stores/reader-store";
@@ -28,7 +29,7 @@ import { saveDockviewLayout, loadDockviewLayout } from "@/stores/ui-store";
 
 function TocPanel(props: IDockviewPanelProps) {
   const dockviewApi = props.containerApi;
-  const { fileInputRef, triggerFilePicker, handleFileSelect, openFile } = useOpenPdf();
+  const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenPdf();
 
   const handleOpenFile = useCallback(() => {
     triggerFilePicker();
@@ -135,6 +136,7 @@ const dockviewComponents = {
   toc: TocPanel,
   pdfViewer: ViewerPanel,
   comments: CommentsPanel,
+  search: SearchPanel,
   note: NotePanelWrapper,
   whiteboard: WhiteboardPanelWrapper,
 };
@@ -174,7 +176,6 @@ export function ReaderPage() {
   const documents = useReaderStore((s) => s.documents);
   const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
   const addDocument = useReaderStore((s) => s.addDocument);
-  const setActiveDocument = useReaderStore((s) => s.setActiveDocument);
   const goToPage = useReaderStore((s) => s.goToPage);
   const zoomIn = useReaderStore((s) => s.zoomIn);
   const zoomOut = useReaderStore((s) => s.zoomOut);
@@ -189,7 +190,7 @@ export function ReaderPage() {
   const layoutSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { fileInputRef, triggerFilePicker, handleFileSelect, openFile } = useOpenPdf();
+  const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenPdf();
 
   // Load document from file registry if navigated directly
   useEffect(() => {
@@ -438,6 +439,83 @@ export function ReaderPage() {
     }
   }, []);
 
+  // Print handler
+  const handlePrint = useCallback(() => {
+    const activeDoc = useReaderStore.getState().getActiveDoc();
+    const fileUrl = activeDoc?.meta?.fileUrl;
+    if (!fileUrl) return;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
+    iframe.src = fileUrl;
+    iframe.onload = () => {
+      iframe.contentWindow?.print();
+      // Clean up after print dialog closes
+      setTimeout(() => document.body.removeChild(iframe), 1000);
+    };
+  }, []);
+
+  // Screenshot handler
+  const handleScreenshot = useCallback(async () => {
+    const viewer = document.querySelector<HTMLElement>("[data-pdf-viewer]");
+    if (!viewer) return;
+
+    const { default: html2canvas } = await import("html2canvas-pro");
+    const canvas = await html2canvas(viewer, {
+      useCORS: true,
+      allowTaint: true,
+    });
+
+    const link = document.createElement("a");
+    link.download = `screenshot-${Date.now()}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }, []);
+
+  // Search toggle
+  const toggleSearch = useCallback(() => {
+    const api = dockviewApiRef.current;
+    if (!api) return;
+    const panel = api.getPanel("search");
+    if (panel) {
+      api.removePanel(panel);
+    } else {
+      api.addPanel({
+        id: "search",
+        component: "search",
+        title: "Search",
+        position: { direction: "right" },
+        initialWidth: 320,
+      });
+    }
+  }, []);
+
+  useKeyboardShortcut({
+    id: "reader:print",
+    key: "p",
+    ctrl: true,
+    description: "Print document",
+    handler: handlePrint,
+  });
+
+  useKeyboardShortcut({
+    id: "reader:screenshot",
+    key: "s",
+    ctrl: true,
+    shift: true,
+    description: "Screenshot viewport",
+    handler: handleScreenshot,
+  });
+
+  useKeyboardShortcut({
+    id: "reader:search",
+    key: "f",
+    ctrl: true,
+    description: "Toggle search panel",
+    handler: toggleSearch,
+  });
+
   useKeyboardShortcut({
     id: "reader:toggle-comments",
     key: "m",
@@ -560,6 +638,9 @@ export function ReaderPage() {
             onToggleComments={toggleComments}
             isDrawMode={isDrawMode}
             onToggleDrawMode={toggleDrawMode}
+            onScreenshot={handleScreenshot}
+            onPrint={handlePrint}
+            onToggleSearch={toggleSearch}
           />
           <DockviewReact
             className="pnyxy-dockview-theme flex-1"

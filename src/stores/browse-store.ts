@@ -17,6 +17,7 @@ interface BrowseState {
   filterByCategory: (category: string | null) => Promise<void>;
   loadMore: () => Promise<void>;
   addBookToCatalog: (book: CatalogBookInsert) => Promise<void>;
+  addBooksToCatalog: (books: CatalogBookInsert[]) => Promise<void>;
   addToUserLibrary: (bookId: string) => Promise<void>;
   removeFromUserLibrary: (bookId: string) => Promise<void>;
   checkUserLibrary: () => Promise<void>;
@@ -121,14 +122,36 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
       data: { user },
     } = await supabase.auth.getUser();
 
+    const { downloadable: _, ...catalogBook } = book as unknown as Record<string, unknown>;
     const { error } = await supabase.from("catalog_books").insert({
-      ...book,
+      ...catalogBook,
       submitted_by: user?.id,
       status: "pending",
     });
 
     if (error) {
       console.error("Failed to add book to catalog:", error.message);
+      throw error;
+    }
+  },
+
+  addBooksToCatalog: async (books) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const rows = books.map((book) => {
+      const { downloadable: _, ...catalogBook } = book as unknown as Record<
+        string,
+        unknown
+      >;
+      return { ...catalogBook, submitted_by: user?.id, status: "pending" };
+    });
+
+    const { error } = await supabase.from("catalog_books").insert(rows);
+
+    if (error) {
+      console.error("Failed to add books to catalog:", error.message);
       throw error;
     }
   },

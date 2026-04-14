@@ -18,6 +18,7 @@ import type { CatalogBook, CatalogBookInsert, UserLibraryEntry } from "./catalog
 
 export type BookVisibility = "private" | "public";
 export type UserRole = "user" | "admin";
+export type StorageTier = "free" | "premium";
 export type ReportStatus = "pending" | "dismissed" | "warned" | "temp_banned" | "permabanned";
 export type ReportReason = "spam" | "harassment" | "inappropriate_content" | "impersonation" | "other";
 
@@ -32,6 +33,7 @@ export interface Profile {
   avatar_url: string | null;
   preferences: Record<string, unknown>;
   role: UserRole;
+  storage_tier: StorageTier;
   created_at: string;
   updated_at: string;
 }
@@ -60,6 +62,7 @@ export interface Book {
   file_hash: string | null;
   visibility: BookVisibility;
   category_id: string | null;
+  folder_id: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -74,6 +77,7 @@ export interface BookInsert {
   file_hash?: string | null;
   visibility?: BookVisibility;
   category_id?: string | null;
+  folder_id?: string | null;
   metadata?: Record<string, unknown>;
 }
 
@@ -86,6 +90,7 @@ export interface BookUpdate {
   file_hash?: string | null;
   visibility?: BookVisibility;
   category_id?: string | null;
+  folder_id?: string | null;
   metadata?: Record<string, unknown>;
 }
 
