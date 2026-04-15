@@ -10,10 +10,20 @@
     "preview": "vite preview",
     "postinstall": "node scripts/copy-pdf-assets.mjs",
     "preview:worker": "pnpm build && wrangler dev",
-    "deploy:worker": "pnpm build && wrangler deploy"
+    "deploy:worker": "pnpm build && wrangler deploy",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:android:init": "tauri android init",
+    "tauri:android:dev": "tauri android dev",
+    "tauri:android:build": "tauri android build",
+    "tauri:ios:init": "tauri ios init",
+    "tauri:ios:dev": "tauri ios dev",
+    "tauri:ios:build": "tauri ios build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.0",
+    "@tauri-apps/api": "^2.10.1",
     "dockview": "^5.2.0",
     "html2canvas-pro": "^2.0.2",
     "idb": "^8.0.3",
@@ -28,6 +38,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@tailwindcss/vite": "^4.2.2",
+    "@tauri-apps/cli": "^2.10.1",
     "@types/node": "^24.12.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
