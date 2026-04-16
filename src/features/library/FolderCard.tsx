@@ -46,6 +46,9 @@ export function FolderCard({
   const menuRef = useRef<HTMLDivElement>(null);
   const selKey = `folder:${folder.id}`;
   const iconSize = Math.round(Math.min(Math.max(coverHeight * 0.35, 24), 48));
+  // Mirror LibraryBookCard's compact threshold so both cards share
+  // the exact same layout heights in the grid.
+  const compact = coverHeight < 100;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -99,13 +102,32 @@ export function FolderCard({
             </div>
           )}
 
+          {/* Icon area — same height as LibraryBookCard's cover. */}
           <div
-            className="flex flex-col items-center justify-center gap-1"
-            style={{ height: coverHeight + 48 }}
+            className="flex w-full items-center justify-center"
+            style={{ height: coverHeight }}
           >
             <Folder size={iconSize} className="text-accent-purple/60" />
-            <p className="max-w-full truncate px-3 text-sm font-medium text-text-primary">
+          </div>
+
+          {/* Info section — mirrors LibraryBookCard so folder tiles and
+              book tiles end up the same total height in the grid. */}
+          <div className={cn("p-3", compact && "p-2")}>
+            <h3
+              className={cn(
+                "mb-0.5 truncate font-semibold text-text-primary",
+                compact ? "text-xs" : "text-sm",
+              )}
+            >
               {folder.name}
+            </h3>
+            <p
+              className={cn(
+                "truncate text-text-muted",
+                compact ? "text-[10px]" : "text-xs",
+              )}
+            >
+              Folder
             </p>
           </div>
         </div>

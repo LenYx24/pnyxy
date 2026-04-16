@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { UserCircle, LogIn, Upload, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
+import { containsProfanity } from "@/lib/profanity-filter";
 
 export function ProfilePage() {
   const navigate = useNavigate();
@@ -11,9 +12,12 @@ export function ProfilePage() {
   const [displayName, setDisplayName] = useState(profile?.display_name ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const displayNameFlagged = containsProfanity(displayName);
 
   if (!user) {
     return (
@@ -43,10 +47,13 @@ export function ProfilePage() {
   async function handleSave() {
     setSaving(true);
     setSaved(false);
+    setSaveError(null);
     try {
       await updateProfile({ display_name: displayName || null });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      if (err instanceof Error) setSaveError(err.message);
     } finally {
       setSaving(false);
     }
@@ -197,14 +204,25 @@ export function ProfilePage() {
             className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted backdrop-blur-md outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
             placeholder="Your display name"
           />
+          {displayNameFlagged && (
+            <p className="mt-1 text-xs text-amber-400">
+              That name contains disallowed language.
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
-          <Button onClick={handleSave} disabled={saving}>
+          <Button
+            onClick={handleSave}
+            disabled={saving || displayNameFlagged}
+          >
             {saving ? "Saving..." : "Save"}
           </Button>
           {saved && (
             <span className="text-sm text-green-400">Saved!</span>
+          )}
+          {saveError && (
+            <span className="text-sm text-red-400">{saveError}</span>
           )}
         </div>
       </section>

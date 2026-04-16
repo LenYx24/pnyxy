@@ -19,6 +19,10 @@ import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
 import { WelcomePage } from "@/features/auth/WelcomePage";
 import { ProfilePage } from "@/features/profile/ProfilePage";
 import { AdminPage } from "@/features/admin/AdminPage";
+import { StreaksPage } from "@/features/streaks/StreaksPage";
+import { AboutPage } from "@/features/static/AboutPage";
+import { PrivacyPage } from "@/features/static/PrivacyPage";
+import { HelpPage } from "@/features/static/HelpPage";
 
 export const router = createBrowserRouter([
   {
@@ -55,6 +59,7 @@ export const router = createBrowserRouter([
       { path: "browse", element: <BrowsePage /> },
       { path: "browse/:bookId", element: <BookDetailPage /> },
       { path: "library", element: <LibraryPage /> },
+      { path: "streaks", element: <StreaksPage /> },
       { path: "reader", element: <ReaderPage /> },
       { path: "reader/:bookId", element: <ReaderPage /> },
       {
@@ -72,6 +77,9 @@ export const router = createBrowserRouter([
       },
       { path: "profile", element: <ProfilePage /> },
       { path: "admin", element: <AdminPage /> },
+      { path: "about", element: <AboutPage /> },
+      { path: "privacy", element: <PrivacyPage /> },
+      { path: "help", element: <HelpPage /> },
     ],
   },
 ]);

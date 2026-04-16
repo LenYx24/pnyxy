@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { FilePlus, Upload } from "lucide-react";
-import { Button } from "@/components/ui";
+import { FilePlus, FolderSearch, Upload } from "lucide-react";
+import { Button, Kbd } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { useOpenPdf } from "@/hooks/use-open-pdf";
+import { useOpenDocument } from "@/hooks/use-open-document";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
+import { formatShortcut } from "@/lib/keyboard-shortcuts";
 import { useLibraryStore } from "@/stores/library-store";
 import { useLibraryPrefs } from "./useLibraryPrefs";
 import { LibraryToolbar } from "./LibraryToolbar";
@@ -12,6 +14,7 @@ import { HomeTab } from "./HomeTab";
 import { AllBooksTab } from "./AllBooksTab";
 import { FolderPickerModal } from "./FolderPickerModal";
 import { UploadPdfModal } from "./UploadPdfModal";
+import { DeviceBookScanModal } from "./DeviceBookScanModal";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import type { BookStatusTag } from "@/types/database";
 
@@ -25,7 +28,7 @@ const tabs = [
 type TabKey = (typeof tabs)[number]["key"];
 
 export function LibraryPage() {
-  const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenPdf();
+  const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenDocument();
 
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -109,6 +112,7 @@ export function LibraryPage() {
 
   // Upload modal state
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [scanModalOpen, setScanModalOpen] = useState(false);
 
   // Move-to-folder modal state
   const [moveEntry, setMoveEntry] = useState<UnifiedLibraryItem | null>(null);
@@ -123,11 +127,63 @@ export function LibraryPage() {
   }, [fetchLibrary, fetchFolders]);
 
   // Clear selection when switching tabs
-  const handleTabChange = (key: TabKey) => {
-    setActiveTab(key);
-    localStorage.setItem(STORAGE_KEY, key);
-    clearSelection();
-  };
+  const handleTabChange = useCallback(
+    (key: TabKey) => {
+      setActiveTab(key);
+      localStorage.setItem(STORAGE_KEY, key);
+      clearSelection();
+    },
+    [clearSelection],
+  );
+
+  // Keyboard shortcuts
+  const openUploadModal = useCallback(() => setUploadModalOpen(true), []);
+  const openScanModal = useCallback(() => setScanModalOpen(true), []);
+  const switchToHome = useCallback(
+    () => handleTabChange("home"),
+    [handleTabChange],
+  );
+  const switchToAll = useCallback(
+    () => handleTabChange("all"),
+    [handleTabChange],
+  );
+
+  useKeyboardShortcut({
+    id: "library:open-file",
+    key: "o",
+    ctrl: true,
+    description: "Open a file from disk",
+    handler: triggerFilePicker,
+  });
+  useKeyboardShortcut({
+    id: "library:upload",
+    key: "u",
+    ctrl: true,
+    description: "Open upload dialog",
+    handler: openUploadModal,
+  });
+  useKeyboardShortcut({
+    id: "library:scan-device",
+    key: "d",
+    ctrl: true,
+    shift: true,
+    description: "Scan device for books",
+    handler: openScanModal,
+  });
+  useKeyboardShortcut({
+    id: "library:tab-home",
+    key: "1",
+    alt: true,
+    description: "Switch to Home tab",
+    handler: switchToHome,
+  });
+  useKeyboardShortcut({
+    id: "library:tab-all",
+    key: "2",
+    alt: true,
+    description: "Switch to All Books tab",
+    handler: switchToAll,
+  });
 
   const handleMoveBook = (entry: UnifiedLibraryItem) => {
     setMoveEntry(entry);
@@ -217,22 +273,47 @@ export function LibraryPage() {
             collection
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            onClick={openScanModal}
+            title={`Scan device for books (${formatShortcut({ key: "d", ctrl: true, shift: true })})`}
+          >
+            <FolderSearch size={18} />
+            <span className="hidden sm:inline">Scan device</span>
+            <Kbd
+              shortcut={{ key: "d", ctrl: true, shift: true }}
+              className="ml-1 hidden lg:inline-flex"
+            />
+          </Button>
           <Button
             variant="secondary"
             onClick={() => setUploadModalOpen(true)}
+            title={`Upload a book (${formatShortcut({ key: "u", ctrl: true })})`}
           >
             <Upload size={18} />
-            <span className="hidden sm:inline">Upload PDF</span>
+            <span className="hidden sm:inline">Upload</span>
+            <Kbd
+              shortcut={{ key: "u", ctrl: true }}
+              className="ml-1 hidden lg:inline-flex"
+            />
           </Button>
-          <Button variant="secondary" onClick={triggerFilePicker}>
+          <Button
+            variant="secondary"
+            onClick={triggerFilePicker}
+            title={`Open a file (${formatShortcut({ key: "o", ctrl: true })})`}
+          >
             <FilePlus size={18} />
-            <span className="hidden sm:inline">Open PDF</span>
+            <span className="hidden sm:inline">Open</span>
+            <Kbd
+              shortcut={{ key: "o", ctrl: true }}
+              className="ml-1 hidden lg:inline-flex"
+            />
           </Button>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf"
+            accept=".pdf,.epub,.txt,.md,.markdown"
             className="hidden"
             onChange={handleFileSelect}
           />
@@ -241,20 +322,25 @@ export function LibraryPage() {
 
       {/* Tab bar */}
       <div className="mb-4 flex gap-1 rounded-lg border border-glass-border bg-glass-bg p-1 backdrop-blur-md">
-        {tabs.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => handleTabChange(key)}
-            className={cn(
-              "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors cursor-pointer",
-              activeTab === key
-                ? "bg-accent-purple/15 text-accent-purple"
-                : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
-            )}
-          >
-            {label}
-          </button>
-        ))}
+        {tabs.map(({ key, label }, idx) => {
+          const tabShortcut = { key: String(idx + 1), alt: true };
+          return (
+            <button
+              key={key}
+              onClick={() => handleTabChange(key)}
+              title={`${label} (${formatShortcut(tabShortcut)})`}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors cursor-pointer",
+                activeTab === key
+                  ? "bg-accent-purple/15 text-accent-purple"
+                  : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+              )}
+            >
+              <span>{label}</span>
+              <Kbd shortcut={tabShortcut} className="hidden sm:inline-flex" />
+            </button>
+          );
+        })}
       </div>
 
       {/* Toolbar: search, view toggle, size slider */}
@@ -316,6 +402,12 @@ export function LibraryPage() {
       <UploadPdfModal
         open={uploadModalOpen}
         onClose={() => setUploadModalOpen(false)}
+      />
+
+      {/* Scan device for PDFs modal */}
+      <DeviceBookScanModal
+        open={scanModalOpen}
+        onClose={() => setScanModalOpen(false)}
       />
 
       {/* Move single item to folder */}

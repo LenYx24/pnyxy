@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useNavigate } from "react-router";
 import { supabase } from "@/lib/supabase";
-import { createPdfAdapter } from "@/features/reader/adapters/pdf-adapter";
+import { createAdapterForFile } from "@/features/reader/adapters";
 import { useReaderStore } from "@/stores/reader-store";
 import { useUIStore } from "@/stores/ui-store";
 import { registerFile } from "@/lib/file-store";
@@ -10,13 +10,13 @@ import type { UploadedLibraryItem } from "@/types/catalog";
 // Module-level cache: once downloaded, re-opening is instant within session
 const blobCache = new Map<string, Blob>();
 
-export function useOpenUploadedPdf() {
+export function useOpenUploadedDocument() {
   const navigate = useNavigate();
 
   const openUploadedBook = useCallback(
     async (entry: UploadedLibraryItem) => {
       const { setLoading } = useUIStore.getState();
-      setLoading(true, "Downloading PDF...");
+      setLoading(true, "Downloading file...");
 
       try {
         const { storage_path, file_name } = entry.book;
@@ -39,10 +39,10 @@ export function useOpenUploadedPdf() {
 
         setLoading(true, "Loading document...");
 
-        // Convert to File for the adapter pipeline
-        const file = new File([blob], file_name, { type: "application/pdf" });
+        // Convert to File so the adapter pipeline can pick the right format.
+        const file = new File([blob], file_name);
 
-        const adapter = createPdfAdapter();
+        const adapter = createAdapterForFile(file);
         setLoading(true, "Extracting table of contents...");
         const docId = await useReaderStore.getState().addDocument(adapter, file);
 

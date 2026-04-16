@@ -1,7 +1,22 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
+import { containsProfanity } from "@/lib/profanity-filter";
 import type { CatalogBook, CatalogBookInsert } from "@/types/catalog";
+
+function assertCatalogBookClean(book: CatalogBookInsert) {
+  const authors = Array.isArray(book.authors)
+    ? book.authors.join(" ")
+    : (book.authors as unknown as string | undefined);
+  const offenders = [book.title, authors, book.description].filter(
+    (v): v is string => typeof v === "string" && containsProfanity(v),
+  );
+  if (offenders.length > 0) {
+    throw new Error(
+      "Book submission contains disallowed language in its title, author, or description.",
+    );
+  }
+}
 
 interface BrowseState {
   catalogBooks: CatalogBook[];
@@ -23,6 +38,12 @@ interface BrowseState {
   removeFromUserLibrary: (bookId: string) => Promise<void>;
   checkUserLibrary: () => Promise<void>;
   setSelectedBook: (book: CatalogBook | null) => void;
+  /**
+   * Subscribe to Supabase realtime UPDATEs on `catalog_books` so newly
+   * approved submissions appear in the browse list without a refresh.
+   * Returns an unsubscribe function.
+   */
+  subscribeCatalogUpdates: () => () => void;
 }
 
 const PAGE_SIZE = 20;
@@ -148,6 +169,8 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
   },
 
   addBookToCatalog: async (book, categoryIds) => {
+    assertCatalogBookClean(book);
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -179,6 +202,8 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
   },
 
   addBooksToCatalog: async (books) => {
+    books.forEach(assertCatalogBookClean);
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -269,4 +294,82 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
   },
 
   setSelectedBook: (book) => set({ selectedBook: book }),
+
+  subscribeCatalogUpdates: () => {
+    // Listen for INSERT (published directly by an admin) and UPDATE
+    // (pending → verified). We only act when the row now has the
+    // `verified` status so users see newly approved books immediately.
+    const channel = supabase
+      .channel("catalog_books_realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "catalog_books" },
+        (payload) => {
+          // supabase-js gives us `new` for INSERT/UPDATE, `old` for DELETE.
+          const untyped = payload as unknown as {
+            new?: Record<string, unknown>;
+            old?: Record<string, unknown>;
+          };
+          const rowCandidate =
+            payload.eventType === "DELETE" ? untyped.old : untyped.new;
+          if (!rowCandidate || typeof rowCandidate.id !== "string") return;
+
+          if (payload.eventType === "DELETE") {
+            const id = rowCandidate.id;
+            set((state) => ({
+              catalogBooks: state.catalogBooks.filter((b) => b.id !== id),
+              totalCount: Math.max(0, state.totalCount - 1),
+            }));
+            return;
+          }
+
+          const row = rowCandidate as unknown as CatalogBook;
+
+          const state = get();
+          const isVerified =
+            (row as { status?: string }).status === "verified";
+
+          // Skip books that don't match the current search query. We leave
+          // category filtering to a re-fetch since the junction is queried
+          // separately; simplest correct behavior is to re-fetch when a
+          // category filter is active.
+          if (isVerified && state.activeCategory) {
+            get().fetchCatalogBooks();
+            return;
+          }
+
+          if (!isVerified) {
+            // The book just left "verified" (rejected / re-pended) — drop it.
+            set((s) => ({
+              catalogBooks: s.catalogBooks.filter((b) => b.id !== row.id),
+              totalCount: Math.max(0, s.totalCount - 1),
+            }));
+            return;
+          }
+
+          const query = state.searchQuery.toLowerCase().trim();
+          if (query && !row.title.toLowerCase().includes(query)) return;
+
+          set((s) => {
+            // If we already have the book (e.g. metadata update), replace it.
+            const existing = s.catalogBooks.findIndex((b) => b.id === row.id);
+            if (existing >= 0) {
+              const next = s.catalogBooks.slice();
+              next[existing] = row;
+              return { catalogBooks: next };
+            }
+            // Otherwise prepend (matches the default sort order: created_at desc).
+            return {
+              catalogBooks: [row, ...s.catalogBooks],
+              totalCount: s.totalCount + 1,
+            };
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  },
 }));

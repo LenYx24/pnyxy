@@ -1,7 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Search, LayoutGrid, List, X, RefreshCw } from "lucide-react";
-import { Slider } from "@/components/ui";
+import { Kbd, Slider } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
+import { formatShortcut } from "@/lib/keyboard-shortcuts";
 import type { ViewMode } from "./useLibraryPrefs";
 
 interface LibraryToolbarProps {
@@ -30,14 +32,26 @@ export function LibraryToolbar({
 
   const searchActive = searchFocused || searchQuery.length > 0;
 
+  const focusSearch = useCallback(() => {
+    setSearchFocused(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }, []);
+
+  useKeyboardShortcut({
+    id: "library:search",
+    key: "k",
+    ctrl: true,
+    description: "Focus library search",
+    handler: focusSearch,
+  });
+
+  // Escape clears/blurs search when active; the central registry skips
+  // keydown events originating inside inputs except for Escape, so this
+  // handler runs while the input has focus.
   useEffect(() => {
+    if (!searchActive) return;
     const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault();
-        setSearchFocused(true);
-        setTimeout(() => inputRef.current?.focus(), 0);
-      }
-      if (e.key === "Escape" && searchActive) {
+      if (e.key === "Escape") {
         setSearchFocused(false);
         onSearchChange("");
         inputRef.current?.blur();
@@ -90,17 +104,16 @@ export function LibraryToolbar({
           </div>
         ) : (
           <button
-            onClick={() => {
-              setSearchFocused(true);
-              setTimeout(() => inputRef.current?.focus(), 0);
-            }}
+            onClick={focusSearch}
+            title={`Search (${formatShortcut({ key: "k", ctrl: true })})`}
             className="flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
           >
             <Search size={14} />
             <span className="hidden sm:inline">Search</span>
-            <kbd className="hidden sm:inline-flex items-center rounded border border-glass-border px-1 py-0.5 text-[10px] font-mono">
-              {navigator.platform.includes("Mac") ? "⌘" : "Ctrl+"}K
-            </kbd>
+            <Kbd
+              shortcut={{ key: "k", ctrl: true }}
+              className="hidden sm:inline-flex"
+            />
           </button>
         )}
       </div>

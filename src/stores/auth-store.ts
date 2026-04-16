@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { containsProfanity } from "@/lib/profanity-filter";
 import type { Profile, UserBan } from "@/types/database";
 
 const AVATAR_BUCKET = "avatars";
@@ -70,6 +71,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signUp: async (email, password, displayName) => {
     set({ error: null });
+    if (displayName && containsProfanity(displayName)) {
+      const err = new Error(
+        "Display name contains disallowed language. Please choose another.",
+      );
+      set({ error: err.message });
+      throw err;
+    }
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -156,6 +164,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   updateProfile: async (updates) => {
     const user = get().user;
     if (!user) return;
+
+    if (
+      updates.display_name !== undefined &&
+      updates.display_name !== null &&
+      containsProfanity(updates.display_name)
+    ) {
+      const err = new Error(
+        "Display name contains disallowed language. Please choose another.",
+      );
+      set({ error: err.message });
+      throw err;
+    }
 
     const { error } = await supabase
       .from("profiles")

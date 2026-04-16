@@ -1,11 +1,11 @@
 import { useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
-import { createPdfAdapter } from "@/features/reader/adapters/pdf-adapter";
+import { createAdapterForFile } from "@/features/reader/adapters";
 import { useReaderStore } from "@/stores/reader-store";
 import { useUIStore } from "@/stores/ui-store";
 import { registerFile } from "@/lib/file-store";
 
-export function useOpenPdf() {
+export function useOpenDocument() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -19,7 +19,7 @@ export function useOpenPdf() {
       setLoading(true, "Loading document...");
 
       try {
-        const adapter = createPdfAdapter();
+        const adapter = createAdapterForFile(file);
 
         setLoading(true, "Extracting table of contents...");
         const docId = await useReaderStore.getState().addDocument(adapter, file);

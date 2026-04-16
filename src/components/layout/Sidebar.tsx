@@ -69,6 +69,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             key={to}
             to={to}
             onClick={onNavigate}
+            title={label}
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
@@ -139,6 +140,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       {isDesktop && (
         <button
           onClick={toggleSidebar}
+          title={`${collapsed ? "Expand" : "Collapse"} sidebar (Ctrl+B)`}
           className="flex items-center justify-center border-t border-glass-border p-3 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
         >
           {collapsed ? <PanelLeft size={20} /> : <PanelLeftClose size={20} />}

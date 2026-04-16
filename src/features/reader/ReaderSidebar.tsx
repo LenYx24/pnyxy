@@ -4,6 +4,7 @@ import { ThumbnailToc } from "./ThumbnailToc";
 import { cn } from "@/lib/cn";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 import { useNoteStore } from "@/stores/note-store";
+import { useSettingsStore } from "@/stores/settings-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import type { TocItem } from "@/types/document";
 
@@ -95,6 +96,16 @@ export function ReaderSidebarContent({
 
   const notes = useNoteStore((s) => s.notes);
   const whiteboards = useWhiteboardStore((s) => s.whiteboards);
+  const allowWhiteboardForAll = useSettingsStore(
+    (s) => s.experimental_allowWhiteboardForAllFormats,
+  );
+  // Whiteboards are a paginated-format concept (they anchor to PDF pages).
+  // Disable the "new whiteboard" button when the active doc can't host one,
+  // unless the developer toggle is flipped.
+  const whiteboardCreationAllowed =
+    !activeDoc ||
+    activeDoc.meta.capabilities.paginated ||
+    allowWhiteboardForAll;
 
   const meta = activeDoc?.meta ?? null;
   const toc = activeDoc?.toc ?? [];
@@ -355,8 +366,18 @@ export function ReaderSidebarContent({
           {sidebarTab === "whiteboards" && onCreateWhiteboard && (
             <button
               onClick={onCreateWhiteboard}
-              className="rounded-md p-1 text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
-              title="New whiteboard"
+              disabled={!whiteboardCreationAllowed}
+              className={cn(
+                "rounded-md p-1 transition-colors",
+                whiteboardCreationAllowed
+                  ? "text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                  : "text-text-muted/40 cursor-not-allowed",
+              )}
+              title={
+                whiteboardCreationAllowed
+                  ? "New whiteboard"
+                  : "Whiteboards are only available for paginated formats"
+              }
             >
               <PenTool size={14} />
             </button>

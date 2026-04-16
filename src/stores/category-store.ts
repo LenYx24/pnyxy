@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
+import { containsProfanity } from "@/lib/profanity-filter";
 import type { Category } from "@/types/database";
 
 interface CategoryState {
@@ -40,6 +41,12 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   },
 
   createCategory: async (name, parentId, description) => {
+    if (containsProfanity(name) || containsProfanity(description)) {
+      throw new Error(
+        "Category name or description contains disallowed language.",
+      );
+    }
+
     const {
       data: { user },
     } = await supabase.auth.getUser();

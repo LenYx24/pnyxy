@@ -13,6 +13,7 @@ import { useReaderStore, useDocumentState } from "@/stores/reader-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTextSelection } from "@/hooks/use-text-selection";
 import { HighlightLayer } from "./HighlightLayer";
+import { SearchHighlightLayer } from "./SearchHighlightLayer";
 import { CommentMarkers } from "./CommentMarkers";
 import { AnnotationContextMenu } from "./AnnotationContextMenu";
 import { CommentPopover } from "./CommentPopover";
@@ -336,6 +337,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       ref={containerRef}
       onScroll={handleScroll}
       data-pdf-viewer
+      data-active-viewer
       className="h-full w-full overflow-auto bg-bg-primary"
     >
       <Document
@@ -391,6 +393,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
                   onRenderSuccess={() => handlePageRenderSuccess(pageNum)}
                 />
                 <HighlightLayer pageNum={pageNum} />
+                <SearchHighlightLayer pageNum={pageNum} />
                 <CommentMarkers pageNum={pageNum} />
               </div>
             </div>

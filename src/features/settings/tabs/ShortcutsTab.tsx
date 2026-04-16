@@ -1,29 +1,9 @@
 import { useMemo } from "react";
 import { Keyboard } from "lucide-react";
-import { getRegisteredShortcuts } from "@/lib/keyboard-shortcuts";
-
-function formatKey(shortcut: {
-  key: string;
-  ctrl?: boolean;
-  shift?: boolean;
-  alt?: boolean;
-}) {
-  const parts: string[] = [];
-  if (shortcut.ctrl) parts.push("Ctrl");
-  if (shortcut.shift) parts.push("Shift");
-  if (shortcut.alt) parts.push("Alt");
-
-  const keyName =
-    shortcut.key === "\\" ? "\\" :
-    shortcut.key === "=" ? "+" :
-    shortcut.key === "-" ? "-" :
-    shortcut.key.startsWith("Arrow") ? shortcut.key.replace("Arrow", "") :
-    shortcut.key.length === 1 ? shortcut.key.toUpperCase() :
-    shortcut.key;
-
-  parts.push(keyName);
-  return parts.join(" + ");
-}
+import {
+  formatShortcut,
+  getRegisteredShortcuts,
+} from "@/lib/keyboard-shortcuts";
 
 export function ShortcutsTab() {
   const shortcuts = useMemo(() => {
@@ -64,7 +44,7 @@ export function ShortcutsTab() {
                 {s.description}
               </span>
               <kbd className="whitespace-nowrap rounded bg-bg-primary/80 px-2 py-1 text-xs font-mono text-text-primary border border-glass-border">
-                {formatKey(s)}
+                {formatShortcut(s)}
               </kbd>
             </div>
           ))}

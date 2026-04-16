@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 const DOCKVIEW_LAYOUT_KEY = "pnyxy-reader:dockview-layout";
 
-type MobileReaderPanel = "none" | "toc" | "comments" | "search" | "aiChat";
+type MobileReaderPanel = "none" | "toc" | "comments" | "aiChat";
 
 interface UIState {
   sidebarCollapsed: boolean;
@@ -43,10 +43,58 @@ export function saveDockviewLayout(layout: object) {
   }
 }
 
+/**
+ * Strip panels that no longer exist (e.g. the old `search` dockview
+ * panel, replaced by the floating SearchOverlay) from a persisted
+ * layout so dockview doesn't choke on unregistered components.
+ */
+function sanitizeDockviewLayout(layout: unknown): object | null {
+  if (!layout || typeof layout !== "object") return null;
+  const root = layout as {
+    panels?: Record<string, unknown>;
+    grid?: { root?: unknown };
+  };
+
+  if (root.panels && typeof root.panels === "object") {
+    for (const key of Object.keys(root.panels)) {
+      if (key === "search") {
+        delete root.panels[key];
+      }
+    }
+  }
+
+  const stripGridNode = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    const n = node as {
+      type?: string;
+      data?: unknown;
+      activeView?: string;
+      views?: unknown;
+    };
+    if (n.type === "branch" && Array.isArray(n.data)) {
+      for (const child of n.data) stripGridNode(child);
+    } else if (n.type === "leaf" && n.data && typeof n.data === "object") {
+      const leaf = n.data as {
+        views?: unknown[];
+        activeView?: string;
+      };
+      if (Array.isArray(leaf.views)) {
+        leaf.views = leaf.views.filter((v) => v !== "search");
+        if (leaf.activeView === "search") leaf.activeView = leaf.views[0] as string | undefined;
+      }
+    }
+  };
+  if (root.grid && typeof root.grid === "object") {
+    stripGridNode((root.grid as { root?: unknown }).root);
+  }
+
+  return root;
+}
+
 export function loadDockviewLayout(): object | null {
   try {
     const raw = localStorage.getItem(DOCKVIEW_LAYOUT_KEY);
-    if (raw) return JSON.parse(raw) as object;
+    if (raw) return sanitizeDockviewLayout(JSON.parse(raw));
   } catch {
     // corrupted data
   }

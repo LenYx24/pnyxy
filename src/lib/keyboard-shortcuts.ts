@@ -56,3 +56,41 @@ export function unregisterShortcut(id: string) {
 export function getRegisteredShortcuts(): Map<string, Shortcut> {
   return shortcuts;
 }
+
+/** True when running on a Mac; used for ⌘/⇧/⌥ vs Ctrl/Shift/Alt. */
+function isMac(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /mac/i.test(navigator.platform);
+}
+
+/**
+ * Render a shortcut as a human-readable string, e.g. `"Ctrl + N"` or
+ * on Mac `"⌘ N"`. Used by the Shortcuts settings tab and by inline
+ * <Kbd> hints on buttons.
+ */
+export function formatShortcut(
+  shortcut: Pick<Shortcut, "key" | "ctrl" | "shift" | "alt">,
+): string {
+  const mac = isMac();
+  const parts: string[] = [];
+  if (shortcut.ctrl) parts.push(mac ? "⌘" : "Ctrl");
+  if (shortcut.shift) parts.push(mac ? "⇧" : "Shift");
+  if (shortcut.alt) parts.push(mac ? "⌥" : "Alt");
+
+  const keyName =
+    shortcut.key === "\\"
+      ? "\\"
+      : shortcut.key === "="
+        ? "+"
+        : shortcut.key === "-"
+          ? "-"
+          : shortcut.key.startsWith("Arrow")
+            ? shortcut.key.replace("Arrow", "")
+            : shortcut.key.length === 1
+              ? shortcut.key.toUpperCase()
+              : shortcut.key;
+
+  parts.push(keyName);
+  // Mac glyphs already look like separate elements; skip the " + ".
+  return mac ? parts.join(" ") : parts.join(" + ");
+}

@@ -11,14 +11,16 @@ import {
   FileText,
   Tag,
   GripVertical,
+  Share2,
 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox, TagBadge } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { useOpenUploadedPdf } from "@/hooks/use-open-uploaded-pdf";
+import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
 import { useTagStore, bookKey } from "@/stores/tag-store";
 import { TagPickerDropdown } from "./TagPickerDropdown";
+import { ShareBookModal } from "./ShareBookModal";
 import type { Folder as FolderType } from "@/types/database";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 
@@ -381,7 +383,7 @@ function BookRow({
   sortableId,
 }: BookRowProps) {
   const navigate = useNavigate();
-  const { openUploadedBook } = useOpenUploadedPdf();
+  const { openUploadedBook } = useOpenUploadedDocument();
 
   const isTopLevel = depth === 0 && !!sortableId;
   const {
@@ -399,6 +401,7 @@ function BookRow({
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const tagKey = bookKey(entry);
   const tags = useTagStore((s) => s.bookTags.get(tagKey)) ?? [];
   const selKey = `book:${entry.id}`;
@@ -520,6 +523,16 @@ function BookRow({
                 onMove(entry);
               }}
             />
+            {entry.source === "uploaded" && (
+              <MenuItem
+                icon={Share2}
+                label="Share with community"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setShareOpen(true);
+                }}
+              />
+            )}
             <MenuItem
               icon={Trash2}
               label={entry.source === "uploaded" ? "Delete" : "Remove from Library"}
@@ -538,6 +551,13 @@ function BookRow({
           )}
         </div>
       </div>
+      {entry.source === "uploaded" && (
+        <ShareBookModal
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          entry={entry}
+        />
+      )}
     </div>
   );
 }

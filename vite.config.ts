@@ -20,7 +20,12 @@ export default defineConfig({
       "@dnd-kit/core",
       "@dnd-kit/sortable",
       "@dnd-kit/utilities",
+      "epubjs",
     ],
+  },
+  define: {
+    // epubjs's jszip dependency references `global` in some code paths.
+    global: "globalThis",
   },
   // Prevent Vite from obscuring Rust errors
   clearScreen: false,

@@ -8,9 +8,13 @@ export function GeneralTab() {
     pageScrollBehavior,
     scrollAnimationDuration,
     defaultFitMode,
+    experimental_allowAnnotationsForAllFormats,
+    experimental_allowWhiteboardForAllFormats,
     setPageScrollBehavior,
     setScrollAnimationDuration,
     setDefaultFitMode,
+    setExperimentalAnnotations,
+    setExperimentalWhiteboard,
   } = useSettingsStore();
 
   const fitModeOptions: { value: FitMode; label: string; description: string }[] = [
@@ -86,6 +90,52 @@ export function GeneralTab() {
               </button>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Experimental / Developer section */}
+      <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
+        <div>
+          <h2 className="text-lg font-semibold text-text-primary">
+            Experimental / Developer
+          </h2>
+          <p className="text-xs text-text-muted mt-0.5">
+            Unfinished features intended for testing. Expect rough edges.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="pr-4">
+            <p className="text-sm font-medium text-text-primary">
+              Allow annotations for all formats
+            </p>
+            <p className="text-xs text-text-muted">
+              Enables highlight/comment UI on TXT, Markdown, and EPUB
+              documents. Persisted anchors aren't reflow-aware yet, so
+              highlights may drift after edits.
+            </p>
+          </div>
+          <Toggle
+            checked={experimental_allowAnnotationsForAllFormats}
+            onChange={setExperimentalAnnotations}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="pr-4">
+            <p className="text-sm font-medium text-text-primary">
+              Allow whiteboard for all formats
+            </p>
+            <p className="text-xs text-text-muted">
+              Enables draw mode and whiteboard creation on non-paginated
+              documents. Whiteboards anchor to pages, so behavior may be
+              unpredictable on reflowable content.
+            </p>
+          </div>
+          <Toggle
+            checked={experimental_allowWhiteboardForAllFormats}
+            onChange={setExperimentalWhiteboard}
+          />
         </div>
       </section>
     </div>

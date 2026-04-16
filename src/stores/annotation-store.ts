@@ -13,6 +13,7 @@ import {
   saveComment,
   deleteComment as dbDeleteComment,
 } from "@/lib/annotation-storage";
+import { cleanUserText } from "@/lib/profanity-filter";
 import { useUndoStore, registerAnnotationStore } from "@/stores/undo-store";
 
 interface ContextMenuState {
@@ -163,7 +164,11 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
       selection,
       highlightId,
       messages: [
-        { id: crypto.randomUUID(), text, createdAt: Date.now() },
+        {
+          id: crypto.randomUUID(),
+          text: cleanUserText(text),
+          createdAt: Date.now(),
+        },
       ],
       resolved: false,
       createdAt: Date.now(),
@@ -189,7 +194,11 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
       ...c,
       messages: [
         ...c.messages,
-        { id: crypto.randomUUID(), text, createdAt: Date.now() },
+        {
+          id: crypto.randomUUID(),
+          text: cleanUserText(text),
+          createdAt: Date.now(),
+        },
       ],
     };
 

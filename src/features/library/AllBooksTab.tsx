@@ -24,9 +24,11 @@ import {
   Folder,
   Loader2,
 } from "lucide-react";
-import { Button, GlassCard } from "@/components/ui";
+import { Button, GlassCard, Kbd } from "@/components/ui";
 import { useLibraryStore } from "@/stores/library-store";
 import { useTagStore } from "@/stores/tag-store";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
+import { formatShortcut } from "@/lib/keyboard-shortcuts";
 import { FolderCard } from "./FolderCard";
 import { LibraryBookCard } from "./LibraryBookCard";
 import { LibraryListView } from "./LibraryListView";
@@ -192,9 +194,9 @@ export function AllBooksTab({
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
 
-  const handleCreateFolder = () => {
+  const handleCreateFolder = useCallback(() => {
     setCreateFolderOpen(true);
-  };
+  }, []);
 
   const handleConfirmCreateFolder = async (name: string) => {
     await createFolder(name, currentFolderId);
@@ -216,9 +218,27 @@ export function AllBooksTab({
       : null
     : null;
 
-  const handleGoUp = () => {
+  const handleGoUp = useCallback(() => {
+    if (!currentFolderId) return;
     navigateToFolder(parentFolderId);
-  };
+  }, [currentFolderId, parentFolderId, navigateToFolder]);
+
+  useKeyboardShortcut({
+    id: "library:new-folder",
+    key: "f",
+    ctrl: true,
+    shift: true,
+    description: "Create a new folder",
+    handler: handleCreateFolder,
+  });
+
+  useKeyboardShortcut({
+    id: "library:go-up",
+    key: "Backspace",
+    alt: true,
+    description: "Go to parent folder",
+    handler: handleGoUp,
+  });
 
   const isEmpty = filteredFolders.length === 0 && filteredBooks.length === 0;
   const coverHeight = Math.round(cardSize * 0.6);
@@ -261,15 +281,29 @@ export function AllBooksTab({
         <div className="flex shrink-0 items-center gap-2">
           {/* Go to parent */}
           {currentFolderId && (
-            <Button variant="ghost" className="gap-1 px-2 py-1.5 text-xs" onClick={handleGoUp}>
+            <Button
+              variant="ghost"
+              className="gap-1 px-2 py-1.5 text-xs"
+              onClick={handleGoUp}
+              title={`Go to parent (${formatShortcut({ key: "Backspace", alt: true })})`}
+            >
               <ArrowUp size={14} />
               <span className="hidden sm:inline">Up</span>
             </Button>
           )}
 
-          <Button variant="secondary" className="gap-1.5 px-3 py-1.5 text-xs sm:text-sm" onClick={handleCreateFolder}>
+          <Button
+            variant="secondary"
+            className="gap-1.5 px-3 py-1.5 text-xs sm:text-sm"
+            onClick={handleCreateFolder}
+            title={`Create a folder (${formatShortcut({ key: "f", ctrl: true, shift: true })})`}
+          >
             <FolderPlus size={16} />
             <span className="hidden sm:inline">New Folder</span>
+            <Kbd
+              shortcut={{ key: "f", ctrl: true, shift: true }}
+              className="ml-1 hidden sm:inline-flex"
+            />
           </Button>
         </div>
       </div>
@@ -390,12 +424,24 @@ export function AllBooksTab({
               <div style={{ width: cardSize }} className="pointer-events-none">
                 <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent-purple">
                   <div
-                    className="flex flex-col items-center justify-center gap-1"
-                    style={{ height: coverHeight + 48 }}
+                    className="flex w-full items-center justify-center"
+                    style={{ height: coverHeight }}
                   >
-                    <Folder size={Math.round(Math.min(Math.max(coverHeight * 0.35, 24), 48))} className="text-accent-purple/60" />
-                    <p className="max-w-full truncate px-3 text-sm font-medium text-text-primary">
+                    <Folder
+                      size={Math.round(Math.min(Math.max(coverHeight * 0.35, 24), 48))}
+                      className="text-accent-purple/60"
+                    />
+                  </div>
+                  <div className={coverHeight < 100 ? "p-2" : "p-3"}>
+                    <h3
+                      className={`mb-0.5 truncate font-semibold text-text-primary ${coverHeight < 100 ? "text-xs" : "text-sm"}`}
+                    >
                       {activeDragFolder.name}
+                    </h3>
+                    <p
+                      className={`truncate text-text-muted ${coverHeight < 100 ? "text-[10px]" : "text-xs"}`}
+                    >
+                      Folder
                     </p>
                   </div>
                 </GlassCard>

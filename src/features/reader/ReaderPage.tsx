@@ -10,21 +10,25 @@ import {
 import { ReaderSidebarContent } from "./ReaderSidebar";
 import { ReaderToolbar } from "./ReaderToolbar";
 import { PdfViewer } from "./PdfViewer";
+import { TextViewer } from "./TextViewer";
+import { EpubViewer } from "./EpubViewer";
 import { CommentsSidebar } from "./CommentsSidebar";
-import { SearchPanel, SearchPanelContent } from "./SearchPanel";
+import { SearchOverlay } from "./SearchOverlay";
 import { AiChatPanel, AiChatPanelContent } from "./AiChatPanel";
 import { NoteEditor } from "@/features/notes/NoteEditor";
 import { WhiteboardPanelWrapper } from "@/features/whiteboard/WhiteboardPanel";
-import { useReaderStore } from "@/stores/reader-store";
+import { useReaderStore, useDocumentState } from "@/stores/reader-store";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useUndoStore } from "@/stores/undo-store";
 import { useUIStore } from "@/stores/ui-store";
+import { useSearchStore } from "@/stores/search-store";
+import { useSettingsStore } from "@/stores/settings-store";
 import { useNoteStore } from "@/stores/note-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import { useStreakStore } from "@/stores/streak-store";
 import { getFile } from "@/lib/file-store";
-import { createPdfAdapter } from "./adapters/pdf-adapter";
-import { useOpenPdf } from "@/hooks/use-open-pdf";
+import { createAdapterForFile } from "./adapters";
+import { useOpenDocument } from "@/hooks/use-open-document";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { cn } from "@/lib/cn";
@@ -35,7 +39,7 @@ import type { TocItem } from "@/types/document";
 
 function TocPanel(props: IDockviewPanelProps) {
   const dockviewApi = props.containerApi;
-  const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenPdf();
+  const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenDocument();
 
   const handleOpenFile = useCallback(() => {
     triggerFilePicker();
@@ -92,6 +96,16 @@ function TocPanel(props: IDockviewPanelProps) {
   );
 
   const handleCreateWhiteboard = useCallback(() => {
+    const activeDoc = useReaderStore.getState().getActiveDoc();
+    const allowAll = useSettingsStore.getState()
+      .experimental_allowWhiteboardForAllFormats;
+    if (
+      activeDoc &&
+      !activeDoc.meta.capabilities.paginated &&
+      !allowAll
+    ) {
+      return;
+    }
     const whiteboardId = useWhiteboardStore.getState().createWhiteboard();
     const panelId = `whiteboard-${whiteboardId}`;
     dockviewApi.addPanel({
@@ -135,7 +149,7 @@ function TocPanel(props: IDockviewPanelProps) {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf"
+        accept=".pdf,.epub,.txt,.md,.markdown"
         className="hidden"
         onChange={handleFileSelect}
       />
@@ -143,9 +157,33 @@ function TocPanel(props: IDockviewPanelProps) {
   );
 }
 
+/**
+ * Dispatches to the format-appropriate viewer for a given document id,
+ * defaulting to the active document.
+ */
+function ActiveViewer({ documentId }: { documentId?: string }) {
+  const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
+  const resolvedId = documentId ?? activeDocumentId ?? undefined;
+  const doc = useDocumentState(resolvedId ?? "");
+  const format = doc?.meta.format;
+
+  if (!resolvedId || !doc) return <PdfViewer documentId={resolvedId} />;
+
+  switch (format) {
+    case "pdf":
+      return <PdfViewer documentId={resolvedId} />;
+    case "text":
+    case "markdown":
+      return <TextViewer documentId={resolvedId} />;
+    case "epub":
+      return <EpubViewer documentId={resolvedId} />;
+    default:
+      return <PdfViewer documentId={resolvedId} />;
+  }
+}
+
 function ViewerPanel(props: IDockviewPanelProps<{ documentId?: string }>) {
-  const documentId = props.params?.documentId;
-  return <PdfViewer documentId={documentId} />;
+  return <ActiveViewer documentId={props.params?.documentId} />;
 }
 
 function CommentsPanel(_props: IDockviewPanelProps) {
@@ -162,7 +200,6 @@ const dockviewComponents = {
   toc: TocPanel,
   pdfViewer: ViewerPanel,
   comments: CommentsPanel,
-  search: SearchPanel,
   aiChat: AiChatPanel,
   note: NotePanelWrapper,
   whiteboard: WhiteboardPanelWrapper,
@@ -199,8 +236,10 @@ function MobileReaderLayout({
   }, [mobileReaderPanel, setMobileReaderPanel]);
 
   const handleToggleSearch = useCallback(() => {
-    setMobileReaderPanel(mobileReaderPanel === "search" ? "none" : "search");
-  }, [mobileReaderPanel, setMobileReaderPanel]);
+    const store = useSearchStore.getState();
+    if (store.isOpen) store.close();
+    else store.open("find");
+  }, []);
 
   const handleToggleAiChat = useCallback(() => {
     setMobileReaderPanel(mobileReaderPanel === "aiChat" ? "none" : "aiChat");
@@ -223,8 +262,9 @@ function MobileReaderLayout({
         onToggleSearch={handleToggleSearch}
         onToggleAiChat={handleToggleAiChat}
       />
-      <div className="flex-1 overflow-hidden">
-        <PdfViewer />
+      <div className="relative flex-1 overflow-hidden">
+        <ActiveViewer />
+        <SearchOverlay />
       </div>
 
       {/* Backdrop for overlay panels */}
@@ -283,27 +323,6 @@ function MobileReaderLayout({
         </div>
       </div>
 
-      {/* Search panel - slides from right */}
-      <div
-        className={cn(
-          "absolute right-0 top-11 bottom-0 z-40 w-72 border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
-          mobileReaderPanel === "search" ? "translate-x-0" : "translate-x-full",
-        )}
-      >
-        <div className="flex items-center justify-between border-b border-glass-border px-3 py-2">
-          <span className="text-sm font-medium text-text-primary">Search</span>
-          <button
-            onClick={() => setMobileReaderPanel("none")}
-            className="rounded-md p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
-          >
-            <X size={16} />
-          </button>
-        </div>
-        <div className="h-[calc(100%-2.5rem)] overflow-y-auto">
-          <SearchPanelContent />
-        </div>
-      </div>
-
       {/* AI Chat panel - slides from right */}
       <div
         className={cn(
@@ -329,7 +348,7 @@ function MobileReaderLayout({
 }
 
 function EmptyState() {
-  const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenPdf();
+  const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenDocument();
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center">
@@ -340,17 +359,17 @@ function EmptyState() {
         No book open
       </h2>
       <p className="mb-6 max-w-sm text-sm text-text-secondary">
-        Select a book from your library to start reading, or open a PDF file
-        directly.
+        Select a book from your library to start reading, or open a PDF,
+        EPUB, or text file directly.
       </p>
       <Button variant="secondary" onClick={triggerFilePicker}>
         <FilePlus size={18} />
-        Open PDF
+        Open file
       </Button>
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf"
+        accept=".pdf,.epub,.txt,.md,.markdown"
         className="hidden"
         onChange={handleFileSelect}
       />
@@ -398,14 +417,14 @@ export function ReaderPage() {
   const tocWidthRef = useRef<number>(256);
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenPdf();
+  const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenDocument();
 
   // Load document from file registry if navigated directly
   useEffect(() => {
     if (bookId && !documents.has(bookId)) {
       const file = getFile(bookId);
       if (file) {
-        const adapter = createPdfAdapter();
+        const adapter = createAdapterForFile(file);
         addDocument(adapter, file);
       }
     }
@@ -611,6 +630,12 @@ export function ReaderPage() {
       const activeDoc = useReaderStore.getState().getActiveDoc();
       if (!activeDoc?.meta?.fileUrl) return;
 
+      // Gate: whiteboard-on-document requires a paginated format unless
+      // the user has opted into the experimental multi-format toggle.
+      const allowAll = useSettingsStore.getState()
+        .experimental_allowWhiteboardForAllFormats;
+      if (!activeDoc.meta.capabilities.paginated && !allowAll) return;
+
       const viewerPanel = api.getPanel("pdfViewer");
       if (viewerPanel) api.removePanel(viewerPanel);
 
@@ -652,7 +677,9 @@ export function ReaderPage() {
 
   // Print handler — captures the viewer with annotation overlays
   const handlePrint = useCallback(async () => {
-    const viewer = document.querySelector<HTMLElement>("[data-pdf-viewer]");
+    const viewer =
+      document.querySelector<HTMLElement>("[data-active-viewer]") ??
+      document.querySelector<HTMLElement>("[data-pdf-viewer]");
     if (!viewer) {
       // Fallback: print raw PDF if viewer element not found
       const activeDoc = useReaderStore.getState().getActiveDoc();
@@ -691,7 +718,9 @@ export function ReaderPage() {
 
   // Screenshot handler
   const handleScreenshot = useCallback(async () => {
-    const viewer = document.querySelector<HTMLElement>("[data-pdf-viewer]");
+    const viewer =
+      document.querySelector<HTMLElement>("[data-active-viewer]") ??
+      document.querySelector<HTMLElement>("[data-pdf-viewer]");
     if (!viewer) return;
 
     const { default: html2canvas } = await import("html2canvas-pro");
@@ -706,22 +735,18 @@ export function ReaderPage() {
     link.click();
   }, []);
 
-  // Search toggle
+  // Search overlay toggle (VSCode-style find).
   const toggleSearch = useCallback(() => {
-    const api = dockviewApiRef.current;
-    if (!api) return;
-    const panel = api.getPanel("search");
-    if (panel) {
-      api.removePanel(panel);
-    } else {
-      api.addPanel({
-        id: "search",
-        component: "search",
-        title: "Search",
-        position: { direction: "right" },
-        initialWidth: 320,
-      });
-    }
+    const store = useSearchStore.getState();
+    if (store.isOpen && store.mode === "find") store.close();
+    else store.open("find");
+  }, []);
+
+  // Replace overlay toggle (find+replace).
+  const toggleReplace = useCallback(() => {
+    const store = useSearchStore.getState();
+    if (store.isOpen && store.mode === "replace") store.close();
+    else store.open("replace");
   }, []);
 
   // AI Chat toggle
@@ -763,8 +788,16 @@ export function ReaderPage() {
     id: "reader:search",
     key: "f",
     ctrl: true,
-    description: "Toggle search panel",
+    description: "Find in document",
     handler: toggleSearch,
+  });
+
+  useKeyboardShortcut({
+    id: "reader:replace",
+    key: "h",
+    ctrl: true,
+    description: "Find and replace in document",
+    handler: toggleReplace,
   });
 
   useKeyboardShortcut({
@@ -999,11 +1032,14 @@ export function ReaderPage() {
               onToggleSearch={toggleSearch}
               onToggleAiChat={toggleAiChat}
             />
-            <DockviewReact
-              className="pnyxy-dockview-theme flex-1"
-              onReady={handleDockviewReady}
-              components={dockviewComponents}
-            />
+            <div className="relative flex-1 overflow-hidden">
+              <DockviewReact
+                className="pnyxy-dockview-theme h-full w-full"
+                onReady={handleDockviewReady}
+                components={dockviewComponents}
+              />
+              <SearchOverlay />
+            </div>
           </>
         )
       ) : (
@@ -1012,7 +1048,7 @@ export function ReaderPage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf"
+        accept=".pdf,.epub,.txt,.md,.markdown"
         className="hidden"
         onChange={handleFileSelect}
       />

@@ -58,6 +58,16 @@ interface SettingsState {
    */
   pluginStorage: Record<string, unknown>;
 
+  // ── Experimental / developer toggles ──
+  /**
+   * When true, annotation UI (highlight, comment, context menu) is
+   * mounted on non-paginated formats (TXT/MD/EPUB). Off by default
+   * because persisted anchors for reflowable formats aren't modeled yet.
+   */
+  experimental_allowAnnotationsForAllFormats: boolean;
+  /** When true, the whiteboard/draw-mode button is enabled for non-PDF docs. */
+  experimental_allowWhiteboardForAllFormats: boolean;
+
   setPageScrollBehavior: (v: "smooth" | "instant") => void;
   setScrollAnimationDuration: (v: number) => void;
   setDefaultFitMode: (v: FitMode) => void;
@@ -88,6 +98,10 @@ interface SettingsState {
   setPluginStorage: (key: string, value: unknown) => void;
   removePluginStorage: (key: string) => void;
 
+  // Experimental toggles
+  setExperimentalAnnotations: (v: boolean) => void;
+  setExperimentalWhiteboard: (v: boolean) => void;
+
   // Cloud sync
   syncPreferences: () => Promise<void>;
   hydrateFromRemote: (preferences: Record<string, unknown> | null | undefined) => void;
@@ -113,6 +127,9 @@ export const useSettingsStore = create<SettingsState>()(
       installedPlugins: {},
       pluginSettings: buildDefaultPluginSettings().pluginSettings,
       pluginStorage: {},
+
+      experimental_allowAnnotationsForAllFormats: false,
+      experimental_allowWhiteboardForAllFormats: false,
 
       setPageScrollBehavior: (v) => set({ pageScrollBehavior: v }),
       setScrollAnimationDuration: (v) =>
@@ -252,6 +269,11 @@ export const useSettingsStore = create<SettingsState>()(
           return { pluginStorage: rest };
         }),
 
+      setExperimentalAnnotations: (v) =>
+        set({ experimental_allowAnnotationsForAllFormats: v }),
+      setExperimentalWhiteboard: (v) =>
+        set({ experimental_allowWhiteboardForAllFormats: v }),
+
       // ── Cloud sync ──
       syncPreferences: async () => {
         const auth = useAuthStore.getState();
@@ -361,7 +383,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "pnyxy-reader:settings",
-      version: 3,
+      version: 4,
       partialize: (state) => {
         // Persist everything; pluginStorage is local-only (stays in
         // localStorage) and is intentionally NOT synced to Supabase.
@@ -441,6 +463,15 @@ export const useSettingsStore = create<SettingsState>()(
             typeof state.pluginStorage !== "object"
           ) {
             state.pluginStorage = {};
+          }
+        }
+        // v3 → v4: introduce experimental multi-format toggles (default off).
+        if (version < 4) {
+          if (typeof state.experimental_allowAnnotationsForAllFormats !== "boolean") {
+            state.experimental_allowAnnotationsForAllFormats = false;
+          }
+          if (typeof state.experimental_allowWhiteboardForAllFormats !== "boolean") {
+            state.experimental_allowWhiteboardForAllFormats = false;
           }
         }
         return state as unknown as SettingsState;

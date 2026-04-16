@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
+import { containsProfanity } from "@/lib/profanity-filter";
 import { useTagStore } from "./tag-store";
 import type {
   UnifiedLibraryItem,
@@ -154,6 +155,12 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   },
 
   createFolder: async (name, parentId) => {
+    if (containsProfanity(name)) {
+      throw new Error(
+        "Folder name contains disallowed language. Please choose another.",
+      );
+    }
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -175,6 +182,12 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   },
 
   renameFolder: async (id, name) => {
+    if (containsProfanity(name)) {
+      throw new Error(
+        "Folder name contains disallowed language. Please choose another.",
+      );
+    }
+
     const { error } = await supabase
       .from("folders")
       .update({ name })

@@ -25,6 +25,7 @@ export function BrowsePage() {
     filterByCategory,
     loadMore,
     checkUserLibrary,
+    subscribeCatalogUpdates,
   } = useBrowseStore();
 
   const {
@@ -38,6 +39,12 @@ export function BrowsePage() {
     checkUserLibrary();
     fetchCategories();
   }, [fetchCatalogBooks, checkUserLibrary, fetchCategories]);
+
+  // Push-update the browse list when admins approve / reject / edit books.
+  useEffect(() => {
+    const unsub = subscribeCatalogUpdates();
+    return unsub;
+  }, [subscribeCatalogUpdates]);
 
   const handleSearchChange = useCallback(
     (value: string) => {

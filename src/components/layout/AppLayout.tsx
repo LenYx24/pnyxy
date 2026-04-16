@@ -7,8 +7,11 @@ import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
+import { Footer } from "./Footer";
 import { BannedScreen } from "@/features/admin/BannedScreen";
 import { StreakCelebrationModal } from "@/features/library/StreakCelebrationModal";
+
+const STATIC_PAGE_PATHS = ["/about", "/privacy", "/help"];
 
 export function AppLayout() {
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
@@ -18,6 +21,14 @@ export function AppLayout() {
 
   // Hide chrome (sidebar, topbar, bottom nav) when in reader
   const isReaderRoute = location.pathname.startsWith("/reader");
+
+  // Footer is only rendered on the informational / legal pages. The
+  // main app surfaces (library, browse, reader, settings, profile,
+  // streaks, admin) use the sidebar for navigation and don't need a
+  // site-wide footer taking up viewport space.
+  const showFooter = STATIC_PAGE_PATHS.some((p) =>
+    location.pathname.startsWith(p),
+  );
 
   useKeyboardShortcut({
     id: "app:toggle-sidebar",
@@ -45,6 +56,7 @@ export function AppLayout() {
         )}
       >
         <Outlet />
+        {showFooter && <Footer />}
       </main>
       {!isReaderRoute && <BottomNav />}
       <StreakCelebrationModal />

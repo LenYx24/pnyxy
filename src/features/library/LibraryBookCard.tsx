@@ -1,13 +1,21 @@
 import { useState, useRef, useEffect } from "react";
-import { MoreVertical, FolderInput, Trash2, Upload, Tag } from "lucide-react";
+import {
+  MoreVertical,
+  FolderInput,
+  Trash2,
+  Upload,
+  Tag,
+  Share2,
+} from "lucide-react";
 import { useNavigate } from "react-router";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox, GlassCard, TagBadge } from "@/components/ui";
 import { PdfCoverThumbnail } from "@/components/ui/PdfCoverThumbnail";
-import { useOpenUploadedPdf } from "@/hooks/use-open-uploaded-pdf";
+import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
 import { useTagStore, bookKey } from "@/stores/tag-store";
 import { TagPickerDropdown } from "./TagPickerDropdown";
+import { ShareBookModal } from "./ShareBookModal";
 import { cn } from "@/lib/cn";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 
@@ -33,7 +41,7 @@ export function LibraryBookCard({
   sortableId,
 }: LibraryBookCardProps) {
   const navigate = useNavigate();
-  const { openUploadedBook } = useOpenUploadedPdf();
+  const { openUploadedBook } = useOpenUploadedDocument();
 
   const sortable = useSortable({ id: sortableId ?? entry.id, disabled: !sortableId });
   const {
@@ -51,6 +59,7 @@ export function LibraryBookCard({
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const key = bookKey(entry);
   const tags = useTagStore((s) => s.bookTags.get(key)) ?? [];
@@ -234,6 +243,19 @@ export function LibraryBookCard({
                 <FolderInput size={14} />
                 Move to Folder
               </button>
+              {entry.source === "uploaded" && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuOpen(false);
+                    setShareOpen(true);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                >
+                  <Share2 size={14} />
+                  Share with community
+                </button>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -255,6 +277,14 @@ export function LibraryBookCard({
           )}
         </div>
       </GlassCard>
+
+      {entry.source === "uploaded" && (
+        <ShareBookModal
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          entry={entry}
+        />
+      )}
     </div>
   );
 }
