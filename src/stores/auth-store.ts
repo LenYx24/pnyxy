@@ -3,6 +3,15 @@ import type { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import type { Profile, UserBan } from "@/types/database";
 
+const AVATAR_BUCKET = "avatars";
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+const AVATAR_ALLOWED_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+
 interface AuthState {
   user: User | null;
   session: Session | null;
@@ -13,11 +22,16 @@ interface AuthState {
   banInfo: UserBan | null;
 
   initialize: () => () => void;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName?: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<void>;
   signOut: () => Promise<void>;
   fetchProfile: () => Promise<void>;
   updateProfile: (updates: Partial<Pick<Profile, "display_name" | "avatar_url">>) => Promise<void>;
+  uploadAvatar: (file: File) => Promise<void>;
+  removeAvatar: () => Promise<void>;
   checkBanStatus: () => Promise<void>;
 }
 
@@ -54,9 +68,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return () => subscription.unsubscribe();
   },
 
-  signUp: async (email, password) => {
+  signUp: async (email, password, displayName) => {
     set({ error: null });
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: displayName ? { display_name: displayName } : undefined,
+        emailRedirectTo: `${window.location.origin}/auth/welcome`,
+      },
+    });
     if (error) {
       set({ error: error.message });
       throw error;
@@ -66,6 +87,40 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signIn: async (email, password) => {
     set({ error: null });
     const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      set({ error: error.message });
+      throw error;
+    }
+  },
+
+  signInWithGoogle: async () => {
+    set({ error: null });
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/library`,
+      },
+    });
+    if (error) {
+      set({ error: error.message });
+      throw error;
+    }
+  },
+
+  requestPasswordReset: async (email) => {
+    set({ error: null });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    });
+    if (error) {
+      set({ error: error.message });
+      throw error;
+    }
+  },
+
+  updatePassword: async (newPassword) => {
+    set({ error: null });
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
       set({ error: error.message });
       throw error;
@@ -114,6 +169,72 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set((state) => ({
       profile: state.profile ? { ...state.profile, ...updates } : null,
     }));
+  },
+
+  uploadAvatar: async (file) => {
+    const user = get().user;
+    if (!user) throw new Error("You must be signed in to upload an avatar.");
+
+    if (file.size > AVATAR_MAX_BYTES) {
+      const err = new Error("Avatar must be 5 MB or smaller.");
+      set({ error: err.message });
+      throw err;
+    }
+
+    const ext = AVATAR_ALLOWED_MIME[file.type];
+    if (!ext) {
+      const err = new Error("Avatar must be a JPEG, PNG, WebP, or GIF image.");
+      set({ error: err.message });
+      throw err;
+    }
+
+    set({ error: null });
+
+    const path = `${user.id}/avatar.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from(AVATAR_BUCKET)
+      .upload(path, file, { upsert: true, contentType: file.type });
+
+    if (uploadError) {
+      set({ error: uploadError.message });
+      throw uploadError;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from(AVATAR_BUCKET)
+      .getPublicUrl(path);
+
+    const cacheBustedUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`;
+    await get().updateProfile({ avatar_url: cacheBustedUrl });
+  },
+
+  removeAvatar: async () => {
+    const user = get().user;
+    if (!user) throw new Error("You must be signed in to remove your avatar.");
+
+    set({ error: null });
+
+    const { data: files, error: listError } = await supabase.storage
+      .from(AVATAR_BUCKET)
+      .list(user.id);
+
+    if (listError) {
+      set({ error: listError.message });
+      throw listError;
+    }
+
+    if (files && files.length > 0) {
+      const paths = files.map((f) => `${user.id}/${f.name}`);
+      const { error: removeError } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .remove(paths);
+      if (removeError) {
+        set({ error: removeError.message });
+        throw removeError;
+      }
+    }
+
+    await get().updateProfile({ avatar_url: null });
   },
 
   checkBanStatus: async () => {

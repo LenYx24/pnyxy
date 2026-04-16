@@ -9,25 +9,30 @@ import {
   PanelLeftClose,
   PanelLeft,
   LogIn,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { useIsMobile, useIsDesktop } from "@/hooks/use-media-query";
 
 const baseNavItems = [
-  { to: "/app/browse", icon: Compass, label: "Browse" },
-  { to: "/app/library", icon: Library, label: "Library" },
-  { to: "/app/reader", icon: BookOpen, label: "Reader" },
-  { to: "/app/streaks", icon: Flame, label: "Streaks" },
-  { to: "/app/settings", icon: Settings, label: "Settings" },
+  { to: "/browse", icon: Compass, label: "Browse" },
+  { to: "/library", icon: Library, label: "Library" },
+  { to: "/reader", icon: BookOpen, label: "Reader" },
+  { to: "/streaks", icon: Flame, label: "Streaks" },
+  { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
-export function Sidebar() {
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const { user, profile } = useAuthStore();
+  const isDesktop = useIsDesktop();
+
+  const collapsed = isDesktop && sidebarCollapsed;
 
   const navItems = profile?.role === "admin"
-    ? [...baseNavItems, { to: "/app/admin", icon: Shield, label: "Admin" }]
+    ? [...baseNavItems, { to: "/admin", icon: Shield, label: "Admin" }]
     : baseNavItems;
 
   const initial = (
@@ -35,23 +40,26 @@ export function Sidebar() {
   ).toUpperCase();
 
   return (
-    <aside
-      className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-glass-border bg-bg-secondary/80 backdrop-blur-xl",
-        "transition-all duration-300",
-        sidebarCollapsed ? "w-sidebar-collapsed" : "w-sidebar-expanded",
-      )}
-    >
+    <>
       <div
         className={cn(
           "flex h-14 items-center border-b border-glass-border px-4",
-          sidebarCollapsed && "justify-center px-0",
+          collapsed && "justify-center px-0",
         )}
       >
-        {!sidebarCollapsed && (
+        {!collapsed && (
           <span className="bg-gradient-to-r from-accent-purple to-accent-blue bg-clip-text text-lg font-bold text-transparent">
             Pnyxy
           </span>
+        )}
+        {/* Close button for tablet overlay */}
+        {!isDesktop && onNavigate && (
+          <button
+            onClick={onNavigate}
+            className="ml-auto rounded-md p-1.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+          >
+            <X size={20} />
+          </button>
         )}
       </div>
 
@@ -60,10 +68,11 @@ export function Sidebar() {
           <NavLink
             key={to}
             to={to}
+            onClick={onNavigate}
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                sidebarCollapsed && "justify-center px-0",
+                collapsed && "justify-center px-0",
                 isActive
                   ? "bg-accent-purple/15 text-accent-purple"
                   : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
@@ -71,7 +80,7 @@ export function Sidebar() {
             }
           >
             <Icon size={20} />
-            {!sidebarCollapsed && <span>{label}</span>}
+            {!collapsed && <span>{label}</span>}
           </NavLink>
         ))}
       </nav>
@@ -79,11 +88,12 @@ export function Sidebar() {
       {/* Profile / Sign in section */}
       {user ? (
         <NavLink
-          to="/app/profile"
+          to="/profile"
+          onClick={onNavigate}
           className={({ isActive }) =>
             cn(
               "flex items-center gap-3 border-t border-glass-border px-3 py-3 transition-colors",
-              sidebarCollapsed && "justify-center px-0",
+              collapsed && "justify-center px-0",
               isActive
                 ? "bg-accent-purple/15 text-accent-purple"
                 : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
@@ -95,7 +105,7 @@ export function Sidebar() {
               {initial}
             </span>
           </div>
-          {!sidebarCollapsed && (
+          {!collapsed && (
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">
                 {profile?.display_name || "No name"}
@@ -109,10 +119,11 @@ export function Sidebar() {
       ) : (
         <NavLink
           to="/auth"
+          onClick={onNavigate}
           className={({ isActive }) =>
             cn(
               "flex items-center gap-3 border-t border-glass-border px-3 py-3 transition-colors",
-              sidebarCollapsed && "justify-center px-0",
+              collapsed && "justify-center px-0",
               isActive
                 ? "bg-accent-purple/15 text-accent-purple"
                 : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
@@ -120,16 +131,66 @@ export function Sidebar() {
           }
         >
           <LogIn size={20} />
-          {!sidebarCollapsed && <span className="text-sm font-medium">Sign in</span>}
+          {!collapsed && <span className="text-sm font-medium">Sign in</span>}
         </NavLink>
       )}
 
-      <button
-        onClick={toggleSidebar}
-        className="flex items-center justify-center border-t border-glass-border p-3 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
-      >
-        {sidebarCollapsed ? <PanelLeft size={20} /> : <PanelLeftClose size={20} />}
-      </button>
+      {/* Toggle collapse (desktop only) */}
+      {isDesktop && (
+        <button
+          onClick={toggleSidebar}
+          className="flex items-center justify-center border-t border-glass-border p-3 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+        >
+          {collapsed ? <PanelLeft size={20} /> : <PanelLeftClose size={20} />}
+        </button>
+      )}
+    </>
+  );
+}
+
+export function Sidebar() {
+  const { sidebarCollapsed, mobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
+  const isMobile = useIsMobile();
+  const isDesktop = useIsDesktop();
+
+  // Mobile: sidebar hidden entirely (BottomNav handles navigation)
+  if (isMobile) return null;
+
+  // Tablet: overlay sidebar with backdrop
+  if (!isDesktop) {
+    return (
+      <>
+        {/* Backdrop */}
+        {mobileSidebarOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        )}
+        {/* Sidebar overlay */}
+        <aside
+          className={cn(
+            "fixed left-0 top-0 z-50 flex h-screen w-sidebar-expanded flex-col border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl",
+            "transition-transform duration-300",
+            mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
+          )}
+        >
+          <SidebarContent onNavigate={() => setMobileSidebarOpen(false)} />
+        </aside>
+      </>
+    );
+  }
+
+  // Desktop: fixed sidebar (current behavior)
+  return (
+    <aside
+      className={cn(
+        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-glass-border bg-bg-secondary/80 backdrop-blur-xl",
+        "transition-all duration-300",
+        sidebarCollapsed ? "w-sidebar-collapsed" : "w-sidebar-expanded",
+      )}
+    >
+      <SidebarContent />
     </aside>
   );
 }

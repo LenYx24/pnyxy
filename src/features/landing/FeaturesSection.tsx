@@ -49,7 +49,7 @@ const features = [
 
 export function FeaturesSection() {
   return (
-    <section className="mx-auto max-w-6xl px-6 py-24">
+    <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
       <h2 className="mb-4 text-center text-3xl font-bold text-text-primary">
         Everything you need to read smarter
       </h2>

@@ -9,12 +9,13 @@ import {
   Loader2,
   ExternalLink,
 } from "lucide-react";
-import { Button } from "@/components/ui";
+import { Button, CategoryChip } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { getDownloadOptions } from "@/lib/open-library";
 import { useBrowseStore } from "@/stores/browse-store";
 import { useAuthStore } from "@/stores/auth-store";
 import type { CatalogBook, DownloadOption } from "@/types/catalog";
+import type { Category } from "@/types/database";
 
 export function BookDetailPage() {
   const { bookId } = useParams<{ bookId: string }>();
@@ -28,6 +29,7 @@ export function BookDetailPage() {
   } = useBrowseStore();
 
   const [book, setBook] = useState<CatalogBook | null>(null);
+  const [bookCategories, setBookCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [libraryLoading, setLibraryLoading] = useState(false);
 
@@ -65,6 +67,21 @@ export function BookDetailPage() {
       }
       setBook(data);
       setLoading(false);
+
+      // Fetch categories from junction table
+      const { data: catLinks } = await supabase
+        .from("catalog_book_categories")
+        .select("category_id")
+        .eq("catalog_book_id", bookId);
+
+      if (catLinks && catLinks.length > 0) {
+        const ids = catLinks.map((l) => l.category_id);
+        const { data: cats } = await supabase
+          .from("categories")
+          .select("*")
+          .in("id", ids);
+        setBookCategories((cats ?? []) as Category[]);
+      }
     })();
 
     checkUserLibrary();
@@ -101,7 +118,7 @@ export function BookDetailPage() {
         <Button
           variant="ghost"
           className="mt-4"
-          onClick={() => navigate("/app/browse")}
+          onClick={() => navigate("/browse")}
         >
           <ArrowLeft size={16} />
           Back to Browse
@@ -113,7 +130,7 @@ export function BookDetailPage() {
   return (
     <div>
       <button
-        onClick={() => navigate("/app/browse")}
+        onClick={() => navigate("/browse")}
         className="mb-6 flex items-center gap-2 text-sm text-text-muted transition-colors hover:text-text-primary cursor-pointer"
       >
         <ArrowLeft size={16} />
@@ -122,15 +139,15 @@ export function BookDetailPage() {
 
       <div className="flex flex-col gap-8 md:flex-row">
         {/* Cover */}
-        <div className="shrink-0">
+        <div className="shrink-0 flex justify-center md:block">
           {book.cover_url ? (
             <img
               src={book.cover_url}
               alt={book.title}
-              className="h-80 w-56 rounded-xl object-cover shadow-lg"
+              className="h-60 w-40 rounded-xl object-cover shadow-lg sm:h-80 sm:w-56"
             />
           ) : (
-            <div className="flex h-80 w-56 items-center justify-center rounded-xl bg-gradient-to-br from-accent-purple/30 to-accent-blue/30 shadow-lg">
+            <div className="flex h-60 w-40 items-center justify-center rounded-xl bg-gradient-to-br from-accent-purple/30 to-accent-blue/30 shadow-lg sm:h-80 sm:w-56">
               <BookOpen size={64} className="text-white/20" />
             </div>
           )}
@@ -206,7 +223,7 @@ export function BookDetailPage() {
           )}
 
           {/* Meta grid */}
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
             {book.publisher && (
               <div>
                 <span className="text-text-muted">Publisher</span>
@@ -246,18 +263,22 @@ export function BookDetailPage() {
           </div>
 
           {/* Categories */}
-          {book.categories.length > 0 && (
+          {(bookCategories.length > 0 || book.categories.length > 0) && (
             <div className="mt-6">
               <span className="text-sm text-text-muted">Categories</span>
               <div className="mt-1 flex flex-wrap gap-2">
-                {book.categories.map((cat) => (
-                  <span
-                    key={cat}
-                    className="rounded-full bg-accent-purple/10 px-3 py-1 text-xs font-medium text-accent-purple"
-                  >
-                    {cat}
-                  </span>
-                ))}
+                {bookCategories.length > 0
+                  ? bookCategories.map((cat) => (
+                      <CategoryChip key={cat.id} category={cat} />
+                    ))
+                  : book.categories.map((cat) => (
+                      <span
+                        key={cat}
+                        className="rounded-full bg-accent-purple/10 px-3 py-1 text-xs font-medium text-accent-purple"
+                      >
+                        {cat}
+                      </span>
+                    ))}
               </div>
             </div>
           )}

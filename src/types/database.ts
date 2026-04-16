@@ -46,6 +46,9 @@ export interface Category {
   slug: string;
   icon: string | null;
   sort_order: number;
+  parent_id: string | null;
+  created_by: string | null;
+  description: string | null;
   created_at: string;
 }
 
@@ -129,22 +132,37 @@ export interface FolderItem {
   added_at: string;
 }
 
-// ── Tags ────────────────────────────────────────────────────
+// ── Status Tags ─────────────────────────────────────────────
 
-export interface Tag {
+export type BookStatusTag =
+  | "currently_reading"
+  | "want_to_read"
+  | "done"
+  | "abandoned"
+  | "hiatus"
+  | "favorites";
+
+export interface UserBookTag {
   id: string;
   user_id: string;
-  name: string;
-  color: string | null;
+  catalog_book_id: string | null;
+  book_id: string | null;
+  tag: BookStatusTag;
   created_at: string;
 }
 
-// ── Book Tags ───────────────────────────────────────────────
+// ── Category Junctions ──────────────────────────────────────
 
-export interface BookTag {
+export interface CatalogBookCategory {
+  id: string;
+  catalog_book_id: string;
+  category_id: string;
+}
+
+export interface BookCategory {
   id: string;
   book_id: string;
-  tag_id: string;
+  category_id: string;
 }
 
 // ── Highlights ──────────────────────────────────────────────
@@ -248,8 +266,9 @@ export interface Database {
       book_files: { Row: BookFile };
       folders: { Row: Folder };
       folder_items: { Row: FolderItem };
-      tags: { Row: Tag };
-      book_tags: { Row: BookTag };
+      user_book_tags: { Row: UserBookTag };
+      catalog_book_categories: { Row: CatalogBookCategory };
+      book_categories: { Row: BookCategory };
       highlights: { Row: DbHighlight };
       comments: { Row: DbComment };
       notes: { Row: DbNote };

@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
+import { logError } from "@/lib/logger";
+import { useTagStore } from "./tag-store";
 import type {
   UnifiedLibraryItem,
   CatalogLibraryItem,
@@ -21,6 +23,7 @@ interface LibraryState {
   deleteFolder: (id: string) => Promise<void>;
   navigateToFolder: (id: string | null) => void;
   moveBookToFolder: (entry: UnifiedLibraryItem, folderId: string | null) => Promise<void>;
+  moveFolderToFolder: (folderId: string, newParentId: string | null) => Promise<void>;
   removeFromLibrary: (entry: UnifiedLibraryItem) => Promise<void>;
   getBooksInFolder: (folderId: string | null) => UnifiedLibraryItem[];
   getSubfolders: (parentId: string | null) => Folder[];
@@ -70,10 +73,10 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     ]);
 
     if (catalogRes.error) {
-      console.error("Failed to fetch catalog library:", catalogRes.error.message);
+      logError("library-store:fetchLibrary:catalog", catalogRes.error.message);
     }
     if (uploadedRes.error) {
-      console.error("Failed to fetch uploaded books:", uploadedRes.error.message);
+      logError("library-store:fetchLibrary:uploaded", uploadedRes.error.message);
     }
 
     const catalogItems: CatalogLibraryItem[] = ((catalogRes.data ?? []) as any[]).map(
@@ -117,6 +120,9 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     );
 
     set({ books: all, isLoading: false });
+
+    // Fetch user tags alongside library
+    useTagStore.getState().fetchUserTags();
   },
 
   fetchFolders: async () => {
@@ -132,7 +138,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       .order("sort_order");
 
     if (error) {
-      console.error("Failed to fetch folders:", error.message);
+      logError("library-store:fetchFolders", error.message);
       return;
     }
 
@@ -161,7 +167,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     });
 
     if (error) {
-      console.error("Failed to create folder:", error.message);
+      logError("library-store:createFolder", error.message);
       throw error;
     }
 
@@ -175,7 +181,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       .eq("id", id);
 
     if (error) {
-      console.error("Failed to rename folder:", error.message);
+      logError("library-store:renameFolder", error.message);
       throw error;
     }
 
@@ -186,7 +192,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     const { error } = await supabase.from("folders").delete().eq("id", id);
 
     if (error) {
-      console.error("Failed to delete folder:", error.message);
+      logError("library-store:deleteFolder", error.message);
       throw error;
     }
 
@@ -210,7 +216,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         .eq("id", entry.id);
 
       if (error) {
-        console.error("Failed to move book:", error.message);
+        logError("library-store:moveBookToFolder", error.message);
         throw error;
       }
     } else {
@@ -220,7 +226,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         .eq("id", entry.id);
 
       if (error) {
-        console.error("Failed to move book:", error.message);
+        logError("library-store:moveBookToFolder", error.message);
         throw error;
       }
     }
@@ -234,6 +240,32 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     }));
   },
 
+  moveFolderToFolder: async (folderId, newParentId) => {
+    // Prevent moving a folder into itself or its own descendants
+    const { folders } = get();
+    const isDescendant = (parentId: string | null, targetId: string): boolean => {
+      if (parentId === targetId) return true;
+      const parent = folders.find((f) => f.id === parentId);
+      return parent?.parent_id ? isDescendant(parent.parent_id, targetId) : false;
+    };
+
+    if (newParentId && (newParentId === folderId || isDescendant(newParentId, folderId))) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from("folders")
+      .update({ parent_id: newParentId })
+      .eq("id", folderId);
+
+    if (error) {
+      logError("library-store:moveFolderToFolder", error.message);
+      throw error;
+    }
+
+    await get().fetchFolders();
+  },
+
   removeFromLibrary: async (entry) => {
     if (entry.source === "catalog") {
       const { error } = await supabase
@@ -242,7 +274,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         .eq("id", entry.id);
 
       if (error) {
-        console.error("Failed to remove from library:", error.message);
+        logError("library-store:removeFromLibrary", error.message);
         throw error;
       }
     } else {
@@ -257,7 +289,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         .eq("id", entry.id);
 
       if (error) {
-        console.error("Failed to delete uploaded book:", error.message);
+        logError("library-store:removeFromLibrary:delete", error.message);
         throw error;
       }
     }

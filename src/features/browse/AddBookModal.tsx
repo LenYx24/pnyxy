@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   X,
   Search,
@@ -12,6 +12,7 @@ import { cn } from "@/lib/cn";
 import { getProviders } from "@/lib/book-providers";
 import type { ProviderBook } from "@/lib/book-providers";
 import { useBrowseStore } from "@/stores/browse-store";
+import { useCategoryStore } from "@/stores/category-store";
 import type { CatalogBookInsert } from "@/types/catalog";
 
 type Tab = "search" | "url" | "manual";
@@ -31,11 +32,11 @@ export function AddBookModal({ open, onClose }: AddBookModalProps) {
   const addBookToCatalog = useBrowseStore((s) => s.addBookToCatalog);
   const addBooksToCatalog = useBrowseStore((s) => s.addBooksToCatalog);
 
-  const handleSubmit = async (book: CatalogBookInsert) => {
+  const handleSubmit = async (book: CatalogBookInsert, categoryIds?: string[]) => {
     setSubmitting(true);
     setError(null);
     try {
-      await addBookToCatalog(book);
+      await addBookToCatalog(book, categoryIds);
       setSubmittedCount(1);
       setSubmitted(true);
     } catch {
@@ -476,23 +477,46 @@ function ManualTab({
   submitting,
   setError,
 }: {
-  onSubmit: (book: CatalogBookInsert) => Promise<void>;
+  onSubmit: (book: CatalogBookInsert, categoryIds?: string[]) => Promise<void>;
   submitting: boolean;
   setError: (err: string | null) => void;
 }) {
+  const categories = useCategoryStore((s) => s.categories);
+  const fetchCategories = useCategoryStore((s) => s.fetchCategories);
+
+  useEffect(() => {
+    if (categories.length === 0) fetchCategories();
+  }, [categories.length, fetchCategories]);
+
   const [form, setForm] = useState({
     title: "",
     authors: "",
     description: "",
     isbn: "",
-    category: "",
   });
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(
+    new Set(),
+  );
+
+  const toggleCategory = (id: string) => {
+    setSelectedCategoryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const handleSubmit = () => {
     if (!form.title.trim()) {
       setError("Title is required.");
       return;
     }
+
+    // Build categories text array from selected category names (backward compat)
+    const catNames = categories
+      .filter((c) => selectedCategoryIds.has(c.id))
+      .map((c) => c.name);
 
     const book: CatalogBookInsert = {
       title: form.title.trim(),
@@ -505,13 +529,10 @@ function ManualTab({
         form.isbn.trim().length === 13 ? form.isbn.trim() : null,
       isbn_10:
         form.isbn.trim().length === 10 ? form.isbn.trim() : null,
-      categories: form.category
-        .split(",")
-        .map((c) => c.trim())
-        .filter(Boolean),
+      categories: catNames,
       source: "user_submitted",
     };
-    onSubmit(book);
+    onSubmit(book, [...selectedCategoryIds]);
   };
 
   return (
@@ -552,15 +573,33 @@ function ManualTab({
         }
         className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
       />
-      <input
-        type="text"
-        placeholder="Categories (comma separated)"
-        value={form.category}
-        onChange={(e) =>
-          setForm((f) => ({ ...f, category: e.target.value }))
-        }
-        className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
-      />
+
+      {/* Category picker */}
+      <div>
+        <label className="mb-1.5 block text-xs text-text-muted">
+          Categories
+        </label>
+        <div className="flex flex-wrap gap-1.5">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => toggleCategory(cat.id)}
+              className={cn(
+                "rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
+                selectedCategoryIds.has(cat.id)
+                  ? "bg-accent-purple/15 text-accent-purple"
+                  : "bg-glass-bg text-text-muted hover:text-text-primary border border-glass-border",
+              )}
+            >
+              {selectedCategoryIds.has(cat.id) && (
+                <Check size={10} className="mr-1 inline -mt-0.5" />
+              )}
+              {cat.name}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <Button onClick={handleSubmit} disabled={submitting} className="w-full">
         {submitting ? (

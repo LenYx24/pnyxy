@@ -1,11 +1,12 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
+import { logError } from "@/lib/logger";
 import type { CatalogBook, CatalogBookInsert } from "@/types/catalog";
 
 interface BrowseState {
   catalogBooks: CatalogBook[];
   searchQuery: string;
-  activeCategory: string | null;
+  activeCategory: string | null; // category UUID
   isLoading: boolean;
   selectedBook: CatalogBook | null;
   userLibraryIds: Set<string>;
@@ -14,9 +15,9 @@ interface BrowseState {
 
   fetchCatalogBooks: () => Promise<void>;
   searchCatalog: (query: string) => Promise<void>;
-  filterByCategory: (category: string | null) => Promise<void>;
+  filterByCategory: (categoryId: string | null) => Promise<void>;
   loadMore: () => Promise<void>;
-  addBookToCatalog: (book: CatalogBookInsert) => Promise<void>;
+  addBookToCatalog: (book: CatalogBookInsert, categoryIds?: string[]) => Promise<void>;
   addBooksToCatalog: (books: CatalogBookInsert[]) => Promise<void>;
   addToUserLibrary: (bookId: string) => Promise<void>;
   removeFromUserLibrary: (bookId: string) => Promise<void>;
@@ -25,6 +26,19 @@ interface BrowseState {
 }
 
 const PAGE_SIZE = 20;
+
+async function fetchBookIdsByCategory(categoryId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("catalog_book_categories")
+    .select("catalog_book_id")
+    .eq("category_id", categoryId);
+
+  if (error) {
+    logError("browse-store:fetchBookIdsByCategory", error.message);
+    return [];
+  }
+  return (data ?? []).map((d) => d.catalog_book_id);
+}
 
 export const useBrowseStore = create<BrowseState>((set, get) => ({
   catalogBooks: [],
@@ -40,6 +54,16 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
     set({ isLoading: true, page: 0 });
     const { searchQuery, activeCategory } = get();
 
+    // If filtering by category, get matching IDs from junction table first
+    let categoryBookIds: string[] | null = null;
+    if (activeCategory) {
+      categoryBookIds = await fetchBookIdsByCategory(activeCategory);
+      if (categoryBookIds.length === 0) {
+        set({ catalogBooks: [], totalCount: 0, isLoading: false });
+        return;
+      }
+    }
+
     let query = supabase
       .from("catalog_books")
       .select("*", { count: "exact" })
@@ -50,13 +74,13 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
     if (searchQuery) {
       query = query.ilike("title", `%${searchQuery}%`);
     }
-    if (activeCategory) {
-      query = query.contains("categories", [activeCategory]);
+    if (categoryBookIds) {
+      query = query.in("id", categoryBookIds);
     }
 
     const { data, error, count } = await query;
     if (error) {
-      console.error("Failed to fetch catalog books:", error.message);
+      logError("browse-store:fetchCatalogBooks", error.message);
       set({ isLoading: false });
       return;
     }
@@ -79,6 +103,12 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
 
     set({ isLoading: true });
 
+    // If filtering by category, get matching IDs from junction table
+    let categoryBookIds: string[] | null = null;
+    if (activeCategory) {
+      categoryBookIds = await fetchBookIdsByCategory(activeCategory);
+    }
+
     let query = supabase
       .from("catalog_books")
       .select("*")
@@ -89,13 +119,13 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
     if (searchQuery) {
       query = query.ilike("title", `%${searchQuery}%`);
     }
-    if (activeCategory) {
-      query = query.contains("categories", [activeCategory]);
+    if (categoryBookIds) {
+      query = query.in("id", categoryBookIds);
     }
 
     const { data, error } = await query;
     if (error) {
-      console.error("Failed to load more catalog books:", error.message);
+      logError("browse-store:loadMore", error.message);
       set({ isLoading: false });
       return;
     }
@@ -112,26 +142,39 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
     await get().fetchCatalogBooks();
   },
 
-  filterByCategory: async (category) => {
-    set({ activeCategory: category });
+  filterByCategory: async (categoryId) => {
+    set({ activeCategory: categoryId });
     await get().fetchCatalogBooks();
   },
 
-  addBookToCatalog: async (book) => {
+  addBookToCatalog: async (book, categoryIds) => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     const { downloadable: _, ...catalogBook } = book as unknown as Record<string, unknown>;
-    const { error } = await supabase.from("catalog_books").insert({
-      ...catalogBook,
-      submitted_by: user?.id,
-      status: "pending",
-    });
+    const { data, error } = await supabase
+      .from("catalog_books")
+      .insert({
+        ...catalogBook,
+        submitted_by: user?.id,
+        status: "pending",
+      })
+      .select("id")
+      .single();
 
     if (error) {
-      console.error("Failed to add book to catalog:", error.message);
+      logError("browse-store:addBookToCatalog", error.message);
       throw error;
+    }
+
+    // Link to categories via junction table
+    if (data && categoryIds && categoryIds.length > 0) {
+      const rows = categoryIds.map((cid) => ({
+        catalog_book_id: data.id,
+        category_id: cid,
+      }));
+      await supabase.from("catalog_book_categories").insert(rows);
     }
   },
 
@@ -151,7 +194,7 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
     const { error } = await supabase.from("catalog_books").insert(rows);
 
     if (error) {
-      console.error("Failed to add books to catalog:", error.message);
+      logError("browse-store:addBooksToCatalog", error.message);
       throw error;
     }
   },
@@ -168,7 +211,7 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
     });
 
     if (error) {
-      console.error("Failed to add to library:", error.message);
+      logError("browse-store:addToUserLibrary", error.message);
       throw error;
     }
 
@@ -190,7 +233,7 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
       .eq("catalog_book_id", bookId);
 
     if (error) {
-      console.error("Failed to remove from library:", error.message);
+      logError("browse-store:removeFromUserLibrary", error.message);
       throw error;
     }
 
@@ -216,7 +259,7 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
       .eq("user_id", user.id);
 
     if (error) {
-      console.error("Failed to check user library:", error.message);
+      logError("browse-store:checkUserLibrary", error.message);
       return;
     }
 

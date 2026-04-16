@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
-import { BookOpen, FilePlus, Loader2 } from "lucide-react";
+import { BookOpen, FilePlus, Loader2, X } from "lucide-react";
 import {
   DockviewReact,
   type DockviewReadyEvent,
@@ -11,7 +11,8 @@ import { ReaderSidebarContent } from "./ReaderSidebar";
 import { ReaderToolbar } from "./ReaderToolbar";
 import { PdfViewer } from "./PdfViewer";
 import { CommentsSidebar } from "./CommentsSidebar";
-import { SearchPanel } from "./SearchPanel";
+import { SearchPanel, SearchPanelContent } from "./SearchPanel";
+import { AiChatPanel, AiChatPanelContent } from "./AiChatPanel";
 import { NoteEditor } from "@/features/notes/NoteEditor";
 import { WhiteboardPanelWrapper } from "@/features/whiteboard/WhiteboardPanel";
 import { useReaderStore } from "@/stores/reader-store";
@@ -20,12 +21,17 @@ import { useUndoStore } from "@/stores/undo-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useNoteStore } from "@/stores/note-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
+import { useStreakStore } from "@/stores/streak-store";
 import { getFile } from "@/lib/file-store";
 import { createPdfAdapter } from "./adapters/pdf-adapter";
 import { useOpenPdf } from "@/hooks/use-open-pdf";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
+import { useIsMobile } from "@/hooks/use-media-query";
+import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui";
 import { saveDockviewLayout, loadDockviewLayout } from "@/stores/ui-store";
+import { loadTocWidth, saveTocWidth } from "@/lib/annotation-storage";
+import type { TocItem } from "@/types/document";
 
 function TocPanel(props: IDockviewPanelProps) {
   const dockviewApi = props.containerApi;
@@ -97,6 +103,24 @@ function TocPanel(props: IDockviewPanelProps) {
     });
   }, [dockviewApi]);
 
+  const handleDeleteNote = useCallback(
+    (noteId: string) => {
+      const panelId = `note-${noteId}`;
+      const existing = dockviewApi.getPanel(panelId);
+      if (existing) dockviewApi.removePanel(existing);
+    },
+    [dockviewApi],
+  );
+
+  const handleDeleteWhiteboard = useCallback(
+    (whiteboardId: string) => {
+      const panelId = `whiteboard-${whiteboardId}`;
+      const existing = dockviewApi.getPanel(panelId);
+      if (existing) dockviewApi.removePanel(existing);
+    },
+    [dockviewApi],
+  );
+
   return (
     <>
       <ReaderSidebarContent
@@ -105,6 +129,8 @@ function TocPanel(props: IDockviewPanelProps) {
         onCreateNote={handleCreateNote}
         onOpenWhiteboard={handleOpenWhiteboard}
         onCreateWhiteboard={handleCreateWhiteboard}
+        onDeleteNote={handleDeleteNote}
+        onDeleteWhiteboard={handleDeleteWhiteboard}
       />
       <input
         ref={fileInputRef}
@@ -137,9 +163,170 @@ const dockviewComponents = {
   pdfViewer: ViewerPanel,
   comments: CommentsPanel,
   search: SearchPanel,
+  aiChat: AiChatPanel,
   note: NotePanelWrapper,
   whiteboard: WhiteboardPanelWrapper,
 };
+
+interface MobileReaderLayoutProps {
+  isFullscreen: boolean;
+  onToggleFullscreen: () => void;
+  onToggleComments: () => void;
+  isDrawMode: boolean;
+  onToggleDrawMode: () => void;
+  onScreenshot: () => void;
+  onPrint: () => void;
+  onToggleSearch: () => void;
+  onToggleAiChat: () => void;
+}
+
+function MobileReaderLayout({
+  isFullscreen,
+  onToggleFullscreen,
+  onToggleComments,
+  isDrawMode,
+  onToggleDrawMode,
+  onScreenshot,
+  onPrint,
+  onToggleSearch,
+  onToggleAiChat,
+}: MobileReaderLayoutProps) {
+  const mobileReaderPanel = useUIStore((s) => s.mobileReaderPanel);
+  const setMobileReaderPanel = useUIStore((s) => s.setMobileReaderPanel);
+
+  const handleToggleComments = useCallback(() => {
+    setMobileReaderPanel(mobileReaderPanel === "comments" ? "none" : "comments");
+  }, [mobileReaderPanel, setMobileReaderPanel]);
+
+  const handleToggleSearch = useCallback(() => {
+    setMobileReaderPanel(mobileReaderPanel === "search" ? "none" : "search");
+  }, [mobileReaderPanel, setMobileReaderPanel]);
+
+  const handleToggleAiChat = useCallback(() => {
+    setMobileReaderPanel(mobileReaderPanel === "aiChat" ? "none" : "aiChat");
+  }, [mobileReaderPanel, setMobileReaderPanel]);
+
+  const handleToggleToc = useCallback(() => {
+    setMobileReaderPanel(mobileReaderPanel === "toc" ? "none" : "toc");
+  }, [mobileReaderPanel, setMobileReaderPanel]);
+
+  return (
+    <div className="relative flex flex-1 flex-col overflow-hidden">
+      <ReaderToolbar
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={onToggleFullscreen}
+        onToggleComments={handleToggleComments}
+        isDrawMode={isDrawMode}
+        onToggleDrawMode={onToggleDrawMode}
+        onScreenshot={onScreenshot}
+        onPrint={onPrint}
+        onToggleSearch={handleToggleSearch}
+        onToggleAiChat={handleToggleAiChat}
+      />
+      <div className="flex-1 overflow-hidden">
+        <PdfViewer />
+      </div>
+
+      {/* Backdrop for overlay panels */}
+      {mobileReaderPanel !== "none" && (
+        <div
+          className="absolute inset-0 top-11 z-30 bg-black/40"
+          onClick={() => setMobileReaderPanel("none")}
+        />
+      )}
+
+      {/* TOC panel - slides from left */}
+      <div
+        className={cn(
+          "absolute left-0 top-11 bottom-0 z-40 w-72 border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
+          mobileReaderPanel === "toc" ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="flex items-center justify-between border-b border-glass-border px-3 py-2">
+          <span className="text-sm font-medium text-text-primary">Contents</span>
+          <button
+            onClick={() => setMobileReaderPanel("none")}
+            className="rounded-md p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <div className="h-[calc(100%-2.5rem)] overflow-y-auto">
+          <ReaderSidebarContent
+            onOpenFile={() => {}}
+            onOpenNote={() => {}}
+            onCreateNote={() => {}}
+            onOpenWhiteboard={() => {}}
+            onCreateWhiteboard={() => {}}
+          />
+        </div>
+      </div>
+
+      {/* Comments panel - slides from right */}
+      <div
+        className={cn(
+          "absolute right-0 top-11 bottom-0 z-40 w-72 border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
+          mobileReaderPanel === "comments" ? "translate-x-0" : "translate-x-full",
+        )}
+      >
+        <div className="flex items-center justify-between border-b border-glass-border px-3 py-2">
+          <span className="text-sm font-medium text-text-primary">Comments</span>
+          <button
+            onClick={() => setMobileReaderPanel("none")}
+            className="rounded-md p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <div className="h-[calc(100%-2.5rem)] overflow-y-auto">
+          <CommentsSidebar />
+        </div>
+      </div>
+
+      {/* Search panel - slides from right */}
+      <div
+        className={cn(
+          "absolute right-0 top-11 bottom-0 z-40 w-72 border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
+          mobileReaderPanel === "search" ? "translate-x-0" : "translate-x-full",
+        )}
+      >
+        <div className="flex items-center justify-between border-b border-glass-border px-3 py-2">
+          <span className="text-sm font-medium text-text-primary">Search</span>
+          <button
+            onClick={() => setMobileReaderPanel("none")}
+            className="rounded-md p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <div className="h-[calc(100%-2.5rem)] overflow-y-auto">
+          <SearchPanelContent />
+        </div>
+      </div>
+
+      {/* AI Chat panel - slides from right */}
+      <div
+        className={cn(
+          "absolute right-0 top-11 bottom-0 z-40 w-72 border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
+          mobileReaderPanel === "aiChat" ? "translate-x-0" : "translate-x-full",
+        )}
+      >
+        <div className="flex items-center justify-between border-b border-glass-border px-3 py-2">
+          <span className="text-sm font-medium text-text-primary">AI Chat</span>
+          <button
+            onClick={() => setMobileReaderPanel("none")}
+            className="rounded-md p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <div className="h-[calc(100%-2.5rem)]">
+          <AiChatPanelContent />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function EmptyState() {
   const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenPdf();
@@ -171,8 +358,28 @@ function EmptyState() {
   );
 }
 
+function flattenToc(items: TocItem[]): string[] {
+  const result: string[] = [];
+  for (const item of items) {
+    result.push(item.title);
+    if (item.children.length) result.push(...flattenToc(item.children));
+  }
+  return result;
+}
+
+function computeTocWidth(toc: TocItem[]): number {
+  const titles = flattenToc(toc);
+  if (titles.length === 0) return 200;
+  const sorted = titles.map((t) => t.length).sort((a, b) => b - a);
+  const top3 = sorted.slice(0, 3);
+  const avg = top3.reduce((sum, l) => sum + l, 0) / top3.length;
+  const width = avg * 7.5 + 48;
+  return Math.round(Math.min(Math.max(width, 180), 400));
+}
+
 export function ReaderPage() {
   const { bookId } = useParams();
+  const isMobile = useIsMobile();
   const documents = useReaderStore((s) => s.documents);
   const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
   const addDocument = useReaderStore((s) => s.addDocument);
@@ -188,6 +395,7 @@ export function ReaderPage() {
 
   const dockviewApiRef = useRef<DockviewApi | null>(null);
   const layoutSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tocWidthRef = useRef<number>(256);
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenPdf();
@@ -331,6 +539,9 @@ export function ReaderPage() {
           component: "toc",
           title: "Table of Contents",
           position: { direction: "left" },
+          initialWidth: tocWidthRef.current,
+          minimumWidth: 180,
+          maximumWidth: 400,
         });
       }
     }, []),
@@ -439,21 +650,43 @@ export function ReaderPage() {
     }
   }, []);
 
-  // Print handler
-  const handlePrint = useCallback(() => {
-    const activeDoc = useReaderStore.getState().getActiveDoc();
-    const fileUrl = activeDoc?.meta?.fileUrl;
-    if (!fileUrl) return;
+  // Print handler — captures the viewer with annotation overlays
+  const handlePrint = useCallback(async () => {
+    const viewer = document.querySelector<HTMLElement>("[data-pdf-viewer]");
+    if (!viewer) {
+      // Fallback: print raw PDF if viewer element not found
+      const activeDoc = useReaderStore.getState().getActiveDoc();
+      const fileUrl = activeDoc?.meta?.fileUrl;
+      if (!fileUrl) return;
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      document.body.appendChild(iframe);
+      iframe.src = fileUrl;
+      iframe.onload = () => {
+        iframe.contentWindow?.print();
+        setTimeout(() => document.body.removeChild(iframe), 1000);
+      };
+      return;
+    }
 
-    const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    document.body.appendChild(iframe);
-    iframe.src = fileUrl;
-    iframe.onload = () => {
-      iframe.contentWindow?.print();
-      // Clean up after print dialog closes
-      setTimeout(() => document.body.removeChild(iframe), 1000);
-    };
+    const { default: html2canvas } = await import("html2canvas-pro");
+    const canvas = await html2canvas(viewer, {
+      useCORS: true,
+      allowTaint: true,
+    });
+
+    const dataUrl = canvas.toDataURL("image/png");
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html>
+        <head><title>Print</title></head>
+        <body style="margin:0;display:flex;justify-content:center;">
+          <img src="${dataUrl}" style="max-width:100%;height:auto;" onload="window.print();window.close();" />
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   }, []);
 
   // Screenshot handler
@@ -487,6 +720,24 @@ export function ReaderPage() {
         title: "Search",
         position: { direction: "right" },
         initialWidth: 320,
+      });
+    }
+  }, []);
+
+  // AI Chat toggle
+  const toggleAiChat = useCallback(() => {
+    const api = dockviewApiRef.current;
+    if (!api) return;
+    const panel = api.getPanel("aiChat");
+    if (panel) {
+      api.removePanel(panel);
+    } else {
+      api.addPanel({
+        id: "aiChat",
+        component: "aiChat",
+        title: "AI Chat",
+        position: { direction: "right" },
+        initialWidth: 360,
       });
     }
   }, []);
@@ -525,6 +776,14 @@ export function ReaderPage() {
   });
 
   useKeyboardShortcut({
+    id: "reader:toggle-ai-chat",
+    key: "i",
+    ctrl: true,
+    description: "Toggle AI chat panel",
+    handler: toggleAiChat,
+  });
+
+  useKeyboardShortcut({
     id: "reader:undo",
     key: "z",
     ctrl: true,
@@ -556,73 +815,157 @@ export function ReaderPage() {
       }
     });
 
-    // Dockview distributes space equally when panels are added or removed.
-    // Defer setSize to next frame so it runs after the distribute completes.
-    const TOC_WIDTH = 256;
-    const restoreTocWidth = () => {
-      requestAnimationFrame(() => {
-        try {
-          const tocPanel = api.getPanel("toc");
-          if (tocPanel) {
-            tocPanel.api.setSize({ width: TOC_WIDTH });
+    // Compute dynamic TOC width from active document's TOC entries
+    const activeDoc = useReaderStore.getState().getActiveDoc();
+    const dynamicWidth = activeDoc ? computeTocWidth(activeDoc.toc) : 256;
+    tocWidthRef.current = dynamicWidth;
+
+    // Try loading saved width for this document, then set up layout
+    const docId = useReaderStore.getState().activeDocumentId;
+    const setupLayout = (resolvedWidth: number) => {
+      tocWidthRef.current = resolvedWidth;
+
+      // Dockview distributes space equally when panels are added or removed.
+      // Defer setSize to next frame so it runs after the distribute completes.
+      const restoreTocWidth = () => {
+        requestAnimationFrame(() => {
+          try {
+            const tocPanel = api.getPanel("toc");
+            if (tocPanel) {
+              tocPanel.api.setSize({ width: tocWidthRef.current });
+            }
+          } catch {
+            // panel may not exist
           }
+        });
+      };
+      api.onDidRemovePanel((removed) => {
+        if (removed.id === "toc") return;
+        restoreTocWidth();
+      });
+      api.onDidAddPanel((added) => {
+        if (added.id === "toc") return;
+        restoreTocWidth();
+      });
+
+      // Try restoring saved layout
+      const saved = loadDockviewLayout();
+      if (saved) {
+        try {
+          api.fromJSON(saved as ReturnType<typeof api.toJSON>);
+          // After restoring layout, apply the correct TOC width
+          restoreTocWidth();
+          // Set up layout persistence after restoring
+          setupLayoutPersistence();
+          return;
         } catch {
-          // panel may not exist
+          // corrupted layout, fall through to default
         }
+      }
+
+      // Default layout: TOC left, PDF viewer center
+      api.addPanel({
+        id: "pdfViewer",
+        component: "pdfViewer",
+        title: "Document",
+      });
+
+      api.addPanel({
+        id: "toc",
+        component: "toc",
+        title: "Table of Contents",
+        position: { direction: "left", referencePanel: "pdfViewer" },
+        initialWidth: resolvedWidth,
+        minimumWidth: 180,
+        maximumWidth: 400,
+      });
+
+      setupLayoutPersistence();
+    };
+
+    // Debounced layout + TOC width persistence
+    const setupLayoutPersistence = () => {
+      api.onDidLayoutChange(() => {
+        if (layoutSaveTimerRef.current) {
+          clearTimeout(layoutSaveTimerRef.current);
+        }
+        layoutSaveTimerRef.current = setTimeout(() => {
+          saveDockviewLayout(api.toJSON());
+
+          // Persist TOC width per document
+          const currentDocId = useReaderStore.getState().activeDocumentId;
+          if (currentDocId) {
+            try {
+              const tocPanel = api.getPanel("toc");
+              if (tocPanel) {
+                const width = tocPanel.api.width;
+                if (width > 0) {
+                  tocWidthRef.current = width;
+                  saveTocWidth(currentDocId, width);
+                }
+              }
+            } catch {
+              // panel may not exist
+            }
+          }
+        }, 500);
       });
     };
-    api.onDidRemovePanel((removed) => {
-      if (removed.id === "toc") return;
-      restoreTocWidth();
-    });
-    api.onDidAddPanel((added) => {
-      if (added.id === "toc") return;
-      restoreTocWidth();
-    });
 
-    // Try restoring saved layout
-    const saved = loadDockviewLayout();
-    if (saved) {
-      try {
-        api.fromJSON(saved as ReturnType<typeof api.toJSON>);
-        return;
-      } catch {
-        // corrupted layout, fall through to default
-      }
+    if (docId) {
+      loadTocWidth(docId).then((savedWidth) => {
+        setupLayout(savedWidth ?? dynamicWidth);
+      });
+    } else {
+      setupLayout(dynamicWidth);
     }
-
-    // Default layout: TOC left, PDF viewer center
-    api.addPanel({
-      id: "pdfViewer",
-      component: "pdfViewer",
-      title: "Document",
-    });
-
-    api.addPanel({
-      id: "toc",
-      component: "toc",
-      title: "Table of Contents",
-      position: { direction: "left", referencePanel: "pdfViewer" },
-      initialWidth: TOC_WIDTH,
-      minimumWidth: 200,
-      maximumWidth: 320,
-    });
-
-    // Debounced layout persistence
-    api.onDidLayoutChange(() => {
-      if (layoutSaveTimerRef.current) {
-        clearTimeout(layoutSaveTimerRef.current);
-      }
-      layoutSaveTimerRef.current = setTimeout(() => {
-        saveDockviewLayout(api.toJSON());
-      }, 500);
-    });
   }, []);
+
+  // Reading timer for streaks
+  useEffect(() => {
+    if (!hasDocuments) return;
+
+    let lastTick = Date.now();
+    let accumulated = 0;
+
+    const flush = () => {
+      const now = Date.now();
+      accumulated += (now - lastTick) / 1000;
+      lastTick = now;
+      if (accumulated >= 1) {
+        const whole = Math.floor(accumulated);
+        useStreakStore.getState().addReadingTime(whole);
+        accumulated -= whole;
+      }
+    };
+
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        flush();
+      }
+    }, 60_000);
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        flush();
+      } else {
+        lastTick = Date.now();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      flush();
+    };
+  }, [hasDocuments]);
 
   return (
     <div
       ref={readerContainerRef}
-      className="relative flex h-[calc(100vh-theme(spacing.14)-theme(spacing.12))] -m-6 -mt-0 flex-col bg-bg-primary"
+      className="relative flex h-screen flex-col bg-bg-primary"
     >
       {isLoadingDocument && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-bg-primary/80 backdrop-blur-sm">
@@ -631,8 +974,8 @@ export function ReaderPage() {
         </div>
       )}
       {hasDocuments ? (
-        <>
-          <ReaderToolbar
+        isMobile ? (
+          <MobileReaderLayout
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
             onToggleComments={toggleComments}
@@ -641,13 +984,28 @@ export function ReaderPage() {
             onScreenshot={handleScreenshot}
             onPrint={handlePrint}
             onToggleSearch={toggleSearch}
+            onToggleAiChat={toggleAiChat}
           />
-          <DockviewReact
-            className="pnyxy-dockview-theme flex-1"
-            onReady={handleDockviewReady}
-            components={dockviewComponents}
-          />
-        </>
+        ) : (
+          <>
+            <ReaderToolbar
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
+              onToggleComments={toggleComments}
+              isDrawMode={isDrawMode}
+              onToggleDrawMode={toggleDrawMode}
+              onScreenshot={handleScreenshot}
+              onPrint={handlePrint}
+              onToggleSearch={toggleSearch}
+              onToggleAiChat={toggleAiChat}
+            />
+            <DockviewReact
+              className="pnyxy-dockview-theme flex-1"
+              onReady={handleDockviewReady}
+              components={dockviewComponents}
+            />
+          </>
+        )
       ) : (
         <EmptyState />
       )}

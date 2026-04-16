@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Folder, MoreVertical, Pencil, Trash2 } from "lucide-react";
-import { GlassCard } from "@/components/ui";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Checkbox, GlassCard } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import type { Folder as FolderType } from "@/types/database";
 
 interface FolderCardProps {
@@ -8,11 +11,41 @@ interface FolderCardProps {
   onNavigate: (id: string) => void;
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
+  coverHeight?: number;
+  selected?: boolean;
+  selectionActive?: boolean;
+  onToggleSelect?: (id: string, event: { ctrlKey: boolean; shiftKey: boolean }) => void;
+  sortableId?: string;
 }
 
-export function FolderCard({ folder, onNavigate, onRename, onDelete }: FolderCardProps) {
+export function FolderCard({
+  folder,
+  onNavigate,
+  onRename,
+  onDelete,
+  coverHeight = 120,
+  selected = false,
+  selectionActive = false,
+  onToggleSelect,
+  sortableId,
+}: FolderCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: sortableId ?? folder.id, disabled: !sortableId });
+
+  const style = sortableId
+    ? { transform: CSS.Transform.toString(transform), transition }
+    : undefined;
+
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const selKey = `folder:${folder.id}`;
+  const iconSize = Math.round(Math.min(Math.max(coverHeight * 0.35, 24), 48));
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -25,55 +58,104 @@ export function FolderCard({ folder, onNavigate, onRename, onDelete }: FolderCar
     return () => document.removeEventListener("mousedown", handleClick);
   }, [menuOpen]);
 
+  const handleClick = (e: React.MouseEvent) => {
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      onToggleSelect?.(selKey, { ctrlKey: e.ctrlKey || e.metaKey, shiftKey: e.shiftKey });
+      return;
+    }
+    if (selectionActive) {
+      onToggleSelect?.(selKey, { ctrlKey: false, shiftKey: false });
+      return;
+    }
+    onNavigate(folder.id);
+  };
+
   return (
-    <GlassCard className="relative cursor-pointer overflow-hidden" onClick={() => onNavigate(folder.id)}>
-      <div className="flex h-48 flex-col items-center justify-center gap-2">
-        <Folder size={48} className="text-accent-purple/60" />
-        <p className="max-w-full truncate px-4 text-sm font-medium text-text-primary">
-          {folder.name}
-        </p>
-      </div>
-
-      {/* 3-dot menu */}
-      <div ref={menuRef} className="absolute right-2 top-2">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setMenuOpen((v) => !v);
-          }}
-          className="rounded-lg p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-        >
-          <MoreVertical size={16} />
-        </button>
-
-        {menuOpen && (
-          <div className="absolute right-0 top-8 z-20 w-40 rounded-lg border border-glass-border bg-bg-secondary/95 py-1 shadow-lg backdrop-blur-xl">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setMenuOpen(false);
-                const name = prompt("Rename folder:", folder.name);
-                if (name && name.trim()) onRename(folder.id, name.trim());
-              }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-            >
-              <Pencil size={14} />
-              Rename
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setMenuOpen(false);
-                onDelete(folder.id);
-              }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 transition-colors hover:bg-glass-hover cursor-pointer"
-            >
-              <Trash2 size={14} />
-              Delete
-            </button>
-          </div>
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <GlassCard
+        className={cn(
+          "group relative cursor-pointer overflow-hidden",
+          selected && "ring-2 ring-accent-purple bg-accent-purple/5",
+          isDragging && "opacity-50",
         )}
-      </div>
-    </GlassCard>
+      >
+        <div onClick={handleClick}>
+          {/* Selection checkbox */}
+          {onToggleSelect && (
+            <div
+              className={cn(
+                "absolute left-2 top-2 z-10 transition-opacity",
+                selectionActive || selected
+                  ? "opacity-100"
+                  : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
+              )}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Checkbox
+                checked={selected}
+                onChange={() => onToggleSelect(selKey, { ctrlKey: false, shiftKey: false })}
+              />
+            </div>
+          )}
+
+          <div
+            className="flex flex-col items-center justify-center gap-1"
+            style={{ height: coverHeight + 48 }}
+          >
+            <Folder size={iconSize} className="text-accent-purple/60" />
+            <p className="max-w-full truncate px-3 text-sm font-medium text-text-primary">
+              {folder.name}
+            </p>
+          </div>
+        </div>
+
+        {/* 3-dot menu */}
+        <div ref={menuRef} className="absolute right-2 top-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen((v) => !v);
+            }}
+            className={cn(
+              "rounded-lg p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer",
+              menuOpen
+                ? "opacity-100"
+                : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
+            )}
+          >
+            <MoreVertical size={16} />
+          </button>
+
+          {menuOpen && (
+            <div className="absolute right-0 top-8 z-20 w-40 rounded-lg border border-glass-border bg-bg-secondary/95 py-1 shadow-lg backdrop-blur-xl">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
+                  const name = prompt("Rename folder:", folder.name);
+                  if (name && name.trim()) onRename(folder.id, name.trim());
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              >
+                <Pencil size={14} />
+                Rename
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
+                  onDelete(folder.id);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 transition-colors hover:bg-glass-hover cursor-pointer"
+              >
+                <Trash2 size={14} />
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
+      </GlassCard>
+    </div>
   );
 }

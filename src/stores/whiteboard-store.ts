@@ -12,6 +12,7 @@ import {
   deleteWhiteboard as dbDeleteWhiteboard,
   loadWhiteboard,
 } from "@/lib/whiteboard-storage";
+import { logError } from "@/lib/logger";
 import { renderPdfPages } from "@/features/whiteboard/lib/pdf-renderer";
 
 interface UndoEntry {
@@ -286,7 +287,8 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       });
 
       set({ pdfPages, pdfLoading: false, pdfLoadProgress: null });
-    } catch {
+    } catch (err) {
+      logError("whiteboard-store:loadPdfBackground", err);
       set({ pdfLoading: false, pdfLoadProgress: null });
     }
   },

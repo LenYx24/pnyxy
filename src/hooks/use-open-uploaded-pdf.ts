@@ -47,7 +47,7 @@ export function useOpenUploadedPdf() {
         const docId = await useReaderStore.getState().addDocument(adapter, file);
 
         registerFile(docId, file);
-        navigate(`/app/reader/${docId}`);
+        navigate(`/reader/${docId}`);
       } finally {
         setLoading(false);
       }

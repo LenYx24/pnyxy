@@ -4,7 +4,7 @@ import { useSearchStore } from "@/stores/search-store";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 import type { IDockviewPanelProps } from "dockview";
 
-function SearchPanelContent() {
+export function SearchPanelContent() {
   const query = useSearchStore((s) => s.query);
   const results = useSearchStore((s) => s.results);
   const isSearching = useSearchStore((s) => s.isSearching);

@@ -27,7 +27,7 @@ export function useOpenPdf() {
         registerFile(docId, file);
 
         if (shouldNavigate) {
-          navigate(`/app/reader/${docId}`);
+          navigate(`/reader/${docId}`);
         }
 
         return docId;

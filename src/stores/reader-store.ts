@@ -1,12 +1,16 @@
 import { create } from "zustand";
 import type { DocumentAdapter, DocumentMeta, TocItem } from "@/types/document";
 import { loadDocumentMeta, saveDocumentMeta } from "@/lib/annotation-storage";
+import { useSettingsStore } from "@/stores/settings-store";
+import { getTracker, type TrackerContext } from "@/lib/reading-trackers";
+import { hostEventBus } from "@/lib/plugins/api/events";
 
 export type ZoomMode = "fit-width" | "fit-page" | "custom";
 
 const ZOOM_STEP = 15;
 const ZOOM_MIN = 25;
 const ZOOM_MAX = 400;
+const PROGRESS_PERSIST_DEBOUNCE_MS = 800;
 
 export interface DocumentState {
   adapter: DocumentAdapter;
@@ -18,6 +22,10 @@ export interface DocumentState {
   zoomLevel: number;
   scrollToPage: number | null;
   customTitle: string | null;
+  /** Last visited page — always tracks `currentPage`, persisted on close. */
+  lastPosition: number;
+  /** Furthest page counted as read by the active tracker. */
+  progressPage: number;
 }
 
 interface ReaderState {
@@ -45,6 +53,11 @@ interface ReaderState {
   clearScrollRequest: (docId?: string) => void;
   setCustomTitle: (title: string | null, docId?: string) => void;
   getDisplayTitle: (docId?: string) => string;
+  /**
+   * Manually set the user's reading progress to a specific page,
+   * bypassing the tracker's normal advancement rules.
+   */
+  manualSetProgress: (page: number, docId?: string) => void;
 }
 
 function updateDoc(
@@ -56,6 +69,85 @@ function updateDoc(
   if (!doc) return documents;
   const next = new Map(documents);
   next.set(docId, { ...doc, ...patch });
+  return next;
+}
+
+// ── Progress persistence (debounced per document) ───────────
+
+const progressSaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function schedulePersistProgress(docId: string): void {
+  const existing = progressSaveTimers.get(docId);
+  if (existing) clearTimeout(existing);
+  const timer = setTimeout(() => {
+    progressSaveTimers.delete(docId);
+    const doc = useReaderStore.getState().documents.get(docId);
+    if (!doc) return;
+    loadDocumentMeta(docId)
+      .then((stored) => {
+        saveDocumentMeta({
+          documentId: docId,
+          ...stored,
+          lastPosition: doc.lastPosition,
+          progressPage: doc.progressPage,
+        });
+      })
+      .catch(() => {
+        saveDocumentMeta({
+          documentId: docId,
+          lastPosition: doc.lastPosition,
+          progressPage: doc.progressPage,
+        });
+      });
+  }, PROGRESS_PERSIST_DEBOUNCE_MS);
+  progressSaveTimers.set(docId, timer);
+}
+
+// ── Tracker invocation ──────────────────────────────────────
+
+function buildTrackerContext(doc: DocumentState): TrackerContext {
+  const settingsState = useSettingsStore.getState();
+  const trackerId = settingsState.activeTrackerId;
+  return {
+    currentProgress: doc.progressPage,
+    totalPages: doc.totalPages,
+    settings: settingsState.trackerSettings[trackerId] ?? {},
+  };
+}
+
+function clampProgress(value: number, totalPages: number): number {
+  if (!Number.isFinite(value)) return 0;
+  if (totalPages <= 0) return Math.max(0, Math.floor(value));
+  return Math.max(0, Math.min(totalPages, Math.floor(value)));
+}
+
+/** Notify the active tracker about a page change and persist. */
+function recordPageChange(
+  documents: Map<string, DocumentState>,
+  docId: string,
+  from: number,
+  to: number,
+): Map<string, DocumentState> {
+  const doc = documents.get(docId);
+  if (!doc) return documents;
+
+  const tracker = getTracker(useSettingsStore.getState().activeTrackerId);
+  let nextProgress = doc.progressPage;
+  if (tracker.onPageChange) {
+    const result = tracker.onPageChange(buildTrackerContext(doc), from, to);
+    if (typeof result === "number") {
+      nextProgress = clampProgress(result, doc.totalPages);
+    }
+  }
+
+  const patch: Partial<DocumentState> = { lastPosition: to };
+  if (nextProgress !== doc.progressPage) {
+    patch.progressPage = nextProgress;
+  }
+
+  const next = updateDoc(documents, docId, patch);
+  schedulePersistProgress(docId);
+  hostEventBus.emit("reader:page-change", { docId, page: to, from });
   return next;
 }
 
@@ -74,9 +166,21 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     const toc = await adapter.extractToc();
 
     let customTitle: string | null = null;
+    let zoomMode: ZoomMode = useSettingsStore.getState().defaultFitMode;
+    let lastPosition = 1;
+    let progressPage = 0;
     try {
       const stored = await loadDocumentMeta(meta.id);
       if (stored?.customTitle) customTitle = stored.customTitle;
+      if (stored?.zoomMode === "fit-width" || stored?.zoomMode === "fit-page") {
+        zoomMode = stored.zoomMode;
+      }
+      if (typeof stored?.lastPosition === "number") {
+        lastPosition = clampProgress(stored.lastPosition, meta.totalPages) || 1;
+      }
+      if (typeof stored?.progressPage === "number") {
+        progressPage = clampProgress(stored.progressPage, meta.totalPages);
+      }
     } catch {
       // ignore
     }
@@ -85,17 +189,20 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       adapter,
       meta,
       toc,
-      currentPage: 1,
+      currentPage: lastPosition,
       totalPages: meta.totalPages,
-      zoomMode: "fit-width",
+      zoomMode,
       zoomLevel: 100,
-      scrollToPage: null,
+      scrollToPage: lastPosition > 1 ? lastPosition : null,
       customTitle,
+      lastPosition,
+      progressPage,
     };
 
     const next = new Map(get().documents);
     next.set(meta.id, docState);
     set({ documents: next, activeDocumentId: meta.id });
+    hostEventBus.emit("book:opened", { docId: meta.id, title: meta.title });
     return meta.id;
   },
 
@@ -114,6 +221,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     }
 
     set({ documents: next, activeDocumentId: newActive });
+    hostEventBus.emit("book:closed", { docId });
   },
 
   setActiveDocument(docId) {
@@ -127,9 +235,14 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     const doc = documents.get(id);
     if (!doc) return;
     const clamped = Math.min(Math.max(page, 1), doc.totalPages);
-    if (doc.totalPages > 0) {
-      set({ documents: updateDoc(documents, id, { currentPage: clamped, scrollToPage: clamped }) });
-    }
+    if (doc.totalPages <= 0 || clamped === doc.currentPage) return;
+    const updated = recordPageChange(
+      updateDoc(documents, id, { currentPage: clamped, scrollToPage: clamped }),
+      id,
+      doc.currentPage,
+      clamped,
+    );
+    set({ documents: updated });
   },
 
   nextPage(docId) {
@@ -139,9 +252,14 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     const doc = documents.get(id);
     if (!doc) return;
     const next = Math.min(doc.currentPage + 1, doc.totalPages);
-    if (next !== doc.currentPage) {
-      set({ documents: updateDoc(documents, id, { currentPage: next, scrollToPage: next }) });
-    }
+    if (next === doc.currentPage) return;
+    const updated = recordPageChange(
+      updateDoc(documents, id, { currentPage: next, scrollToPage: next }),
+      id,
+      doc.currentPage,
+      next,
+    );
+    set({ documents: updated });
   },
 
   prevPage(docId) {
@@ -151,9 +269,14 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     const doc = documents.get(id);
     if (!doc) return;
     const prev = Math.max(doc.currentPage - 1, 1);
-    if (prev !== doc.currentPage) {
-      set({ documents: updateDoc(documents, id, { currentPage: prev, scrollToPage: prev }) });
-    }
+    if (prev === doc.currentPage) return;
+    const updated = recordPageChange(
+      updateDoc(documents, id, { currentPage: prev, scrollToPage: prev }),
+      id,
+      doc.currentPage,
+      prev,
+    );
+    set({ documents: updated });
   },
 
   zoomIn(docId) {
@@ -180,6 +303,14 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     const id = docId ?? get().activeDocumentId;
     if (!id) return;
     set({ documents: updateDoc(get().documents, id, { zoomMode: mode }) });
+    // Persist fit mode per-document (only fit-width/fit-page, not custom)
+    if (mode !== "custom") {
+      loadDocumentMeta(id).then((existing) => {
+        saveDocumentMeta({ documentId: id, ...existing, zoomMode: mode });
+      }).catch(() => {
+        saveDocumentMeta({ documentId: id, zoomMode: mode });
+      });
+    }
   },
 
   setZoomLevel(level, docId) {
@@ -196,7 +327,17 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   setCurrentPage(page, docId) {
     const id = docId ?? get().activeDocumentId;
     if (!id) return;
-    set({ documents: updateDoc(get().documents, id, { currentPage: page }) });
+    const { documents } = get();
+    const doc = documents.get(id);
+    if (!doc) return;
+    if (page === doc.currentPage) return;
+    const updated = recordPageChange(
+      updateDoc(documents, id, { currentPage: page }),
+      id,
+      doc.currentPage,
+      page,
+    );
+    set({ documents: updated });
   },
 
   requestScrollToPage(page, docId) {
@@ -230,6 +371,23 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     const doc = get().documents.get(id);
     if (!doc) return "Untitled";
     return doc.customTitle || doc.meta.title || "Untitled";
+  },
+
+  manualSetProgress(page, docId) {
+    const id = docId ?? get().activeDocumentId;
+    if (!id) return;
+    const { documents } = get();
+    const doc = documents.get(id);
+    if (!doc) return;
+
+    const tracker = getTracker(useSettingsStore.getState().activeTrackerId);
+    if (!tracker.onManualSet) return;
+    const result = tracker.onManualSet(buildTrackerContext(doc), page);
+    if (typeof result !== "number") return;
+    const next = clampProgress(result, doc.totalPages);
+    if (next === doc.progressPage) return;
+    set({ documents: updateDoc(documents, id, { progressPage: next }) });
+    schedulePersistProgress(id);
   },
 }));
 

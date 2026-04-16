@@ -7,8 +7,8 @@ export function HeroSection() {
 
   return (
     <section className="relative flex min-h-screen flex-col items-center justify-center px-6 text-center">
-      {/* Floating geometric shapes */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {/* Floating geometric shapes (hidden on mobile) */}
+      <div className="pointer-events-none absolute inset-0 hidden overflow-hidden sm:block">
         <div className="absolute left-[15%] top-[20%] h-24 w-24 rotate-45 rounded-lg border border-accent-purple/20 animate-[float_6s_ease-in-out_infinite]" />
         <div className="absolute right-[20%] top-[30%] h-16 w-16 rounded-full border border-accent-blue/20 animate-[float_8s_ease-in-out_infinite_1s]" />
         <div className="absolute bottom-[25%] left-[25%] h-20 w-20 rotate-12 border border-accent-purple/15 animate-[float_7s_ease-in-out_infinite_2s]" />
@@ -30,15 +30,15 @@ export function HeroSection() {
       </p>
 
       <div className="flex flex-col items-center gap-3">
-        <div className="flex gap-4">
-          <Link to={user ? "/app/library" : "/auth"}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
+          <Link to={user ? "/library" : "/auth"}>
             <Button variant="primary">Get Started</Button>
           </Link>
           <Button variant="secondary">Learn More</Button>
         </div>
         {!user && (
           <Link
-            to="/app/library"
+            to="/library"
             className="text-sm text-text-muted transition-colors hover:text-text-secondary"
           >
             Continue without an account &rarr;

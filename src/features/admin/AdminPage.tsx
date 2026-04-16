@@ -28,13 +28,13 @@ export function AdminPage() {
         </div>
 
         {/* Tab bar */}
-        <div className="mb-6 flex gap-1 rounded-lg border border-glass-border bg-glass-bg p-1 backdrop-blur-md">
+        <div className="mb-6 flex gap-1 overflow-x-auto rounded-lg border border-glass-border bg-glass-bg p-1 backdrop-blur-md">
           {tabs.map(({ key, label }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
               className={cn(
-                "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors cursor-pointer",
+                "flex-1 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors cursor-pointer",
                 activeTab === key
                   ? "bg-accent-purple/15 text-accent-purple"
                   : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",

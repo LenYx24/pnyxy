@@ -1,14 +1,19 @@
-import { useEffect, useState } from "react";
-import { FilePlus, Upload, Loader2 } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { FilePlus, Upload } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useOpenPdf } from "@/hooks/use-open-pdf";
 import { useLibraryStore } from "@/stores/library-store";
+import { useLibraryPrefs } from "./useLibraryPrefs";
+import { LibraryToolbar } from "./LibraryToolbar";
+import { SelectionBar } from "./SelectionBar";
+import { TagFilterBar } from "./TagFilterBar";
 import { HomeTab } from "./HomeTab";
 import { AllBooksTab } from "./AllBooksTab";
 import { FolderPickerModal } from "./FolderPickerModal";
 import { UploadPdfModal } from "./UploadPdfModal";
 import type { UnifiedLibraryItem } from "@/types/catalog";
+import type { BookStatusTag } from "@/types/database";
 
 const STORAGE_KEY = "pnyxy-library-tab";
 
@@ -33,13 +38,81 @@ export function LibraryPage() {
   const fetchLibrary = useLibraryStore((s) => s.fetchLibrary);
   const fetchFolders = useLibraryStore((s) => s.fetchFolders);
   const moveBookToFolder = useLibraryStore((s) => s.moveBookToFolder);
+  const moveFolderToFolder = useLibraryStore((s) => s.moveFolderToFolder);
   const removeFromLibrary = useLibraryStore((s) => s.removeFromLibrary);
+
+  // View preferences
+  const { viewMode, cardSize, setViewMode, setCardSize, sortOrders, setSortOrder } = useLibraryPrefs();
+
+  // Search
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Tag filter
+  const [activeTag, setActiveTag] = useState<BookStatusTag | null>(null);
+
+  // Selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const selectionActive = selectedIds.size > 0;
+  const lastClickedIdRef = useRef<string | null>(null);
+
+  // Build ordered list of selectable IDs (folders sorted by name, then books by date)
+  const getOrderedIds = useCallback((): string[] => {
+    const folderIds = folders
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((f) => `folder:${f.id}`);
+    const bookIds = books.map((b) => `book:${b.id}`);
+    return [...folderIds, ...bookIds];
+  }, [folders, books]);
+
+  const handleToggleSelect = useCallback(
+    (id: string, event: { ctrlKey: boolean; shiftKey: boolean }) => {
+      if (event.shiftKey && lastClickedIdRef.current) {
+        // Range selection
+        const ordered = getOrderedIds();
+        const fromIdx = ordered.indexOf(lastClickedIdRef.current);
+        const toIdx = ordered.indexOf(id);
+        if (fromIdx !== -1 && toIdx !== -1) {
+          const start = Math.min(fromIdx, toIdx);
+          const end = Math.max(fromIdx, toIdx);
+          setSelectedIds((prev) => {
+            const next = new Set(prev);
+            for (let i = start; i <= end; i++) {
+              next.add(ordered[i]);
+            }
+            return next;
+          });
+        }
+      } else if (event.ctrlKey) {
+        // Toggle single item
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+          return next;
+        });
+      } else {
+        // Toggle (during active selection or checkbox click)
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+          return next;
+        });
+      }
+      lastClickedIdRef.current = id;
+    },
+    [getOrderedIds],
+  );
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
   // Upload modal state
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
   // Move-to-folder modal state
   const [moveEntry, setMoveEntry] = useState<UnifiedLibraryItem | null>(null);
+  const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
 
   // Remove confirmation state
   const [removeEntry, setRemoveEntry] = useState<UnifiedLibraryItem | null>(null);
@@ -49,9 +122,11 @@ export function LibraryPage() {
     fetchFolders();
   }, [fetchLibrary, fetchFolders]);
 
+  // Clear selection when switching tabs
   const handleTabChange = (key: TabKey) => {
     setActiveTab(key);
     localStorage.setItem(STORAGE_KEY, key);
+    clearSelection();
   };
 
   const handleMoveBook = (entry: UnifiedLibraryItem) => {
@@ -74,34 +149,85 @@ export function LibraryPage() {
     setMoveEntry(null);
   };
 
-  if (isLoading && books.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <Loader2 size={32} className="animate-spin text-accent-purple" />
-      </div>
-    );
-  }
+  // Bulk operations
+  const handleBulkMove = () => {
+    setBulkMoveOpen(true);
+  };
+
+  const handleBulkMoveSelect = async (folderId: string | null) => {
+    const bookIds = [...selectedIds]
+      .filter((s) => s.startsWith("book:"))
+      .map((s) => s.slice(5));
+    const folderIds = [...selectedIds]
+      .filter((s) => s.startsWith("folder:"))
+      .map((s) => s.slice(7));
+
+    // Move books
+    for (const id of bookIds) {
+      const entry = books.find((b) => b.id === id);
+      if (entry) await moveBookToFolder(entry, folderId);
+    }
+    // Move folders
+    for (const id of folderIds) {
+      await moveFolderToFolder(id, folderId);
+    }
+
+    setBulkMoveOpen(false);
+    clearSelection();
+  };
+
+  const handleBulkDelete = async () => {
+    const bookIds = [...selectedIds]
+      .filter((s) => s.startsWith("book:"))
+      .map((s) => s.slice(5));
+
+    for (const id of bookIds) {
+      const entry = books.find((b) => b.id === id);
+      if (entry) await removeFromLibrary(entry);
+    }
+
+    // For folders, use deleteFolder from the store
+    const folderIds = [...selectedIds]
+      .filter((s) => s.startsWith("folder:"))
+      .map((s) => s.slice(7));
+
+    const deleteFolder = useLibraryStore.getState().deleteFolder;
+    for (const id of folderIds) {
+      await deleteFolder(id);
+    }
+
+    clearSelection();
+  };
+
+  const handleRefresh = useCallback(() => {
+    fetchLibrary();
+    fetchFolders();
+  }, [fetchLibrary, fetchFolders]);
 
   const isUploaded = removeEntry?.source === "uploaded";
 
   return (
     <div>
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-text-primary">Your Library</h2>
           <p className="text-sm text-text-secondary">
-            {books.length} {books.length === 1 ? "book" : "books"} in your collection
+            {books.length} {books.length === 1 ? "book" : "books"} in your
+            collection
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => setUploadModalOpen(true)}>
+          <Button
+            variant="secondary"
+            onClick={() => setUploadModalOpen(true)}
+          >
             <Upload size={18} />
-            Upload PDF
+            <span className="hidden sm:inline">Upload PDF</span>
           </Button>
           <Button variant="secondary" onClick={triggerFilePicker}>
             <FilePlus size={18} />
-            Open PDF
+            <span className="hidden sm:inline">Open PDF</span>
           </Button>
           <input
             ref={fileInputRef}
@@ -114,7 +240,7 @@ export function LibraryPage() {
       </div>
 
       {/* Tab bar */}
-      <div className="mb-6 flex gap-1 rounded-lg border border-glass-border bg-glass-bg p-1 backdrop-blur-md">
+      <div className="mb-4 flex gap-1 rounded-lg border border-glass-border bg-glass-bg p-1 backdrop-blur-md">
         {tabs.map(({ key, label }) => (
           <button
             key={key}
@@ -131,13 +257,60 @@ export function LibraryPage() {
         ))}
       </div>
 
+      {/* Toolbar: search, view toggle, size slider */}
+      <LibraryToolbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        cardSize={cardSize}
+        onCardSizeChange={setCardSize}
+        onRefresh={handleRefresh}
+        isRefreshing={isLoading}
+      />
+
+      {/* Tag filter bar */}
+      <TagFilterBar activeTag={activeTag} onTagChange={setActiveTag} />
+
       {/* Tab content */}
       {activeTab === "home" && (
-        <HomeTab onMoveBook={handleMoveBook} onRemoveBook={handleRemoveBook} />
+        <HomeTab
+          onMoveBook={handleMoveBook}
+          onRemoveBook={handleRemoveBook}
+          viewMode={viewMode}
+          cardSize={cardSize}
+          searchQuery={searchQuery}
+          selectedIds={selectedIds}
+          selectionActive={selectionActive}
+          onToggleSelect={handleToggleSelect}
+          activeTag={activeTag}
+          isLoading={isLoading}
+        />
       )}
       {activeTab === "all" && (
-        <AllBooksTab onMoveBook={handleMoveBook} onRemoveBook={handleRemoveBook} />
+        <AllBooksTab
+          onMoveBook={handleMoveBook}
+          onRemoveBook={handleRemoveBook}
+          viewMode={viewMode}
+          cardSize={cardSize}
+          searchQuery={searchQuery}
+          selectedIds={selectedIds}
+          selectionActive={selectionActive}
+          onToggleSelect={handleToggleSelect}
+          activeTag={activeTag}
+          sortOrders={sortOrders}
+          setSortOrder={setSortOrder}
+          isLoading={isLoading}
+        />
       )}
+
+      {/* Selection action bar */}
+      <SelectionBar
+        count={selectedIds.size}
+        onMove={handleBulkMove}
+        onDelete={handleBulkDelete}
+        onClear={clearSelection}
+      />
 
       {/* Upload PDF modal */}
       <UploadPdfModal
@@ -145,13 +318,22 @@ export function LibraryPage() {
         onClose={() => setUploadModalOpen(false)}
       />
 
-      {/* Move to folder modal */}
+      {/* Move single item to folder */}
       <FolderPickerModal
         open={!!moveEntry}
         folders={folders}
         currentFolderId={moveEntry?.folder_id ?? null}
         onClose={() => setMoveEntry(null)}
         onSelect={handleMoveSelect}
+      />
+
+      {/* Bulk move to folder */}
+      <FolderPickerModal
+        open={bulkMoveOpen}
+        folders={folders}
+        currentFolderId={null}
+        onClose={() => setBulkMoveOpen(false)}
+        onSelect={handleBulkMoveSelect}
       />
 
       {/* Remove confirmation dialog */}
@@ -179,7 +361,7 @@ export function LibraryPage() {
               </Button>
               <button
                 onClick={confirmRemove}
-                className="rounded-lg bg-red-500/20 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/30 cursor-pointer"
+                className="cursor-pointer rounded-lg bg-red-500/20 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/30"
               >
                 {isUploaded ? "Delete" : "Remove"}
               </button>

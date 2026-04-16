@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import {
   MousePointer2,
   Pencil,
@@ -28,6 +29,7 @@ const TOOLS: { tool: WhiteboardTool; icon: typeof Pencil; label: string; shortcu
 ];
 
 const COLORS = [
+  "#000000",
   "#ffffff",
   "#ef4444",
   "#f59e0b",
@@ -40,6 +42,7 @@ const COLORS = [
 const STROKE_WIDTHS = [1, 2, 4, 6];
 
 export function WhiteboardToolbar() {
+  const colorInputRef = useRef<HTMLInputElement>(null);
   const activeTool = useWhiteboardStore((s) => s.activeTool);
   const strokeColor = useWhiteboardStore((s) => s.strokeColor);
   const strokeWidth = useWhiteboardStore((s) => s.strokeWidth);
@@ -90,11 +93,39 @@ export function WhiteboardToolbar() {
             "h-5 w-5 rounded-full border-2 transition-transform cursor-pointer",
             strokeColor === color
               ? "border-accent-purple scale-110"
-              : "border-transparent hover:scale-110",
+              : color === "#000000"
+                ? "border-glass-border hover:scale-110"
+                : "border-transparent hover:scale-110",
           )}
           style={{ backgroundColor: color }}
         />
       ))}
+
+      {/* Custom color picker */}
+      <button
+        onClick={() => colorInputRef.current?.click()}
+        title="Custom color"
+        className={cn(
+          "relative h-5 w-5 rounded-full border-2 transition-transform cursor-pointer overflow-hidden",
+          !COLORS.includes(strokeColor)
+            ? "border-accent-purple scale-110"
+            : "border-transparent hover:scale-110",
+        )}
+        style={{
+          background: !COLORS.includes(strokeColor)
+            ? strokeColor
+            : "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)",
+        }}
+      >
+        <input
+          ref={colorInputRef}
+          type="color"
+          value={strokeColor}
+          onChange={(e) => setStrokeColor(e.target.value)}
+          className="absolute inset-0 cursor-pointer opacity-0"
+          tabIndex={-1}
+        />
+      </button>
 
       {/* Separator */}
       <div className="mx-1 h-5 w-px bg-glass-border" />

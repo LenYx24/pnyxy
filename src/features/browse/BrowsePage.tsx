@@ -1,25 +1,17 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router";
 import { Search, Plus, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui";
+import { Button, CategoryChip } from "@/components/ui";
 import { useBrowseStore } from "@/stores/browse-store";
+import { useCategoryStore } from "@/stores/category-store";
 import { BrowseBookCard } from "./BrowseBookCard";
 import { AddBookModal } from "./AddBookModal";
-
-const CATEGORIES = [
-  "Fiction",
-  "Non-fiction",
-  "Science",
-  "Technology",
-  "History",
-  "Philosophy",
-  "Mathematics",
-  "Art",
-];
+import { CreateCategoryModal } from "./CreateCategoryModal";
 
 export function BrowsePage() {
   const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
@@ -35,10 +27,17 @@ export function BrowsePage() {
     checkUserLibrary,
   } = useBrowseStore();
 
+  const {
+    categories,
+    fetchCategories,
+    getSubcategories,
+  } = useCategoryStore();
+
   useEffect(() => {
     fetchCatalogBooks();
     checkUserLibrary();
-  }, [fetchCatalogBooks, checkUserLibrary]);
+    fetchCategories();
+  }, [fetchCatalogBooks, checkUserLibrary, fetchCategories]);
 
   const handleSearchChange = useCallback(
     (value: string) => {
@@ -50,12 +49,20 @@ export function BrowsePage() {
     [searchCatalog],
   );
 
+  // Top-level categories (no parent)
+  const topCategories = categories.filter((c) => c.parent_id === null);
+
+  // When a category is active, show its subcategories
+  const subcategories = activeCategory
+    ? getSubcategories(activeCategory)
+    : [];
+
   const hasMore = catalogBooks.length < totalCount;
 
   return (
     <div>
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-text-primary">Browse</h2>
           <p className="text-sm text-text-secondary">
@@ -64,7 +71,8 @@ export function BrowsePage() {
         </div>
         <Button variant="secondary" onClick={() => setModalOpen(true)}>
           <Plus size={18} />
-          Add a Book
+          <span className="hidden sm:inline">Add a Book</span>
+          <span className="sm:hidden">Add</span>
         </Button>
       </div>
 
@@ -84,7 +92,7 @@ export function BrowsePage() {
       </div>
 
       {/* Category filter chips */}
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="mb-2 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
         <button
           onClick={() => filterByCategory(null)}
           className={`rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${
@@ -95,22 +103,39 @@ export function BrowsePage() {
         >
           All
         </button>
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat}
+        {topCategories.map((cat) => (
+          <CategoryChip
+            key={cat.id}
+            category={cat}
+            active={activeCategory === cat.id}
             onClick={() =>
-              filterByCategory(activeCategory === cat ? null : cat)
+              filterByCategory(activeCategory === cat.id ? null : cat.id)
             }
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${
-              activeCategory === cat
-                ? "bg-accent-purple/15 text-accent-purple"
-                : "bg-glass-bg text-text-muted hover:text-text-primary border border-glass-border"
-            }`}
-          >
-            {cat}
-          </button>
+          />
         ))}
+        <button
+          onClick={() => setCategoryModalOpen(true)}
+          className="rounded-full border border-dashed border-glass-border px-3 py-1 text-xs font-medium text-text-muted transition-colors hover:text-text-primary hover:border-text-muted cursor-pointer"
+        >
+          <Plus size={12} className="inline -mt-0.5" /> Category
+        </button>
       </div>
+
+      {/* Subcategory chips (when a top-level category is active) */}
+      {subcategories.length > 0 && (
+        <div className="mb-4 ml-4 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+          {subcategories.map((sub) => (
+            <CategoryChip
+              key={sub.id}
+              category={sub}
+              active={activeCategory === sub.id}
+              onClick={() => filterByCategory(sub.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {!subcategories.length && <div className="mb-4" />}
 
       {/* Book grid */}
       {isLoading && catalogBooks.length === 0 ? (
@@ -125,12 +150,12 @@ export function BrowsePage() {
         </div>
       ) : (
         <>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
             {catalogBooks.map((book) => (
               <BrowseBookCard
                 key={book.id}
                 book={book}
-                onClick={() => navigate(`/app/browse/${book.id}`)}
+                onClick={() => navigate(`/browse/${book.id}`)}
               />
             ))}
           </div>
@@ -155,6 +180,10 @@ export function BrowsePage() {
       )}
 
       <AddBookModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      <CreateCategoryModal
+        open={categoryModalOpen}
+        onClose={() => setCategoryModalOpen(false)}
+      />
     </div>
   );
 }

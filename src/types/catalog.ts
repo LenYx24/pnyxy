@@ -1,3 +1,5 @@
+import type { BookStatusTag } from "./database";
+
 // ── Catalog book (shared public catalog) ────────────────────
 
 export type CatalogSource = "open_library" | "google_books" | "user_submitted";
@@ -73,6 +75,7 @@ export interface CatalogLibraryItem {
   added_at: string;
   catalog_book_id: string;
   catalog_book: CatalogBook;
+  tags?: BookStatusTag[];
 }
 
 export interface UploadedLibraryItem {
@@ -80,6 +83,7 @@ export interface UploadedLibraryItem {
   id: string;           // books row id
   folder_id: string | null;
   added_at: string;     // books.created_at
+  tags?: BookStatusTag[];
   book: {
     id: string;
     title: string;

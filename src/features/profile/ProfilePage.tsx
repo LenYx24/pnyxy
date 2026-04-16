@@ -1,15 +1,19 @@
-import { useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { Link, useNavigate } from "react-router";
-import { UserCircle, LogIn } from "lucide-react";
+import { UserCircle, LogIn, Upload, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
 
 export function ProfilePage() {
   const navigate = useNavigate();
-  const { user, profile, signOut, updateProfile } = useAuthStore();
+  const { user, profile, signOut, updateProfile, uploadAvatar, removeAvatar } =
+    useAuthStore();
   const [displayName, setDisplayName] = useState(profile?.display_name ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!user) {
     return (
@@ -21,7 +25,7 @@ export function ProfilePage() {
           <h1 className="text-2xl font-bold text-text-primary">Profile</h1>
         </div>
 
-        <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-6 text-center">
+        <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6 text-center">
           <p className="text-text-secondary">
             Sign in to manage your profile.
           </p>
@@ -53,6 +57,49 @@ export function ProfilePage() {
     navigate("/");
   }
 
+  function triggerFilePicker() {
+    fileInputRef.current?.click();
+  }
+
+  async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Reset the input so picking the same file again still fires a change event.
+    e.target.value = "";
+    if (!file) return;
+
+    setAvatarError(null);
+    setAvatarBusy(true);
+    try {
+      await uploadAvatar(file);
+    } catch (err) {
+      if (err instanceof Error) {
+        setAvatarError(err.message);
+      }
+    } finally {
+      setAvatarBusy(false);
+    }
+  }
+
+  async function handleRemoveAvatar() {
+    setAvatarError(null);
+    setAvatarBusy(true);
+    try {
+      await removeAvatar();
+    } catch (err) {
+      if (err instanceof Error) {
+        setAvatarError(err.message);
+      }
+    } finally {
+      setAvatarBusy(false);
+    }
+  }
+
+  const initial = (
+    profile?.display_name?.[0] ??
+    user.email?.[0] ??
+    "?"
+  ).toUpperCase();
+
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       {/* Header */}
@@ -64,13 +111,21 @@ export function ProfilePage() {
       </div>
 
       {/* Avatar & info section */}
-      <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-6">
+      <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
         <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-purple/15">
-            <span className="text-2xl font-bold text-accent-purple">
-              {(profile?.display_name?.[0] ?? user.email?.[0] ?? "?").toUpperCase()}
-            </span>
-          </div>
+          {profile?.avatar_url ? (
+            <img
+              src={profile.avatar_url}
+              alt=""
+              className="h-16 w-16 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-purple/15">
+              <span className="text-2xl font-bold text-accent-purple">
+                {initial}
+              </span>
+            </div>
+          )}
           <div>
             <p className="text-lg font-semibold text-text-primary">
               {profile?.display_name || "No display name"}
@@ -78,10 +133,51 @@ export function ProfilePage() {
             <p className="text-sm text-text-muted">{user.email}</p>
           </div>
         </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <Button
+            variant="secondary"
+            onClick={triggerFilePicker}
+            disabled={avatarBusy}
+          >
+            {avatarBusy ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Upload size={16} />
+            )}
+            {profile?.avatar_url ? "Change avatar" : "Upload avatar"}
+          </Button>
+          {profile?.avatar_url && (
+            <Button
+              variant="ghost"
+              onClick={handleRemoveAvatar}
+              disabled={avatarBusy}
+            >
+              <Trash2 size={16} />
+              Remove
+            </Button>
+          )}
+        </div>
+
+        {avatarError && (
+          <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">
+            {avatarError}
+          </p>
+        )}
+        <p className="text-xs text-text-muted">
+          JPEG, PNG, WebP, or GIF &middot; max 5 MB
+        </p>
       </section>
 
       {/* Edit section */}
-      <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-6">
+      <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-text-primary">
           Edit Profile
         </h2>
@@ -114,7 +210,7 @@ export function ProfilePage() {
       </section>
 
       {/* Account section */}
-      <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-6">
+      <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-text-primary">Account</h2>
         <Button variant="secondary" onClick={handleSignOut}>
           Sign Out

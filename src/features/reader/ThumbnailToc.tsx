@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 
@@ -26,7 +27,11 @@ export function ThumbnailToc() {
     <Document
       file={meta.fileUrl}
       options={documentOptions}
-      loading={null}
+      loading={
+        <div className="flex items-center justify-center py-16">
+          <Loader2 size={24} className="animate-spin text-accent-purple" />
+        </div>
+      }
       error={null}
     >
       <div className="flex flex-col items-center gap-3 p-3">

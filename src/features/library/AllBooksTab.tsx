@@ -1,22 +1,71 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router";
+import {
+  DndContext,
+  closestCenter,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  rectSortingStrategy,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
 import {
   ChevronRight,
   FolderPlus,
+  ArrowUp,
   BookOpen,
+  Folder,
+  Loader2,
 } from "lucide-react";
-import { Button } from "@/components/ui";
+import { Button, GlassCard } from "@/components/ui";
 import { useLibraryStore } from "@/stores/library-store";
+import { useTagStore } from "@/stores/tag-store";
 import { FolderCard } from "./FolderCard";
 import { LibraryBookCard } from "./LibraryBookCard";
+import { LibraryListView } from "./LibraryListView";
+import { CreateFolderModal } from "./CreateFolderModal";
+import { applySort } from "./useLibraryPrefs";
+import type { ViewMode } from "./useLibraryPrefs";
 import type { UnifiedLibraryItem } from "@/types/catalog";
+import type { BookStatusTag } from "@/types/database";
+import type { Folder as FolderType } from "@/types/database";
 
 interface AllBooksTabProps {
   onMoveBook: (entry: UnifiedLibraryItem) => void;
   onRemoveBook: (entry: UnifiedLibraryItem) => void;
+  viewMode: ViewMode;
+  cardSize: number;
+  searchQuery: string;
+  selectedIds: Set<string>;
+  selectionActive: boolean;
+  onToggleSelect: (id: string, event: { ctrlKey: boolean; shiftKey: boolean }) => void;
+  activeTag?: BookStatusTag | null;
+  sortOrders: Record<string, string[]>;
+  setSortOrder: (contextId: string, orderedKeys: string[]) => void;
+  isLoading?: boolean;
 }
 
-export function AllBooksTab({ onMoveBook, onRemoveBook }: AllBooksTabProps) {
+export function AllBooksTab({
+  onMoveBook,
+  onRemoveBook,
+  viewMode,
+  cardSize,
+  searchQuery,
+  selectedIds,
+  selectionActive,
+  onToggleSelect,
+  activeTag = null,
+  sortOrders,
+  setSortOrder,
+  isLoading = false,
+}: AllBooksTabProps) {
   const navigate = useNavigate();
   const currentFolderId = useLibraryStore((s) => s.currentFolderId);
   const folderPath = useLibraryStore((s) => s.folderPath);
@@ -26,19 +75,132 @@ export function AllBooksTab({ onMoveBook, onRemoveBook }: AllBooksTabProps) {
   const createFolder = useLibraryStore((s) => s.createFolder);
   const renameFolder = useLibraryStore((s) => s.renameFolder);
   const deleteFolder = useLibraryStore((s) => s.deleteFolder);
-  const subfolders = useMemo(() => folders.filter((f) => f.parent_id === currentFolderId), [folders, currentFolderId]);
-  const booksInFolder = useMemo(() => books.filter((b) => b.folder_id === currentFolderId), [books, currentFolderId]);
 
+  const getTagsForBook = useTagStore((s) => s.getTagsForBook);
+
+  const subfolders = useMemo(
+    () => folders.filter((f) => f.parent_id === currentFolderId),
+    [folders, currentFolderId],
+  );
+  const booksInFolder = useMemo(
+    () => books.filter((b) => b.folder_id === currentFolderId),
+    [books, currentFolderId],
+  );
+
+  // Apply search + tag filter
+  const query = searchQuery.toLowerCase().trim();
+  const filteredFolders = useMemo(
+    () =>
+      query
+        ? subfolders.filter((f) => f.name.toLowerCase().includes(query))
+        : subfolders,
+    [subfolders, query],
+  );
+  const filteredBooks = useMemo(() => {
+    let result = booksInFolder;
+    if (query) {
+      result = result.filter((b) => {
+        const title =
+          b.source === "catalog" ? b.catalog_book.title : b.book.title;
+        const author =
+          b.source === "catalog"
+            ? b.catalog_book.authors?.join(", ") || ""
+            : b.book.author || "";
+        const lower = title.toLowerCase() + " " + author.toLowerCase();
+        return lower.includes(query);
+      });
+    }
+    if (activeTag) {
+      result = result.filter((b) => getTagsForBook(b).includes(activeTag));
+    }
+    return result;
+  }, [booksInFolder, query, activeTag, getTagsForBook]);
+
+  // ─── Sort order ───────────────────────────────────────────
+  const contextId = currentFolderId ?? "root";
+  const savedOrder = sortOrders[contextId];
+
+  // Build combined sortable items (folders first, then books)
+  const allItemKeys = useMemo(() => {
+    const folderKeys = filteredFolders.map((f) => `folder:${f.id}`);
+    const bookKeys = filteredBooks.map((b) => `book:${b.id}`);
+    return [...folderKeys, ...bookKeys];
+  }, [filteredFolders, filteredBooks]);
+
+  const orderedKeys = useMemo(
+    () => applySort(savedOrder, allItemKeys),
+    [savedOrder, allItemKeys],
+  );
+
+  // Build lookup maps
+  const folderMap = useMemo(() => {
+    const m = new Map<string, FolderType>();
+    for (const f of filteredFolders) m.set(`folder:${f.id}`, f);
+    return m;
+  }, [filteredFolders]);
+
+  const bookMap = useMemo(() => {
+    const m = new Map<string, UnifiedLibraryItem>();
+    for (const b of filteredBooks) m.set(`book:${b.id}`, b);
+    return m;
+  }, [filteredBooks]);
+
+  // Ordered arrays for rendering
+  const orderedFolders = useMemo(
+    () => orderedKeys.filter((k) => k.startsWith("folder:")).map((k) => folderMap.get(k)!).filter(Boolean),
+    [orderedKeys, folderMap],
+  );
+  const orderedBooks = useMemo(
+    () => orderedKeys.filter((k) => k.startsWith("book:")).map((k) => bookMap.get(k)!).filter(Boolean),
+    [orderedKeys, bookMap],
+  );
+
+  // ─── DnD ─────────────────────────────────────────────────
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+  );
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  }, []);
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      setActiveId(null);
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+
+      const oldIndex = orderedKeys.indexOf(active.id as string);
+      const newIndex = orderedKeys.indexOf(over.id as string);
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      const newOrder = arrayMove(orderedKeys, oldIndex, newIndex);
+      setSortOrder(contextId, newOrder);
+    },
+    [orderedKeys, contextId, setSortOrder],
+  );
+
+  const handleDragCancel = useCallback(() => {
+    setActiveId(null);
+  }, []);
+
+  // ─── Other handlers ───────────────────────────────────────
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [createFolderOpen, setCreateFolderOpen] = useState(false);
 
   const handleCreateFolder = () => {
-    const name = prompt("New folder name:");
-    if (name && name.trim()) {
-      createFolder(name.trim(), currentFolderId);
-    }
+    setCreateFolderOpen(true);
   };
 
-  const handleDeleteFolder = async (id: string) => {
+  const handleConfirmCreateFolder = async (name: string) => {
+    await createFolder(name, currentFolderId);
+  };
+
+  const handleDeleteFolder = (id: string) => {
     setConfirmDelete(id);
   };
 
@@ -48,17 +210,32 @@ export function AllBooksTab({ onMoveBook, onRemoveBook }: AllBooksTabProps) {
     setConfirmDelete(null);
   };
 
-  const isEmpty = subfolders.length === 0 && booksInFolder.length === 0;
+  const parentFolderId = currentFolderId
+    ? folderPath.length > 1
+      ? folderPath[folderPath.length - 2].id
+      : null
+    : null;
+
+  const handleGoUp = () => {
+    navigateToFolder(parentFolderId);
+  };
+
+  const isEmpty = filteredFolders.length === 0 && filteredBooks.length === 0;
+  const coverHeight = Math.round(cardSize * 0.6);
+
+  // ─── Drag overlay content ────────────────────────────────
+  const activeDragFolder = activeId ? folderMap.get(activeId) : null;
+  const activeDragBook = activeId ? bookMap.get(activeId) : null;
 
   return (
     <div>
-      {/* Toolbar */}
-      <div className="mb-4 flex items-center justify-between">
+      {/* Toolbar: Breadcrumbs + Actions */}
+      <div className="mb-4 flex items-center justify-between gap-2">
         {/* Breadcrumbs */}
-        <nav className="flex items-center gap-1 text-sm">
+        <nav className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm">
           <button
             onClick={() => navigateToFolder(null)}
-            className="text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+            className="cursor-pointer text-text-muted transition-colors hover:text-text-primary"
           >
             Library
           </button>
@@ -72,7 +249,7 @@ export function AllBooksTab({ onMoveBook, onRemoveBook }: AllBooksTabProps) {
               ) : (
                 <button
                   onClick={() => navigateToFolder(folder.id)}
-                  className="text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+                  className="cursor-pointer text-text-muted transition-colors hover:text-text-primary"
                 >
                   {folder.name}
                 </button>
@@ -81,14 +258,40 @@ export function AllBooksTab({ onMoveBook, onRemoveBook }: AllBooksTabProps) {
           ))}
         </nav>
 
-        <Button variant="secondary" onClick={handleCreateFolder}>
-          <FolderPlus size={16} />
-          New Folder
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Go to parent */}
+          {currentFolderId && (
+            <Button variant="ghost" className="gap-1 px-2 py-1.5 text-xs" onClick={handleGoUp}>
+              <ArrowUp size={14} />
+              <span className="hidden sm:inline">Up</span>
+            </Button>
+          )}
+
+          <Button variant="secondary" className="gap-1.5 px-3 py-1.5 text-xs sm:text-sm" onClick={handleCreateFolder}>
+            <FolderPlus size={16} />
+            <span className="hidden sm:inline">New Folder</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Empty state */}
-      {isEmpty && (
+      {/* Search empty state */}
+      {isEmpty && query && (
+        <div className="flex flex-col items-center gap-2 py-16 text-center">
+          <p className="text-sm text-text-muted">
+            No results for &quot;{searchQuery}&quot;
+          </p>
+        </div>
+      )}
+
+      {/* Loading state */}
+      {isEmpty && !query && isLoading && (
+        <div className="flex items-center justify-center py-32">
+          <Loader2 size={32} className="animate-spin text-accent-purple" />
+        </div>
+      )}
+
+      {/* Empty folder state */}
+      {isEmpty && !query && !isLoading && (
         <div className="flex flex-col items-center gap-4 py-16 text-center">
           <BookOpen size={48} className="text-text-muted/50" />
           <div>
@@ -103,35 +306,129 @@ export function AllBooksTab({ onMoveBook, onRemoveBook }: AllBooksTabProps) {
             )}
           </div>
           {!currentFolderId && (
-            <Button variant="secondary" onClick={() => navigate("/app/browse")}>
+            <Button
+              variant="secondary"
+              onClick={() => navigate("/browse")}
+            >
               Browse Catalog
             </Button>
           )}
         </div>
       )}
 
-      {/* Grid: folders first, then books */}
+      {/* Content */}
       {!isEmpty && (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {subfolders.map((folder) => (
-            <FolderCard
-              key={folder.id}
-              folder={folder}
-              onNavigate={navigateToFolder}
-              onRename={renameFolder}
-              onDelete={handleDeleteFolder}
-            />
-          ))}
-          {booksInFolder.map((entry) => (
-            <LibraryBookCard
-              key={`${entry.source}-${entry.id}`}
-              entry={entry}
-              onMove={onMoveBook}
-              onRemove={onRemoveBook}
-            />
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <SortableContext
+            items={orderedKeys}
+            strategy={viewMode === "grid" ? rectSortingStrategy : verticalListSortingStrategy}
+          >
+            {viewMode === "list" && (
+              <LibraryListView
+                folders={orderedFolders}
+                books={orderedBooks}
+                allFolders={folders}
+                allBooks={books}
+                selectedIds={selectedIds}
+                selectionActive={selectionActive}
+                onToggleSelect={onToggleSelect}
+                onNavigateFolder={navigateToFolder}
+                onRenameFolder={renameFolder}
+                onDeleteFolder={handleDeleteFolder}
+                onMoveBook={onMoveBook}
+                onRemoveBook={onRemoveBook}
+                cardSize={cardSize}
+              />
+            )}
+
+            {viewMode === "grid" && (
+              <div
+                className="grid gap-4"
+                style={{
+                  gridTemplateColumns: `repeat(auto-fill, minmax(min(${cardSize}px, 100%), 1fr))`,
+                }}
+              >
+                {orderedFolders.map((folder) => (
+                  <FolderCard
+                    key={folder.id}
+                    folder={folder}
+                    sortableId={`folder:${folder.id}`}
+                    onNavigate={navigateToFolder}
+                    onRename={renameFolder}
+                    onDelete={handleDeleteFolder}
+                    coverHeight={coverHeight}
+                    selected={selectedIds.has(`folder:${folder.id}`)}
+                    selectionActive={selectionActive}
+                    onToggleSelect={onToggleSelect}
+                  />
+                ))}
+                {orderedBooks.map((entry) => (
+                  <LibraryBookCard
+                    key={`${entry.source}-${entry.id}`}
+                    entry={entry}
+                    sortableId={`book:${entry.id}`}
+                    onMove={onMoveBook}
+                    onRemove={onRemoveBook}
+                    coverHeight={coverHeight}
+                    selected={selectedIds.has(`book:${entry.id}`)}
+                    selectionActive={selectionActive}
+                    onToggleSelect={onToggleSelect}
+                  />
+                ))}
+              </div>
+            )}
+          </SortableContext>
+
+          <DragOverlay>
+            {activeDragFolder && (
+              <div style={{ width: cardSize }} className="pointer-events-none">
+                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent-purple">
+                  <div
+                    className="flex flex-col items-center justify-center gap-1"
+                    style={{ height: coverHeight + 48 }}
+                  >
+                    <Folder size={Math.round(Math.min(Math.max(coverHeight * 0.35, 24), 48))} className="text-accent-purple/60" />
+                    <p className="max-w-full truncate px-3 text-sm font-medium text-text-primary">
+                      {activeDragFolder.name}
+                    </p>
+                  </div>
+                </GlassCard>
+              </div>
+            )}
+            {activeDragBook && (
+              <div style={{ width: cardSize }} className="pointer-events-none">
+                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent-purple">
+                  <div className="flex items-center gap-3 p-3">
+                    <span className="text-sm font-medium text-text-primary truncate">
+                      {activeDragBook.source === "catalog"
+                        ? activeDragBook.catalog_book.title
+                        : activeDragBook.book.title}
+                    </span>
+                  </div>
+                </GlassCard>
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
       )}
+
+      {/* Create folder modal */}
+      <CreateFolderModal
+        open={createFolderOpen}
+        onClose={() => setCreateFolderOpen(false)}
+        onCreate={handleConfirmCreateFolder}
+        parentFolderName={
+          folderPath.length > 0
+            ? folderPath[folderPath.length - 1].name
+            : null
+        }
+      />
 
       {/* Confirm delete dialog */}
       {confirmDelete && (
@@ -145,15 +442,19 @@ export function AllBooksTab({ onMoveBook, onRemoveBook }: AllBooksTabProps) {
               Delete Folder
             </h3>
             <p className="mb-4 text-sm text-text-muted">
-              Are you sure? Books in this folder will be moved to the root level. Subfolders will also be deleted.
+              Are you sure? Books in this folder will be moved to the root
+              level. Subfolders will also be deleted.
             </p>
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setConfirmDelete(null)}>
+              <Button
+                variant="secondary"
+                onClick={() => setConfirmDelete(null)}
+              >
                 Cancel
               </Button>
               <button
                 onClick={confirmDeleteFolder}
-                className="rounded-lg bg-red-500/20 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/30 cursor-pointer"
+                className="cursor-pointer rounded-lg bg-red-500/20 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/30"
               >
                 Delete
               </button>

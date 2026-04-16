@@ -72,6 +72,12 @@ export async function deleteComment(id: string): Promise<void> {
 export interface StoredDocumentMeta {
   documentId: string;
   customTitle?: string | null;
+  tocWidth?: number;
+  zoomMode?: string | null;
+  /** Last page the user was viewing — used to resume on reopen. */
+  lastPosition?: number;
+  /** Furthest page the active tracker has counted as "read". */
+  progressPage?: number;
 }
 
 export async function loadDocumentMeta(
@@ -86,6 +92,27 @@ export async function saveDocumentMeta(
 ): Promise<void> {
   const db = await getDB();
   await db.put("documentMeta", meta);
+}
+
+// --- TOC Width ---
+
+export async function loadTocWidth(
+  documentId: string,
+): Promise<number | undefined> {
+  const meta = await loadDocumentMeta(documentId);
+  return meta?.tocWidth;
+}
+
+export async function saveTocWidth(
+  documentId: string,
+  width: number,
+): Promise<void> {
+  const existing = await loadDocumentMeta(documentId);
+  await saveDocumentMeta({
+    documentId,
+    ...existing,
+    tocWidth: width,
+  });
 }
 
 // --- Notes ---
