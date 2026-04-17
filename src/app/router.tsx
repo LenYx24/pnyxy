@@ -20,6 +20,10 @@ import { WelcomePage } from "@/features/auth/WelcomePage";
 import { ProfilePage } from "@/features/profile/ProfilePage";
 import { AdminPage } from "@/features/admin/AdminPage";
 import { StreaksPage } from "@/features/streaks/StreaksPage";
+import { ForumPage } from "@/features/forum/ForumPage";
+import { CommunityPage } from "@/features/forum/CommunityPage";
+import { PostPage } from "@/features/forum/PostPage";
+import { PostComposer } from "@/features/forum/PostComposer";
 import { AboutPage } from "@/features/static/AboutPage";
 import { PrivacyPage } from "@/features/static/PrivacyPage";
 import { HelpPage } from "@/features/static/HelpPage";
@@ -60,6 +64,10 @@ export const router = createBrowserRouter([
       { path: "browse/:bookId", element: <BookDetailPage /> },
       { path: "library", element: <LibraryPage /> },
       { path: "streaks", element: <StreaksPage /> },
+      { path: "forum", element: <ForumPage /> },
+      { path: "forum/c/:slug", element: <CommunityPage /> },
+      { path: "forum/c/:slug/p/:postId", element: <PostPage /> },
+      { path: "forum/c/:slug/new", element: <PostComposer /> },
       { path: "reader", element: <ReaderPage /> },
       { path: "reader/:bookId", element: <ReaderPage /> },
       {

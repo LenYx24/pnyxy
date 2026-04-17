@@ -4,6 +4,7 @@ import {
   Library,
   BookOpen,
   Flame,
+  MessagesSquare,
   Settings,
   Shield,
   PanelLeftClose,
@@ -21,6 +22,7 @@ const baseNavItems = [
   { to: "/library", icon: Library, label: "Library" },
   { to: "/reader", icon: BookOpen, label: "Reader" },
   { to: "/streaks", icon: Flame, label: "Streaks" },
+  { to: "/forum", icon: MessagesSquare, label: "Forum" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
