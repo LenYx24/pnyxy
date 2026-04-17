@@ -9,7 +9,7 @@ create type public.community_kind as enum ('topic');
 create type public.community_role as enum ('member', 'mod', 'owner');
 create type public.post_kind as enum ('text', 'link');
 
--- ── Communities ─────────────────────────────────────────────
+-- ── Tables (created first, policies added after all exist) ──
 
 create table public.communities (
   id            uuid primary key default gen_random_uuid(),
@@ -30,7 +30,63 @@ create index communities_slug_idx on public.communities (slug);
 create index communities_created_by_idx on public.communities (created_by);
 create index communities_member_count_idx on public.communities (member_count desc);
 
+create table public.community_memberships (
+  user_id       uuid not null references public.profiles(id) on delete cascade,
+  community_id  uuid not null references public.communities(id) on delete cascade,
+  role          public.community_role not null default 'member',
+  joined_at     timestamptz not null default now(),
+  primary key (user_id, community_id)
+);
+
+create index cm_community_id_idx on public.community_memberships (community_id);
+create index cm_user_id_idx on public.community_memberships (user_id);
+
+create table public.posts (
+  id              uuid primary key default gen_random_uuid(),
+  community_id    uuid not null references public.communities(id) on delete cascade,
+  author_id       uuid not null references public.profiles(id) on delete cascade,
+  title           text not null,
+  kind            public.post_kind not null default 'text',
+  body_md         text,
+  link_url        text,
+  created_at      timestamptz not null default now(),
+  edited_at       timestamptz,
+  is_removed      bool not null default false,
+  score_cached    int not null default 0,
+  comment_count   int not null default 0,
+  last_activity   timestamptz not null default now()
+);
+
+create index posts_community_created_idx on public.posts (community_id, created_at desc);
+create index posts_community_activity_idx on public.posts (community_id, last_activity desc);
+create index posts_author_idx on public.posts (author_id);
+
+-- Named forum_comments to avoid collision with the existing
+-- annotation comments table.
+create table public.forum_comments (
+  id            uuid primary key default gen_random_uuid(),
+  post_id       uuid not null references public.posts(id) on delete cascade,
+  parent_id     uuid references public.forum_comments(id) on delete cascade,
+  author_id     uuid not null references public.profiles(id) on delete cascade,
+  body_md       text not null,
+  created_at    timestamptz not null default now(),
+  edited_at     timestamptz,
+  is_removed    bool not null default false,
+  score_cached  int not null default 0
+);
+
+create index fc_post_idx on public.forum_comments (post_id, created_at);
+create index fc_parent_idx on public.forum_comments (parent_id);
+create index fc_author_idx on public.forum_comments (author_id);
+
+-- ── RLS: enable on all tables ───────────────────────────────
+
 alter table public.communities enable row level security;
+alter table public.community_memberships enable row level security;
+alter table public.posts enable row level security;
+alter table public.forum_comments enable row level security;
+
+-- ── RLS: communities ────────────────────────────────────────
 
 create policy "Anyone can read communities"
   on public.communities for select using (true);
@@ -56,20 +112,7 @@ create policy "Admin can delete community"
   on public.communities for delete
   using (public.is_admin());
 
--- ── Community memberships ───────────────────────────────────
-
-create table public.community_memberships (
-  user_id       uuid not null references public.profiles(id) on delete cascade,
-  community_id  uuid not null references public.communities(id) on delete cascade,
-  role          public.community_role not null default 'member',
-  joined_at     timestamptz not null default now(),
-  primary key (user_id, community_id)
-);
-
-create index cm_community_id_idx on public.community_memberships (community_id);
-create index cm_user_id_idx on public.community_memberships (user_id);
-
-alter table public.community_memberships enable row level security;
+-- ── RLS: community_memberships ──────────────────────────────
 
 create policy "Anyone can read memberships"
   on public.community_memberships for select using (true);
@@ -106,68 +149,7 @@ create policy "Owner or admin can update roles"
     )
   );
 
--- ── Trigger: auto-create owner membership on community creation ─
-
-create or replace function public.handle_new_community()
-returns trigger as $$
-begin
-  insert into public.community_memberships (user_id, community_id, role)
-  values (new.created_by, new.id, 'owner');
-  return new;
-end;
-$$ language plpgsql security definer;
-
-create trigger on_community_created
-  after insert on public.communities
-  for each row execute function public.handle_new_community();
-
--- ── Trigger: maintain member_count ──────────────────────────
-
-create or replace function public.update_community_member_count()
-returns trigger as $$
-begin
-  if TG_OP = 'INSERT' then
-    update public.communities
-    set member_count = member_count + 1
-    where id = new.community_id;
-    return new;
-  elsif TG_OP = 'DELETE' then
-    update public.communities
-    set member_count = greatest(0, member_count - 1)
-    where id = old.community_id;
-    return old;
-  end if;
-  return null;
-end;
-$$ language plpgsql security definer;
-
-create trigger on_membership_change
-  after insert or delete on public.community_memberships
-  for each row execute function public.update_community_member_count();
-
--- ── Posts ────────────────────────────────────────────────────
-
-create table public.posts (
-  id              uuid primary key default gen_random_uuid(),
-  community_id    uuid not null references public.communities(id) on delete cascade,
-  author_id       uuid not null references public.profiles(id) on delete cascade,
-  title           text not null,
-  kind            public.post_kind not null default 'text',
-  body_md         text,
-  link_url        text,
-  created_at      timestamptz not null default now(),
-  edited_at       timestamptz,
-  is_removed      bool not null default false,
-  score_cached    int not null default 0,
-  comment_count   int not null default 0,
-  last_activity   timestamptz not null default now()
-);
-
-create index posts_community_created_idx on public.posts (community_id, created_at desc);
-create index posts_community_activity_idx on public.posts (community_id, last_activity desc);
-create index posts_author_idx on public.posts (author_id);
-
-alter table public.posts enable row level security;
+-- ── RLS: posts ──────────────────────────────────────────────
 
 create policy "Anyone can read non-removed posts"
   on public.posts for select
@@ -203,27 +185,7 @@ create policy "Author mod or admin can soft-delete posts"
     )
   );
 
--- ── Forum comments ──────────────────────────────────────────
--- Named forum_comments to avoid collision with the existing
--- annotation comments table.
-
-create table public.forum_comments (
-  id            uuid primary key default gen_random_uuid(),
-  post_id       uuid not null references public.posts(id) on delete cascade,
-  parent_id     uuid references public.forum_comments(id) on delete cascade,
-  author_id     uuid not null references public.profiles(id) on delete cascade,
-  body_md       text not null,
-  created_at    timestamptz not null default now(),
-  edited_at     timestamptz,
-  is_removed    bool not null default false,
-  score_cached  int not null default 0
-);
-
-create index fc_post_idx on public.forum_comments (post_id, created_at);
-create index fc_parent_idx on public.forum_comments (parent_id);
-create index fc_author_idx on public.forum_comments (author_id);
-
-alter table public.forum_comments enable row level security;
+-- ── RLS: forum_comments ─────────────────────────────────────
 
 create policy "Anyone can read non-removed comments"
   on public.forum_comments for select
@@ -263,8 +225,46 @@ create policy "Author mod or admin can delete comments"
     )
   );
 
--- ── Trigger: maintain post.comment_count + last_activity ────
+-- ── Triggers ────────────────────────────────────────────────
 
+-- Auto-create owner membership on community creation
+create or replace function public.handle_new_community()
+returns trigger as $$
+begin
+  insert into public.community_memberships (user_id, community_id, role)
+  values (new.created_by, new.id, 'owner');
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_community_created
+  after insert on public.communities
+  for each row execute function public.handle_new_community();
+
+-- Maintain member_count
+create or replace function public.update_community_member_count()
+returns trigger as $$
+begin
+  if TG_OP = 'INSERT' then
+    update public.communities
+    set member_count = member_count + 1
+    where id = new.community_id;
+    return new;
+  elsif TG_OP = 'DELETE' then
+    update public.communities
+    set member_count = greatest(0, member_count - 1)
+    where id = old.community_id;
+    return old;
+  end if;
+  return null;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_membership_change
+  after insert or delete on public.community_memberships
+  for each row execute function public.update_community_member_count();
+
+-- Maintain post.comment_count + last_activity
 create or replace function public.update_post_comment_stats()
 returns trigger as $$
 begin
