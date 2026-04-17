@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft,
@@ -20,7 +20,7 @@ import {
   BotMessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
+import { useReaderStore, useActiveDocument, type ZoomMode } from "@/stores/reader-store";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useUndoStore } from "@/stores/undo-store";
 import { useIsMobile, useIsDesktop } from "@/hooks/use-media-query";
@@ -35,6 +35,75 @@ const COLOR_HEX: Record<HighlightColor, string> = {
   pink: "#f472b6",
   orange: "#fb923c",
 };
+
+function ZoomInput({
+  zoomMode,
+  zoomLevel,
+  onSubmit,
+  onCycleMode,
+}: {
+  zoomMode: ZoomMode;
+  zoomLevel: number;
+  onSubmit: (level: number) => void;
+  onCycleMode: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [inputValue, setInputValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const displayText =
+    zoomMode === "custom"
+      ? `${zoomLevel}%`
+      : zoomMode === "fit-width"
+        ? "Width"
+        : "Page";
+
+  const handleStartEdit = useCallback(() => {
+    setInputValue(String(zoomLevel));
+    setEditing(true);
+    requestAnimationFrame(() => inputRef.current?.select());
+  }, [zoomLevel]);
+
+  const handleSubmit = useCallback(() => {
+    const parsed = parseInt(inputValue, 10);
+    if (!isNaN(parsed) && parsed >= 25 && parsed <= 400) {
+      onSubmit(parsed);
+    }
+    setEditing(false);
+  }, [inputValue, onSubmit]);
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value.replace(/[^0-9]/g, ""))}
+        onBlur={handleSubmit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleSubmit();
+          if (e.key === "Escape") setEditing(false);
+        }}
+        className="w-12 rounded border border-glass-border bg-glass-bg px-1 py-0.5 text-center text-xs text-text-primary outline-none focus:border-accent-purple"
+        autoFocus
+      />
+    );
+  }
+
+  return (
+    <button
+      onClick={handleStartEdit}
+      onDoubleClick={(e) => {
+        e.preventDefault();
+        onCycleMode();
+      }}
+      className="min-w-[3rem] rounded px-1 py-0.5 text-center text-xs text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+      title="Click to set custom zoom, double-click to cycle fit mode"
+    >
+      {displayText}
+    </button>
+  );
+}
 
 interface ReaderToolbarProps {
   isFullscreen: boolean;
@@ -67,6 +136,7 @@ export function ReaderToolbar({
   const zoomIn = useReaderStore((s) => s.zoomIn);
   const zoomOut = useReaderStore((s) => s.zoomOut);
   const setZoomMode = useReaderStore((s) => s.setZoomMode);
+  const setZoomLevel = useReaderStore((s) => s.setZoomLevel);
   const setCustomTitle = useReaderStore((s) => s.setCustomTitle);
   const getDisplayTitle = useReaderStore((s) => s.getDisplayTitle);
 
@@ -256,9 +326,12 @@ export function ReaderToolbar({
             >
               <ZoomOut size={16} />
             </button>
-            <span className="min-w-[3rem] text-center text-xs text-text-muted">
-              {zoomMode === "custom" ? `${zoomLevel}%` : zoomMode === "fit-width" ? "Width" : "Page"}
-            </span>
+            <ZoomInput
+              zoomMode={zoomMode}
+              zoomLevel={zoomLevel}
+              onSubmit={(level) => setZoomLevel(level)}
+              onCycleMode={() => setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width")}
+            />
             <button
               onClick={() => zoomIn()}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
@@ -411,9 +484,12 @@ export function ReaderToolbar({
             >
               <ZoomOut size={16} />
             </button>
-            <span className="min-w-[3rem] text-center text-xs text-text-muted">
-              {zoomMode === "custom" ? `${zoomLevel}%` : zoomMode === "fit-width" ? "Width" : "Page"}
-            </span>
+            <ZoomInput
+              zoomMode={zoomMode}
+              zoomLevel={zoomLevel}
+              onSubmit={(level) => setZoomLevel(level)}
+              onCycleMode={() => setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width")}
+            />
             <button
               onClick={() => zoomIn()}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"

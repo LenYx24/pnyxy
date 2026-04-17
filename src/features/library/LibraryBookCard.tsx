@@ -6,6 +6,7 @@ import {
   Upload,
   Tag,
   Share2,
+  Info,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useSortable } from "@dnd-kit/sortable";
@@ -16,6 +17,7 @@ import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
 import { useTagStore, bookKey } from "@/stores/tag-store";
 import { TagPickerDropdown } from "./TagPickerDropdown";
 import { ShareBookModal } from "./ShareBookModal";
+import { BookInfoModal } from "./BookInfoModal";
 import { cn } from "@/lib/cn";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 
@@ -60,6 +62,7 @@ export function LibraryBookCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const key = bookKey(entry);
   const tags = useTagStore((s) => s.bookTags.get(key)) ?? [];
@@ -225,6 +228,17 @@ export function LibraryBookCard({
                 onClick={(e) => {
                   e.stopPropagation();
                   setMenuOpen(false);
+                  setInfoOpen(true);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              >
+                <Info size={14} />
+                File Info
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
                   setTagPickerOpen(true);
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
@@ -285,6 +299,11 @@ export function LibraryBookCard({
           entry={entry}
         />
       )}
+      <BookInfoModal
+        open={infoOpen}
+        onClose={() => setInfoOpen(false)}
+        entry={entry}
+      />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
   Tag,
   GripVertical,
   Share2,
+  Info,
 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -21,6 +22,7 @@ import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
 import { useTagStore, bookKey } from "@/stores/tag-store";
 import { TagPickerDropdown } from "./TagPickerDropdown";
 import { ShareBookModal } from "./ShareBookModal";
+import { BookInfoModal } from "./BookInfoModal";
 import type { Folder as FolderType } from "@/types/database";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 
@@ -33,6 +35,20 @@ function formatDate(dateStr: string) {
     day: "numeric",
     year: d.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
   });
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1073741824) return `${(bytes / 1048576).toFixed(1)} MB`;
+  return `${(bytes / 1073741824).toFixed(1)} GB`;
+}
+
+function getFileSize(entry: UnifiedLibraryItem): string | null {
+  if (entry.source === "uploaded" && entry.book.size_bytes) {
+    return formatBytes(entry.book.size_bytes);
+  }
+  return null;
 }
 
 function getTitle(entry: UnifiedLibraryItem) {
@@ -402,6 +418,7 @@ function BookRow({
   const [menuOpen, setMenuOpen] = useState(false);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const tagKey = bookKey(entry);
   const tags = useTagStore((s) => s.bookTags.get(tagKey)) ?? [];
   const selKey = `book:${entry.id}`;
@@ -499,6 +516,11 @@ function BookRow({
           {author}
         </span>
 
+        {/* Size */}
+        <span className="mr-2 hidden w-16 shrink-0 text-xs text-text-muted lg:block">
+          {getFileSize(entry) ?? "—"}
+        </span>
+
         {/* Date */}
         <span className="mr-2 hidden w-20 shrink-0 text-xs text-text-muted lg:block">
           {formatDate(entry.added_at)}
@@ -507,6 +529,14 @@ function BookRow({
         {/* Menu */}
         <div className="relative">
           <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
+            <MenuItem
+              icon={Info}
+              label="File Info"
+              onClick={() => {
+                setMenuOpen(false);
+                setInfoOpen(true);
+              }}
+            />
             <MenuItem
               icon={Tag}
               label="Manage Tags"
@@ -558,6 +588,11 @@ function BookRow({
           entry={entry}
         />
       )}
+      <BookInfoModal
+        open={infoOpen}
+        onClose={() => setInfoOpen(false)}
+        entry={entry}
+      />
     </div>
   );
 }
@@ -627,6 +662,7 @@ export function LibraryListView({
         <div className="mr-2 w-4 shrink-0" />
         <div className="min-w-0 flex-1">Name</div>
         <div className="mr-4 hidden w-32 md:block">Author</div>
+        <div className="mr-2 hidden w-16 shrink-0 lg:block">Size</div>
         <div className="mr-2 hidden w-20 lg:block">Added</div>
         <div className="w-7 shrink-0" />
       </div>

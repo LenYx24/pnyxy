@@ -6,6 +6,8 @@ import { useOpenDocument } from "@/hooks/use-open-document";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { formatShortcut } from "@/lib/keyboard-shortcuts";
 import { useLibraryStore } from "@/stores/library-store";
+import { useUploadStore } from "@/stores/upload-store";
+import { StorageUsageBar } from "./StorageUsageBar";
 import { useLibraryPrefs } from "./useLibraryPrefs";
 import { LibraryToolbar } from "./LibraryToolbar";
 import { SelectionBar } from "./SelectionBar";
@@ -40,6 +42,9 @@ export function LibraryPage() {
   const isLoading = useLibraryStore((s) => s.isLoading);
   const fetchLibrary = useLibraryStore((s) => s.fetchLibrary);
   const fetchFolders = useLibraryStore((s) => s.fetchFolders);
+
+  const storageUsage = useUploadStore((s) => s.storageUsage);
+  const fetchStorageUsage = useUploadStore((s) => s.fetchStorageUsage);
   const moveBookToFolder = useLibraryStore((s) => s.moveBookToFolder);
   const moveFolderToFolder = useLibraryStore((s) => s.moveFolderToFolder);
   const removeFromLibrary = useLibraryStore((s) => s.removeFromLibrary);
@@ -124,7 +129,8 @@ export function LibraryPage() {
   useEffect(() => {
     fetchLibrary();
     fetchFolders();
-  }, [fetchLibrary, fetchFolders]);
+    fetchStorageUsage();
+  }, [fetchLibrary, fetchFolders, fetchStorageUsage]);
 
   // Clear selection when switching tabs
   const handleTabChange = useCallback(
@@ -266,12 +272,20 @@ export function LibraryPage() {
     <div>
       {/* Header */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div className="min-w-0 flex-1">
           <h2 className="text-2xl font-bold text-text-primary">Your Library</h2>
           <p className="text-sm text-text-secondary">
             {books.length} {books.length === 1 ? "book" : "books"} in your
             collection
           </p>
+          {storageUsage && (
+            <StorageUsageBar
+              usedBytes={storageUsage.usedBytes}
+              limitBytes={storageUsage.limitBytes}
+              tier={storageUsage.tier}
+              className="mt-2 max-w-xs"
+            />
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <Button

@@ -62,6 +62,13 @@
   border-bottom: 2px solid #8b5cf6;
 }
 
+/* Hide tab header row when a group has only one panel — the
+   ReaderToolbar already provides all necessary navigation so the
+   dockview tab bar just wastes vertical space for single-tab groups. */
+.pnyxy-dockview-theme .dv-tabs-and-actions-container:has(.dv-tab:only-child) {
+  display: none;
+}
+
 /* Panel content fills available space */
 .pnyxy-dockview-theme .dv-content-container {
   background-color: #0a0a0f;

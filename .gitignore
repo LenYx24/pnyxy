@@ -20,6 +20,9 @@ public/pdf-assets
 .agents/
 .claude/
 
+# Wrangler (Cloudflare local dev state)
+.wrangler/
+
 # Tauri
 src-tauri/target/
 src-tauri/gen/

@@ -8,7 +8,7 @@ export const keyboardCheatsheetManifest: PluginManifest = {
   apiVersion: 1,
   author: "Pnyxy",
   description:
-    "Adds a keyboard cheatsheet overlay, listed from all registered shortcuts.",
+    "Press ? on your keyboard to open a full-screen overlay showing all available keyboard shortcuts. Press ? again or Esc to close it. Works anywhere except inside text inputs.",
   entry: "",
   permissions: ["commands"],
   runtime: ["sandboxed"],

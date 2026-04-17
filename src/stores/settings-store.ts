@@ -58,6 +58,10 @@ interface SettingsState {
    */
   pluginStorage: Record<string, unknown>;
 
+  // ── Context-menu tools ──
+  translateTargetLanguage: string;
+  setTranslateTargetLanguage: (v: string) => void;
+
   // ── Experimental / developer toggles ──
   /**
    * When true, annotation UI (highlight, comment, context menu) is
@@ -128,9 +132,12 @@ export const useSettingsStore = create<SettingsState>()(
       pluginSettings: buildDefaultPluginSettings().pluginSettings,
       pluginStorage: {},
 
+      translateTargetLanguage: "en",
+
       experimental_allowAnnotationsForAllFormats: false,
       experimental_allowWhiteboardForAllFormats: false,
 
+      setTranslateTargetLanguage: (v) => set({ translateTargetLanguage: v }),
       setPageScrollBehavior: (v) => set({ pageScrollBehavior: v }),
       setScrollAnimationDuration: (v) =>
         set({ scrollAnimationDuration: Math.min(Math.max(v, 100), 1000) }),

@@ -7,7 +7,7 @@ export const readingStatsManifest: PluginManifest = {
   apiVersion: 1,
   author: "Pnyxy",
   description:
-    "Counts distinct pages you've visited per session and stores per-document totals.",
+    "Tracks how many unique pages you read per document during each session. Use the \"Reading Stats: Show this session\" command to see your stats. Stats reset when you reload the page.",
   entry: "",
   permissions: ["storage", "events:reader", "commands"],
   runtime: ["sandboxed"],
