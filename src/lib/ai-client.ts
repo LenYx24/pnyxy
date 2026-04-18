@@ -14,14 +14,21 @@ export type AiErrorCode = "quota" | "auth" | "network" | "config" | "other";
  * `code` to decide whether to swap to the next provider.
  */
 export class AiProviderError extends Error {
+  readonly code: AiErrorCode;
+  readonly provider: AiProvider;
+  readonly status?: number;
+
   constructor(
     message: string,
-    public readonly code: AiErrorCode,
-    public readonly provider: AiProvider,
-    public readonly status?: number,
+    code: AiErrorCode,
+    provider: AiProvider,
+    status?: number,
   ) {
     super(message);
     this.name = "AiProviderError";
+    this.code = code;
+    this.provider = provider;
+    this.status = status;
   }
 }
 

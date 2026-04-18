@@ -1,9 +1,15 @@
-import { Navigate, createBrowserRouter } from "react-router";
+import { Navigate, createBrowserRouter, redirect } from "react-router";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { LandingPage } from "@/features/landing/LandingPage";
 import { BrowsePage } from "@/features/browse/BrowsePage";
-import { BookDetailPage } from "@/features/browse/BookDetailPage";
+import { BookPage } from "@/features/book/BookPage";
+import { OverviewTab } from "@/features/book/tabs/OverviewTab";
+import { LearnHubTab } from "@/features/book/tabs/LearnHubTab";
+import { LearnMethodPlaceholder } from "@/features/book/tabs/LearnMethodPlaceholder";
+import { DiscussTab } from "@/features/book/tabs/DiscussTab";
+import { NotesTab } from "@/features/book/tabs/NotesTab";
+import { ResourcesTab } from "@/features/book/tabs/ResourcesTab";
 import { LibraryPage } from "@/features/library/LibraryPage";
 import { ReaderPage } from "@/features/reader/ReaderPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
@@ -61,7 +67,22 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <BrowsePage /> },
       { path: "browse", element: <BrowsePage /> },
-      { path: "browse/:bookId", element: <BookDetailPage /> },
+      {
+        path: "browse/:bookId",
+        loader: ({ params }) => redirect(`/books/${params.bookId}`),
+      },
+      {
+        path: "books/:bookId",
+        element: <BookPage />,
+        children: [
+          { index: true, element: <OverviewTab /> },
+          { path: "learn", element: <LearnHubTab /> },
+          { path: "learn/:methodSlug", element: <LearnMethodPlaceholder /> },
+          { path: "discuss", element: <DiscussTab /> },
+          { path: "notes", element: <NotesTab /> },
+          { path: "resources", element: <ResourcesTab /> },
+        ],
+      },
       { path: "library", element: <LibraryPage /> },
       { path: "streaks", element: <StreaksPage /> },
       { path: "forum", element: <ForumPage /> },

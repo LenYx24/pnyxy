@@ -80,6 +80,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       logError("library-store:fetchLibrary:uploaded", uploadedRes.error.message);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase join response is dynamically shaped
     const catalogItems: CatalogLibraryItem[] = ((catalogRes.data ?? []) as any[]).map(
       (row) => ({
         source: "catalog" as const,
@@ -91,6 +92,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       }),
     );
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase join response is dynamically shaped
     const uploadedItems: UploadedLibraryItem[] = ((uploadedRes.data ?? []) as any[])
       .filter((row) => row.book_files && row.book_files.length > 0)
       .map((row) => {

@@ -162,7 +162,7 @@ export function BrowsePage() {
               <BrowseBookCard
                 key={book.id}
                 book={book}
-                onClick={() => navigate(`/browse/${book.id}`)}
+                onClick={() => navigate(`/books/${book.id}`)}
               />
             ))}
           </div>

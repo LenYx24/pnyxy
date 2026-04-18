@@ -29,6 +29,7 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
   useEffect(() => {
     if (open) {
       fetchStorageUsage();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset local state when the modal is opened
       setSelectedFile(null);
       setSuccess(false);
       clearError();

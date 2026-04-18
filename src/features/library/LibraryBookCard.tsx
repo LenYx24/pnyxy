@@ -13,7 +13,6 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox, GlassCard, TagBadge } from "@/components/ui";
 import { PdfCoverThumbnail } from "@/components/ui/PdfCoverThumbnail";
-import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
 import { useTagStore, bookKey } from "@/stores/tag-store";
 import { TagPickerDropdown } from "./TagPickerDropdown";
 import { ShareBookModal } from "./ShareBookModal";
@@ -43,7 +42,6 @@ export function LibraryBookCard({
   sortableId,
 }: LibraryBookCardProps) {
   const navigate = useNavigate();
-  const { openUploadedBook } = useOpenUploadedDocument();
 
   const sortable = useSortable({ id: sortableId ?? entry.id, disabled: !sortableId });
   const {
@@ -101,9 +99,9 @@ export function LibraryBookCard({
       return;
     }
     if (entry.source === "catalog") {
-      navigate(`/browse/${entry.catalog_book_id}`);
+      navigate(`/books/${entry.catalog_book_id}`);
     } else {
-      openUploadedBook(entry);
+      navigate(`/books/${entry.book.id}`);
     }
   };
 

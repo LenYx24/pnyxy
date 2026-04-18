@@ -162,7 +162,7 @@ export function PostPage() {
         {/* Body */}
         {currentPost.body_md && (
           <div
-            className="mt-4 text-sm text-text-primary prose-sm prose-invert max-w-none"
+            className="prose-sm prose-invert mt-4 max-w-none break-words text-sm text-text-primary [&_a]:break-all [&_img]:max-w-full [&_pre]:overflow-x-auto"
             dangerouslySetInnerHTML={{
               __html: renderMarkdown(currentPost.body_md),
             }}

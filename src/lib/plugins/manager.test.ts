@@ -208,7 +208,7 @@ describe("PluginManager — status listeners", () => {
 
 describe("PluginManager — command registry", () => {
   it("dispatches an executed command back to the loaded plugin handle", async () => {
-    const { PluginManager, useSettingsStore } = await loadModules();
+    const { PluginManager } = await loadModules();
     const mgr = new PluginManager();
 
     await mgr.setEnabled(CORE_ID, true);

@@ -13,13 +13,15 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
   const [content, setContent] = useState(note?.content ?? "");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Sync when note loads
+  // Sync when note loads. We intentionally only re-run when noteId changes
+  // — depending on `note` would reset local edits on every store update.
   useEffect(() => {
     if (note) {
       setTitle(note.title);
       setContent(note.content);
     }
-  }, [noteId]); // Only re-sync when noteId changes, not on every store update
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noteId]);
 
   const debouncedSave = useCallback(
     (patch: { title?: string; content?: string }) => {

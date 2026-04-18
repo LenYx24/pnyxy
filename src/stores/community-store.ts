@@ -5,7 +5,6 @@ import { containsProfanity } from "@/lib/profanity-filter";
 import type {
   Community,
   CommunityInsert,
-  CommunityMembership,
   CommunityRole,
 } from "@/types/forum";
 
@@ -152,7 +151,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
       throw new Error("Description contains inappropriate language.");
     }
 
-    let slug = input.slug || slugify(input.name);
+    const slug = input.slug || slugify(input.name);
     if (!slug) throw new Error("Invalid community name.");
 
     // Try insert, retry with suffix on slug collision

@@ -1,3 +1,7 @@
+/* eslint-disable react-refresh/only-export-components -- this file
+   intentionally re-exports tag-color helpers alongside the TagBadge
+   component. The only downside is slightly coarser fast-refresh for
+   consumers; runtime behavior is unaffected. */
 import { cn } from "@/lib/cn";
 import {
   TAG_LABELS,

@@ -109,25 +109,28 @@ export function PdfCoverThumbnail({
         </div>
       }
     >
-      <Page
-        pageNumber={1}
-        width={300}
-        renderTextLayer={false}
-        renderAnnotationLayer={false}
+      <div
         className={cn(
-          "w-full [&_canvas]:w-full [&_canvas]:object-cover",
+          "w-full overflow-hidden",
           heightClass,
-          height && "[&_canvas]:object-cover",
           className,
         )}
-        style={heightStyle ? { height, overflow: "hidden" } : undefined}
-        loading={
-          <div
-            className={cn("w-full animate-pulse bg-glass-bg", heightClass, className)}
-            style={heightStyle}
-          />
-        }
-      />
+        style={heightStyle}
+      >
+        <Page
+          pageNumber={1}
+          width={300}
+          renderTextLayer={false}
+          renderAnnotationLayer={false}
+          className="w-full [&_canvas]:w-full [&_canvas]:object-cover"
+          loading={
+            <div
+              className={cn("w-full animate-pulse bg-glass-bg", heightClass)}
+              style={heightStyle}
+            />
+          }
+        />
+      </div>
     </Document>
   );
 }

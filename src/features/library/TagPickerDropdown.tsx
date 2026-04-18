@@ -38,7 +38,7 @@ export function TagPickerDropdown({ item, onClose }: TagPickerDropdownProps) {
   return (
     <div
       ref={ref}
-      className="absolute right-0 top-8 z-30 w-48 rounded-lg border border-glass-border bg-bg-secondary/95 py-1 shadow-lg backdrop-blur-xl"
+      className="absolute right-0 top-8 z-30 w-48 max-w-[calc(100vw-1rem)] rounded-lg border border-glass-border bg-bg-secondary/95 py-1 shadow-lg backdrop-blur-xl"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">

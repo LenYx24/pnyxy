@@ -1,3 +1,6 @@
+/* eslint-disable react-hooks/exhaustive-deps --
+   `store` here is the imported Zustand hook aliased to a local const; its
+   reference is stable across renders, so omitting it from deps is safe. */
 import { useCallback, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import type { Point, WhiteboardElement } from "@/types/whiteboard";

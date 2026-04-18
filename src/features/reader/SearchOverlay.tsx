@@ -95,10 +95,10 @@ export function SearchOverlay() {
 
   return (
     <div
-      className="pointer-events-auto absolute right-4 top-3 z-50 flex min-w-[22rem] flex-col gap-1 rounded-md border border-glass-border bg-bg-secondary/95 px-2 py-2 shadow-lg backdrop-blur-xl"
+      className="pointer-events-auto absolute left-2 right-2 top-3 z-50 flex flex-col gap-1 rounded-md border border-glass-border bg-bg-secondary/95 px-2 py-2 shadow-lg backdrop-blur-xl sm:left-auto sm:right-4 sm:min-w-[22rem]"
       onMouseDown={(e) => e.stopPropagation()}
     >
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         <Search size={14} className="text-text-muted" />
         <input
           ref={findRef}

@@ -8,6 +8,8 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import type { TocItem } from "@/types/document";
 
+const EMPTY_TOC: TocItem[] = [];
+
 type SidebarTab = "contents" | "notes" | "whiteboards";
 
 /** Flatten TOC into ordered list of page numbers for range-based active detection */
@@ -108,7 +110,7 @@ export function ReaderSidebarContent({
     allowWhiteboardForAll;
 
   const meta = activeDoc?.meta ?? null;
-  const toc = activeDoc?.toc ?? [];
+  const toc = activeDoc?.toc ?? EMPTY_TOC;
   const currentPage = activeDoc?.currentPage ?? 1;
   const totalPages = activeDoc?.totalPages ?? 0;
 

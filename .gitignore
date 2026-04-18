@@ -23,6 +23,10 @@ public/pdf-assets
 # Wrangler (Cloudflare local dev state)
 .wrangler/
 
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/
+
 # Tauri
 src-tauri/target/
 src-tauri/gen/

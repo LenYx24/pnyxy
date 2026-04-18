@@ -5,7 +5,6 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useIsDesktop } from "@/hooks/use-media-query";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { Sidebar } from "./Sidebar";
-import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
 import { Footer } from "./Footer";
 import { BannedScreen } from "@/features/admin/BannedScreen";
@@ -45,7 +44,6 @@ export function AppLayout() {
   return (
     <div className="min-h-screen bg-bg-primary">
       {!isReaderRoute && <Sidebar />}
-      {!isReaderRoute && <TopBar />}
       <main
         className={cn(
           "transition-all duration-300",

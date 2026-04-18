@@ -12,13 +12,13 @@ import {
   expect,
   it,
   vi,
-  type Mock,
 } from "vitest";
 import type { DocumentAdapter, DocumentMeta, TocItem } from "@/types/document";
+import type { loadDocumentMeta } from "@/lib/annotation-storage";
 
 // ── Mocks ───────────────────────────────────────────────────
 
-const loadDocumentMetaMock = vi.fn(async () => undefined);
+const loadDocumentMetaMock = vi.fn<typeof loadDocumentMeta>();
 const saveDocumentMetaMock = vi.fn(async () => {});
 
 vi.mock("@/lib/annotation-storage", () => ({

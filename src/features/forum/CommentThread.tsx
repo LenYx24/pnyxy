@@ -60,19 +60,25 @@ function CommentNode({ comment, postId, depth }: CommentNodeProps) {
   const isAuthor = user?.id === comment.author_id;
 
   return (
-    <div className={cn(depth > 0 && "ml-5 border-l border-glass-border/40 pl-4")}>
+    <div
+      className={cn(
+        "min-w-0",
+        depth > 0 &&
+          "ml-2 border-l border-glass-border/40 pl-2 sm:ml-5 sm:pl-4",
+      )}
+    >
       <div className="py-2">
         {/* Header */}
         <div className="flex items-center gap-2 text-xs text-text-muted">
-          <span className="font-medium text-text-secondary">
+          <span className="truncate font-medium text-text-secondary">
             {comment.author?.display_name ?? "Unknown"}
           </span>
-          <span>{timeAgo(comment.created_at)}</span>
+          <span className="shrink-0">{timeAgo(comment.created_at)}</span>
         </div>
 
         {/* Body */}
         <div
-          className="mt-1 text-sm text-text-primary prose-sm prose-invert max-w-none"
+          className="prose-sm prose-invert mt-1 max-w-none break-words text-sm text-text-primary [&_a]:break-all [&_img]:max-w-full [&_pre]:overflow-x-auto"
           dangerouslySetInnerHTML={{ __html: renderMarkdown(comment.body_md) }}
         />
 

@@ -208,25 +208,19 @@ const dockviewComponents = {
 interface MobileReaderLayoutProps {
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
-  onToggleComments: () => void;
   isDrawMode: boolean;
   onToggleDrawMode: () => void;
   onScreenshot: () => void;
   onPrint: () => void;
-  onToggleSearch: () => void;
-  onToggleAiChat: () => void;
 }
 
 function MobileReaderLayout({
   isFullscreen,
   onToggleFullscreen,
-  onToggleComments,
   isDrawMode,
   onToggleDrawMode,
   onScreenshot,
   onPrint,
-  onToggleSearch,
-  onToggleAiChat,
 }: MobileReaderLayoutProps) {
   const mobileReaderPanel = useUIStore((s) => s.mobileReaderPanel);
   const setMobileReaderPanel = useUIStore((s) => s.setMobileReaderPanel);
@@ -243,10 +237,6 @@ function MobileReaderLayout({
 
   const handleToggleAiChat = useCallback(() => {
     setMobileReaderPanel(mobileReaderPanel === "aiChat" ? "none" : "aiChat");
-  }, [mobileReaderPanel, setMobileReaderPanel]);
-
-  const handleToggleToc = useCallback(() => {
-    setMobileReaderPanel(mobileReaderPanel === "toc" ? "none" : "toc");
   }, [mobileReaderPanel, setMobileReaderPanel]);
 
   return (
@@ -278,7 +268,7 @@ function MobileReaderLayout({
       {/* TOC panel - slides from left */}
       <div
         className={cn(
-          "absolute left-0 top-11 bottom-0 z-40 w-72 border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
+          "absolute left-0 top-11 bottom-0 z-40 w-[85vw] max-w-[18rem] border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
           mobileReaderPanel === "toc" ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -305,7 +295,7 @@ function MobileReaderLayout({
       {/* Comments panel - slides from right */}
       <div
         className={cn(
-          "absolute right-0 top-11 bottom-0 z-40 w-72 border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
+          "absolute right-0 top-11 bottom-0 z-40 w-[85vw] max-w-[18rem] border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
           mobileReaderPanel === "comments" ? "translate-x-0" : "translate-x-full",
         )}
       >
@@ -326,7 +316,7 @@ function MobileReaderLayout({
       {/* AI Chat panel - slides from right */}
       <div
         className={cn(
-          "absolute right-0 top-11 bottom-0 z-40 w-72 border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
+          "absolute right-0 top-11 bottom-0 z-40 w-[85vw] max-w-[18rem] border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
           mobileReaderPanel === "aiChat" ? "translate-x-0" : "translate-x-full",
         )}
       >
@@ -1011,13 +1001,10 @@ export function ReaderPage() {
           <MobileReaderLayout
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
-            onToggleComments={toggleComments}
             isDrawMode={isDrawMode}
             onToggleDrawMode={toggleDrawMode}
             onScreenshot={handleScreenshot}
             onPrint={handlePrint}
-            onToggleSearch={toggleSearch}
-            onToggleAiChat={toggleAiChat}
           />
         ) : (
           <>

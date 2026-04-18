@@ -37,6 +37,7 @@ export function TextViewer({ documentId }: TextViewerProps) {
   useEffect(() => {
     let alive = true;
     if (!doc?.adapter.getContent) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear content when the active doc can't provide it
       setContent("");
       return;
     }

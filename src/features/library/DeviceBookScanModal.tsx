@@ -59,6 +59,7 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
   useEffect(() => {
     if (open) {
       fetchStorageUsage();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset local state when the modal is opened
       setScanned([]);
       setSelected(new Set());
       setIsScanning(false);

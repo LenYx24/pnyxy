@@ -18,7 +18,6 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox, TagBadge } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
 import { useTagStore, bookKey } from "@/stores/tag-store";
 import { TagPickerDropdown } from "./TagPickerDropdown";
 import { ShareBookModal } from "./ShareBookModal";
@@ -399,7 +398,6 @@ function BookRow({
   sortableId,
 }: BookRowProps) {
   const navigate = useNavigate();
-  const { openUploadedBook } = useOpenUploadedDocument();
 
   const isTopLevel = depth === 0 && !!sortableId;
   const {
@@ -436,9 +434,9 @@ function BookRow({
       return;
     }
     if (entry.source === "catalog") {
-      navigate(`/browse/${entry.catalog_book_id}`);
+      navigate(`/books/${entry.catalog_book_id}`);
     } else {
-      openUploadedBook(entry);
+      navigate(`/books/${entry.book.id}`);
     }
   };
 
