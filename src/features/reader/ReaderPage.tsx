@@ -15,6 +15,10 @@ import { EpubViewer } from "./EpubViewer";
 import { CommentsSidebar } from "./CommentsSidebar";
 import { SearchOverlay } from "./SearchOverlay";
 import { AiChatPanel, AiChatPanelContent } from "./AiChatPanel";
+import {
+  ScreenshotRectSelector,
+  type ScreenshotRect,
+} from "./ScreenshotRectSelector";
 import { NoteEditor } from "@/features/notes/NoteEditor";
 import { WhiteboardPanelWrapper } from "@/features/whiteboard/WhiteboardPanel";
 import { useReaderStore, useDocumentState } from "@/stores/reader-store";
@@ -211,6 +215,7 @@ interface MobileReaderLayoutProps {
   isDrawMode: boolean;
   onToggleDrawMode: () => void;
   onScreenshot: () => void;
+  onScreenshotRect: () => void;
   onPrint: () => void;
 }
 
@@ -220,6 +225,7 @@ function MobileReaderLayout({
   isDrawMode,
   onToggleDrawMode,
   onScreenshot,
+  onScreenshotRect,
   onPrint,
 }: MobileReaderLayoutProps) {
   const mobileReaderPanel = useUIStore((s) => s.mobileReaderPanel);
@@ -248,6 +254,7 @@ function MobileReaderLayout({
         isDrawMode={isDrawMode}
         onToggleDrawMode={onToggleDrawMode}
         onScreenshot={onScreenshot}
+        onScreenshotRect={onScreenshotRect}
         onPrint={onPrint}
         onToggleSearch={handleToggleSearch}
         onToggleAiChat={handleToggleAiChat}
@@ -657,48 +664,24 @@ export function ReaderPage() {
     }
   }, []);
 
-  // Print handler — captures the viewer with annotation overlays
-  const handlePrint = useCallback(async () => {
-    const viewer =
-      document.querySelector<HTMLElement>("[data-active-viewer]") ??
-      document.querySelector<HTMLElement>("[data-pdf-viewer]");
-    if (!viewer) {
-      // Fallback: print raw PDF if viewer element not found
-      const activeDoc = useReaderStore.getState().getActiveDoc();
-      const fileUrl = activeDoc?.meta?.fileUrl;
-      if (!fileUrl) return;
-      const iframe = document.createElement("iframe");
-      iframe.style.display = "none";
-      document.body.appendChild(iframe);
-      iframe.src = fileUrl;
-      iframe.onload = () => {
-        iframe.contentWindow?.print();
-        setTimeout(() => document.body.removeChild(iframe), 1000);
-      };
-      return;
-    }
-
-    const { default: html2canvas } = await import("html2canvas-pro");
-    const canvas = await html2canvas(viewer, {
-      useCORS: true,
-      allowTaint: true,
-    });
-
-    const dataUrl = canvas.toDataURL("image/png");
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-    printWindow.document.write(`
-      <html>
-        <head><title>Print</title></head>
-        <body style="margin:0;display:flex;justify-content:center;">
-          <img src="${dataUrl}" style="max-width:100%;height:auto;" onload="window.print();window.close();" />
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+  // Print handler — defers to the browser's native print pipeline.
+  // Global @media print CSS (src/styles/index.css) hides everything
+  // except [data-active-viewer], so the browser rasterizes the PDF
+  // canvas + DOM overlays (highlights, comments, drawings) together.
+  const handlePrint = useCallback(() => {
+    window.print();
   }, []);
 
-  // Screenshot handler
+  // Screenshot handlers — full viewer + interactive rectangle.
+  const [rectScreenshotActive, setRectScreenshotActive] = useState(false);
+
+  const saveCanvas = useCallback((canvas: HTMLCanvasElement) => {
+    const link = document.createElement("a");
+    link.download = `screenshot-${Date.now()}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }, []);
+
   const handleScreenshot = useCallback(async () => {
     const viewer =
       document.querySelector<HTMLElement>("[data-active-viewer]") ??
@@ -709,13 +692,36 @@ export function ReaderPage() {
     const canvas = await html2canvas(viewer, {
       useCORS: true,
       allowTaint: true,
+      scale: window.devicePixelRatio,
+      backgroundColor: null,
     });
+    saveCanvas(canvas);
+  }, [saveCanvas]);
 
-    const link = document.createElement("a");
-    link.download = `screenshot-${Date.now()}.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
+  const handleRectScreenshotStart = useCallback(() => {
+    setRectScreenshotActive(true);
   }, []);
+
+  const handleRectScreenshotCapture = useCallback(
+    async (rect: ScreenshotRect) => {
+      setRectScreenshotActive(false);
+      // Let the overlay unmount before rasterizing so it isn't captured.
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const { default: html2canvas } = await import("html2canvas-pro");
+      const canvas = await html2canvas(document.body, {
+        useCORS: true,
+        allowTaint: true,
+        scale: window.devicePixelRatio,
+        backgroundColor: null,
+        x: rect.left + window.scrollX,
+        y: rect.top + window.scrollY,
+        width: rect.width,
+        height: rect.height,
+      });
+      saveCanvas(canvas);
+    },
+    [saveCanvas],
+  );
 
   // Search overlay toggle (VSCode-style find).
   const toggleSearch = useCallback(() => {
@@ -996,6 +1002,7 @@ export function ReaderPage() {
             isDrawMode={isDrawMode}
             onToggleDrawMode={toggleDrawMode}
             onScreenshot={handleScreenshot}
+            onScreenshotRect={handleRectScreenshotStart}
             onPrint={handlePrint}
           />
         ) : (
@@ -1007,6 +1014,7 @@ export function ReaderPage() {
               isDrawMode={isDrawMode}
               onToggleDrawMode={toggleDrawMode}
               onScreenshot={handleScreenshot}
+              onScreenshotRect={handleRectScreenshotStart}
               onPrint={handlePrint}
               onToggleSearch={toggleSearch}
               onToggleAiChat={toggleAiChat}
@@ -1031,6 +1039,12 @@ export function ReaderPage() {
         className="hidden"
         onChange={handleFileSelect}
       />
+      {rectScreenshotActive && (
+        <ScreenshotRectSelector
+          onCapture={handleRectScreenshotCapture}
+          onCancel={() => setRectScreenshotActive(false)}
+        />
+      )}
     </div>
   );
 }

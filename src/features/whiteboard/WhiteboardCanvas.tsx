@@ -546,6 +546,8 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
   return (
     <div
       ref={containerRef}
+      data-active-viewer
+      data-whiteboard-viewer
       className="relative h-full w-full outline-none"
       tabIndex={0}
       onKeyDown={handleKeyDown}

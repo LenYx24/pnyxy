@@ -308,13 +308,13 @@ export function ReaderSidebarContent({
       )}
 
       {/* Tab bar */}
-      <div className="border-b border-glass-border px-2 py-1.5 flex items-center gap-1">
+      <div className="border-b border-glass-border px-2 py-1.5 flex items-center gap-1 overflow-x-auto">
         {tabItems.map(({ key, icon: Icon, label }) => (
           <button
             key={key}
             onClick={() => setSidebarTab(key)}
             className={cn(
-              "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors cursor-pointer",
+              "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors cursor-pointer",
               sidebarTab === key
                 ? "bg-accent-purple/15 text-accent-purple"
                 : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
@@ -325,66 +325,76 @@ export function ReaderSidebarContent({
             <span className="hidden sm:inline">{label}</span>
           </button>
         ))}
+      </div>
 
-        {/* Contextual actions on the right */}
-        <div className="ml-auto flex items-center gap-0.5">
-          {sidebarTab === "contents" && meta && (
-            <>
-              <button
-                onClick={() => setTocViewMode("outline")}
-                className={cn(
-                  "rounded-md p-1 transition-colors cursor-pointer",
-                  tocViewMode === "outline"
-                    ? "text-accent-purple bg-accent-purple/10"
-                    : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
-                )}
-                title="Outline view"
-              >
-                <List size={14} />
-              </button>
-              <button
-                onClick={() => setTocViewMode("thumbnail")}
-                className={cn(
-                  "rounded-md p-1 transition-colors cursor-pointer",
-                  tocViewMode === "thumbnail"
-                    ? "text-accent-purple bg-accent-purple/10"
-                    : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
-                )}
-                title="Thumbnail view"
-              >
-                <LayoutGrid size={14} />
-              </button>
-            </>
-          )}
-          {sidebarTab === "notes" && onCreateNote && (
+      {/* Contextual actions for the active tab — on their own row so
+          they're always accessible regardless of panel width. */}
+      <div className="border-b border-glass-border px-2 py-1 flex items-center gap-1 overflow-x-auto">
+        {sidebarTab === "contents" && meta && (
+          <>
             <button
-              onClick={onCreateNote}
-              className="rounded-md p-1 text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
-              title="New note"
-            >
-              <StickyNote size={14} />
-            </button>
-          )}
-          {sidebarTab === "whiteboards" && onCreateWhiteboard && (
-            <button
-              onClick={onCreateWhiteboard}
-              disabled={!whiteboardCreationAllowed}
+              onClick={() => setTocViewMode("outline")}
               className={cn(
-                "rounded-md p-1 transition-colors",
-                whiteboardCreationAllowed
-                  ? "text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-                  : "text-text-muted/40 cursor-not-allowed",
+                "flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors cursor-pointer",
+                tocViewMode === "outline"
+                  ? "text-accent-purple bg-accent-purple/10"
+                  : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
               )}
-              title={
-                whiteboardCreationAllowed
-                  ? "New whiteboard"
-                  : "Whiteboards are only available for paginated formats"
-              }
+              title="Outline view"
             >
-              <PenTool size={14} />
+              <List size={14} />
+              <span>Outline</span>
             </button>
-          )}
-        </div>
+            <button
+              onClick={() => setTocViewMode("thumbnail")}
+              className={cn(
+                "flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors cursor-pointer",
+                tocViewMode === "thumbnail"
+                  ? "text-accent-purple bg-accent-purple/10"
+                  : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
+              )}
+              title="Thumbnail view"
+            >
+              <LayoutGrid size={14} />
+              <span>Thumbnails</span>
+            </button>
+          </>
+        )}
+        {sidebarTab === "contents" && !meta && (
+          <span className="px-1 py-0.5 text-xs text-text-muted/60">
+            No document open
+          </span>
+        )}
+        {sidebarTab === "notes" && onCreateNote && (
+          <button
+            onClick={onCreateNote}
+            className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+            title="New note"
+          >
+            <StickyNote size={14} />
+            <span>New note</span>
+          </button>
+        )}
+        {sidebarTab === "whiteboards" && onCreateWhiteboard && (
+          <button
+            onClick={onCreateWhiteboard}
+            disabled={!whiteboardCreationAllowed}
+            className={cn(
+              "flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
+              whiteboardCreationAllowed
+                ? "text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                : "text-text-muted/40 cursor-not-allowed",
+            )}
+            title={
+              whiteboardCreationAllowed
+                ? "New whiteboard"
+                : "Whiteboards are only available for paginated formats"
+            }
+          >
+            <PenTool size={14} />
+            <span>New whiteboard</span>
+          </button>
+        )}
       </div>
 
       {/* Tab content */}

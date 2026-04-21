@@ -185,12 +185,14 @@ export function Sidebar() {
     );
   }
 
-  // Desktop: fixed sidebar (current behavior)
+  // Desktop: fixed sidebar (current behavior).
+  // transition-[width] (not transition-all) + overflow-hidden: width
+  // animates smoothly while inner text clips instead of reflowing.
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-glass-border bg-bg-secondary/80 backdrop-blur-xl",
-        "transition-all duration-300",
+        "fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden border-r border-glass-border bg-bg-secondary/80 backdrop-blur-xl",
+        "transition-[width] duration-200 ease-out",
         sidebarCollapsed ? "w-sidebar-collapsed" : "w-sidebar-expanded",
       )}
     >

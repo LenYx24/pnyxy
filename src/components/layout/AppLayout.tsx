@@ -46,7 +46,7 @@ export function AppLayout() {
       {!isReaderRoute && <Sidebar />}
       <main
         className={cn(
-          "transition-all duration-300",
+          "transition-[margin] duration-200 ease-out",
           isReaderRoute
             ? "p-0"
             : "p-4 pb-20 md:p-6 md:pb-6",

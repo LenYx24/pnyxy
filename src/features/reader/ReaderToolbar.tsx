@@ -14,6 +14,7 @@ import {
   Undo2,
   PenTool,
   Camera,
+  Crop,
   Printer,
   Search,
   MoreHorizontal,
@@ -112,6 +113,7 @@ interface ReaderToolbarProps {
   isDrawMode?: boolean;
   onToggleDrawMode?: () => void;
   onScreenshot?: () => void;
+  onScreenshotRect?: () => void;
   onPrint?: () => void;
   onToggleSearch?: () => void;
   onToggleAiChat?: () => void;
@@ -124,6 +126,7 @@ export function ReaderToolbar({
   isDrawMode,
   onToggleDrawMode,
   onScreenshot,
+  onScreenshotRect,
   onPrint,
   onToggleSearch,
   onToggleAiChat,
@@ -177,6 +180,7 @@ export function ReaderToolbar({
     ...(onToggleDrawMode ? [{ label: isDrawMode ? "Exit Draw" : "Draw", icon: PenTool, onClick: onToggleDrawMode }] : []),
     { label: "Undo", icon: Undo2, onClick: performUndo, disabled: !canUndo },
     { label: "Screenshot", icon: Camera, onClick: onScreenshot },
+    { label: "Area screenshot", icon: Crop, onClick: onScreenshotRect },
     { label: "Print", icon: Printer, onClick: onPrint },
     { label: "Search", icon: Search, onClick: onToggleSearch },
     { label: "Comments", icon: MessageSquare, onClick: onToggleComments },
@@ -187,6 +191,7 @@ export function ReaderToolbar({
   // Tablet: hide screenshot/print, show them in a smaller overflow
   const tabletOverflowActions = [
     { label: "Screenshot", icon: Camera, onClick: onScreenshot },
+    { label: "Area screenshot", icon: Crop, onClick: onScreenshotRect },
     { label: "Print", icon: Printer, onClick: onPrint },
   ];
 
@@ -582,6 +587,14 @@ export function ReaderToolbar({
               title="Screenshot viewport (Ctrl+Shift+S)"
             >
               <Camera size={16} />
+            </button>
+            {/* Area (rectangle) screenshot */}
+            <button
+              onClick={onScreenshotRect}
+              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              title="Screenshot an area"
+            >
+              <Crop size={16} />
             </button>
             {/* Print */}
             <button

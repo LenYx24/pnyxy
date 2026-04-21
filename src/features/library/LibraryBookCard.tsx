@@ -109,7 +109,7 @@ export function LibraryBookCard({
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <GlassCard
         className={cn(
-          "group relative cursor-pointer overflow-hidden",
+          "group relative cursor-pointer",
           selected && "ring-2 ring-accent-purple bg-accent-purple/5",
           isDragging && "opacity-50",
         )}
@@ -134,7 +134,7 @@ export function LibraryBookCard({
           )}
 
           {/* Cover */}
-          <div className="w-full overflow-hidden" style={{ height: coverHeight }}>
+          <div className="w-full overflow-hidden rounded-t-xl" style={{ height: coverHeight }}>
             {coverUrl ? (
               <img
                 src={coverUrl}
