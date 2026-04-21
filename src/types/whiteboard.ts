@@ -20,6 +20,9 @@ interface BaseElement {
   strokeColor: string;
   strokeWidth: number;
   createdAt: number;
+  /** Rotation around the element's bbox centre, in radians. Optional
+   *  for backward compatibility — readers should treat undefined as 0. */
+  rotation?: number;
 }
 
 export interface PenElement extends BaseElement {

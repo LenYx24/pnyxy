@@ -1,5 +1,20 @@
 import type { Point, WhiteboardElement } from "@/types/whiteboard";
-import { pointToSegmentDistance } from "./math-utils";
+import { getElementBounds, pointToSegmentDistance } from "./math-utils";
+
+/** Un-rotate a world-space point around an element's bbox centre so we
+ *  can test against the element's axis-aligned local geometry. */
+function toLocalPoint(el: WhiteboardElement, p: Point): Point {
+  const rot = el.rotation ?? 0;
+  if (rot === 0) return p;
+  const b = getElementBounds(el);
+  const cx = (b.minX + b.maxX) / 2;
+  const cy = (b.minY + b.maxY) / 2;
+  const cos = Math.cos(-rot);
+  const sin = Math.sin(-rot);
+  const dx = p.x - cx;
+  const dy = p.y - cy;
+  return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
+}
 
 /** Hit-test a single element. Returns true if the world-space point is on/near the element. */
 function hitTestElement(
@@ -8,6 +23,8 @@ function hitTestElement(
   zoom: number,
 ): boolean {
   const threshold = el.strokeWidth / 2 + 5 / zoom;
+  // Translate the test point into element-local (un-rotated) space.
+  p = toLocalPoint(el, p);
 
   switch (el.type) {
     case "pen": {

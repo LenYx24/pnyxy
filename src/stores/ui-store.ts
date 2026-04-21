@@ -11,11 +11,16 @@ interface UIState {
   loadingMessage: string;
   mobileSidebarOpen: boolean;
   mobileReaderPanel: MobileReaderPanel;
+  /** Reader-only "zen" mode: hides toolbar, dockview panels, and all
+   *  surrounding chrome. The active viewer fills the screen. */
+  zenMode: boolean;
   toggleSidebar: () => void;
   toggleReaderSidebar: () => void;
   setLoading: (loading: boolean, message?: string) => void;
   setMobileSidebarOpen: (open: boolean) => void;
   setMobileReaderPanel: (panel: MobileReaderPanel) => void;
+  toggleZenMode: () => void;
+  setZenMode: (on: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -25,6 +30,7 @@ export const useUIStore = create<UIState>((set) => ({
   loadingMessage: "",
   mobileSidebarOpen: false,
   mobileReaderPanel: "none",
+  zenMode: false,
   toggleSidebar: () =>
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   toggleReaderSidebar: () =>
@@ -33,6 +39,8 @@ export const useUIStore = create<UIState>((set) => ({
     set({ isLoadingDocument: loading, loadingMessage: message }),
   setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
   setMobileReaderPanel: (panel) => set({ mobileReaderPanel: panel }),
+  toggleZenMode: () => set((s) => ({ zenMode: !s.zenMode })),
+  setZenMode: (on) => set({ zenMode: on }),
 }));
 
 export function saveDockviewLayout(layout: object) {

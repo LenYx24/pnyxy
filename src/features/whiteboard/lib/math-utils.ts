@@ -74,6 +74,16 @@ export function getElementBounds(el: WhiteboardElement): BoundingBox {
   }
 }
 
+/** Returns true if two axis-aligned bounding boxes overlap at all. */
+export function bboxesIntersect(a: BoundingBox, b: BoundingBox): boolean {
+  return !(
+    a.maxX < b.minX ||
+    a.minX > b.maxX ||
+    a.maxY < b.minY ||
+    a.minY > b.maxY
+  );
+}
+
 export function screenToWorld(
   sx: number,
   sy: number,

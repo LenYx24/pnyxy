@@ -239,6 +239,7 @@ interface MobileReaderLayoutProps {
   onScreenshot: () => void;
   onScreenshotRect: () => void;
   onPrint: () => void;
+  onToggleZenMode: () => void;
 }
 
 function MobileReaderLayout({
@@ -249,6 +250,7 @@ function MobileReaderLayout({
   onScreenshot,
   onScreenshotRect,
   onPrint,
+  onToggleZenMode,
 }: MobileReaderLayoutProps) {
   const mobileReaderPanel = useUIStore((s) => s.mobileReaderPanel);
   const setMobileReaderPanel = useUIStore((s) => s.setMobileReaderPanel);
@@ -280,6 +282,7 @@ function MobileReaderLayout({
         onPrint={onPrint}
         onToggleSearch={handleToggleSearch}
         onToggleAiChat={handleToggleAiChat}
+        onToggleZenMode={onToggleZenMode}
       />
       <div className="relative flex-1 overflow-hidden">
         <ActiveViewer />
@@ -421,6 +424,9 @@ export function ReaderPage() {
 
   const isLoadingDocument = useUIStore((s) => s.isLoadingDocument);
   const loadingMessage = useUIStore((s) => s.loadingMessage);
+  const zenMode = useUIStore((s) => s.zenMode);
+  const setZenMode = useUIStore((s) => s.setZenMode);
+  const toggleZenMode = useUIStore((s) => s.toggleZenMode);
 
   const hasDocuments = documents.size > 0;
 
@@ -598,6 +604,24 @@ export function ReaderPage() {
     description: "Toggle fullscreen",
     handler: toggleFullscreen,
   });
+
+  useKeyboardShortcut({
+    id: "reader:zen-mode",
+    key: ".",
+    ctrl: true,
+    description: "Toggle zen reading mode",
+    handler: toggleZenMode,
+  });
+
+  // Esc exits zen mode regardless of whether anything else is focused.
+  useEffect(() => {
+    if (!zenMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setZenMode(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zenMode, setZenMode]);
 
   useKeyboardShortcut({
     id: "reader:add-comment",
@@ -1017,7 +1041,20 @@ export function ReaderPage() {
           <p className="text-sm text-text-secondary">{loadingMessage}</p>
         </div>
       )}
-      {hasDocuments ? (
+      {hasDocuments && zenMode ? (
+        <div className="relative flex-1 overflow-hidden bg-bg-primary">
+          <ActiveViewer />
+          <SearchOverlay />
+          <button
+            onClick={() => setZenMode(false)}
+            className="group fixed right-4 top-4 z-50 rounded-full border border-glass-border bg-bg-secondary/70 p-2 text-text-muted opacity-30 backdrop-blur-md transition-opacity hover:opacity-100 focus-visible:opacity-100 cursor-pointer"
+            title="Exit zen mode (Esc)"
+            aria-label="Exit zen mode"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      ) : hasDocuments ? (
         isMobile ? (
           <MobileReaderLayout
             isFullscreen={isFullscreen}
@@ -1027,6 +1064,7 @@ export function ReaderPage() {
             onScreenshot={handleScreenshot}
             onScreenshotRect={handleRectScreenshotStart}
             onPrint={handlePrint}
+            onToggleZenMode={toggleZenMode}
           />
         ) : (
           <>
@@ -1041,6 +1079,7 @@ export function ReaderPage() {
               onPrint={handlePrint}
               onToggleSearch={toggleSearch}
               onToggleAiChat={toggleAiChat}
+              onToggleZenMode={toggleZenMode}
             />
             <div className="relative flex-1 overflow-hidden">
               <DockviewReact

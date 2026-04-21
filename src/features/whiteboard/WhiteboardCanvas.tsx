@@ -6,9 +6,16 @@ import { Loader2 } from "lucide-react";
 import type { Point, TextElement, WhiteboardElement } from "@/types/whiteboard";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import { WhiteboardToolbar } from "./WhiteboardToolbar";
-import { drawBackground, drawElement, drawSelectionHandles } from "./lib/render-element";
+import {
+  drawBackground,
+  drawElement,
+  drawSelectionHandles,
+  hitTestHandle,
+  type ResizeHandle,
+} from "./lib/render-element";
 import { hitTest } from "./lib/hit-testing";
-import { screenToWorld } from "./lib/math-utils";
+import { bboxesIntersect, getElementBounds, screenToWorld } from "./lib/math-utils";
+import { applyResize, angleFromPointer } from "./lib/transforms";
 import {
   measureTextHeight,
   TEXT_FONT_FAMILY,
@@ -37,6 +44,32 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
   const dragStartWorldRef = useRef<Point>({ x: 0, y: 0 });
   const dragSnapshotsRef = useRef<Map<string, WhiteboardElement>>(new Map());
   const isDraggingSelectionRef = useRef(false);
+
+  // Transform-drag state. When the user grabs a resize/rotate handle
+  // on a single-selected element, we snapshot it once and re-derive
+  // the new geometry every pointermove. `kind` distinguishes resize
+  // vs rotate; `original` is the element as it was at the start of
+  // the drag (so we never accumulate floating-point error).
+  const transformRef = useRef<{
+    kind: ResizeHandle | "rotate";
+    elementId: string;
+    original: WhiteboardElement;
+    /** For rotate: radians offset between the snapshot rotation and
+     *  the angle from centre to pointer at drag start. */
+    angleOffset?: number;
+    centre?: Point;
+  } | null>(null);
+
+  // Marquee (rubber-band) selection state. While the user drags from
+  // an empty point with the select tool active, marqueeRef stores the
+  // start + end world-space corners so render() can draw the box and
+  // pointerup can finalise the selection.
+  const marqueeRef = useRef<{
+    startWorld: Point;
+    endWorld: Point;
+    additive: boolean;
+    baseline: Set<string>;
+  } | null>(null);
 
   // Text-editing state. `editingId` is the id of the text element whose
   // overlay is currently open; editingIdRef mirrors it so the render
@@ -138,6 +171,22 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
       drawSelectionHandles(ctx, elements, selectedElementIds, zoom);
     }
 
+    // Marquee rectangle (drawn in world space; thin & dashed)
+    if (marqueeRef.current) {
+      const { startWorld, endWorld } = marqueeRef.current;
+      const mx = Math.min(startWorld.x, endWorld.x);
+      const my = Math.min(startWorld.y, endWorld.y);
+      const mw = Math.abs(endWorld.x - startWorld.x);
+      const mh = Math.abs(endWorld.y - startWorld.y);
+      ctx.fillStyle = "rgba(124, 92, 252, 0.08)";
+      ctx.fillRect(mx, my, mw, mh);
+      ctx.strokeStyle = "#7c5cfc";
+      ctx.lineWidth = 1 / zoom;
+      ctx.setLineDash([5 / zoom, 5 / zoom]);
+      ctx.strokeRect(mx, my, mw, mh);
+      ctx.setLineDash([]);
+    }
+
     ctx.restore();
   }, []);
 
@@ -212,6 +261,50 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
       const world = getWorldPoint(e);
 
       if (activeTool === "select") {
+        // First, if exactly one element is selected, see whether the
+        // pointer landed on one of its resize/rotate handles. This
+        // takes precedence over element hit-tests so users can grab a
+        // handle that's outside the element's outline.
+        if (selectedElementIds.size === 1) {
+          const onlySelected = elements.find((el) =>
+            selectedElementIds.has(el.id),
+          );
+          if (onlySelected) {
+            const handle = hitTestHandle(onlySelected, world, zoom);
+            if (handle) {
+              store.getState().pushUndo();
+              const b = getElementBounds(onlySelected);
+              const cx = (b.minX + b.maxX) / 2;
+              const cy = (b.minY + b.maxY) / 2;
+              transformRef.current = {
+                kind: handle,
+                elementId: onlySelected.id,
+                original:
+                  onlySelected.type === "pen"
+                    ? {
+                        ...onlySelected,
+                        points: onlySelected.points.map((p) => ({ ...p })),
+                      }
+                    : { ...onlySelected },
+                centre: { x: cx, y: cy },
+                angleOffset:
+                  handle === "rotate"
+                    ? (onlySelected.rotation ?? 0) -
+                      angleFromPointer({ x: cx, y: cy }, world)
+                    : undefined,
+              };
+              const loop = () => {
+                render();
+                if (transformRef.current) {
+                  rafRef.current = requestAnimationFrame(loop);
+                }
+              };
+              rafRef.current = requestAnimationFrame(loop);
+              return;
+            }
+          }
+        }
+
         const hit = hitTest(elements, world, zoom);
         if (hit) {
           const isMultiSelect = e.ctrlKey || e.metaKey;
@@ -248,9 +341,25 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
             store.getState().pushUndo();
           }
         } else {
-          if (!e.ctrlKey && !e.metaKey) {
-            store.getState().clearSelection();
-          }
+          // Empty space → start a marquee selection. Shift/Ctrl makes
+          // it additive (existing selection preserved as a baseline);
+          // a plain drag clears existing selection on commit.
+          const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+          marqueeRef.current = {
+            startWorld: world,
+            endWorld: world,
+            additive,
+            baseline: new Set(selectedElementIds),
+          };
+          if (!additive) store.getState().clearSelection();
+          // Drive a rAF loop so the marquee box redraws while dragging.
+          const loop = () => {
+            render();
+            if (marqueeRef.current) {
+              rafRef.current = requestAnimationFrame(loop);
+            }
+          };
+          rafRef.current = requestAnimationFrame(loop);
         }
         return;
       }
@@ -377,6 +486,33 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
 
       const world = getWorldPoint(e);
 
+      // Marquee in progress
+      if (marqueeRef.current) {
+        marqueeRef.current.endWorld = world;
+        return;
+      }
+
+      // Resize / rotate in progress
+      if (transformRef.current) {
+        const t = transformRef.current;
+        if (t.kind === "rotate" && t.centre && t.angleOffset !== undefined) {
+          let next =
+            angleFromPointer(t.centre, world) + t.angleOffset;
+          if (e.shiftKey) {
+            // Snap to 15° increments
+            const step = (15 * Math.PI) / 180;
+            next = Math.round(next / step) * step;
+          }
+          store.getState().updateElement(t.elementId, {
+            rotation: next,
+          } as Partial<WhiteboardElement>);
+        } else if (t.kind !== "rotate") {
+          const patch = applyResize(t.original, t.kind, world);
+          store.getState().updateElement(t.elementId, patch);
+        }
+        return;
+      }
+
       // Dragging selection
       if (isDraggingSelectionRef.current) {
         const dx = world.x - dragStartWorldRef.current.x;
@@ -485,6 +621,48 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
       if (isDraggingSelectionRef.current) {
         isDraggingSelectionRef.current = false;
         store.getState().saveCurrentWhiteboard();
+        return;
+      }
+
+      // Resize / rotate finalize
+      if (transformRef.current) {
+        transformRef.current = null;
+        cancelAnimationFrame(rafRef.current);
+        store.getState().saveCurrentWhiteboard();
+        render();
+        return;
+      }
+
+      // Marquee finalize: collect every element whose bbox intersects
+      // the marquee rectangle and merge with the additive baseline if
+      // shift/ctrl was held when the marquee began.
+      if (marqueeRef.current) {
+        const { startWorld, endWorld, additive, baseline } =
+          marqueeRef.current;
+        marqueeRef.current = null;
+        cancelAnimationFrame(rafRef.current);
+
+        const dx = Math.abs(endWorld.x - startWorld.x);
+        const dy = Math.abs(endWorld.y - startWorld.y);
+        // A trivial drag (or just a click on empty space) shouldn't
+        // commit a marquee; clearSelection already happened on pointer-
+        // down for the non-additive case.
+        if (dx >= 2 || dy >= 2) {
+          const marqueeBbox = {
+            minX: Math.min(startWorld.x, endWorld.x),
+            minY: Math.min(startWorld.y, endWorld.y),
+            maxX: Math.max(startWorld.x, endWorld.x),
+            maxY: Math.max(startWorld.y, endWorld.y),
+          };
+          const next = new Set(additive ? baseline : []);
+          for (const el of store.getState().elements) {
+            if (bboxesIntersect(getElementBounds(el), marqueeBbox)) {
+              next.add(el.id);
+            }
+          }
+          store.getState().setSelection(next);
+        }
+        render();
         return;
       }
 

@@ -9,6 +9,7 @@ import {
   Columns2,
   Maximize,
   Minimize,
+  Focus,
   Highlighter,
   MessageSquare,
   Undo2,
@@ -118,6 +119,7 @@ interface ReaderToolbarProps {
   onPrint?: () => void;
   onToggleSearch?: () => void;
   onToggleAiChat?: () => void;
+  onToggleZenMode?: () => void;
 }
 
 export function ReaderToolbar({
@@ -131,6 +133,7 @@ export function ReaderToolbar({
   onPrint,
   onToggleSearch,
   onToggleAiChat,
+  onToggleZenMode,
 }: ReaderToolbarProps) {
   const navigate = useNavigate();
   const activeDoc = useActiveDocument();
@@ -186,6 +189,7 @@ export function ReaderToolbar({
     { label: "Search", icon: Search, onClick: onToggleSearch },
     { label: "Comments", icon: MessageSquare, onClick: onToggleComments },
     { label: "AI Chat", icon: BotMessageSquare, onClick: onToggleAiChat },
+    { label: "Zen mode", icon: Focus, onClick: onToggleZenMode },
     { label: isFullscreen ? "Exit Fullscreen" : "Fullscreen", icon: isFullscreen ? Minimize : Maximize, onClick: onToggleFullscreen },
   ];
 
@@ -445,6 +449,13 @@ export function ReaderToolbar({
             <ReadingTrackerControl />
             <FocusSessionControl />
             <button
+              onClick={onToggleZenMode}
+              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              title="Zen mode"
+            >
+              <Focus size={16} />
+            </button>
+            <button
               onClick={onToggleFullscreen}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
               title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
@@ -634,6 +645,13 @@ export function ReaderToolbar({
             <div className="mx-1 h-4 w-px bg-glass-border" />
             <ReadingTrackerControl />
             <FocusSessionControl />
+            <button
+              onClick={onToggleZenMode}
+              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              title="Zen mode"
+            >
+              <Focus size={16} />
+            </button>
             <button
               onClick={onToggleFullscreen}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
