@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { FilePlus, FolderSearch, Upload } from "lucide-react";
+import { FilePlus, FolderSearch, Upload, UploadCloud, Loader2 } from "lucide-react";
 import { Button, Kbd } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useOpenDocument } from "@/hooks/use-open-document";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { formatShortcut } from "@/lib/keyboard-shortcuts";
+import { useAuthStore } from "@/stores/auth-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useUploadStore } from "@/stores/upload-store";
 import { StorageUsageBar } from "./StorageUsageBar";
@@ -30,7 +31,8 @@ const tabs = [
 type TabKey = (typeof tabs)[number]["key"];
 
 export function LibraryPage() {
-  const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenDocument();
+  const { fileInputRef, triggerFilePicker, handleFileSelect, openFile } =
+    useOpenDocument();
 
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -45,9 +47,11 @@ export function LibraryPage() {
 
   const storageUsage = useUploadStore((s) => s.storageUsage);
   const fetchStorageUsage = useUploadStore((s) => s.fetchStorageUsage);
+  const uploadPdf = useUploadStore((s) => s.uploadPdf);
   const moveBookToFolder = useLibraryStore((s) => s.moveBookToFolder);
   const moveFolderToFolder = useLibraryStore((s) => s.moveFolderToFolder);
   const removeFromLibrary = useLibraryStore((s) => s.removeFromLibrary);
+  const user = useAuthStore((s) => s.user);
 
   // View preferences
   const { viewMode, cardSize, setViewMode, setCardSize, sortOrders, setSortOrder } = useLibraryPrefs();
@@ -266,10 +270,137 @@ export function LibraryPage() {
     fetchFolders();
   }, [fetchLibrary, fetchFolders]);
 
+  // ── Drag & drop import ───────────────────────────────────────
+  // Drop one or more book files anywhere on the library page and
+  // they get added: PDFs upload to the cloud library (if signed
+  // in), other supported formats are opened locally in the reader.
+  const [dragOver, setDragOver] = useState(false);
+  const [dropStatus, setDropStatus] = useState<{
+    total: number;
+    index: number;
+    name: string;
+    errors: number;
+  } | null>(null);
+  // Track drag-enter/leave nesting — a single drag fires enter/leave
+  // for every child the pointer crosses, which would otherwise flicker
+  // the overlay.
+  const dragDepth = useRef(0);
+
+  const SUPPORTED_RE = /\.(pdf|epub|txt|md|markdown)$/i;
+  const PDF_RE = /\.pdf$/i;
+
+  const isFileDrag = (e: React.DragEvent) =>
+    Array.from(e.dataTransfer.types).includes("Files");
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    dragDepth.current += 1;
+    setDragOver(true);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (!isFileDrag(e)) return;
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      dragDepth.current = 0;
+      setDragOver(false);
+
+      const all = Array.from(e.dataTransfer.files);
+      const files = all.filter((f) => SUPPORTED_RE.test(f.name));
+      if (files.length === 0) return;
+
+      let errors = 0;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setDropStatus({ total: files.length, index: i, name: file.name, errors });
+
+        try {
+          if (PDF_RE.test(file.name) && user) {
+            const bookId = await uploadPdf(file);
+            if (!bookId) errors += 1;
+          } else {
+            // Non-PDF, or PDF but not signed in — open locally. Only
+            // navigate on the last file so multi-drop stays on the
+            // library if possible (but single-file drops jump straight
+            // to the reader).
+            await openFile(file, i === files.length - 1);
+          }
+        } catch {
+          errors += 1;
+        }
+      }
+
+      setDropStatus(null);
+      await fetchLibrary();
+      await fetchStorageUsage();
+    },
+    [user, uploadPdf, openFile, fetchLibrary, fetchStorageUsage],
+  );
+
   const isUploaded = removeEntry?.source === "uploaded";
 
   return (
-    <div>
+    <div
+      className="relative"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drop overlay — shown while a file drag is hovering. */}
+      {dragOver && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-bg-primary/70 backdrop-blur-sm">
+          <div className="mx-4 flex max-w-md flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-accent-purple/60 bg-bg-secondary/90 px-8 py-10 text-center shadow-xl">
+            <UploadCloud size={40} className="text-accent-purple" />
+            <p className="text-base font-semibold text-text-primary">
+              Drop to add to your library
+            </p>
+            <p className="text-xs text-text-muted">
+              PDF, EPUB, TXT, or Markdown — multiple files supported
+              {!user && (
+                <>
+                  <br />
+                  Sign in to save PDFs to your cloud library.
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Upload progress badge (while drop queue is processing). */}
+      {dropStatus && (
+        <div className="fixed bottom-4 right-4 z-40 flex items-center gap-3 rounded-lg border border-glass-border bg-bg-secondary/95 px-4 py-3 shadow-lg backdrop-blur-xl">
+          <Loader2 size={16} className="animate-spin text-accent-purple" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-text-primary">
+              Importing {dropStatus.index + 1} of {dropStatus.total}
+              {dropStatus.errors > 0 && (
+                <span className="ml-2 text-xs text-amber-400">
+                  ({dropStatus.errors} failed)
+                </span>
+              )}
+            </p>
+            <p className="max-w-xs truncate text-xs text-text-muted">
+              {dropStatus.name}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
