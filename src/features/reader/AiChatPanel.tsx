@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BotMessageSquare, Send, Trash2, AlertCircle, Settings } from "lucide-react";
+import { BotMessageSquare, Send, Trash2, AlertCircle, Settings, X } from "lucide-react";
 import { useAiChatStore } from "@/stores/ai-chat-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useReaderStore } from "@/stores/reader-store";
@@ -16,7 +16,23 @@ const PROVIDER_LABELS: Record<AiProvider, string> = {
   openai: "OpenAI",
 };
 
-export function AiChatPanelContent() {
+interface AiChatPanelContentProps {
+  onClose?: () => void;
+}
+
+function CloseButton({ onClose }: { onClose: () => void }) {
+  return (
+    <button
+      onClick={onClose}
+      aria-label="Close AI Chat"
+      className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+    >
+      <X size={20} />
+    </button>
+  );
+}
+
+export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const enabledProviders = useSettingsStore((s) => s.enabledProviders);
   const anthropicApiKey = useSettingsStore((s) => s.anthropicApiKey);
   const openaiApiKey = useSettingsStore((s) => s.openaiApiKey);
@@ -83,13 +99,24 @@ export function AiChatPanelContent() {
 
   if (!hasUsableProvider) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-        <Settings size={32} className="text-text-muted" />
-        <p className="text-sm text-text-secondary">
-          {enabledProviders.length === 0
-            ? "No AI providers enabled. Add one in Settings."
-            : "Selected providers need configuration. Add an API key or enable Pnyxy in Settings."}
-        </p>
+      <div className="flex h-full flex-col bg-bg-secondary/50">
+        {onClose && (
+          <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
+            <div className="flex items-center gap-2">
+              <BotMessageSquare size={16} className="text-accent-purple" />
+              <span className="text-sm font-medium text-text-primary">AI Chat</span>
+            </div>
+            <CloseButton onClose={onClose} />
+          </div>
+        )}
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+          <Settings size={32} className="text-text-muted" />
+          <p className="text-sm text-text-secondary">
+            {enabledProviders.length === 0
+              ? "No AI providers enabled. Add one in Settings."
+              : "Selected providers need configuration. Add an API key or enable Pnyxy in Settings."}
+          </p>
+        </div>
       </div>
     );
   }
@@ -97,11 +124,22 @@ export function AiChatPanelContent() {
   // No document state
   if (!activeDocumentId) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-        <BotMessageSquare size={32} className="text-text-muted" />
-        <p className="text-sm text-text-secondary">
-          Open a document to start chatting.
-        </p>
+      <div className="flex h-full flex-col bg-bg-secondary/50">
+        {onClose && (
+          <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
+            <div className="flex items-center gap-2">
+              <BotMessageSquare size={16} className="text-accent-purple" />
+              <span className="text-sm font-medium text-text-primary">AI Chat</span>
+            </div>
+            <CloseButton onClose={onClose} />
+          </div>
+        )}
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+          <BotMessageSquare size={32} className="text-text-muted" />
+          <p className="text-sm text-text-secondary">
+            Open a document to start chatting.
+          </p>
+        </div>
       </div>
     );
   }
@@ -109,7 +147,7 @@ export function AiChatPanelContent() {
   return (
     <div className="flex h-full flex-col bg-bg-secondary/50">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-glass-border px-3 py-2">
+      <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
         <div className="flex items-center gap-2">
           <BotMessageSquare size={16} className="text-accent-purple" />
           <span className="text-sm font-medium text-text-primary">AI Chat</span>
@@ -119,15 +157,19 @@ export function AiChatPanelContent() {
             </span>
           )}
         </div>
-        {messages.length > 0 && (
-          <button
-            onClick={clearConversation}
-            className="rounded-md p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
-            title="Clear conversation"
-          >
-            <Trash2 size={14} />
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          {messages.length > 0 && (
+            <button
+              onClick={clearConversation}
+              className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+              title="Clear conversation"
+              aria-label="Clear conversation"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
+          {onClose && <CloseButton onClose={onClose} />}
+        </div>
       </div>
 
       {/* Messages */}

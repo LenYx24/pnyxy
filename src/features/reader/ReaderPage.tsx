@@ -268,20 +268,21 @@ function MobileReaderLayout({
       {/* TOC panel - slides from left */}
       <div
         className={cn(
-          "absolute left-0 top-11 bottom-0 z-40 w-[85vw] max-w-[18rem] border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
+          "absolute left-0 top-11 bottom-0 z-40 w-[90vw] max-w-[22rem] border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
           mobileReaderPanel === "toc" ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex items-center justify-between border-b border-glass-border px-3 py-2">
+        <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
           <span className="text-sm font-medium text-text-primary">Contents</span>
           <button
             onClick={() => setMobileReaderPanel("none")}
-            className="rounded-md p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+            aria-label="Close contents"
+            className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
           >
-            <X size={16} />
+            <X size={20} />
           </button>
         </div>
-        <div className="h-[calc(100%-2.5rem)] overflow-y-auto">
+        <div className="h-[calc(100%-3rem)] overflow-y-auto">
           <ReaderSidebarContent
             onOpenFile={() => {}}
             onOpenNote={() => {}}
@@ -295,43 +296,34 @@ function MobileReaderLayout({
       {/* Comments panel - slides from right */}
       <div
         className={cn(
-          "absolute right-0 top-11 bottom-0 z-40 w-[85vw] max-w-[18rem] border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
+          "absolute right-0 top-11 bottom-0 z-40 w-[90vw] max-w-[22rem] border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
           mobileReaderPanel === "comments" ? "translate-x-0" : "translate-x-full",
         )}
       >
-        <div className="flex items-center justify-between border-b border-glass-border px-3 py-2">
+        <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
           <span className="text-sm font-medium text-text-primary">Comments</span>
           <button
             onClick={() => setMobileReaderPanel("none")}
-            className="rounded-md p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+            aria-label="Close comments"
+            className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
           >
-            <X size={16} />
+            <X size={20} />
           </button>
         </div>
-        <div className="h-[calc(100%-2.5rem)] overflow-y-auto">
+        <div className="h-[calc(100%-3rem)] overflow-y-auto">
           <CommentsSidebar />
         </div>
       </div>
 
-      {/* AI Chat panel - slides from right */}
+      {/* AI Chat panel - slides from right. AiChatPanelContent renders
+          its own header (with the close button) when onClose is passed. */}
       <div
         className={cn(
-          "absolute right-0 top-11 bottom-0 z-40 w-[85vw] max-w-[18rem] border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
+          "absolute right-0 top-11 bottom-0 z-40 w-[90vw] max-w-[22rem] border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
           mobileReaderPanel === "aiChat" ? "translate-x-0" : "translate-x-full",
         )}
       >
-        <div className="flex items-center justify-between border-b border-glass-border px-3 py-2">
-          <span className="text-sm font-medium text-text-primary">AI Chat</span>
-          <button
-            onClick={() => setMobileReaderPanel("none")}
-            className="rounded-md p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
-          >
-            <X size={16} />
-          </button>
-        </div>
-        <div className="h-[calc(100%-2.5rem)]">
-          <AiChatPanelContent />
-        </div>
+        <AiChatPanelContent onClose={() => setMobileReaderPanel("none")} />
       </div>
     </div>
   );

@@ -351,7 +351,7 @@ export function LibraryPage() {
               )}
             >
               <span>{label}</span>
-              <Kbd shortcut={tabShortcut} className="hidden sm:inline-flex" />
+              <Kbd shortcut={tabShortcut} className="hidden lg:inline-flex" />
             </button>
           );
         })}

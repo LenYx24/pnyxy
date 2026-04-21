@@ -302,7 +302,7 @@ export function AllBooksTab({
             <span className="hidden sm:inline">New Folder</span>
             <Kbd
               shortcut={{ key: "f", ctrl: true, shift: true }}
-              className="ml-1 hidden sm:inline-flex"
+              className="ml-1 hidden lg:inline-flex"
             />
           </Button>
         </div>

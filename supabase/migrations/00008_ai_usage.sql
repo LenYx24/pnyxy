@@ -112,8 +112,8 @@ BEGIN
   END IF;
 
   UPDATE ai_usage_user
-  SET tokens_used   = tokens_used + p_tokens,
-      request_count = request_count + 1,
+  SET tokens_used   = ai_usage_user.tokens_used + p_tokens,
+      request_count = ai_usage_user.request_count + 1,
       updated_at    = now()
   WHERE user_id = v_user_id AND usage_date = v_today
   RETURNING * INTO v_row;
@@ -179,8 +179,8 @@ BEGIN
   END IF;
 
   UPDATE ai_usage_anon
-  SET tokens_used   = tokens_used + p_tokens,
-      request_count = request_count + 1,
+  SET tokens_used   = ai_usage_anon.tokens_used + p_tokens,
+      request_count = ai_usage_anon.request_count + 1,
       updated_at    = now()
   WHERE ip_hash = p_ip_hash AND usage_date = v_today
   RETURNING * INTO v_row;

@@ -112,7 +112,7 @@ export function LibraryToolbar({
             <span className="hidden sm:inline">Search</span>
             <Kbd
               shortcut={{ key: "k", ctrl: true }}
-              className="hidden sm:inline-flex"
+              className="hidden lg:inline-flex"
             />
           </button>
         )}

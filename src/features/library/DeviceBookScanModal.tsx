@@ -99,8 +99,14 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
     results.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
 
     setScanned(results);
-    // Default: all selected
-    setSelected(new Set(results.map((r) => r.id)));
+    // Default to nothing selected so users can't accidentally import an
+    // entire drive's worth of PDFs with one tap. Small scans (<= 5 files)
+    // auto-select since that's almost certainly what the user wanted.
+    setSelected(
+      results.length > 0 && results.length <= 5
+        ? new Set(results.map((r) => r.id))
+        : new Set(),
+    );
     setIsScanning(false);
 
     if (results.length === 0) {
@@ -244,8 +250,9 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
                 Pick a folder to scan for PDFs
               </p>
               <p className="text-center text-xs text-text-muted">
-                Your browser will list every PDF found inside the folder (and
-                its subfolders). Nothing is uploaded until you confirm.
+                Every PDF found inside the folder (and its subfolders) will
+                be listed. Nothing is selected by default — check the ones you
+                want, then click Import.
               </p>
               {scanError && (
                 <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-1.5 text-xs text-amber-400">
@@ -286,6 +293,18 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
                   </div>
                 )}
               </div>
+
+              {/* Large-scan warning — many folders contain dozens of PDFs
+                  the user didn't mean to upload. */}
+              {scanned.length > 20 && !importing && !importDone && (
+                <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 p-3">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-400" />
+                  <p className="text-xs text-amber-400">
+                    {scanned.length} PDFs found. Pick only the ones you want to
+                    upload — large batches can eat through your storage quota.
+                  </p>
+                </div>
+              )}
 
               {/* Storage warning */}
               {wouldExceed && !importing && !importDone && (
