@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { FilePlus, FolderSearch, Upload, UploadCloud, Loader2 } from "lucide-react";
+import { FilePlus, FolderSearch, Upload, UploadCloud, Loader2, Link as LinkIcon } from "lucide-react";
 import { Button, Kbd } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useOpenDocument } from "@/hooks/use-open-document";
@@ -8,6 +8,7 @@ import { formatShortcut } from "@/lib/keyboard-shortcuts";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useUploadStore } from "@/stores/upload-store";
+import { OpenFromUrlModal } from "./OpenFromUrlModal";
 import { StorageUsageBar } from "./StorageUsageBar";
 import { useLibraryPrefs } from "./useLibraryPrefs";
 import { LibraryToolbar } from "./LibraryToolbar";
@@ -122,6 +123,24 @@ export function LibraryPage() {
   // Upload modal state
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [urlModalOpen, setUrlModalOpen] = useState(false);
+
+  // Shared dispatcher used by both URL-import and drag-drop: PDFs go to
+  // the cloud library (when signed in); other formats just open in the
+  // reader since the upload pipeline is PDF-only today.
+  const importFile = useCallback(
+    async (file: File) => {
+      const isPdf = /\.pdf$/i.test(file.name);
+      if (isPdf && user) {
+        await uploadPdf(file);
+        await fetchLibrary();
+        await fetchStorageUsage();
+      } else {
+        await openFile(file);
+      }
+    },
+    [user, uploadPdf, openFile, fetchLibrary, fetchStorageUsage],
+  );
 
   // Move-to-folder modal state
   const [moveEntry, setMoveEntry] = useState<UnifiedLibraryItem | null>(null);
@@ -455,6 +474,14 @@ export function LibraryPage() {
               className="ml-1 hidden lg:inline-flex"
             />
           </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setUrlModalOpen(true)}
+            title="Open a file from a URL"
+          >
+            <LinkIcon size={18} />
+            <span className="hidden sm:inline">From URL</span>
+          </Button>
           <input
             ref={fileInputRef}
             type="file"
@@ -553,6 +580,13 @@ export function LibraryPage() {
       <DeviceBookScanModal
         open={scanModalOpen}
         onClose={() => setScanModalOpen(false)}
+      />
+
+      {/* Open from URL modal */}
+      <OpenFromUrlModal
+        open={urlModalOpen}
+        onClose={() => setUrlModalOpen(false)}
+        onFile={importFile}
       />
 
       {/* Move single item to folder */}
