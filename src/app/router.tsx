@@ -32,6 +32,7 @@ import { PostPage } from "@/features/forum/PostPage";
 import { PostComposer } from "@/features/forum/PostComposer";
 import { AboutPage } from "@/features/static/AboutPage";
 import { PrivacyPage } from "@/features/static/PrivacyPage";
+import { TermsPage } from "@/features/static/TermsPage";
 import { HelpPage } from "@/features/static/HelpPage";
 
 export const router = createBrowserRouter([
@@ -108,6 +109,7 @@ export const router = createBrowserRouter([
       { path: "admin", element: <AdminPage /> },
       { path: "about", element: <AboutPage /> },
       { path: "privacy", element: <PrivacyPage /> },
+      { path: "terms", element: <TermsPage /> },
       { path: "help", element: <HelpPage /> },
     ],
   },

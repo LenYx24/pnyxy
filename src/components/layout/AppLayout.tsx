@@ -10,7 +10,7 @@ import { Footer } from "./Footer";
 import { BannedScreen } from "@/features/admin/BannedScreen";
 import { StreakCelebrationModal } from "@/features/library/StreakCelebrationModal";
 
-const STATIC_PAGE_PATHS = ["/about", "/privacy", "/help"];
+const STATIC_PAGE_PATHS = ["/about", "/privacy", "/terms", "/help"];
 
 export function AppLayout() {
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
