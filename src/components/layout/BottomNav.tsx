@@ -3,22 +3,35 @@ import {
   Compass,
   Library,
   BookOpen,
-  Flame,
+  User,
+  LogIn,
   Users,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useAuthStore } from "@/stores/auth-store";
 
-const navItems = [
+const baseNavItems = [
   { to: "/browse", icon: Compass, label: "Browse" },
   { to: "/library", icon: Library, label: "Library" },
   { to: "/reader", icon: BookOpen, label: "Reader" },
   { to: "/forum", icon: Users, label: "Forum" },
-  { to: "/streaks", icon: Flame, label: "Streaks" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
 export function BottomNav() {
+  const { user } = useAuthStore();
+
+  // Profile gets its own slot so mobile users can reach account + sign
+  // out. Falls back to /auth for signed-out visitors. Streaks (formerly
+  // here) is still reachable from the profile page and desktop sidebar.
+  const navItems = [
+    ...baseNavItems,
+    user
+      ? { to: "/profile", icon: User, label: "Profile" }
+      : { to: "/auth", icon: LogIn, label: "Sign in" },
+  ];
+
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-glass-border bg-bg-secondary/90 backdrop-blur-xl pb-safe-bottom md:hidden"

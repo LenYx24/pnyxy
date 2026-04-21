@@ -69,8 +69,7 @@ jobs:
 
       - name: Deploy with Wrangler
         uses: cloudflare/wrangler-action@v3
-        env:
-          api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           command: deploy
           packageManager: pnpm

@@ -7,6 +7,7 @@ import {
   Tag,
   Puzzle,
   Keyboard,
+  Info,
   ChevronDown,
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-media-query";
@@ -28,6 +29,7 @@ export const SETTINGS_TABS: TabDef[] = [
   { to: "tags", label: "Tags", icon: Tag },
   { to: "plugins", label: "Plugins", icon: Puzzle },
   { to: "shortcuts", label: "Shortcuts", icon: Keyboard },
+  { to: "about", label: "About", icon: Info },
 ];
 
 export function TabNav({ currentLabel }: { currentLabel: string }) {

@@ -19,6 +19,7 @@ import { AiTab } from "@/features/settings/tabs/AiTab";
 import { TagsTab } from "@/features/settings/tabs/TagsTab";
 import { PluginsTab } from "@/features/settings/tabs/PluginsTab";
 import { ShortcutsTab } from "@/features/settings/tabs/ShortcutsTab";
+import { AboutTab } from "@/features/settings/tabs/AboutTab";
 import { AuthPage } from "@/features/auth/AuthPage";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
@@ -103,6 +104,7 @@ export const router = createBrowserRouter([
           { path: "tags", element: <TagsTab /> },
           { path: "plugins", element: <PluginsTab /> },
           { path: "shortcuts", element: <ShortcutsTab /> },
+          { path: "about", element: <AboutTab /> },
         ],
       },
       { path: "profile", element: <ProfilePage /> },

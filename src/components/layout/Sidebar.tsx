@@ -7,9 +7,8 @@ import {
   MessagesSquare,
   Settings,
   Shield,
-  PanelLeftClose,
-  PanelLeft,
   LogIn,
+  Menu,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -46,13 +45,25 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div
         className={cn(
           "flex h-14 items-center border-b border-glass-border px-4",
-          collapsed && "justify-center px-0",
+          collapsed && "justify-center px-2",
         )}
       >
         {!collapsed && (
-          <span className="bg-gradient-to-r from-accent-purple to-accent-blue bg-clip-text text-lg font-bold text-transparent">
-            Pnyxy
-          </span>
+          <NavLink to="/" aria-label="Pnyxy home" className="flex items-center">
+            <img src="/logo.png" alt="Pnyxy" className="h-10 w-auto" />
+          </NavLink>
+        )}
+        {/* Hamburger collapse toggle — desktop only (on tablet the
+            sidebar is an overlay closed via the X below). */}
+        {isDesktop && (
+          <button
+            onClick={toggleSidebar}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={`${collapsed ? "Expand" : "Collapse"} sidebar (Ctrl+B)`}
+            className="ml-auto rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+          >
+            <Menu size={20} />
+          </button>
         )}
         {/* Close button for tablet overlay */}
         {!isDesktop && onNavigate && (
@@ -138,16 +149,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </NavLink>
       )}
 
-      {/* Toggle collapse (desktop only) */}
-      {isDesktop && (
-        <button
-          onClick={toggleSidebar}
-          title={`${collapsed ? "Expand" : "Collapse"} sidebar (Ctrl+B)`}
-          className="flex items-center justify-center border-t border-glass-border p-3 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
-        >
-          {collapsed ? <PanelLeft size={20} /> : <PanelLeftClose size={20} />}
-        </button>
-      )}
+      {/* Collapse-toggle button removed in favor of the top-of-page
+          breadcrumb bar (AppLayout → Breadcrumbs). Ctrl+B still toggles
+          the collapse for keyboard users. */}
     </>
   );
 }

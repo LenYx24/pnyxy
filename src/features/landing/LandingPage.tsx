@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { MeshBackground, Button } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/cn";
+import { Footer } from "@/components/layout/Footer";
 import { HeroSection } from "./HeroSection";
 import { FeaturesSection } from "./FeaturesSection";
 
@@ -31,9 +32,19 @@ export function LandingPage() {
             : "border-b border-transparent",
         )}
       >
-        <span className="bg-gradient-to-r from-accent-purple to-accent-blue bg-clip-text text-lg font-bold text-transparent">
-          Pnyxy
-        </span>
+        <Link to="/" aria-label="Pnyxy home">
+          <img
+            src="/logo.png"
+            alt="Pnyxy"
+            className="h-14 w-auto sm:h-16"
+            // Glow temporarily disabled now that the lighter logo variant
+            // is used. Re-enable by restoring the filter below.
+            // style={{
+            //   filter:
+            //     "drop-shadow(0 0 19px rgba(230,220,255,0.95)) drop-shadow(0 0 28px rgba(196,181,253,0.8)) drop-shadow(0 0 60px rgba(139,92,246,0.55))",
+            // }}
+          />
+        </Link>
         <Link to={user ? "/library" : "/auth"}>
           <Button variant="secondary" className="text-sm">
             {user ? "Go to Library" : "Sign In"}
@@ -43,6 +54,7 @@ export function LandingPage() {
 
       <HeroSection />
       <FeaturesSection />
+      <Footer />
     </div>
   );
 }

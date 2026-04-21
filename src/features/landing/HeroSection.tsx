@@ -15,10 +15,18 @@ export function HeroSection() {
         <div className="absolute bottom-[30%] right-[15%] h-12 w-12 rotate-45 rounded-lg border border-accent-blue/15 animate-[float_9s_ease-in-out_infinite_0.5s]" />
       </div>
 
-      <h1 className="mb-6 text-6xl font-bold tracking-tight sm:text-7xl md:text-8xl">
-        <span className="bg-gradient-to-r from-accent-purple via-accent-blue to-accent-purple bg-clip-text text-transparent">
-          Pnyxy
-        </span>
+      <h1 className="mb-6">
+        <img
+          src="/logo_with_text.png"
+          alt="Pnyxy"
+          className="mx-auto h-32 w-auto sm:h-40 md:h-48"
+          // Glow temporarily disabled now that the lighter logo variant
+          // is used. Re-enable by restoring the filter below.
+          // style={{
+          //   filter:
+          //     "drop-shadow(0 0 18px rgba(230,220,255,0.95)) drop-shadow(0 0 60px rgba(196,181,253,0.75)) drop-shadow(0 0 140px rgba(139,92,246,0.5))",
+          // }}
+        />
       </h1>
 
       <p className="mb-4 max-w-2xl text-xl text-text-secondary sm:text-2xl">
