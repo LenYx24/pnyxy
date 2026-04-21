@@ -64,6 +64,13 @@ export function getElementBounds(el: WhiteboardElement): BoundingBox {
         maxX: Math.max(el.x1, el.x2),
         maxY: Math.max(el.y1, el.y2),
       };
+    case "text":
+      return {
+        minX: el.x,
+        minY: el.y,
+        maxX: el.x + el.width,
+        maxY: el.y + el.height,
+      };
   }
 }
 

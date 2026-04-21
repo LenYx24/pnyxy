@@ -26,6 +26,7 @@ import { useAnnotationStore } from "@/stores/annotation-store";
 import { useUndoStore } from "@/stores/undo-store";
 import { useIsMobile, useIsDesktop } from "@/hooks/use-media-query";
 import { ReadingTrackerControl } from "./ReadingTrackerControl";
+import { FocusSessionControl } from "./FocusSessionControl";
 import type { HighlightColor } from "@/types/annotation";
 
 const HIGHLIGHT_COLORS: HighlightColor[] = ["yellow", "green", "blue", "pink", "orange"];
@@ -290,6 +291,7 @@ export function ReaderToolbar({
         {isMobile && (
           <>
             <ReadingTrackerControl compact />
+            <FocusSessionControl compact />
           <div className="relative" ref={overflowRef}>
             <button
               onClick={() => setShowOverflowMenu(!showOverflowMenu)}
@@ -441,6 +443,7 @@ export function ReaderToolbar({
             </button>
             <div className="mx-1 h-4 w-px bg-glass-border" />
             <ReadingTrackerControl />
+            <FocusSessionControl />
             <button
               onClick={onToggleFullscreen}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
@@ -630,6 +633,7 @@ export function ReaderToolbar({
             </button>
             <div className="mx-1 h-4 w-px bg-glass-border" />
             <ReadingTrackerControl />
+            <FocusSessionControl />
             <button
               onClick={onToggleFullscreen}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"

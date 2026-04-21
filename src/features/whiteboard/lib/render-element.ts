@@ -1,5 +1,6 @@
 import type { WhiteboardElement, WhiteboardBackground } from "@/types/whiteboard";
 import { getElementBounds } from "./math-utils";
+import { wrapText, TEXT_LINE_HEIGHT, TEXT_FONT_FAMILY } from "./text-layout";
 
 const GRID_SIZE = 20;
 const GRID_COLOR = "rgba(255, 255, 255, 0.08)";
@@ -118,6 +119,18 @@ export function drawElement(
         el.y2 - headLen * Math.sin(angle + Math.PI / 6),
       );
       ctx.stroke();
+      break;
+    }
+
+    case "text": {
+      ctx.fillStyle = el.color;
+      ctx.font = `${el.fontSize}px ${TEXT_FONT_FAMILY}`;
+      ctx.textBaseline = "top";
+      const lines = wrapText(ctx, el.text, el.width);
+      const lineStep = el.fontSize * TEXT_LINE_HEIGHT;
+      for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i], el.x, el.y + i * lineStep);
+      }
       break;
     }
   }

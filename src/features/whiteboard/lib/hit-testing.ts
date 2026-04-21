@@ -73,6 +73,18 @@ function hitTestElement(
         ) <= threshold
       );
     }
+
+    case "text": {
+      // Text is hit as a solid rectangle — makes selection/drag cheap
+      // and predictable. Fine for click targets; precise per-glyph
+      // hit-testing isn't useful here.
+      return (
+        p.x >= el.x &&
+        p.x <= el.x + el.width &&
+        p.y >= el.y &&
+        p.y <= el.y + el.height
+      );
+    }
   }
 }
 

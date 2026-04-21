@@ -16,7 +16,7 @@ export function TermsPage() {
             Terms of Service
           </h1>
           <p className="text-xs text-text-muted">
-            Last updated: [EFFECTIVE DATE — TO FILL]
+            Last updated: 2026-04-21
           </p>
         </div>
       </div>
@@ -37,8 +37,8 @@ export function TermsPage() {
             The Service is operated as a personal project by{" "}
             <strong>Foki Lénárd</strong>, based in Hungary ("we",
             "us"). Contact address:{" "}
-            <span className="font-mono">[ADDRESS — TO FILL]</span>.
-            General support: <span className="font-mono">support@pnyxy.app</span>.
+            <span className="font-mono">Hungary, Bács-Kiskun megye, 6524 Dávod</span>.
+            General support: <span className="font-mono">support@pnyxy.com</span>.
           </p>
         </div>
 
@@ -63,7 +63,7 @@ export function TermsPage() {
             You are responsible for keeping your credentials
             confidential and for all activity under your account.
             Notify us at{" "}
-            <span className="font-mono">support@pnyxy.app</span>{" "}
+            <span className="font-mono">support@pnyxy.com</span>{" "}
             if you believe your account has been compromised. We may
             suspend or terminate accounts that violate these Terms,
             after reasonable notice where practicable.
@@ -231,7 +231,7 @@ export function TermsPage() {
           <p>
             If you believe that content on the Service infringes your
             copyright, send a notice to{" "}
-            <span className="font-mono">copyright@pnyxy.app</span>{" "}
+            <span className="font-mono">copyright@pnyxy.com</span>{" "}
             that includes:
           </p>
           <ul className="mt-1 list-disc space-y-1 pl-5">
@@ -379,7 +379,7 @@ export function TermsPage() {
           </h2>
           <p>
             Questions or concerns about these Terms? Write to{" "}
-            <span className="font-mono">support@pnyxy.app</span>.
+            <span className="font-mono">support@pnyxy.com</span>.
           </p>
         </div>
       </section>

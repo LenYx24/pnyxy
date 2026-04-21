@@ -19,6 +19,7 @@ import {
   ScreenshotRectSelector,
   type ScreenshotRect,
 } from "./ScreenshotRectSelector";
+import { FocusSessionBadge } from "./FocusSessionBadge";
 import { NoteEditor } from "@/features/notes/NoteEditor";
 import { WhiteboardPanelWrapper } from "@/features/whiteboard/WhiteboardPanel";
 import { useReaderStore, useDocumentState } from "@/stores/reader-store";
@@ -1067,6 +1068,7 @@ export function ReaderPage() {
           onCancel={() => setRectScreenshotActive(false)}
         />
       )}
+      <FocusSessionBadge />
     </div>
   );
 }

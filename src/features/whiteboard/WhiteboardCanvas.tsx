@@ -1,14 +1,22 @@
 /* eslint-disable react-hooks/exhaustive-deps --
    `store` here is the imported Zustand hook aliased to a local const; its
    reference is stable across renders, so omitting it from deps is safe. */
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
-import type { Point, WhiteboardElement } from "@/types/whiteboard";
+import type { Point, TextElement, WhiteboardElement } from "@/types/whiteboard";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import { WhiteboardToolbar } from "./WhiteboardToolbar";
 import { drawBackground, drawElement, drawSelectionHandles } from "./lib/render-element";
 import { hitTest } from "./lib/hit-testing";
 import { screenToWorld } from "./lib/math-utils";
+import {
+  measureTextHeight,
+  TEXT_FONT_FAMILY,
+  TEXT_LINE_HEIGHT,
+} from "./lib/text-layout";
+
+const DEFAULT_TEXT_WIDTH = 240;
+const DEFAULT_TEXT_FONT_SIZE = 16;
 
 interface WhiteboardCanvasProps {
   whiteboardId: string;
@@ -29,6 +37,29 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
   const dragStartWorldRef = useRef<Point>({ x: 0, y: 0 });
   const dragSnapshotsRef = useRef<Map<string, WhiteboardElement>>(new Map());
   const isDraggingSelectionRef = useRef(false);
+
+  // Text-editing state. `editingId` is the id of the text element whose
+  // overlay is currently open; editingIdRef mirrors it so the render
+  // loop (which reads via ref, not reactive) can skip drawing that
+  // element while the HTML textarea is on top.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const editingIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    editingIdRef.current = editingId;
+  }, [editingId]);
+
+  // Subscribe to pan/zoom/elements so the overlay follows the canvas
+  // transform — the canvas render itself reads via store.getState(), so
+  // these subscriptions are only here for the overlay.
+  const editingPanX = useWhiteboardStore((s) => s.panX);
+  const editingPanY = useWhiteboardStore((s) => s.panY);
+  const editingZoom = useWhiteboardStore((s) => s.zoom);
+  const editingElement = useWhiteboardStore((s) =>
+    editingId
+      ? (s.elements.find((e) => e.id === editingId) as TextElement | undefined)
+      : undefined,
+  );
 
   const store = useWhiteboardStore;
 
@@ -89,8 +120,10 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
       ctx.drawImage(page.bitmap, 0, page.y, page.width, page.height);
     }
 
-    // Draw all elements
+    // Draw all elements, skipping whichever text is being edited (its
+    // HTML textarea overlay is the visible version).
     for (const el of elements) {
+      if (el.id === editingIdRef.current) continue;
       drawElement(ctx, el);
     }
 
@@ -231,6 +264,35 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
         return;
       }
 
+      // Text tool → click-place. No drag-to-size; the box grows with
+      // content as the user types. Existing overlay (if any) commits
+      // itself first via its own blur handler.
+      if (activeTool === "text") {
+        if (editingIdRef.current) return;
+        const id = crypto.randomUUID();
+        const initialHeight =
+          DEFAULT_TEXT_FONT_SIZE * TEXT_LINE_HEIGHT;
+        const newText: TextElement = {
+          id,
+          type: "text",
+          x: world.x,
+          y: world.y,
+          width: DEFAULT_TEXT_WIDTH,
+          height: initialHeight,
+          text: "",
+          fontSize: DEFAULT_TEXT_FONT_SIZE,
+          color: strokeColor,
+          strokeColor,
+          strokeWidth,
+          createdAt: Date.now(),
+        };
+        store.getState().pushUndo();
+        store.getState().addElement(newText);
+        setEditingId(id);
+        setEditDraft("");
+        return;
+      }
+
       // Start drawing
       isDrawingRef.current = true;
 
@@ -355,6 +417,12 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
                 y2: orig.y2 + dy,
               } as Partial<WhiteboardElement>);
               break;
+            case "text":
+              store.getState().updateElement(id, {
+                x: orig.x + dx,
+                y: orig.y + dy,
+              } as Partial<WhiteboardElement>);
+              break;
           }
         }
         render();
@@ -459,14 +527,26 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
     [render],
   );
 
-  // --- Wheel zoom ---
+  // --- Wheel: pan by default, Ctrl+wheel zooms at cursor ---
+  // Trackpad pinch gestures arrive as wheel events with ctrlKey=true,
+  // so the ctrl branch also handles pinch-zoom naturally.
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       e.preventDefault();
-      const { zoom } = store.getState();
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      const screen = getScreenPoint(e as unknown as React.PointerEvent);
-      store.getState().setZoom(zoom * delta, screen);
+      const { zoom, panX, panY, setZoom, setPan } = store.getState();
+
+      if (e.ctrlKey || e.metaKey) {
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        const screen = getScreenPoint(e as unknown as React.PointerEvent);
+        setZoom(zoom * delta, screen);
+      } else {
+        // Shift+wheel → horizontal pan (classic trackpad convention).
+        // Lines of deltaX/deltaY on OS wheel lines are tiny; pixel
+        // mode (deltaMode=0) is what we care about.
+        const dx = e.shiftKey && e.deltaX === 0 ? e.deltaY : e.deltaX;
+        const dy = e.shiftKey && e.deltaX === 0 ? 0 : e.deltaY;
+        setPan(panX - dx, panY - dy);
+      }
       render();
     },
     [getScreenPoint, render],
@@ -517,10 +597,56 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
         return;
       }
 
+      // PDF-backed whiteboards: page navigation. When no PDF is loaded
+      // these keys fall through to the default page-scroll behavior.
+      const { pdfPages, zoom, panY, setPan, panX } = store.getState();
+      if (pdfPages.length > 0) {
+        const currentPageIdx = (() => {
+          // The "current page" is whichever page's top is closest to
+          // but not past the screen center.
+          const screenY = (canvasRef.current?.clientHeight ?? 0) / 2;
+          const worldY = (screenY - panY) / zoom;
+          let idx = 0;
+          for (let i = 0; i < pdfPages.length; i++) {
+            if (pdfPages[i].y <= worldY) idx = i;
+            else break;
+          }
+          return idx;
+        })();
+
+        const jumpTo = (i: number) => {
+          const clamped = Math.max(0, Math.min(pdfPages.length - 1, i));
+          setPan(panX, -pdfPages[clamped].y * zoom);
+          render();
+        };
+
+        if (e.key === "PageDown") {
+          e.preventDefault();
+          jumpTo(currentPageIdx + 1);
+          return;
+        }
+        if (e.key === "PageUp") {
+          e.preventDefault();
+          jumpTo(currentPageIdx - 1);
+          return;
+        }
+        if (e.key === "Home" && !e.ctrlKey) {
+          e.preventDefault();
+          jumpTo(0);
+          return;
+        }
+        if (e.key === "End" && !e.ctrlKey) {
+          e.preventDefault();
+          jumpTo(pdfPages.length - 1);
+          return;
+        }
+      }
+
       // Tool shortcuts
       const toolKeys: Record<string, typeof store.getState extends () => { activeTool: infer T } ? T : never> = {
         v: "select",
         p: "pen",
+        t: "text",
         r: "rectangle",
         e: "ellipse",
         l: "line",
@@ -539,6 +665,43 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
       spaceDownRef.current = false;
     }
   }, []);
+
+  // --- Text editing: commit + double-click handlers ---
+  const commitEdit = useCallback(() => {
+    const id = editingIdRef.current;
+    if (!id) return;
+    const el = store.getState().elements.find((e) => e.id === id);
+    setEditingId(null);
+    setEditDraft("");
+    if (!el || el.type !== "text") return;
+
+    if (editDraft.trim() === "") {
+      // Empty text → discard. If the element was freshly-created in
+      // this session its undo entry is already on the stack, so undo
+      // after removal still restores a sensible state.
+      store.getState().removeElements([id]);
+      return;
+    }
+    const height = measureTextHeight(editDraft, el.width, el.fontSize);
+    store.getState().updateElement(id, {
+      text: editDraft,
+      height,
+    } as Partial<WhiteboardElement>);
+    store.getState().saveCurrentWhiteboard();
+  }, [editDraft]);
+
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      const world = getWorldPoint(e as unknown as React.PointerEvent);
+      const { elements, zoom } = store.getState();
+      const hit = hitTest(elements, world, zoom);
+      if (hit?.type === "text") {
+        setEditingId(hit.id);
+        setEditDraft(hit.text);
+      }
+    },
+    [getWorldPoint],
+  );
 
   const pdfLoading = useWhiteboardStore((s) => s.pdfLoading);
   const pdfLoadProgress = useWhiteboardStore((s) => s.pdfLoadProgress);
@@ -561,8 +724,58 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onWheel={handleWheel}
+        onDoubleClick={handleDoubleClick}
       />
       <WhiteboardToolbar />
+
+      {/* Text-edit overlay — positioned in screen space over whichever
+          text element is being edited. Follows pan/zoom via the
+          subscribed panX/panY/zoom selectors. */}
+      {editingElement && (
+        <textarea
+          autoFocus
+          value={editDraft}
+          onChange={(e) => setEditDraft(e.target.value)}
+          onBlur={commitEdit}
+          onKeyDown={(e) => {
+            // Stop shortcuts (undo, tool keys) from firing while typing.
+            e.stopPropagation();
+            if (e.key === "Escape") {
+              e.preventDefault();
+              commitEdit();
+            } else if (
+              e.key === "Enter" &&
+              (e.ctrlKey || e.metaKey)
+            ) {
+              e.preventDefault();
+              commitEdit();
+            }
+          }}
+          style={{
+            position: "absolute",
+            left: editingElement.x * editingZoom + editingPanX,
+            top: editingElement.y * editingZoom + editingPanY,
+            width: editingElement.width * editingZoom,
+            minHeight:
+              editingElement.fontSize * TEXT_LINE_HEIGHT * editingZoom,
+            fontSize: editingElement.fontSize * editingZoom,
+            lineHeight: TEXT_LINE_HEIGHT,
+            fontFamily: TEXT_FONT_FAMILY,
+            color: editingElement.color,
+            background: "rgba(124, 92, 252, 0.08)",
+            border: "1px dashed #7c5cfc",
+            borderRadius: 4,
+            padding: 0,
+            margin: 0,
+            outline: "none",
+            resize: "none",
+            overflow: "hidden",
+            whiteSpace: "pre-wrap",
+            zIndex: 20,
+          }}
+        />
+      )}
+
       {pdfLoading && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-bg-primary/80 backdrop-blur-sm">
           <Loader2 size={32} className="animate-spin text-accent-purple mb-3" />

@@ -5,6 +5,7 @@ export type WhiteboardTool =
   | "ellipse"
   | "line"
   | "arrow"
+  | "text"
   | "eraser";
 
 export type WhiteboardBackground = "solid" | "grid";
@@ -58,12 +59,28 @@ export interface ArrowElement extends BaseElement {
   y2: number;
 }
 
+export interface TextElement extends BaseElement {
+  type: "text";
+  x: number;
+  y: number;
+  /** Layout width (world units). Height is re-measured on edit and
+   *  cached so hit-testing / selection boxes don't need a canvas. */
+  width: number;
+  height: number;
+  text: string;
+  fontSize: number;
+  /** Text colour. Reuses strokeColor from BaseElement if you want; kept
+   *  explicit here so "text color" feels distinct from stroke color. */
+  color: string;
+}
+
 export type WhiteboardElement =
   | PenElement
   | RectangleElement
   | EllipseElement
   | LineElement
-  | ArrowElement;
+  | ArrowElement
+  | TextElement;
 
 export interface WhiteboardData {
   id: string;

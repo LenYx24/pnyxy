@@ -6,6 +6,7 @@ import {
   Circle,
   Minus,
   ArrowUpRight,
+  Type,
   Eraser,
   Grid3X3,
   Trash2,
@@ -25,6 +26,7 @@ const TOOLS: { tool: WhiteboardTool; icon: typeof Pencil; label: string; shortcu
   { tool: "ellipse", icon: Circle, label: "Ellipse", shortcut: "E" },
   { tool: "line", icon: Minus, label: "Line", shortcut: "L" },
   { tool: "arrow", icon: ArrowUpRight, label: "Arrow", shortcut: "A" },
+  { tool: "text", icon: Type, label: "Text", shortcut: "T" },
   { tool: "eraser", icon: Eraser, label: "Eraser", shortcut: "X" },
 ];
 

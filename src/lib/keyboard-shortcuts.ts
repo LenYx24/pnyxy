@@ -12,6 +12,15 @@ export interface Shortcut {
 const shortcuts = new Map<string, Shortcut>();
 let listenerAttached = false;
 
+/** Optional global filter — when set, only shortcuts whose id passes
+ *  the predicate fire. Used by focus-mode to silence navigation
+ *  shortcuts while still allowing reading-related ones. */
+let shortcutGate: ((id: string) => boolean) | null = null;
+
+export function setShortcutGate(gate: ((id: string) => boolean) | null) {
+  shortcutGate = gate;
+}
+
 function handleKeyDown(e: KeyboardEvent) {
   if (
     e.target instanceof HTMLInputElement ||
@@ -28,6 +37,12 @@ function handleKeyDown(e: KeyboardEvent) {
     const keyMatch = e.key.toLowerCase() === shortcut.key.toLowerCase();
 
     if (ctrlMatch && shiftMatch && altMatch && keyMatch) {
+      if (shortcutGate && !shortcutGate(shortcut.id)) {
+        // Gated out (e.g. focus session active). Still consume the
+        // keystroke so default browser actions don't fire either.
+        if (shortcut.preventDefault !== false) e.preventDefault();
+        return;
+      }
       if (shortcut.preventDefault !== false) {
         e.preventDefault();
       }

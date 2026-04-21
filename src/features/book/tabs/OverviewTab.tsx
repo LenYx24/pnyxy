@@ -13,7 +13,10 @@ import { Button, CategoryChip } from "@/components/ui";
 import { getDownloadOptions } from "@/lib/open-library";
 import { useBrowseStore } from "@/stores/browse-store";
 import { useAuthStore } from "@/stores/auth-store";
-import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
+import {
+  useOpenUploadedDocument,
+  prefetchBookBlob,
+} from "@/hooks/use-open-uploaded-document";
 import type {
   CatalogBook,
   DownloadOption,
@@ -205,6 +208,15 @@ function UploadedOverview({
 }) {
   const { openUploadedBook } = useOpenUploadedDocument();
   const [loading, setLoading] = useState(false);
+
+  // Warm the blob cache in the background so clicking "Open in Reader"
+  // skips the network round-trip. Skipped on low-end devices and large
+  // files inside prefetchBookBlob; cancelled if the user navigates
+  // away before it finishes.
+  useEffect(() => {
+    if (!storagePath) return;
+    return prefetchBookBlob(storagePath, { sizeBytes });
+  }, [storagePath, sizeBytes]);
 
   const handleOpen = async () => {
     if (!storagePath || !fileName) return;

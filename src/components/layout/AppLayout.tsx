@@ -1,9 +1,12 @@
+import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { useFocusStore } from "@/stores/focus-store";
 import { useIsDesktop } from "@/hooks/use-media-query";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
+import { setShortcutGate } from "@/lib/keyboard-shortcuts";
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
 import { Footer } from "./Footer";
@@ -15,10 +18,13 @@ const STATIC_PAGE_PATHS = ["/about", "/privacy", "/terms", "/help"];
 export function AppLayout() {
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const { isBanned, banInfo } = useAuthStore();
+  const focusActive = useFocusStore((s) => s.active);
   const isDesktop = useIsDesktop();
   const location = useLocation();
 
-  // Hide chrome (sidebar, topbar, bottom nav) when in reader
+  // Hide chrome (sidebar, topbar, bottom nav) when in reader OR when a
+  // focus session is active (user explicitly asked for an
+  // uninterrupted reading surface).
   const isReaderRoute = location.pathname.startsWith("/reader");
 
   // Footer is only rendered on the informational / legal pages. The
@@ -36,6 +42,19 @@ export function AppLayout() {
     description: "Toggle sidebar",
     handler: toggleSidebar,
   });
+
+  // While a focus session is active, only reading-related shortcuts and
+  // the sidebar toggle pass through; navigation/library/forum hotkeys
+  // are silently ignored to discourage accidental tab-switching.
+  useEffect(() => {
+    if (focusActive) {
+      setShortcutGate(
+        (id) => id.startsWith("reader:") || id === "app:toggle-sidebar",
+      );
+      return () => setShortcutGate(null);
+    }
+    return undefined;
+  }, [focusActive]);
 
   if (isBanned && banInfo) {
     return <BannedScreen />;
@@ -56,7 +75,7 @@ export function AppLayout() {
         <Outlet />
         {showFooter && <Footer />}
       </main>
-      {!isReaderRoute && <BottomNav />}
+      {!isReaderRoute && !focusActive && <BottomNav />}
       <StreakCelebrationModal />
     </div>
   );

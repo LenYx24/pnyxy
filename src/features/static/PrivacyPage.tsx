@@ -40,7 +40,7 @@ export function PrivacyPage() {
             The service "Pnyxy" (the "Service") is operated as a personal
             project by <strong>Foki Lénárd</strong>, based in Hungary
             (the "Controller", "we", or "us"). Contact address:{" "}
-            <span className="font-mono">Hungary, Budapest</span>.
+            <span className="font-mono">Hungary, Bács-Kiskun megye, 6524 Dávod</span>.
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>
