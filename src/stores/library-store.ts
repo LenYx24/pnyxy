@@ -19,7 +19,10 @@ interface LibraryState {
 
   fetchLibrary: () => Promise<void>;
   fetchFolders: () => Promise<void>;
-  createFolder: (name: string, parentId: string | null) => Promise<void>;
+  createFolder: (name: string, parentId: string | null) => Promise<Folder | null>;
+  /** Accepts a slash-separated path like "p1/p2/p3" and creates any
+   * missing ancestors, returning the deepest (last) folder. */
+  createFolderPath: (path: string, parentId: string | null) => Promise<Folder | null>;
   renameFolder: (id: string, name: string) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
   navigateToFolder: (id: string | null) => void;
@@ -166,14 +169,18 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) return null;
 
-    const { error } = await supabase.from("folders").insert({
-      user_id: user.id,
-      name,
-      parent_id: parentId,
-      sort_order: 0,
-    });
+    const { data, error } = await supabase
+      .from("folders")
+      .insert({
+        user_id: user.id,
+        name,
+        parent_id: parentId,
+        sort_order: 0,
+      })
+      .select()
+      .single<Folder>();
 
     if (error) {
       logError("library-store:createFolder", error.message);
@@ -181,6 +188,40 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     }
 
     await get().fetchFolders();
+    return data;
+  },
+
+  createFolderPath: async (path, parentId) => {
+    const parts = path
+      .split("/")
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
+    if (parts.length === 0) {
+      throw new Error("Folder name cannot be empty.");
+    }
+
+    let currentParent: string | null = parentId;
+    let last: Folder | null = null;
+
+    for (const part of parts) {
+      // Reuse an existing sibling folder with the same name rather
+      // than creating a duplicate. get().folders is kept fresh by
+      // createFolder's internal fetchFolders() call on every insert.
+      const existing = get().folders.find(
+        (f) => f.parent_id === currentParent && f.name === part,
+      );
+      if (existing) {
+        currentParent = existing.id;
+        last = existing;
+        continue;
+      }
+      const created = await get().createFolder(part, currentParent);
+      if (!created) throw new Error(`Failed to create folder "${part}".`);
+      currentParent = created.id;
+      last = created;
+    }
+
+    return last;
   },
 
   renameFolder: async (id, name) => {

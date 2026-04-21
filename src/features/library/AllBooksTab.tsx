@@ -74,7 +74,7 @@ export function AllBooksTab({
   const folders = useLibraryStore((s) => s.folders);
   const books = useLibraryStore((s) => s.books);
   const navigateToFolder = useLibraryStore((s) => s.navigateToFolder);
-  const createFolder = useLibraryStore((s) => s.createFolder);
+  const createFolderPath = useLibraryStore((s) => s.createFolderPath);
   const renameFolder = useLibraryStore((s) => s.renameFolder);
   const deleteFolder = useLibraryStore((s) => s.deleteFolder);
 
@@ -199,7 +199,10 @@ export function AllBooksTab({
   }, []);
 
   const handleConfirmCreateFolder = async (name: string) => {
-    await createFolder(name, currentFolderId);
+    // Name may be a slash-separated path like "p1/p2/p3"; createFolderPath
+    // walks each segment, reusing existing siblings and creating missing
+    // parents. A bare name (no "/") behaves exactly as before.
+    await createFolderPath(name, currentFolderId);
   };
 
   const handleDeleteFolder = (id: string) => {
@@ -388,33 +391,44 @@ export function AllBooksTab({
                   gridTemplateColumns: `repeat(auto-fill, minmax(min(${cardSize}px, 100%), 1fr))`,
                 }}
               >
-                {orderedFolders.map((folder) => (
-                  <FolderCard
-                    key={folder.id}
-                    folder={folder}
-                    sortableId={`folder:${folder.id}`}
-                    onNavigate={navigateToFolder}
-                    onRename={renameFolder}
-                    onDelete={handleDeleteFolder}
-                    coverHeight={coverHeight}
-                    selected={selectedIds.has(`folder:${folder.id}`)}
-                    selectionActive={selectionActive}
-                    onToggleSelect={onToggleSelect}
-                  />
-                ))}
-                {orderedBooks.map((entry) => (
-                  <LibraryBookCard
-                    key={`${entry.source}-${entry.id}`}
-                    entry={entry}
-                    sortableId={`book:${entry.id}`}
-                    onMove={onMoveBook}
-                    onRemove={onRemoveBook}
-                    coverHeight={coverHeight}
-                    selected={selectedIds.has(`book:${entry.id}`)}
-                    selectionActive={selectionActive}
-                    onToggleSelect={onToggleSelect}
-                  />
-                ))}
+                {/* Render in orderedKeys order so a DnD reorder (which may
+                    interleave folders and books) is reflected visually. */}
+                {orderedKeys.map((key) => {
+                  const folder = folderMap.get(key);
+                  if (folder) {
+                    return (
+                      <FolderCard
+                        key={folder.id}
+                        folder={folder}
+                        sortableId={`folder:${folder.id}`}
+                        onNavigate={navigateToFolder}
+                        onRename={renameFolder}
+                        onDelete={handleDeleteFolder}
+                        coverHeight={coverHeight}
+                        selected={selectedIds.has(`folder:${folder.id}`)}
+                        selectionActive={selectionActive}
+                        onToggleSelect={onToggleSelect}
+                      />
+                    );
+                  }
+                  const entry = bookMap.get(key);
+                  if (entry) {
+                    return (
+                      <LibraryBookCard
+                        key={`${entry.source}-${entry.id}`}
+                        entry={entry}
+                        sortableId={`book:${entry.id}`}
+                        onMove={onMoveBook}
+                        onRemove={onRemoveBook}
+                        coverHeight={coverHeight}
+                        selected={selectedIds.has(`book:${entry.id}`)}
+                        selectionActive={selectionActive}
+                        onToggleSelect={onToggleSelect}
+                      />
+                    );
+                  }
+                  return null;
+                })}
               </div>
             )}
           </SortableContext>

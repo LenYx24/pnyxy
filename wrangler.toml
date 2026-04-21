@@ -1,3 +1,7 @@
 name = "pnyxy"
 compatibility_date = "2025-04-20"
-assets = { directory = "dist" }
+# not_found_handling = "single-page-application" tells Workers Assets
+# to serve dist/index.html for any path that doesn't match a built
+# asset — required because the app uses React Router's createBrowserRouter.
+# Without it, refreshing /books/<id>, /reader/<id>, etc. returns 404.
+assets = { directory = "dist", not_found_handling = "single-page-application" }

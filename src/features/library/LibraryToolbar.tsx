@@ -160,13 +160,17 @@ export function LibraryToolbar({
       </div>
 
       {/* Size slider */}
-      <div className="hidden w-24 shrink-0 sm:flex">
+      <div
+        className="hidden shrink-0 items-center sm:flex"
+        title="Adjust cover size"
+      >
         <Slider
           value={cardSize}
           onChange={onCardSizeChange}
           min={140}
           max={320}
           step={10}
+          label="Cover size"
         />
       </div>
     </div>

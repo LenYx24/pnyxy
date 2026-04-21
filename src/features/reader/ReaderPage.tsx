@@ -49,6 +49,26 @@ function TocPanel(props: IDockviewPanelProps) {
     triggerFilePicker();
   }, [triggerFilePicker]);
 
+  // Focus whichever viewer panel is present: the multi-doc viewer
+  // ("viewer-<docId>"), the single default viewer ("pdfViewer"), or
+  // the whiteboard-over-PDF canvas ("pdfCanvasWhiteboard"). Useful
+  // for jumping back to the book from a note or whiteboard tab.
+  const handleOpenBook = useCallback(() => {
+    const activeDocId = useReaderStore.getState().activeDocumentId;
+    const candidates = [
+      activeDocId ? `viewer-${activeDocId}` : null,
+      "pdfViewer",
+      "pdfCanvasWhiteboard",
+    ].filter((id): id is string => id !== null);
+    for (const id of candidates) {
+      const panel = dockviewApi.getPanel(id);
+      if (panel) {
+        panel.api.setActive();
+        return;
+      }
+    }
+  }, [dockviewApi]);
+
   const handleOpenNote = useCallback(
     (noteId: string) => {
       const panelId = `note-${noteId}`;
@@ -143,6 +163,7 @@ function TocPanel(props: IDockviewPanelProps) {
     <>
       <ReaderSidebarContent
         onOpenFile={handleOpenFile}
+        onOpenBook={handleOpenBook}
         onOpenNote={handleOpenNote}
         onCreateNote={handleCreateNote}
         onOpenWhiteboard={handleOpenWhiteboard}
@@ -292,6 +313,7 @@ function MobileReaderLayout({
         <div className="h-[calc(100%-3rem)] overflow-y-auto">
           <ReaderSidebarContent
             onOpenFile={() => {}}
+            onOpenBook={() => setMobileReaderPanel("none")}
             onOpenNote={() => {}}
             onCreateNote={() => {}}
             onOpenWhiteboard={() => {}}

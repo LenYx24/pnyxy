@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { FilePlus, FileText, StickyNote, PenTool, List, LayoutGrid, Trash2 } from "lucide-react";
+import { FilePlus, FileText, StickyNote, PenTool, List, LayoutGrid, Trash2, BookOpen } from "lucide-react";
 import { ThumbnailToc } from "./ThumbnailToc";
 import { cn } from "@/lib/cn";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
@@ -71,6 +71,9 @@ function TocEntry({
 
 interface ReaderSidebarContentProps {
   onOpenFile?: () => void;
+  /** Focus the book viewer panel — lets the user jump back from
+   * a note or whiteboard tab without having to hunt for the tab. */
+  onOpenBook?: () => void;
   onOpenNote?: (noteId: string) => void;
   onCreateNote?: () => void;
   onOpenWhiteboard?: (whiteboardId: string) => void;
@@ -82,6 +85,7 @@ interface ReaderSidebarContentProps {
 /** Inner content component used by Dockview panel (no outer sizing wrapper) */
 export function ReaderSidebarContent({
   onOpenFile,
+  onOpenBook,
   onOpenNote,
   onCreateNote,
   onOpenWhiteboard,
@@ -332,6 +336,16 @@ export function ReaderSidebarContent({
       <div className="border-b border-glass-border px-2 py-1 flex items-center gap-1 overflow-x-auto">
         {sidebarTab === "contents" && meta && (
           <>
+            {onOpenBook && (
+              <button
+                onClick={onOpenBook}
+                className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+                title="Open the book viewer"
+              >
+                <BookOpen size={14} />
+                <span>Open book</span>
+              </button>
+            )}
             <button
               onClick={() => setTocViewMode("outline")}
               className={cn(

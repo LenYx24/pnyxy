@@ -118,10 +118,15 @@ export function CreateFolderModal({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Fantasy, Research, Travel…"
-              maxLength={80}
+              placeholder="e.g. Fantasy  or  Fiction/Sci-Fi/Space Opera"
+              maxLength={240}
               className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
             />
+            <p className="mt-1 text-xs text-text-muted">
+              Tip: use <span className="font-mono text-text-secondary">/</span>{" "}
+              to create nested folders at once (e.g.{" "}
+              <span className="font-mono text-text-secondary">p1/p2/p3</span>).
+            </p>
           </div>
 
           {error && (
