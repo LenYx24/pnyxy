@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, ArrowRight, Check, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -9,6 +10,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { gradeAnswer, type Quiz, type QuizQuestion } from "@/types/quiz";
 
 export function QuizTakePage() {
+  const { t } = useTranslation();
   const { quizId } = useParams<{ quizId: string }>();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -61,12 +63,12 @@ export function QuizTakePage() {
   if (!quiz || questions.length === 0) {
     return (
       <div className="mx-auto w-full max-w-xl p-6 text-center">
-        <p className="text-text-muted">This quiz has no questions.</p>
+        <p className="text-text-muted">{t("quizzes.take.noQuestions")}</p>
         <Link
           to={`/quizzes/${quizId ?? ""}`}
           className="mt-3 inline-block text-sm text-accent-purple hover:underline"
         >
-          Back to quiz
+          {t("quizzes.take.backToQuiz")}
         </Link>
       </div>
     );
@@ -129,7 +131,7 @@ export function QuizTakePage() {
       <div className="mx-auto w-full max-w-2xl space-y-5 p-4 sm:p-6">
         <header className="space-y-1 text-center">
           <p className="text-xs uppercase tracking-wider text-text-muted">
-            Results
+            {t("quizzes.take.results")}
           </p>
           <h1 className="text-3xl font-bold text-text-primary">
             {score} / {questions.length}
@@ -146,10 +148,10 @@ export function QuizTakePage() {
           >
             {pct}%{" "}
             {pct >= 80
-              ? "— great work!"
+              ? t("quizzes.take.great")
               : pct >= 50
-                ? "— keep going."
-                : "— worth another go."}
+                ? t("quizzes.take.keepGoing")
+                : t("quizzes.take.worthAnother")}
           </p>
         </header>
 
@@ -170,10 +172,10 @@ export function QuizTakePage() {
             onClick={() => navigate(`/quizzes/${quiz.id}`)}
             className="w-full sm:w-auto"
           >
-            Back to quiz
+            {t("quizzes.take.backToQuiz")}
           </Button>
           <Button onClick={restart} className="w-full sm:w-auto">
-            Retry
+            {t("common.retry")}
           </Button>
         </div>
       </div>
@@ -187,12 +189,15 @@ export function QuizTakePage() {
         className="flex items-center gap-1 text-sm text-text-muted transition-colors hover:text-text-primary cursor-pointer"
       >
         <ArrowLeft size={14} />
-        Exit
+        {t("common.exit")}
       </button>
 
       <div>
         <p className="text-xs uppercase tracking-wider text-text-muted">
-          Question {current + 1} of {questions.length}
+          {t("quizzes.take.progress", {
+            current: current + 1,
+            total: questions.length,
+          })}
         </p>
         <div className="mt-1 h-1 w-full rounded-full bg-glass-bg">
           <div
@@ -247,7 +252,7 @@ export function QuizTakePage() {
       <div className="flex justify-end gap-2">
         {!revealed ? (
           <Button onClick={reveal} disabled={!canReveal}>
-            Submit
+            {t("common.submit")}
           </Button>
         ) : (
           <Button onClick={next} disabled={submitting}>
@@ -255,7 +260,7 @@ export function QuizTakePage() {
               <Loader2 size={16} className="animate-spin" />
             ) : (
               <>
-                {isLast ? "Finish" : "Next"}
+                {isLast ? t("common.finish") : t("common.next")}
                 {!isLast && <ArrowRight size={14} />}
               </>
             )}
@@ -387,13 +392,14 @@ export function ShortAnswerInput({
   isCorrect: boolean;
   correctText: string;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-2">
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={revealed}
-        placeholder="Type your answer"
+        placeholder={t("quizzes.take.typeAnswer")}
         autoFocus
         className={cn(
           "w-full rounded-lg border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary outline-none disabled:opacity-70",
@@ -406,14 +412,14 @@ export function ShortAnswerInput({
       />
       {revealed && !isCorrect && (
         <p className="text-sm text-text-secondary">
-          Expected:{" "}
+          {t("quizzes.take.expected")}{" "}
           <span className="font-medium text-green-400">{correctText}</span>
         </p>
       )}
       {revealed && isCorrect && (
         <p className="flex items-center gap-1.5 text-sm text-green-400">
           <Check size={14} />
-          Correct
+          {t("quizzes.take.correct")}
         </p>
       )}
     </div>
@@ -433,6 +439,7 @@ export function ResultCard({
     is_correct: boolean;
   } | null;
 }) {
+  const { t } = useTranslation();
   const correct = answer?.is_correct ?? false;
   return (
     <div
@@ -451,7 +458,7 @@ export function ResultCard({
         <div className="space-y-1">
           <div className="flex items-start gap-2 text-text-secondary">
             <span className="shrink-0 text-[11px] uppercase tracking-wider text-text-muted">
-              Your answer:
+              {t("quizzes.take.yourAnswer")}
             </span>
             <span
               className={cn(
@@ -459,13 +466,13 @@ export function ResultCard({
                 correct ? "text-green-400" : "text-red-400",
               )}
             >
-              {answer?.selected_text?.trim() || "(blank)"}
+              {answer?.selected_text?.trim() || t("quizzes.take.blank")}
             </span>
           </div>
           {!correct && (
             <div className="flex items-start gap-2 text-text-secondary">
               <span className="shrink-0 text-[11px] uppercase tracking-wider text-text-muted">
-                Expected:
+                {t("quizzes.take.expected")}
               </span>
               <span className="min-w-0 break-words text-green-400">
                 {question.correct_text}

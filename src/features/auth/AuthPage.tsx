@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "lucide-react";
 import { MeshBackground, Button } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
@@ -36,6 +37,7 @@ function GoogleIcon({ size = 18 }: { size?: number }) {
 }
 
 export function AuthPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, signIn, signUp, signInWithGoogle, error } = useAuthStore();
   const [tab, setTab] = useState<AuthTab>("sign-in");
@@ -122,18 +124,20 @@ export function AuthPage() {
 
         {/* Tab toggle */}
         <div className="mb-6 flex rounded-lg border border-glass-border bg-bg-primary/40 p-1">
-          {(["sign-in", "create-account"] as const).map((t) => (
+          {(["sign-in", "create-account"] as const).map((tabKey) => (
             <button
-              key={t}
+              key={tabKey}
               type="button"
-              onClick={() => handleTabChange(t)}
+              onClick={() => handleTabChange(tabKey)}
               className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors cursor-pointer ${
-                tab === t
+                tab === tabKey
                   ? "bg-accent-purple/15 text-accent-purple"
                   : "text-text-muted hover:text-text-secondary"
               }`}
             >
-              {t === "sign-in" ? "Sign In" : "Create Account"}
+              {tabKey === "sign-in"
+                ? t("auth.signIn")
+                : t("auth.createAccount")}
             </button>
           ))}
         </div>
@@ -146,7 +150,7 @@ export function AuthPage() {
                 htmlFor="display-name"
                 className="mb-1 block text-sm font-medium text-text-secondary"
               >
-                Display Name
+                {t("auth.displayName")}
               </label>
               <input
                 id="display-name"
@@ -154,7 +158,7 @@ export function AuthPage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted backdrop-blur-md outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
-                placeholder="How should we call you?"
+                placeholder={t("auth.displayNamePlaceholder")}
                 autoComplete="name"
               />
             </div>
@@ -165,7 +169,7 @@ export function AuthPage() {
               htmlFor="email"
               className="mb-1 block text-sm font-medium text-text-secondary"
             >
-              Email
+              {t("auth.email")}
             </label>
             <input
               id="email"
@@ -184,7 +188,7 @@ export function AuthPage() {
               htmlFor="password"
               className="mb-1 block text-sm font-medium text-text-secondary"
             >
-              Password
+              {t("auth.password")}
             </label>
             <div className="relative">
               <input
@@ -202,7 +206,9 @@ export function AuthPage() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-text-muted hover:text-text-secondary"
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={
+                  showPassword ? t("auth.hidePassword") : t("auth.showPassword")
+                }
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -213,7 +219,7 @@ export function AuthPage() {
                   to="/auth/forgot-password"
                   className="text-xs text-accent-purple hover:underline"
                 >
-                  Forgot password?
+                  {t("auth.forgotPassword")}
                 </Link>
               </div>
             )}
@@ -227,7 +233,7 @@ export function AuthPage() {
 
           {signUpSuccess && (
             <p className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
-              Check your email to confirm your account.
+              {t("auth.checkEmail")}
             </p>
           )}
 
@@ -237,21 +243,19 @@ export function AuthPage() {
             className="w-full"
           >
             {submitting
-              ? "Loading..."
+              ? t("common.loading")
               : tab === "sign-in"
-                ? "Sign In"
-                : "Create Account"}
+                ? t("auth.signIn")
+                : t("auth.createAccount")}
           </Button>
         </form>
 
-        {/* Divider */}
         <div className="my-6 flex items-center gap-3">
           <div className="h-px flex-1 bg-glass-border" />
-          <span className="text-xs text-text-muted">or</span>
+          <span className="text-xs text-text-muted">{t("auth.or")}</span>
           <div className="h-px flex-1 bg-glass-border" />
         </div>
 
-        {/* Google sign-in */}
         <Button
           variant="secondary"
           className="w-full"
@@ -259,16 +263,17 @@ export function AuthPage() {
           onClick={handleGoogleSignIn}
         >
           <GoogleIcon size={18} />
-          {googleSubmitting ? "Redirecting..." : "Continue with Google"}
+          {googleSubmitting
+            ? t("auth.redirecting")
+            : t("auth.continueWithGoogle")}
         </Button>
 
-        {/* Anonymous option */}
         <Button
           variant="ghost"
           className="mt-3 w-full"
           onClick={() => navigate("/library")}
         >
-          Continue without account
+          {t("auth.continueAnonymous")}
         </Button>
       </div>
     </div>

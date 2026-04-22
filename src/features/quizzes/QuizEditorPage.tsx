@@ -4,6 +4,7 @@ import {
   useParams,
   useSearchParams,
 } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   Plus,
@@ -43,6 +44,7 @@ function emptyQuestion(kind: QuizQuestionKind = "mcq4"): QuizQuestionDraft {
 }
 
 export function QuizEditorPage() {
+  const { t } = useTranslation();
   const { quizId } = useParams<{ quizId?: string }>();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -106,7 +108,7 @@ export function QuizEditorPage() {
   if (!user) {
     return (
       <div className="mx-auto w-full max-w-2xl p-6 text-center">
-        <p className="text-text-muted">Please sign in to create a quiz.</p>
+        <p className="text-text-muted">{t("quizzes.editor.signInFirst")}</p>
       </div>
     );
   }
@@ -161,12 +163,12 @@ export function QuizEditorPage() {
 
   const handleSave = async () => {
     setError(null);
-    if (!title.trim()) return setError("Title is required.");
+    if (!title.trim()) return setError(t("quizzes.editor.errors.titleRequired"));
     if (questions.length === 0)
-      return setError("Add at least one question.");
+      return setError(t("quizzes.editor.errors.needQuestion"));
     for (const [i, q] of questions.entries()) {
       if (!q.question_text.trim())
-        return setError(`Question ${i + 1} needs text.`);
+        return setError(t("quizzes.editor.errors.questionText", { n: i + 1 }));
       if (q.kind === "mcq4") {
         if (
           !q.option_a.trim() ||
@@ -174,13 +176,19 @@ export function QuizEditorPage() {
           !q.option_c.trim() ||
           !q.option_d.trim()
         )
-          return setError(`Question ${i + 1} needs all four options filled.`);
+          return setError(
+            t("quizzes.editor.errors.needAllOptions", { n: i + 1 }),
+          );
       } else if (q.kind === "true_false") {
         if (q.correct_index !== 0 && q.correct_index !== 1)
-          return setError(`Question ${i + 1}: pick True or False.`);
+          return setError(
+            t("quizzes.editor.errors.pickTrueFalse", { n: i + 1 }),
+          );
       } else if (q.kind === "short_answer") {
         if (!q.correct_text.trim())
-          return setError(`Question ${i + 1} needs a correct answer.`);
+          return setError(
+            t("quizzes.editor.errors.needCorrectText", { n: i + 1 }),
+          );
       }
     }
 
@@ -211,7 +219,11 @@ export function QuizEditorPage() {
         if (id) navigate(`/quizzes/${id}`);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save quiz.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : t("quizzes.editor.errors.saveFailed"),
+      );
     } finally {
       setSaving(false);
     }
@@ -224,49 +236,51 @@ export function QuizEditorPage() {
         className="flex items-center gap-1 text-sm text-text-muted transition-colors hover:text-text-primary cursor-pointer"
       >
         <ArrowLeft size={14} />
-        Back
+        {t("common.back")}
       </button>
 
       <header>
         <h1 className="text-2xl font-bold text-text-primary">
-          {quizId ? "Edit quiz" : "New quiz"}
+          {quizId ? t("quizzes.editor.editTitle") : t("quizzes.editor.newTitle")}
         </h1>
         <p className="mt-1 text-sm text-text-muted">
-          Mix multiple-choice, true/false, and short-answer questions.
+          {t("quizzes.editor.intro")}
         </p>
       </header>
 
       <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/40 p-4">
         <div>
           <label className="mb-1 block text-xs font-medium text-text-muted">
-            Title *
+            {t("quizzes.editor.titleLabel")}
           </label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Chapter 3 review"
+            placeholder={t("quizzes.editor.titlePlaceholder")}
             maxLength={140}
             className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple/50"
           />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-text-muted">
-            Description
+            {t("quizzes.editor.description")}
           </label>
           <textarea
             rows={2}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Optional — a line or two about what this quiz covers."
+            placeholder={t("quizzes.editor.descriptionPlaceholder")}
             maxLength={500}
             className="w-full resize-none rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple/50"
           />
         </div>
         <div className="flex items-center justify-between rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2">
           <div>
-            <p className="text-sm font-medium text-text-primary">Public</p>
+            <p className="text-sm font-medium text-text-primary">
+              {t("quizzes.editor.publicLabel")}
+            </p>
             <p className="text-xs text-text-muted">
-              Visible in the community quizzes feed.
+              {t("quizzes.editor.publicHint")}
             </p>
           </div>
           <Toggle
@@ -285,7 +299,7 @@ export function QuizEditorPage() {
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
-            Questions ({questions.length})
+            {t("quizzes.editor.questionsHeading", { count: questions.length })}
           </h2>
           <Button
             variant="secondary"
@@ -293,8 +307,12 @@ export function QuizEditorPage() {
             className="gap-1 px-2.5 py-1 text-xs"
           >
             <Plus size={14} />
-            <span className="hidden sm:inline">Add question</span>
-            <span className="sm:hidden">Add</span>
+            <span className="hidden sm:inline">
+              {t("quizzes.editor.addQuestion")}
+            </span>
+            <span className="sm:hidden">
+              {t("quizzes.editor.addQuestionShort")}
+            </span>
           </Button>
         </div>
 
@@ -305,14 +323,14 @@ export function QuizEditorPage() {
           >
             <div className="flex items-start justify-between gap-2">
               <p className="text-xs font-medium text-text-muted">
-                Question {i + 1}
+                {t("quizzes.editor.questionHeader", { index: i + 1 })}
               </p>
               {questions.length > 1 && (
                 <button
                   onClick={() => removeQuestion(i)}
                   className="rounded-md p-1 text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
-                  aria-label="Remove question"
-                  title="Remove question"
+                  aria-label={t("quizzes.editor.removeQuestion")}
+                  title={t("quizzes.editor.removeQuestion")}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -330,7 +348,7 @@ export function QuizEditorPage() {
               onChange={(e) =>
                 patchQuestion(i, { question_text: e.target.value })
               }
-              placeholder="What's the question?"
+              placeholder={t("quizzes.editor.questionPlaceholder")}
               className="w-full resize-none rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple/50"
             />
 
@@ -359,8 +377,12 @@ export function QuizEditorPage() {
                               ? "border-green-500 bg-green-500 text-white"
                               : "border-text-muted/40 text-text-muted hover:border-accent-purple",
                           )}
-                          aria-label={`Mark option ${"ABCD"[idx]} as correct`}
-                          title={isCorrect ? "Correct answer" : "Mark correct"}
+                          aria-label={t("quizzes.editor.markCorrect")}
+                          title={
+                            isCorrect
+                              ? t("quizzes.editor.correctAnswerLabel")
+                              : t("quizzes.editor.markCorrect")
+                          }
                         >
                           {isCorrect ? (
                             <Check size={12} />
@@ -377,7 +399,9 @@ export function QuizEditorPage() {
                               [key]: e.target.value,
                             } as Partial<QuizQuestionDraft>)
                           }
-                          placeholder={`Option ${"ABCD"[idx]}`}
+                          placeholder={t("quizzes.editor.optionPlaceholder", {
+                            letter: "ABCD"[idx],
+                          })}
                           className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
                         />
                       </div>
@@ -414,18 +438,18 @@ export function QuizEditorPage() {
             {q.kind === "short_answer" && (
               <div>
                 <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                  Correct answer
+                  {t("quizzes.editor.correctAnswerLabel")}
                 </label>
                 <input
                   value={q.correct_text}
                   onChange={(e) =>
                     patchQuestion(i, { correct_text: e.target.value })
                   }
-                  placeholder="The expected answer"
+                  placeholder={t("quizzes.editor.correctAnswerPlaceholder")}
                   className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple/50"
                 />
                 <p className="mt-1 text-[11px] text-text-muted">
-                  Matching is case-insensitive; extra spaces are ignored.
+                  {t("quizzes.editor.correctAnswerHint")}
                 </p>
               </div>
             )}
@@ -435,7 +459,7 @@ export function QuizEditorPage() {
               onChange={(e) =>
                 patchQuestion(i, { explanation: e.target.value })
               }
-              placeholder="Explanation shown after answering (optional)"
+              placeholder={t("quizzes.editor.explanationPlaceholder")}
               className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2 text-xs text-text-primary outline-none focus:border-accent-purple/50"
             />
           </div>
@@ -455,7 +479,7 @@ export function QuizEditorPage() {
           disabled={saving}
           className="w-full sm:w-auto"
         >
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button
           onClick={handleSave}
@@ -465,12 +489,12 @@ export function QuizEditorPage() {
           {saving ? (
             <>
               <Loader2 size={16} className="animate-spin" />
-              Saving…
+              {t("common.saving")}
             </>
           ) : quizId ? (
-            "Save changes"
+            t("quizzes.editor.saveChanges")
           ) : (
-            "Create quiz"
+            t("quizzes.editor.create")
           )}
         </Button>
       </div>
@@ -485,10 +509,11 @@ function KindTabs({
   value: QuizQuestionKind;
   onChange: (k: QuizQuestionKind) => void;
 }) {
+  const { t } = useTranslation();
   const tabs: { kind: QuizQuestionKind; icon: typeof ListChecks; label: string }[] = [
-    { kind: "mcq4", icon: ListChecks, label: "Multiple choice" },
-    { kind: "true_false", icon: ToggleLeft, label: "True / False" },
-    { kind: "short_answer", icon: Type, label: "Short answer" },
+    { kind: "mcq4", icon: ListChecks, label: t("quizzes.editor.kind.mcq4") },
+    { kind: "true_false", icon: ToggleLeft, label: t("quizzes.editor.kind.true_false") },
+    { kind: "short_answer", icon: Type, label: t("quizzes.editor.kind.short_answer") },
   ];
   return (
     <div className="flex flex-wrap gap-1 rounded-lg border border-glass-border bg-bg-primary/40 p-0.5">

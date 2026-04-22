@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import { BookOpen, FileQuestion, Plus, Search } from "lucide-react";
 import { Button, GlassCard } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -9,6 +10,7 @@ import { useAuthStore } from "@/stores/auth-store";
 type Filter = "all" | "standalone" | "book";
 
 export function QuizzesPage() {
+  const { t } = useTranslation();
   const publicQuizzes = useQuizStore((s) => s.publicQuizzes);
   const myQuizzes = useQuizStore((s) => s.myQuizzes);
   const isLoading = useQuizStore((s) => s.isLoading);
@@ -40,21 +42,19 @@ export function QuizzesPage() {
     <div className="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Quizzes</h1>
-          <p className="text-sm text-text-muted">
-            Browse community quizzes or build your own. Multiple-choice, 4
-            options per question.
-          </p>
+          <h1 className="text-2xl font-bold text-text-primary">
+            {t("quizzes.title")}
+          </h1>
+          <p className="text-sm text-text-muted">{t("quizzes.tagline")}</p>
         </div>
         <Link to="/quizzes/new">
           <Button variant="primary">
             <Plus size={16} />
-            New quiz
+            {t("quizzes.newQuiz")}
           </Button>
         </Link>
       </header>
 
-      {/* Search + filter */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[12rem]">
           <Search
@@ -64,16 +64,16 @@ export function QuizzesPage() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by title..."
+            placeholder={t("quizzes.search")}
             className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2 pl-9 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50"
           />
         </div>
         <div className="flex rounded-lg border border-glass-border bg-glass-bg p-0.5">
           {(
             [
-              { key: "all", label: "All" },
-              { key: "book", label: "On a book" },
-              { key: "standalone", label: "Standalone" },
+              { key: "all", label: t("quizzes.filter.all") },
+              { key: "book", label: t("quizzes.filter.onBook") },
+              { key: "standalone", label: t("quizzes.filter.standalone") },
             ] as { key: Filter; label: string }[]
           ).map((tab) => (
             <button
@@ -92,28 +92,30 @@ export function QuizzesPage() {
         </div>
       </div>
 
-      {/* My quizzes */}
       {user && myQuizzes.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
-            Your quizzes
+            {t("quizzes.yourQuizzes")}
           </h2>
           <QuizGrid quizzes={myQuizzes} showVisibility />
         </section>
       )}
 
-      {/* Public feed */}
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
-          Community
+          {t("quizzes.community")}
         </h2>
         {isLoading && visible.length === 0 ? (
-          <p className="py-12 text-center text-sm text-text-muted">Loading…</p>
+          <p className="py-12 text-center text-sm text-text-muted">
+            {t("common.loading")}
+          </p>
         ) : visible.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <FileQuestion size={36} className="text-text-muted/50" />
             <p className="text-sm text-text-muted">
-              No public quizzes yet. {user ? "Be the first!" : "Sign in to post one."}
+              {user
+                ? t("quizzes.emptyCommunitySignedIn")
+                : t("quizzes.emptyCommunitySignedOut")}
             </p>
           </div>
         ) : (
@@ -131,6 +133,7 @@ function QuizGrid({
   quizzes: { id: string; title: string; description: string | null; visibility?: string; question_count: number }[];
   showVisibility?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {quizzes.map((q) => (
@@ -145,13 +148,12 @@ function QuizGrid({
                   {q.title}
                 </h3>
                 <p className="text-xs text-text-muted">
-                  {q.question_count}{" "}
-                  {q.question_count === 1 ? "question" : "questions"}
+                  {t("quizzes.quizCount", { count: q.question_count })}
                 </p>
               </div>
               {showVisibility && q.visibility === "private" && (
                 <span className="shrink-0 rounded bg-text-muted/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-muted">
-                  Private
+                  {t("quizzes.private")}
                 </span>
               )}
             </div>
@@ -178,6 +180,7 @@ export function BookQuizzesList({
   catalogBookId?: string;
   uploadedBookId?: string;
 }) {
+  const { t } = useTranslation();
   const publicQuizzes = useQuizStore((s) => s.publicQuizzes);
   const fetchPublic = useQuizStore((s) => s.fetchPublic);
   const myQuizzes = useQuizStore((s) => s.myQuizzes);
@@ -212,19 +215,19 @@ export function BookQuizzesList({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-text-muted">
           <BookOpen size={14} />
-          Quizzes for this book
+          {t("quizzes.bookQuizzesHeading")}
         </div>
         <Link to={newHref}>
           <Button variant="secondary" className="gap-1 px-2.5 py-1 text-xs">
             <Plus size={14} />
-            New
+            {t("quizzes.addNew")}
           </Button>
         </Link>
       </div>
 
       {own.length === 0 && community.length === 0 ? (
         <p className="rounded-lg border border-glass-border bg-glass-bg/40 p-4 text-sm text-text-muted">
-          No quizzes yet for this book. Create the first one.
+          {t("quizzes.bookQuizzesEmpty")}
         </p>
       ) : (
         <>

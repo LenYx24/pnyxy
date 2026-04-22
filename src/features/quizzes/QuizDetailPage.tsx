@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   Play,
@@ -22,6 +23,7 @@ import type {
 import { cn } from "@/lib/cn";
 
 export function QuizDetailPage() {
+  const { t } = useTranslation();
   const { quizId } = useParams<{ quizId: string }>();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -79,9 +81,9 @@ export function QuizDetailPage() {
   if (!quiz) {
     return (
       <div className="mx-auto w-full max-w-2xl p-6 text-center">
-        <p className="text-text-muted">Quiz not found or you don't have access.</p>
+        <p className="text-text-muted">{t("quizzes.detail.notFound")}</p>
         <Link to="/quizzes" className="mt-4 inline-block text-sm text-accent-purple hover:underline">
-          Back to Quizzes
+          {t("quizzes.detail.backToQuizzes")}
         </Link>
       </div>
     );
@@ -106,7 +108,7 @@ export function QuizDetailPage() {
         className="flex items-center gap-1 text-sm text-text-muted transition-colors hover:text-text-primary cursor-pointer"
       >
         <ArrowLeft size={14} />
-        Back
+        {t("common.back")}
       </button>
 
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -120,9 +122,10 @@ export function QuizDetailPage() {
                 {quiz.title}
               </h1>
               <p className="text-xs text-text-muted">
-                {questions.length}{" "}
-                {questions.length === 1 ? "question" : "questions"} ·{" "}
-                {quiz.visibility === "public" ? "Public" : "Private"}
+                {t("quizzes.quizCount", { count: questions.length })} ·{" "}
+                {quiz.visibility === "public"
+                  ? t("quizzes.public")
+                  : t("quizzes.private")}
               </p>
             </div>
           </div>
@@ -138,7 +141,7 @@ export function QuizDetailPage() {
             disabled={questions.length === 0}
           >
             <Play size={16} />
-            Take quiz
+            {t("quizzes.detail.takeQuiz")}
           </Button>
           {isOwner && (
             <>
@@ -147,7 +150,7 @@ export function QuizDetailPage() {
                 onClick={() => navigate(`/quizzes/${quizId}/edit`)}
               >
                 <Pencil size={14} />
-                Edit
+                {t("quizzes.detail.edit")}
               </Button>
               <Button
                 variant="secondary"
@@ -166,7 +169,7 @@ export function QuizDetailPage() {
         <section className="space-y-3">
           <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-text-muted">
             <History size={14} />
-            Your past attempts
+            {t("quizzes.detail.attemptHistory")}
           </div>
           <ul className="divide-y divide-glass-border overflow-hidden rounded-xl border border-glass-border">
             {attempts.map((a) => {
@@ -189,7 +192,7 @@ export function QuizDetailPage() {
                           </span>
                         </>
                       ) : (
-                        "In progress"
+                        "…"
                       )}
                     </span>
                     <span
@@ -217,18 +220,17 @@ export function QuizDetailPage() {
       {questions.length === 0 && isOwner && (
         <div className="rounded-xl border border-dashed border-glass-border p-6 text-center">
           <p className="text-sm text-text-muted">
-            This quiz has no questions yet.
+            {t("quizzes.detail.noQuestions")}
           </p>
           <Link
             to={`/quizzes/${quizId}/edit`}
             className="mt-3 inline-block text-sm text-accent-purple hover:underline"
           >
-            Add questions →
+            {t("quizzes.detail.addQuestions")}
           </Link>
         </div>
       )}
 
-      {/* Confirm delete */}
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
@@ -237,24 +239,23 @@ export function QuizDetailPage() {
           />
           <div className="relative z-10 w-full max-w-sm rounded-xl border border-glass-border bg-bg-secondary/95 p-6 backdrop-blur-xl">
             <h3 className="mb-2 text-lg font-semibold text-text-primary">
-              Delete quiz?
+              {t("quizzes.detail.deleteQuiz")}
             </h3>
             <p className="mb-4 text-sm text-text-muted">
-              This permanently removes the quiz, its questions, and every
-              attempt ever taken. Cannot be undone.
+              {t("quizzes.detail.deleteBody")}
             </p>
             <div className="flex justify-end gap-2">
               <Button
                 variant="secondary"
                 onClick={() => setConfirmDelete(false)}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
               <button
                 onClick={handleDelete}
                 className="rounded-lg bg-red-500/20 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/30 cursor-pointer"
               >
-                Delete
+                {t("common.delete")}
               </button>
             </div>
           </div>
@@ -265,6 +266,7 @@ export function QuizDetailPage() {
 }
 
 function MostMissedSection({ stats }: { stats: QuizQuestionStat[] }) {
+  const { t } = useTranslation();
   const answered = stats.filter((s) => s.attempts > 0);
   if (answered.length === 0) return null;
 
@@ -282,11 +284,10 @@ function MostMissedSection({ stats }: { stats: QuizQuestionStat[] }) {
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold uppercase tracking-wider text-text-muted">
         <div className="flex items-center gap-2">
           <AlertTriangle size={14} />
-          Most missed
+          {t("quizzes.detail.mostMissed")}
         </div>
         <span className="text-[11px] font-normal normal-case text-text-muted">
-          across {totalAnswers.toLocaleString()} answer
-          {totalAnswers === 1 ? "" : "s"}
+          {t("quizzes.detail.mostMissedAcross", { count: totalAnswers })}
         </span>
       </div>
       <ul className="divide-y divide-glass-border overflow-hidden rounded-xl border border-glass-border">

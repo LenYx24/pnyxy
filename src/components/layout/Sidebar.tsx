@@ -1,4 +1,5 @@
 import { NavLink } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   Compass,
   Library,
@@ -19,17 +20,18 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useIsMobile, useIsDesktop } from "@/hooks/use-media-query";
 
 const baseNavItems = [
-  { to: "/browse", icon: Compass, label: "Browse" },
-  { to: "/library", icon: Library, label: "Library" },
-  { to: "/reader", icon: BookOpen, label: "Reader" },
-  { to: "/quizzes", icon: FileQuestion, label: "Quizzes" },
-  { to: "/quizzes/review", icon: BrainCircuit, label: "Review" },
-  { to: "/streaks", icon: Flame, label: "Streaks" },
-  { to: "/forum", icon: MessagesSquare, label: "Forum" },
-  { to: "/settings", icon: Settings, label: "Settings" },
+  { to: "/browse", icon: Compass, key: "browse" as const },
+  { to: "/library", icon: Library, key: "library" as const },
+  { to: "/reader", icon: BookOpen, key: "reader" as const },
+  { to: "/quizzes", icon: FileQuestion, key: "quizzes" as const },
+  { to: "/quizzes/review", icon: BrainCircuit, key: "review" as const },
+  { to: "/streaks", icon: Flame, key: "streaks" as const },
+  { to: "/forum", icon: MessagesSquare, key: "forum" as const },
+  { to: "/settings", icon: Settings, key: "settings" as const },
 ];
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+  const { t } = useTranslation();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const { user, profile } = useAuthStore();
   const isDesktop = useIsDesktop();
@@ -37,7 +39,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const collapsed = isDesktop && sidebarCollapsed;
 
   const navItems = profile?.role === "admin"
-    ? [...baseNavItems, { to: "/admin", icon: Shield, label: "Admin" }]
+    ? [...baseNavItems, { to: "/admin", icon: Shield, key: "admin" as const }]
     : baseNavItems;
 
   const initial = (
@@ -81,26 +83,29 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <nav className="flex-1 space-y-1 p-2">
-        {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            onClick={onNavigate}
-            title={label}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                collapsed && "justify-center px-0",
-                isActive
-                  ? "bg-accent-purple/15 text-accent-purple"
-                  : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
-              )
-            }
-          >
-            <Icon size={20} />
-            {!collapsed && <span>{label}</span>}
-          </NavLink>
-        ))}
+        {navItems.map(({ to, icon: Icon, key }) => {
+          const label = t(`sidebar.${key}`);
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              onClick={onNavigate}
+              title={label}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  collapsed && "justify-center px-0",
+                  isActive
+                    ? "bg-accent-purple/15 text-accent-purple"
+                    : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+                )
+              }
+            >
+              <Icon size={20} />
+              {!collapsed && <span>{label}</span>}
+            </NavLink>
+          );
+        })}
       </nav>
 
       {/* Profile / Sign in section */}
@@ -149,7 +154,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           }
         >
           <LogIn size={20} />
-          {!collapsed && <span className="text-sm font-medium">Sign in</span>}
+          {!collapsed && (
+            <span className="text-sm font-medium">{t("sidebar.signIn")}</span>
+          )}
         </NavLink>
       )}
 

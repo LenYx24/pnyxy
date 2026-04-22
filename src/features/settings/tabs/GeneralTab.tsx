@@ -1,9 +1,22 @@
+import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "@/stores/settings-store";
 import type { FitMode } from "@/stores/settings-store";
 import { Toggle, Slider } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import {
+  isSupportedLanguage,
+  setLanguage,
+  SUPPORTED_LANGUAGES,
+  type SupportedLanguage,
+} from "@/lib/i18n";
 
 export function GeneralTab() {
+  const { t, i18n } = useTranslation();
+  const currentLang: SupportedLanguage = isSupportedLanguage(
+    i18n.resolvedLanguage,
+  )
+    ? i18n.resolvedLanguage
+    : "en";
   const {
     pageScrollBehavior,
     scrollAnimationDuration,
@@ -24,6 +37,33 @@ export function GeneralTab() {
 
   return (
     <div className="space-y-6">
+      <section className="space-y-3 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
+        <div>
+          <h2 className="text-lg font-semibold text-text-primary">
+            {t("settings.language.label")}
+          </h2>
+          <p className="mt-0.5 text-xs text-text-muted">
+            {t("settings.language.description")}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {SUPPORTED_LANGUAGES.map((lang) => (
+            <button
+              key={lang}
+              onClick={() => void setLanguage(lang)}
+              className={cn(
+                "flex-1 min-w-[8rem] rounded-lg border px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
+                currentLang === lang
+                  ? "border-accent-purple bg-accent-purple/10 text-accent-purple"
+                  : "border-glass-border bg-glass-bg text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+              )}
+            >
+              {t(`settings.language.${lang}`)}
+            </button>
+          ))}
+        </div>
+      </section>
+
       {/* Navigation section */}
       <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-text-primary">Navigation</h2>

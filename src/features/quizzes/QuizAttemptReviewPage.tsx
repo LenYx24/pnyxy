@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -13,6 +14,7 @@ import type {
 import { ResultCard } from "./QuizTakePage";
 
 export function QuizAttemptReviewPage() {
+  const { t } = useTranslation();
   const { quizId, attemptId } = useParams<{
     quizId: string;
     attemptId: string;
@@ -64,13 +66,13 @@ export function QuizAttemptReviewPage() {
     return (
       <div className="mx-auto w-full max-w-xl p-6 text-center">
         <p className="text-text-muted">
-          Attempt not found or you don't have access.
+          {t("quizzes.attemptReview.noAccess")}
         </p>
         <Link
           to={`/quizzes/${quizId ?? ""}`}
           className="mt-3 inline-block text-sm text-accent-purple hover:underline"
         >
-          Back to quiz
+          {t("quizzes.take.backToQuiz")}
         </Link>
       </div>
     );
@@ -88,12 +90,12 @@ export function QuizAttemptReviewPage() {
         className="flex items-center gap-1 text-sm text-text-muted transition-colors hover:text-text-primary cursor-pointer"
       >
         <ArrowLeft size={14} />
-        Back to quiz
+        {t("quizzes.take.backToQuiz")}
       </button>
 
       <header className="space-y-1">
         <p className="text-xs uppercase tracking-wider text-text-muted">
-          Attempt review
+          {t("quizzes.attemptReview.title")}
         </p>
         <h1 className="truncate text-2xl font-bold text-text-primary">
           {quiz.title}
@@ -124,7 +126,7 @@ export function QuizAttemptReviewPage() {
 
       {questions.length === 0 ? (
         <p className="rounded-lg border border-glass-border bg-glass-bg/40 p-4 text-sm text-text-muted">
-          This quiz no longer has any questions.
+          {t("quizzes.attemptReview.noQuestionsAnymore")}
         </p>
       ) : (
         <section className="space-y-3">
@@ -145,13 +147,13 @@ export function QuizAttemptReviewPage() {
           onClick={() => navigate(`/quizzes/${quiz.id}`)}
           className="w-full sm:w-auto"
         >
-          Back to quiz
+          {t("quizzes.take.backToQuiz")}
         </Button>
         <Button
           onClick={() => navigate(`/quizzes/${quiz.id}/take`)}
           className="w-full sm:w-auto"
         >
-          Retake
+          {t("quizzes.attemptReview.retake")}
         </Button>
       </div>
     </div>

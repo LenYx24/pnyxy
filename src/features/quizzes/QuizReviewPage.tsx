@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   ArrowRight,
@@ -21,6 +22,7 @@ import {
 const DEFAULT_BATCH = 20;
 
 export function QuizReviewPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const fetchDueReviews = useQuizStore((s) => s.fetchDueReviews);
@@ -69,7 +71,9 @@ export function QuizReviewPage() {
   if (!user) {
     return (
       <div className="mx-auto w-full max-w-xl p-6 text-center">
-        <p className="text-text-muted">Sign in to review your questions.</p>
+        <p className="text-text-muted">
+          {t("quizzes.review.signInRequired")}
+        </p>
       </div>
     );
   }
@@ -85,8 +89,8 @@ export function QuizReviewPage() {
   if (queue.length === 0) {
     return (
       <EmptyState
-        title="Nothing due right now"
-        body="Take a quiz or come back later — cards resurface on an FSRS schedule based on how well you remember them."
+        title={t("quizzes.review.nothingDue")}
+        body={t("quizzes.review.nothingDueBody")}
       />
     );
   }
@@ -102,10 +106,15 @@ export function QuizReviewPage() {
         </div>
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-text-primary">
-            Session complete
+            {t("quizzes.review.sessionComplete")}
           </h1>
           <p className="text-sm text-text-muted">
-            {correctCount} / {queue.length} correct ({pct}%)
+            {t("quizzes.review.sessionResult", {
+              correct: correctCount,
+              total: queue.length,
+              pct,
+              count: queue.length,
+            })}
           </p>
         </div>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">
@@ -114,7 +123,7 @@ export function QuizReviewPage() {
             onClick={() => navigate("/quizzes")}
             className="w-full sm:w-auto"
           >
-            Back to quizzes
+            {t("quizzes.review.browseQuizzes")}
           </Button>
           <Button
             onClick={async () => {
@@ -130,7 +139,7 @@ export function QuizReviewPage() {
             }}
             className="w-full sm:w-auto"
           >
-            Load more
+            {t("quizzes.review.loadMore")}
           </Button>
         </div>
       </div>
@@ -173,13 +182,16 @@ export function QuizReviewPage() {
         className="flex items-center gap-1 text-sm text-text-muted transition-colors hover:text-text-primary cursor-pointer"
       >
         <ArrowLeft size={14} />
-        Exit
+        {t("common.exit")}
       </button>
 
       <header className="space-y-1">
         <p className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-text-muted">
           <BrainCircuit size={13} />
-          Review session · {index + 1} of {queue.length}
+          {t("quizzes.review.sessionTitle", {
+            current: index + 1,
+            total: queue.length,
+          })}
         </p>
         <div className="h-1 w-full rounded-full bg-glass-bg">
           <div
@@ -235,7 +247,7 @@ export function QuizReviewPage() {
       <div className="flex justify-end gap-2">
         {!revealed ? (
           <Button onClick={reveal} disabled={!canReveal}>
-            Submit
+            {t("common.submit")}
           </Button>
         ) : (
           <Button onClick={next} disabled={recording}>
@@ -243,7 +255,7 @@ export function QuizReviewPage() {
               <Loader2 size={16} className="animate-spin" />
             ) : (
               <>
-                Next
+                {t("common.next")}
                 <ArrowRight size={14} />
               </>
             )}
@@ -255,6 +267,7 @@ export function QuizReviewPage() {
 }
 
 function EmptyState({ title, body }: { title: string; body: string }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   return (
     <div className="mx-auto w-full max-w-xl space-y-5 p-4 sm:p-6 text-center">
@@ -269,7 +282,7 @@ function EmptyState({ title, body }: { title: string; body: string }) {
       </div>
       <div>
         <Button variant="secondary" onClick={() => navigate("/quizzes")}>
-          Browse quizzes
+          {t("quizzes.review.browseQuizzes")}
         </Button>
       </div>
     </div>

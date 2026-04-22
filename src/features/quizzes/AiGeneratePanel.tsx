@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import { BookOpen, FileText, Loader2, Minus, Plus, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -45,6 +46,7 @@ export function AiGeneratePanel({
   uploadedBookId,
   catalogBookId,
 }: AiGeneratePanelProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("text");
   const [sourceText, setSourceText] = useState("");
@@ -152,7 +154,7 @@ export function AiGeneratePanel({
         className="flex w-full items-center justify-center gap-2 rounded-xl border border-accent-purple/30 bg-accent-purple/5 px-4 py-3 text-sm font-medium text-accent-purple transition-colors hover:bg-accent-purple/10 cursor-pointer"
       >
         <Sparkles size={16} />
-        Generate questions with AI
+        {t("quizzes.ai.generate")}
       </button>
     );
   }
@@ -162,13 +164,13 @@ export function AiGeneratePanel({
       <header className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm font-semibold text-accent-purple">
           <Sparkles size={16} />
-          Generate with AI
+          {t("quizzes.ai.heading")}
         </div>
         <button
           onClick={() => setOpen(false)}
           disabled={loading}
           className="rounded-md p-1 text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Close AI panel"
+          aria-label={t("common.close")}
         >
           <X size={14} />
         </button>
@@ -176,14 +178,13 @@ export function AiGeneratePanel({
 
       {!providerConfigured && (
         <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
-          No AI provider is enabled.{" "}
+          {t("quizzes.ai.noProvider")}{" "}
           <Link
             to="/settings"
             className="font-semibold underline underline-offset-2"
           >
-            Configure one in Settings
-          </Link>{" "}
-          to use generation.
+            {t("quizzes.ai.configureLink")}
+          </Link>
         </p>
       )}
 
@@ -192,14 +193,14 @@ export function AiGeneratePanel({
           <ModeTab
             active={mode === "book"}
             icon={BookOpen}
-            label="From book"
+            label={t("quizzes.ai.fromBook")}
             onClick={() => setMode("book")}
             disabled={loading}
           />
           <ModeTab
             active={mode === "text"}
             icon={FileText}
-            label="Paste text"
+            label={t("quizzes.ai.pasteText")}
             onClick={() => setMode("text")}
             disabled={loading}
           />
@@ -212,7 +213,7 @@ export function AiGeneratePanel({
             htmlFor="ai-source-text"
             className="mb-1 block text-xs font-medium text-text-muted"
           >
-            Source text
+            {t("quizzes.ai.sourceText")}
           </label>
           <textarea
             id="ai-source-text"
@@ -220,13 +221,15 @@ export function AiGeneratePanel({
             value={sourceText}
             onChange={(e) => setSourceText(e.target.value)}
             maxLength={MAX_SOURCE_CHARS}
-            placeholder="Paste a chapter, notes, a Wikipedia section — anything the quiz should be about."
+            placeholder={t("quizzes.ai.sourcePlaceholder")}
             disabled={loading}
             className="w-full resize-y rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple/50 disabled:opacity-60"
           />
           <p className="mt-1 text-[11px] text-text-muted">
-            {sourceText.length.toLocaleString()} /{" "}
-            {MAX_SOURCE_CHARS.toLocaleString()} chars
+            {t("quizzes.ai.charsCounter", {
+              used: sourceText.length.toLocaleString(),
+              max: MAX_SOURCE_CHARS.toLocaleString(),
+            })}
           </p>
         </div>
       ) : (
@@ -242,7 +245,9 @@ export function AiGeneratePanel({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-text-muted">Questions</span>
+          <span className="text-xs font-medium text-text-muted">
+            {t("quizzes.ai.questionsLabel")}
+          </span>
           <CountStepper
             value={count}
             onChange={setCount}
@@ -269,7 +274,7 @@ export function AiGeneratePanel({
           disabled={loading}
           className="w-full sm:w-auto"
         >
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button
           onClick={handleGenerate}
@@ -279,12 +284,14 @@ export function AiGeneratePanel({
           {loading ? (
             <>
               <Loader2 size={16} className="animate-spin" />
-              {mode === "book" ? "Reading & generating…" : "Generating…"}
+              {mode === "book"
+                ? t("quizzes.ai.generatingFromBook")
+                : t("quizzes.ai.generating")}
             </>
           ) : (
             <>
               <Sparkles size={16} />
-              Generate {count}
+              {t("quizzes.ai.generateN", { count })}
             </>
           )}
         </Button>
@@ -408,6 +415,7 @@ function BookRange({
   onEndChange: (n: number) => void;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation();
   const total = bookMeta?.pageCount ?? 0;
   const clampStart = (n: number) =>
     Math.max(1, Math.min(total || 1, Math.round(n)));
@@ -424,7 +432,7 @@ function BookRange({
       )}
       <div className="flex flex-wrap items-end gap-3">
         <PageInput
-          label="From page"
+          label={t("quizzes.ai.fromPage")}
           value={startPage}
           onChange={(n) => {
             const v = clampStart(n);
@@ -436,7 +444,7 @@ function BookRange({
           disabled={disabled}
         />
         <PageInput
-          label="To page"
+          label={t("quizzes.ai.toPage")}
           value={endPage}
           onChange={(n) => onEndChange(clampEnd(n))}
           min={startPage}
@@ -444,10 +452,7 @@ function BookRange({
           disabled={disabled}
         />
       </div>
-      <p className="text-[11px] text-text-muted">
-        Text is extracted from those pages. Keep the range tight — a couple of
-        chapters works better than a whole book.
-      </p>
+      <p className="text-[11px] text-text-muted">{t("quizzes.ai.bookHint")}</p>
     </div>
   );
 }
