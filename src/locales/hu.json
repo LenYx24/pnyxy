@@ -402,6 +402,27 @@
       "englishOnly": "Ezek a feltételek jelenleg csak angol nyelven elérhetők. A magyar nyelvű, hiteles fordítás a magyar indulás előtt érhető el."
     }
   },
+  "footer": {
+    "about": "Rólunk",
+    "privacy": "Adatvédelem",
+    "terms": "Feltételek",
+    "help": "Súgó"
+  },
+  "streaks": {
+    "title": "Sorozatok",
+    "currentStreak": "Jelenlegi sorozat",
+    "longestStreak": "Leghosszabb sorozat",
+    "lastNDays": "Utolsó {{days}} nap",
+    "completedOf": "/ {{total}} teljesítve",
+    "day_one": "nap",
+    "day_other": "nap",
+    "today": "Ma",
+    "goalComplete": "Cél teljesítve",
+    "inProgress": "Folyamatban",
+    "minRead": "{{minutes}} perc olvasás",
+    "minGoal": "{{minutes}} perces cél",
+    "historyHint": "A kitöltött négyzetek olyan napok, amikor teljesítetted az 5 perces olvasási célt."
+  },
   "notes": {
     "notFound": "A jegyzet nem található",
     "titlePlaceholder": "Jegyzet címe…",

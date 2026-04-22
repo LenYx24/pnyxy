@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Flame, Trophy, Target, Calendar } from "lucide-react";
 import { useStreakStore } from "@/stores/streak-store";
 import { cn } from "@/lib/cn";
@@ -34,6 +35,7 @@ function buildHistory(records: Record<string, { seconds: number; goalCompleted: 
 }
 
 export function StreaksPage() {
+  const { t } = useTranslation();
   const getCurrentStreak = useStreakStore((s) => s.getCurrentStreak);
   const longestStreak = useStreakStore((s) => s.longestStreak);
   const getTodayRecord = useStreakStore((s) => s.getTodayRecord);
@@ -53,48 +55,52 @@ export function StreaksPage() {
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-glass-bg">
           <Flame size={20} className="text-orange-400" />
         </div>
-        <h1 className="text-2xl font-bold text-text-primary">Streaks</h1>
+        <h1 className="text-2xl font-bold text-text-primary">
+          {t("streaks.title")}
+        </h1>
       </div>
 
-      {/* Headline stats */}
       <div className="grid gap-4 sm:grid-cols-3">
         <StatTile
           icon={<Flame size={20} className={currentStreak > 0 ? "text-orange-400" : "text-text-muted"} />}
-          label="Current streak"
+          label={t("streaks.currentStreak")}
           value={currentStreak}
-          suffix={currentStreak === 1 ? "day" : "days"}
+          suffix={t("streaks.day", { count: currentStreak })}
         />
         <StatTile
           icon={<Trophy size={20} className="text-yellow-400" />}
-          label="Longest streak"
+          label={t("streaks.longestStreak")}
           value={longestStreak}
-          suffix={longestStreak === 1 ? "day" : "days"}
+          suffix={t("streaks.day", { count: longestStreak })}
         />
         <StatTile
           icon={<Target size={20} className="text-accent-purple" />}
-          label={`Last ${HISTORY_DAYS} days`}
+          label={t("streaks.lastNDays", { days: HISTORY_DAYS })}
           value={completedDays}
-          suffix={`/ ${HISTORY_DAYS} completed`}
+          suffix={t("streaks.completedOf", { total: HISTORY_DAYS })}
         />
       </div>
 
-      {/* Today's progress */}
       <section className="space-y-3 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-text-primary">Today</h2>
+          <h2 className="text-lg font-semibold text-text-primary">
+            {t("streaks.today")}
+          </h2>
           <span
             className={cn(
               "text-xs font-medium",
               today.goalCompleted ? "text-green-400" : "text-text-muted",
             )}
           >
-            {today.goalCompleted ? "Goal complete" : "In progress"}
+            {today.goalCompleted
+              ? t("streaks.goalComplete")
+              : t("streaks.inProgress")}
           </span>
         </div>
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs text-text-muted">
-            <span>{todayMinutes} min read</span>
-            <span>5 min goal</span>
+            <span>{t("streaks.minRead", { minutes: todayMinutes })}</span>
+            <span>{t("streaks.minGoal", { minutes: 5 })}</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-glass-bg">
             <div
@@ -108,12 +114,11 @@ export function StreaksPage() {
         </div>
       </section>
 
-      {/* Last 30 days */}
       <section className="space-y-3 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
         <div className="flex items-center gap-2">
           <Calendar size={16} className="text-text-muted" />
           <h2 className="text-lg font-semibold text-text-primary">
-            Last {HISTORY_DAYS} days
+            {t("streaks.lastNDays", { days: HISTORY_DAYS })}
           </h2>
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -122,7 +127,7 @@ export function StreaksPage() {
           ))}
         </div>
         <p className="text-xs text-text-muted">
-          Filled squares are days you hit the 5-minute reading goal.
+          {t("streaks.historyHint")}
         </p>
       </section>
     </div>

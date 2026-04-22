@@ -402,6 +402,27 @@
       "englishOnly": "These terms are maintained in English only. An authoritative Hungarian translation will be published before the Hungarian launch."
     }
   },
+  "footer": {
+    "about": "About",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "help": "Help"
+  },
+  "streaks": {
+    "title": "Streaks",
+    "currentStreak": "Current streak",
+    "longestStreak": "Longest streak",
+    "lastNDays": "Last {{days}} days",
+    "completedOf": "/ {{total}} completed",
+    "day_one": "day",
+    "day_other": "days",
+    "today": "Today",
+    "goalComplete": "Goal complete",
+    "inProgress": "In progress",
+    "minRead": "{{minutes}} min read",
+    "minGoal": "{{minutes}} min goal",
+    "historyHint": "Filled squares are days you hit the 5-minute reading goal."
+  },
   "notes": {
     "notFound": "Note not found",
     "titlePlaceholder": "Note title…",

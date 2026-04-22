@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import { MessageCircle } from "lucide-react";
 
 /**
@@ -39,6 +40,7 @@ function TwitterGlyph({ size = 16 }: { size?: number }) {
  * real handles when they exist.
  */
 export function Footer() {
+  const { t } = useTranslation();
   return (
     <footer className="mt-8 border-t border-glass-border bg-bg-secondary/40 py-6 text-sm text-text-muted">
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 sm:flex-row sm:items-center sm:justify-between">
@@ -47,25 +49,25 @@ export function Footer() {
             to="/about"
             className="transition-colors hover:text-text-primary"
           >
-            About
+            {t("footer.about")}
           </Link>
           <Link
             to="/privacy"
             className="transition-colors hover:text-text-primary"
           >
-            Privacy
+            {t("footer.privacy")}
           </Link>
           <Link
             to="/terms"
             className="transition-colors hover:text-text-primary"
           >
-            Terms
+            {t("footer.terms")}
           </Link>
           <Link
             to="/help"
             className="transition-colors hover:text-text-primary"
           >
-            Help
+            {t("footer.help")}
           </Link>
         </div>
 
