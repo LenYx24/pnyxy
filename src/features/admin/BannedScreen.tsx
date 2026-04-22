@@ -1,19 +1,23 @@
 import { ShieldX, LogOut } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/Button";
 
 export function BannedScreen() {
+  const { t } = useTranslation();
   const { banInfo, signOut } = useAuthStore();
 
-  const expiryText = banInfo?.banned_until
-    ? `until ${new Date(banInfo.banned_until).toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })}`
-    : "permanently";
+  const expiry = banInfo?.banned_until
+    ? t("admin.banned.until", {
+        date: new Date(banInfo.banned_until).toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      })
+    : t("admin.banned.permanently");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-primary p-6">
@@ -23,17 +27,17 @@ export function BannedScreen() {
         </div>
 
         <h1 className="mb-2 text-2xl font-bold text-text-primary">
-          Account Suspended
+          {t("admin.banned.title")}
         </h1>
 
         <p className="mb-4 text-text-secondary">
-          Your account has been suspended {expiryText}.
+          {t("admin.banned.bodyTemplate", { expiry })}
         </p>
 
         {banInfo?.reason && (
           <div className="mb-6 rounded-lg border border-glass-border bg-glass-bg p-4 text-left">
             <p className="mb-1 text-xs font-medium uppercase text-text-muted">
-              Reason
+              {t("admin.banned.reason")}
             </p>
             <p className="text-sm text-text-secondary">{banInfo.reason}</p>
           </div>
@@ -41,7 +45,7 @@ export function BannedScreen() {
 
         <Button variant="secondary" onClick={() => signOut()}>
           <LogOut size={16} />
-          Sign Out
+          {t("admin.banned.signOut")}
         </Button>
       </div>
     </div>

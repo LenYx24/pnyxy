@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNoteStore } from "@/stores/note-store";
 
 interface NoteEditorProps {
@@ -6,6 +7,7 @@ interface NoteEditorProps {
 }
 
 export function NoteEditor({ noteId }: NoteEditorProps) {
+  const { t } = useTranslation();
   const note = useNoteStore((s) => s.notes.find((n) => n.id === noteId));
   const updateNote = useNoteStore((s) => s.updateNote);
 
@@ -33,7 +35,6 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
     [noteId, updateNote],
   );
 
-  // Cleanup timer on unmount
   useEffect(() => {
     return () => clearTimeout(saveTimerRef.current);
   }, []);
@@ -53,7 +54,7 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
   if (!note) {
     return (
       <div className="flex items-center justify-center h-full text-sm text-text-muted">
-        Note not found
+        {t("notes.notFound")}
       </div>
     );
   }
@@ -64,13 +65,13 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
         type="text"
         value={title}
         onChange={handleTitleChange}
-        placeholder="Note title..."
+        placeholder={t("notes.titlePlaceholder")}
         className="w-full bg-transparent border-b border-glass-border px-4 py-3 text-base font-medium text-text-primary outline-none placeholder:text-text-muted"
       />
       <textarea
         value={content}
         onChange={handleContentChange}
-        placeholder="Start writing..."
+        placeholder={t("notes.contentPlaceholder")}
         className="flex-1 w-full bg-transparent px-4 py-3 text-sm text-text-primary outline-none resize-none font-mono placeholder:text-text-muted"
       />
     </div>

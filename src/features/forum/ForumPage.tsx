@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Loader2, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useCommunityStore } from "@/stores/community-store";
@@ -7,6 +8,7 @@ import { CommunityCard } from "./CommunityCard";
 import { CreateCommunityModal } from "./CreateCommunityModal";
 
 export function ForumPage() {
+  const { t } = useTranslation();
   const communities = useCommunityStore((s) => s.communities);
   const joinedCommunities = useCommunityStore((s) => s.joinedCommunities);
   const isLoading = useCommunityStore((s) => s.isLoading);
@@ -56,24 +58,25 @@ export function ForumPage() {
       {/* Header */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-text-primary">Forum</h2>
-          <p className="text-sm text-text-secondary">
-            Join communities and discuss with others
-          </p>
+          <h2 className="text-2xl font-bold text-text-primary">
+            {t("forum.title")}
+          </h2>
+          <p className="text-sm text-text-secondary">{t("forum.subtitle")}</p>
         </div>
         {user && (
           <Button variant="secondary" onClick={() => setCreateOpen(true)}>
             <Plus size={18} />
-            <span className="hidden sm:inline">Create Community</span>
+            <span className="hidden sm:inline">
+              {t("forum.createCommunity")}
+            </span>
           </Button>
         )}
       </div>
 
-      {/* Joined communities */}
       {user && joinedCommunities.length > 0 && (
         <div className="mb-8">
           <h3 className="mb-3 text-sm font-semibold text-text-secondary uppercase tracking-wide">
-            Your Communities
+            {t("forum.yourCommunities")}
           </h3>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {joinedCommunities.map((c) => (
@@ -87,7 +90,7 @@ export function ForumPage() {
       <div>
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">
-            Discover
+            {t("forum.discover")}
           </h3>
           <div className="relative">
             <Search
@@ -98,7 +101,7 @@ export function ForumPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Search communities..."
+              placeholder={t("forum.searchPlaceholder")}
               className="w-full rounded-lg border border-glass-border bg-glass-bg py-2 pl-9 pr-3 text-sm text-text-primary outline-none focus:border-accent-purple sm:w-64"
             />
           </div>
@@ -111,9 +114,7 @@ export function ForumPage() {
         ) : filteredCommunities.length === 0 ? (
           <div className="py-12 text-center">
             <p className="text-text-muted">
-              {searchQuery.trim()
-                ? "No communities match your search."
-                : "No communities yet. Create the first one!"}
+              {searchQuery.trim() ? t("forum.noMatch") : t("forum.empty")}
             </p>
           </div>
         ) : (
@@ -131,7 +132,7 @@ export function ForumPage() {
                   onClick={loadMore}
                   disabled={isLoading}
                 >
-                  {isLoading ? "Loading..." : "Load More"}
+                  {isLoading ? t("forum.loading") : t("forum.loadMore")}
                 </Button>
               </div>
             )}

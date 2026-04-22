@@ -295,6 +295,55 @@
       "englishOnly": "Ezek a feltételek jelenleg csak angol nyelven elérhetők. A magyar nyelvű, hiteles fordítás a magyar indulás előtt érhető el."
     }
   },
+  "notes": {
+    "notFound": "A jegyzet nem található",
+    "titlePlaceholder": "Jegyzet címe…",
+    "contentPlaceholder": "Kezdj el írni…"
+  },
+  "admin": {
+    "banned": {
+      "title": "Fiók felfüggesztve",
+      "bodySuffix": ".",
+      "until": "eddig: {{date}}",
+      "permanently": "véglegesen",
+      "bodyTemplate": "A fiókodat felfüggesztettük {{expiry}}.",
+      "reason": "Indok",
+      "signOut": "Kijelentkezés"
+    }
+  },
+  "forum": {
+    "title": "Fórum",
+    "subtitle": "Csatlakozz közösségekhez és beszélgess másokkal",
+    "createCommunity": "Közösség létrehozása",
+    "yourCommunities": "A közösségeid",
+    "discover": "Felfedezés",
+    "searchPlaceholder": "Közösségek keresése…",
+    "noMatch": "Nincs a keresésnek megfelelő közösség.",
+    "empty": "Még nincs közösség. Legyél te az első!",
+    "loadMore": "Több betöltése",
+    "loading": "Betöltés…",
+    "memberCount_one": "{{count}} tag",
+    "memberCount_other": "{{count}} tag",
+    "post": {
+      "reply": "Válasz",
+      "replies_one": "{{count}} válasz",
+      "replies_other": "{{count}} válasz",
+      "backToCommunity": "Vissza a közösséghez",
+      "postedBy": "Közzétette: {{name}}",
+      "removed": "[eltávolítva]"
+    },
+    "community": {
+      "join": "Csatlakozás",
+      "leave": "Kilépés",
+      "joined": "Csatlakozva",
+      "members": "Tagok",
+      "about": "Rólunk",
+      "backToForum": "Vissza a fórumra",
+      "newPost": "Új bejegyzés",
+      "composerPlaceholder": "Oszd meg a közösséggel…",
+      "noPosts": "Még nincs bejegyzés. Indíts te egy beszélgetést!"
+    }
+  },
   "profile": {
     "title": "Profil",
     "signInPrompt": "Jelentkezz be, hogy kezelhesd a profilodat.",

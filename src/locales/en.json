@@ -295,6 +295,55 @@
       "englishOnly": "These terms are maintained in English only. An authoritative Hungarian translation will be published before the Hungarian launch."
     }
   },
+  "notes": {
+    "notFound": "Note not found",
+    "titlePlaceholder": "Note title…",
+    "contentPlaceholder": "Start writing…"
+  },
+  "admin": {
+    "banned": {
+      "title": "Account Suspended",
+      "bodySuffix": ".",
+      "until": "until {{date}}",
+      "permanently": "permanently",
+      "bodyTemplate": "Your account has been suspended {{expiry}}.",
+      "reason": "Reason",
+      "signOut": "Sign Out"
+    }
+  },
+  "forum": {
+    "title": "Forum",
+    "subtitle": "Join communities and discuss with others",
+    "createCommunity": "Create Community",
+    "yourCommunities": "Your Communities",
+    "discover": "Discover",
+    "searchPlaceholder": "Search communities…",
+    "noMatch": "No communities match your search.",
+    "empty": "No communities yet. Create the first one!",
+    "loadMore": "Load More",
+    "loading": "Loading…",
+    "memberCount_one": "{{count}} member",
+    "memberCount_other": "{{count}} members",
+    "post": {
+      "reply": "Reply",
+      "replies_one": "{{count}} reply",
+      "replies_other": "{{count}} replies",
+      "backToCommunity": "Back to community",
+      "postedBy": "Posted by {{name}}",
+      "removed": "[removed]"
+    },
+    "community": {
+      "join": "Join",
+      "leave": "Leave",
+      "joined": "Joined",
+      "members": "Members",
+      "about": "About",
+      "backToForum": "Back to forum",
+      "newPost": "New post",
+      "composerPlaceholder": "Share something with the community…",
+      "noPosts": "No posts yet. Be the first to start a conversation."
+    }
+  },
   "profile": {
     "title": "Profile",
     "signInPrompt": "Sign in to manage your profile.",
