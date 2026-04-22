@@ -10,11 +10,11 @@
 
 create or replace function public.quiz_most_missed(p_quiz_id uuid)
 returns table (
-  question_id   uuid,
-  question_text text,
-  position      integer,
-  attempts      integer,
-  wrong         integer
+  question_id       uuid,
+  question_text     text,
+  question_position integer,
+  attempts          integer,
+  wrong             integer
 )
 language plpgsql
 security definer
@@ -38,7 +38,7 @@ begin
     select
       qq.id            as question_id,
       qq.question_text as question_text,
-      qq.position      as position,
+      qq.position      as question_position,
       coalesce(count(qaa.id), 0)::int                                 as attempts,
       coalesce(count(*) filter (where qaa.is_correct = false), 0)::int as wrong
     from public.quiz_questions qq

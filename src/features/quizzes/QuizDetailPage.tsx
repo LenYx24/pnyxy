@@ -300,7 +300,7 @@ function MostMissedSection({ stats }: { stats: QuizQuestionStat[] }) {
             >
               <span className="min-w-0 flex-1 text-text-secondary">
                 <span className="mr-1 tabular-nums text-text-muted">
-                  {s.position + 1}.
+                  {s.question_position + 1}.
                 </span>
                 <span className="break-words">{s.question_text}</span>
               </span>

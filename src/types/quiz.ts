@@ -63,7 +63,8 @@ export interface QuizQuestionDraft {
 export interface QuizQuestionStat {
   question_id: string;
   question_text: string;
-  position: number;
+  /** 0-indexed position of the question within the quiz. */
+  question_position: number;
   attempts: number;
   wrong: number;
 }
