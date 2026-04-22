@@ -1,4 +1,5 @@
 import { Outlet, useNavigate, useParams } from "react-router";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, BookOpen, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { BookPageContext } from "./BookPageContext";
@@ -6,6 +7,7 @@ import { BookPageSidebar } from "./BookPageSidebar";
 import { useBookData } from "./useBookData";
 
 export function BookPage() {
+  const { t } = useTranslation();
   const { bookId } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
   const { data, loading, notFound } = useBookData(bookId);
@@ -21,20 +23,21 @@ export function BookPage() {
   if (notFound || !data || !bookId) {
     return (
       <div className="py-20 text-center">
-        <p className="text-text-muted">Book not found.</p>
+        <p className="text-text-muted">{t("book.notFound")}</p>
         <Button variant="ghost" className="mt-4" onClick={() => navigate(-1)}>
           <ArrowLeft size={16} />
-          Go back
+          {t("book.goBack")}
         </Button>
       </div>
     );
   }
 
   const title = data.book.title;
+  const unknownAuthor = t("book.unknownAuthor");
   const authors =
     data.source === "catalog"
-      ? data.book.authors.join(", ") || "Unknown author"
-      : data.book.author || "Unknown author";
+      ? data.book.authors.join(", ") || unknownAuthor
+      : data.book.author || unknownAuthor;
   const coverUrl = data.book.cover_url;
 
   return (
@@ -45,7 +48,7 @@ export function BookPage() {
           className="flex items-center gap-2 text-sm text-text-muted transition-colors hover:text-text-primary cursor-pointer"
         >
           <ArrowLeft size={16} />
-          Back
+          {t("book.back")}
         </button>
 
         <div className="flex items-start gap-4">
@@ -67,7 +70,7 @@ export function BookPage() {
             <p className="text-sm text-text-secondary">{authors}</p>
             {data.source === "uploaded" && (
               <span className="mt-2 inline-flex items-center gap-1 rounded-md bg-accent-purple/15 px-2 py-0.5 text-[10px] font-semibold text-accent-purple">
-                Uploaded
+                {t("book.uploadedBadge")}
               </span>
             )}
           </div>

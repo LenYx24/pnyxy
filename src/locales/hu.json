@@ -428,6 +428,54 @@
     "titlePlaceholder": "Jegyzet címe…",
     "contentPlaceholder": "Kezdj el írni…"
   },
+  "book": {
+    "notFound": "A könyv nem található.",
+    "goBack": "Vissza",
+    "back": "Vissza",
+    "unknownAuthor": "Ismeretlen szerző",
+    "uploadedBadge": "Feltöltött",
+    "nav": {
+      "overview": "Áttekintés",
+      "learn": "Tanulás",
+      "discuss": "Beszélgetés",
+      "notes": "Jegyzetek",
+      "resources": "Források"
+    },
+    "tabs": {
+      "notesHeading": "Jegyzetek",
+      "resourcesHeading": "Források",
+      "discussHeading": "Beszélgetés",
+      "comingSoon": "Hamarosan"
+    },
+    "learn": {
+      "learnHub": "Tanulás főoldal",
+      "comingSoonBadge": "Hamarosan"
+    },
+    "overview": {
+      "addToLibrary": "Hozzáadás a könyvtárhoz",
+      "removeFromLibrary": "Eltávolítás a könyvtárból",
+      "inYourLibrary": "A könyvtáradban",
+      "addToLibraryAria": "Hozzáadás a könyvtárhoz",
+      "removeFromLibraryAria": "Eltávolítás a könyvtárból",
+      "openInReader": "Megnyitás az olvasóban",
+      "publicDomainHint": "Ez a könyv közkincs, szabadon letölthető az Internet Archive-ról.",
+      "description": "Leírás",
+      "categories": "Kategóriák",
+      "uploadedFile": "Ez egy feltöltött fájl.",
+      "uploadedHint": "Jelenleg csak az alap metaadatokat nyerjük ki. AI-vezérelt gazdagítás (összefoglaló, automatikus kategorizálás, borító felismerés) tervben van.",
+      "meta": {
+        "publisher": "Kiadó",
+        "published": "Megjelent",
+        "pages": "Oldalak",
+        "language": "Nyelv",
+        "isbn13": "ISBN-13",
+        "isbn10": "ISBN-10",
+        "format": "Formátum",
+        "size": "Méret",
+        "fileName": "Fájlnév"
+      }
+    }
+  },
   "admin": {
     "banned": {
       "title": "Fiók felfüggesztve",

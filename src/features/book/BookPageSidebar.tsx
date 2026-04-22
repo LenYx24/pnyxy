@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from "react-router";
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Info,
   GraduationCap,
@@ -15,7 +16,8 @@ import { LEARN_METHODS } from "./LEARN_METHODS";
 
 interface NavItem {
   to: string;
-  label: string;
+  /** i18n key under `book.nav`. */
+  labelKey: "overview" | "learn" | "discuss" | "notes" | "resources";
   icon: LucideIcon;
   end?: boolean;
 }
@@ -23,11 +25,11 @@ interface NavItem {
 function useNavItems(bookId: string): NavItem[] {
   return useMemo<NavItem[]>(
     () => [
-      { to: `/books/${bookId}`, label: "Overview", icon: Info, end: true },
-      { to: `/books/${bookId}/learn`, label: "Learn", icon: GraduationCap },
-      { to: `/books/${bookId}/discuss`, label: "Discuss", icon: MessageSquare },
-      { to: `/books/${bookId}/notes`, label: "Notes", icon: StickyNote },
-      { to: `/books/${bookId}/resources`, label: "Resources", icon: LinkIcon },
+      { to: `/books/${bookId}`, labelKey: "overview", icon: Info, end: true },
+      { to: `/books/${bookId}/learn`, labelKey: "learn", icon: GraduationCap },
+      { to: `/books/${bookId}/discuss`, labelKey: "discuss", icon: MessageSquare },
+      { to: `/books/${bookId}/notes`, labelKey: "notes", icon: StickyNote },
+      { to: `/books/${bookId}/resources`, labelKey: "resources", icon: LinkIcon },
     ],
     [bookId],
   );
@@ -42,6 +44,7 @@ function resolveActive(items: NavItem[], pathname: string): NavItem {
 }
 
 export function BookPageSidebar({ bookId }: { bookId: string }) {
+  const { t } = useTranslation();
   const isMobile = useIsMobile();
   const items = useNavItems(bookId);
   const { pathname } = useLocation();
@@ -69,9 +72,9 @@ export function BookPageSidebar({ bookId }: { bookId: string }) {
             }
           >
             <item.icon size={16} />
-            <span>{item.label}</span>
+            <span>{t(`book.nav.${item.labelKey}`)}</span>
           </NavLink>
-          {item.label === "Learn" && learnExpanded && (
+          {item.labelKey === "learn" && learnExpanded && (
             <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-glass-border pl-2">
               {LEARN_METHODS.map((m) => (
                 <NavLink
@@ -105,6 +108,7 @@ function MobileNav({
   items: NavItem[];
   pathname: string;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const active = resolveActive(items, pathname);
   const Icon = active.icon;
@@ -118,7 +122,7 @@ function MobileNav({
       >
         <span className="flex items-center gap-2">
           <Icon size={16} />
-          {active.label}
+          {t(`book.nav.${active.labelKey}`)}
         </span>
         <ChevronDown
           size={16}
@@ -143,7 +147,7 @@ function MobileNav({
               }
             >
               <item.icon size={16} />
-              <span>{item.label}</span>
+              <span>{t(`book.nav.${item.labelKey}`)}</span>
             </NavLink>
           ))}
         </div>

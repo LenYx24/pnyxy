@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Plus,
   Check,
@@ -48,6 +49,7 @@ function CatalogOverview({
   book: CatalogBook;
   categories: Category[];
 }) {
+  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const {
     userLibraryIds,
@@ -97,7 +99,11 @@ function CatalogOverview({
             variant={inLibrary ? "secondary" : "primary"}
             onClick={handleToggleLibrary}
             disabled={libraryLoading}
-            aria-label={inLibrary ? "Remove from library" : "Add to library"}
+            aria-label={
+              inLibrary
+                ? t("book.overview.removeFromLibraryAria")
+                : t("book.overview.addToLibraryAria")
+            }
             className={
               inLibrary
                 ? "group hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
@@ -110,15 +116,17 @@ function CatalogOverview({
               <>
                 <Check size={16} className="group-hover:hidden" />
                 <Trash2 size={16} className="hidden group-hover:inline" />
-                <span className="group-hover:hidden">In Your Library</span>
+                <span className="group-hover:hidden">
+                  {t("book.overview.inYourLibrary")}
+                </span>
                 <span className="hidden group-hover:inline">
-                  Remove from Library
+                  {t("book.overview.removeFromLibrary")}
                 </span>
               </>
             ) : (
               <>
                 <Plus size={16} />
-                Add to My Library
+                {t("book.overview.addToLibrary")}
               </>
             )}
           </Button>
@@ -140,15 +148,14 @@ function CatalogOverview({
 
       {book.ia_id && (
         <p className="rounded-lg bg-green-500/10 px-3 py-2 text-xs text-green-400">
-          This book is in the public domain and can be freely downloaded from
-          the Internet Archive.
+          {t("book.overview.publicDomainHint")}
         </p>
       )}
 
       {book.description && (
         <div>
           <h3 className="mb-2 text-sm font-semibold text-text-primary">
-            Description
+            {t("book.overview.description")}
           </h3>
           <p className="whitespace-pre-line text-sm leading-relaxed text-text-secondary">
             {book.description}
@@ -158,21 +165,23 @@ function CatalogOverview({
 
       <MetaGrid
         entries={[
-          { label: "Publisher", value: book.publisher },
-          { label: "Published", value: book.published_date },
+          { label: t("book.overview.meta.publisher"), value: book.publisher },
+          { label: t("book.overview.meta.published"), value: book.published_date },
           {
-            label: "Pages",
+            label: t("book.overview.meta.pages"),
             value: book.page_count ? String(book.page_count) : null,
           },
-          { label: "Language", value: book.language },
-          { label: "ISBN-13", value: book.isbn_13 },
-          { label: "ISBN-10", value: book.isbn_10 },
+          { label: t("book.overview.meta.language"), value: book.language },
+          { label: t("book.overview.meta.isbn13"), value: book.isbn_13 },
+          { label: t("book.overview.meta.isbn10"), value: book.isbn_10 },
         ]}
       />
 
       {(categories.length > 0 || book.categories.length > 0) && (
         <div>
-          <span className="text-sm text-text-muted">Categories</span>
+          <span className="text-sm text-text-muted">
+            {t("book.overview.categories")}
+          </span>
           <div className="mt-1 flex flex-wrap gap-2">
             {categories.length > 0
               ? categories.map((cat) => (
@@ -206,6 +215,7 @@ function UploadedOverview({
   sizeBytes: number | null;
   categories: Category[];
 }) {
+  const { t } = useTranslation();
   const { openUploadedBook } = useOpenUploadedDocument();
   const [loading, setLoading] = useState(false);
 
@@ -259,7 +269,7 @@ function UploadedOverview({
           ) : (
             <>
               <BookOpen size={16} />
-              Open in Reader
+              {t("book.overview.openInReader")}
             </>
           )}
         </Button>
@@ -268,32 +278,40 @@ function UploadedOverview({
       <div className="rounded-lg border border-glass-border bg-glass-bg/50 p-4 text-sm">
         <p className="mb-1 flex items-center gap-1.5 text-text-muted">
           <FileText size={14} />
-          This is an uploaded file.
+          {t("book.overview.uploadedFile")}
         </p>
         <p className="text-xs text-text-secondary">
-          Only basic metadata is extracted today. AI-assisted enrichment
-          (summary, auto-categorization, cover detection) is planned.
+          {t("book.overview.uploadedHint")}
         </p>
       </div>
 
       <MetaGrid
         entries={[
           {
-            label: "Pages",
+            label: t("book.overview.meta.pages"),
             value: book.page_count ? String(book.page_count) : null,
           },
           {
-            label: "Format",
+            label: t("book.overview.meta.format"),
             value: book.format ? book.format.toUpperCase() : null,
           },
-          { label: "Size", value: sizeBytes ? formatBytes(sizeBytes) : null },
-          { label: "File name", value: fileName, wide: true },
+          {
+            label: t("book.overview.meta.size"),
+            value: sizeBytes ? formatBytes(sizeBytes) : null,
+          },
+          {
+            label: t("book.overview.meta.fileName"),
+            value: fileName,
+            wide: true,
+          },
         ]}
       />
 
       {categories.length > 0 && (
         <div>
-          <span className="text-sm text-text-muted">Categories</span>
+          <span className="text-sm text-text-muted">
+            {t("book.overview.categories")}
+          </span>
           <div className="mt-1 flex flex-wrap gap-2">
             {categories.map((cat) => (
               <CategoryChip key={cat.id} category={cat} />

@@ -428,6 +428,54 @@
     "titlePlaceholder": "Note title…",
     "contentPlaceholder": "Start writing…"
   },
+  "book": {
+    "notFound": "Book not found.",
+    "goBack": "Go back",
+    "back": "Back",
+    "unknownAuthor": "Unknown author",
+    "uploadedBadge": "Uploaded",
+    "nav": {
+      "overview": "Overview",
+      "learn": "Learn",
+      "discuss": "Discuss",
+      "notes": "Notes",
+      "resources": "Resources"
+    },
+    "tabs": {
+      "notesHeading": "Notes",
+      "resourcesHeading": "Resources",
+      "discussHeading": "Discuss",
+      "comingSoon": "Coming soon"
+    },
+    "learn": {
+      "learnHub": "Learn hub",
+      "comingSoonBadge": "Coming soon"
+    },
+    "overview": {
+      "addToLibrary": "Add to My Library",
+      "removeFromLibrary": "Remove from Library",
+      "inYourLibrary": "In Your Library",
+      "addToLibraryAria": "Add to library",
+      "removeFromLibraryAria": "Remove from library",
+      "openInReader": "Open in Reader",
+      "publicDomainHint": "This book is in the public domain and can be freely downloaded from the Internet Archive.",
+      "description": "Description",
+      "categories": "Categories",
+      "uploadedFile": "This is an uploaded file.",
+      "uploadedHint": "Only basic metadata is extracted today. AI-assisted enrichment (summary, auto-categorization, cover detection) is planned.",
+      "meta": {
+        "publisher": "Publisher",
+        "published": "Published",
+        "pages": "Pages",
+        "language": "Language",
+        "isbn13": "ISBN-13",
+        "isbn10": "ISBN-10",
+        "format": "Format",
+        "size": "Size",
+        "fileName": "File name"
+      }
+    }
+  },
   "admin": {
     "banned": {
       "title": "Account Suspended",
