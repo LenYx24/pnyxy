@@ -20,6 +20,10 @@ import { TagsTab } from "@/features/settings/tabs/TagsTab";
 import { PluginsTab } from "@/features/settings/tabs/PluginsTab";
 import { ShortcutsTab } from "@/features/settings/tabs/ShortcutsTab";
 import { AboutTab } from "@/features/settings/tabs/AboutTab";
+import { QuizzesPage } from "@/features/quizzes/QuizzesPage";
+import { QuizEditorPage } from "@/features/quizzes/QuizEditorPage";
+import { QuizDetailPage } from "@/features/quizzes/QuizDetailPage";
+import { QuizTakePage } from "@/features/quizzes/QuizTakePage";
 import { AuthPage } from "@/features/auth/AuthPage";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
@@ -109,6 +113,11 @@ export const router = createBrowserRouter([
       },
       { path: "profile", element: <ProfilePage /> },
       { path: "admin", element: <AdminPage /> },
+      { path: "quizzes", element: <QuizzesPage /> },
+      { path: "quizzes/new", element: <QuizEditorPage /> },
+      { path: "quizzes/:quizId", element: <QuizDetailPage /> },
+      { path: "quizzes/:quizId/edit", element: <QuizEditorPage /> },
+      { path: "quizzes/:quizId/take", element: <QuizTakePage /> },
       { path: "about", element: <AboutPage /> },
       { path: "privacy", element: <PrivacyPage /> },
       { path: "terms", element: <TermsPage /> },

@@ -111,10 +111,18 @@ Answer questions about this document. Be concise and helpful. Reference specific
  * Yields text deltas. The currently-active provider is exposed via
  * the second tuple value so callers can display it if they want.
  */
+export interface StreamOptions {
+  /** Replaces the default Q&A system prompt (for quiz generation etc.). */
+  systemPromptOverride?: string;
+  /** Raises the per-request output cap; clamped server-side for Pnyxy. */
+  maxOutputTokens?: number;
+}
+
 export async function* streamChatResponse(
   messages: ChatMessage[],
   documentTitle: string,
   pageContext: string,
+  options: StreamOptions = {},
 ): AsyncGenerator<{ delta: string; provider: AiProvider }, void, unknown> {
   const candidates = getConfiguredProviders();
 
@@ -136,6 +144,7 @@ export async function* streamChatResponse(
         messages,
         documentTitle,
         pageContext,
+        options,
       )) {
         yielded = true;
         yield { delta, provider };
@@ -161,16 +170,19 @@ function streamForProvider(
   messages: ChatMessage[],
   documentTitle: string,
   pageContext: string,
+  options: StreamOptions,
 ): AsyncGenerator<string, void, unknown> {
   switch (provider) {
     case "pnyxy":
-      return streamPnyxy(messages, documentTitle, pageContext);
+      return streamPnyxy(messages, documentTitle, pageContext, options);
     case "anthropic":
-      return streamAnthropic(messages, documentTitle, pageContext);
+      return streamAnthropic(messages, documentTitle, pageContext, options);
     case "openai":
-      return streamOpenAi(messages, documentTitle, pageContext);
+      return streamOpenAi(messages, documentTitle, pageContext, options);
   }
 }
+
+const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
 
 // ── Pnyxy provider (proxied via Supabase edge function) ──────
 
@@ -178,6 +190,7 @@ async function* streamPnyxy(
   messages: ChatMessage[],
   documentTitle: string,
   pageContext: string,
+  options: StreamOptions,
 ): AsyncGenerator<string, void, unknown> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData?.session?.access_token;
@@ -196,7 +209,13 @@ async function* streamPnyxy(
     response = await fetch(url, {
       method: "POST",
       headers,
-      body: JSON.stringify({ messages, documentTitle, pageContext }),
+      body: JSON.stringify({
+        messages,
+        documentTitle,
+        pageContext,
+        systemPromptOverride: options.systemPromptOverride,
+        maxOutputTokens: options.maxOutputTokens,
+      }),
     });
   } catch (err) {
     throw new AiProviderError(
@@ -239,6 +258,7 @@ async function* streamAnthropic(
   messages: ChatMessage[],
   documentTitle: string,
   pageContext: string,
+  options: StreamOptions,
 ): AsyncGenerator<string, void, unknown> {
   const apiKey = useSettingsStore.getState().anthropicApiKey;
   if (!apiKey) {
@@ -255,8 +275,10 @@ async function* streamAnthropic(
 
   const stream = client.messages.stream({
     model: "claude-sonnet-4-5-20250929",
-    max_tokens: 1024,
-    system: buildSystemPrompt(documentTitle, pageContext),
+    max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
+    system:
+      options.systemPromptOverride ??
+      buildSystemPrompt(documentTitle, pageContext),
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
   });
 
@@ -280,6 +302,7 @@ async function* streamOpenAi(
   messages: ChatMessage[],
   documentTitle: string,
   pageContext: string,
+  options: StreamOptions,
 ): AsyncGenerator<string, void, unknown> {
   const apiKey = useSettingsStore.getState().openaiApiKey;
   if (!apiKey) {
@@ -300,12 +323,14 @@ async function* streamOpenAi(
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        max_tokens: 1024,
+        max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
         stream: true,
         messages: [
           {
             role: "system",
-            content: buildSystemPrompt(documentTitle, pageContext),
+            content:
+              options.systemPromptOverride ??
+              buildSystemPrompt(documentTitle, pageContext),
           },
           ...messages.map((m) => ({ role: m.role, content: m.content })),
         ],

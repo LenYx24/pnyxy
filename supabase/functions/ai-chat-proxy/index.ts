@@ -31,7 +31,11 @@ declare const Deno: {
 
 const OPENAI_MODEL = "gpt-4o-mini";
 const ANTHROPIC_MODEL = "claude-haiku-4-5";
-const MAX_OUTPUT_TOKENS = 1024;
+const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
+// Hard ceiling for any single request. Quiz generation needs room for
+// ~10 MCQ questions with explanations (~3k tokens). Clients that ask for
+// more are clamped to this.
+const HARD_MAX_OUTPUT_TOKENS = 4096;
 
 // ── helpers ──────────────────────────────────────────────────
 
@@ -83,6 +87,10 @@ interface ChatRequestBody {
   messages: Array<{ role: "user" | "assistant"; content: string }>;
   documentTitle: string;
   pageContext: string;
+  /** Overrides the default PDF-Q&A system prompt (quiz generation etc.). */
+  systemPromptOverride?: string;
+  /** Clamped to HARD_MAX_OUTPUT_TOKENS server-side; billed worst-case. */
+  maxOutputTokens?: number;
 }
 
 function buildSystemPrompt(documentTitle: string, pageContext: string): string {
@@ -129,14 +137,20 @@ Deno.serve(async (req) => {
     return jsonError(400, "bad_request", "messages required");
   }
 
+  const maxOutputTokens = Math.min(
+    Math.max(body.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS, 1),
+    HARD_MAX_OUTPUT_TOKENS,
+  );
+
   // Estimate tokens up-front for the quota check. We bill the
   // worst case (input + max output) so a quota-exceeded response
   // can never be racy.
   const inputTokens =
     estimateTokens(body.pageContext ?? "") +
+    estimateTokens(body.systemPromptOverride ?? "") +
     body.messages.reduce((sum, m) => sum + estimateTokens(m.content), 0) +
     estimateTokens(body.documentTitle ?? "");
-  const estimatedTotal = inputTokens + MAX_OUTPUT_TOKENS;
+  const estimatedTotal = inputTokens + maxOutputTokens;
 
   // ── Quota check (auth user OR anon by IP) ──
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -185,11 +199,18 @@ Deno.serve(async (req) => {
     );
   }
 
-  const systemPrompt = buildSystemPrompt(body.documentTitle, body.pageContext);
+  const systemPrompt =
+    body.systemPromptOverride ??
+    buildSystemPrompt(body.documentTitle, body.pageContext);
 
   // ── Try OpenAI first, fall back to Anthropic ──
   if (openaiKey) {
-    const stream = await tryOpenAi(openaiKey, systemPrompt, body.messages);
+    const stream = await tryOpenAi(
+      openaiKey,
+      systemPrompt,
+      body.messages,
+      maxOutputTokens,
+    );
     if (stream) {
       return new Response(stream, { headers: sseHeaders });
     }
@@ -197,7 +218,12 @@ Deno.serve(async (req) => {
   }
 
   if (anthropicKey) {
-    const stream = await tryAnthropic(anthropicKey, systemPrompt, body.messages);
+    const stream = await tryAnthropic(
+      anthropicKey,
+      systemPrompt,
+      body.messages,
+      maxOutputTokens,
+    );
     if (stream) {
       return new Response(stream, { headers: sseHeaders });
     }
@@ -212,6 +238,7 @@ async function tryOpenAi(
   apiKey: string,
   systemPrompt: string,
   messages: ChatRequestBody["messages"],
+  maxOutputTokens: number,
 ): Promise<ReadableStream<Uint8Array> | null> {
   let upstream: Response;
   try {
@@ -223,7 +250,7 @@ async function tryOpenAi(
       },
       body: JSON.stringify({
         model: OPENAI_MODEL,
-        max_tokens: MAX_OUTPUT_TOKENS,
+        max_tokens: maxOutputTokens,
         stream: true,
         messages: [
           { role: "system", content: systemPrompt },
@@ -309,6 +336,7 @@ async function tryAnthropic(
   apiKey: string,
   systemPrompt: string,
   messages: ChatRequestBody["messages"],
+  maxOutputTokens: number,
 ): Promise<ReadableStream<Uint8Array> | null> {
   let upstream: Response;
   try {
@@ -321,7 +349,7 @@ async function tryAnthropic(
       },
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
-        max_tokens: MAX_OUTPUT_TOKENS,
+        max_tokens: maxOutputTokens,
         stream: true,
         system: systemPrompt,
         messages,

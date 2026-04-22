@@ -1,13 +1,50 @@
 import { Link, useParams } from "react-router";
 import { ArrowLeft, Clock } from "lucide-react";
 import { LEARN_METHODS } from "../LEARN_METHODS";
+import { BookQuizzesList } from "@/features/quizzes/QuizzesPage";
+import { useBook } from "../BookPageContext";
 
 export function LearnMethodPlaceholder() {
   const { bookId, methodSlug } = useParams<{
     bookId: string;
     methodSlug: string;
   }>();
+  const book = useBook();
   const method = LEARN_METHODS.find((m) => m.slug === methodSlug);
+
+  // Quiz slug is live — render the book-scoped quiz list instead of
+  // the "coming soon" placeholder.
+  if (methodSlug === "quiz" && method) {
+    const Icon = method.icon;
+    return (
+      <div className="space-y-4">
+        <Link
+          to={`/books/${bookId}/learn`}
+          className="inline-flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text-primary"
+        >
+          <ArrowLeft size={12} />
+          Learn hub
+        </Link>
+
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-purple/15 text-accent-purple">
+            <Icon size={20} />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-text-primary">
+              {method.label}
+            </h2>
+            <p className="text-xs text-text-muted">{method.tagline}</p>
+          </div>
+        </div>
+
+        <BookQuizzesList
+          catalogBookId={book.source === "catalog" ? book.book.id : undefined}
+          uploadedBookId={book.source === "uploaded" ? book.book.id : undefined}
+        />
+      </div>
+    );
+  }
 
   if (!method) {
     return (

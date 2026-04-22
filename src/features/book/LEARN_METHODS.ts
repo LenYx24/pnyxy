@@ -42,8 +42,8 @@ export const LEARN_METHODS: LearnMethod[] = [
     icon: BookOpen,
     tagline: "Active recall",
     description:
-      "End-of-chapter quizzes generated from the text. Retrieval beats re-reading.",
-    status: "stub",
+      "Build or take multiple-choice quizzes on this book, or share them with the community.",
+    status: "live",
   },
   {
     slug: "feynman",
