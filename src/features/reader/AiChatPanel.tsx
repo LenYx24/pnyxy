@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BotMessageSquare, Send, Trash2, AlertCircle, Settings, X } from "lucide-react";
 import { useAiChatStore } from "@/stores/ai-chat-store";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -21,10 +22,11 @@ interface AiChatPanelContentProps {
 }
 
 function CloseButton({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onClose}
-      aria-label="Close AI Chat"
+      aria-label={t("reader.aiChat.closeAria")}
       className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
     >
       <X size={20} />
@@ -33,6 +35,7 @@ function CloseButton({ onClose }: { onClose: () => void }) {
 }
 
 export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
+  const { t } = useTranslation();
   const enabledProviders = useSettingsStore((s) => s.enabledProviders);
   const anthropicApiKey = useSettingsStore((s) => s.anthropicApiKey);
   const openaiApiKey = useSettingsStore((s) => s.openaiApiKey);
@@ -104,7 +107,9 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
             <div className="flex items-center gap-2">
               <BotMessageSquare size={16} className="text-accent-purple" />
-              <span className="text-sm font-medium text-text-primary">AI Chat</span>
+              <span className="text-sm font-medium text-text-primary">
+                {t("reader.aiChat.title")}
+              </span>
             </div>
             <CloseButton onClose={onClose} />
           </div>
@@ -113,15 +118,14 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           <Settings size={32} className="text-text-muted" />
           <p className="text-sm text-text-secondary">
             {enabledProviders.length === 0
-              ? "No AI providers enabled. Add one in Settings."
-              : "Selected providers need configuration. Add an API key or enable Pnyxy in Settings."}
+              ? t("reader.aiChat.noProviders")
+              : t("reader.aiChat.needsConfig")}
           </p>
         </div>
       </div>
     );
   }
 
-  // No document state
   if (!activeDocumentId) {
     return (
       <div className="flex h-full flex-col bg-bg-secondary/50">
@@ -129,7 +133,9 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
             <div className="flex items-center gap-2">
               <BotMessageSquare size={16} className="text-accent-purple" />
-              <span className="text-sm font-medium text-text-primary">AI Chat</span>
+              <span className="text-sm font-medium text-text-primary">
+                {t("reader.aiChat.title")}
+              </span>
             </div>
             <CloseButton onClose={onClose} />
           </div>
@@ -137,7 +143,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
           <BotMessageSquare size={32} className="text-text-muted" />
           <p className="text-sm text-text-secondary">
-            Open a document to start chatting.
+            {t("reader.aiChat.openDocument")}
           </p>
         </div>
       </div>
@@ -150,10 +156,14 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
         <div className="flex items-center gap-2">
           <BotMessageSquare size={16} className="text-accent-purple" />
-          <span className="text-sm font-medium text-text-primary">AI Chat</span>
+          <span className="text-sm font-medium text-text-primary">
+            {t("reader.aiChat.title")}
+          </span>
           {isStreaming && activeProvider && (
             <span className="text-[10px] uppercase tracking-wide text-text-muted">
-              via {PROVIDER_LABELS[activeProvider]}
+              {t("reader.aiChat.via", {
+                provider: PROVIDER_LABELS[activeProvider],
+              })}
             </span>
           )}
         </div>
@@ -162,8 +172,8 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             <button
               onClick={clearConversation}
               className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:text-text-primary cursor-pointer"
-              title="Clear conversation"
-              aria-label="Clear conversation"
+              title={t("reader.aiChat.clearTitle")}
+              aria-label={t("reader.aiChat.clearAria")}
             >
               <Trash2 size={16} />
             </button>
@@ -172,13 +182,12 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         </div>
       </div>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {messages.length === 0 && !isStreaming && (
           <div className="flex flex-col items-center gap-2 py-8 text-center">
             <BotMessageSquare size={24} className="text-text-muted/50" />
             <p className="text-xs text-text-muted">
-              Ask a question about this document
+              {t("reader.aiChat.emptyPrompt")}
             </p>
           </div>
         )}
@@ -211,7 +220,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
               <div className="h-1.5 w-1.5 rounded-full bg-text-muted animate-bounce" style={{ animationDelay: "150ms" }} />
               <div className="h-1.5 w-1.5 rounded-full bg-text-muted animate-bounce" style={{ animationDelay: "300ms" }} />
             </div>
-            Thinking...
+            {t("reader.aiChat.thinking")}
           </div>
         )}
 
@@ -233,7 +242,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about this document..."
+            placeholder={t("reader.aiChat.placeholder")}
             rows={1}
             className="flex-1 resize-none rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple placeholder:text-text-muted"
           />

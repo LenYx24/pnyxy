@@ -254,6 +254,16 @@
       "tags": "Címkék",
       "tabTitle": "{{name}} ({{shortcut}})"
     },
+    "uploadModal": {
+      "title": "PDF feltöltése",
+      "successTitle": "Sikeres feltöltés!",
+      "successBody": "Már megtalálod a könyvtáradban.",
+      "dropZone": "Húzz ide egy PDF-et vagy kattints a tallózáshoz",
+      "pdfOnly": "Csak PDF fájlok",
+      "wouldExceed": "Ez a fájl túllépné a tárhely limitedet. Távolíts el néhány fájlt vagy válts Prémiumra.",
+      "uploading": "Feltöltés… {{pct}}%",
+      "upload": "Feltöltés"
+    },
     "confirm": {
       "deleteTitle": "Könyv törlése",
       "deleteBody": "Biztosan törlöd ezt a könyvet? A fájl véglegesen eltávolításra kerül a tárolóból.",
@@ -539,6 +549,21 @@
     "savedToast": "Elmentve!",
     "saveFailed": "Nem sikerült menteni a profilt.",
     "signOut": "Kijelentkezés"
+  },
+  "reader": {
+    "aiChat": {
+      "title": "AI chat",
+      "closeAria": "AI chat bezárása",
+      "via": "{{provider}} szolgáltatón át",
+      "clearAria": "Beszélgetés törlése",
+      "clearTitle": "Beszélgetés törlése",
+      "noProviders": "Nincs engedélyezett AI szolgáltató. Adj hozzá egyet a Beállításokban.",
+      "needsConfig": "A kiválasztott szolgáltatóknak beállításra van szükségük. Adj meg egy API kulcsot, vagy engedélyezd a Pnyxy-t a Beállításokban.",
+      "openDocument": "Nyiss meg egy dokumentumot a chat elindításához.",
+      "emptyPrompt": "Tegyél fel kérdést a dokumentumról",
+      "thinking": "Gondolkodom…",
+      "placeholder": "Kérdezz a dokumentumról…"
+    }
   },
   "quizzes": {
     "title": "Kvízek",

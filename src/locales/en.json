@@ -254,6 +254,16 @@
       "tags": "Tags",
       "tabTitle": "{{name}} ({{shortcut}})"
     },
+    "uploadModal": {
+      "title": "Upload PDF",
+      "successTitle": "PDF uploaded successfully!",
+      "successBody": "You can now find it in your library.",
+      "dropZone": "Drop a PDF here, or click to browse",
+      "pdfOnly": "PDF files only",
+      "wouldExceed": "This file would exceed your storage limit. Remove some files or upgrade to Premium.",
+      "uploading": "Uploading… {{pct}}%",
+      "upload": "Upload"
+    },
     "confirm": {
       "deleteTitle": "Delete Book",
       "deleteBody": "Are you sure you want to delete this book? The file will be permanently removed from storage.",
@@ -539,6 +549,21 @@
     "savedToast": "Saved!",
     "saveFailed": "Couldn't save the profile.",
     "signOut": "Sign Out"
+  },
+  "reader": {
+    "aiChat": {
+      "title": "AI Chat",
+      "closeAria": "Close AI Chat",
+      "via": "via {{provider}}",
+      "clearAria": "Clear conversation",
+      "clearTitle": "Clear conversation",
+      "noProviders": "No AI providers enabled. Add one in Settings.",
+      "needsConfig": "Selected providers need configuration. Add an API key or enable Pnyxy in Settings.",
+      "openDocument": "Open a document to start chatting.",
+      "emptyPrompt": "Ask a question about this document",
+      "thinking": "Thinking…",
+      "placeholder": "Ask about this document…"
+    }
   },
   "quizzes": {
     "title": "Quizzes",

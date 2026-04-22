@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { X, Upload, FileText, Check, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -12,6 +13,7 @@ interface UploadPdfModalProps {
 }
 
 export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
+  const { t } = useTranslation();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [success, setSuccess] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -100,7 +102,7 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-glass-border p-4">
           <h2 className="text-lg font-semibold text-text-primary">
-            Upload PDF
+            {t("library.uploadModal.title")}
           </h2>
           <button
             onClick={handleClose}
@@ -118,13 +120,13 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
                 <Check size={24} className="text-green-400" />
               </div>
               <p className="text-center text-sm text-text-primary">
-                PDF uploaded successfully!
+                {t("library.uploadModal.successTitle")}
               </p>
               <p className="text-center text-xs text-text-muted">
-                You can now find it in your library.
+                {t("library.uploadModal.successBody")}
               </p>
               <Button variant="secondary" onClick={handleClose}>
-                Close
+                {t("common.close")}
               </Button>
             </div>
           ) : (
@@ -148,9 +150,11 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
                 >
                   <Upload size={32} className="text-text-muted" />
                   <p className="text-sm text-text-primary">
-                    Drop a PDF here, or click to browse
+                    {t("library.uploadModal.dropZone")}
                   </p>
-                  <p className="text-xs text-text-muted">PDF files only</p>
+                  <p className="text-xs text-text-muted">
+                    {t("library.uploadModal.pdfOnly")}
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -183,8 +187,7 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
                     <div className="flex items-start gap-2 rounded-lg bg-red-500/10 p-3">
                       <AlertTriangle size={16} className="mt-0.5 shrink-0 text-red-400" />
                       <p className="text-xs text-red-400">
-                        This file would exceed your storage limit. Remove some
-                        files or upgrade to Premium.
+                        {t("library.uploadModal.wouldExceed")}
                       </p>
                     </div>
                   )}
@@ -208,7 +211,9 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
                         />
                       </div>
                       <p className="text-center text-xs text-text-muted">
-                        Uploading... {uploadProgress}%
+                        {t("library.uploadModal.uploading", {
+                          pct: uploadProgress,
+                        })}
                       </p>
                     </div>
                   )}
@@ -226,7 +231,7 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
               {selectedFile && !isUploading && (
                 <div className="mt-4 flex justify-end gap-2">
                   <Button variant="secondary" onClick={handleClose}>
-                    Cancel
+                    {t("common.cancel")}
                   </Button>
                   <Button onClick={handleUpload} disabled={!!wouldExceed}>
                     {isUploading ? (
@@ -234,7 +239,7 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
                     ) : (
                       <>
                         <Upload size={16} />
-                        Upload
+                        {t("library.uploadModal.upload")}
                       </>
                     )}
                   </Button>
