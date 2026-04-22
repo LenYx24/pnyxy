@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft } from "lucide-react";
 import { MeshBackground, Button } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
 
 export function ForgotPasswordPage() {
+  const { t } = useTranslation();
   const { requestPasswordReset } = useAuthStore();
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -40,26 +42,26 @@ export function ForgotPasswordPage() {
             </span>
           </h1>
           <p className="mt-1 text-sm text-text-muted">
-            Reset your password
+            {t("auth.forgot.subtitle")}
           </p>
         </div>
 
         {success ? (
           <div className="space-y-4">
             <p className="rounded-lg bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
-              Check your email for a reset link. It may take a minute to arrive.
+              {t("auth.forgot.successBody")}
             </p>
             <Link to="/auth">
               <Button variant="secondary" className="w-full">
                 <ArrowLeft size={16} />
-                Back to sign in
+                {t("auth.forgot.backToSignIn")}
               </Button>
             </Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <p className="text-sm text-text-secondary">
-              Enter the email associated with your account and we'll send you a link to reset your password.
+              {t("auth.forgot.intro")}
             </p>
 
             <div>
@@ -67,7 +69,7 @@ export function ForgotPasswordPage() {
                 htmlFor="email"
                 className="mb-1 block text-sm font-medium text-text-secondary"
               >
-                Email
+                {t("auth.email")}
               </label>
               <input
                 id="email"
@@ -89,13 +91,15 @@ export function ForgotPasswordPage() {
             )}
 
             <Button type="submit" disabled={submitting} className="w-full">
-              {submitting ? "Sending..." : "Send reset link"}
+              {submitting
+                ? t("auth.forgot.sending")
+                : t("auth.forgot.sendLink")}
             </Button>
 
             <Link to="/auth" className="block">
               <Button variant="ghost" className="w-full" type="button">
                 <ArrowLeft size={16} />
-                Back to sign in
+                {t("auth.forgot.backToSignIn")}
               </Button>
             </Link>
           </form>

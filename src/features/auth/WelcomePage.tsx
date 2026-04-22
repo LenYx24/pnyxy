@@ -1,9 +1,11 @@
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import { CheckCircle2 } from "lucide-react";
 import { MeshBackground, Button } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
 
 export function WelcomePage() {
+  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
 
   return (
@@ -19,17 +21,19 @@ export function WelcomePage() {
 
         <h1 className="text-3xl font-bold">
           <span className="bg-gradient-to-r from-accent-purple to-accent-blue bg-clip-text text-transparent">
-            Welcome to Pnyxy!
+            {t("auth.welcome.title")}
           </span>
         </h1>
         <p className="mt-3 text-sm text-text-secondary">
-          Your email is confirmed. You're all set to start building your library.
+          {t("auth.welcome.body")}
         </p>
 
         <div className="mt-8">
           <Link to={user ? "/library" : "/auth"}>
             <Button className="w-full">
-              {user ? "Continue to your library" : "Sign in"}
+              {user
+                ? t("auth.welcome.continueCta")
+                : t("auth.signIn")}
             </Button>
           </Link>
         </div>

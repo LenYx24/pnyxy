@@ -51,7 +51,31 @@
     "hidePassword": "Hide password",
     "showPassword": "Show password",
     "redirecting": "Redirecting…",
-    "continueAnonymous": "Continue without account"
+    "continueAnonymous": "Continue without account",
+    "welcome": {
+      "title": "Welcome to Pnyxy!",
+      "body": "Your email is confirmed. You're all set to start building your library.",
+      "continueCta": "Continue to your library"
+    },
+    "forgot": {
+      "subtitle": "Reset your password",
+      "intro": "Enter the email associated with your account and we'll send you a link to reset your password.",
+      "successBody": "Check your email for a reset link. It may take a minute to arrive.",
+      "backToSignIn": "Back to sign in",
+      "sending": "Sending…",
+      "sendLink": "Send reset link"
+    },
+    "reset": {
+      "subtitle": "Choose a new password",
+      "newPassword": "New password",
+      "confirmNewPassword": "Confirm new password",
+      "linkInvalid": "This reset link is invalid or has expired.",
+      "requestNew": "Request a new link",
+      "updating": "Updating…",
+      "updatePassword": "Update password",
+      "tooShort": "Password must be at least 6 characters.",
+      "mismatch": "Passwords don't match."
+    }
   },
   "settings": {
     "title": "Settings",
@@ -109,6 +133,25 @@
       "privacyHint": "What data we collect and how we use it.",
       "terms": "Terms of Service",
       "termsHint": "The rules for using Pnyxy."
+    },
+    "tagsSection": {
+      "heading": "Tags",
+      "description": "Customize the color for each reading status tag."
+    },
+    "shortcutsSection": {
+      "heading": "Keyboard Shortcuts",
+      "empty": "No shortcuts registered. Open a document to see reader shortcuts."
+    },
+    "pluginsSection": {
+      "heading": "Plugins",
+      "description": "Extend Pnyxy with optional features. Community plugins run in a sandboxed iframe and only get the permissions they declare in their manifest.",
+      "installedTab": "Installed",
+      "browseTab": "Browse",
+      "coreHeading": "Core",
+      "communityHeading": "Community",
+      "noCommunity": "No community plugins installed.",
+      "browseCommunity": "Browse community plugins",
+      "uninstall": "Uninstall"
     },
     "aiSection": {
       "heading": "AI Assistant",
@@ -203,6 +246,45 @@
       "recentlyAdded": "Recently added",
       "noActivity": "Nothing here yet. Upload a book or open one from the catalog.",
       "streakTitle": "Reading streak"
+    }
+  },
+  "static": {
+    "about": {
+      "title": "About Pnyxy",
+      "p1": "Pnyxy is a modern, multi-format reading app. It supports PDF, EPUB, Markdown, and plain-text documents, with annotation, whiteboard, and search tooling built in.",
+      "p2": "The project is built around an extensible plugin system and a themeable UI. Your library lives locally by default; cloud sync is optional.",
+      "p3": "Have feedback or want to contribute? Reach out via the links in the footer."
+    },
+    "help": {
+      "title": "Help",
+      "opening": {
+        "heading": "Opening a document",
+        "body": "Drop a file into the Library or use the upload button. PDF, EPUB, Markdown, and plain-text files are all supported."
+      },
+      "find": {
+        "heading": "Find and replace",
+        "bodyPrefix": "Inside the reader, press ",
+        "bodyInfix": " to search and ",
+        "bodySuffix": " to replace. Replace is only available for editable formats (text and Markdown)."
+      },
+      "shortcuts": {
+        "heading": "Keyboard shortcuts",
+        "bodyPrefix": "A full list of shortcuts lives in ",
+        "link": "Settings → Shortcuts",
+        "bodySuffix": "."
+      },
+      "reporting": {
+        "heading": "Reporting issues",
+        "body": "Found a bug? Reach out via the GitHub link in the footer."
+      }
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "englishOnly": "This policy is maintained in English only. An authoritative Hungarian translation will be published before the Hungarian launch."
+    },
+    "terms": {
+      "title": "Terms of Service",
+      "englishOnly": "These terms are maintained in English only. An authoritative Hungarian translation will be published before the Hungarian launch."
     }
   },
   "profile": {

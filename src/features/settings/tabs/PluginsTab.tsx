@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Plus, Puzzle } from "lucide-react";
 import { useSettingsStore } from "@/stores/settings-store";
 import { CORE_PLUGINS } from "@/lib/plugins/core-registry";
@@ -11,6 +12,7 @@ import { cn } from "@/lib/cn";
 type SubTab = "installed" | "browse";
 
 export function PluginsTab() {
+  const { t } = useTranslation();
   const enabledPlugins = useSettingsStore((s) => s.enabledPlugins);
   const installedPlugins = useSettingsStore((s) => s.installedPlugins);
   const setPluginEnabled = useSettingsStore((s) => s.setPluginEnabled);
@@ -33,20 +35,19 @@ export function PluginsTab() {
     <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
       <div className="flex items-center gap-2">
         <Puzzle size={18} className="text-accent-purple" />
-        <h2 className="text-lg font-semibold text-text-primary">Plugins</h2>
+        <h2 className="text-lg font-semibold text-text-primary">
+          {t("settings.pluginsSection.heading")}
+        </h2>
       </div>
       <p className="text-xs text-text-muted">
-        Extend Pnyxy with optional features. Community plugins run in a
-        sandboxed iframe and only get the permissions they declare in their
-        manifest.
+        {t("settings.pluginsSection.description")}
       </p>
 
-      {/* Sub-tab pills */}
       <div className="flex gap-1 rounded-lg border border-glass-border bg-bg-primary/40 p-0.5">
         <SubTabButton
           active={subTab === "installed"}
           onClick={() => setSubTab("installed")}
-          label="Installed"
+          label={t("settings.pluginsSection.installedTab")}
           count={coreManifests.length + communityManifests.length}
         />
         <SubTabButton
@@ -55,7 +56,7 @@ export function PluginsTab() {
             setSubTab("browse");
             setBrowseOpen(true);
           }}
-          label="Browse"
+          label={t("settings.pluginsSection.browseTab")}
         />
       </div>
 
@@ -63,7 +64,7 @@ export function PluginsTab() {
         <div className="space-y-4">
           <div>
             <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
-              Core
+              {t("settings.pluginsSection.coreHeading")}
             </h3>
             <div className="space-y-2">
               {coreManifests.map((manifest) => (
@@ -80,12 +81,12 @@ export function PluginsTab() {
 
           <div>
             <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
-              Community
+              {t("settings.pluginsSection.communityHeading")}
             </h3>
             {communityManifests.length === 0 ? (
               <div className="rounded-lg border border-dashed border-glass-border bg-bg-primary/40 p-4 text-center">
                 <p className="text-sm text-text-secondary">
-                  No community plugins installed.
+                  {t("settings.pluginsSection.noCommunity")}
                 </p>
                 <button
                   type="button"
@@ -93,7 +94,7 @@ export function PluginsTab() {
                   className="mt-2 inline-flex items-center gap-1 text-xs text-accent-purple hover:underline cursor-pointer"
                 >
                   <Plus size={12} />
-                  Browse community plugins
+                  {t("settings.pluginsSection.browseCommunity")}
                 </button>
               </div>
             ) : (

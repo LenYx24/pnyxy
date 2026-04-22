@@ -51,7 +51,31 @@
     "hidePassword": "Jelszó elrejtése",
     "showPassword": "Jelszó mutatása",
     "redirecting": "Átirányítás…",
-    "continueAnonymous": "Tovább fiók nélkül"
+    "continueAnonymous": "Tovább fiók nélkül",
+    "welcome": {
+      "title": "Üdv a Pnyxy-n!",
+      "body": "Az e-mailed megerősítve. Mehet a könyvtár építése.",
+      "continueCta": "Tovább a könyvtárhoz"
+    },
+    "forgot": {
+      "subtitle": "Jelszó visszaállítása",
+      "intro": "Add meg a fiókodhoz tartozó e-mail címet és küldünk egy linket a jelszó visszaállításához.",
+      "successBody": "Nézd meg az e-mailedet a visszaállító linkért. Pár percet is igénybe vehet.",
+      "backToSignIn": "Vissza a bejelentkezéshez",
+      "sending": "Küldés…",
+      "sendLink": "Visszaállító link küldése"
+    },
+    "reset": {
+      "subtitle": "Válassz új jelszót",
+      "newPassword": "Új jelszó",
+      "confirmNewPassword": "Új jelszó megerősítése",
+      "linkInvalid": "Ez a visszaállító link érvénytelen vagy lejárt.",
+      "requestNew": "Új link kérése",
+      "updating": "Frissítés…",
+      "updatePassword": "Jelszó frissítése",
+      "tooShort": "A jelszónak legalább 6 karakter hosszúnak kell lennie.",
+      "mismatch": "A jelszavak nem egyeznek."
+    }
   },
   "settings": {
     "title": "Beállítások",
@@ -109,6 +133,25 @@
       "privacyHint": "Milyen adatokat gyűjtünk és hogyan használjuk.",
       "terms": "Általános Szerződési Feltételek",
       "termsHint": "A Pnyxy használatának szabályai."
+    },
+    "tagsSection": {
+      "heading": "Címkék",
+      "description": "Állítsd be a színt minden olvasási állapot címkéhez."
+    },
+    "shortcutsSection": {
+      "heading": "Gyorsbillentyűk",
+      "empty": "Nincs regisztrált gyorsbillentyű. Nyiss meg egy dokumentumot az olvasó gyorsbillentyűkhez."
+    },
+    "pluginsSection": {
+      "heading": "Bővítmények",
+      "description": "Bővítsd a Pnyxy-t opcionális funkciókkal. A közösségi bővítmények homokozó iframe-ben futnak, és csak azokat a jogosultságokat kapják meg, amelyeket a manifestjükben deklarálnak.",
+      "installedTab": "Telepítve",
+      "browseTab": "Böngészés",
+      "coreHeading": "Alap",
+      "communityHeading": "Közösségi",
+      "noCommunity": "Nincs telepített közösségi bővítmény.",
+      "browseCommunity": "Közösségi bővítmények böngészése",
+      "uninstall": "Eltávolítás"
     },
     "aiSection": {
       "heading": "AI asszisztens",
@@ -203,6 +246,45 @@
       "recentlyAdded": "Legutóbb hozzáadva",
       "noActivity": "Még nincs semmi. Tölts fel egy könyvet vagy nyiss egyet a katalógusból.",
       "streakTitle": "Olvasási sorozat"
+    }
+  },
+  "static": {
+    "about": {
+      "title": "A Pnyxy-ről",
+      "p1": "A Pnyxy egy modern, több formátumot támogató olvasóalkalmazás. PDF, EPUB, Markdown és sima szöveges fájlokat kezel, beépített jegyzeteléssel, táblával és kereséssel.",
+      "p2": "A projekt egy bővíthető plugin rendszerre és testreszabható felületre épül. A könyvtárad alapértelmezetten helyben tárolódik; a felhő szinkron opcionális.",
+      "p3": "Visszajelzésed van, vagy közreműködnél? Keress minket a láblécben lévő linkeken."
+    },
+    "help": {
+      "title": "Súgó",
+      "opening": {
+        "heading": "Dokumentum megnyitása",
+        "body": "Dobj egy fájlt a Könyvtárba vagy használd a feltöltés gombot. PDF, EPUB, Markdown és sima szöveges fájl is támogatott."
+      },
+      "find": {
+        "heading": "Keresés és csere",
+        "bodyPrefix": "Az olvasóban a ",
+        "bodyInfix": " keresést, a ",
+        "bodySuffix": " pedig cserét indít. A csere csak szerkeszthető formátumoknál (szöveg és Markdown) elérhető."
+      },
+      "shortcuts": {
+        "heading": "Gyorsbillentyűk",
+        "bodyPrefix": "A teljes lista itt található: ",
+        "link": "Beállítások → Gyorsbillentyűk",
+        "bodySuffix": "."
+      },
+      "reporting": {
+        "heading": "Hibabejelentés",
+        "body": "Találtál egy hibát? Keress minket a láblécben lévő GitHub linken."
+      }
+    },
+    "privacy": {
+      "title": "Adatvédelmi tájékoztató",
+      "englishOnly": "Ezt a tájékoztatót jelenleg csak angol nyelven tartjuk karban. A magyar nyelvű, hiteles fordítás a magyar indulás előtt érhető el."
+    },
+    "terms": {
+      "title": "Általános Szerződési Feltételek",
+      "englishOnly": "Ezek a feltételek jelenleg csak angol nyelven elérhetők. A magyar nyelvű, hiteles fordítás a magyar indulás előtt érhető el."
     }
   },
   "profile": {

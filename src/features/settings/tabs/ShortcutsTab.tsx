@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Keyboard } from "lucide-react";
 import {
   formatShortcut,
@@ -6,6 +7,7 @@ import {
 } from "@/lib/keyboard-shortcuts";
 
 export function ShortcutsTab() {
+  const { t } = useTranslation();
   const shortcuts = useMemo(() => {
     const map = getRegisteredShortcuts();
     return Array.from(map.values())
@@ -25,13 +27,13 @@ export function ShortcutsTab() {
       <div className="flex items-center gap-2">
         <Keyboard size={18} className="text-text-secondary" />
         <h2 className="text-lg font-semibold text-text-primary">
-          Keyboard Shortcuts
+          {t("settings.shortcutsSection.heading")}
         </h2>
       </div>
 
       {shortcuts.length === 0 ? (
         <p className="text-sm text-text-muted">
-          No shortcuts registered. Open a document to see reader shortcuts.
+          {t("settings.shortcutsSection.empty")}
         </p>
       ) : (
         <div className="divide-y divide-glass-border/50">

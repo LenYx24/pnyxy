@@ -1,4 +1,5 @@
 import { Tag } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "@/stores/settings-store";
 import {
   ALL_STATUS_TAGS,
@@ -10,6 +11,7 @@ import {
 import { cn } from "@/lib/cn";
 
 export function TagsTab() {
+  const { t } = useTranslation();
   const tagColors = useSettingsStore((s) => s.tagColors);
   const setTagColor = useSettingsStore((s) => s.setTagColor);
 
@@ -17,10 +19,12 @@ export function TagsTab() {
     <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
       <div className="flex items-center gap-2">
         <Tag size={18} className="text-text-secondary" />
-        <h2 className="text-lg font-semibold text-text-primary">Tags</h2>
+        <h2 className="text-lg font-semibold text-text-primary">
+          {t("settings.tagsSection.heading")}
+        </h2>
       </div>
       <p className="text-xs text-text-muted">
-        Customize the color for each reading status tag.
+        {t("settings.tagsSection.description")}
       </p>
 
       <div className="space-y-4">

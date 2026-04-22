@@ -1,10 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "lucide-react";
 import { MeshBackground, Button } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
 
 export function ResetPasswordPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { session, updatePassword } = useAuthStore();
   const [checkedSession, setCheckedSession] = useState(false);
@@ -26,11 +28,11 @@ export function ResetPasswordPage() {
     setLocalError(null);
 
     if (password.length < 6) {
-      setLocalError("Password must be at least 6 characters.");
+      setLocalError(t("auth.reset.tooShort"));
       return;
     }
     if (password !== confirmPassword) {
-      setLocalError("Passwords don't match.");
+      setLocalError(t("auth.reset.mismatch"));
       return;
     }
 
@@ -61,23 +63,25 @@ export function ResetPasswordPage() {
             </span>
           </h1>
           <p className="mt-1 text-sm text-text-muted">
-            Choose a new password
+            {t("auth.reset.subtitle")}
           </p>
         </div>
 
         {linkInvalid ? (
           <div className="space-y-4">
             <p className="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
-              This reset link is invalid or has expired.
+              {t("auth.reset.linkInvalid")}
             </p>
             <Link to="/auth/forgot-password">
               <Button variant="secondary" className="w-full">
-                Request a new link
+                {t("auth.reset.requestNew")}
               </Button>
             </Link>
           </div>
         ) : !checkedSession ? (
-          <p className="text-center text-sm text-text-muted">Loading...</p>
+          <p className="text-center text-sm text-text-muted">
+            {t("common.loading")}
+          </p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -85,7 +89,7 @@ export function ResetPasswordPage() {
                 htmlFor="new-password"
                 className="mb-1 block text-sm font-medium text-text-secondary"
               >
-                New password
+                {t("auth.reset.newPassword")}
               </label>
               <div className="relative">
                 <input
@@ -104,7 +108,11 @@ export function ResetPasswordPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-text-muted hover:text-text-secondary"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-label={
+                    showPassword
+                      ? t("auth.hidePassword")
+                      : t("auth.showPassword")
+                  }
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -116,7 +124,7 @@ export function ResetPasswordPage() {
                 htmlFor="confirm-password"
                 className="mb-1 block text-sm font-medium text-text-secondary"
               >
-                Confirm new password
+                {t("auth.reset.confirmNewPassword")}
               </label>
               <input
                 id="confirm-password"
@@ -138,7 +146,9 @@ export function ResetPasswordPage() {
             )}
 
             <Button type="submit" disabled={submitting} className="w-full">
-              {submitting ? "Updating..." : "Update password"}
+              {submitting
+                ? t("auth.reset.updating")
+                : t("auth.reset.updatePassword")}
             </Button>
           </form>
         )}

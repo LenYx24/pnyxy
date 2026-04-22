@@ -1,10 +1,16 @@
 import { ScrollText } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 /**
  * First-pass Terms of Service. Draft — review before public launch.
  * Placeholders marked [TO FILL] must be completed.
+ *
+ * Body text is intentionally kept in English only — see PrivacyPage for
+ * the same rationale.
  */
 export function TermsPage() {
+  const { t, i18n } = useTranslation();
+  const showEnglishNotice = i18n.resolvedLanguage !== "en";
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 p-4 sm:p-6">
       <div className="flex items-center gap-3">
@@ -13,13 +19,19 @@ export function TermsPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-text-primary">
-            Terms of Service
+            {t("static.terms.title")}
           </h1>
           <p className="text-xs text-text-muted">
             Last updated: 2026-04-21
           </p>
         </div>
       </div>
+
+      {showEnglishNotice && (
+        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
+          {t("static.terms.englishOnly")}
+        </p>
+      )}
 
       <section className="space-y-6 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6 text-sm leading-relaxed text-text-secondary">
         <p>

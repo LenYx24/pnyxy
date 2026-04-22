@@ -1,10 +1,17 @@
 import { Shield } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 /**
  * First-pass privacy notice. Draft — review before public launch.
  * Placeholders marked [TO FILL] must be completed.
+ *
+ * Body text is intentionally kept in English only: a legal document
+ * shouldn't be machine- or AI-translated without legal review. The
+ * Hungarian banner explains this to non-English readers.
  */
 export function PrivacyPage() {
+  const { t, i18n } = useTranslation();
+  const showEnglishNotice = i18n.resolvedLanguage !== "en";
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 p-4 sm:p-6">
       <div className="flex items-center gap-3">
@@ -13,13 +20,19 @@ export function PrivacyPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-text-primary">
-            Privacy Policy
+            {t("static.privacy.title")}
           </h1>
           <p className="text-xs text-text-muted">
             Last updated: 2026-04-21
           </p>
         </div>
       </div>
+
+      {showEnglishNotice && (
+        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
+          {t("static.privacy.englishOnly")}
+        </p>
+      )}
 
       <section className="space-y-6 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6 text-sm leading-relaxed text-text-secondary">
         <p>
