@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Folder, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -29,6 +30,7 @@ export function FolderCard({
   onToggleSelect,
   sortableId,
 }: FolderCardProps) {
+  const { t } = useTranslation();
   const {
     attributes,
     listeners,
@@ -127,7 +129,7 @@ export function FolderCard({
                 compact ? "text-[10px]" : "text-xs",
               )}
             >
-              Folder
+              {t("library.folderCard.folderLabel")}
             </p>
           </div>
         </div>
@@ -155,13 +157,16 @@ export function FolderCard({
                 onClick={(e) => {
                   e.stopPropagation();
                   setMenuOpen(false);
-                  const name = prompt("Rename folder:", folder.name);
+                  const name = prompt(
+                    t("library.folderCard.renamePrompt"),
+                    folder.name,
+                  );
                   if (name && name.trim()) onRename(folder.id, name.trim());
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
               >
                 <Pencil size={14} />
-                Rename
+                {t("library.folderCard.rename")}
               </button>
               <button
                 onClick={(e) => {
@@ -172,7 +177,7 @@ export function FolderCard({
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 transition-colors hover:bg-glass-hover cursor-pointer"
               >
                 <Trash2 size={14} />
-                Delete
+                {t("library.folderCard.delete")}
               </button>
             </div>
           )}

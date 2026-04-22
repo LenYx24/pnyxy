@@ -280,6 +280,12 @@
       "streak_one": "{{count}} day streak!",
       "streak_other": "{{count}} day streak!"
     },
+    "folderCard": {
+      "folderLabel": "Folder",
+      "rename": "Rename",
+      "delete": "Delete",
+      "renamePrompt": "Rename folder:"
+    },
     "allBooks": {
       "breadcrumbRoot": "Library",
       "up": "Up",

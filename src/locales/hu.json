@@ -280,6 +280,12 @@
       "streak_one": "{{count}} napos sorozat!",
       "streak_other": "{{count}} napos sorozat!"
     },
+    "folderCard": {
+      "folderLabel": "Mappa",
+      "rename": "Átnevezés",
+      "delete": "Törlés",
+      "renamePrompt": "Mappa átnevezése:"
+    },
     "allBooks": {
       "breadcrumbRoot": "Könyvtár",
       "up": "Fel",
