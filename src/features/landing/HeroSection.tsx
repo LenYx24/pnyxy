@@ -1,8 +1,10 @@
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
 
 export function HeroSection() {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
 
   return (
@@ -30,26 +32,25 @@ export function HeroSection() {
       </h1>
 
       <p className="mb-4 max-w-2xl text-xl text-text-secondary sm:text-2xl">
-        Your intelligent reading companion
+        {t("landing.tagline")}
       </p>
       <p className="mb-10 max-w-xl text-base text-text-muted">
-        A free, open-source platform that transforms how you read, learn, and
-        retain knowledge from books.
+        {t("landing.subtitle")}
       </p>
 
       <div className="flex flex-col items-center gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
           <Link to={user ? "/library" : "/auth"}>
-            <Button variant="primary">Get Started</Button>
+            <Button variant="primary">{t("landing.getStarted")}</Button>
           </Link>
-          <Button variant="secondary">Learn More</Button>
+          <Button variant="secondary">{t("landing.learnMore")}</Button>
         </div>
         {!user && (
           <Link
             to="/library"
             className="text-sm text-text-muted transition-colors hover:text-text-secondary"
           >
-            Continue without an account &rarr;
+            {t("landing.continueNoAccount")}
           </Link>
         )}
       </div>

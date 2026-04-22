@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Info, ScrollText, Shield, HelpCircle, ExternalLink } from "lucide-react";
 
 interface LinkRowProps {
@@ -30,12 +31,15 @@ function LinkRow({ to, icon: Icon, label, description }: LinkRowProps) {
 }
 
 export function AboutTab() {
+  const { t } = useTranslation();
   return (
     <div className="space-y-4">
       <header>
-        <h2 className="text-lg font-semibold text-text-primary">About</h2>
+        <h2 className="text-lg font-semibold text-text-primary">
+          {t("settings.aboutSection.heading")}
+        </h2>
         <p className="text-sm text-text-muted">
-          Project info and legal documents.
+          {t("settings.aboutSection.description")}
         </p>
       </header>
 
@@ -43,26 +47,26 @@ export function AboutTab() {
         <LinkRow
           to="/about"
           icon={Info}
-          label="About Pnyxy"
-          description="What the project is and who's behind it."
+          label={t("settings.aboutSection.about")}
+          description={t("settings.aboutSection.aboutHint")}
         />
         <LinkRow
           to="/help"
           icon={HelpCircle}
-          label="Help"
-          description="Getting started and common questions."
+          label={t("settings.aboutSection.help")}
+          description={t("settings.aboutSection.helpHint")}
         />
         <LinkRow
           to="/privacy"
           icon={Shield}
-          label="Privacy Policy"
-          description="What data we collect and how we use it."
+          label={t("settings.aboutSection.privacy")}
+          description={t("settings.aboutSection.privacyHint")}
         />
         <LinkRow
           to="/terms"
           icon={ScrollText}
-          label="Terms of Service"
-          description="The rules for using Pnyxy."
+          label={t("settings.aboutSection.terms")}
+          description={t("settings.aboutSection.termsHint")}
         />
       </div>
     </div>

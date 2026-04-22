@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Palette, Plus } from "lucide-react";
 import { useSettingsStore } from "@/stores/settings-store";
 import { CORE_THEMES } from "@/lib/themes";
@@ -7,6 +8,7 @@ import { ThemeCard } from "../ThemeCard";
 import { BrowseCommunityModal } from "../BrowseCommunityModal";
 
 export function AppearanceTab() {
+  const { t } = useTranslation();
   const activeThemeId = useSettingsStore((s) => s.activeThemeId);
   const installedThemes = useSettingsStore((s) => s.installedThemes);
   const setActiveTheme = useSettingsStore((s) => s.setActiveTheme);
@@ -24,16 +26,17 @@ export function AppearanceTab() {
     <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
       <div className="flex items-center gap-2">
         <Palette size={18} className="text-accent-purple" />
-        <h2 className="text-lg font-semibold text-text-primary">Appearance</h2>
+        <h2 className="text-lg font-semibold text-text-primary">
+          {t("settings.appearanceSection.heading")}
+        </h2>
       </div>
       <p className="text-xs text-text-muted">
-        Pick a theme. Custom themes can be installed from the community
-        registry; switching is instant and persists across sessions.
+        {t("settings.appearanceSection.description")}
       </p>
 
       <div>
         <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
-          Core themes
+          {t("settings.appearanceSection.coreThemes")}
         </h3>
         <div className="grid gap-3 sm:grid-cols-2">
           {coreList.map((theme) => (
@@ -50,7 +53,7 @@ export function AppearanceTab() {
       {communityList.length > 0 && (
         <div>
           <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
-            Installed themes
+            {t("settings.appearanceSection.installedThemes")}
           </h3>
           <div className="grid gap-3 sm:grid-cols-2">
             {communityList.map((theme) => (
@@ -73,7 +76,7 @@ export function AppearanceTab() {
           className="inline-flex items-center gap-1.5 rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
         >
           <Plus size={14} />
-          Browse community themes
+          {t("settings.appearanceSection.browseCommunity")}
         </button>
       </div>
 

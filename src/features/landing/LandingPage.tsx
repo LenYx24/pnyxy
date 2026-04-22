@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import { MeshBackground, Button } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/cn";
@@ -8,6 +9,7 @@ import { HeroSection } from "./HeroSection";
 import { FeaturesSection } from "./FeaturesSection";
 
 export function LandingPage() {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const [scrolled, setScrolled] = useState(false);
 
@@ -47,7 +49,7 @@ export function LandingPage() {
         </Link>
         <Link to={user ? "/library" : "/auth"}>
           <Button variant="secondary" className="text-sm">
-            {user ? "Go to Library" : "Sign In"}
+            {user ? t("landing.goToLibrary") : t("landing.signIn")}
           </Button>
         </Link>
       </header>

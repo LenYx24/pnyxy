@@ -56,12 +56,174 @@
   "settings": {
     "title": "Settings",
     "general": "General",
+    "appearance": "Appearance",
+    "ai": "AI",
+    "tags": "Tags",
+    "plugins": "Plugins",
+    "shortcuts": "Shortcuts",
+    "about": "About",
     "language": {
       "label": "Language",
       "description": "Choose the language used across the interface.",
       "en": "English",
       "hu": "Magyar"
+    },
+    "navigation": {
+      "heading": "Navigation",
+      "animatedScroll": "Animated page scroll",
+      "animatedScrollHint": "Smoothly animate when navigating between pages",
+      "animationDuration": "Animation duration"
+    },
+    "reader": {
+      "heading": "Reader",
+      "fitMode": "Default fit mode",
+      "fitModeHint": "How new documents are scaled when first opened",
+      "fitWidth": "Fit Width",
+      "fitWidthHint": "Scale pages to fill the viewer width",
+      "fitPage": "Fit Page",
+      "fitPageHint": "Scale pages to fit entirely in view"
+    },
+    "experimental": {
+      "heading": "Experimental / Developer",
+      "description": "Unfinished features intended for testing. Expect rough edges.",
+      "annotationsAllFormats": "Allow annotations for all formats",
+      "annotationsAllFormatsHint": "Enables highlight/comment UI on TXT, Markdown, and EPUB documents. Persisted anchors aren't reflow-aware yet, so highlights may drift after edits.",
+      "whiteboardAllFormats": "Allow whiteboard for all formats",
+      "whiteboardAllFormatsHint": "Enables draw mode and whiteboard creation on non-paginated documents. Whiteboards anchor to pages, so behavior may be unpredictable on reflowable content."
+    },
+    "appearanceSection": {
+      "heading": "Appearance",
+      "description": "Pick a theme. Custom themes can be installed from the community registry; switching is instant and persists across sessions.",
+      "coreThemes": "Core themes",
+      "installedThemes": "Installed themes",
+      "browseCommunity": "Browse community themes"
+    },
+    "aboutSection": {
+      "heading": "About",
+      "description": "Project info and legal documents.",
+      "about": "About Pnyxy",
+      "aboutHint": "What the project is and who's behind it.",
+      "help": "Help",
+      "helpHint": "Getting started and common questions.",
+      "privacy": "Privacy Policy",
+      "privacyHint": "What data we collect and how we use it.",
+      "terms": "Terms of Service",
+      "termsHint": "The rules for using Pnyxy."
+    },
+    "aiSection": {
+      "heading": "AI Assistant",
+      "description": "Pick which providers the reader's chat panel can use and supply any keys needed.",
+      "enabledProviders": "Enabled providers",
+      "pnyxyLabel": "Pnyxy (hosted)",
+      "pnyxyHint": "Built-in proxy with a daily free allowance. No key needed.",
+      "anthropicLabel": "Anthropic",
+      "anthropicHint": "Direct Anthropic API. Uses your own key.",
+      "openaiLabel": "OpenAI",
+      "openaiHint": "Direct OpenAI API. Uses your own key.",
+      "apiKey": "API key",
+      "apiKeyPlaceholder": "Paste your key",
+      "apiKeyHint": "Stored locally in your browser. Calls go directly to the provider."
     }
+  },
+  "landing": {
+    "goToLibrary": "Go to Library",
+    "signIn": "Sign In",
+    "tagline": "Your intelligent reading companion",
+    "subtitle": "A free, open-source platform that transforms how you read, learn, and retain knowledge from books.",
+    "getStarted": "Get Started",
+    "learnMore": "Learn More",
+    "continueNoAccount": "Continue without an account →",
+    "featuresTitle": "Everything you need to read smarter",
+    "featuresSubtitle": "Powerful tools designed around how people actually learn from books.",
+    "features": {
+      "smartReading": {
+        "title": "Smart Reading",
+        "description": "Read EPUBs and PDFs with a distraction-free, customizable reader built for deep focus."
+      },
+      "video": {
+        "title": "Video Integration",
+        "description": "Link YouTube lectures and tutorials directly to your book chapters for multimedia learning."
+      },
+      "studyTools": {
+        "title": "Study Tools",
+        "description": "Highlight, annotate, and create flashcards directly from your reading material."
+      },
+      "aiAssistant": {
+        "title": "AI Assistant",
+        "description": "Get explanations, summaries, and answers about your books powered by AI."
+      },
+      "streaks": {
+        "title": "Streaks & Goals",
+        "description": "Build consistent reading habits with daily streaks, goals, and progress tracking."
+      },
+      "community": {
+        "title": "Community",
+        "description": "Share highlights, discuss books, and learn together with other readers."
+      }
+    }
+  },
+  "library": {
+    "title": "Library",
+    "tabs": {
+      "home": "Home",
+      "allBooks": "All books",
+      "folders": "Folders",
+      "tags": "Tags"
+    },
+    "toolbar": {
+      "search": "Search",
+      "searchShortcut": "Search ({{shortcut}})",
+      "searchPlaceholder": "Search books and folders…",
+      "refresh": "Refresh library",
+      "gridView": "Grid view",
+      "listView": "List view",
+      "coverSizeLabel": "Cover size",
+      "coverSizeTitle": "Adjust cover size",
+      "upload": "Upload",
+      "uploadPdf": "Upload PDF",
+      "newFolder": "New folder",
+      "newFolderShort": "New",
+      "sort": "Sort",
+      "sortRecent": "Recently added",
+      "sortTitle": "Title",
+      "sortAuthor": "Author",
+      "view": "View",
+      "viewGrid": "Grid",
+      "viewList": "List",
+      "openUrl": "Open from URL",
+      "scanDevice": "Scan device"
+    },
+    "empty": {
+      "title": "Your library is empty",
+      "body": "Upload a PDF or open one from a URL to get started.",
+      "uploadCta": "Upload PDF"
+    },
+    "home": {
+      "continueReading": "Continue reading",
+      "recentlyAdded": "Recently added",
+      "noActivity": "Nothing here yet. Upload a book or open one from the catalog.",
+      "streakTitle": "Reading streak"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "signInPrompt": "Sign in to manage your profile.",
+    "displayName": "Display name",
+    "displayNamePlaceholder": "Your display name",
+    "displayNameFlagged": "That name contains disallowed language.",
+    "noDisplayName": "No display name",
+    "email": "Email",
+    "editSection": "Edit Profile",
+    "accountSection": "Account",
+    "uploadAvatar": "Upload avatar",
+    "changeAvatar": "Change avatar",
+    "removeAvatar": "Remove",
+    "avatarHint": "JPEG, PNG, WebP, or GIF · max 5 MB",
+    "save": "Save",
+    "saving": "Saving…",
+    "savedToast": "Saved!",
+    "saveFailed": "Couldn't save the profile.",
+    "signOut": "Sign Out"
   },
   "quizzes": {
     "title": "Quizzes",

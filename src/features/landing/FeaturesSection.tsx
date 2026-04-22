@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   BookOpen,
   Video,
@@ -9,65 +10,36 @@ import {
 import { GlassCard } from "@/components/ui";
 
 const features = [
-  {
-    icon: BookOpen,
-    title: "Smart Reading",
-    description:
-      "Read EPUBs and PDFs with a distraction-free, customizable reader built for deep focus.",
-  },
-  {
-    icon: Video,
-    title: "Video Integration",
-    description:
-      "Link YouTube lectures and tutorials directly to your book chapters for multimedia learning.",
-  },
-  {
-    icon: PenTool,
-    title: "Study Tools",
-    description:
-      "Highlight, annotate, and create flashcards directly from your reading material.",
-  },
-  {
-    icon: Sparkles,
-    title: "AI Assistant",
-    description:
-      "Get explanations, summaries, and answers about your books powered by AI.",
-  },
-  {
-    icon: Flame,
-    title: "Streaks & Goals",
-    description:
-      "Build consistent reading habits with daily streaks, goals, and progress tracking.",
-  },
-  {
-    icon: Users,
-    title: "Community",
-    description:
-      "Share highlights, discuss books, and learn together with other readers.",
-  },
+  { icon: BookOpen, key: "smartReading" as const },
+  { icon: Video, key: "video" as const },
+  { icon: PenTool, key: "studyTools" as const },
+  { icon: Sparkles, key: "aiAssistant" as const },
+  { icon: Flame, key: "streaks" as const },
+  { icon: Users, key: "community" as const },
 ];
 
 export function FeaturesSection() {
+  const { t } = useTranslation();
   return (
     <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
       <h2 className="mb-4 text-center text-3xl font-bold text-text-primary">
-        Everything you need to read smarter
+        {t("landing.featuresTitle")}
       </h2>
       <p className="mb-16 text-center text-text-secondary">
-        Powerful tools designed around how people actually learn from books.
+        {t("landing.featuresSubtitle")}
       </p>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {features.map(({ icon: Icon, title, description }) => (
-          <GlassCard key={title} className="p-6">
+        {features.map(({ icon: Icon, key }) => (
+          <GlassCard key={key} className="p-6">
             <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-accent-purple/15">
               <Icon size={20} className="text-accent-purple" />
             </div>
             <h3 className="mb-2 text-lg font-semibold text-text-primary">
-              {title}
+              {t(`landing.features.${key}.title`)}
             </h3>
             <p className="text-sm leading-relaxed text-text-secondary">
-              {description}
+              {t(`landing.features.${key}.description`)}
             </p>
           </GlassCard>
         ))}

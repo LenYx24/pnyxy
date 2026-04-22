@@ -56,12 +56,174 @@
   "settings": {
     "title": "Beállítások",
     "general": "Általános",
+    "appearance": "Megjelenés",
+    "ai": "AI",
+    "tags": "Címkék",
+    "plugins": "Bővítmények",
+    "shortcuts": "Gyorsbillentyűk",
+    "about": "Rólunk",
     "language": {
       "label": "Nyelv",
       "description": "Válaszd ki a felület nyelvét.",
       "en": "English",
       "hu": "Magyar"
+    },
+    "navigation": {
+      "heading": "Navigáció",
+      "animatedScroll": "Animált oldalgörgetés",
+      "animatedScrollHint": "Sima animáció oldalak közötti lépéskor",
+      "animationDuration": "Animáció hossza"
+    },
+    "reader": {
+      "heading": "Olvasó",
+      "fitMode": "Alapértelmezett illesztési mód",
+      "fitModeHint": "Hogyan méretezzük az új dokumentumokat megnyitáskor",
+      "fitWidth": "Szélességhez",
+      "fitWidthHint": "Oldalak az olvasó szélességére skálázva",
+      "fitPage": "Oldalhoz",
+      "fitPageHint": "Oldalak teljes egészében a nézetbe illesztve"
+    },
+    "experimental": {
+      "heading": "Kísérleti / Fejlesztői",
+      "description": "Befejezetlen funkciók teszteléshez. Számíts apróbb hibákra.",
+      "annotationsAllFormats": "Jegyzetek engedélyezése minden formátumra",
+      "annotationsAllFormatsHint": "Kiemelés/komment engedélyezése TXT, Markdown és EPUB dokumentumokon. A horgonyok egyelőre nem alkalmazkodnak az újratördeléshez, így szerkesztés után elcsúszhatnak.",
+      "whiteboardAllFormats": "Tábla engedélyezése minden formátumra",
+      "whiteboardAllFormatsHint": "Rajz mód és tábla engedélyezése nem oldalalapú dokumentumokon. A táblák oldalakhoz horgonyzódnak, így újratördelhető tartalmon kiszámíthatatlanul viselkedhetnek."
+    },
+    "appearanceSection": {
+      "heading": "Megjelenés",
+      "description": "Válassz egy témát. Közösségi témák is telepíthetők; a váltás azonnali és munkamenetek között is megmarad.",
+      "coreThemes": "Alap témák",
+      "installedThemes": "Telepített témák",
+      "browseCommunity": "Közösségi témák böngészése"
+    },
+    "aboutSection": {
+      "heading": "Rólunk",
+      "description": "Projektinformációk és jogi dokumentumok.",
+      "about": "A Pnyxy-ről",
+      "aboutHint": "Mi ez a projekt és ki van mögötte.",
+      "help": "Súgó",
+      "helpHint": "Kezdeti lépések és gyakori kérdések.",
+      "privacy": "Adatvédelmi tájékoztató",
+      "privacyHint": "Milyen adatokat gyűjtünk és hogyan használjuk.",
+      "terms": "Általános Szerződési Feltételek",
+      "termsHint": "A Pnyxy használatának szabályai."
+    },
+    "aiSection": {
+      "heading": "AI asszisztens",
+      "description": "Válaszd ki, mely szolgáltatókat használhatja az olvasó chat panelje, és add meg a szükséges kulcsokat.",
+      "enabledProviders": "Engedélyezett szolgáltatók",
+      "pnyxyLabel": "Pnyxy (hosztolt)",
+      "pnyxyHint": "Beépített proxy napi ingyenes kerettel. Kulcs nem szükséges.",
+      "anthropicLabel": "Anthropic",
+      "anthropicHint": "Közvetlen Anthropic API. A saját kulcsoddal működik.",
+      "openaiLabel": "OpenAI",
+      "openaiHint": "Közvetlen OpenAI API. A saját kulcsoddal működik.",
+      "apiKey": "API kulcs",
+      "apiKeyPlaceholder": "Illeszd be a kulcsot",
+      "apiKeyHint": "Helyben tároljuk a böngésződben. A hívások közvetlenül a szolgáltatóhoz mennek."
     }
+  },
+  "landing": {
+    "goToLibrary": "Irány a Könyvtár",
+    "signIn": "Bejelentkezés",
+    "tagline": "Intelligens olvasótársad",
+    "subtitle": "Ingyenes, nyílt forráskódú platform, ami megváltoztatja, hogyan olvasol, tanulsz és jegyzed meg, amit a könyvekből kihozol.",
+    "getStarted": "Kezdjük el",
+    "learnMore": "Tudj meg többet",
+    "continueNoAccount": "Tovább fiók nélkül →",
+    "featuresTitle": "Minden, ami az okosabb olvasáshoz kell",
+    "featuresSubtitle": "Eszközök, amiket tényleg úgy tervezünk, ahogy az emberek a könyvekből tanulnak.",
+    "features": {
+      "smartReading": {
+        "title": "Okos olvasó",
+        "description": "EPUB és PDF zavartalan, testreszabható olvasásra tervezve — a mély fókuszhoz."
+      },
+      "video": {
+        "title": "Videó integráció",
+        "description": "YouTube-előadásokat és magyarázóvideókat köss össze a könyv fejezeteivel."
+      },
+      "studyTools": {
+        "title": "Tanulóeszközök",
+        "description": "Kiemelj, jegyzetelj és készíts szókártyákat közvetlenül az olvasottakból."
+      },
+      "aiAssistant": {
+        "title": "AI asszisztens",
+        "description": "Magyarázatok, összefoglalók és válaszok a könyvekről — AI-vel."
+      },
+      "streaks": {
+        "title": "Sorozatok és célok",
+        "description": "Építs rendszeres olvasási szokásokat napi sorozatokkal, célokkal és haladásköveteléssel."
+      },
+      "community": {
+        "title": "Közösség",
+        "description": "Oszd meg a kiemeléseket, beszéld át a könyveket és tanulj másokkal együtt."
+      }
+    }
+  },
+  "library": {
+    "title": "Könyvtár",
+    "tabs": {
+      "home": "Kezdőlap",
+      "allBooks": "Összes könyv",
+      "folders": "Mappák",
+      "tags": "Címkék"
+    },
+    "toolbar": {
+      "search": "Keresés",
+      "searchShortcut": "Keresés ({{shortcut}})",
+      "searchPlaceholder": "Könyvek és mappák keresése…",
+      "refresh": "Könyvtár frissítése",
+      "gridView": "Rács nézet",
+      "listView": "Lista nézet",
+      "coverSizeLabel": "Borító mérete",
+      "coverSizeTitle": "Borító méretének állítása",
+      "upload": "Feltöltés",
+      "uploadPdf": "PDF feltöltése",
+      "newFolder": "Új mappa",
+      "newFolderShort": "Új",
+      "sort": "Rendezés",
+      "sortRecent": "Legutóbb hozzáadott",
+      "sortTitle": "Cím",
+      "sortAuthor": "Szerző",
+      "view": "Nézet",
+      "viewGrid": "Rács",
+      "viewList": "Lista",
+      "openUrl": "Megnyitás URL-ről",
+      "scanDevice": "Eszköz beolvasása"
+    },
+    "empty": {
+      "title": "A könyvtárad üres",
+      "body": "Tölts fel egy PDF-et vagy nyiss meg egyet URL-ről, hogy elkezdhesd.",
+      "uploadCta": "PDF feltöltése"
+    },
+    "home": {
+      "continueReading": "Olvasás folytatása",
+      "recentlyAdded": "Legutóbb hozzáadva",
+      "noActivity": "Még nincs semmi. Tölts fel egy könyvet vagy nyiss egyet a katalógusból.",
+      "streakTitle": "Olvasási sorozat"
+    }
+  },
+  "profile": {
+    "title": "Profil",
+    "signInPrompt": "Jelentkezz be, hogy kezelhesd a profilodat.",
+    "displayName": "Megjelenített név",
+    "displayNamePlaceholder": "A megjelenített neved",
+    "displayNameFlagged": "Ez a név tiltott kifejezést tartalmaz.",
+    "noDisplayName": "Nincs megjelenített név",
+    "email": "E-mail",
+    "editSection": "Profil szerkesztése",
+    "accountSection": "Fiók",
+    "uploadAvatar": "Avatar feltöltése",
+    "changeAvatar": "Avatar cseréje",
+    "removeAvatar": "Eltávolítás",
+    "avatarHint": "JPEG, PNG, WebP vagy GIF · max. 5 MB",
+    "save": "Mentés",
+    "saving": "Mentés…",
+    "savedToast": "Elmentve!",
+    "saveFailed": "Nem sikerült menteni a profilt.",
+    "signOut": "Kijelentkezés"
   },
   "quizzes": {
     "title": "Kvízek",

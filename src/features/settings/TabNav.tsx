@@ -1,5 +1,6 @@
 import { NavLink } from "react-router";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Settings as SettingsIcon,
   Palette,
@@ -15,26 +16,26 @@ import { cn } from "@/lib/cn";
 
 export interface TabDef {
   to: string;
-  label: string;
+  /** i18n key under the `settings` namespace. */
+  labelKey: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
 }
 
-// Shared constant lives next to the only component that uses it; HMR
-// for this nav file is fine, the rule's warning isn't actionable here.
 // eslint-disable-next-line react-refresh/only-export-components
 export const SETTINGS_TABS: TabDef[] = [
-  { to: "general", label: "General", icon: SettingsIcon },
-  { to: "appearance", label: "Appearance", icon: Palette },
-  { to: "ai", label: "AI", icon: BotMessageSquare },
-  { to: "tags", label: "Tags", icon: Tag },
-  { to: "plugins", label: "Plugins", icon: Puzzle },
-  { to: "shortcuts", label: "Shortcuts", icon: Keyboard },
-  { to: "about", label: "About", icon: Info },
+  { to: "general", labelKey: "general", icon: SettingsIcon },
+  { to: "appearance", labelKey: "appearance", icon: Palette },
+  { to: "ai", labelKey: "ai", icon: BotMessageSquare },
+  { to: "tags", labelKey: "tags", icon: Tag },
+  { to: "plugins", labelKey: "plugins", icon: Puzzle },
+  { to: "shortcuts", labelKey: "shortcuts", icon: Keyboard },
+  { to: "about", labelKey: "about", icon: Info },
 ];
 
-export function TabNav({ currentLabel }: { currentLabel: string }) {
+export function TabNav({ currentTo }: { currentTo: string }) {
   const isMobile = useIsMobile();
-  if (isMobile) return <TabDropdown currentLabel={currentLabel} />;
+  const { t } = useTranslation();
+  if (isMobile) return <TabDropdown currentTo={currentTo} />;
   return (
     <nav className="sticky top-0 flex flex-col gap-0.5 self-start">
       {SETTINGS_TABS.map((tab) => (
@@ -51,16 +52,18 @@ export function TabNav({ currentLabel }: { currentLabel: string }) {
           }
         >
           <tab.icon size={16} />
-          <span>{tab.label}</span>
+          <span>{t(`settings.${tab.labelKey}`)}</span>
         </NavLink>
       ))}
     </nav>
   );
 }
 
-function TabDropdown({ currentLabel }: { currentLabel: string }) {
+function TabDropdown({ currentTo }: { currentTo: string }) {
   const [open, setOpen] = useState(false);
-  const current = SETTINGS_TABS.find((t) => t.label === currentLabel) ?? SETTINGS_TABS[0];
+  const { t } = useTranslation();
+  const current =
+    SETTINGS_TABS.find((tab) => tab.to === currentTo) ?? SETTINGS_TABS[0];
   const Icon = current.icon;
   return (
     <div className="relative">
@@ -71,7 +74,7 @@ function TabDropdown({ currentLabel }: { currentLabel: string }) {
       >
         <span className="flex items-center gap-2">
           <Icon size={16} />
-          {currentLabel}
+          {t(`settings.${current.labelKey}`)}
         </span>
         <ChevronDown size={16} className={cn("transition-transform", open && "rotate-180")} />
       </button>
@@ -92,7 +95,7 @@ function TabDropdown({ currentLabel }: { currentLabel: string }) {
               }
             >
               <tab.icon size={16} />
-              <span>{tab.label}</span>
+              <span>{t(`settings.${tab.labelKey}`)}</span>
             </NavLink>
           ))}
         </div>

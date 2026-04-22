@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Search, LayoutGrid, List, X, RefreshCw } from "lucide-react";
 import { Kbd, Slider } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -27,6 +28,7 @@ export function LibraryToolbar({
   onRefresh,
   isRefreshing,
 }: LibraryToolbarProps) {
+  const { t } = useTranslation();
   const [searchFocused, setSearchFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -44,6 +46,9 @@ export function LibraryToolbar({
     description: "Focus library search",
     handler: focusSearch,
   });
+  // Keyboard-shortcut descriptions are registered in a central registry
+  // at bind time and rendered in the Shortcuts settings page; they stay
+  // in English until the registry itself is localised.
 
   // Escape clears/blurs search when active; the central registry skips
   // keydown events originating inside inputs except for Escape, so this
@@ -82,7 +87,7 @@ export function LibraryToolbar({
               onBlur={() => {
                 if (!searchQuery) setSearchFocused(false);
               }}
-              placeholder="Search books and folders..."
+              placeholder={t("library.toolbar.searchPlaceholder")}
               className="min-w-0 flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
               autoFocus
             />
@@ -105,11 +110,15 @@ export function LibraryToolbar({
         ) : (
           <button
             onClick={focusSearch}
-            title={`Search (${formatShortcut({ key: "k", ctrl: true })})`}
+            title={t("library.toolbar.searchShortcut", {
+              shortcut: formatShortcut({ key: "k", ctrl: true }),
+            })}
             className="flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
           >
             <Search size={14} />
-            <span className="hidden sm:inline">Search</span>
+            <span className="hidden sm:inline">
+              {t("library.toolbar.search")}
+            </span>
             <Kbd
               shortcut={{ key: "k", ctrl: true }}
               className="hidden lg:inline-flex"
@@ -126,7 +135,7 @@ export function LibraryToolbar({
         onClick={onRefresh}
         disabled={isRefreshing}
         className="shrink-0 rounded-lg border border-glass-border bg-glass-bg p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary disabled:opacity-50 cursor-pointer"
-        title="Refresh library"
+        title={t("library.toolbar.refresh")}
       >
         <RefreshCw size={16} className={cn(isRefreshing && "animate-spin")} />
       </button>
@@ -141,7 +150,7 @@ export function LibraryToolbar({
               ? "bg-accent-purple/15 text-accent-purple"
               : "text-text-muted hover:text-text-primary",
           )}
-          title="Grid view"
+          title={t("library.toolbar.gridView")}
         >
           <LayoutGrid size={16} />
         </button>
@@ -153,7 +162,7 @@ export function LibraryToolbar({
               ? "bg-accent-purple/15 text-accent-purple"
               : "text-text-muted hover:text-text-primary",
           )}
-          title="List view"
+          title={t("library.toolbar.listView")}
         >
           <List size={16} />
         </button>
@@ -162,7 +171,7 @@ export function LibraryToolbar({
       {/* Size slider */}
       <div
         className="hidden shrink-0 items-center sm:flex"
-        title="Adjust cover size"
+        title={t("library.toolbar.coverSizeTitle")}
       >
         <Slider
           value={cardSize}
@@ -170,7 +179,7 @@ export function LibraryToolbar({
           min={140}
           max={320}
           step={10}
-          label="Cover size"
+          label={t("library.toolbar.coverSizeLabel")}
         />
       </div>
     </div>

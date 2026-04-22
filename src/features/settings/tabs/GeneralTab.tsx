@@ -31,8 +31,16 @@ export function GeneralTab() {
   } = useSettingsStore();
 
   const fitModeOptions: { value: FitMode; label: string; description: string }[] = [
-    { value: "fit-width", label: "Fit Width", description: "Scale pages to fill the viewer width" },
-    { value: "fit-page", label: "Fit Page", description: "Scale pages to fit entirely in view" },
+    {
+      value: "fit-width",
+      label: t("settings.reader.fitWidth"),
+      description: t("settings.reader.fitWidthHint"),
+    },
+    {
+      value: "fit-page",
+      label: t("settings.reader.fitPage"),
+      description: t("settings.reader.fitPageHint"),
+    },
   ];
 
   return (
@@ -64,17 +72,18 @@ export function GeneralTab() {
         </div>
       </section>
 
-      {/* Navigation section */}
       <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-text-primary">Navigation</h2>
+        <h2 className="text-lg font-semibold text-text-primary">
+          {t("settings.navigation.heading")}
+        </h2>
 
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-text-primary">
-              Animated page scroll
+              {t("settings.navigation.animatedScroll")}
             </p>
             <p className="text-xs text-text-muted">
-              Smoothly animate when navigating between pages
+              {t("settings.navigation.animatedScrollHint")}
             </p>
           </div>
           <Toggle
@@ -88,7 +97,7 @@ export function GeneralTab() {
         {pageScrollBehavior === "smooth" && (
           <div className="space-y-2 pl-0">
             <p className="text-sm font-medium text-text-primary">
-              Animation duration
+              {t("settings.navigation.animationDuration")}
             </p>
             <Slider
               value={scrollAnimationDuration}
@@ -102,16 +111,17 @@ export function GeneralTab() {
         )}
       </section>
 
-      {/* Reader section */}
       <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-text-primary">Reader</h2>
+        <h2 className="text-lg font-semibold text-text-primary">
+          {t("settings.reader.heading")}
+        </h2>
 
         <div>
           <p className="text-sm font-medium text-text-primary mb-1">
-            Default fit mode
+            {t("settings.reader.fitMode")}
           </p>
           <p className="text-xs text-text-muted mb-3">
-            How new documents are scaled when first opened
+            {t("settings.reader.fitModeHint")}
           </p>
           <div className="flex gap-2">
             {fitModeOptions.map((opt) => (
@@ -133,26 +143,23 @@ export function GeneralTab() {
         </div>
       </section>
 
-      {/* Experimental / Developer section */}
       <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
         <div>
           <h2 className="text-lg font-semibold text-text-primary">
-            Experimental / Developer
+            {t("settings.experimental.heading")}
           </h2>
           <p className="text-xs text-text-muted mt-0.5">
-            Unfinished features intended for testing. Expect rough edges.
+            {t("settings.experimental.description")}
           </p>
         </div>
 
         <div className="flex items-center justify-between">
           <div className="pr-4">
             <p className="text-sm font-medium text-text-primary">
-              Allow annotations for all formats
+              {t("settings.experimental.annotationsAllFormats")}
             </p>
             <p className="text-xs text-text-muted">
-              Enables highlight/comment UI on TXT, Markdown, and EPUB
-              documents. Persisted anchors aren't reflow-aware yet, so
-              highlights may drift after edits.
+              {t("settings.experimental.annotationsAllFormatsHint")}
             </p>
           </div>
           <Toggle
@@ -164,12 +171,10 @@ export function GeneralTab() {
         <div className="flex items-center justify-between">
           <div className="pr-4">
             <p className="text-sm font-medium text-text-primary">
-              Allow whiteboard for all formats
+              {t("settings.experimental.whiteboardAllFormats")}
             </p>
             <p className="text-xs text-text-muted">
-              Enables draw mode and whiteboard creation on non-paginated
-              documents. Whiteboards anchor to pages, so behavior may be
-              unpredictable on reflowable content.
+              {t("settings.experimental.whiteboardAllFormatsHint")}
             </p>
           </div>
           <Toggle
