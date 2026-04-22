@@ -213,6 +213,17 @@
       }
     }
   },
+  "browse": {
+    "title": "Browse",
+    "subtitle": "Discover books in the community catalog",
+    "addBook": "Add a Book",
+    "addBookShort": "Add",
+    "searchPlaceholder": "Search by title…",
+    "all": "All",
+    "category": "Category",
+    "empty": "No books found. Be the first to add one!",
+    "loadMore": "Load More"
+  },
   "library": {
     "title": "Library",
     "tabs": {

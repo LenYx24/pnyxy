@@ -213,6 +213,17 @@
       }
     }
   },
+  "browse": {
+    "title": "Felfedezés",
+    "subtitle": "Fedezz fel könyveket a közösségi katalógusban",
+    "addBook": "Könyv hozzáadása",
+    "addBookShort": "Új",
+    "searchPlaceholder": "Keresés cím szerint…",
+    "all": "Összes",
+    "category": "Kategória",
+    "empty": "Nincs találat. Legyél te az első, aki hozzáad egyet!",
+    "loadMore": "Több betöltése"
+  },
   "library": {
     "title": "Könyvtár",
     "tabs": {

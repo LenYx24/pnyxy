@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Search, Plus, Loader2 } from "lucide-react";
 import { Button, CategoryChip } from "@/components/ui";
 import { useBrowseStore } from "@/stores/browse-store";
@@ -9,6 +10,7 @@ import { AddBookModal } from "./AddBookModal";
 import { CreateCategoryModal } from "./CreateCategoryModal";
 
 export function BrowsePage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
@@ -71,19 +73,20 @@ export function BrowsePage() {
       {/* Header */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-text-primary">Browse</h2>
+          <h2 className="text-2xl font-bold text-text-primary">
+            {t("browse.title")}
+          </h2>
           <p className="text-sm text-text-secondary">
-            Discover books in the community catalog
+            {t("browse.subtitle")}
           </p>
         </div>
         <Button variant="secondary" onClick={() => setModalOpen(true)}>
           <Plus size={18} />
-          <span className="hidden sm:inline">Add a Book</span>
-          <span className="sm:hidden">Add</span>
+          <span className="hidden sm:inline">{t("browse.addBook")}</span>
+          <span className="sm:hidden">{t("browse.addBookShort")}</span>
         </Button>
       </div>
 
-      {/* Search bar */}
       <div className="relative mb-4">
         <Search
           size={16}
@@ -91,14 +94,13 @@ export function BrowsePage() {
         />
         <input
           type="text"
-          placeholder="Search by title..."
+          placeholder={t("browse.searchPlaceholder")}
           defaultValue={searchQuery}
           onChange={(e) => handleSearchChange(e.target.value)}
           className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2 pl-9 text-sm text-text-primary backdrop-blur-md placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
         />
       </div>
 
-      {/* Category filter chips */}
       <div className="mb-2 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
         <button
           onClick={() => filterByCategory(null)}
@@ -108,7 +110,7 @@ export function BrowsePage() {
               : "bg-glass-bg text-text-muted hover:text-text-primary border border-glass-border"
           }`}
         >
-          All
+          {t("browse.all")}
         </button>
         {topCategories.map((cat) => (
           <CategoryChip
@@ -124,7 +126,7 @@ export function BrowsePage() {
           onClick={() => setCategoryModalOpen(true)}
           className="rounded-full border border-dashed border-glass-border px-3 py-1 text-xs font-medium text-text-muted transition-colors hover:text-text-primary hover:border-text-muted cursor-pointer"
         >
-          <Plus size={12} className="inline -mt-0.5" /> Category
+          <Plus size={12} className="inline -mt-0.5" /> {t("browse.category")}
         </button>
       </div>
 
@@ -151,9 +153,7 @@ export function BrowsePage() {
         </div>
       ) : catalogBooks.length === 0 ? (
         <div className="py-20 text-center">
-          <p className="text-text-muted">
-            No books found. Be the first to add one!
-          </p>
+          <p className="text-text-muted">{t("browse.empty")}</p>
         </div>
       ) : (
         <>
@@ -178,7 +178,7 @@ export function BrowsePage() {
                 {isLoading ? (
                   <Loader2 size={16} className="animate-spin" />
                 ) : (
-                  "Load More"
+                  t("browse.loadMore")
                 )}
               </Button>
             </div>
