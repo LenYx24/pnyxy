@@ -233,7 +233,10 @@ export function QuizEditorPage() {
         </div>
       </section>
 
-      <AiGeneratePanel onAppend={appendGeneratedQuestions} />
+      <AiGeneratePanel
+        onAppend={appendGeneratedQuestions}
+        uploadedBookId={uploadedBookId}
+      />
 
       {/* Questions */}
       <section className="space-y-4">

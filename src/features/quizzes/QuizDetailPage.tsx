@@ -159,36 +159,38 @@ export function QuizDetailPage() {
               const pct = a.total > 0 ? Math.round((a.score / a.total) * 100) : 0;
               const completed = a.completed_at ? new Date(a.completed_at) : null;
               return (
-                <li
-                  key={a.id}
-                  className="flex items-center justify-between gap-3 px-3 py-2 text-sm sm:px-4"
-                >
-                  <span className="min-w-0 flex-1 truncate text-text-secondary">
-                    {completed ? (
-                      <>
-                        <span className="sm:hidden">
-                          {completed.toLocaleDateString()}
-                        </span>
-                        <span className="hidden sm:inline">
-                          {completed.toLocaleString()}
-                        </span>
-                      </>
-                    ) : (
-                      "In progress"
-                    )}
-                  </span>
-                  <span
-                    className={cn(
-                      "shrink-0 font-medium tabular-nums",
-                      pct >= 80
-                        ? "text-green-400"
-                        : pct >= 50
-                          ? "text-amber-400"
-                          : "text-red-400",
-                    )}
+                <li key={a.id}>
+                  <Link
+                    to={`/quizzes/${quizId}/attempts/${a.id}`}
+                    className="flex items-center justify-between gap-3 px-3 py-2 text-sm transition-colors hover:bg-glass-hover sm:px-4"
                   >
-                    {a.score}/{a.total} ({pct}%)
-                  </span>
+                    <span className="min-w-0 flex-1 truncate text-text-secondary">
+                      {completed ? (
+                        <>
+                          <span className="sm:hidden">
+                            {completed.toLocaleDateString()}
+                          </span>
+                          <span className="hidden sm:inline">
+                            {completed.toLocaleString()}
+                          </span>
+                        </>
+                      ) : (
+                        "In progress"
+                      )}
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 font-medium tabular-nums",
+                        pct >= 80
+                          ? "text-green-400"
+                          : pct >= 50
+                            ? "text-amber-400"
+                            : "text-red-400",
+                      )}
+                    >
+                      {a.score}/{a.total} ({pct}%)
+                    </span>
+                  </Link>
                 </li>
               );
             })}
