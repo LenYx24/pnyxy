@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { FilePlus, FileText, StickyNote, PenTool, List, LayoutGrid, Trash2, BookOpen } from "lucide-react";
 import { ThumbnailToc } from "./ThumbnailToc";
 import { cn } from "@/lib/cn";
@@ -93,6 +94,7 @@ export function ReaderSidebarContent({
   onDeleteNote,
   onDeleteWhiteboard,
 }: ReaderSidebarContentProps) {
+  const { t } = useTranslation();
   const activeDoc = useActiveDocument();
   const documents = useReaderStore((s) => s.documents);
   const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
@@ -260,9 +262,9 @@ export function ReaderSidebarContent({
   const docEntries = Array.from(documents.entries());
 
   const tabItems: { key: SidebarTab; icon: typeof List; label: string }[] = [
-    { key: "contents", icon: tocViewMode === "thumbnail" ? LayoutGrid : List, label: "Contents" },
-    { key: "notes", icon: StickyNote, label: "Notes" },
-    { key: "whiteboards", icon: PenTool, label: "Whiteboards" },
+    { key: "contents", icon: tocViewMode === "thumbnail" ? LayoutGrid : List, label: t("reader.sidebar.tabContents") },
+    { key: "notes", icon: StickyNote, label: t("reader.sidebar.tabNotes") },
+    { key: "whiteboards", icon: PenTool, label: t("reader.sidebar.tabWhiteboards") },
   ];
 
   return (
@@ -270,14 +272,14 @@ export function ReaderSidebarContent({
       {/* Header */}
       <div className="p-4 border-b border-glass-border flex items-center justify-between">
         <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
-          {meta ? "Reader" : "Reader"}
+          {t("reader.sidebar.readerHeading")}
         </h3>
         <div className="flex items-center gap-1">
           {onOpenFile && (
             <button
               onClick={onOpenFile}
               className="rounded-md p-1 text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
-              title="Open another PDF"
+              title={t("reader.sidebar.openAnotherPdf")}
             >
               <FilePlus size={16} />
             </button>
@@ -289,7 +291,7 @@ export function ReaderSidebarContent({
       {docEntries.length > 1 && (
         <div className="border-b border-glass-border p-2 space-y-0.5">
           <p className="px-3 py-1 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-            Open Documents
+            {t("reader.sidebar.openDocuments")}
           </p>
           {docEntries.map(([id, _doc]) => (
             <button
@@ -340,10 +342,10 @@ export function ReaderSidebarContent({
               <button
                 onClick={onOpenBook}
                 className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
-                title="Open the book viewer"
+                title={t("reader.sidebar.openBookTitle")}
               >
                 <BookOpen size={14} />
-                <span>Open book</span>
+                <span>{t("reader.sidebar.openBook")}</span>
               </button>
             )}
             <button
@@ -354,10 +356,10 @@ export function ReaderSidebarContent({
                   ? "text-accent-purple bg-accent-purple/10"
                   : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
               )}
-              title="Outline view"
+              title={t("reader.sidebar.outlineTitle")}
             >
               <List size={14} />
-              <span>Outline</span>
+              <span>{t("reader.sidebar.outline")}</span>
             </button>
             <button
               onClick={() => setTocViewMode("thumbnail")}
@@ -367,26 +369,26 @@ export function ReaderSidebarContent({
                   ? "text-accent-purple bg-accent-purple/10"
                   : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
               )}
-              title="Thumbnail view"
+              title={t("reader.sidebar.thumbnailsTitle")}
             >
               <LayoutGrid size={14} />
-              <span>Thumbnails</span>
+              <span>{t("reader.sidebar.thumbnails")}</span>
             </button>
           </>
         )}
         {sidebarTab === "contents" && !meta && (
           <span className="px-1 py-0.5 text-xs text-text-muted/60">
-            No document open
+            {t("reader.sidebar.noDocumentOpen")}
           </span>
         )}
         {sidebarTab === "notes" && onCreateNote && (
           <button
             onClick={onCreateNote}
             className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
-            title="New note"
+            title={t("reader.sidebar.newNote")}
           >
             <StickyNote size={14} />
-            <span>New note</span>
+            <span>{t("reader.sidebar.newNote")}</span>
           </button>
         )}
         {sidebarTab === "whiteboards" && onCreateWhiteboard && (
@@ -401,12 +403,12 @@ export function ReaderSidebarContent({
             )}
             title={
               whiteboardCreationAllowed
-                ? "New whiteboard"
-                : "Whiteboards are only available for paginated formats"
+                ? t("reader.sidebar.newWhiteboard")
+                : t("reader.sidebar.whiteboardsGated")
             }
           >
             <PenTool size={14} />
-            <span>New whiteboard</span>
+            <span>{t("reader.sidebar.newWhiteboard")}</span>
           </button>
         )}
       </div>
@@ -418,7 +420,7 @@ export function ReaderSidebarContent({
           <>
             {!meta && (
               <p className="px-3 py-2 text-sm text-text-muted">
-                Open a document to see its contents.
+                {t("reader.sidebar.openToSeeContents")}
               </p>
             )}
 
@@ -452,7 +454,7 @@ export function ReaderSidebarContent({
                       : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
                   )}
                 >
-                  Page {i + 1}
+                  {t("reader.sidebar.page", { n: i + 1 })}
                 </button>
               ))}
           </>
@@ -462,7 +464,9 @@ export function ReaderSidebarContent({
         {sidebarTab === "notes" && (
           <>
             {notes.length === 0 ? (
-              <p className="px-3 py-2 text-sm text-text-muted">No notes yet</p>
+              <p className="px-3 py-2 text-sm text-text-muted">
+                {t("reader.sidebar.noNotes")}
+              </p>
             ) : (
               notes.map((note, index) => (
                 <div
@@ -502,11 +506,13 @@ export function ReaderSidebarContent({
                     </div>
                   </div>
                   <StickyNote size={14} className="shrink-0" />
-                  <span className="min-w-0 truncate flex-1">{note.title || "Untitled Note"}</span>
+                  <span className="min-w-0 truncate flex-1">
+                    {note.title || t("reader.sidebar.untitledNote")}
+                  </span>
                   {/* Quick delete */}
                   <button
                     className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
-                    title="Delete note"
+                    title={t("reader.sidebar.deleteNote")}
                     onClick={(e) => {
                       e.stopPropagation();
                       useNoteStore.getState().deleteNote(note.id);
@@ -525,7 +531,9 @@ export function ReaderSidebarContent({
         {sidebarTab === "whiteboards" && (
           <>
             {whiteboards.length === 0 ? (
-              <p className="px-3 py-2 text-sm text-text-muted">No whiteboards yet</p>
+              <p className="px-3 py-2 text-sm text-text-muted">
+                {t("reader.sidebar.noWhiteboards")}
+              </p>
             ) : (
               whiteboards.map((wb, index) => (
                 <div
@@ -565,11 +573,13 @@ export function ReaderSidebarContent({
                     </div>
                   </div>
                   <PenTool size={14} className="shrink-0" />
-                  <span className="min-w-0 truncate flex-1">{wb.title || "Untitled Whiteboard"}</span>
+                  <span className="min-w-0 truncate flex-1">
+                    {wb.title || t("reader.sidebar.untitledWhiteboard")}
+                  </span>
                   {/* Quick delete */}
                   <button
                     className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
-                    title="Delete whiteboard"
+                    title={t("reader.sidebar.deleteWhiteboard")}
                     onClick={(e) => {
                       e.stopPropagation();
                       useWhiteboardStore.getState().deleteWhiteboard(wb.id);
@@ -589,28 +599,28 @@ export function ReaderSidebarContent({
       {sidebarTab === "notes" && noteSelectionActive && (
         <div className="border-t border-glass-border p-2 flex items-center justify-between">
           <span className="text-xs text-text-muted px-2">
-            {selectedNoteIds.size} selected
+            {t("reader.sidebar.countSelected", { count: selectedNoteIds.size })}
           </span>
           <button
             onClick={handleDeleteSelectedNotes}
             className="flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
           >
             <Trash2 size={12} />
-            Delete
+            {t("reader.sidebar.delete")}
           </button>
         </div>
       )}
       {sidebarTab === "whiteboards" && whiteboardSelectionActive && (
         <div className="border-t border-glass-border p-2 flex items-center justify-between">
           <span className="text-xs text-text-muted px-2">
-            {selectedWhiteboardIds.size} selected
+            {t("reader.sidebar.countSelected", { count: selectedWhiteboardIds.size })}
           </span>
           <button
             onClick={handleDeleteSelectedWhiteboards}
             className="flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
           >
             <Trash2 size={12} />
-            Delete
+            {t("reader.sidebar.delete")}
           </button>
         </div>
       )}
