@@ -1,4 +1,5 @@
 import { FolderInput, Trash2, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
 
 interface SelectionBarProps {
@@ -9,6 +10,7 @@ interface SelectionBarProps {
 }
 
 export function SelectionBar({ count, onMove, onDelete, onClear }: SelectionBarProps) {
+  const { t } = useTranslation();
   if (count === 0) return null;
 
   return (
@@ -18,7 +20,7 @@ export function SelectionBar({ count, onMove, onDelete, onClear }: SelectionBarP
     >
       <div className="flex items-center justify-between gap-2 rounded-xl border border-glass-border bg-bg-secondary/95 px-3 py-2.5 shadow-xl shadow-black/30 backdrop-blur-xl sm:justify-start sm:gap-3 sm:px-4">
         <span className="text-sm font-medium text-text-primary whitespace-nowrap">
-          {count} selected
+          {t("library.selection.countSelected", { count })}
         </span>
 
         <div className="h-4 w-px bg-glass-border" />
@@ -30,7 +32,7 @@ export function SelectionBar({ count, onMove, onDelete, onClear }: SelectionBarP
             onClick={onMove}
           >
             <FolderInput size={14} />
-            Move
+            {t("library.selection.move")}
           </Button>
 
           <Button
@@ -39,7 +41,7 @@ export function SelectionBar({ count, onMove, onDelete, onClear }: SelectionBarP
             onClick={onDelete}
           >
             <Trash2 size={14} />
-            Delete
+            {t("library.selection.delete")}
           </Button>
         </div>
 
@@ -48,7 +50,7 @@ export function SelectionBar({ count, onMove, onDelete, onClear }: SelectionBarP
         <button
           onClick={onClear}
           className="cursor-pointer rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary"
-          title="Clear selection"
+          title={t("library.selection.clear")}
         >
           <X size={14} />
         </button>

@@ -1,7 +1,9 @@
 import { Flame, Trophy } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useStreakStore } from "@/stores/streak-store";
 
 export function StreakCard() {
+  const { t } = useTranslation();
   const getCurrentStreak = useStreakStore((s) => s.getCurrentStreak);
   const longestStreak = useStreakStore((s) => s.longestStreak);
   const getTodayRecord = useStreakStore((s) => s.getTodayRecord);
@@ -24,23 +26,30 @@ export function StreakCard() {
             <span className="text-lg font-bold text-text-primary">
               {currentStreak}
             </span>
-            <span className="text-xs text-text-muted">day streak</span>
+            <span className="text-xs text-text-muted">
+              {t("library.streak.dayStreak", { count: currentStreak })}
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
             <Trophy size={16} className="text-yellow-400" />
             <span className="text-sm font-medium text-text-secondary">
               {longestStreak}
             </span>
-            <span className="text-xs text-text-muted">best</span>
+            <span className="text-xs text-text-muted">
+              {t("library.streak.best")}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Progress bar */}
       <div className="space-y-1">
         <div className="flex justify-between text-xs text-text-muted">
-          <span>Today: {todayMinutes} min</span>
-          <span>{goalMinutes} min goal</span>
+          <span>
+            {t("library.streak.todayMinutes", { minutes: todayMinutes })}
+          </span>
+          <span>
+            {t("library.streak.goalMinutes", { minutes: goalMinutes })}
+          </span>
         </div>
         <div className="h-2 rounded-full bg-glass-bg overflow-hidden">
           <div

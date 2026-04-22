@@ -226,11 +226,62 @@
   },
   "library": {
     "title": "Könyvtár",
+    "yourLibrary": "A könyvtárad",
+    "bookCount_one": "{{count}} könyv a gyűjteményedben",
+    "bookCount_other": "{{count}} könyv a gyűjteményedben",
+    "dropOverlay": {
+      "title": "Engedd el a hozzáadáshoz",
+      "formats": "PDF, EPUB, TXT vagy Markdown — több fájl is támogatott",
+      "signInHint": "Jelentkezz be, hogy PDF-eket menthess a felhő könyvtáradba."
+    },
+    "importing": "Importálás: {{current}} / {{total}}",
+    "importingFailed_one": "({{count}} sikertelen)",
+    "importingFailed_other": "({{count}} sikertelen)",
+    "actions": {
+      "scan": "Eszköz beolvasása",
+      "scanTitle": "Könyvek keresése az eszközön ({{shortcut}})",
+      "upload": "Feltöltés",
+      "uploadTitle": "Könyv feltöltése ({{shortcut}})",
+      "open": "Megnyitás",
+      "openTitle": "Fájl megnyitása ({{shortcut}})",
+      "fromUrl": "URL-ről",
+      "fromUrlTitle": "Fájl megnyitása URL-ről"
+    },
     "tabs": {
       "home": "Kezdőlap",
       "allBooks": "Összes könyv",
       "folders": "Mappák",
-      "tags": "Címkék"
+      "tags": "Címkék",
+      "tabTitle": "{{name}} ({{shortcut}})"
+    },
+    "confirm": {
+      "deleteTitle": "Könyv törlése",
+      "deleteBody": "Biztosan törlöd ezt a könyvet? A fájl véglegesen eltávolításra kerül a tárolóból.",
+      "deleteAction": "Törlés",
+      "removeTitle": "Eltávolítás a könyvtárból",
+      "removeBody": "Biztosan eltávolítod ezt a könyvet a könyvtáradból?",
+      "removeAction": "Eltávolítás"
+    },
+    "selection": {
+      "countSelected": "{{count}} kijelölve",
+      "move": "Áthelyezés",
+      "delete": "Törlés",
+      "clear": "Kijelölés törlése"
+    },
+    "storage": {
+      "used": "{{used}} / {{limit}} használva",
+      "tierFree": "Ingyenes csomag",
+      "tierPremium": "Prémium csomag"
+    },
+    "streak": {
+      "dayStreak_one": "napos sorozat",
+      "dayStreak_other": "napos sorozat",
+      "best": "legjobb",
+      "todayMinutes": "Ma: {{minutes}} perc",
+      "goalMinutes": "{{minutes}} perces cél"
+    },
+    "tagFilter": {
+      "all": "Összes"
     },
     "toolbar": {
       "search": "Keresés",
@@ -264,7 +315,11 @@
       "continueReading": "Olvasás folytatása",
       "recentlyAdded": "Legutóbb hozzáadva",
       "noActivity": "Még nincs semmi. Tölts fel egy könyvet vagy nyiss egyet a katalógusból.",
-      "streakTitle": "Olvasási sorozat"
+      "streakTitle": "Olvasási sorozat",
+      "emptyTitle": "A könyvtárad üres",
+      "emptyBody": "Böngéssz a katalógusban, hogy könyveket adj hozzá.",
+      "browseCatalog": "Katalógus böngészése",
+      "noSearchResults": "Nincs találat erre: „{{query}}”"
     }
   },
   "static": {

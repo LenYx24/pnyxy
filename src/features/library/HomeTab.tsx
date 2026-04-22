@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import { BookOpen, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useLibraryStore } from "@/stores/library-store";
@@ -36,6 +37,7 @@ export function HomeTab({
   activeTag = null,
   isLoading = false,
 }: HomeTabProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const books = useLibraryStore((s) => s.books);
   const folders = useLibraryStore((s) => s.folders);
@@ -81,14 +83,14 @@ export function HomeTab({
         <BookOpen size={48} className="text-text-muted/50" />
         <div>
           <p className="text-lg font-medium text-text-primary">
-            Your library is empty
+            {t("library.home.emptyTitle")}
           </p>
           <p className="mt-1 text-sm text-text-muted">
-            Browse the catalog to add books.
+            {t("library.home.emptyBody")}
           </p>
         </div>
         <Button variant="secondary" onClick={() => navigate("/browse")}>
-          Browse Catalog
+          {t("library.home.browseCatalog")}
         </Button>
       </div>
     );
@@ -101,13 +103,13 @@ export function HomeTab({
       </div>
 
       <h3 className="mb-4 text-lg font-semibold text-text-primary">
-        Recently Added
+        {t("library.home.recentlyAdded")}
       </h3>
 
       {recentBooks.length === 0 && query && (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
           <p className="text-sm text-text-muted">
-            No results for &quot;{searchQuery}&quot;
+            {t("library.home.noSearchResults", { query: searchQuery })}
           </p>
         </div>
       )}

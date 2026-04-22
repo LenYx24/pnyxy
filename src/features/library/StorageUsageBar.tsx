@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 
 interface StorageUsageBarProps {
@@ -20,17 +21,24 @@ export function StorageUsageBar({
   tier,
   className,
 }: StorageUsageBarProps) {
+  const { t } = useTranslation();
   const pct = limitBytes > 0 ? (usedBytes / limitBytes) * 100 : 0;
   const isHigh = pct > 80;
-  const tierLabel = tier === "premium" ? "Premium" : "Free";
+  const tierLabel =
+    tier === "premium"
+      ? t("library.storage.tierPremium")
+      : t("library.storage.tierFree");
 
   return (
     <div className={cn("space-y-1", className)}>
       <div className="flex items-center justify-between text-xs">
         <span className="text-text-muted">
-          {formatBytes(usedBytes)} / {formatBytes(limitBytes)} used
+          {t("library.storage.used", {
+            used: formatBytes(usedBytes),
+            limit: formatBytes(limitBytes),
+          })}
         </span>
-        <span className="text-text-muted">{tierLabel} tier</span>
+        <span className="text-text-muted">{tierLabel}</span>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-glass-border">
         <div

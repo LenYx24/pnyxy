@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 import { ALL_STATUS_TAGS, getTagLabel, getTagColor } from "@/components/ui/TagBadge";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -9,6 +10,7 @@ interface TagFilterBarProps {
 }
 
 export function TagFilterBar({ activeTag, onTagChange }: TagFilterBarProps) {
+  const { t } = useTranslation();
   // Subscribe so we re-render when tagColors change
   useSettingsStore((s) => s.tagColors);
 
@@ -23,7 +25,7 @@ export function TagFilterBar({ activeTag, onTagChange }: TagFilterBarProps) {
             : "bg-glass-bg text-text-muted hover:text-text-primary border border-glass-border",
         )}
       >
-        All
+        {t("library.tagFilter.all")}
       </button>
       {ALL_STATUS_TAGS.map((tag) => {
         const isActive = activeTag === tag;
