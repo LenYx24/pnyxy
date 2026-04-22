@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -50,6 +51,7 @@ function ZoomInput({
   onSubmit: (level: number) => void;
   onCycleMode: () => void;
 }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -58,8 +60,8 @@ function ZoomInput({
     zoomMode === "custom"
       ? `${zoomLevel}%`
       : zoomMode === "fit-width"
-        ? "Width"
-        : "Page";
+        ? t("reader.toolbar.fitWidth")
+        : t("reader.toolbar.fitPage");
 
   const handleStartEdit = useCallback(() => {
     setInputValue(String(zoomLevel));
@@ -101,7 +103,7 @@ function ZoomInput({
         onCycleMode();
       }}
       className="min-w-[3rem] rounded px-1 py-0.5 text-center text-xs text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-      title="Click to set custom zoom, double-click to cycle fit mode"
+      title={t("reader.toolbar.zoomCustomTitle")}
     >
       {displayText}
     </button>
@@ -135,6 +137,7 @@ export function ReaderToolbar({
   onToggleAiChat,
   onToggleZenMode,
 }: ReaderToolbarProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const activeDoc = useActiveDocument();
   const goToPage = useReaderStore((s) => s.goToPage);
@@ -175,29 +178,27 @@ export function ReaderToolbar({
     setPageInput("");
   };
 
-  // Mobile overflow menu items
   const overflowActions = [
-    { label: "Zoom In", icon: ZoomIn, onClick: () => zoomIn() },
-    { label: "Zoom Out", icon: ZoomOut, onClick: () => zoomOut() },
-    { label: "Fit Mode", icon: Columns2, onClick: () => setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width") },
-    { label: "Highlight", icon: Highlighter, onClick: () => { setShowOverflowMenu(false); setShowColorPicker(!showColorPicker); } },
-    ...(onToggleDrawMode ? [{ label: isDrawMode ? "Exit Draw" : "Draw", icon: PenTool, onClick: onToggleDrawMode }] : []),
-    { label: "Undo", icon: Undo2, onClick: performUndo, disabled: !canUndo },
-    { label: "Screenshot", icon: Camera, onClick: onScreenshot },
-    { label: "Area screenshot", icon: Crop, onClick: onScreenshotRect },
-    { label: "Print", icon: Printer, onClick: onPrint },
-    { label: "Search", icon: Search, onClick: onToggleSearch },
-    { label: "Comments", icon: MessageSquare, onClick: onToggleComments },
-    { label: "AI Chat", icon: BotMessageSquare, onClick: onToggleAiChat },
-    { label: "Zen mode", icon: Focus, onClick: onToggleZenMode },
-    { label: isFullscreen ? "Exit Fullscreen" : "Fullscreen", icon: isFullscreen ? Minimize : Maximize, onClick: onToggleFullscreen },
+    { label: t("reader.toolbar.zoomIn"), icon: ZoomIn, onClick: () => zoomIn() },
+    { label: t("reader.toolbar.zoomOut"), icon: ZoomOut, onClick: () => zoomOut() },
+    { label: t("reader.toolbar.fitMode"), icon: Columns2, onClick: () => setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width") },
+    { label: t("reader.toolbar.highlight"), icon: Highlighter, onClick: () => { setShowOverflowMenu(false); setShowColorPicker(!showColorPicker); } },
+    ...(onToggleDrawMode ? [{ label: isDrawMode ? t("reader.toolbar.exitDraw") : t("reader.toolbar.draw"), icon: PenTool, onClick: onToggleDrawMode }] : []),
+    { label: t("reader.toolbar.undo"), icon: Undo2, onClick: performUndo, disabled: !canUndo },
+    { label: t("reader.toolbar.screenshot"), icon: Camera, onClick: onScreenshot },
+    { label: t("reader.toolbar.screenshotArea"), icon: Crop, onClick: onScreenshotRect },
+    { label: t("reader.toolbar.print"), icon: Printer, onClick: onPrint },
+    { label: t("reader.toolbar.search"), icon: Search, onClick: onToggleSearch },
+    { label: t("reader.toolbar.comments"), icon: MessageSquare, onClick: onToggleComments },
+    { label: t("reader.toolbar.aiChat"), icon: BotMessageSquare, onClick: onToggleAiChat },
+    { label: t("reader.toolbar.zenMode"), icon: Focus, onClick: onToggleZenMode },
+    { label: isFullscreen ? t("reader.toolbar.exitFullscreen") : t("reader.toolbar.fullscreen"), icon: isFullscreen ? Minimize : Maximize, onClick: onToggleFullscreen },
   ];
 
-  // Tablet: hide screenshot/print, show them in a smaller overflow
   const tabletOverflowActions = [
-    { label: "Screenshot", icon: Camera, onClick: onScreenshot },
-    { label: "Area screenshot", icon: Crop, onClick: onScreenshotRect },
-    { label: "Print", icon: Printer, onClick: onPrint },
+    { label: t("reader.toolbar.screenshot"), icon: Camera, onClick: onScreenshot },
+    { label: t("reader.toolbar.screenshotArea"), icon: Crop, onClick: onScreenshotRect },
+    { label: t("reader.toolbar.print"), icon: Printer, onClick: onPrint },
   ];
 
   return (
@@ -207,7 +208,7 @@ export function ReaderToolbar({
         <button
           onClick={() => navigate("/library")}
           className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer shrink-0"
-          title="Back to library"
+          title={t("reader.toolbar.backToLibrary")}
         >
           <ArrowLeft size={16} />
         </button>
@@ -242,7 +243,7 @@ export function ReaderToolbar({
               setTitleInput(getDisplayTitle());
               setIsEditingTitle(true);
             }}
-            title="Click to rename"
+            title={t("reader.toolbar.renameTitle")}
           >
             {getDisplayTitle()}
           </span>
@@ -357,7 +358,7 @@ export function ReaderToolbar({
                   ? "text-accent-purple bg-accent-purple/10"
                   : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
               )}
-              title="Toggle fit mode"
+              title={t("reader.toolbar.toggleFitMode")}
             >
               <Columns2 size={16} />
             </button>
@@ -370,7 +371,7 @@ export function ReaderToolbar({
                 "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
                 "disabled:opacity-30 disabled:cursor-not-allowed",
               )}
-              title="Undo (Ctrl+Z)"
+              title={t("reader.toolbar.undoTitle")}
             >
               <Undo2 size={16} />
             </button>
@@ -380,7 +381,7 @@ export function ReaderToolbar({
               <button
                 onClick={() => setShowColorPicker(!showColorPicker)}
                 className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer flex items-center gap-1"
-                title="Highlight color"
+                title={t("reader.toolbar.highlightColor")}
               >
                 <Highlighter size={16} />
                 <div
@@ -418,7 +419,7 @@ export function ReaderToolbar({
                     ? "text-accent-purple bg-accent-purple/10"
                     : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
                 )}
-                title={isDrawMode ? "Back to PDF viewer" : "Draw on PDF"}
+                title={isDrawMode ? t("reader.toolbar.backToPdf") : t("reader.toolbar.drawOnPdf")}
               >
                 <PenTool size={16} />
               </button>
@@ -427,21 +428,21 @@ export function ReaderToolbar({
             <button
               onClick={onToggleSearch}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title="Search (Ctrl+F)"
+              title={t("reader.toolbar.searchTitle")}
             >
               <Search size={16} />
             </button>
             <button
               onClick={onToggleComments}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title="Toggle comments panel (Ctrl+M)"
+              title={t("reader.toolbar.commentsTitle")}
             >
               <MessageSquare size={16} />
             </button>
             <button
               onClick={onToggleAiChat}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title="AI Chat (Ctrl+I)"
+              title={t("reader.toolbar.aiChatTitle")}
             >
               <BotMessageSquare size={16} />
             </button>
@@ -451,14 +452,14 @@ export function ReaderToolbar({
             <button
               onClick={onToggleZenMode}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title="Zen mode"
+              title={t("reader.toolbar.zenMode")}
             >
               <Focus size={16} />
             </button>
             <button
               onClick={onToggleFullscreen}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              title={isFullscreen ? t("reader.toolbar.exitFullscreen") : t("reader.toolbar.fullscreen")}
             >
               {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
             </button>
@@ -525,7 +526,7 @@ export function ReaderToolbar({
                   ? "text-accent-purple bg-accent-purple/10"
                   : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
               )}
-              title="Toggle fit mode"
+              title={t("reader.toolbar.toggleFitMode")}
             >
               <Columns2 size={16} />
             </button>
@@ -539,7 +540,7 @@ export function ReaderToolbar({
                 "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
                 "disabled:opacity-30 disabled:cursor-not-allowed",
               )}
-              title="Undo (Ctrl+Z)"
+              title={t("reader.toolbar.undoTitle")}
             >
               <Undo2 size={16} />
             </button>
@@ -549,7 +550,7 @@ export function ReaderToolbar({
               <button
                 onClick={() => setShowColorPicker(!showColorPicker)}
                 className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer flex items-center gap-1"
-                title="Highlight color"
+                title={t("reader.toolbar.highlightColor")}
               >
                 <Highlighter size={16} />
                 <div
@@ -588,7 +589,7 @@ export function ReaderToolbar({
                     ? "text-accent-purple bg-accent-purple/10"
                     : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
                 )}
-                title={isDrawMode ? "Back to PDF viewer" : "Draw on PDF"}
+                title={isDrawMode ? t("reader.toolbar.backToPdf") : t("reader.toolbar.drawOnPdf")}
               >
                 <PenTool size={16} />
               </button>
@@ -598,7 +599,7 @@ export function ReaderToolbar({
             <button
               onClick={onScreenshot}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title="Screenshot viewport (Ctrl+Shift+S)"
+              title={t("reader.toolbar.screenshotTitle")}
             >
               <Camera size={16} />
             </button>
@@ -606,7 +607,7 @@ export function ReaderToolbar({
             <button
               onClick={onScreenshotRect}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title="Screenshot an area"
+              title={t("reader.toolbar.screenshotAreaTitle")}
             >
               <Crop size={16} />
             </button>
@@ -614,7 +615,7 @@ export function ReaderToolbar({
             <button
               onClick={onPrint}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title="Print (Ctrl+P)"
+              title={t("reader.toolbar.printTitle")}
             >
               <Printer size={16} />
             </button>
@@ -622,7 +623,7 @@ export function ReaderToolbar({
             <button
               onClick={onToggleSearch}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title="Search (Ctrl+F)"
+              title={t("reader.toolbar.searchTitle")}
             >
               <Search size={16} />
             </button>
@@ -630,7 +631,7 @@ export function ReaderToolbar({
             <button
               onClick={onToggleComments}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title="Toggle comments panel (Ctrl+M)"
+              title={t("reader.toolbar.commentsTitle")}
             >
               <MessageSquare size={16} />
             </button>
@@ -638,7 +639,7 @@ export function ReaderToolbar({
             <button
               onClick={onToggleAiChat}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title="AI Chat (Ctrl+I)"
+              title={t("reader.toolbar.aiChatTitle")}
             >
               <BotMessageSquare size={16} />
             </button>
@@ -648,14 +649,14 @@ export function ReaderToolbar({
             <button
               onClick={onToggleZenMode}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title="Zen mode"
+              title={t("reader.toolbar.zenMode")}
             >
               <Focus size={16} />
             </button>
             <button
               onClick={onToggleFullscreen}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              title={isFullscreen ? t("reader.toolbar.exitFullscreen") : t("reader.toolbar.fullscreen")}
             >
               {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
             </button>
