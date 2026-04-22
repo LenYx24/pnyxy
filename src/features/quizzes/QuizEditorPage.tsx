@@ -236,6 +236,7 @@ export function QuizEditorPage() {
       <AiGeneratePanel
         onAppend={appendGeneratedQuestions}
         uploadedBookId={uploadedBookId}
+        catalogBookId={catalogBookId}
       />
 
       {/* Questions */}

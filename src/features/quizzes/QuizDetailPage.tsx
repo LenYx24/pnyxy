@@ -8,11 +8,17 @@ import {
   Loader2,
   History,
   FileQuestion,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useQuizStore } from "@/stores/quiz-store";
 import { useAuthStore } from "@/stores/auth-store";
-import type { Quiz, QuizAttempt, QuizQuestion } from "@/types/quiz";
+import type {
+  Quiz,
+  QuizAttempt,
+  QuizQuestion,
+  QuizQuestionStat,
+} from "@/types/quiz";
 import { cn } from "@/lib/cn";
 
 export function QuizDetailPage() {
@@ -22,11 +28,13 @@ export function QuizDetailPage() {
   const getQuiz = useQuizStore((s) => s.getQuiz);
   const deleteQuiz = useQuizStore((s) => s.deleteQuiz);
   const fetchAttempts = useQuizStore((s) => s.fetchAttempts);
+  const fetchQuestionStats = useQuizStore((s) => s.fetchQuestionStats);
 
   const [loading, setLoading] = useState(true);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [attempts, setAttempts] = useState<QuizAttempt[]>([]);
+  const [stats, setStats] = useState<QuizQuestionStat[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -46,13 +54,19 @@ export function QuizDetailPage() {
       if (user) {
         const a = await fetchAttempts(quizId);
         if (!cancelled) setAttempts(a);
+        // Stats RPC is owner-gated server-side; for non-owners it
+        // returns an empty list which keeps the panel hidden.
+        if (user.id === data.quiz.user_id) {
+          const s = await fetchQuestionStats(quizId);
+          if (!cancelled) setStats(s);
+        }
       }
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [quizId, user, getQuiz, fetchAttempts]);
+  }, [quizId, user, getQuiz, fetchAttempts, fetchQuestionStats]);
 
   if (loading) {
     return (
@@ -198,6 +212,8 @@ export function QuizDetailPage() {
         </section>
       )}
 
+      {isOwner && <MostMissedSection stats={stats} />}
+
       {questions.length === 0 && isOwner && (
         <div className="rounded-xl border border-dashed border-glass-border p-6 text-center">
           <p className="text-sm text-text-muted">
@@ -245,5 +261,65 @@ export function QuizDetailPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function MostMissedSection({ stats }: { stats: QuizQuestionStat[] }) {
+  const answered = stats.filter((s) => s.attempts > 0);
+  if (answered.length === 0) return null;
+
+  const sorted = [...answered].sort((a, b) => {
+    const rateA = a.wrong / a.attempts;
+    const rateB = b.wrong / b.attempts;
+    if (rateB !== rateA) return rateB - rateA;
+    return b.attempts - a.attempts;
+  });
+  const top = sorted.slice(0, 5);
+  const totalAnswers = answered.reduce((n, s) => n + s.attempts, 0);
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold uppercase tracking-wider text-text-muted">
+        <div className="flex items-center gap-2">
+          <AlertTriangle size={14} />
+          Most missed
+        </div>
+        <span className="text-[11px] font-normal normal-case text-text-muted">
+          across {totalAnswers.toLocaleString()} answer
+          {totalAnswers === 1 ? "" : "s"}
+        </span>
+      </div>
+      <ul className="divide-y divide-glass-border overflow-hidden rounded-xl border border-glass-border">
+        {top.map((s) => {
+          const rate = s.attempts > 0 ? s.wrong / s.attempts : 0;
+          const pct = Math.round(rate * 100);
+          return (
+            <li
+              key={s.question_id}
+              className="flex items-start justify-between gap-3 px-3 py-2 text-sm sm:px-4"
+            >
+              <span className="min-w-0 flex-1 text-text-secondary">
+                <span className="mr-1 tabular-nums text-text-muted">
+                  {s.position + 1}.
+                </span>
+                <span className="break-words">{s.question_text}</span>
+              </span>
+              <span
+                className={cn(
+                  "shrink-0 whitespace-nowrap font-medium tabular-nums",
+                  pct >= 50
+                    ? "text-red-400"
+                    : pct >= 25
+                      ? "text-amber-400"
+                      : "text-text-muted",
+                )}
+              >
+                {pct}% · {s.wrong}/{s.attempts}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

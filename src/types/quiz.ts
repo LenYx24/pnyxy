@@ -58,3 +58,12 @@ export interface QuizQuestionDraft {
   correct_index: number;
   explanation: string | null;
 }
+
+/** Owner-only aggregate from the quiz_most_missed RPC. */
+export interface QuizQuestionStat {
+  question_id: string;
+  question_text: string;
+  position: number;
+  attempts: number;
+  wrong: number;
+}

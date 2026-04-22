@@ -8,6 +8,7 @@ import type {
   QuizAttemptAnswer,
   QuizQuestion,
   QuizQuestionDraft,
+  QuizQuestionStat,
   QuizVisibility,
 } from "@/types/quiz";
 
@@ -69,6 +70,9 @@ interface QuizState {
     attempt: QuizAttempt;
     answers: QuizAttemptAnswer[];
   } | null>;
+
+  /** Owner-only; returns per-question aggregate stats for the quiz. */
+  fetchQuestionStats: (quizId: string) => Promise<QuizQuestionStat[]>;
 }
 
 function assertCleanText(...parts: (string | null)[]) {
@@ -365,5 +369,18 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       attempt: a.data as QuizAttempt,
       answers: (b.data ?? []) as QuizAttemptAnswer[],
     };
+  },
+
+  async fetchQuestionStats(quizId) {
+    const { data, error } = await supabase.rpc("quiz_most_missed", {
+      p_quiz_id: quizId,
+    });
+    if (error) {
+      // `not_owner` / `not_authenticated` are expected for non-owner
+      // callers — just surface an empty list so the UI hides the panel.
+      logError("quiz-store:fetchQuestionStats", error);
+      return [];
+    }
+    return (data ?? []) as QuizQuestionStat[];
   },
 }));

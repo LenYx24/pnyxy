@@ -4,6 +4,7 @@ import { BookOpen, FileText, Loader2, Minus, Plus, Sparkles, X } from "lucide-re
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { extractPdfText, hasAnyConfiguredProvider } from "@/lib/ai-client";
+import { getIADownloadUrl } from "@/lib/open-library";
 import { supabase } from "@/lib/supabase";
 import {
   generateQuizQuestions,
@@ -16,15 +17,22 @@ import type { QuizQuestionDraft } from "@/types/quiz";
 
 interface AiGeneratePanelProps {
   onAppend: (drafts: QuizQuestionDraft[]) => void;
-  /** When set, the panel also offers "From book" mode that pulls text
-   *  from a page range of the uploaded PDF. */
+  /** When set, the panel offers "From book" mode backed by the uploaded PDF. */
   uploadedBookId?: string | null;
+  /** When set (and uploadedBookId is not), "From book" mode is backed by
+   *  the catalog book's ia_id or download_url, provided it resolves to a PDF. */
+  catalogBookId?: string | null;
 }
+
+type BookSource =
+  | { kind: "uploaded"; storagePath: string }
+  | { kind: "catalog-ia"; iaId: string }
+  | { kind: "catalog-url"; downloadUrl: string };
 
 interface BookMeta {
   title: string;
   pageCount: number;
-  storagePath: string;
+  source: BookSource;
 }
 
 type Mode = "text" | "book";
@@ -35,6 +43,7 @@ const DEFAULT_PAGE_SPAN = 10;
 export function AiGeneratePanel({
   onAppend,
   uploadedBookId,
+  catalogBookId,
 }: AiGeneratePanelProps) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("text");
@@ -50,49 +59,30 @@ export function AiGeneratePanel({
   const providerConfigured = hasAnyConfiguredProvider();
 
   useEffect(() => {
-    if (!uploadedBookId) {
+    // Uploaded book wins over catalog book (schema forbids both being set).
+    if (!uploadedBookId && !catalogBookId) {
       setBookMeta(null);
       setMode("text");
       return;
     }
     let cancelled = false;
     (async () => {
-      const [bookRes, fileRes] = await Promise.all([
-        supabase
-          .from("books")
-          .select("title, format, page_count")
-          .eq("id", uploadedBookId)
-          .maybeSingle(),
-        supabase
-          .from("book_files")
-          .select("storage_path")
-          .eq("book_id", uploadedBookId)
-          .eq("is_primary", true)
-          .maybeSingle(),
-      ]);
-      if (cancelled) return;
-      if (
-        !bookRes.data ||
-        !fileRes.data ||
-        bookRes.data.format !== "pdf"
-      ) {
-        // Non-PDF or no primary file — stay in text mode only.
-        return;
-      }
-      const meta: BookMeta = {
-        title: bookRes.data.title,
-        pageCount: bookRes.data.page_count ?? 0,
-        storagePath: fileRes.data.storage_path,
-      };
+      const meta = uploadedBookId
+        ? await loadUploadedBookMeta(uploadedBookId)
+        : await loadCatalogBookMeta(catalogBookId!);
+      if (cancelled || !meta) return;
       setBookMeta(meta);
-      const maxSpan = Math.min(DEFAULT_PAGE_SPAN, meta.pageCount || DEFAULT_PAGE_SPAN);
+      const maxSpan = Math.min(
+        DEFAULT_PAGE_SPAN,
+        meta.pageCount || DEFAULT_PAGE_SPAN,
+      );
       setEndPage(Math.max(1, maxSpan));
       setMode("book");
     })();
     return () => {
       cancelled = true;
     };
-  }, [uploadedBookId]);
+  }, [uploadedBookId, catalogBookId]);
 
   const resolveSourceText = async (): Promise<string> => {
     if (mode === "text") return sourceText;
@@ -104,17 +94,19 @@ export function AiGeneratePanel({
     }
     const from = Math.max(1, Math.min(startPage, endPage));
     const to = Math.max(from, endPage);
-    const { data, error: urlErr } = await supabase.storage
-      .from("book-files")
-      .createSignedUrl(bookMeta.storagePath, 600);
-    if (urlErr || !data?.signedUrl) {
+    const url = await resolveBookPdfUrl(bookMeta.source);
+    let text: string;
+    try {
+      text = await extractPdfText(url, from, to);
+    } catch (err) {
+      // Typical causes: CORS on a third-party URL, 404 on IA format
+      // fallback, corrupt PDF. Give the user something actionable.
       throw new QuizGenerationError(
-        "Couldn't fetch the book file.",
+        "Couldn't read the book PDF. If it's a catalog book, the host may block cross-origin access — try pasting text instead.",
         "provider_error",
-        urlErr,
+        err,
       );
     }
-    const text = await extractPdfText(data.signedUrl, from, to);
     if (!text.trim()) {
       throw new QuizGenerationError(
         "No extractable text in that page range. The PDF might be scanned images.",
@@ -299,6 +291,76 @@ export function AiGeneratePanel({
       </div>
     </section>
   );
+}
+
+async function loadUploadedBookMeta(
+  uploadedBookId: string,
+): Promise<BookMeta | null> {
+  const [bookRes, fileRes] = await Promise.all([
+    supabase
+      .from("books")
+      .select("title, format, page_count")
+      .eq("id", uploadedBookId)
+      .maybeSingle(),
+    supabase
+      .from("book_files")
+      .select("storage_path")
+      .eq("book_id", uploadedBookId)
+      .eq("is_primary", true)
+      .maybeSingle(),
+  ]);
+  if (!bookRes.data || !fileRes.data || bookRes.data.format !== "pdf") {
+    return null;
+  }
+  return {
+    title: bookRes.data.title,
+    pageCount: bookRes.data.page_count ?? 0,
+    source: { kind: "uploaded", storagePath: fileRes.data.storage_path },
+  };
+}
+
+async function loadCatalogBookMeta(
+  catalogBookId: string,
+): Promise<BookMeta | null> {
+  const { data } = await supabase
+    .from("catalog_books")
+    .select("title, page_count, ia_id, download_url")
+    .eq("id", catalogBookId)
+    .maybeSingle();
+  if (!data) return null;
+
+  let source: BookSource | null = null;
+  if (data.ia_id) {
+    source = { kind: "catalog-ia", iaId: data.ia_id };
+  } else if (data.download_url) {
+    const ext = data.download_url.split("?")[0].split(".").pop()?.toLowerCase();
+    if (ext === "pdf") {
+      source = { kind: "catalog-url", downloadUrl: data.download_url };
+    }
+  }
+  if (!source) return null;
+
+  return {
+    title: data.title,
+    pageCount: data.page_count ?? 0,
+    source,
+  };
+}
+
+async function resolveBookPdfUrl(source: BookSource): Promise<string> {
+  if (source.kind === "uploaded") {
+    const { data, error } = await supabase.storage
+      .from("book-files")
+      .createSignedUrl(source.storagePath, 600);
+    if (error || !data?.signedUrl) {
+      throw new Error("Could not sign upload URL.");
+    }
+    return data.signedUrl;
+  }
+  if (source.kind === "catalog-ia") {
+    return getIADownloadUrl(source.iaId, "pdf");
+  }
+  return source.downloadUrl;
 }
 
 function ModeTab({
