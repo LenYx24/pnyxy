@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   DndContext,
   closestCenter,
@@ -68,6 +69,7 @@ export function AllBooksTab({
   setSortOrder,
   isLoading = false,
 }: AllBooksTabProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const currentFolderId = useLibraryStore((s) => s.currentFolderId);
   const folderPath = useLibraryStore((s) => s.folderPath);
@@ -260,7 +262,7 @@ export function AllBooksTab({
             onClick={() => navigateToFolder(null)}
             className="cursor-pointer text-text-muted transition-colors hover:text-text-primary"
           >
-            Library
+            {t("library.allBooks.breadcrumbRoot")}
           </button>
           {folderPath.map((folder, i) => (
             <span key={folder.id} className="flex items-center gap-1">
@@ -288,10 +290,14 @@ export function AllBooksTab({
               variant="ghost"
               className="gap-1 px-2 py-1.5 text-xs"
               onClick={handleGoUp}
-              title={`Go to parent (${formatShortcut({ key: "Backspace", alt: true })})`}
+              title={t("library.allBooks.upTitle", {
+                shortcut: formatShortcut({ key: "Backspace", alt: true }),
+              })}
             >
               <ArrowUp size={14} />
-              <span className="hidden sm:inline">Up</span>
+              <span className="hidden sm:inline">
+                {t("library.allBooks.up")}
+              </span>
             </Button>
           )}
 
@@ -299,10 +305,14 @@ export function AllBooksTab({
             variant="secondary"
             className="gap-1.5 px-3 py-1.5 text-xs sm:text-sm"
             onClick={handleCreateFolder}
-            title={`Create a folder (${formatShortcut({ key: "f", ctrl: true, shift: true })})`}
+            title={t("library.allBooks.newFolderTitle", {
+              shortcut: formatShortcut({ key: "f", ctrl: true, shift: true }),
+            })}
           >
             <FolderPlus size={16} />
-            <span className="hidden sm:inline">New Folder</span>
+            <span className="hidden sm:inline">
+              {t("library.allBooks.newFolder")}
+            </span>
             <Kbd
               shortcut={{ key: "f", ctrl: true, shift: true }}
               className="ml-1 hidden lg:inline-flex"
@@ -315,7 +325,7 @@ export function AllBooksTab({
       {isEmpty && query && (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
           <p className="text-sm text-text-muted">
-            No results for &quot;{searchQuery}&quot;
+            {t("library.allBooks.noSearchResults", { query: searchQuery })}
           </p>
         </div>
       )}
@@ -327,18 +337,16 @@ export function AllBooksTab({
         </div>
       )}
 
-      {/* Empty folder state */}
       {isEmpty && !query && !isLoading && (
         <div className="flex flex-col items-center gap-4 py-16 text-center">
           <BookOpen size={48} className="text-text-muted/50" />
           <div>
             <p className="text-lg font-medium text-text-primary">
-              This folder is empty
+              {t("library.allBooks.emptyFolder")}
             </p>
             {!currentFolderId && (
               <p className="mt-1 text-sm text-text-muted">
-                Browse the catalog to add books, or create a folder to organize
-                them.
+                {t("library.allBooks.emptyRootHint")}
               </p>
             )}
           </div>
@@ -347,7 +355,7 @@ export function AllBooksTab({
               variant="secondary"
               onClick={() => navigate("/browse")}
             >
-              Browse Catalog
+              {t("library.allBooks.browseCatalog")}
             </Button>
           )}
         </div>
@@ -455,7 +463,7 @@ export function AllBooksTab({
                     <p
                       className={`truncate text-text-muted ${coverHeight < 100 ? "text-[10px]" : "text-xs"}`}
                     >
-                      Folder
+                      {t("library.allBooks.folderLabel")}
                     </p>
                   </div>
                 </GlassCard>
@@ -499,24 +507,23 @@ export function AllBooksTab({
           />
           <div className="relative z-10 w-full max-w-sm rounded-xl border border-glass-border bg-bg-secondary/95 p-6 backdrop-blur-xl">
             <h3 className="mb-2 text-lg font-semibold text-text-primary">
-              Delete Folder
+              {t("library.allBooks.deleteFolder.title")}
             </h3>
             <p className="mb-4 text-sm text-text-muted">
-              Are you sure? Books in this folder will be moved to the root
-              level. Subfolders will also be deleted.
+              {t("library.allBooks.deleteFolder.body")}
             </p>
             <div className="flex justify-end gap-2">
               <Button
                 variant="secondary"
                 onClick={() => setConfirmDelete(null)}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
               <button
                 onClick={confirmDeleteFolder}
                 className="cursor-pointer rounded-lg bg-red-500/20 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/30"
               >
-                Delete
+                {t("library.allBooks.deleteFolder.action")}
               </button>
             </div>
           </div>

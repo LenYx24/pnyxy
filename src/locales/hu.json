@@ -262,6 +262,41 @@
       "removeBody": "Biztosan eltávolítod ezt a könyvet a könyvtáradból?",
       "removeAction": "Eltávolítás"
     },
+    "createFolder": {
+      "title": "Új mappa",
+      "creatingIn": "Létrehozás itt:",
+      "root": "Könyvtár",
+      "nameLabel": "Név",
+      "namePlaceholder": "pl. Fantasy  vagy  Szépirodalom/Sci-Fi/Űropera",
+      "nestedTip": "Tipp: a <slash></slash> karakterrel egyszerre hozhatsz létre egymásba ágyazott mappákat (pl. <ex></ex>).",
+      "nameRequired": "A mappa neve kötelező.",
+      "failed": "Nem sikerült létrehozni a mappát.",
+      "creating": "Létrehozás…",
+      "create": "Mappa létrehozása"
+    },
+    "celebration": {
+      "title": "Napi olvasási cél teljesítve!",
+      "body": "Ma 5 percet olvastál.",
+      "streak_one": "{{count}} napos sorozat!",
+      "streak_other": "{{count}} napos sorozat!"
+    },
+    "allBooks": {
+      "breadcrumbRoot": "Könyvtár",
+      "up": "Fel",
+      "upTitle": "Szülőmappa ({{shortcut}})",
+      "newFolder": "Új mappa",
+      "newFolderTitle": "Mappa létrehozása ({{shortcut}})",
+      "noSearchResults": "Nincs találat erre: „{{query}}”",
+      "emptyFolder": "Ez a mappa üres",
+      "emptyRootHint": "Böngéssz a katalógusban, hogy könyveket adj hozzá, vagy hozz létre egy mappát a rendszerezéshez.",
+      "browseCatalog": "Katalógus böngészése",
+      "folderLabel": "Mappa",
+      "deleteFolder": {
+        "title": "Mappa törlése",
+        "body": "Biztos? A mappában lévő könyvek a gyökérszintre kerülnek. Az almappák is törlődnek.",
+        "action": "Törlés"
+      }
+    },
     "selection": {
       "countSelected": "{{count}} kijelölve",
       "move": "Áthelyezés",

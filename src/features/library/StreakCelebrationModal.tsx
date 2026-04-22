@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Flame } from "lucide-react";
 import { useStreakStore } from "@/stores/streak-store";
 
@@ -34,7 +35,6 @@ function buildConfetti(): ConfettiPiece[] {
 }
 
 function Confetti() {
-  // Randomise once per mount so positions stay stable across renders.
   const pieces = useMemo(() => buildConfetti(), []);
   return (
     <div className="pointer-events-none fixed inset-0 z-[101] overflow-hidden">
@@ -50,11 +50,11 @@ function Confetti() {
 }
 
 export function StreakCelebrationModal() {
+  const { t } = useTranslation();
   const shouldShow = useStreakStore((s) => s.shouldShowCelebration());
   const markCelebrationShown = useStreakStore((s) => s.markCelebrationShown);
   const getCurrentStreak = useStreakStore((s) => s.getCurrentStreak);
 
-  // Auto-dismiss after 4s; the store flag controls visibility directly.
   useEffect(() => {
     if (!shouldShow) return;
     const timer = setTimeout(markCelebrationShown, 4000);
@@ -80,14 +80,14 @@ export function StreakCelebrationModal() {
             />
           </div>
           <h2 className="text-2xl font-bold text-text-primary mb-2">
-            Reading Goal Complete!
+            {t("library.celebration.title")}
           </h2>
           <p className="text-text-secondary mb-1">
-            You read for 5 minutes today.
+            {t("library.celebration.body")}
           </p>
           {streak > 1 && (
             <p className="text-accent-purple font-medium">
-              {streak} day streak!
+              {t("library.celebration.streak", { count: streak })}
             </p>
           )}
         </div>

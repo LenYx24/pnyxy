@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { X, FolderPlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui";
 
@@ -16,6 +17,7 @@ export function CreateFolderModal({
   onCreate,
   parentFolderName,
 }: CreateFolderModalProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export function CreateFolderModal({
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) {
-      setError("Folder name is required.");
+      setError(t("library.createFolder.nameRequired"));
       return;
     }
 
@@ -61,7 +63,9 @@ export function CreateFolderModal({
       await onCreate(trimmed);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create folder.");
+      setError(
+        err instanceof Error ? err.message : t("library.createFolder.failed"),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -82,7 +86,7 @@ export function CreateFolderModal({
               <FolderPlus size={16} className="text-accent-purple" />
             </div>
             <h2 className="text-lg font-semibold text-text-primary">
-              New Folder
+              {t("library.createFolder.title")}
             </h2>
           </div>
           <button
@@ -90,7 +94,7 @@ export function CreateFolderModal({
             onClick={onClose}
             disabled={submitting}
             className="rounded-lg p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer disabled:opacity-50"
-            aria-label="Close"
+            aria-label={t("common.close")}
           >
             <X size={20} />
           </button>
@@ -99,9 +103,9 @@ export function CreateFolderModal({
         {/* Body */}
         <form onSubmit={handleSubmit} className="space-y-4 p-4">
           <p className="text-xs text-text-muted">
-            Creating in{" "}
+            {t("library.createFolder.creatingIn")}{" "}
             <span className="font-medium text-text-secondary">
-              {parentFolderName ? parentFolderName : "Library"}
+              {parentFolderName ?? t("library.createFolder.root")}
             </span>
           </p>
 
@@ -110,7 +114,7 @@ export function CreateFolderModal({
               htmlFor="new-folder-name"
               className="mb-1 block text-sm font-medium text-text-secondary"
             >
-              Name
+              {t("library.createFolder.nameLabel")}
             </label>
             <input
               id="new-folder-name"
@@ -118,14 +122,27 @@ export function CreateFolderModal({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Fantasy  or  Fiction/Sci-Fi/Space Opera"
+              placeholder={t("library.createFolder.namePlaceholder")}
               maxLength={240}
               className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
             />
             <p className="mt-1 text-xs text-text-muted">
-              Tip: use <span className="font-mono text-text-secondary">/</span>{" "}
-              to create nested folders at once (e.g.{" "}
-              <span className="font-mono text-text-secondary">p1/p2/p3</span>).
+              {/* `<slash/>` and `<ex/>` are placeholder elements the
+                  translation mustn't touch — Trans swaps them for the
+                  real styled <span>s at render time. */}
+              <Trans
+                i18nKey="library.createFolder.nestedTip"
+                components={{
+                  slash: (
+                    <span className="font-mono text-text-secondary">/</span>
+                  ),
+                  ex: (
+                    <span className="font-mono text-text-secondary">
+                      p1/p2/p3
+                    </span>
+                  ),
+                }}
+              />
             </p>
           </div>
 
@@ -142,16 +159,16 @@ export function CreateFolderModal({
               onClick={onClose}
               disabled={submitting}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={submitting || !name.trim()}>
               {submitting ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  Creating...
+                  {t("library.createFolder.creating")}
                 </>
               ) : (
-                "Create Folder"
+                t("library.createFolder.create")
               )}
             </Button>
           </div>

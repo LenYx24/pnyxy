@@ -262,6 +262,41 @@
       "removeBody": "Are you sure you want to remove this book from your library?",
       "removeAction": "Remove"
     },
+    "createFolder": {
+      "title": "New Folder",
+      "creatingIn": "Creating in",
+      "root": "Library",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g. Fantasy  or  Fiction/Sci-Fi/Space Opera",
+      "nestedTip": "Tip: use <slash></slash> to create nested folders at once (e.g. <ex></ex>).",
+      "nameRequired": "Folder name is required.",
+      "failed": "Failed to create folder.",
+      "creating": "Creating…",
+      "create": "Create Folder"
+    },
+    "celebration": {
+      "title": "Reading Goal Complete!",
+      "body": "You read for 5 minutes today.",
+      "streak_one": "{{count}} day streak!",
+      "streak_other": "{{count}} day streak!"
+    },
+    "allBooks": {
+      "breadcrumbRoot": "Library",
+      "up": "Up",
+      "upTitle": "Go to parent ({{shortcut}})",
+      "newFolder": "New Folder",
+      "newFolderTitle": "Create a folder ({{shortcut}})",
+      "noSearchResults": "No results for \"{{query}}\"",
+      "emptyFolder": "This folder is empty",
+      "emptyRootHint": "Browse the catalog to add books, or create a folder to organize them.",
+      "browseCatalog": "Browse Catalog",
+      "folderLabel": "Folder",
+      "deleteFolder": {
+        "title": "Delete Folder",
+        "body": "Are you sure? Books in this folder will be moved to the root level. Subfolders will also be deleted.",
+        "action": "Delete"
+      }
+    },
     "selection": {
       "countSelected": "{{count}} selected",
       "move": "Move",
