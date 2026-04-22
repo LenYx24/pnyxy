@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import {
   Copy,
@@ -45,6 +46,7 @@ const TRANSLATE_LANGUAGES = [
 ];
 
 export function AnnotationContextMenu() {
+  const { t } = useTranslation();
   const contextMenu = useAnnotationStore((s) => s.contextMenu);
   const addHighlight = useAnnotationStore((s) => s.addHighlight);
   const addComment = useAnnotationStore((s) => s.addComment);
@@ -210,10 +212,12 @@ export function AnnotationContextMenu() {
       if (data.responseStatus === 200 && data.responseData?.translatedText) {
         setTranslatedText(data.responseData.translatedText);
       } else {
-        setTranslateError(data.responseDetails || "Translation failed");
+        setTranslateError(
+          data.responseDetails || t("reader.annotationMenu.translateFailed"),
+        );
       }
     } catch {
-      setTranslateError("Could not connect to translation service");
+      setTranslateError(t("reader.annotationMenu.translateConnectFailed"));
     } finally {
       setTranslating(false);
     }
@@ -240,18 +244,23 @@ export function AnnotationContextMenu() {
             if (data.responseStatus === 200 && data.responseData?.translatedText) {
               setTranslatedText(data.responseData.translatedText);
             } else {
-              setTranslateError(data.responseDetails || "Translation failed");
+              setTranslateError(
+                data.responseDetails ||
+                  t("reader.annotationMenu.translateFailed"),
+              );
             }
           })
           .catch(() => {
-            setTranslateError("Could not connect to translation service");
+            setTranslateError(
+              t("reader.annotationMenu.translateConnectFailed"),
+            );
           })
           .finally(() => {
             setTranslating(false);
           });
       }
     },
-    [setTranslateTargetLanguage, showTranslate, selectedText],
+    [setTranslateTargetLanguage, showTranslate, selectedText, t],
   );
 
   if (!contextMenu.visible) return null;
@@ -277,7 +286,7 @@ export function AnnotationContextMenu() {
                 key={color}
                 className="h-6 w-6 rounded-full border-2 border-transparent hover:border-white/40 transition-colors cursor-pointer hover:scale-110"
                 style={{ backgroundColor: hex }}
-                title={`Highlight ${color}`}
+                title={t("reader.annotationMenu.highlightTitle", { color })}
                 onClick={() => handleHighlight(color)}
               />
             ))}
@@ -313,25 +322,28 @@ export function AnnotationContextMenu() {
       {/* Action buttons */}
       {!showCommentInput && !showTranslate ? (
         <div className="flex flex-col gap-0.5">
-          {/* Define action */}
           {selectedText.trim() && (
             <button
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
               onClick={handleDefine}
             >
               <BookOpen size={14} />
-              Define &ldquo;{selectedText.trim().length > 20 ? selectedText.trim().slice(0, 20) + "…" : selectedText.trim()}&rdquo;
+              {t("reader.annotationMenu.define", {
+                word:
+                  selectedText.trim().length > 20
+                    ? selectedText.trim().slice(0, 20) + "…"
+                    : selectedText.trim(),
+              })}
             </button>
           )}
 
-          {/* Translate action */}
           {selectedText.trim() && (
             <button
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
               onClick={handleTranslate}
             >
               <Languages size={14} />
-              Translate...
+              {t("reader.annotationMenu.translate")}
             </button>
           )}
 
@@ -339,27 +351,24 @@ export function AnnotationContextMenu() {
             <div className="h-px bg-glass-border my-0.5" />
           )}
 
-          {/* Comment action */}
           <button
             className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
             onClick={handleAddComment}
           >
             <MessageSquare size={14} />
-            Add comment...
+            {t("reader.annotationMenu.addComment")}
           </button>
 
-          {/* Copy action */}
           {(hasSelection || hasHighlight) && (
             <button
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
               onClick={handleCopy}
             >
               <Copy size={14} />
-              Copy text
+              {t("reader.annotationMenu.copyText")}
             </button>
           )}
 
-          {/* Highlight-specific actions */}
           {hasHighlight && (
             <>
               <div className="h-px bg-glass-border my-0.5" />
@@ -368,14 +377,14 @@ export function AnnotationContextMenu() {
                 onClick={() => setShowColorChange(!showColorChange)}
               >
                 <Palette size={14} />
-                Change color
+                {t("reader.annotationMenu.changeColor")}
               </button>
               <button
                 className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-red-400/70 hover:bg-red-400/10 hover:text-red-400 transition-colors cursor-pointer"
                 onClick={handleRemoveHighlight}
               >
                 <Trash2 size={14} />
-                Remove highlight
+                {t("reader.annotationMenu.removeHighlight")}
               </button>
             </>
           )}
@@ -386,7 +395,7 @@ export function AnnotationContextMenu() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-text-primary flex items-center gap-1.5">
               <Languages size={14} />
-              Translate
+              {t("reader.annotationMenu.translatePanelTitle")}
             </span>
             <select
               value={translateTargetLanguage}
@@ -413,7 +422,7 @@ export function AnnotationContextMenu() {
             {translating && (
               <span className="flex items-center gap-1.5 text-text-muted">
                 <Loader2 size={12} className="animate-spin" />
-                Translating...
+                {t("reader.annotationMenu.translating")}
               </span>
             )}
             {translateError && (
@@ -430,7 +439,7 @@ export function AnnotationContextMenu() {
               className="rounded px-2 py-1 text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
               onClick={() => setShowTranslate(false)}
             >
-              Back
+              {t("reader.annotationMenu.back")}
             </button>
             {translatedText && (
               <button
@@ -441,7 +450,7 @@ export function AnnotationContextMenu() {
                   window.getSelection()?.removeAllRanges();
                 }}
               >
-                Copy
+                {t("reader.annotationMenu.copy")}
               </button>
             )}
           </div>
@@ -453,7 +462,7 @@ export function AnnotationContextMenu() {
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
             onKeyDown={handleCommentKeyDown}
-            placeholder="Add a comment..."
+            placeholder={t("reader.annotationMenu.commentPlaceholder")}
             className="w-48 h-16 rounded border border-glass-border bg-glass-bg px-2 py-1.5 text-xs text-text-primary outline-none resize-none focus:border-accent-purple"
           />
           <div className="flex justify-end gap-1">
@@ -461,14 +470,14 @@ export function AnnotationContextMenu() {
               className="rounded px-2 py-1 text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
               onClick={() => setShowCommentInput(false)}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               className="rounded bg-accent-purple/20 px-2 py-1 text-xs text-accent-purple hover:bg-accent-purple/30 transition-colors cursor-pointer disabled:opacity-40"
               disabled={!commentText.trim()}
               onClick={handleSubmitComment}
             >
-              Comment
+              {t("reader.annotationMenu.commentAction")}
             </button>
           </div>
         </div>

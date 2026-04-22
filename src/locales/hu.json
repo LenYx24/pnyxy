@@ -551,6 +551,23 @@
     "signOut": "Kijelentkezés"
   },
   "reader": {
+    "annotationMenu": {
+      "highlightTitle": "Kiemelés {{color}}",
+      "define": "„{{word}}” jelentése",
+      "translate": "Fordítás…",
+      "addComment": "Komment hozzáadása…",
+      "copyText": "Szöveg másolása",
+      "changeColor": "Szín módosítása",
+      "removeHighlight": "Kiemelés eltávolítása",
+      "translatePanelTitle": "Fordítás",
+      "translating": "Fordítás…",
+      "translateFailed": "A fordítás sikertelen",
+      "translateConnectFailed": "Nem sikerült csatlakozni a fordító szolgáltatáshoz",
+      "back": "Vissza",
+      "copy": "Másolás",
+      "commentPlaceholder": "Írj egy kommentet…",
+      "commentAction": "Komment"
+    },
     "aiChat": {
       "title": "AI chat",
       "closeAria": "AI chat bezárása",

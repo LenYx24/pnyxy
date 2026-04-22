@@ -551,6 +551,23 @@
     "signOut": "Sign Out"
   },
   "reader": {
+    "annotationMenu": {
+      "highlightTitle": "Highlight {{color}}",
+      "define": "Define \"{{word}}\"",
+      "translate": "Translate…",
+      "addComment": "Add comment…",
+      "copyText": "Copy text",
+      "changeColor": "Change color",
+      "removeHighlight": "Remove highlight",
+      "translatePanelTitle": "Translate",
+      "translating": "Translating…",
+      "translateFailed": "Translation failed",
+      "translateConnectFailed": "Could not connect to translation service",
+      "back": "Back",
+      "copy": "Copy",
+      "commentPlaceholder": "Add a comment…",
+      "commentAction": "Comment"
+    },
     "aiChat": {
       "title": "AI Chat",
       "closeAria": "Close AI Chat",
