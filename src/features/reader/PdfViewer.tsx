@@ -89,7 +89,6 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     const el = containerRef.current;
     if (!el) return;
 
-    // Set initial size synchronously
     setContainerWidth(el.clientWidth);
     setContainerHeight(el.clientHeight);
 
@@ -126,7 +125,6 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     }
   }, [zoomMode, zoomLevel, containerWidth, containerHeight]);
 
-  // Get page rendering props
   const getPageProps = useCallback(() => {
     switch (zoomMode) {
       case "fit-width":

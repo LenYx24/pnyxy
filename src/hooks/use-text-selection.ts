@@ -115,13 +115,9 @@ export function useTextSelection(
     };
 
     const handleContextMenu = (e: MouseEvent) => {
-      // Check for text selection first
       const data = getSelectionData();
-
-      // Check for highlight under cursor
       const highlightId = findHighlightAtPoint(e.clientX, e.clientY);
 
-      // If we have a selection or a highlight, show our context menu
       if (data || highlightId) {
         e.preventDefault();
         useAnnotationStore

@@ -176,7 +176,6 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
 
       const community = data as Community;
 
-      // Update local state
       set((state) => ({
         communities: [community, ...state.communities],
         joinedCommunities: [community, ...state.joinedCommunities],

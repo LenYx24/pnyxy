@@ -578,7 +578,6 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
         return;
       }
 
-      // Update in-progress element
       const ip = inProgressElementRef.current;
       if (!ip) return;
 

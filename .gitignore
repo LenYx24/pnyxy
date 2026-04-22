@@ -26,6 +26,7 @@ public/pdf-assets
 # Supabase CLI local state
 supabase/.temp/
 supabase/.branches/
+supabase/.env
 
 # Tauri
 src-tauri/target/

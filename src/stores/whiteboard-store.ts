@@ -174,7 +174,6 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     };
     dbSaveWhiteboard(wb);
 
-    // Update sidebar listing
     set((s) => ({
       whiteboards: s.whiteboards.map((w) =>
         w.id === activeWhiteboardId ? wb : w,
