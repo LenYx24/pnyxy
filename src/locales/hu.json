@@ -551,6 +551,23 @@
     "signOut": "Kijelentkezés"
   },
   "reader": {
+    "page": {
+      "panelNote": "Jegyzet",
+      "panelNewNote": "Új jegyzet",
+      "panelWhiteboard": "Tábla",
+      "panelNewWhiteboard": "Új tábla",
+      "panelDocument": "Dokumentum",
+      "panelPdfCanvas": "PDF vászon",
+      "panelToc": "Tartalomjegyzék",
+      "panelComments": "Kommentek",
+      "panelAiChat": "AI chat",
+      "mobilePanelContents": "Tartalom",
+      "mobilePanelComments": "Kommentek",
+      "closeContents": "Tartalom bezárása",
+      "closeComments": "Kommentek bezárása",
+      "exitZen": "Zen mód bezárása",
+      "exitZenTitle": "Zen mód bezárása (Esc)"
+    },
     "toolbar": {
       "backToLibrary": "Vissza a könyvtárba",
       "renameTitle": "Kattints az átnevezéshez",

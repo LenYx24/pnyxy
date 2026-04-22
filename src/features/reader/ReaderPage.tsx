@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
+import { useTranslation } from "react-i18next";
+import i18n from "@/lib/i18n";
 import { BookOpen, FilePlus, Loader2, X } from "lucide-react";
 import {
   DockviewReact,
@@ -81,7 +83,7 @@ function TocPanel(props: IDockviewPanelProps) {
       dockviewApi.addPanel({
         id: panelId,
         component: "note",
-        title: "Note",
+        title: i18n.t("reader.page.panelNote"),
         params: { noteId },
         position: { direction: "right" },
       });
@@ -95,7 +97,7 @@ function TocPanel(props: IDockviewPanelProps) {
     dockviewApi.addPanel({
       id: panelId,
       component: "note",
-      title: "New Note",
+      title: i18n.t("reader.page.panelNewNote"),
       params: { noteId },
       position: { direction: "right" },
     });
@@ -112,7 +114,7 @@ function TocPanel(props: IDockviewPanelProps) {
       dockviewApi.addPanel({
         id: panelId,
         component: "whiteboard",
-        title: "Whiteboard",
+        title: i18n.t("reader.page.panelWhiteboard"),
         params: { whiteboardId },
         position: { direction: "right" },
       });
@@ -136,7 +138,7 @@ function TocPanel(props: IDockviewPanelProps) {
     dockviewApi.addPanel({
       id: panelId,
       component: "whiteboard",
-      title: "New Whiteboard",
+      title: i18n.t("reader.page.panelNewWhiteboard"),
       params: { whiteboardId },
       position: { direction: "right" },
     });
@@ -252,6 +254,7 @@ function MobileReaderLayout({
   onPrint,
   onToggleZenMode,
 }: MobileReaderLayoutProps) {
+  const { t } = useTranslation();
   const mobileReaderPanel = useUIStore((s) => s.mobileReaderPanel);
   const setMobileReaderPanel = useUIStore((s) => s.setMobileReaderPanel);
 
@@ -305,10 +308,12 @@ function MobileReaderLayout({
         )}
       >
         <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
-          <span className="text-sm font-medium text-text-primary">Contents</span>
+          <span className="text-sm font-medium text-text-primary">
+            {t("reader.page.mobilePanelContents")}
+          </span>
           <button
             onClick={() => setMobileReaderPanel("none")}
-            aria-label="Close contents"
+            aria-label={t("reader.page.closeContents")}
             className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
           >
             <X size={20} />
@@ -334,10 +339,12 @@ function MobileReaderLayout({
         )}
       >
         <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
-          <span className="text-sm font-medium text-text-primary">Comments</span>
+          <span className="text-sm font-medium text-text-primary">
+            {t("reader.page.mobilePanelComments")}
+          </span>
           <button
             onClick={() => setMobileReaderPanel("none")}
-            aria-label="Close comments"
+            aria-label={t("reader.page.closeComments")}
             className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
           >
             <X size={20} />
@@ -412,6 +419,7 @@ function computeTocWidth(toc: TocItem[]): number {
 }
 
 export function ReaderPage() {
+  const { t } = useTranslation();
   const { bookId } = useParams();
   const isMobile = useIsMobile();
   const documents = useReaderStore((s) => s.documents);
@@ -574,7 +582,7 @@ export function ReaderPage() {
         api.addPanel({
           id: "toc",
           component: "toc",
-          title: "Table of Contents",
+          title: i18n.t("reader.page.panelToc"),
           position: { direction: "left" },
           initialWidth: tocWidthRef.current,
           minimumWidth: 180,
@@ -657,7 +665,7 @@ export function ReaderPage() {
       api.addPanel({
         id: "pdfViewer",
         component: "pdfViewer",
-        title: "Document",
+        title: i18n.t("reader.page.panelDocument"),
       });
 
       setIsDrawMode(false);
@@ -683,7 +691,7 @@ export function ReaderPage() {
       api.addPanel({
         id: "pdfCanvasWhiteboard",
         component: "whiteboard",
-        title: "PDF Canvas",
+        title: i18n.t("reader.page.panelPdfCanvas"),
         params: {
           whiteboardId: drawWhiteboardIdRef.current,
           pdfDocumentUrl: activeDoc.meta.fileUrl,
@@ -704,7 +712,7 @@ export function ReaderPage() {
       api.addPanel({
         id: "comments",
         component: "comments",
-        title: "Comments",
+        title: i18n.t("reader.page.panelComments"),
         position: { direction: "right" },
         initialWidth: 280,
       });
@@ -795,7 +803,7 @@ export function ReaderPage() {
       api.addPanel({
         id: "aiChat",
         component: "aiChat",
-        title: "AI Chat",
+        title: i18n.t("reader.page.panelAiChat"),
         position: { direction: "right" },
         initialWidth: 360,
       });
@@ -935,13 +943,13 @@ export function ReaderPage() {
       api.addPanel({
         id: "pdfViewer",
         component: "pdfViewer",
-        title: "Document",
+        title: i18n.t("reader.page.panelDocument"),
       });
 
       api.addPanel({
         id: "toc",
         component: "toc",
-        title: "Table of Contents",
+        title: i18n.t("reader.page.panelToc"),
         position: { direction: "left", referencePanel: "pdfViewer" },
         initialWidth: resolvedWidth,
         minimumWidth: 180,
@@ -1048,8 +1056,8 @@ export function ReaderPage() {
           <button
             onClick={() => setZenMode(false)}
             className="group fixed right-4 top-4 z-50 rounded-full border border-glass-border bg-bg-secondary/70 p-2 text-text-muted opacity-30 backdrop-blur-md transition-opacity hover:opacity-100 focus-visible:opacity-100 cursor-pointer"
-            title="Exit zen mode (Esc)"
-            aria-label="Exit zen mode"
+            title={t("reader.page.exitZenTitle")}
+            aria-label={t("reader.page.exitZen")}
           >
             <X size={16} />
           </button>

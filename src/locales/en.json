@@ -551,6 +551,23 @@
     "signOut": "Sign Out"
   },
   "reader": {
+    "page": {
+      "panelNote": "Note",
+      "panelNewNote": "New Note",
+      "panelWhiteboard": "Whiteboard",
+      "panelNewWhiteboard": "New Whiteboard",
+      "panelDocument": "Document",
+      "panelPdfCanvas": "PDF Canvas",
+      "panelToc": "Table of Contents",
+      "panelComments": "Comments",
+      "panelAiChat": "AI Chat",
+      "mobilePanelContents": "Contents",
+      "mobilePanelComments": "Comments",
+      "closeContents": "Close contents",
+      "closeComments": "Close comments",
+      "exitZen": "Exit zen mode",
+      "exitZenTitle": "Exit zen mode (Esc)"
+    },
     "toolbar": {
       "backToLibrary": "Back to library",
       "renameTitle": "Click to rename",
