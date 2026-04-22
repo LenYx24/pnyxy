@@ -4,24 +4,42 @@ import {
   useParams,
   useSearchParams,
 } from "react-router";
-import { ArrowLeft, Plus, Trash2, Check, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Check,
+  Loader2,
+  ListChecks,
+  ToggleLeft,
+  Type,
+} from "lucide-react";
 import { Button, Toggle } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useQuizStore } from "@/stores/quiz-store";
 import { useAuthStore } from "@/stores/auth-store";
-import type { QuizQuestionDraft, QuizVisibility } from "@/types/quiz";
+import type {
+  QuizQuestionDraft,
+  QuizQuestionKind,
+  QuizVisibility,
+} from "@/types/quiz";
 import { AiGeneratePanel } from "./AiGeneratePanel";
 
-function emptyQuestion(): QuizQuestionDraft {
-  return {
+function emptyQuestion(kind: QuizQuestionKind = "mcq4"): QuizQuestionDraft {
+  const base: Omit<QuizQuestionDraft, "kind"> = {
     question_text: "",
     option_a: "",
     option_b: "",
     option_c: "",
     option_d: "",
     correct_index: 0,
+    correct_text: "",
     explanation: null,
   };
+  if (kind === "true_false") {
+    return { ...base, kind, option_a: "True", option_b: "False" };
+  }
+  return { ...base, kind };
 }
 
 export function QuizEditorPage() {
@@ -51,7 +69,6 @@ export function QuizEditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [loadingInitial, setLoadingInitial] = useState(!!quizId);
 
-  // If editing, load existing quiz
   useEffect(() => {
     if (!quizId) return;
     let cancelled = false;
@@ -67,12 +84,14 @@ export function QuizEditorPage() {
         data.questions.length > 0
           ? data.questions.map((q) => ({
               id: q.id,
+              kind: q.kind,
               question_text: q.question_text,
-              option_a: q.option_a,
-              option_b: q.option_b,
-              option_c: q.option_c,
-              option_d: q.option_d,
-              correct_index: q.correct_index,
+              option_a: q.option_a ?? "",
+              option_b: q.option_b ?? "",
+              option_c: q.option_c ?? "",
+              option_d: q.option_d ?? "",
+              correct_index: q.correct_index ?? 0,
+              correct_text: q.correct_text ?? "",
               explanation: q.explanation,
             }))
           : [emptyQuestion()],
@@ -87,9 +106,7 @@ export function QuizEditorPage() {
   if (!user) {
     return (
       <div className="mx-auto w-full max-w-2xl p-6 text-center">
-        <p className="text-text-muted">
-          Please sign in to create a quiz.
-        </p>
+        <p className="text-text-muted">Please sign in to create a quiz.</p>
       </div>
     );
   }
@@ -110,19 +127,33 @@ export function QuizEditorPage() {
     setQuestions((qs) =>
       qs.map((q, idx) => (idx === i ? { ...q, ...patch } : q)),
     );
+  const changeKind = (i: number, kind: QuizQuestionKind) =>
+    setQuestions((qs) =>
+      qs.map((q, idx) => {
+        if (idx !== i) return q;
+        if (q.kind === kind) return q;
+        // Preserve question_text + explanation; reset kind-specific fields.
+        const reset = emptyQuestion(kind);
+        return {
+          ...reset,
+          id: q.id,
+          question_text: q.question_text,
+          explanation: q.explanation,
+        };
+      }),
+    );
 
   const isEmptyDraft = (q: QuizQuestionDraft) =>
     !q.question_text.trim() &&
     !q.option_a.trim() &&
     !q.option_b.trim() &&
     !q.option_c.trim() &&
-    !q.option_d.trim();
+    !q.option_d.trim() &&
+    !q.correct_text.trim();
 
   const appendGeneratedQuestions = (drafts: QuizQuestionDraft[]) => {
     if (drafts.length === 0) return;
     setQuestions((qs) => {
-      // Drop a single blank starter row so generation doesn't leave a
-      // leading empty question, but keep any real user entries.
       const keep = qs.length === 1 && isEmptyDraft(qs[0]) ? [] : qs;
       return [...keep, ...drafts];
     });
@@ -136,8 +167,21 @@ export function QuizEditorPage() {
     for (const [i, q] of questions.entries()) {
       if (!q.question_text.trim())
         return setError(`Question ${i + 1} needs text.`);
-      if (!q.option_a.trim() || !q.option_b.trim() || !q.option_c.trim() || !q.option_d.trim())
-        return setError(`Question ${i + 1} needs all four options filled.`);
+      if (q.kind === "mcq4") {
+        if (
+          !q.option_a.trim() ||
+          !q.option_b.trim() ||
+          !q.option_c.trim() ||
+          !q.option_d.trim()
+        )
+          return setError(`Question ${i + 1} needs all four options filled.`);
+      } else if (q.kind === "true_false") {
+        if (q.correct_index !== 0 && q.correct_index !== 1)
+          return setError(`Question ${i + 1}: pick True or False.`);
+      } else if (q.kind === "short_answer") {
+        if (!q.correct_text.trim())
+          return setError(`Question ${i + 1} needs a correct answer.`);
+      }
     }
 
     setSaving(true);
@@ -188,11 +232,10 @@ export function QuizEditorPage() {
           {quizId ? "Edit quiz" : "New quiz"}
         </h1>
         <p className="mt-1 text-sm text-text-muted">
-          Multiple-choice quiz with four options per question.
+          Mix multiple-choice, true/false, and short-answer questions.
         </p>
       </header>
 
-      {/* Basics */}
       <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/40 p-4">
         <div>
           <label className="mb-1 block text-xs font-medium text-text-muted">
@@ -239,7 +282,6 @@ export function QuizEditorPage() {
         catalogBookId={catalogBookId}
       />
 
-      {/* Questions */}
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
@@ -277,6 +319,11 @@ export function QuizEditorPage() {
               )}
             </div>
 
+            <KindTabs
+              value={q.kind}
+              onChange={(k) => changeKind(i, k)}
+            />
+
             <textarea
               rows={2}
               value={q.question_text}
@@ -287,46 +334,101 @@ export function QuizEditorPage() {
               className="w-full resize-none rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple/50"
             />
 
-            <div className="grid gap-2 sm:grid-cols-2">
-              {(["option_a", "option_b", "option_c", "option_d"] as const).map(
-                (key, idx) => {
+            {q.kind === "mcq4" && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {(["option_a", "option_b", "option_c", "option_d"] as const).map(
+                  (key, idx) => {
+                    const isCorrect = q.correct_index === idx;
+                    return (
+                      <div
+                        key={key}
+                        className={cn(
+                          "flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-colors",
+                          isCorrect
+                            ? "border-green-500/50 bg-green-500/5"
+                            : "border-glass-border bg-bg-primary/40",
+                        )}
+                      >
+                        <button
+                          onClick={() =>
+                            patchQuestion(i, { correct_index: idx })
+                          }
+                          className={cn(
+                            "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors cursor-pointer",
+                            isCorrect
+                              ? "border-green-500 bg-green-500 text-white"
+                              : "border-text-muted/40 text-text-muted hover:border-accent-purple",
+                          )}
+                          aria-label={`Mark option ${"ABCD"[idx]} as correct`}
+                          title={isCorrect ? "Correct answer" : "Mark correct"}
+                        >
+                          {isCorrect ? (
+                            <Check size={12} />
+                          ) : (
+                            <span className="text-[10px] font-semibold">
+                              {"ABCD"[idx]}
+                            </span>
+                          )}
+                        </button>
+                        <input
+                          value={q[key]}
+                          onChange={(e) =>
+                            patchQuestion(i, {
+                              [key]: e.target.value,
+                            } as Partial<QuizQuestionDraft>)
+                          }
+                          placeholder={`Option ${"ABCD"[idx]}`}
+                          className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
+                        />
+                      </div>
+                    );
+                  },
+                )}
+              </div>
+            )}
+
+            {q.kind === "true_false" && (
+              <div className="grid grid-cols-2 gap-2">
+                {[0, 1].map((idx) => {
+                  const label = idx === 0 ? "True" : "False";
                   const isCorrect = q.correct_index === idx;
                   return (
-                    <div
-                      key={key}
+                    <button
+                      key={idx}
+                      onClick={() => patchQuestion(i, { correct_index: idx })}
                       className={cn(
-                        "flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-colors",
+                        "flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
                         isCorrect
-                          ? "border-green-500/50 bg-green-500/5"
-                          : "border-glass-border bg-bg-primary/40",
+                          ? "border-green-500/60 bg-green-500/10 text-green-300"
+                          : "border-glass-border bg-bg-primary/40 text-text-secondary hover:border-accent-purple/40",
                       )}
                     >
-                      <button
-                        onClick={() => patchQuestion(i, { correct_index: idx })}
-                        className={cn(
-                          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors cursor-pointer",
-                          isCorrect
-                            ? "border-green-500 bg-green-500 text-white"
-                            : "border-text-muted/40 text-text-muted hover:border-accent-purple",
-                        )}
-                        aria-label={`Mark option ${"ABCD"[idx]} as correct`}
-                        title={isCorrect ? "Correct answer" : "Mark correct"}
-                      >
-                        {isCorrect ? <Check size={12} /> : <span className="text-[10px] font-semibold">{"ABCD"[idx]}</span>}
-                      </button>
-                      <input
-                        value={q[key]}
-                        onChange={(e) =>
-                          patchQuestion(i, { [key]: e.target.value } as Partial<QuizQuestionDraft>)
-                        }
-                        placeholder={`Option ${"ABCD"[idx]}`}
-                        className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
-                      />
-                    </div>
+                      {isCorrect && <Check size={14} />}
+                      {label}
+                    </button>
                   );
-                },
-              )}
-            </div>
+                })}
+              </div>
+            )}
+
+            {q.kind === "short_answer" && (
+              <div>
+                <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-text-muted">
+                  Correct answer
+                </label>
+                <input
+                  value={q.correct_text}
+                  onChange={(e) =>
+                    patchQuestion(i, { correct_text: e.target.value })
+                  }
+                  placeholder="The expected answer"
+                  className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple/50"
+                />
+                <p className="mt-1 text-[11px] text-text-muted">
+                  Matching is case-insensitive; extra spaces are ignored.
+                </p>
+              </div>
+            )}
 
             <input
               value={q.explanation ?? ""}
@@ -346,11 +448,20 @@ export function QuizEditorPage() {
         </p>
       )}
 
-      <div className="flex justify-end gap-2">
-        <Button variant="secondary" onClick={() => navigate(-1)} disabled={saving}>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <Button
+          variant="secondary"
+          onClick={() => navigate(-1)}
+          disabled={saving}
+          className="w-full sm:w-auto"
+        >
           Cancel
         </Button>
-        <Button onClick={handleSave} disabled={saving}>
+        <Button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full sm:w-auto"
+        >
           {saving ? (
             <>
               <Loader2 size={16} className="animate-spin" />
@@ -363,6 +474,39 @@ export function QuizEditorPage() {
           )}
         </Button>
       </div>
+    </div>
+  );
+}
+
+function KindTabs({
+  value,
+  onChange,
+}: {
+  value: QuizQuestionKind;
+  onChange: (k: QuizQuestionKind) => void;
+}) {
+  const tabs: { kind: QuizQuestionKind; icon: typeof ListChecks; label: string }[] = [
+    { kind: "mcq4", icon: ListChecks, label: "Multiple choice" },
+    { kind: "true_false", icon: ToggleLeft, label: "True / False" },
+    { kind: "short_answer", icon: Type, label: "Short answer" },
+  ];
+  return (
+    <div className="flex flex-wrap gap-1 rounded-lg border border-glass-border bg-bg-primary/40 p-0.5">
+      {tabs.map(({ kind, icon: Icon, label }) => (
+        <button
+          key={kind}
+          onClick={() => onChange(kind)}
+          className={cn(
+            "flex flex-1 min-w-[6.5rem] items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors cursor-pointer",
+            value === kind
+              ? "bg-accent-purple/15 text-accent-purple"
+              : "text-text-muted hover:text-text-primary",
+          )}
+        >
+          <Icon size={13} />
+          <span className="truncate">{label}</span>
+        </button>
+      ))}
     </div>
   );
 }

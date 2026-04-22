@@ -4,10 +4,9 @@ import { ArrowLeft, ArrowRight, Check, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useQuizStore } from "@/stores/quiz-store";
+import type { SubmitAnswer } from "@/stores/quiz-store";
 import { useAuthStore } from "@/stores/auth-store";
-import type { Quiz, QuizQuestion } from "@/types/quiz";
-
-type Answer = { question_id: string; selected_index: number; is_correct: boolean };
+import { gradeAnswer, type Quiz, type QuizQuestion } from "@/types/quiz";
 
 export function QuizTakePage() {
   const { quizId } = useParams<{ quizId: string }>();
@@ -21,8 +20,9 @@ export function QuizTakePage() {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
 
   const [current, setCurrent] = useState(0);
-  const [answers, setAnswers] = useState<Answer[]>([]);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [answers, setAnswers] = useState<SubmitAnswer[]>([]);
+  const [pickedIndex, setPickedIndex] = useState<number | null>(null);
+  const [typedText, setTypedText] = useState("");
   const [revealed, setRevealed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -72,26 +72,36 @@ export function QuizTakePage() {
     );
   }
 
+  const canReveal =
+    q.kind === "short_answer"
+      ? typedText.trim().length > 0
+      : pickedIndex !== null;
+
   const reveal = () => {
-    if (selected === null) return;
-    const isCorrect = selected === q.correct_index;
-    setAnswers((prev) => [
-      ...prev,
-      { question_id: q.id, selected_index: selected, is_correct: isCorrect },
-    ]);
+    if (!canReveal) return;
+    const answer: SubmitAnswer = {
+      question_id: q.id,
+      selected_index:
+        q.kind === "short_answer" ? null : pickedIndex,
+      selected_text: q.kind === "short_answer" ? typedText.trim() : null,
+      is_correct: gradeAnswer(q, {
+        selected_index: pickedIndex,
+        selected_text: typedText,
+      }),
+    };
+    setAnswers((prev) => [...prev, answer]);
     setRevealed(true);
   };
 
   const next = async () => {
     if (!isLast) {
       setCurrent((c) => c + 1);
-      setSelected(null);
+      setPickedIndex(null);
+      setTypedText("");
       setRevealed(false);
       return;
     }
-    // Finish + submit
     if (!user) {
-      // Anonymous mode: show results without recording.
       setDone(true);
       return;
     }
@@ -102,6 +112,15 @@ export function QuizTakePage() {
       setSubmitting(false);
       setDone(true);
     }
+  };
+
+  const restart = () => {
+    setCurrent(0);
+    setAnswers([]);
+    setPickedIndex(null);
+    setTypedText("");
+    setRevealed(false);
+    setDone(false);
   };
 
   if (done) {
@@ -135,72 +154,25 @@ export function QuizTakePage() {
         </header>
 
         <section className="space-y-3">
-          {questions.map((question, idx) => {
-            const ans = answers[idx];
-            return (
-              <div
-                key={question.id}
-                className={cn(
-                  "space-y-2 rounded-xl border p-3 text-sm",
-                  ans?.is_correct
-                    ? "border-green-500/30 bg-green-500/5"
-                    : "border-red-500/30 bg-red-500/5",
-                )}
-              >
-                <p className="font-medium text-text-primary">
-                  {idx + 1}. {question.question_text}
-                </p>
-                <div className="space-y-1">
-                  {([question.option_a, question.option_b, question.option_c, question.option_d]).map(
-                    (opt, optIdx) => {
-                      const isCorrect = optIdx === question.correct_index;
-                      const isPicked = ans?.selected_index === optIdx;
-                      return (
-                        <div
-                          key={optIdx}
-                          className={cn(
-                            "flex items-center gap-2 rounded-md px-2 py-1",
-                            isCorrect && "text-green-400",
-                            isPicked && !isCorrect && "text-red-400",
-                          )}
-                        >
-                          {isCorrect && <Check size={12} />}
-                          {isPicked && !isCorrect && <X size={12} />}
-                          {!isCorrect && !isPicked && (
-                            <span className="w-3" aria-hidden />
-                          )}
-                          <span>{opt}</span>
-                        </div>
-                      );
-                    },
-                  )}
-                </div>
-                {question.explanation && (
-                  <p className="text-xs text-text-muted">
-                    {question.explanation}
-                  </p>
-                )}
-              </div>
-            );
-          })}
+          {questions.map((question, idx) => (
+            <ResultCard
+              key={question.id}
+              index={idx}
+              question={question}
+              answer={answers[idx] ?? null}
+            />
+          ))}
         </section>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button
             variant="secondary"
             onClick={() => navigate(`/quizzes/${quiz.id}`)}
+            className="w-full sm:w-auto"
           >
             Back to quiz
           </Button>
-          <Button
-            onClick={() => {
-              setCurrent(0);
-              setAnswers([]);
-              setSelected(null);
-              setRevealed(false);
-              setDone(false);
-            }}
-          >
+          <Button onClick={restart} className="w-full sm:w-auto">
             Retry
           </Button>
         </div>
@@ -236,49 +208,35 @@ export function QuizTakePage() {
         {q.question_text}
       </h2>
 
-      <div className="space-y-2">
-        {([q.option_a, q.option_b, q.option_c, q.option_d]).map((opt, idx) => {
-          const isSelected = selected === idx;
-          const isCorrect = idx === q.correct_index;
-          const showState = revealed;
-          return (
-            <button
-              key={idx}
-              onClick={() => !revealed && setSelected(idx)}
-              disabled={revealed}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-colors",
-                !revealed && "cursor-pointer",
-                showState && isCorrect
-                  ? "border-green-500/50 bg-green-500/10 text-text-primary"
-                  : showState && isSelected && !isCorrect
-                    ? "border-red-500/50 bg-red-500/10 text-text-primary"
-                    : isSelected
-                      ? "border-accent-purple/60 bg-accent-purple/10 text-text-primary"
-                      : "border-glass-border bg-glass-bg/40 text-text-secondary hover:border-accent-purple/40 hover:text-text-primary",
-              )}
-            >
-              <span
-                className={cn(
-                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold",
-                  isSelected
-                    ? "border-accent-purple text-accent-purple"
-                    : "border-text-muted/40 text-text-muted",
-                )}
-              >
-                {"ABCD"[idx]}
-              </span>
-              <span className="flex-1">{opt}</span>
-              {showState && isCorrect && (
-                <Check size={14} className="text-green-400" />
-              )}
-              {showState && isSelected && !isCorrect && (
-                <X size={14} className="text-red-400" />
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {q.kind === "mcq4" && (
+        <McqOptions
+          options={[q.option_a, q.option_b, q.option_c, q.option_d]}
+          correctIndex={q.correct_index}
+          selected={pickedIndex}
+          revealed={revealed}
+          onSelect={setPickedIndex}
+        />
+      )}
+
+      {q.kind === "true_false" && (
+        <TrueFalseOptions
+          labels={[q.option_a ?? "True", q.option_b ?? "False"]}
+          correctIndex={q.correct_index}
+          selected={pickedIndex}
+          revealed={revealed}
+          onSelect={setPickedIndex}
+        />
+      )}
+
+      {q.kind === "short_answer" && (
+        <ShortAnswerInput
+          value={typedText}
+          onChange={setTypedText}
+          revealed={revealed}
+          isCorrect={!!(answers[current]?.is_correct)}
+          correctText={q.correct_text ?? ""}
+        />
+      )}
 
       {revealed && q.explanation && (
         <p className="rounded-lg border border-glass-border bg-glass-bg/40 p-3 text-sm text-text-secondary">
@@ -288,7 +246,7 @@ export function QuizTakePage() {
 
       <div className="flex justify-end gap-2">
         {!revealed ? (
-          <Button onClick={reveal} disabled={selected === null}>
+          <Button onClick={reveal} disabled={!canReveal}>
             Submit
           </Button>
         ) : (
@@ -304,6 +262,257 @@ export function QuizTakePage() {
           </Button>
         )}
       </div>
+    </div>
+  );
+}
+
+export function McqOptions({
+  options,
+  correctIndex,
+  selected,
+  revealed,
+  onSelect,
+}: {
+  options: (string | null)[];
+  correctIndex: number | null;
+  selected: number | null;
+  revealed: boolean;
+  onSelect: (i: number) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {options.map((opt, idx) => {
+        const isSelected = selected === idx;
+        const isCorrect = idx === correctIndex;
+        return (
+          <button
+            key={idx}
+            onClick={() => !revealed && onSelect(idx)}
+            disabled={revealed}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-colors",
+              !revealed && "cursor-pointer",
+              revealed && isCorrect
+                ? "border-green-500/50 bg-green-500/10 text-text-primary"
+                : revealed && isSelected && !isCorrect
+                  ? "border-red-500/50 bg-red-500/10 text-text-primary"
+                  : isSelected
+                    ? "border-accent-purple/60 bg-accent-purple/10 text-text-primary"
+                    : "border-glass-border bg-glass-bg/40 text-text-secondary hover:border-accent-purple/40 hover:text-text-primary",
+            )}
+          >
+            <span
+              className={cn(
+                "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold",
+                isSelected
+                  ? "border-accent-purple text-accent-purple"
+                  : "border-text-muted/40 text-text-muted",
+              )}
+            >
+              {"ABCD"[idx]}
+            </span>
+            <span className="min-w-0 flex-1 break-words">{opt}</span>
+            {revealed && isCorrect && (
+              <Check size={14} className="shrink-0 text-green-400" />
+            )}
+            {revealed && isSelected && !isCorrect && (
+              <X size={14} className="shrink-0 text-red-400" />
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function TrueFalseOptions({
+  labels,
+  correctIndex,
+  selected,
+  revealed,
+  onSelect,
+}: {
+  labels: [string, string];
+  correctIndex: number | null;
+  selected: number | null;
+  revealed: boolean;
+  onSelect: (i: number) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {labels.map((label, idx) => {
+        const isSelected = selected === idx;
+        const isCorrect = idx === correctIndex;
+        return (
+          <button
+            key={idx}
+            onClick={() => !revealed && onSelect(idx)}
+            disabled={revealed}
+            className={cn(
+              "flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-base font-medium transition-colors",
+              !revealed && "cursor-pointer",
+              revealed && isCorrect
+                ? "border-green-500/50 bg-green-500/10 text-text-primary"
+                : revealed && isSelected && !isCorrect
+                  ? "border-red-500/50 bg-red-500/10 text-text-primary"
+                  : isSelected
+                    ? "border-accent-purple/60 bg-accent-purple/10 text-text-primary"
+                    : "border-glass-border bg-glass-bg/40 text-text-secondary hover:border-accent-purple/40 hover:text-text-primary",
+            )}
+          >
+            {revealed && isCorrect && (
+              <Check size={16} className="text-green-400" />
+            )}
+            {revealed && isSelected && !isCorrect && (
+              <X size={16} className="text-red-400" />
+            )}
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function ShortAnswerInput({
+  value,
+  onChange,
+  revealed,
+  isCorrect,
+  correctText,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  revealed: boolean;
+  isCorrect: boolean;
+  correctText: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={revealed}
+        placeholder="Type your answer"
+        autoFocus
+        className={cn(
+          "w-full rounded-lg border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary outline-none disabled:opacity-70",
+          revealed && isCorrect
+            ? "border-green-500/50 bg-green-500/10"
+            : revealed && !isCorrect
+              ? "border-red-500/50 bg-red-500/10"
+              : "border-glass-border focus:border-accent-purple/50",
+        )}
+      />
+      {revealed && !isCorrect && (
+        <p className="text-sm text-text-secondary">
+          Expected:{" "}
+          <span className="font-medium text-green-400">{correctText}</span>
+        </p>
+      )}
+      {revealed && isCorrect && (
+        <p className="flex items-center gap-1.5 text-sm text-green-400">
+          <Check size={14} />
+          Correct
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function ResultCard({
+  index,
+  question,
+  answer,
+}: {
+  index: number;
+  question: QuizQuestion;
+  answer: {
+    selected_index?: number | null;
+    selected_text?: string | null;
+    is_correct: boolean;
+  } | null;
+}) {
+  const correct = answer?.is_correct ?? false;
+  return (
+    <div
+      className={cn(
+        "space-y-2 rounded-xl border p-3 text-sm sm:p-4",
+        correct
+          ? "border-green-500/30 bg-green-500/5"
+          : "border-red-500/30 bg-red-500/5",
+      )}
+    >
+      <p className="font-medium text-text-primary">
+        {index + 1}. {question.question_text}
+      </p>
+
+      {question.kind === "short_answer" ? (
+        <div className="space-y-1">
+          <div className="flex items-start gap-2 text-text-secondary">
+            <span className="shrink-0 text-[11px] uppercase tracking-wider text-text-muted">
+              Your answer:
+            </span>
+            <span
+              className={cn(
+                "min-w-0 break-words",
+                correct ? "text-green-400" : "text-red-400",
+              )}
+            >
+              {answer?.selected_text?.trim() || "(blank)"}
+            </span>
+          </div>
+          {!correct && (
+            <div className="flex items-start gap-2 text-text-secondary">
+              <span className="shrink-0 text-[11px] uppercase tracking-wider text-text-muted">
+                Expected:
+              </span>
+              <span className="min-w-0 break-words text-green-400">
+                {question.correct_text}
+              </span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {(question.kind === "true_false"
+            ? [question.option_a ?? "True", question.option_b ?? "False"]
+            : [
+                question.option_a,
+                question.option_b,
+                question.option_c,
+                question.option_d,
+              ]
+          ).map((opt, optIdx) => {
+            const isCorrect = optIdx === question.correct_index;
+            const isPicked = answer?.selected_index === optIdx;
+            return (
+              <div
+                key={optIdx}
+                className={cn(
+                  "flex items-start gap-2 rounded-md px-2 py-1",
+                  isCorrect && "text-green-400",
+                  isPicked && !isCorrect && "text-red-400",
+                  !isCorrect && !isPicked && "text-text-secondary",
+                )}
+              >
+                <span className="mt-0.5 w-3 shrink-0" aria-hidden>
+                  {isCorrect ? (
+                    <Check size={12} />
+                  ) : isPicked ? (
+                    <X size={12} />
+                  ) : null}
+                </span>
+                <span className="min-w-0 flex-1 break-words">{opt}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {question.explanation && (
+        <p className="text-xs text-text-muted">{question.explanation}</p>
+      )}
     </div>
   );
 }

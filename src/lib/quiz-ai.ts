@@ -112,12 +112,14 @@ function validateQuestions(raw: unknown): QuizQuestionDraft[] {
       );
     }
     out.push({
+      kind: "mcq4",
       question_text: entry.question_text.trim(),
       option_a: entry.option_a.trim(),
       option_b: entry.option_b.trim(),
       option_c: entry.option_c.trim(),
       option_d: entry.option_d.trim(),
       correct_index: idx,
+      correct_text: "",
       explanation:
         typeof entry.explanation === "string" && entry.explanation.trim()
           ? entry.explanation.trim()

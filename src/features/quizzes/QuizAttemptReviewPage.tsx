@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeft, Check, Loader2, X } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useQuizStore } from "@/stores/quiz-store";
@@ -10,6 +10,7 @@ import type {
   QuizAttemptAnswer,
   QuizQuestion,
 } from "@/types/quiz";
+import { ResultCard } from "./QuizTakePage";
 
 export function QuizAttemptReviewPage() {
   const { quizId, attemptId } = useParams<{
@@ -127,71 +128,14 @@ export function QuizAttemptReviewPage() {
         </p>
       ) : (
         <section className="space-y-3">
-          {questions.map((question, idx) => {
-            const ans = answerByQuestion.get(question.id) ?? null;
-            const isCorrect = ans?.is_correct ?? false;
-            const options = [
-              question.option_a,
-              question.option_b,
-              question.option_c,
-              question.option_d,
-            ];
-            return (
-              <article
-                key={question.id}
-                className={cn(
-                  "space-y-2 rounded-xl border p-3 text-sm sm:p-4",
-                  ans == null
-                    ? "border-glass-border bg-glass-bg/40"
-                    : isCorrect
-                      ? "border-green-500/30 bg-green-500/5"
-                      : "border-red-500/30 bg-red-500/5",
-                )}
-              >
-                <p className="font-medium text-text-primary">
-                  {idx + 1}. {question.question_text}
-                </p>
-                {ans == null && (
-                  <p className="text-xs italic text-text-muted">
-                    No answer recorded.
-                  </p>
-                )}
-                <div className="space-y-1">
-                  {options.map((opt, optIdx) => {
-                    const isCorrectOption = optIdx === question.correct_index;
-                    const isPicked = ans?.selected_index === optIdx;
-                    return (
-                      <div
-                        key={optIdx}
-                        className={cn(
-                          "flex items-start gap-2 rounded-md px-2 py-1",
-                          isCorrectOption && "text-green-400",
-                          isPicked && !isCorrectOption && "text-red-400",
-                          !isCorrectOption &&
-                            !isPicked &&
-                            "text-text-secondary",
-                        )}
-                      >
-                        <span className="mt-0.5 w-3 shrink-0" aria-hidden>
-                          {isCorrectOption ? (
-                            <Check size={12} />
-                          ) : isPicked ? (
-                            <X size={12} />
-                          ) : null}
-                        </span>
-                        <span className="min-w-0 flex-1 break-words">{opt}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                {question.explanation && (
-                  <p className="text-xs text-text-muted">
-                    {question.explanation}
-                  </p>
-                )}
-              </article>
-            );
-          })}
+          {questions.map((question, idx) => (
+            <ResultCard
+              key={question.id}
+              index={idx}
+              question={question}
+              answer={answerByQuestion.get(question.id) ?? null}
+            />
+          ))}
         </section>
       )}
 

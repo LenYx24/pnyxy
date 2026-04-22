@@ -3,14 +3,21 @@ import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
 import { containsProfanity } from "@/lib/profanity-filter";
 import type {
+  DueReview,
   Quiz,
   QuizAttempt,
   QuizAttemptAnswer,
   QuizQuestion,
   QuizQuestionDraft,
   QuizQuestionStat,
+  QuizReview,
   QuizVisibility,
 } from "@/types/quiz";
+import {
+  emptyReviewState,
+  nextReviewState,
+  type ReviewState,
+} from "@/lib/quiz-srs";
 
 interface QuizState {
   /** Public browse feed — replaced on every fetchPublic call. */
@@ -58,10 +65,12 @@ interface QuizState {
 
   deleteQuiz: (id: string) => Promise<void>;
 
-  /** Record a completed attempt in one shot. */
+  /** Record a completed attempt in one shot. `selected_index` is used
+   *  for mcq4/true_false; `selected_text` for short_answer. At least one
+   *  must be provided per answer. */
   submitAttempt: (
     quizId: string,
-    answers: { question_id: string; selected_index: number; is_correct: boolean }[],
+    answers: SubmitAnswer[],
   ) => Promise<QuizAttempt | null>;
 
   fetchAttempts: (quizId: string) => Promise<QuizAttempt[]>;
@@ -73,6 +82,17 @@ interface QuizState {
 
   /** Owner-only; returns per-question aggregate stats for the quiz. */
   fetchQuestionStats: (quizId: string) => Promise<QuizQuestionStat[]>;
+
+  /** Upsert FSRS review state for each (question, correctness) pair.
+   *  Called from submitAttempt; exposed separately for the /quizzes/review
+   *  flow where no parent quiz_attempt row is written. */
+  recordReviewBatch: (
+    answers: { question_id: string; is_correct: boolean }[],
+  ) => Promise<void>;
+
+  /** Due cards across all of the signed-in user's reviews, oldest-due
+   *  first. Each row joins the question payload for rendering. */
+  fetchDueReviews: (limit?: number) => Promise<DueReview[]>;
 }
 
 function assertCleanText(...parts: (string | null)[]) {
@@ -82,6 +102,77 @@ function assertCleanText(...parts: (string | null)[]) {
         "Content contains disallowed language. Please edit and try again.",
       );
     }
+  }
+}
+
+export interface SubmitAnswer {
+  question_id: string;
+  selected_index?: number | null;
+  selected_text?: string | null;
+  is_correct: boolean;
+}
+
+function draftTexts(q: QuizQuestionDraft): (string | null)[] {
+  switch (q.kind) {
+    case "mcq4":
+      return [
+        q.question_text,
+        q.option_a,
+        q.option_b,
+        q.option_c,
+        q.option_d,
+        q.explanation,
+      ];
+    case "true_false":
+      return [q.question_text, q.option_a, q.option_b, q.explanation];
+    case "short_answer":
+      return [q.question_text, q.correct_text, q.explanation];
+  }
+}
+
+function draftToRow(
+  q: QuizQuestionDraft,
+  position: number,
+  quizId: string,
+): Record<string, unknown> {
+  const base = {
+    quiz_id: quizId,
+    position,
+    kind: q.kind,
+    question_text: q.question_text.trim(),
+    explanation: q.explanation?.trim() || null,
+  };
+  switch (q.kind) {
+    case "mcq4":
+      return {
+        ...base,
+        option_a: q.option_a.trim(),
+        option_b: q.option_b.trim(),
+        option_c: q.option_c.trim(),
+        option_d: q.option_d.trim(),
+        correct_index: q.correct_index,
+        correct_text: null,
+      };
+    case "true_false":
+      return {
+        ...base,
+        option_a: q.option_a.trim() || "True",
+        option_b: q.option_b.trim() || "False",
+        option_c: null,
+        option_d: null,
+        correct_index: q.correct_index,
+        correct_text: null,
+      };
+    case "short_answer":
+      return {
+        ...base,
+        option_a: null,
+        option_b: null,
+        option_c: null,
+        option_d: null,
+        correct_index: null,
+        correct_text: q.correct_text.trim(),
+      };
   }
 }
 
@@ -179,14 +270,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     assertCleanText(
       input.title,
       input.description,
-      ...input.questions.flatMap((q) => [
-        q.question_text,
-        q.option_a,
-        q.option_b,
-        q.option_c,
-        q.option_d,
-        q.explanation,
-      ]),
+      ...input.questions.flatMap(draftTexts),
     );
 
     const { data: quizRow, error: quizErr } = await supabase
@@ -207,17 +291,9 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     }
 
     if (input.questions.length > 0) {
-      const rows = input.questions.map((q, i) => ({
-        quiz_id: quizRow.id,
-        position: i,
-        question_text: q.question_text.trim(),
-        option_a: q.option_a.trim(),
-        option_b: q.option_b.trim(),
-        option_c: q.option_c.trim(),
-        option_d: q.option_d.trim(),
-        correct_index: q.correct_index,
-        explanation: q.explanation?.trim() || null,
-      }));
+      const rows = input.questions.map((q, i) =>
+        draftToRow(q, i, quizRow.id as string),
+      );
       const { error: qErr } = await supabase.from("quiz_questions").insert(rows);
       if (qErr) {
         logError("quiz-store:createQuiz:questions", qErr);
@@ -243,32 +319,13 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     }
 
     if (questions) {
-      assertCleanText(
-        ...questions.flatMap((q) => [
-          q.question_text,
-          q.option_a,
-          q.option_b,
-          q.option_c,
-          q.option_d,
-          q.explanation,
-        ]),
-      );
+      assertCleanText(...questions.flatMap(draftTexts));
       // Replace-all strategy: simpler and idempotent, since per-question
       // diffing would need stable ids and reorderable positions. For a
       // quiz-sized payload (a few dozen questions) this is fine.
       await supabase.from("quiz_questions").delete().eq("quiz_id", id);
       if (questions.length > 0) {
-        const rows = questions.map((q, i) => ({
-          quiz_id: id,
-          position: i,
-          question_text: q.question_text.trim(),
-          option_a: q.option_a.trim(),
-          option_b: q.option_b.trim(),
-          option_c: q.option_c.trim(),
-          option_d: q.option_d.trim(),
-          correct_index: q.correct_index,
-          explanation: q.explanation?.trim() || null,
-        }));
+        const rows = questions.map((q, i) => draftToRow(q, i, id));
         const { error: insErr } = await supabase
           .from("quiz_questions")
           .insert(rows);
@@ -319,7 +376,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       const rows = answers.map((a) => ({
         attempt_id: attempt.id,
         question_id: a.question_id,
-        selected_index: a.selected_index,
+        selected_index: a.selected_index ?? null,
+        selected_text: a.selected_text ?? null,
         is_correct: a.is_correct,
       }));
       const { error: ansErr } = await supabase
@@ -327,6 +385,19 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         .insert(rows);
       if (ansErr) {
         logError("quiz-store:submitAttempt:answers", ansErr);
+      }
+      // Fold the same answers into FSRS state so the question appears
+      // on /quizzes/review on its scheduled cadence. Failure here is
+      // non-fatal for the attempt — the score is already saved.
+      try {
+        await get().recordReviewBatch(
+          answers.map((a) => ({
+            question_id: a.question_id,
+            is_correct: a.is_correct,
+          })),
+        );
+      } catch (err) {
+        logError("quiz-store:submitAttempt:reviews", err);
       }
     }
 
@@ -382,5 +453,102 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       return [];
     }
     return (data ?? []) as QuizQuestionStat[];
+  },
+
+  async recordReviewBatch(reviews) {
+    if (reviews.length === 0) return;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const questionIds = [...new Set(reviews.map((r) => r.question_id))];
+    const { data: existingRows, error: exErr } = await supabase
+      .from("quiz_reviews")
+      .select("*")
+      .eq("user_id", user.id)
+      .in("question_id", questionIds);
+    if (exErr) {
+      logError("quiz-store:recordReviewBatch:fetch", exErr);
+      throw exErr;
+    }
+    const byQuestion = new Map<string, QuizReview>();
+    for (const row of (existingRows ?? []) as QuizReview[]) {
+      byQuestion.set(row.question_id, row);
+    }
+
+    const now = new Date();
+    const rows = reviews.map((r) => {
+      const existing = byQuestion.get(r.question_id);
+      const current: ReviewState | null = existing
+        ? {
+            stability: existing.stability,
+            difficulty: existing.difficulty,
+            state: existing.state,
+            due_at: existing.due_at,
+            last_reviewed_at: existing.last_reviewed_at,
+            lapses: existing.lapses,
+            reps: existing.reps,
+          }
+        : null;
+      const next = current
+        ? nextReviewState(current, r.is_correct, now)
+        : nextReviewState(emptyReviewState(now), r.is_correct, now);
+      return {
+        user_id: user.id,
+        question_id: r.question_id,
+        stability: next.stability,
+        difficulty: next.difficulty,
+        state: next.state,
+        due_at: next.due_at,
+        last_reviewed_at: now.toISOString(),
+        lapses: next.lapses,
+        reps: next.reps,
+      };
+    });
+
+    const { error } = await supabase
+      .from("quiz_reviews")
+      .upsert(rows, { onConflict: "user_id,question_id" });
+    if (error) {
+      logError("quiz-store:recordReviewBatch:upsert", error);
+      throw error;
+    }
+  },
+
+  async fetchDueReviews(limit = 20) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return [];
+    const { data, error } = await supabase
+      .from("quiz_reviews")
+      .select("*, quiz_questions!inner(*)")
+      .eq("user_id", user.id)
+      .lte("due_at", new Date().toISOString())
+      .order("due_at", { ascending: true })
+      .limit(limit);
+    if (error) {
+      logError("quiz-store:fetchDueReviews", error);
+      return [];
+    }
+    type Row = QuizReview & { quiz_questions: QuizQuestion };
+    return ((data ?? []) as Row[]).map((row) => ({
+      review: {
+        id: row.id,
+        user_id: row.user_id,
+        question_id: row.question_id,
+        stability: row.stability,
+        difficulty: row.difficulty,
+        state: row.state,
+        last_reviewed_at: row.last_reviewed_at,
+        due_at: row.due_at,
+        lapses: row.lapses,
+        reps: row.reps,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      },
+      question: row.quiz_questions,
+    }));
   },
 }));
