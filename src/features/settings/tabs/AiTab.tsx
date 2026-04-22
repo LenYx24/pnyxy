@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   BotMessageSquare,
   Eye,
@@ -21,19 +22,15 @@ interface AiUsage {
   request_limit: number;
 }
 
+// Provider names themselves stay unlocalised (brand names).
 const PROVIDER_LABELS: Record<AiProvider, string> = {
   pnyxy: "Pnyxy",
   anthropic: "Anthropic",
   openai: "OpenAI",
 };
 
-const PROVIDER_DESCRIPTIONS: Record<AiProvider, string> = {
-  pnyxy: "Hosted by Pnyxy. Daily token limits apply.",
-  anthropic: "Direct Anthropic API. Uses your own key.",
-  openai: "Direct OpenAI API. Uses your own key.",
-};
-
 export function AiTab() {
+  const { t } = useTranslation();
   const enabledProviders = useSettingsStore((s) => s.enabledProviders);
   const toggleProvider = useSettingsStore((s) => s.toggleProvider);
   const moveProvider = useSettingsStore((s) => s.moveProvider);
@@ -47,8 +44,6 @@ export function AiTab() {
   const [showAnthropicKey, setShowAnthropicKey] = useState(false);
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
 
-  // Single state object so we can derive `loading` from a tag
-  // rather than calling setState synchronously in the effect.
   const [usageState, setUsageState] = useState<{
     forUserId: string | null;
     data: AiUsage | null;
@@ -59,7 +54,6 @@ export function AiTab() {
   const usageLoading =
     pnyxyEnabled && !!user && usageState.forUserId !== user.id;
 
-  // Fetch today's quota usage when Pnyxy is in the chain.
   useEffect(() => {
     if (!pnyxyEnabled || !user) return;
     let cancelled = false;
@@ -84,18 +78,18 @@ export function AiTab() {
     <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
       <div className="flex items-center gap-2">
         <BotMessageSquare size={18} className="text-accent-purple" />
-        <h2 className="text-lg font-semibold text-text-primary">AI Assistant</h2>
+        <h2 className="text-lg font-semibold text-text-primary">
+          {t("settings.aiSection.heading")}
+        </h2>
       </div>
       <p className="text-xs text-text-muted">
-        Configure providers in fallback priority order. The first one is tried;
-        if it runs out of tokens or fails, the next is automatically used.
+        {t("settings.aiSection.description")}
       </p>
 
-      {/* Enabled providers — ordered fallback chain */}
       {enabledProviders.length === 0 ? (
         <div className="rounded-lg border border-glass-border bg-bg-primary/40 p-4 text-center">
           <p className="text-sm text-text-secondary">
-            No providers enabled. Add one below.
+            {t("settings.aiSection.empty")}
           </p>
         </div>
       ) : (
@@ -128,7 +122,9 @@ export function AiTab() {
 
       {disabled.length > 0 && (
         <div>
-          <p className="text-xs text-text-muted mb-2">Add a provider:</p>
+          <p className="text-xs text-text-muted mb-2">
+            {t("settings.aiSection.addPrompt")}
+          </p>
           <div className="flex flex-wrap gap-2">
             {disabled.map((p) => (
               <button
@@ -188,9 +184,17 @@ function ProviderRow({
   setShowAnthropicKey,
   setShowOpenaiKey,
 }: ProviderRowProps) {
+  const { t } = useTranslation();
   const needsKey =
     (provider === "anthropic" && !anthropicApiKey.trim()) ||
     (provider === "openai" && !openaiApiKey.trim());
+
+  const hint =
+    provider === "pnyxy"
+      ? t("settings.aiSection.pnyxyHint")
+      : provider === "anthropic"
+        ? t("settings.aiSection.anthropicHint")
+        : t("settings.aiSection.openaiHint");
 
   return (
     <div className="rounded-lg border border-glass-border bg-bg-primary/40 p-3 space-y-2">
@@ -204,36 +208,34 @@ function ProviderRow({
               {PROVIDER_LABELS[provider]}
               {isFirst && (
                 <span className="ml-2 text-[10px] uppercase tracking-wide text-accent-purple">
-                  Primary
+                  {t("settings.aiSection.primary")}
                 </span>
               )}
               {needsKey && (
                 <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-400">
-                  Needs key
+                  {t("settings.aiSection.needsKey")}
                 </span>
               )}
             </p>
-            <p className="text-[11px] text-text-muted">
-              {PROVIDER_DESCRIPTIONS[provider]}
-            </p>
+            <p className="text-[11px] text-text-muted">{hint}</p>
           </div>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
           <IconButton
-            label="Move up"
+            label={t("settings.aiSection.moveUp")}
             disabled={isFirst}
             onClick={onMoveUp}
           >
             <ChevronUp size={14} />
           </IconButton>
           <IconButton
-            label="Move down"
+            label={t("settings.aiSection.moveDown")}
             disabled={isLast}
             onClick={onMoveDown}
           >
             <ChevronDown size={14} />
           </IconButton>
-          <IconButton label="Remove" onClick={onRemove}>
+          <IconButton label={t("settings.aiSection.remove")} onClick={onRemove}>
             <X size={14} />
           </IconButton>
         </div>
@@ -243,30 +245,31 @@ function ProviderRow({
         <div className="pt-1">
           {!user ? (
             <p className="text-[11px] text-text-muted">
-              Sign in for the standard daily quota. Anonymous users get a small
-              per-IP quota of 5 requests / 5,000 tokens per day.
+              {t("settings.aiSection.pnyxyAnon")}
             </p>
           ) : usageLoading ? (
-            <p className="text-[11px] text-text-muted">Loading usage…</p>
+            <p className="text-[11px] text-text-muted">
+              {t("settings.aiSection.usageLoading")}
+            </p>
           ) : usage ? (
             <>
               <UsageBar
-                label="Tokens today"
+                label={t("settings.aiSection.tokensToday")}
                 used={usage.tokens_used}
                 max={usage.tokens_limit}
               />
               <UsageBar
-                label="Requests today"
+                label={t("settings.aiSection.requestsToday")}
                 used={usage.request_count}
                 max={usage.request_limit}
               />
               <p className="text-[10px] text-text-muted pt-1">
-                Resets daily at 00:00 UTC.
+                {t("settings.aiSection.resetsDaily")}
               </p>
             </>
           ) : (
             <p className="text-[11px] text-text-muted">
-              Usage data unavailable.
+              {t("settings.aiSection.usageUnavailable")}
             </p>
           )}
         </div>
@@ -279,7 +282,7 @@ function ProviderRow({
           show={showAnthropicKey}
           onToggleShow={() => setShowAnthropicKey(!showAnthropicKey)}
           placeholder="sk-ant-..."
-          helpText="Stored locally in your browser. Calls go directly to Anthropic."
+          helpText={t("settings.aiSection.anthropicKeyHint")}
         />
       )}
 
@@ -290,7 +293,7 @@ function ProviderRow({
           show={showOpenaiKey}
           onToggleShow={() => setShowOpenaiKey(!showOpenaiKey)}
           placeholder="sk-..."
-          helpText="Stored locally in your browser. Calls go directly to OpenAI."
+          helpText={t("settings.aiSection.openaiKeyHint")}
         />
       )}
     </div>
