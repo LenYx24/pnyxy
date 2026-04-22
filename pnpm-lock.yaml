@@ -62,6 +62,9 @@ importers:
       react-router:
         specifier: ^7.14.0
         version: 7.14.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      ts-fsrs:
+        specifier: ^5.3.2
+        version: 5.3.2
       wrangler:
         specifier: ^4.82.2
         version: 4.82.2
@@ -2125,6 +2128,10 @@ packages:
     peerDependencies:
       typescript: '>=4.8.4'
 
+  ts-fsrs@5.3.2:
+    resolution: {integrity: sha512-moJJfYAeG9ynyyGCNaQPUloi0sspTMHFtgCvsx2wDchELu3O2c513/7fp+6PxsGth0ztxNjEtG8d85gX4ce0og==}
+    engines: {node: '>=20.0.0'}
+
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
@@ -4149,6 +4156,8 @@ snapshots:
   ts-api-utils@2.5.0(typescript@5.9.3):
     dependencies:
       typescript: 5.9.3
+
+  ts-fsrs@5.3.2: {}
 
   tslib@2.8.1: {}
 

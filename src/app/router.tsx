@@ -23,6 +23,7 @@ import { AboutTab } from "@/features/settings/tabs/AboutTab";
 import { QuizzesPage } from "@/features/quizzes/QuizzesPage";
 import { QuizEditorPage } from "@/features/quizzes/QuizEditorPage";
 import { QuizAttemptReviewPage } from "@/features/quizzes/QuizAttemptReviewPage";
+import { QuizReviewPage } from "@/features/quizzes/QuizReviewPage";
 import { QuizDetailPage } from "@/features/quizzes/QuizDetailPage";
 import { QuizTakePage } from "@/features/quizzes/QuizTakePage";
 import { AuthPage } from "@/features/auth/AuthPage";
@@ -115,6 +116,7 @@ export const router = createBrowserRouter([
       { path: "profile", element: <ProfilePage /> },
       { path: "admin", element: <AdminPage /> },
       { path: "quizzes", element: <QuizzesPage /> },
+      { path: "quizzes/review", element: <QuizReviewPage /> },
       { path: "quizzes/new", element: <QuizEditorPage /> },
       { path: "quizzes/:quizId", element: <QuizDetailPage /> },
       { path: "quizzes/:quizId/edit", element: <QuizEditorPage /> },
