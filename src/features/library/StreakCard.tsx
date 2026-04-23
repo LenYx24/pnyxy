@@ -1,6 +1,35 @@
 import { Flame, Trophy } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useStreakStore } from "@/stores/streak-store";
+import { cn } from "@/lib/cn";
+
+/**
+ * Compact streak pill — just a flame icon with the current streak number.
+ * Used on mobile where the full card would dominate the library header.
+ */
+export function StreakPill({ className }: { className?: string }) {
+  const { t } = useTranslation();
+  const getCurrentStreak = useStreakStore((s) => s.getCurrentStreak);
+  const currentStreak = getCurrentStreak();
+  return (
+    <div
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border border-glass-border bg-glass-bg/60 px-2 py-0.5",
+        className,
+      )}
+      title={t("library.streak.dayStreak", { count: currentStreak })}
+      aria-label={t("library.streak.dayStreak", { count: currentStreak })}
+    >
+      <Flame
+        size={14}
+        className={currentStreak > 0 ? "text-orange-400" : "text-text-muted"}
+      />
+      <span className="text-xs font-semibold text-text-primary">
+        {currentStreak}
+      </span>
+    </div>
+  );
+}
 
 export function StreakCard() {
   const { t } = useTranslation();

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Flame, Trophy, Target, Calendar } from "lucide-react";
+import { Flame, Trophy, Target, Calendar, Brain } from "lucide-react";
 import { useStreakStore } from "@/stores/streak-store";
 import { cn } from "@/lib/cn";
 
@@ -38,6 +38,7 @@ export function StreaksPage() {
   const { t } = useTranslation();
   const getCurrentStreak = useStreakStore((s) => s.getCurrentStreak);
   const longestStreak = useStreakStore((s) => s.longestStreak);
+  const longestAttentionSeconds = useStreakStore((s) => s.longestAttentionSeconds);
   const getTodayRecord = useStreakStore((s) => s.getTodayRecord);
   const dailyRecords = useStreakStore((s) => s.dailyRecords);
 
@@ -60,7 +61,7 @@ export function StreaksPage() {
         </h1>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           icon={<Flame size={20} className={currentStreak > 0 ? "text-orange-400" : "text-text-muted"} />}
           label={t("streaks.currentStreak")}
@@ -72,6 +73,14 @@ export function StreaksPage() {
           label={t("streaks.longestStreak")}
           value={longestStreak}
           suffix={t("streaks.day", { count: longestStreak })}
+        />
+        <StatTile
+          icon={<Brain size={20} className="text-sky-400" />}
+          label={t("streaks.longestAttention")}
+          value={Math.floor(longestAttentionSeconds / 60)}
+          suffix={t("streaks.minute", {
+            count: Math.floor(longestAttentionSeconds / 60),
+          })}
         />
         <StatTile
           icon={<Target size={20} className="text-accent-purple" />}

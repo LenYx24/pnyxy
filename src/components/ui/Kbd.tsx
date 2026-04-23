@@ -1,5 +1,6 @@
 import { formatShortcut } from "@/lib/keyboard-shortcuts";
 import { cn } from "@/lib/cn";
+import { useIsMobile } from "@/hooks/use-media-query";
 
 interface KbdProps {
   /** Modifier + key combo. Omit a modifier by leaving it unset. */
@@ -11,8 +12,11 @@ interface KbdProps {
 /**
  * Inline keyboard-shortcut hint. Renders the shortcut inside a `<kbd>`
  * element with consistent styling; auto-formats ⌘ vs Ctrl for Mac.
+ * Renders nothing on phones — shortcuts are meaningless without a keyboard.
  */
 export function Kbd({ shortcut, className }: KbdProps) {
+  const isMobile = useIsMobile();
+  if (isMobile) return null;
   return (
     <kbd
       className={cn(

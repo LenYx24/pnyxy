@@ -7,6 +7,7 @@ import {
   Tag,
   Share2,
   Info,
+  Heart,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useSortable } from "@dnd-kit/sortable";
@@ -64,6 +65,16 @@ export function LibraryBookCard({
   const menuRef = useRef<HTMLDivElement>(null);
   const key = bookKey(entry);
   const tags = useTagStore((s) => s.bookTags.get(key)) ?? [];
+  const addTag = useTagStore((s) => s.addTag);
+  const removeTag = useTagStore((s) => s.removeTag);
+  const isFavorite = tags.includes("favorites");
+
+  const toggleFavorite = (e: React.MouseEvent | React.PointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (isFavorite) removeTag(entry, "favorites");
+    else addTag(entry, "favorites");
+  };
 
   const title =
     entry.source === "catalog" ? entry.catalog_book.title : entry.book.title;
@@ -173,6 +184,25 @@ export function LibraryBookCard({
               Uploaded
             </span>
           )}
+
+          {/* Favorite toggle — always visible on mobile, hover on desktop
+              when not already set. Positioned below the menu button. */}
+          <button
+            onClick={toggleFavorite}
+            aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+            title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+            className={cn(
+              "absolute right-2 top-11 z-10 rounded-lg p-1.5 backdrop-blur-sm transition-colors cursor-pointer",
+              isFavorite
+                ? "bg-pink-500/80 text-white hover:bg-pink-500"
+                : "bg-black/40 text-white/70 hover:bg-black/60 hover:text-white",
+              isFavorite
+                ? "opacity-100"
+                : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
+            )}
+          >
+            <Heart size={14} fill={isFavorite ? "currentColor" : "none"} />
+          </button>
 
           {/* Info */}
           <div className={cn("p-3", compact && "p-2")}>

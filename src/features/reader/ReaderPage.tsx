@@ -303,7 +303,7 @@ function MobileReaderLayout({
       {/* TOC panel - slides from left */}
       <div
         className={cn(
-          "absolute left-0 top-11 bottom-0 z-40 w-[90vw] max-w-[22rem] border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
+          "absolute left-0 top-11 bottom-0 z-40 w-[85vw] max-w-[20rem] border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
           mobileReaderPanel === "toc" ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -334,7 +334,7 @@ function MobileReaderLayout({
       {/* Comments panel - slides from right */}
       <div
         className={cn(
-          "absolute right-0 top-11 bottom-0 z-40 w-[90vw] max-w-[22rem] border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
+          "absolute right-0 top-11 bottom-0 z-40 w-[85vw] max-w-[20rem] border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
           mobileReaderPanel === "comments" ? "translate-x-0" : "translate-x-full",
         )}
       >
@@ -359,7 +359,7 @@ function MobileReaderLayout({
           its own header (with the close button) when onClose is passed. */}
       <div
         className={cn(
-          "absolute right-0 top-11 bottom-0 z-40 w-[90vw] max-w-[22rem] border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
+          "absolute right-0 top-11 bottom-0 z-40 w-[85vw] max-w-[20rem] border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
           mobileReaderPanel === "aiChat" ? "translate-x-0" : "translate-x-full",
         )}
       >

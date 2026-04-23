@@ -65,6 +65,11 @@ interface QuizState {
 
   deleteQuiz: (id: string) => Promise<void>;
 
+  /** Copy a quiz (and its questions) into the signed-in user's own
+   *  library as a new private quiz. Used for "Duplicate to my
+   *  quizzes" on community items. Returns the new quiz id, or null. */
+  duplicateQuiz: (id: string) => Promise<string | null>;
+
   /** Record a completed attempt in one shot. `selected_index` is used
    *  for mcq4/true_false; `selected_text` for short_answer. At least one
    *  must be provided per answer. */
@@ -345,6 +350,59 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       throw error;
     }
     set((s) => ({ myQuizzes: s.myQuizzes.filter((q) => q.id !== id) }));
+  },
+
+  async duplicateQuiz(id) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Sign in to duplicate a quiz.");
+
+    const source = await get().getQuiz(id);
+    if (!source) throw new Error("Quiz not found.");
+
+    // Copy fields that make sense on a new row; drop owner/visibility
+    // so the new copy starts private and owned by the current user.
+    const { data: newRow, error: insErr } = await supabase
+      .from("quizzes")
+      .insert({
+        user_id: user.id,
+        title: source.quiz.title,
+        description: source.quiz.description,
+        visibility: "private",
+        uploaded_book_id: source.quiz.uploaded_book_id,
+        catalog_book_id: source.quiz.catalog_book_id,
+      })
+      .select()
+      .single();
+    if (insErr || !newRow) {
+      logError("quiz-store:duplicateQuiz", insErr);
+      throw insErr ?? new Error("Could not duplicate quiz.");
+    }
+
+    if (source.questions.length > 0) {
+      const rows = source.questions.map((q, i) => ({
+        quiz_id: newRow.id as string,
+        position: i,
+        kind: q.kind,
+        question_text: q.question_text,
+        option_a: q.option_a,
+        option_b: q.option_b,
+        option_c: q.option_c,
+        option_d: q.option_d,
+        correct_index: q.correct_index,
+        correct_text: q.correct_text,
+      }));
+      const { error: qErr } = await supabase.from("quiz_questions").insert(rows);
+      if (qErr) {
+        logError("quiz-store:duplicateQuiz:questions", qErr);
+        throw qErr;
+      }
+    }
+
+    // Refresh the user's quiz list so the new copy shows up immediately.
+    await get().fetchMine();
+    return newRow.id as string;
   },
 
   async submitAttempt(quizId, answers) {

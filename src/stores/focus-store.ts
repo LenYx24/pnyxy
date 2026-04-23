@@ -16,6 +16,11 @@ interface FocusState {
   endsAt: number | null;
   /** Milliseconds remaining. Updated every tick while active. */
   remainingMs: number;
+  /** Epoch ms when the current uninterrupted foreground span began.
+   *  null while the tab is hidden or no session is active. */
+  currentSpanStartedAt: number | null;
+  /** Longest uninterrupted foreground span so far in this session, ms. */
+  longestSpanMs: number;
 
   start: (minutes: number) => void;
   cancel: () => void;
@@ -24,6 +29,8 @@ interface FocusState {
 
   /** Internal: called by the tick loop. Don't call directly from UI. */
   _tick: () => void;
+  /** Internal: called on visibility change. */
+  _setVisible: (visible: boolean) => void;
 }
 
 function loadPersisted(): PersistedSession | null {
@@ -86,11 +93,25 @@ function playDing() {
 // refresh mid-session resumes cleanly.
 const restored = loadPersisted();
 
+function commitSpan(
+  longestSpanMs: number,
+  currentSpanStartedAt: number | null,
+): number {
+  if (currentSpanStartedAt == null) return longestSpanMs;
+  const spanMs = Date.now() - currentSpanStartedAt;
+  return Math.max(longestSpanMs, spanMs);
+}
+
 export const useFocusStore = create<FocusState>((set, get) => ({
   active: !!restored,
   startedAt: restored?.startedAt ?? null,
   endsAt: restored?.endsAt ?? null,
   remainingMs: restored ? Math.max(0, restored.endsAt - Date.now()) : 0,
+  currentSpanStartedAt:
+    restored && typeof document !== "undefined" && !document.hidden
+      ? Date.now()
+      : null,
+  longestSpanMs: 0,
 
   start(minutes) {
     const now = Date.now();
@@ -102,11 +123,14 @@ export const useFocusStore = create<FocusState>((set, get) => ({
       startedAt: now,
       endsAt,
       remainingMs: durationMs,
+      currentSpanStartedAt:
+        typeof document === "undefined" || !document.hidden ? now : null,
+      longestSpanMs: 0,
     });
   },
 
   cancel() {
-    const { startedAt } = get();
+    const { startedAt, longestSpanMs, currentSpanStartedAt } = get();
     if (startedAt) {
       const seconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
       if (seconds >= 60) {
@@ -114,9 +138,20 @@ export const useFocusStore = create<FocusState>((set, get) => ({
         // cancel near the end doesn't feel punitive.
         useStreakStore.getState().addReadingTime(seconds);
       }
+      const finalSpanMs = commitSpan(longestSpanMs, currentSpanStartedAt);
+      if (finalSpanMs > 0) {
+        useStreakStore.getState().recordAttentionSpan(Math.round(finalSpanMs / 1000));
+      }
     }
     persist(null);
-    set({ active: false, startedAt: null, endsAt: null, remainingMs: 0 });
+    set({
+      active: false,
+      startedAt: null,
+      endsAt: null,
+      remainingMs: 0,
+      currentSpanStartedAt: null,
+      longestSpanMs: 0,
+    });
   },
 
   extend(minutes) {
@@ -131,17 +166,42 @@ export const useFocusStore = create<FocusState>((set, get) => ({
   },
 
   _tick() {
-    const { active, endsAt, startedAt } = get();
+    const { active, endsAt, startedAt, longestSpanMs, currentSpanStartedAt } =
+      get();
     if (!active || !endsAt || !startedAt) return;
     const remainingMs = Math.max(0, endsAt - Date.now());
     set({ remainingMs });
     if (remainingMs === 0) {
-      // Session complete → log all elapsed minutes and stop.
+      // Session complete → log all elapsed minutes + attention span, then stop.
       const seconds = Math.round((Date.now() - startedAt) / 1000);
       useStreakStore.getState().addReadingTime(seconds);
+      const finalSpanMs = commitSpan(longestSpanMs, currentSpanStartedAt);
+      if (finalSpanMs > 0) {
+        useStreakStore.getState().recordAttentionSpan(Math.round(finalSpanMs / 1000));
+      }
       persist(null);
-      set({ active: false, startedAt: null, endsAt: null });
+      set({
+        active: false,
+        startedAt: null,
+        endsAt: null,
+        currentSpanStartedAt: null,
+        longestSpanMs: 0,
+      });
       playDing();
+    }
+  },
+
+  _setVisible(visible) {
+    const { active, currentSpanStartedAt, longestSpanMs } = get();
+    if (!active) return;
+    if (!visible && currentSpanStartedAt != null) {
+      // Span closed — record longest and clear the start.
+      set({
+        longestSpanMs: commitSpan(longestSpanMs, currentSpanStartedAt),
+        currentSpanStartedAt: null,
+      });
+    } else if (visible && currentSpanStartedAt == null) {
+      set({ currentSpanStartedAt: Date.now() });
     }
   },
 }));
@@ -158,8 +218,10 @@ if (typeof window !== "undefined") {
   }, 1000);
 
   // If the tab is hidden for a long time the interval may be throttled;
-  // force a catch-up tick when visibility returns.
+  // force a catch-up tick when visibility returns. Also keeps the
+  // attention-span tracker honest by closing/reopening the current span.
   document.addEventListener("visibilitychange", () => {
+    useFocusStore.getState()._setVisible(!document.hidden);
     if (!document.hidden) useFocusStore.getState()._tick();
   });
 

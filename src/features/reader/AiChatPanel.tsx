@@ -25,9 +25,10 @@ function CloseButton({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   return (
     <button
+      type="button"
       onClick={onClose}
       aria-label={t("reader.aiChat.closeAria")}
-      className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-transparent bg-glass-bg/60 text-text-secondary transition-colors hover:border-glass-border hover:bg-glass-hover hover:text-text-primary cursor-pointer"
     >
       <X size={20} />
     </button>

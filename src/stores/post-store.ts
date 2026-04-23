@@ -41,6 +41,7 @@ interface PostState {
 
   fetchPosts: (communityId: string) => Promise<void>;
   loadMorePosts: (communityId: string) => Promise<void>;
+  fetchPostsForBook: (opts: { bookId?: string; catalogBookId?: string }) => Promise<void>;
   fetchPost: (postId: string) => Promise<void>;
   createPost: (data: ForumPostInsert) => Promise<string>;
   removePost: (postId: string) => Promise<void>;
@@ -135,6 +136,40 @@ export const usePostStore = create<PostState>((set, get) => ({
     }
   },
 
+  async fetchPostsForBook({ bookId, catalogBookId }) {
+    set({ isLoading: true, page: 0 });
+    try {
+      let query = supabase
+        .from("posts")
+        .select(
+          "*, author:profiles!author_id(display_name, avatar_url), community:communities!community_id(slug, name)",
+          { count: "exact" },
+        )
+        .eq("is_removed", false)
+        .order("last_activity", { ascending: false })
+        .limit(PAGE_SIZE);
+
+      if (bookId) query = query.eq("book_id", bookId);
+      else if (catalogBookId) query = query.eq("catalog_book_id", catalogBookId);
+      else {
+        set({ posts: [], totalCount: 0 });
+        return;
+      }
+
+      const { data, count, error } = await query;
+      if (error) throw error;
+      set({
+        posts: (data as ForumPostWithAuthor[]) ?? [],
+        totalCount: count ?? 0,
+        page: 1,
+      });
+    } catch (err) {
+      logError("post:fetchPostsForBook", (err as Error).message);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
   async createPost(input) {
     const {
       data: { user },
@@ -157,6 +192,8 @@ export const usePostStore = create<PostState>((set, get) => ({
         kind: input.kind ?? "text",
         body_md: input.body_md ?? null,
         link_url: input.link_url ?? null,
+        book_id: input.book_id ?? null,
+        catalog_book_id: input.catalog_book_id ?? null,
       })
       .select("*, author:profiles!author_id(display_name, avatar_url)")
       .single();

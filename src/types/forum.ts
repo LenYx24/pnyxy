@@ -45,6 +45,8 @@ export interface ForumPost {
   kind: PostKind;
   body_md: string | null;
   link_url: string | null;
+  book_id: string | null;
+  catalog_book_id: string | null;
   created_at: string;
   edited_at: string | null;
   is_removed: boolean;
@@ -59,10 +61,13 @@ export interface ForumPostInsert {
   kind?: PostKind;
   body_md?: string | null;
   link_url?: string | null;
+  book_id?: string | null;
+  catalog_book_id?: string | null;
 }
 
 export interface ForumPostWithAuthor extends ForumPost {
   author?: { display_name: string | null; avatar_url: string | null };
+  community?: { slug: string; name: string } | null;
 }
 
 // ── Comments ───────────────────────────────────────────────

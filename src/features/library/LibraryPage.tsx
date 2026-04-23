@@ -11,6 +11,8 @@ import { useLibraryStore } from "@/stores/library-store";
 import { useUploadStore } from "@/stores/upload-store";
 import { OpenFromUrlModal } from "./OpenFromUrlModal";
 import { StorageUsageBar } from "./StorageUsageBar";
+import { StreakPill } from "./StreakCard";
+import { useIsMobile } from "@/hooks/use-media-query";
 import { useLibraryPrefs } from "./useLibraryPrefs";
 import { LibraryToolbar } from "./LibraryToolbar";
 import { SelectionBar } from "./SelectionBar";
@@ -34,6 +36,7 @@ type TabKey = (typeof tabs)[number]["key"];
 
 export function LibraryPage() {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const { fileInputRef, triggerFilePicker, handleFileSelect, openFile } =
     useOpenDocument();
 
@@ -64,6 +67,9 @@ export function LibraryPage() {
 
   // Tag filter
   const [activeTag, setActiveTag] = useState<BookStatusTag | null>(null);
+
+  // Mobile-only: whether the view/filter controls + tag filter bar are expanded
+  const [mobileControlsExpanded, setMobileControlsExpanded] = useState(false);
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -426,9 +432,12 @@ export function LibraryPage() {
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
-          <h2 className="text-2xl font-bold text-text-primary">
-            {t("library.yourLibrary")}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-text-primary">
+              {t("library.yourLibrary")}
+            </h2>
+            {isMobile && <StreakPill />}
+          </div>
           <p className="text-sm text-text-secondary">
             {t("library.bookCount", { count: books.length })}
           </p>
@@ -448,6 +457,7 @@ export function LibraryPage() {
             title={t("library.actions.scanTitle", {
               shortcut: formatShortcut({ key: "d", ctrl: true, shift: true }),
             })}
+            className="px-3 py-1.5 sm:px-5 sm:py-2.5"
           >
             <FolderSearch size={18} />
             <span className="hidden sm:inline">
@@ -464,6 +474,7 @@ export function LibraryPage() {
             title={t("library.actions.uploadTitle", {
               shortcut: formatShortcut({ key: "u", ctrl: true }),
             })}
+            className="px-3 py-1.5 sm:px-5 sm:py-2.5"
           >
             <Upload size={18} />
             <span className="hidden sm:inline">
@@ -480,6 +491,7 @@ export function LibraryPage() {
             title={t("library.actions.openTitle", {
               shortcut: formatShortcut({ key: "o", ctrl: true }),
             })}
+            className="px-3 py-1.5 sm:px-5 sm:py-2.5"
           >
             <FilePlus size={18} />
             <span className="hidden sm:inline">
@@ -494,6 +506,7 @@ export function LibraryPage() {
             variant="secondary"
             onClick={() => setUrlModalOpen(true)}
             title={t("library.actions.fromUrlTitle")}
+            className="px-3 py-1.5 sm:px-5 sm:py-2.5"
           >
             <LinkIcon size={18} />
             <span className="hidden sm:inline">
@@ -547,10 +560,14 @@ export function LibraryPage() {
         onCardSizeChange={setCardSize}
         onRefresh={handleRefresh}
         isRefreshing={isLoading}
+        mobileControlsExpanded={mobileControlsExpanded}
+        onToggleMobileControls={() => setMobileControlsExpanded((v) => !v)}
       />
 
-      {/* Tag filter bar */}
-      <TagFilterBar activeTag={activeTag} onTagChange={setActiveTag} />
+      {/* Tag filter bar — hidden on mobile until controls are expanded */}
+      {(!isMobile || mobileControlsExpanded) && (
+        <TagFilterBar activeTag={activeTag} onTagChange={setActiveTag} />
+      )}
 
       {/* Tab content */}
       {activeTab === "home" && (

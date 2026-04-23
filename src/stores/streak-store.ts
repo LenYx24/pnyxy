@@ -16,8 +16,11 @@ function todayKey(): string {
 interface StreakState {
   dailyRecords: Record<string, DailyRecord>;
   longestStreak: number;
+  /** Longest continuous foreground focus stretch ever recorded, in seconds. */
+  longestAttentionSeconds: number;
 
   addReadingTime: (seconds: number) => void;
+  recordAttentionSpan: (seconds: number) => void;
   getCurrentStreak: () => number;
   getTodayRecord: () => DailyRecord;
   shouldShowCelebration: () => boolean;
@@ -29,6 +32,15 @@ export const useStreakStore = create<StreakState>()(
     (set, get) => ({
       dailyRecords: {},
       longestStreak: 0,
+      longestAttentionSeconds: 0,
+
+      recordAttentionSpan(seconds: number) {
+        if (seconds <= 0) return;
+        const { longestAttentionSeconds } = get();
+        if (seconds > longestAttentionSeconds) {
+          set({ longestAttentionSeconds: seconds });
+        }
+      },
 
       addReadingTime(seconds: number) {
         const key = todayKey();

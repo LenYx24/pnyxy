@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Search, LayoutGrid, List, X, RefreshCw } from "lucide-react";
+import { Search, LayoutGrid, List, X, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { Kbd, Slider } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { useIsMobile } from "@/hooks/use-media-query";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { formatShortcut } from "@/lib/keyboard-shortcuts";
 import type { ViewMode } from "./useLibraryPrefs";
@@ -16,6 +17,10 @@ interface LibraryToolbarProps {
   onCardSizeChange: (size: number) => void;
   onRefresh: () => void;
   isRefreshing: boolean;
+  /** Mobile-only: parent-owned expand state so the toolbar toggle also
+   *  reveals/hides the tag filter bar rendered as a sibling. */
+  mobileControlsExpanded?: boolean;
+  onToggleMobileControls?: () => void;
 }
 
 export function LibraryToolbar({
@@ -27,8 +32,11 @@ export function LibraryToolbar({
   onCardSizeChange,
   onRefresh,
   isRefreshing,
+  mobileControlsExpanded = false,
+  onToggleMobileControls,
 }: LibraryToolbarProps) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [searchFocused, setSearchFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -66,70 +74,8 @@ export function LibraryToolbar({
     return () => window.removeEventListener("keydown", handler);
   }, [searchActive, onSearchChange]);
 
-  return (
-    <div className="mb-4 flex flex-wrap items-center gap-2">
-      {/* Search */}
-      <div
-        className={cn(
-          "relative flex items-center transition-all duration-200",
-          searchActive ? "w-full sm:flex-1 sm:w-auto" : "w-auto",
-        )}
-      >
-        {searchActive ? (
-          <div className="flex w-full items-center gap-2 rounded-lg border border-accent-purple/40 bg-bg-secondary px-3 py-1.5 shadow-sm shadow-accent-purple/10">
-            <Search size={14} className="shrink-0 text-accent-purple" />
-            <input
-              ref={inputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => {
-                if (!searchQuery) setSearchFocused(false);
-              }}
-              placeholder={t("library.toolbar.searchPlaceholder")}
-              className="min-w-0 flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
-              autoFocus
-            />
-            {searchQuery && (
-              <span className="shrink-0 text-xs text-text-muted">
-                {/* result count injected by parent if needed */}
-              </span>
-            )}
-            <button
-              onClick={() => {
-                onSearchChange("");
-                setSearchFocused(false);
-                inputRef.current?.blur();
-              }}
-              className="shrink-0 cursor-pointer text-text-muted transition-colors hover:text-text-primary"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={focusSearch}
-            title={t("library.toolbar.searchShortcut", {
-              shortcut: formatShortcut({ key: "k", ctrl: true }),
-            })}
-            className="flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-          >
-            <Search size={14} />
-            <span className="hidden sm:inline">
-              {t("library.toolbar.search")}
-            </span>
-            <Kbd
-              shortcut={{ key: "k", ctrl: true }}
-              className="hidden lg:inline-flex"
-            />
-          </button>
-        )}
-      </div>
-
-      {/* Spacer */}
-      {!searchActive && <div className="flex-1" />}
-
+  const controls = (
+    <>
       {/* Refresh */}
       <button
         onClick={onRefresh}
@@ -168,7 +114,7 @@ export function LibraryToolbar({
         </button>
       </div>
 
-      {/* Size slider */}
+      {/* Size slider — hidden on small screens */}
       <div
         className="hidden shrink-0 items-center sm:flex"
         title={t("library.toolbar.coverSizeTitle")}
@@ -182,6 +128,100 @@ export function LibraryToolbar({
           label={t("library.toolbar.coverSizeLabel")}
         />
       </div>
+    </>
+  );
+
+  return (
+    <div className="mb-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Search */}
+        <div
+          className={cn(
+            "relative flex items-center transition-all duration-200",
+            searchActive ? "w-full sm:flex-1 sm:w-auto" : "w-auto",
+          )}
+        >
+          {searchActive ? (
+            <div className="flex w-full items-center gap-2 rounded-lg border border-accent-purple/40 bg-bg-secondary px-3 py-1.5 shadow-sm shadow-accent-purple/10">
+              <Search size={14} className="shrink-0 text-accent-purple" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => {
+                  if (!searchQuery) setSearchFocused(false);
+                }}
+                placeholder={t("library.toolbar.searchPlaceholder")}
+                className="min-w-0 flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
+                autoFocus
+              />
+              {searchQuery && (
+                <span className="shrink-0 text-xs text-text-muted">
+                  {/* result count injected by parent if needed */}
+                </span>
+              )}
+              <button
+                onClick={() => {
+                  onSearchChange("");
+                  setSearchFocused(false);
+                  inputRef.current?.blur();
+                }}
+                className="shrink-0 cursor-pointer text-text-muted transition-colors hover:text-text-primary"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={focusSearch}
+              title={t("library.toolbar.searchShortcut", {
+                shortcut: formatShortcut({ key: "k", ctrl: true }),
+              })}
+              className="flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            >
+              <Search size={14} />
+              <span className="hidden sm:inline">
+                {t("library.toolbar.search")}
+              </span>
+              <Kbd
+                shortcut={{ key: "k", ctrl: true }}
+                className="hidden lg:inline-flex"
+              />
+            </button>
+          )}
+        </div>
+
+        {/* Spacer */}
+        {!searchActive && <div className="flex-1" />}
+
+        {isMobile ? (
+          <button
+            onClick={onToggleMobileControls}
+            aria-expanded={mobileControlsExpanded}
+            aria-label={t("library.toolbar.toggleControls")}
+            title={t("library.toolbar.toggleControls")}
+            className={cn(
+              "shrink-0 rounded-lg border p-1.5 transition-colors cursor-pointer",
+              mobileControlsExpanded
+                ? "border-accent-purple/40 bg-accent-purple/10 text-accent-purple"
+                : "border-glass-border bg-glass-bg text-text-muted hover:bg-glass-hover hover:text-text-primary",
+            )}
+          >
+            <SlidersHorizontal size={16} />
+          </button>
+        ) : (
+          controls
+        )}
+      </div>
+
+      {/* Collapsible controls drawer on mobile */}
+      {isMobile && mobileControlsExpanded && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-glass-border bg-glass-bg/60 p-2">
+          {controls}
+        </div>
+      )}
     </div>
   );
 }

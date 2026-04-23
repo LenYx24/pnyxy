@@ -8,6 +8,7 @@ import { useTagStore } from "@/stores/tag-store";
 import { LibraryBookCard } from "./LibraryBookCard";
 import { LibraryListView } from "./LibraryListView";
 import { StreakCard } from "./StreakCard";
+import { useIsMobile } from "@/hooks/use-media-query";
 import type { ViewMode } from "./useLibraryPrefs";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import type { BookStatusTag } from "@/types/database";
@@ -39,6 +40,7 @@ export function HomeTab({
 }: HomeTabProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const books = useLibraryStore((s) => s.books);
   const folders = useLibraryStore((s) => s.folders);
   const getTagsForBook = useTagStore((s) => s.getTagsForBook);
@@ -77,9 +79,11 @@ export function HomeTab({
     }
     return (
       <div className="flex flex-col items-center gap-4 py-16 text-center">
-        <div className="w-full max-w-md mb-4">
-          <StreakCard />
-        </div>
+        {!isMobile && (
+          <div className="w-full max-w-md mb-4">
+            <StreakCard />
+          </div>
+        )}
         <BookOpen size={48} className="text-text-muted/50" />
         <div>
           <p className="text-lg font-medium text-text-primary">
@@ -98,9 +102,11 @@ export function HomeTab({
 
   return (
     <div>
-      <div className="mb-6">
-        <StreakCard />
-      </div>
+      {!isMobile && (
+        <div className="mb-6">
+          <StreakCard />
+        </div>
+      )}
 
       <h3 className="mb-4 text-lg font-semibold text-text-primary">
         {t("library.home.recentlyAdded")}

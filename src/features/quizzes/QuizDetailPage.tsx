@@ -10,6 +10,7 @@ import {
   History,
   FileQuestion,
   AlertTriangle,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useQuizStore } from "@/stores/quiz-store";
@@ -29,6 +30,8 @@ export function QuizDetailPage() {
   const user = useAuthStore((s) => s.user);
   const getQuiz = useQuizStore((s) => s.getQuiz);
   const deleteQuiz = useQuizStore((s) => s.deleteQuiz);
+  const duplicateQuiz = useQuizStore((s) => s.duplicateQuiz);
+  const [duplicating, setDuplicating] = useState(false);
   const fetchAttempts = useQuizStore((s) => s.fetchAttempts);
   const fetchQuestionStats = useQuizStore((s) => s.fetchQuestionStats);
 
@@ -101,6 +104,23 @@ export function QuizDetailPage() {
     }
   };
 
+  const handleDuplicate = async () => {
+    if (!quizId) return;
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
+    setDuplicating(true);
+    try {
+      const newId = await duplicateQuiz(quizId);
+      if (newId) navigate(`/quizzes/${newId}`);
+    } catch {
+      // error already logged
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 p-4 sm:p-6">
       <button
@@ -143,7 +163,7 @@ export function QuizDetailPage() {
             <Play size={16} />
             {t("quizzes.detail.takeQuiz")}
           </Button>
-          {isOwner && (
+          {isOwner ? (
             <>
               <Button
                 variant="secondary"
@@ -160,6 +180,21 @@ export function QuizDetailPage() {
                 <Trash2 size={14} />
               </Button>
             </>
+          ) : (
+            quiz.visibility === "public" && (
+              <Button
+                variant="secondary"
+                onClick={handleDuplicate}
+                disabled={duplicating}
+              >
+                {duplicating ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Copy size={14} />
+                )}
+                {t("quizzes.detail.duplicate")}
+              </Button>
+            )
           )}
         </div>
       </header>
