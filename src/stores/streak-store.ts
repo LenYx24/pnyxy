@@ -1,5 +1,54 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { supabase } from "@/lib/supabase";
+import { logError } from "@/lib/logger";
+
+// ── Remote sync (leaderboards) ──────────────────────────────
+// Local is source of truth; this is a cached rollup in Postgres
+// for fast leaderboard queries. Debounced so we're not writing
+// on every reading-timer tick.
+
+const SYNC_DEBOUNCE_MS = 30_000;
+let syncTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleRemoteSync() {
+  if (syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(flushRemoteSync, SYNC_DEBOUNCE_MS);
+}
+
+async function flushRemoteSync() {
+  syncTimer = null;
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const state = useStreakStore.getState();
+    const current = state.getCurrentStreak();
+    const todayRec = state.getTodayRecord();
+    const totalSeconds = Object.values(state.dailyRecords).reduce(
+      (sum, r) => sum + (r.seconds ?? 0),
+      0,
+    );
+
+    await supabase.from("reading_stats").upsert(
+      {
+        user_id: user.id,
+        current_streak: current,
+        longest_streak: state.longestStreak,
+        total_seconds: totalSeconds,
+        longest_attention_seconds: state.longestAttentionSeconds,
+        last_read_date:
+          todayRec.seconds > 0 ? new Date().toISOString().slice(0, 10) : null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
+  } catch (err) {
+    logError("streak-store:flushRemoteSync", err);
+  }
+}
 
 interface DailyRecord {
   seconds: number;
@@ -39,6 +88,7 @@ export const useStreakStore = create<StreakState>()(
         const { longestAttentionSeconds } = get();
         if (seconds > longestAttentionSeconds) {
           set({ longestAttentionSeconds: seconds });
+          scheduleRemoteSync();
         }
       },
 
@@ -72,6 +122,7 @@ export const useStreakStore = create<StreakState>()(
         }
 
         set({ dailyRecords: newRecords, longestStreak: newLongest });
+        scheduleRemoteSync();
       },
 
       getCurrentStreak() {

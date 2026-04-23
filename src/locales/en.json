@@ -6,6 +6,7 @@
     "saving": "Saving…",
     "delete": "Delete",
     "edit": "Edit",
+    "remove": "Remove",
     "loading": "Loading…",
     "retry": "Retry",
     "close": "Close",
@@ -20,6 +21,7 @@
     "browse": "Browse",
     "library": "Library",
     "reader": "Reader",
+    "chat": "Chat",
     "quizzes": "Quizzes",
     "review": "Review",
     "streaks": "Streaks",
@@ -194,6 +196,7 @@
   "landing": {
     "goToLibrary": "Go to Library",
     "signIn": "Sign In",
+    "download": "Download",
     "tagline": "Your intelligent reading companion",
     "subtitle": "A free, open-source platform that transforms how you read, learn, and retain knowledge from books.",
     "getStarted": "Get Started",
@@ -389,6 +392,47 @@
       "noSearchResults": "No results for \"{{query}}\""
     }
   },
+  "download": {
+    "title": "Download Pnyxy",
+    "version": "Version {{tag}}",
+    "loading": "Fetching the latest release…",
+    "noReleaseTitle": "No release yet",
+    "noReleaseBody": "Installers haven't been published yet. You can build from source in the meantime.",
+    "errorTitle": "Couldn't load the latest release",
+    "errorBody": "Check your connection, or head to GitHub to grab the installer manually.",
+    "viewOnGithub": "View releases on GitHub",
+    "viewReleaseNotes": "Release notes",
+    "sourceCode": "Source code",
+    "otherPlatforms": "Other platforms",
+    "allPlatforms": "All platforms",
+    "noAssetsForPlatform": "No installer for this platform in the current release.",
+    "quickDownload": "Download now",
+    "unsignedNotice": "These builds are not code-signed. Your OS may warn before running — this is expected for unsigned open-source software. On macOS, right-click the .dmg → Open to bypass Gatekeeper. On Windows, click \"More info → Run anyway\" past SmartScreen.",
+    "platforms": {
+      "windows": {
+        "title": "Windows",
+        "file": "Windows 10 or newer · 64-bit"
+      },
+      "macos": {
+        "title": "macOS",
+        "file": "macOS 11 or newer · Intel + Apple Silicon"
+      },
+      "linux": {
+        "title": "Linux",
+        "file": "AppImage (portable) or .deb (Debian/Ubuntu)"
+      }
+    },
+    "mobile": {
+      "android": {
+        "title": "Android coming soon",
+        "body": "The Android build isn't published yet. In the meantime, Pnyxy runs in your mobile browser — try it from the home page."
+      },
+      "ios": {
+        "title": "iOS not yet available",
+        "body": "Pnyxy runs in mobile Safari in the meantime. A native iOS build is planned but not scheduled."
+      }
+    }
+  },
   "static": {
     "about": {
       "title": "About Pnyxy",
@@ -445,12 +489,92 @@
     "day_other": "days",
     "minute_one": "minute",
     "minute_other": "minutes",
+    "viewLeaderboards": "Leaderboards",
     "today": "Today",
     "goalComplete": "Goal complete",
     "inProgress": "In progress",
     "minRead": "{{minutes}} min read",
     "minGoal": "{{minutes}} min goal",
     "historyHint": "Filled squares are days you hit the 5-minute reading goal."
+  },
+  "chat": {
+    "title": "Chat",
+    "untitled": "Untitled conversation",
+    "newConversation": "New conversation",
+    "newConversationHint": "Send a message to get started.",
+    "emptyTitle": "No conversations yet",
+    "emptyBody": "Start a new chat — conversations stay organized and can branch at any point.",
+    "loading": "Loading messages…",
+    "signInRequired": "Sign in to use chat",
+    "signInHint": "Conversations are private to your account.",
+    "composerPlaceholder": "Type a message… (Enter to send, Shift+Enter for newline)",
+    "send": "Send",
+    "rename": "Rename",
+    "delete": "Delete",
+    "backToList": "Back to conversations",
+    "branchHere": "Branch here",
+    "branchesCount_one": "{{count}} branch",
+    "branchesCount_other": "{{count}} branches",
+    "branchN": "Branch {{n}}",
+    "branchingFrom": "Branching from: {{snippet}}",
+    "sidebar": {
+      "empty": "No conversations yet."
+    }
+  },
+  "readingPlans": {
+    "section": {
+      "heading": "Reading plans",
+      "subtitle": "Time-boxed goals across one or more books. Works alongside your streak.",
+      "newPlan": "New plan",
+      "emptyTitle": "No reading plans yet",
+      "emptyBody": "Set a goal like \"finish chapters 3–7 by Friday\" or \"read 3 books over the next 30 days\"."
+    },
+    "card": {
+      "pages": "pages",
+      "ahead": "{{pages}} pages ahead",
+      "behind": "{{pages}} pages behind",
+      "todayTarget": "target today: {{target}}",
+      "weekdaysOnly": "weekdays only",
+      "wholeBook": "whole book",
+      "bookRange": "pp. {{start}}–{{end}}",
+      "markComplete": "Mark complete",
+      "delete": "Delete"
+    },
+    "create": {
+      "title": "New reading plan",
+      "planTitle": "Title",
+      "planTitlePlaceholder": "Spring semester reading…",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "ignoreWeekends": "Weekdays only",
+      "ignoreWeekendsHint": "Skip Saturday and Sunday when distributing daily targets.",
+      "booksHeading": "Books",
+      "addBook": "Add book",
+      "noBooksHint": "Add at least one book from your library.",
+      "pickBook": "Pick a book…",
+      "useRange": "Only a page range of this book",
+      "startPage": "Start page",
+      "endPage": "End page",
+      "totalPages": "of {{total}}",
+      "create": "Create plan",
+      "creating": "Creating…"
+    }
+  },
+  "leaderboards": {
+    "title": "Leaderboards",
+    "subtitle": "Top readers across Pnyxy.",
+    "tabs": {
+      "longestStreak": "Longest streak",
+      "currentStreak": "Current streak",
+      "totalTime": "Total time",
+      "longestAttention": "Longest focus"
+    },
+    "loading": "Loading leaderboard…",
+    "empty": "No rankings yet",
+    "emptyBody": "Start a reading session — you'll appear here once you've logged some time.",
+    "you": "You",
+    "anonymous": "Anonymous reader",
+    "privacyNote": "Your display name and avatar come from your public profile. You can change them in your profile settings, or hide your rankings by keeping your profile empty."
   },
   "notes": {
     "notFound": "Note not found",
@@ -482,6 +606,8 @@
       "openInReader": "Open in reader",
       "newNote": "New note",
       "loading": "Loading…",
+      "bookmarks": "Bookmarks",
+      "bookmarkUntitled": "Untitled bookmark",
       "highlights": "Highlights",
       "comments": "Comments",
       "notes": "Notes",
@@ -621,6 +747,7 @@
       "newWhiteboard": "New whiteboard",
       "whiteboardsGated": "Whiteboards are only available for paginated formats",
       "tabContents": "Contents",
+      "tabBookmarks": "Bookmarks",
       "tabNotes": "Notes",
       "tabWhiteboards": "Whiteboards",
       "openToSeeContents": "Open a document to see its contents.",
@@ -681,9 +808,22 @@
       "commentsTitle": "Toggle comments panel (Ctrl+M)",
       "aiChat": "AI Chat",
       "aiChatTitle": "AI Chat (Ctrl+I)",
+      "bookmarkPage": "Bookmark this page",
       "zenMode": "Zen mode",
       "fullscreen": "Fullscreen",
       "exitFullscreen": "Exit Fullscreen"
+    },
+    "bookmarks": {
+      "addAt": "Bookmark page {{page}}",
+      "empty": "No bookmarks yet.",
+      "untitled": "Untitled",
+      "page": "p. {{page}}",
+      "changeColor": "Change color",
+      "labelPlaceholder": "Label (optional)…",
+      "rename": "Rename",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel"
     },
     "annotationMenu": {
       "highlightTitle": "Highlight {{color}}",
@@ -697,6 +837,11 @@
       "translating": "Translating…",
       "translateFailed": "Translation failed",
       "translateConnectFailed": "Could not connect to translation service",
+      "definePanelTitle": "Definition",
+      "defining": "Looking up…",
+      "defineNotFound": "No entry in the English dictionary.",
+      "defineTryWiktionary": "Search Wiktionary →",
+      "defineConnectFailed": "Could not reach the dictionary service.",
       "back": "Back",
       "copy": "Copy",
       "commentPlaceholder": "Add a comment…",

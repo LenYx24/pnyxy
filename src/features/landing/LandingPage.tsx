@@ -36,7 +36,7 @@ export function LandingPage() {
       >
         <Link to="/" aria-label="Pnyxy home">
           <img
-            src="/logo.png"
+            src="/logo.svg"
             alt="Pnyxy"
             className="h-14 w-auto sm:h-16"
             // Glow temporarily disabled now that the lighter logo variant
@@ -47,11 +47,18 @@ export function LandingPage() {
             // }}
           />
         </Link>
-        <Link to={user ? "/library" : "/auth"}>
-          <Button variant="secondary" className="text-sm">
-            {user ? t("landing.goToLibrary") : t("landing.signIn")}
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link to="/download">
+            <Button variant="ghost" className="text-sm">
+              {t("landing.download")}
+            </Button>
+          </Link>
+          <Link to={user ? "/library" : "/auth"}>
+            <Button variant="secondary" className="text-sm">
+              {user ? t("landing.goToLibrary") : t("landing.signIn")}
+            </Button>
+          </Link>
+        </div>
       </header>
 
       <HeroSection />

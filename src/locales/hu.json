@@ -6,6 +6,7 @@
     "saving": "Mentés…",
     "delete": "Törlés",
     "edit": "Szerkesztés",
+    "remove": "Eltávolítás",
     "loading": "Betöltés…",
     "retry": "Újra",
     "close": "Bezárás",
@@ -18,6 +19,7 @@
   },
   "sidebar": {
     "browse": "Felfedezés",
+    "chat": "Csevegés",
     "library": "Könyvtár",
     "reader": "Olvasó",
     "quizzes": "Kvízek",
@@ -194,6 +196,7 @@
   "landing": {
     "goToLibrary": "Irány a Könyvtár",
     "signIn": "Bejelentkezés",
+    "download": "Letöltés",
     "tagline": "Intelligens olvasótársad",
     "subtitle": "Ingyenes, nyílt forráskódú platform, ami megváltoztatja, hogyan olvasol, tanulsz és jegyzed meg, amit a könyvekből kihozol.",
     "getStarted": "Kezdjük el",
@@ -389,6 +392,47 @@
       "noSearchResults": "Nincs találat erre: „{{query}}”"
     }
   },
+  "download": {
+    "title": "Pnyxy letöltése",
+    "version": "{{tag}} verzió",
+    "loading": "Legfrissebb kiadás lekérése…",
+    "noReleaseTitle": "Még nincs kiadás",
+    "noReleaseBody": "A telepítők még nincsenek közzétéve. Addig is le tudod fordítani forrásból.",
+    "errorTitle": "Nem sikerült betölteni a legújabb kiadást",
+    "errorBody": "Ellenőrizd a kapcsolatot, vagy töltsd le a telepítőt manuálisan a GitHubról.",
+    "viewOnGithub": "Kiadások megnyitása a GitHubon",
+    "viewReleaseNotes": "Változásnapló",
+    "sourceCode": "Forráskód",
+    "otherPlatforms": "Más platformok",
+    "allPlatforms": "Minden platform",
+    "noAssetsForPlatform": "Ebben a kiadásban nincs telepítő ehhez a platformhoz.",
+    "quickDownload": "Letöltés most",
+    "unsignedNotice": "Ezek a binárisok nincsenek digitálisan aláírva, így az operációs rendszer figyelmeztethet futtatás előtt — ez normális nyílt forráskódú szoftvernél. macOS-en jobb klikk a .dmg-re → Megnyitás a Gatekeeper megkerüléséhez. Windows-on \"További információk → Futtatás mindenképp\" a SmartScreen-nél.",
+    "platforms": {
+      "windows": {
+        "title": "Windows",
+        "file": "Windows 10 vagy újabb · 64 bites"
+      },
+      "macos": {
+        "title": "macOS",
+        "file": "macOS 11 vagy újabb · Intel + Apple Silicon"
+      },
+      "linux": {
+        "title": "Linux",
+        "file": "AppImage (hordozható) vagy .deb (Debian/Ubuntu)"
+      }
+    },
+    "mobile": {
+      "android": {
+        "title": "Android hamarosan",
+        "body": "Az Android kiadás még nincs közzétéve. Addig is a Pnyxy működik a mobilböngészőben — indítsd a kezdőlapról."
+      },
+      "ios": {
+        "title": "iOS még nem elérhető",
+        "body": "A Pnyxy addig is működik mobil Safari-ban. Natív iOS kiadás tervben van, de nincs ütemezve."
+      }
+    }
+  },
   "static": {
     "about": {
       "title": "A Pnyxy-ről",
@@ -445,12 +489,92 @@
     "day_other": "nap",
     "minute_one": "perc",
     "minute_other": "perc",
+    "viewLeaderboards": "Ranglisták",
     "today": "Ma",
     "goalComplete": "Cél teljesítve",
     "inProgress": "Folyamatban",
     "minRead": "{{minutes}} perc olvasás",
     "minGoal": "{{minutes}} perces cél",
     "historyHint": "A kitöltött négyzetek olyan napok, amikor teljesítetted az 5 perces olvasási célt."
+  },
+  "chat": {
+    "title": "Csevegés",
+    "untitled": "Névtelen beszélgetés",
+    "newConversation": "Új beszélgetés",
+    "newConversationHint": "Küldj egy üzenetet a kezdéshez.",
+    "emptyTitle": "Még nincs beszélgetés",
+    "emptyBody": "Kezdj egy újat — a beszélgetések rendezettek és bárhol elágazhatnak.",
+    "loading": "Üzenetek betöltése…",
+    "signInRequired": "Jelentkezz be a csevegéshez",
+    "signInHint": "A beszélgetéseid csak a te fiókodból érhetők el.",
+    "composerPlaceholder": "Írj egy üzenetet… (Enter a küldéshez, Shift+Enter új sor)",
+    "send": "Küldés",
+    "rename": "Átnevezés",
+    "delete": "Törlés",
+    "backToList": "Vissza a listához",
+    "branchHere": "Elágazás innen",
+    "branchesCount_one": "{{count}} ág",
+    "branchesCount_other": "{{count}} ág",
+    "branchN": "{{n}}. ág",
+    "branchingFrom": "Elágazás innen: {{snippet}}",
+    "sidebar": {
+      "empty": "Még nincs beszélgetés."
+    }
+  },
+  "readingPlans": {
+    "section": {
+      "heading": "Olvasási tervek",
+      "subtitle": "Időhöz kötött célok egy vagy több könyvre. A sorozatod mellett fut.",
+      "newPlan": "Új terv",
+      "emptyTitle": "Még nincs olvasási terv",
+      "emptyBody": "Tűzz ki célokat, pl. „olvasd el a 3–7. fejezetet péntekig” vagy „3 könyv 30 nap alatt”."
+    },
+    "card": {
+      "pages": "oldal",
+      "ahead": "{{pages}} oldal előre",
+      "behind": "{{pages}} oldal elmaradás",
+      "todayTarget": "mai cél: {{target}}",
+      "weekdaysOnly": "csak hétköznap",
+      "wholeBook": "teljes könyv",
+      "bookRange": "{{start}}–{{end}}. o.",
+      "markComplete": "Befejezettnek jelöl",
+      "delete": "Törlés"
+    },
+    "create": {
+      "title": "Új olvasási terv",
+      "planTitle": "Cím",
+      "planTitlePlaceholder": "Tavaszi félév olvasás…",
+      "startDate": "Kezdődátum",
+      "endDate": "Záródátum",
+      "ignoreWeekends": "Csak hétköznap",
+      "ignoreWeekendsHint": "A szombat és vasárnap kimarad a napi célok kiszámításából.",
+      "booksHeading": "Könyvek",
+      "addBook": "Könyv hozzáadása",
+      "noBooksHint": "Adj hozzá legalább egy könyvet a könyvtáradból.",
+      "pickBook": "Válassz könyvet…",
+      "useRange": "Csak egy oldaltartomány ebből a könyvből",
+      "startPage": "Kezdőoldal",
+      "endPage": "Záróoldal",
+      "totalPages": "/ {{total}}",
+      "create": "Terv létrehozása",
+      "creating": "Létrehozás…"
+    }
+  },
+  "leaderboards": {
+    "title": "Ranglisták",
+    "subtitle": "A Pnyxy legaktívabb olvasói.",
+    "tabs": {
+      "longestStreak": "Leghosszabb sorozat",
+      "currentStreak": "Jelenlegi sorozat",
+      "totalTime": "Összes idő",
+      "longestAttention": "Leghosszabb figyelem"
+    },
+    "loading": "Rangsor betöltése…",
+    "empty": "Még nincs rangsor",
+    "emptyBody": "Kezdj el olvasni — miután rögzítettél időt, megjelensz itt.",
+    "you": "Te",
+    "anonymous": "Névtelen olvasó",
+    "privacyNote": "A megjelenített név és avatar a publikus profilodból származik. A profilbeállításokban módosíthatod őket, vagy üresen hagyva elrejtheted a rangsorból."
   },
   "notes": {
     "notFound": "A jegyzet nem található",
@@ -482,6 +606,8 @@
       "openInReader": "Megnyitás olvasóban",
       "newNote": "Új jegyzet",
       "loading": "Betöltés…",
+      "bookmarks": "Könyvjelzők",
+      "bookmarkUntitled": "Névtelen könyvjelző",
       "highlights": "Kiemelések",
       "comments": "Megjegyzések",
       "notes": "Jegyzetek",
@@ -621,6 +747,7 @@
       "newWhiteboard": "Új tábla",
       "whiteboardsGated": "A táblák csak oldalalapú formátumoknál érhetők el",
       "tabContents": "Tartalom",
+      "tabBookmarks": "Könyvjelzők",
       "tabNotes": "Jegyzetek",
       "tabWhiteboards": "Táblák",
       "openToSeeContents": "Nyiss meg egy dokumentumot a tartalomjegyzékhez.",
@@ -681,9 +808,22 @@
       "commentsTitle": "Komment panel ki-/bekapcsolása (Ctrl+M)",
       "aiChat": "AI chat",
       "aiChatTitle": "AI chat (Ctrl+I)",
+      "bookmarkPage": "Oldal könyvjelzése",
       "zenMode": "Zen mód",
       "fullscreen": "Teljes képernyő",
       "exitFullscreen": "Kilépés a teljes képernyőből"
+    },
+    "bookmarks": {
+      "addAt": "{{page}}. oldal megjelölése",
+      "empty": "Még nincs könyvjelző.",
+      "untitled": "Névtelen",
+      "page": "{{page}}. o.",
+      "changeColor": "Szín módosítása",
+      "labelPlaceholder": "Címke (opcionális)…",
+      "rename": "Átnevezés",
+      "delete": "Törlés",
+      "save": "Mentés",
+      "cancel": "Mégse"
     },
     "annotationMenu": {
       "highlightTitle": "Kiemelés {{color}}",
@@ -697,6 +837,11 @@
       "translating": "Fordítás…",
       "translateFailed": "A fordítás sikertelen",
       "translateConnectFailed": "Nem sikerült csatlakozni a fordító szolgáltatáshoz",
+      "definePanelTitle": "Jelentés",
+      "defining": "Keresés…",
+      "defineNotFound": "Nincs találat az angol szótárban.",
+      "defineTryWiktionary": "Keresés a Wiktionary-ben →",
+      "defineConnectFailed": "Nem sikerült elérni a szótár szolgáltatást.",
       "back": "Vissza",
       "copy": "Másolás",
       "commentPlaceholder": "Írj egy kommentet…",

@@ -34,6 +34,8 @@ import { WelcomePage } from "@/features/auth/WelcomePage";
 import { ProfilePage } from "@/features/profile/ProfilePage";
 import { AdminPage } from "@/features/admin/AdminPage";
 import { StreaksPage } from "@/features/streaks/StreaksPage";
+import { LeaderboardsPage } from "@/features/streaks/LeaderboardsPage";
+import { ChatPage } from "@/features/chat/ChatPage";
 import { ForumPage } from "@/features/forum/ForumPage";
 import { CommunityPage } from "@/features/forum/CommunityPage";
 import { PostPage } from "@/features/forum/PostPage";
@@ -42,6 +44,7 @@ import { AboutPage } from "@/features/static/AboutPage";
 import { PrivacyPage } from "@/features/static/PrivacyPage";
 import { TermsPage } from "@/features/static/TermsPage";
 import { HelpPage } from "@/features/static/HelpPage";
+import { DownloadPage } from "@/features/static/DownloadPage";
 
 export const router = createBrowserRouter([
   {
@@ -131,6 +134,9 @@ export const router = createBrowserRouter([
       { path: "privacy", element: <PrivacyPage /> },
       { path: "terms", element: <TermsPage /> },
       { path: "help", element: <HelpPage /> },
+      { path: "download", element: <DownloadPage /> },
+      { path: "leaderboards", element: <LeaderboardsPage /> },
+      { path: "chat", element: <ChatPage /> },
     ],
   },
 ]);

@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { StickyNote, Highlighter, MessageSquare, Plus, BookOpen } from "lucide-react";
+import { StickyNote, Highlighter, MessageSquare, Plus, BookOpen, Bookmark as BookmarkIcon } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useBook } from "../BookPageContext";
 import { useNoteStore } from "@/stores/note-store";
-import { loadHighlights, loadComments } from "@/lib/annotation-storage";
+import { loadHighlights, loadComments, loadBookmarks, type StoredBookmark } from "@/lib/annotation-storage";
 import type { Highlight, Comment } from "@/types/annotation";
 
 function formatDate(ts: number): string {
@@ -68,6 +68,7 @@ export function NotesTab() {
 
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [bookmarks, setBookmarks] = useState<StoredBookmark[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,15 +77,13 @@ export function NotesTab() {
     Promise.all([
       loadHighlights(documentId),
       loadComments(documentId),
+      loadBookmarks(documentId),
       loadNotes(),
-    ]).then(([hs, cs]) => {
+    ]).then(([hs, cs, bms]) => {
       if (cancelled) return;
-      setHighlights(
-        hs.slice().sort((a, b) => b.createdAt - a.createdAt),
-      );
-      setComments(
-        cs.slice().sort((a, b) => b.createdAt - a.createdAt),
-      );
+      setHighlights(hs.slice().sort((a, b) => b.createdAt - a.createdAt));
+      setComments(cs.slice().sort((a, b) => b.createdAt - a.createdAt));
+      setBookmarks(bms.slice().sort((a, b) => a.page - b.page));
       setLoading(false);
     });
     return () => {
@@ -100,7 +99,10 @@ export function NotesTab() {
   };
 
   const isEmpty =
-    highlights.length === 0 && comments.length === 0 && notes.length === 0;
+    highlights.length === 0 &&
+    comments.length === 0 &&
+    bookmarks.length === 0 &&
+    notes.length === 0;
 
   return (
     <div className="space-y-6">
@@ -147,6 +149,38 @@ export function NotesTab() {
             {t("book.notes.emptyBody")}
           </p>
         </div>
+      )}
+
+      {!loading && bookmarks.length > 0 && (
+        <section className="space-y-2">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+            <BookmarkIcon size={14} className="text-accent-purple" />
+            {t("book.notes.bookmarks")}
+            <span className="text-xs font-normal text-text-muted">
+              ({bookmarks.length})
+            </span>
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {bookmarks.map((bm) => (
+              <button
+                key={bm.id}
+                onClick={() => navigate(`/reader/${documentId}?page=${bm.page}`)}
+                className="inline-flex items-center gap-2 rounded-full border border-glass-border bg-glass-bg/40 px-3 py-1 text-xs text-text-primary transition-colors hover:border-accent-purple/40 hover:bg-glass-hover"
+              >
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                  style={{ backgroundColor: bm.color }}
+                />
+                <span className="truncate max-w-[14rem]">
+                  {bm.label || t("book.notes.bookmarkUntitled")}
+                </span>
+                <span className="shrink-0 text-[10px] tabular-nums text-text-muted">
+                  p. {bm.page}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
       )}
 
       {!loading && highlights.length > 0 && (

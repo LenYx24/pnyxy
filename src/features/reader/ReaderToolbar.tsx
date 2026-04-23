@@ -21,10 +21,12 @@ import {
   Search,
   MoreHorizontal,
   BotMessageSquare,
+  BookmarkPlus,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useReaderStore, useActiveDocument, type ZoomMode } from "@/stores/reader-store";
 import { useAnnotationStore } from "@/stores/annotation-store";
+import { useBookmarkStore } from "@/stores/bookmark-store";
 import { useUndoStore } from "@/stores/undo-store";
 import { useIsMobile, useIsDesktop } from "@/hooks/use-media-query";
 import { ReadingTrackerControl } from "./ReadingTrackerControl";
@@ -150,6 +152,7 @@ export function ReaderToolbar({
   const setCustomTitle = useReaderStore((s) => s.setCustomTitle);
   const getDisplayTitle = useReaderStore((s) => s.getDisplayTitle);
 
+  const addBookmark = useBookmarkStore((s) => s.addBookmark);
   const activeHighlightColor = useAnnotationStore((s) => s.activeHighlightColor);
   const setActiveHighlightColor = useAnnotationStore((s) => s.setActiveHighlightColor);
   const canUndo = useUndoStore((s) => s.stack.length > 0);
@@ -178,7 +181,13 @@ export function ReaderToolbar({
     setPageInput("");
   };
 
+  const handleBookmarkPage = () => {
+    if (!activeDoc) return;
+    addBookmark(activeDoc.currentPage);
+  };
+
   const overflowActions = [
+    { label: t("reader.toolbar.bookmarkPage"), icon: BookmarkPlus, onClick: handleBookmarkPage },
     { label: t("reader.toolbar.zoomIn"), icon: ZoomIn, onClick: () => zoomIn() },
     { label: t("reader.toolbar.zoomOut"), icon: ZoomOut, onClick: () => zoomOut() },
     { label: t("reader.toolbar.fitMode"), icon: Columns2, onClick: () => setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width") },

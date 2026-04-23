@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -19,7 +20,7 @@ export function HeroSection() {
 
       <h1 className="mb-6">
         <img
-          src="/logo_with_text.png"
+          src="/logo_with_text.svg"
           alt="Pnyxy"
           className="mx-auto h-32 w-auto sm:h-40 md:h-48"
           // Glow temporarily disabled now that the lighter logo variant
@@ -43,7 +44,12 @@ export function HeroSection() {
           <Link to={user ? "/library" : "/auth"}>
             <Button variant="primary">{t("landing.getStarted")}</Button>
           </Link>
-          <Button variant="secondary">{t("landing.learnMore")}</Button>
+          <Link to="/download">
+            <Button variant="secondary" className="gap-2">
+              <Download size={16} />
+              {t("landing.download")}
+            </Button>
+          </Link>
         </div>
         {!user && (
           <Link

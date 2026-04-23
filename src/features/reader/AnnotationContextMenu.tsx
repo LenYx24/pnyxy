@@ -22,6 +22,44 @@ const COLORS: { color: HighlightColor; hex: string }[] = [
   { color: "orange", hex: "#fb923c" },
 ];
 
+interface DictionaryEntry {
+  word: string;
+  phonetic?: string;
+  meanings: {
+    partOfSpeech: string;
+    definitions: { definition: string; example?: string }[];
+  }[];
+}
+
+async function fetchDefinition(word: string): Promise<DictionaryEntry | null> {
+  // Free Dictionary API — no auth, English only, 404 if not found.
+  const res = await fetch(
+    `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = (await res.json()) as Array<{
+    word: string;
+    phonetic?: string;
+    phonetics?: { text?: string }[];
+    meanings?: {
+      partOfSpeech?: string;
+      definitions?: { definition: string; example?: string }[];
+    }[];
+  }>;
+  const first = data[0];
+  if (!first) return null;
+  const phonetic =
+    first.phonetic ?? first.phonetics?.find((p) => p.text)?.text ?? undefined;
+  const meanings = (first.meanings ?? [])
+    .map((m) => ({
+      partOfSpeech: m.partOfSpeech ?? "",
+      definitions: (m.definitions ?? []).slice(0, 3), // cap per part-of-speech
+    }))
+    .filter((m) => m.definitions.length > 0);
+  return { word: first.word, phonetic, meanings };
+}
+
 const TRANSLATE_LANGUAGES = [
   { code: "en", label: "English" },
   { code: "es", label: "Spanish" },
@@ -71,6 +109,10 @@ export function AnnotationContextMenu() {
   const [translatedText, setTranslatedText] = useState("");
   const [translating, setTranslating] = useState(false);
   const [translateError, setTranslateError] = useState("");
+  const [showDefine, setShowDefine] = useState(false);
+  const [definition, setDefinition] = useState<DictionaryEntry | null>(null);
+  const [defining, setDefining] = useState(false);
+  const [defineError, setDefineError] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
 
@@ -91,6 +133,9 @@ export function AnnotationContextMenu() {
     setTranslatedText("");
     setTranslateError("");
     setCommentText("");
+    setShowDefine(false);
+    setDefinition(null);
+    setDefineError("");
 
     // Position after a tick so the ref is populated
     requestAnimationFrame(() => {
@@ -123,7 +168,7 @@ export function AnnotationContextMenu() {
       );
       setMenuPos({ x: Math.max(8, x), y: Math.max(8, y) });
     });
-  }, [showTranslate, translatedText, contextMenu.visible, contextMenu.x, contextMenu.y]);
+  }, [showTranslate, translatedText, showDefine, definition, contextMenu.visible, contextMenu.x, contextMenu.y]);
 
   const handleHighlight = useCallback(
     (color: HighlightColor) => {
@@ -186,13 +231,23 @@ export function AnnotationContextMenu() {
     hideContextMenu();
   }, [contextMenu.highlightId, removeHighlight, hideContextMenu]);
 
-  const handleDefine = useCallback(() => {
-    if (!selectedText.trim()) return;
-    const query = encodeURIComponent(`define ${selectedText.trim()}`);
-    window.open(`https://www.google.com/search?q=${query}`, "_blank");
-    hideContextMenu();
-    window.getSelection()?.removeAllRanges();
-  }, [selectedText, hideContextMenu]);
+  const handleDefine = useCallback(async () => {
+    const word = selectedText.trim();
+    if (!word) return;
+    setShowDefine(true);
+    setDefinition(null);
+    setDefineError("");
+    setDefining(true);
+    try {
+      const entry = await fetchDefinition(word);
+      if (entry) setDefinition(entry);
+      else setDefineError("not_found");
+    } catch {
+      setDefineError("connect_failed");
+    } finally {
+      setDefining(false);
+    }
+  }, [selectedText]);
 
   const handleTranslate = useCallback(async () => {
     if (!selectedText.trim()) return;
@@ -320,7 +375,7 @@ export function AnnotationContextMenu() {
       )}
 
       {/* Action buttons */}
-      {!showCommentInput && !showTranslate ? (
+      {!showCommentInput && !showTranslate && !showDefine ? (
         <div className="flex flex-col gap-0.5">
           {selectedText.trim() && (
             <button
@@ -388,6 +443,95 @@ export function AnnotationContextMenu() {
               </button>
             </>
           )}
+        </div>
+      ) : showDefine ? (
+        /* Define panel */
+        <div className="flex flex-col gap-2 p-1 w-64">
+          <div className="flex items-center gap-1.5">
+            <BookOpen size={14} className="text-accent-purple" />
+            <span className="text-xs font-medium text-text-primary">
+              {t("reader.annotationMenu.definePanelTitle")}
+            </span>
+          </div>
+
+          <div className="rounded bg-glass-bg/50 px-2 py-1.5 text-xs italic text-text-muted">
+            {selectedText.trim().length > 60
+              ? selectedText.trim().slice(0, 60) + "…"
+              : selectedText.trim()}
+          </div>
+
+          <div className="rounded bg-glass-bg px-2 py-2 text-xs text-text-primary leading-relaxed min-h-[3rem] max-h-48 overflow-y-auto">
+            {defining && (
+              <span className="flex items-center gap-1.5 text-text-muted">
+                <Loader2 size={12} className="animate-spin" />
+                {t("reader.annotationMenu.defining")}
+              </span>
+            )}
+            {defineError === "not_found" && (
+              <div className="space-y-1.5">
+                <span className="text-text-muted">
+                  {t("reader.annotationMenu.defineNotFound")}
+                </span>
+                <a
+                  href={`https://en.wiktionary.org/wiki/${encodeURIComponent(selectedText.trim())}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block text-accent-purple hover:underline"
+                >
+                  {t("reader.annotationMenu.defineTryWiktionary")}
+                </a>
+              </div>
+            )}
+            {defineError === "connect_failed" && (
+              <span className="text-red-400">
+                {t("reader.annotationMenu.defineConnectFailed")}
+              </span>
+            )}
+            {!defining && !defineError && definition && (
+              <div className="space-y-2">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-semibold text-sm text-text-primary">
+                    {definition.word}
+                  </span>
+                  {definition.phonetic && (
+                    <span className="text-[11px] text-text-muted">
+                      {definition.phonetic}
+                    </span>
+                  )}
+                </div>
+                {definition.meanings.map((m, i) => (
+                  <div key={i} className="space-y-1">
+                    {m.partOfSpeech && (
+                      <span className="text-[10px] uppercase tracking-wide text-accent-purple">
+                        {m.partOfSpeech}
+                      </span>
+                    )}
+                    <ol className="list-decimal list-inside space-y-0.5 text-text-secondary">
+                      {m.definitions.map((d, j) => (
+                        <li key={j} className="pl-1">
+                          {d.definition}
+                          {d.example && (
+                            <div className="mt-0.5 pl-3 text-[11px] italic text-text-muted">
+                              "{d.example}"
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              className="rounded px-2 py-1 text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
+              onClick={() => setShowDefine(false)}
+            >
+              {t("reader.annotationMenu.back")}
+            </button>
+          </div>
         </div>
       ) : showTranslate ? (
         /* Translate panel */

@@ -13,6 +13,7 @@ import {
   LogIn,
   Menu,
   X,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
@@ -23,6 +24,7 @@ const baseNavItems = [
   { to: "/browse", icon: Compass, key: "browse" as const },
   { to: "/library", icon: Library, key: "library" as const },
   { to: "/reader", icon: BookOpen, key: "reader" as const },
+  { to: "/chat", icon: Bot, key: "chat" as const },
   { to: "/quizzes", icon: FileQuestion, key: "quizzes" as const },
   { to: "/quizzes/review", icon: BrainCircuit, key: "review" as const },
   { to: "/streaks", icon: Flame, key: "streaks" as const },
@@ -56,7 +58,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       >
         {!collapsed && (
           <NavLink to="/" aria-label="Pnyxy home" className="flex items-center">
-            <img src="/logo.png" alt="Pnyxy" className="h-10 w-auto" />
+            <img src="/logo.svg" alt="Pnyxy" className="h-10 w-auto" />
           </NavLink>
         )}
         {/* Hamburger collapse toggle — desktop only (on tablet the

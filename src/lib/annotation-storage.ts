@@ -2,7 +2,7 @@ import { openDB, type IDBPDatabase } from "idb";
 import type { Highlight, Comment } from "@/types/annotation";
 
 const DB_NAME = "pnyxy-annotations";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -26,6 +26,10 @@ export function getDB(): Promise<IDBPDatabase> {
         }
         if (!db.objectStoreNames.contains("whiteboards")) {
           db.createObjectStore("whiteboards", { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains("bookmarks")) {
+          const bms = db.createObjectStore("bookmarks", { keyPath: "id" });
+          bms.createIndex("documentId", "documentId");
         }
       },
     });
@@ -143,4 +147,31 @@ export async function saveNote(note: StoredNote): Promise<void> {
 export async function deleteNote(id: string): Promise<void> {
   const db = await getDB();
   await db.delete("notes", id);
+}
+
+// --- Bookmarks ---
+
+export interface StoredBookmark {
+  id: string;
+  documentId: string;
+  page: number;
+  label: string;
+  /** Hex color (#rrggbb). UI offers a swatch picker. */
+  color: string;
+  createdAt: number;
+}
+
+export async function loadBookmarks(docId: string): Promise<StoredBookmark[]> {
+  const db = await getDB();
+  return db.getAllFromIndex("bookmarks", "documentId", docId);
+}
+
+export async function saveBookmark(bm: StoredBookmark): Promise<void> {
+  const db = await getDB();
+  await db.put("bookmarks", bm);
+}
+
+export async function deleteBookmark(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete("bookmarks", id);
 }

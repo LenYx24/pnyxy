@@ -57,7 +57,7 @@ export function ReadingTrackerControl({ compact = false }: { compact?: boolean }
   const buttonTitle = isToggleTracker
     ? toggleEnabled
       ? "Reading tracking is on"
-      : "Reading tracking is off — browsing freely"
+      : "Shallow reading — pages & streak time don't count"
     : `Active tracker: ${tracker.name}`;
 
   const progressPct = activeDoc.totalPages
@@ -118,12 +118,12 @@ export function ReadingTrackerControl({ compact = false }: { compact?: boolean }
               <div className="flex items-center justify-between gap-3 py-2 border-t border-glass-border">
                 <div className="min-w-0">
                   <div className="text-sm font-medium text-text-primary">
-                    Track reading
+                    {toggleEnabled ? "Track reading" : "Shallow reading"}
                   </div>
                   <div className="text-[11px] text-text-muted leading-snug">
                     {toggleEnabled
-                      ? "Pages you visit count as read."
-                      : "Browse without affecting your progress."}
+                      ? "Pages you visit count as read, and time counts toward your streak."
+                      : "Casual browsing — nothing counts. Turn this on when you're half-focused (cooking, commuting, etc.)."}
                   </div>
                 </div>
                 <Toggle

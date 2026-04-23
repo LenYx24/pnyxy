@@ -1,8 +1,10 @@
 import { useMemo } from "react";
+import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Flame, Trophy, Target, Calendar, Brain } from "lucide-react";
 import { useStreakStore } from "@/stores/streak-store";
 import { cn } from "@/lib/cn";
+import { ReadingPlansSection } from "./ReadingPlansSection";
 
 const GOAL_SECONDS = 300; // 5 minutes; mirrors streak-store's constant.
 const HISTORY_DAYS = 30;
@@ -52,13 +54,22 @@ export function StreaksPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6 p-4 sm:p-6">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-glass-bg">
-          <Flame size={20} className="text-orange-400" />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-glass-bg">
+            <Flame size={20} className="text-orange-400" />
+          </div>
+          <h1 className="text-2xl font-bold text-text-primary">
+            {t("streaks.title")}
+          </h1>
         </div>
-        <h1 className="text-2xl font-bold text-text-primary">
-          {t("streaks.title")}
-        </h1>
+        <Link
+          to="/leaderboards"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary"
+        >
+          <Trophy size={14} className="text-yellow-400" />
+          {t("streaks.viewLeaderboards")}
+        </Link>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -139,6 +150,8 @@ export function StreaksPage() {
           {t("streaks.historyHint")}
         </p>
       </section>
+
+      <ReadingPlansSection />
     </div>
   );
 }

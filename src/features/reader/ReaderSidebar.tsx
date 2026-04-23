@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FilePlus, FileText, StickyNote, PenTool, List, LayoutGrid, Trash2, BookOpen } from "lucide-react";
+import { FilePlus, FileText, StickyNote, PenTool, List, LayoutGrid, Trash2, BookOpen, Bookmark } from "lucide-react";
 import { ThumbnailToc } from "./ThumbnailToc";
+import { BookmarksPanel } from "./BookmarksPanel";
 import { cn } from "@/lib/cn";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 import { useNoteStore } from "@/stores/note-store";
@@ -11,7 +12,7 @@ import type { TocItem } from "@/types/document";
 
 const EMPTY_TOC: TocItem[] = [];
 
-type SidebarTab = "contents" | "notes" | "whiteboards";
+type SidebarTab = "contents" | "bookmarks" | "notes" | "whiteboards";
 
 /** Flatten TOC into ordered list of page numbers for range-based active detection */
 function flattenTocPages(items: TocItem[]): number[] {
@@ -263,6 +264,7 @@ export function ReaderSidebarContent({
 
   const tabItems: { key: SidebarTab; icon: typeof List; label: string }[] = [
     { key: "contents", icon: tocViewMode === "thumbnail" ? LayoutGrid : List, label: t("reader.sidebar.tabContents") },
+    { key: "bookmarks", icon: Bookmark, label: t("reader.sidebar.tabBookmarks") },
     { key: "notes", icon: StickyNote, label: t("reader.sidebar.tabNotes") },
     { key: "whiteboards", icon: PenTool, label: t("reader.sidebar.tabWhiteboards") },
   ];
@@ -458,6 +460,13 @@ export function ReaderSidebarContent({
                 </button>
               ))}
           </>
+        )}
+
+        {/* Bookmarks tab */}
+        {sidebarTab === "bookmarks" && (
+          <div className="px-3 py-2">
+            <BookmarksPanel />
+          </div>
         )}
 
         {/* Notes tab */}

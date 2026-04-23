@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import i18n from "@/lib/i18n";
 import { BookOpen, FilePlus, Loader2, X } from "lucide-react";
@@ -26,6 +26,7 @@ import { NoteEditor } from "@/features/notes/NoteEditor";
 import { WhiteboardPanelWrapper } from "@/features/whiteboard/WhiteboardPanel";
 import { useReaderStore, useDocumentState } from "@/stores/reader-store";
 import { useAnnotationStore } from "@/stores/annotation-store";
+import { useBookmarkStore } from "@/stores/bookmark-store";
 import { useUndoStore } from "@/stores/undo-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useSearchStore } from "@/stores/search-store";
@@ -421,6 +422,7 @@ function computeTocWidth(toc: TocItem[]): number {
 export function ReaderPage() {
   const { t } = useTranslation();
   const { bookId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isMobile = useIsMobile();
   const documents = useReaderStore((s) => s.documents);
   const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
@@ -456,15 +458,37 @@ export function ReaderPage() {
     }
   }, [bookId, documents, addDocument]);
 
-  // Load annotations when active document changes
+  // Load annotations + bookmarks when active document changes
   useEffect(() => {
     if (activeDocumentId) {
       useAnnotationStore.getState().loadAnnotations(activeDocumentId);
+      useBookmarkStore.getState().loadForDocument(activeDocumentId);
     }
     return () => {
       useAnnotationStore.getState().clearAll();
+      useBookmarkStore.getState().clear();
     };
   }, [activeDocumentId]);
+
+  // Jump to ?page= once the doc is loaded — used by bookmark and
+  // deep-links from the book page. Consumes the param on read so a
+  // refresh doesn't re-snap the user back.
+  useEffect(() => {
+    if (!activeDocumentId) return;
+    const pageParam = searchParams.get("page");
+    if (!pageParam) return;
+    const pageNum = Number.parseInt(pageParam, 10);
+    if (!Number.isFinite(pageNum) || pageNum < 1) return;
+    goToPage(pageNum);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("page");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [activeDocumentId, searchParams, setSearchParams, goToPage]);
 
   // Load notes and whiteboards on mount
   useEffect(() => {
@@ -860,6 +884,21 @@ export function ReaderPage() {
   });
 
   useKeyboardShortcut({
+    id: "reader:bookmark-page",
+    key: "b",
+    ctrl: true,
+    description: "Bookmark current page",
+    handler: useCallback(() => {
+      const store = useReaderStore.getState();
+      const docId = store.activeDocumentId;
+      const doc = docId ? store.documents.get(docId) : null;
+      if (doc) {
+        useBookmarkStore.getState().addBookmark(doc.currentPage);
+      }
+    }, []),
+  });
+
+  useKeyboardShortcut({
     id: "reader:undo",
     key: "z",
     ctrl: true,
@@ -997,7 +1036,10 @@ export function ReaderPage() {
     }
   }, []);
 
-  // Reading timer for streaks
+  // Reading timer for streaks. Respects the active tracker's enabled
+  // flag so "shallow reading" (tracker toggled off) doesn't quietly
+  // accumulate streak time — the user explicitly said they're browsing
+  // casually and the streak shouldn't fill up.
   useEffect(() => {
     if (!hasDocuments) return;
 
@@ -1010,7 +1052,19 @@ export function ReaderPage() {
       lastTick = now;
       if (accumulated >= 1) {
         const whole = Math.floor(accumulated);
-        useStreakStore.getState().addReadingTime(whole);
+        // Shallow-reading guard: only credit time toward streak when
+        // the active tracker considers itself enabled. For the toggle
+        // tracker that's its own `enabled` flag; other trackers
+        // default to always-credit.
+        const settingsState = useSettingsStore.getState();
+        const activeId = settingsState.activeTrackerId;
+        const activeSettings = settingsState.trackerSettings[activeId];
+        const tracking =
+          activeId !== "toggle" ||
+          (activeSettings as { enabled?: boolean } | undefined)?.enabled !== false;
+        if (tracking) {
+          useStreakStore.getState().addReadingTime(whole);
+        }
         accumulated -= whole;
       }
     };
