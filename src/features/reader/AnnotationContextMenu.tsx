@@ -276,7 +276,7 @@ export function AnnotationContextMenu() {
     } finally {
       setTranslating(false);
     }
-  }, [selectedText, translateTargetLanguage]);
+  }, [selectedText, translateTargetLanguage, t]);
 
   const handleLanguageChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {

@@ -65,9 +65,16 @@ describe("getDB", () => {
     const { getDB } = await loadModule();
     const db = await getDB();
     expect(db.name).toBe("pnyxy-annotations");
-    expect(db.version).toBe(4);
+    expect(db.version).toBe(5);
     expect(Array.from(db.objectStoreNames).sort()).toEqual(
-      ["comments", "documentMeta", "highlights", "notes", "whiteboards"].sort(),
+      [
+        "bookmarks",
+        "comments",
+        "documentMeta",
+        "highlights",
+        "notes",
+        "whiteboards",
+      ].sort(),
     );
   });
 
@@ -280,5 +287,93 @@ describe("notes", () => {
     expect(note?.title).toBe("v2");
     expect(note?.content).toBe("b");
     expect(note?.updatedAt).toBe(1);
+  });
+});
+
+describe("bookmarks", () => {
+  it("returns an empty array when no bookmarks exist for a doc", async () => {
+    const { loadBookmarks } = await loadModule();
+    expect(await loadBookmarks(DOC_A)).toEqual([]);
+  });
+
+  it("scopes bookmarks by documentId via the index", async () => {
+    const { saveBookmark, loadBookmarks } = await loadModule();
+    const now = Date.now();
+    await saveBookmark({
+      id: "b1",
+      documentId: DOC_A,
+      page: 3,
+      label: "Intro",
+      color: "#facc15",
+      createdAt: now,
+    });
+    await saveBookmark({
+      id: "b2",
+      documentId: DOC_A,
+      page: 42,
+      label: "",
+      color: "#4ade80",
+      createdAt: now + 1,
+    });
+    await saveBookmark({
+      id: "b3",
+      documentId: DOC_B,
+      page: 7,
+      label: "",
+      color: "#60a5fa",
+      createdAt: now + 2,
+    });
+
+    const a = await loadBookmarks(DOC_A);
+    const b = await loadBookmarks(DOC_B);
+    expect(a.map((bm) => bm.id).sort()).toEqual(["b1", "b2"]);
+    expect(b.map((bm) => bm.id)).toEqual(["b3"]);
+  });
+
+  it("saveBookmark overwrites a bookmark with the same id", async () => {
+    const { saveBookmark, loadBookmarks } = await loadModule();
+    await saveBookmark({
+      id: "b1",
+      documentId: DOC_A,
+      page: 3,
+      label: "old",
+      color: "#facc15",
+      createdAt: 0,
+    });
+    await saveBookmark({
+      id: "b1",
+      documentId: DOC_A,
+      page: 3,
+      label: "new",
+      color: "#f472b6",
+      createdAt: 0,
+    });
+    const out = await loadBookmarks(DOC_A);
+    expect(out).toHaveLength(1);
+    expect(out[0]?.label).toBe("new");
+    expect(out[0]?.color).toBe("#f472b6");
+  });
+
+  it("deleteBookmark removes only the targeted bookmark", async () => {
+    const { saveBookmark, deleteBookmark, loadBookmarks } = await loadModule();
+    await saveBookmark({
+      id: "b1",
+      documentId: DOC_A,
+      page: 1,
+      label: "",
+      color: "#facc15",
+      createdAt: 0,
+    });
+    await saveBookmark({
+      id: "b2",
+      documentId: DOC_A,
+      page: 2,
+      label: "",
+      color: "#4ade80",
+      createdAt: 0,
+    });
+    await deleteBookmark("b1");
+    const out = await loadBookmarks(DOC_A);
+    expect(out.map((bm) => bm.id)).toEqual(["b2"]);
   });
 });

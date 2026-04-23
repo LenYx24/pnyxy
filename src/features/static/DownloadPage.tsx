@@ -88,7 +88,7 @@ export function DownloadPage() {
   const [release, setRelease] = useState<PackageRelease | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const detectedOs = useMemo(detectOs, []);
+  const detectedOs = useMemo(() => detectOs(), []);
 
   useEffect(() => {
     let cancelled = false;
