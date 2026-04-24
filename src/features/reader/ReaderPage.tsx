@@ -417,72 +417,95 @@ function MobileReaderLayout({
         />
       )}
 
-      {/* TOC panel - slides from left. Covers the full viewport
-          height; internal padding keeps the header + close button
-          below the notch on devices with safe-area-inset-top. */}
+      {/* Mobile overlay panels. The wrappers are always mounted so
+          CSS can animate the slide; the contents are mounted only
+          while the corresponding panel is active. That keeps side
+          effects (scroll-into-view, textarea resize, visualViewport
+          listeners in AiChatPanelContent) from firing on every reader
+          render — previously those leaked onto the main view on
+          Android WebView. `pointer-events-none` on closed wrappers
+          is belt-and-braces to stop an off-screen wrapper from
+          eating taps at its edge. */}
+
+      {/* TOC panel - slides from left */}
       <div
         className={cn(
           "absolute left-0 top-0 bottom-0 z-40 flex w-[85vw] max-w-[20rem] flex-col border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pl-safe-left",
-          mobileReaderPanel === "toc" ? "translate-x-0" : "-translate-x-full",
+          mobileReaderPanel === "toc"
+            ? "translate-x-0"
+            : "-translate-x-full pointer-events-none",
         )}
       >
-        <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
-          <span className="text-sm font-medium text-text-primary">
-            {t("reader.page.mobilePanelContents")}
-          </span>
-          <button
-            onClick={() => setMobileReaderPanel("none")}
-            aria-label={t("reader.page.closeContents")}
-            className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          <ReaderSidebarContent
-            onOpenFile={() => {}}
-            onOpenBook={() => setMobileReaderPanel("none")}
-            onOpenNote={() => {}}
-            onCreateNote={() => {}}
-            onOpenWhiteboard={() => {}}
-            onCreateWhiteboard={() => {}}
-          />
-        </div>
+        {mobileReaderPanel === "toc" && (
+          <>
+            <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
+              <span className="text-sm font-medium text-text-primary">
+                {t("reader.page.mobilePanelContents")}
+              </span>
+              <button
+                onClick={() => setMobileReaderPanel("none")}
+                aria-label={t("reader.page.closeContents")}
+                className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <ReaderSidebarContent
+                onOpenFile={() => {}}
+                onOpenBook={() => setMobileReaderPanel("none")}
+                onOpenNote={() => {}}
+                onCreateNote={() => {}}
+                onOpenWhiteboard={() => {}}
+                onCreateWhiteboard={() => {}}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Comments panel - slides from right */}
       <div
         className={cn(
           "absolute right-0 top-0 bottom-0 z-40 flex w-[85vw] max-w-[20rem] flex-col border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
-          mobileReaderPanel === "comments" ? "translate-x-0" : "translate-x-full",
+          mobileReaderPanel === "comments"
+            ? "translate-x-0"
+            : "translate-x-full pointer-events-none",
         )}
       >
-        <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
-          <span className="text-sm font-medium text-text-primary">
-            {t("reader.page.mobilePanelComments")}
-          </span>
-          <button
-            onClick={() => setMobileReaderPanel("none")}
-            aria-label={t("reader.page.closeComments")}
-            className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          <CommentsSidebar />
-        </div>
+        {mobileReaderPanel === "comments" && (
+          <>
+            <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
+              <span className="text-sm font-medium text-text-primary">
+                {t("reader.page.mobilePanelComments")}
+              </span>
+              <button
+                onClick={() => setMobileReaderPanel("none")}
+                aria-label={t("reader.page.closeComments")}
+                className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <CommentsSidebar />
+            </div>
+          </>
+        )}
       </div>
 
-      {/* AI Chat panel - slides from right. AiChatPanelContent renders
-          its own header (with the close button) when onClose is passed. */}
+      {/* AI Chat panel - slides from right */}
       <div
         className={cn(
           "absolute right-0 top-0 bottom-0 z-40 flex w-[85vw] max-w-[20rem] flex-col border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
-          mobileReaderPanel === "aiChat" ? "translate-x-0" : "translate-x-full",
+          mobileReaderPanel === "aiChat"
+            ? "translate-x-0"
+            : "translate-x-full pointer-events-none",
         )}
       >
-        <AiChatPanelContent onClose={() => setMobileReaderPanel("none")} />
+        {mobileReaderPanel === "aiChat" && (
+          <AiChatPanelContent onClose={() => setMobileReaderPanel("none")} />
+        )}
       </div>
     </div>
   );
