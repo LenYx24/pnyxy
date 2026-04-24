@@ -24,6 +24,7 @@
     "reader": "Olvasó",
     "quizzes": "Kvízek",
     "review": "Ismétlés",
+    "vocabulary": "Szótár",
     "streaks": "Sorozatok",
     "forum": "Fórum",
     "settings": "Beállítások",
@@ -845,7 +846,9 @@
       "back": "Vissza",
       "copy": "Másolás",
       "commentPlaceholder": "Írj egy kommentet…",
-      "commentAction": "Komment"
+      "commentAction": "Komment",
+      "savedToVocab": "Mentve a szótárba",
+      "undo": "Visszavonás"
     },
     "aiChat": {
       "title": "AI chat",
@@ -995,6 +998,48 @@
       "sessionResult_other": "{{correct}} / {{total}} helyes ({{pct}}%)",
       "loadMore": "Továbbiak betöltése",
       "signInRequired": "Jelentkezz be, hogy ismételhesd a kérdéseidet."
+    }
+  },
+  "vocabulary": {
+    "title": "Szótár",
+    "tagline": "Az olvasóban kikeresett szavak — FSRS ütemezés szerint ismételve.",
+    "reviewDue": "Ismétlés ({{count}})",
+    "export": "CSV export",
+    "search": "Szó vagy jelentés keresése…",
+    "allBooks": "Minden könyv",
+    "dueNow": "esedékes",
+    "dueIn_one": "{{days}} nap múlva",
+    "dueIn_other": "{{days}} nap múlva",
+    "page": "{{page}}. oldal",
+    "filter": {
+      "all": "Mind",
+      "due": "Esedékes",
+      "learning": "Tanulás alatt"
+    },
+    "stats": {
+      "total": "Összes",
+      "dueNow": "Most esedékes",
+      "learning": "Tanulás alatt"
+    },
+    "empty": {
+      "title": "Még nincs szó",
+      "filtered": "Nincs találat",
+      "hint": "Nyiss meg egy könyvet és használd a Jelentés funkciót bármelyik szónál. A kikeresett szavak itt megjelennek ismétlésre."
+    },
+    "review": {
+      "title": "Ismétlés",
+      "progress": "{{current}} / {{total}}",
+      "done": "Kész",
+      "allCaughtUp_one": "Szuper — {{count}} kártya átnézve.",
+      "allCaughtUp_other": "Szuper — {{count}} kártya átnézve.",
+      "reveal": "Felfedés (szóköz)",
+      "noContext": "Ehhez a szóhoz nem sikerült környezetet menteni."
+    },
+    "rating": {
+      "again": "Újra",
+      "hard": "Nehéz",
+      "good": "Jó",
+      "easy": "Könnyű"
     }
   }
 }

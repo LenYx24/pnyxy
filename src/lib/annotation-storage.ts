@@ -2,7 +2,7 @@ import { openDB, type IDBPDatabase } from "idb";
 import type { Highlight, Comment } from "@/types/annotation";
 
 const DB_NAME = "pnyxy-annotations";
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -30,6 +30,13 @@ export function getDB(): Promise<IDBPDatabase> {
         if (!db.objectStoreNames.contains("bookmarks")) {
           const bms = db.createObjectStore("bookmarks", { keyPath: "id" });
           bms.createIndex("documentId", "documentId");
+        }
+        if (!db.objectStoreNames.contains("vocab")) {
+          const vs = db.createObjectStore("vocab", { keyPath: "id" });
+          // Composite "user + word + lang" isn't expressible as an
+          // IDB index, so dedupe is enforced at the store layer.
+          vs.createIndex("dueAt", "dueAt");
+          vs.createIndex("sourceDocumentId", "sourceDocumentId");
         }
       },
     });
@@ -174,4 +181,48 @@ export async function saveBookmark(bm: StoredBookmark): Promise<void> {
 export async function deleteBookmark(id: string): Promise<void> {
   const db = await getDB();
   await db.delete("bookmarks", id);
+}
+
+// --- Vocabulary entries ---
+
+export interface StoredVocabEntry {
+  id: string;
+  userId: string | null;
+  word: string;
+  lang: string;
+  definition: string;
+  contextSentence: string;
+  sourceDocumentId: string | null;
+  sourceTitle: string | null;
+  sourcePage: number | null;
+  /** Opaque ts-fsrs Card blob. Dates are ISO strings on disk. */
+  fsrsCard: unknown;
+  dueAt: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export async function loadAllVocabEntries(): Promise<StoredVocabEntry[]> {
+  const db = await getDB();
+  return db.getAll("vocab");
+}
+
+export async function saveVocabEntry(entry: StoredVocabEntry): Promise<void> {
+  const db = await getDB();
+  await db.put("vocab", entry);
+}
+
+export async function deleteVocabEntry(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete("vocab", id);
+}
+
+export async function findVocabEntryByWord(
+  word: string,
+  lang: string,
+): Promise<StoredVocabEntry | undefined> {
+  const db = await getDB();
+  const all = await db.getAll("vocab");
+  const norm = word.trim().toLowerCase();
+  return all.find((e) => e.word === norm && e.lang === lang);
 }

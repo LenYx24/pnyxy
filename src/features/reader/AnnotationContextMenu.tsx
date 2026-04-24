@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useVocabStore } from "@/stores/vocab-store";
+import { useReaderStore } from "@/stores/reader-store";
 import type { HighlightColor } from "@/types/annotation";
 
 const COLORS: { color: HighlightColor; hex: string }[] = [
@@ -113,6 +115,9 @@ export function AnnotationContextMenu() {
   const [definition, setDefinition] = useState<DictionaryEntry | null>(null);
   const [defining, setDefining] = useState(false);
   const [defineError, setDefineError] = useState("");
+  const [capturedVocabId, setCapturedVocabId] = useState<string | null>(null);
+  const captureFromLookup = useVocabStore((s) => s.captureFromLookup);
+  const removeVocabEntry = useVocabStore((s) => s.removeEntry);
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
 
@@ -136,6 +141,7 @@ export function AnnotationContextMenu() {
     setShowDefine(false);
     setDefinition(null);
     setDefineError("");
+    setCapturedVocabId(null);
 
     // Position after a tick so the ref is populated
     requestAnimationFrame(() => {
@@ -238,16 +244,49 @@ export function AnnotationContextMenu() {
     setDefinition(null);
     setDefineError("");
     setDefining(true);
+    setCapturedVocabId(null);
     try {
       const entry = await fetchDefinition(word);
-      if (entry) setDefinition(entry);
-      else setDefineError("not_found");
+      if (entry) {
+        setDefinition(entry);
+        // Silently save to vocabulary for later review. Only capture
+        // on a successful single-word lookup — long-phrase "defines"
+        // would pollute the flashcard deck.
+        if (!word.includes(" ")) {
+          const primaryDef = entry.meanings[0]?.definitions[0]?.definition ?? "";
+          const activeDoc = useReaderStore.getState().getActiveDoc();
+          try {
+            const saved = await captureFromLookup({
+              word: entry.word,
+              definition: primaryDef,
+              contextSentence: selectedText.length > word.length ? selectedText : "",
+              sourceDocumentId: activeDoc?.meta.id ?? null,
+              sourceTitle: activeDoc?.customTitle ?? activeDoc?.meta.title ?? null,
+              sourcePage: activeDoc?.currentPage ?? null,
+            });
+            setCapturedVocabId(saved.id);
+          } catch {
+            // Capture is best-effort — surface nothing to the user.
+          }
+        }
+      } else setDefineError("not_found");
     } catch {
       setDefineError("connect_failed");
     } finally {
       setDefining(false);
     }
-  }, [selectedText]);
+  }, [selectedText, captureFromLookup]);
+
+  const handleUndoCapture = useCallback(async () => {
+    if (!capturedVocabId) return;
+    const id = capturedVocabId;
+    setCapturedVocabId(null);
+    try {
+      await removeVocabEntry(id);
+    } catch {
+      // Silent — re-saving will just overwrite.
+    }
+  }, [capturedVocabId, removeVocabEntry]);
 
   const handleTranslate = useCallback(async () => {
     if (!selectedText.trim()) return;
@@ -524,7 +563,20 @@ export function AnnotationContextMenu() {
             )}
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between">
+            {capturedVocabId ? (
+              <div className="flex items-center gap-2 text-[11px] text-text-muted">
+                <span>{t("reader.annotationMenu.savedToVocab")}</span>
+                <button
+                  className="text-accent-purple hover:underline cursor-pointer"
+                  onClick={handleUndoCapture}
+                >
+                  {t("reader.annotationMenu.undo")}
+                </button>
+              </div>
+            ) : (
+              <span />
+            )}
             <button
               className="rounded px-2 py-1 text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
               onClick={() => setShowDefine(false)}

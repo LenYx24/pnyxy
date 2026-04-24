@@ -24,6 +24,7 @@
     "chat": "Chat",
     "quizzes": "Quizzes",
     "review": "Review",
+    "vocabulary": "Vocabulary",
     "streaks": "Streaks",
     "forum": "Forum",
     "settings": "Settings",
@@ -845,7 +846,9 @@
       "back": "Back",
       "copy": "Copy",
       "commentPlaceholder": "Add a comment…",
-      "commentAction": "Comment"
+      "commentAction": "Comment",
+      "savedToVocab": "Saved to vocabulary",
+      "undo": "Undo"
     },
     "aiChat": {
       "title": "AI Chat",
@@ -995,6 +998,48 @@
       "sessionResult_other": "{{correct}} / {{total}} correct ({{pct}}%)",
       "loadMore": "Load more",
       "signInRequired": "Sign in to review your questions."
+    }
+  },
+  "vocabulary": {
+    "title": "Vocabulary",
+    "tagline": "Words you've defined in the reader — reviewed on an FSRS schedule.",
+    "reviewDue": "Review ({{count}})",
+    "export": "Export CSV",
+    "search": "Search word or definition…",
+    "allBooks": "All books",
+    "dueNow": "due",
+    "dueIn_one": "in {{days}} day",
+    "dueIn_other": "in {{days}} days",
+    "page": "p. {{page}}",
+    "filter": {
+      "all": "All",
+      "due": "Due",
+      "learning": "Learning"
+    },
+    "stats": {
+      "total": "Total",
+      "dueNow": "Due now",
+      "learning": "Learning"
+    },
+    "empty": {
+      "title": "No words yet",
+      "filtered": "No matching entries",
+      "hint": "Open a book and use Define on any word. Looked-up words are saved here for review."
+    },
+    "review": {
+      "title": "Review",
+      "progress": "{{current}} / {{total}}",
+      "done": "Done",
+      "allCaughtUp_one": "Nicely done — {{count}} card reviewed.",
+      "allCaughtUp_other": "Nicely done — {{count}} cards reviewed.",
+      "reveal": "Reveal (space)",
+      "noContext": "No surrounding context was captured for this word."
+    },
+    "rating": {
+      "again": "Again",
+      "hard": "Hard",
+      "good": "Good",
+      "easy": "Easy"
     }
   }
 }
