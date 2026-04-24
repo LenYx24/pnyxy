@@ -12,6 +12,11 @@ import {
   deleteWhiteboard as dbDeleteWhiteboard,
   loadWhiteboard,
 } from "@/lib/whiteboard-storage";
+import {
+  pushWhiteboard,
+  deleteWhiteboardCloud,
+  pullAllWhiteboards,
+} from "@/lib/whiteboard-sync";
 import { logError } from "@/lib/logger";
 import { renderPdfPages } from "@/features/whiteboard/lib/pdf-renderer";
 
@@ -61,7 +66,13 @@ interface WhiteboardState {
 
   // Actions
   loadWhiteboards: () => Promise<void>;
+  /** Pull whiteboards from Supabase, merge into local IDB + in-memory
+   *  list. Called after sign-in. Cloud wins on conflict. */
+  syncFromCloud: () => Promise<void>;
   createWhiteboard: () => string;
+  /** Most recent cloud-sync error (quota, network). Cleared by the
+   *  UI when acknowledged. */
+  lastSyncError: string | null;
   deleteWhiteboard: (id: string) => void;
   loadWhiteboardData: (id: string) => Promise<void>;
   saveCurrentWhiteboard: () => void;
@@ -111,11 +122,30 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
 
   undoStack: [],
   redoStack: [],
+  lastSyncError: null,
 
   async loadWhiteboards() {
     const wbs = await loadAllWhiteboards();
     wbs.sort((a, b) => b.updatedAt - a.updatedAt);
     set({ whiteboards: wbs });
+  },
+
+  async syncFromCloud() {
+    try {
+      const cloud = await pullAllWhiteboards();
+      if (cloud.length === 0) return;
+      // Cloud wins on id collision. Write each to IDB so local stays
+      // the cache of record, then refresh the in-memory list from
+      // the merged IDB state.
+      for (const wb of cloud) {
+        dbSaveWhiteboard(wb);
+      }
+      const merged = await loadAllWhiteboards();
+      merged.sort((a, b) => b.updatedAt - a.updatedAt);
+      set({ whiteboards: merged });
+    } catch (err) {
+      logError("whiteboard-store:syncFromCloud", err);
+    }
   },
 
   createWhiteboard() {
@@ -129,6 +159,13 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     };
     set((s) => ({ whiteboards: [wb, ...s.whiteboards] }));
     dbSaveWhiteboard(wb);
+    // Fire-and-forget cloud push. Quota errors surface on
+    // `lastSyncError` so the UI can tell the user.
+    pushWhiteboard(wb).then((err) => {
+      if (err?.kind === "quota") {
+        set({ lastSyncError: "quota" });
+      }
+    });
     return wb.id;
   },
 
@@ -140,6 +177,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         : {}),
     }));
     dbDeleteWhiteboard(id);
+    deleteWhiteboardCloud(id);
   },
 
   async loadWhiteboardData(id) {
@@ -173,6 +211,14 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       updatedAt: Date.now(),
     };
     dbSaveWhiteboard(wb);
+    // Fire-and-forget cloud push. Quota errors can fire on the very
+    // first save of a new whiteboard (the upsert hits INSERT); later
+    // saves are UPDATEs which skip the quota trigger.
+    pushWhiteboard(wb).then((err) => {
+      if (err?.kind === "quota") {
+        set({ lastSyncError: "quota" });
+      }
+    });
 
     set((s) => ({
       whiteboards: s.whiteboards.map((w) =>

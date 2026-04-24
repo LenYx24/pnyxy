@@ -218,6 +218,79 @@
         "description": "Külön registry repo, ahová bárki beküldhet témákat vagy sandbox-ban futó plugineket, amiket az app betölt."
       }
     },
+    "pricing": {
+      "title": "Csomagok és árak",
+      "subtitle": "Most ingyenes, és nagyvonalú is marad. A Premium a roadmapen van azoknak, akik több helyet és AI-t szeretnének.",
+      "free": {
+        "name": "Ingyenes",
+        "price": "0 Ft",
+        "priceSuffix": "örökre",
+        "tagline": "Minden alapfunkció, a legtöbbhöz még fiók sem kell.",
+        "features": [
+          "Teljes PDF- és EPUB-olvasó jelölésekkel, jegyzetekkel, táblákkal",
+          "Közkincs könyvek nyilvános katalógusa",
+          "AI chat a nyitott oldalhoz — napi kvótával",
+          "Szótár / tanulókártyák FSRS ütemezéssel",
+          "Közösségi fórum, értékelések, megbeszélések",
+          "Mobil + asztali + web (PWA)",
+          "Az egész stack önhosztolható — nyílt forráskódú"
+        ]
+      },
+      "premium": {
+        "name": "Premium",
+        "price": "—",
+        "priceSuffix": "hamarosan",
+        "comingSoon": "Hamarosan",
+        "tagline": "Haladó felhasználóknak, akik több AI-t, tárhelyet és eszközt szeretnének.",
+        "features": [
+          "Nagyobb napi AI kvóta + hozzáférés erősebb modellekhez",
+          "Több felhőalapú tárhely a saját könyvekhez",
+          "OCR beszkennelt tankönyvekhez — kereshető, AI által olvasható",
+          "X-Ray: szereplő- és fogalomindex a saját feltöltésekhez",
+          "Eszközök közötti szinkron a szótárhoz, táblákhoz, jelölésekhez",
+          "Prioritásos támogatás és korai hozzáférés az új funkciókhoz"
+        ]
+      },
+      "footnote": "Az árak még nem véglegesek. A kezdésről a GitHub repón és a fórumon értesítünk."
+    },
+    "faq": {
+      "title": "Gyakori kérdések",
+      "subtitle": "Röviden, őszintén.",
+      "items": {
+        "isItFree": {
+          "q": "Ingyenes a Pnyxy?",
+          "a": "Igen — az összes alapfunkció jelenleg ingyenes: olvasás, jelölések, jegyzetek, táblák, AI chat (napi kvótával), tanulókártyák, fórum és a közösségi katalógus. Egy fizetős Premium csomagot tervezünk azoknak, akiknek nagyobb AI kvóta, több tárhely, OCR és X-Ray kell. Ami ma ingyenes, az ingyenes marad."
+        },
+        "copyright": {
+          "q": "Bármilyen könyvet olvashatok?",
+          "a": "A beépített katalógus csak közkincs könyveket oszt meg (Project Gutenberg, Standard Ebooks, MEK). A saját tulajdonú, szerzői jogvédett könyvekhez (papír, megvett PDF) vagy feltöltheted privátan, vagy létrehozhatsz egy csak metaadat-alapú \"shell\" bejegyzést, és használhatod a jegyzetelés/közösségi funkciókat anélkül, hogy bármit feltöltenél. Szerzői jogvédett anyagot nem tárolunk."
+        },
+        "privacy": {
+          "q": "Ki látja a jegyzeteimet és kijelöléseimet?",
+          "a": "Csak te. A jegyzetek, jelölések, könyvjelzők és táblák helyben tárolódnak, és ha be vagy jelentkezve, a saját Supabase sorodba szinkronizálódnak — row-level security védi. Másnak semmi nem látható, amit nem posztolsz tudatosan a fórumra."
+        },
+        "ai": {
+          "q": "Tanul az AI a könyveimen vagy jegyzeteimen?",
+          "a": "Nem. AI chat-kor a nyitott oldal szövegét és a kérdésedet küldjük el az AI szolgáltatónak (OpenAI vagy Anthropic), hogy választ generáljon. Mi nem tréningezünk semmilyen modellt felhasználói tartalmon, és a szolgáltatók alapértelmezett policy-je is tiltja az API-forgalmon való tanítást."
+        },
+        "offline": {
+          "q": "Működik offline?",
+          "a": "Nagyrészt. Amint megnyitottál egy könyvet, helyi cache-ben van — olvashatsz, jelölhetsz, jegyzetelhetsz internet nélkül. AI chat, fórum és katalóguskeresés viszont kapcsolatot igényel. A teljes offline mód (később szinkron) a roadmapen van."
+        },
+        "formats": {
+          "q": "Milyen fájlformátumok támogatottak?",
+          "a": "A PDF az elsődleges, teljes jelöléstámogatással és AI-olvasással. Az EPUB, a sima szöveg és a Markdown is megjelenik az olvasóban. MOBI-t nem támogatunk (konvertáld EPUB-ba)."
+        },
+        "openSource": {
+          "q": "Tényleg nyílt forráskódú?",
+          "a": "Igen. A kód MIT licenc alatt van, elérhető: github.com/LenYx24/pnyxy-reader. Issue-k, PR-ek, forkok szívesen látottak. Külön repóban élnek a futásidőben betöltődő közösségi témák és pluginok."
+        },
+        "selfHost": {
+          "q": "Tudom saját szerveren futtatni?",
+          "a": "Igen — a README tartalmaz teljes telepítési útmutatót. Kell egy Supabase projekt (ingyenes is elég), egy Cloudflare Workers fiók a web hosthoz, és API kulcsok a Pnyxy AI proxyhoz. Az asztali és mobil buildek Tauri-ra épülnek, nem igényelnek backendet."
+        }
+      }
+    },
     "features": {
       "smartReading": {
         "title": "Okos olvasó",
@@ -267,6 +340,9 @@
     "yourRating": "A te értékelésed: {{stars}}",
     "signInToRate": "Jelentkezz be az értékeléshez →"
   },
+  "whiteboard": {
+    "notFound": "A tábla nem található."
+  },
   "home": {
     "title": "Kezdőlap",
     "subtitle": "Innen indul az olvasás.",
@@ -308,7 +384,26 @@
       "open": "Megnyitás",
       "openTitle": "Fájl megnyitása ({{shortcut}})",
       "fromUrl": "URL-ről",
-      "fromUrlTitle": "Fájl megnyitása URL-ről"
+      "fromUrlTitle": "Fájl megnyitása URL-ről",
+      "manual": "Kézi rögzítés",
+      "manualTitle": "Könyv kézi hozzáadása — papíralapú vagy fájl nélküli könyvekhez"
+    },
+    "addManual": {
+      "title": "Könyv hozzáadása kézzel",
+      "hint": "Papíralapú vagy másutt tárolt könyvekhez. Jegyzetek, jelölések, fórum, olvasási sorozatok fájl nélkül is működnek.",
+      "titleLabel": "Cím",
+      "authorLabel": "Szerző",
+      "coverUrlLabel": "Borítókép URL (opcionális)",
+      "isbnLabel": "ISBN (opcionális)",
+      "pagesLabel": "Oldalszám (opcionális)",
+      "descriptionLabel": "Leírás (opcionális)",
+      "add": "Hozzáadás",
+      "adding": "Hozzáadás…",
+      "titleRequired": "A cím megadása kötelező.",
+      "authorRequired": "A szerző megadása kötelező.",
+      "pagesInvalid": "Az oldalszám nem lehet negatív.",
+      "signInRequired": "Jelentkezz be a hozzáadáshoz.",
+      "failed": "Nem sikerült hozzáadni — próbáld újra."
     },
     "tabs": {
       "home": "Kezdőlap",
@@ -697,6 +792,7 @@
       "openInReader": "Megnyitás az olvasóban",
       "read": "Olvasás",
       "download": "Letöltés",
+      "newWhiteboard": "Új tábla",
       "readCorsFallback": "A fájlt nem sikerült közvetlenül betölteni (a szolgáltató tiltja). A letöltést új lapon indítottuk el helyette.",
       "publicDomainHint": "Ez a könyv közkincs, szabadon letölthető az Internet Archive-ról.",
       "description": "Leírás",

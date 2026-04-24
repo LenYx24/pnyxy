@@ -9,13 +9,13 @@
   --color-bg-tertiary: #1a1a24;
 
   /* Accent colors */
-  --color-accent-purple: #8b5cf6;
-  --color-accent-blue: #3b82f6;
+  --color-accent-purple: #0891b2;
+  --color-accent-blue: #60a5fa;
 
   /* Text colors */
-  --color-text-primary: #f0f0f5;
-  --color-text-secondary: #a0a0b0;
-  --color-text-muted: #6b6b80;
+  --color-text-primary: #eaf2ff;
+  --color-text-secondary: #9aa9c9;
+  --color-text-muted: #5e6c8a;
 
   /* Glass/border */
   --color-glass-bg: rgba(255, 255, 255, 0.05);

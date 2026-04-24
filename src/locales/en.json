@@ -218,6 +218,79 @@
         "description": "A separate registry repo where anyone can submit themes and sandboxed plugins that load into the app."
       }
     },
+    "pricing": {
+      "title": "Plans and pricing",
+      "subtitle": "Free today, and staying generous. Premium is on the roadmap for users who want more room to work.",
+      "free": {
+        "name": "Free",
+        "price": "$0",
+        "priceSuffix": "forever",
+        "tagline": "Everything core, no account required for most of it.",
+        "features": [
+          "Full PDF and EPUB reader with annotations, notes, whiteboards",
+          "Browse a public catalog of open-domain books",
+          "AI chat for the open page — daily quota",
+          "Vocabulary flashcards with FSRS spaced repetition",
+          "Community forum, ratings, and shared discussions",
+          "Mobile + desktop + web (PWA)",
+          "Self-host the whole stack — it's open source"
+        ]
+      },
+      "premium": {
+        "name": "Premium",
+        "price": "—",
+        "priceSuffix": "coming soon",
+        "comingSoon": "Coming soon",
+        "tagline": "For power users who want more AI, more storage, more tools.",
+        "features": [
+          "Larger daily AI quota + access to higher-quality models",
+          "More cloud storage for your uploaded books",
+          "OCR for scanned textbooks — searchable, selectable, AI-readable",
+          "X-Ray: character & concept index for your personal uploads",
+          "Cross-device sync for vocabulary, whiteboards, and highlights",
+          "Priority support and early access to new features"
+        ]
+      },
+      "footnote": "Pricing is not yet finalized. Follow the GitHub repo or the community forum for launch updates."
+    },
+    "faq": {
+      "title": "Frequently asked questions",
+      "subtitle": "The honest short version.",
+      "items": {
+        "isItFree": {
+          "q": "Is Pnyxy free to use?",
+          "a": "Yes — every core feature is free right now: reading, annotations, notes, whiteboards, AI chat (with a daily quota), vocabulary flashcards, forum, and the community book catalog. A paid Premium tier is planned for people who need bigger AI quotas, more storage, OCR, and X-Ray. Everything that's free today stays free."
+        },
+        "copyright": {
+          "q": "Can I read any book on Pnyxy?",
+          "a": "The built-in catalog only redistributes public-domain books (Project Gutenberg, Standard Ebooks, MEK). For copyrighted books you legally own (physical copies, PDFs you bought), you can either upload the file privately, or add a metadata-only \"shell\" entry and use notes, annotations, and community features against it without uploading anything. We do not host or distribute copyrighted material."
+        },
+        "privacy": {
+          "q": "Who can see my notes and highlights?",
+          "a": "Only you. Notes, annotations, bookmarks, and whiteboards are stored locally on your device and (if you're signed in) synced to your own Supabase row, protected by row-level security. Nothing you write is visible to other users unless you explicitly post it to the forum or share it."
+        },
+        "ai": {
+          "q": "Does the AI train on my books or notes?",
+          "a": "No. When you use AI chat, the current page's text and your question are sent to the AI provider (OpenAI or Anthropic, depending on your settings) to generate a response. We don't train any model on user content, and the providers' own policies prohibit training on API traffic by default."
+        },
+        "offline": {
+          "q": "Does it work offline?",
+          "a": "Mostly. Once a book is opened it's cached locally — you can read, annotate, and take notes without internet. AI chat, community forum, and book catalog search require a connection. Full offline mode (sync-later) is on the roadmap."
+        },
+        "formats": {
+          "q": "What file formats are supported?",
+          "a": "PDF is the primary target, with full support for annotations, highlights, and AI reading. EPUB, plain text, and Markdown also render in the reader. MOBI is not supported (convert to EPUB first)."
+        },
+        "openSource": {
+          "q": "Is it really open source?",
+          "a": "Yes. The code is MIT-licensed and on GitHub at github.com/LenYx24/pnyxy-reader. Issues, PRs, and forks are welcome. A separate repository hosts community themes and plugins that load into the app at runtime."
+        },
+        "selfHost": {
+          "q": "Can I self-host?",
+          "a": "Yes — the README has the full deployment guide. You'll need a Supabase project (free tier works), a Cloudflare Workers account for the web host, and API keys if you want the Pnyxy AI proxy. Desktop and mobile builds use Tauri and don't need any backend."
+        }
+      }
+    },
     "features": {
       "smartReading": {
         "title": "Smart Reading",
@@ -267,6 +340,9 @@
     "yourRating": "Your rating: {{stars}}",
     "signInToRate": "Sign in to rate →"
   },
+  "whiteboard": {
+    "notFound": "Whiteboard not found."
+  },
   "home": {
     "title": "Home",
     "subtitle": "Your reading starting point.",
@@ -308,7 +384,26 @@
       "open": "Open",
       "openTitle": "Open a file ({{shortcut}})",
       "fromUrl": "From URL",
-      "fromUrlTitle": "Open a file from a URL"
+      "fromUrlTitle": "Open a file from a URL",
+      "manual": "Manual entry",
+      "manualTitle": "Add a book by hand — for physical copies or books without a file"
+    },
+    "addManual": {
+      "title": "Add a book manually",
+      "hint": "For physical copies or books you own elsewhere. Notes, annotations, forum threads, and reading streaks all work without a file.",
+      "titleLabel": "Title",
+      "authorLabel": "Author",
+      "coverUrlLabel": "Cover image URL (optional)",
+      "isbnLabel": "ISBN (optional)",
+      "pagesLabel": "Pages (optional)",
+      "descriptionLabel": "Description (optional)",
+      "add": "Add to library",
+      "adding": "Adding…",
+      "titleRequired": "Title is required.",
+      "authorRequired": "Author is required.",
+      "pagesInvalid": "Pages must be a non-negative number.",
+      "signInRequired": "Sign in to add a book.",
+      "failed": "Couldn't add the book — try again."
     },
     "tabs": {
       "home": "Home",
@@ -697,6 +792,7 @@
       "openInReader": "Open in Reader",
       "read": "Read",
       "download": "Download",
+      "newWhiteboard": "New whiteboard",
       "readCorsFallback": "Couldn't fetch the file directly (the publisher blocked cross-origin requests). We opened a download in a new tab instead.",
       "publicDomainHint": "This book is in the public domain and can be freely downloaded from the Internet Archive.",
       "description": "Description",

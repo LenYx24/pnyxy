@@ -12,19 +12,26 @@ export const CORE_THEMES = {
   "pnyxy-dark": {
     id: "pnyxy-dark",
     name: "Pnyxy Dark",
-    description: "The default dark theme.",
+    description: "Neutral deep-black background with cool cyan accents.",
     author: "Pnyxy",
     apiVersion: 1,
     variant: "dark",
     tokens: {
+      // Backgrounds: the original Pnyxy Dark — neutral near-black.
       "--color-bg-primary": "#0a0a0f",
       "--color-bg-secondary": "#111118",
       "--color-bg-tertiary": "#1a1a24",
-      "--color-accent-purple": "#8b5cf6",
-      "--color-accent-blue": "#3b82f6",
-      "--color-text-primary": "#f0f0f5",
-      "--color-text-secondary": "#a0a0b0",
-      "--color-text-muted": "#6b6b80",
+      // Accents + text: picked up from Midnight so the default no
+      // longer reads as "default Tailwind purple". Cyan/icy palette
+      // over a neutral dark surface. Accent is darker than Midnight's
+      // to stay legible with white text on top (≥4.5:1 contrast).
+      "--color-accent-purple": "#0891b2",
+      "--color-accent-blue": "#60a5fa",
+      "--color-text-primary": "#eaf2ff",
+      "--color-text-secondary": "#9aa9c9",
+      "--color-text-muted": "#5e6c8a",
+      // Glass stays neutral (no blue tint) so it sits naturally on
+      // the true-black background.
       "--color-glass-bg": "rgba(255, 255, 255, 0.05)",
       "--color-glass-border": "rgba(255, 255, 255, 0.1)",
       "--color-glass-hover": "rgba(255, 255, 255, 0.08)",

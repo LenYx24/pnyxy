@@ -9,6 +9,7 @@ import {
   BookOpen,
   FileText,
   Trash2,
+  PenLine,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import {
@@ -21,6 +22,7 @@ import { getDownloadOptions } from "@/lib/open-library";
 import { useBrowseStore } from "@/stores/browse-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useRatingStore } from "@/stores/rating-store";
+import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import { useOpenCatalogBook } from "@/hooks/use-open-catalog-book";
 import {
   useOpenUploadedDocument,
@@ -33,6 +35,27 @@ import type {
 } from "@/types/catalog";
 import type { Book, Category } from "@/types/database";
 import { useBook } from "../BookPageContext";
+
+/**
+ * Button that creates a standalone whiteboard and navigates to it.
+ * Works for any book — file-backed or shell. For shell books this is
+ * the primary way users can use the whiteboard feature at all,
+ * since the reader can't open them.
+ */
+function CreateWhiteboardButton() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const handle = () => {
+    const id = useWhiteboardStore.getState().createWhiteboard();
+    navigate(`/whiteboards/${id}`);
+  };
+  return (
+    <Button variant="secondary" onClick={handle}>
+      <PenLine size={16} />
+      {t("book.overview.newWhiteboard")}
+    </Button>
+  );
+}
 
 export function OverviewTab() {
   const data = useBook();
@@ -210,6 +233,11 @@ function CatalogOverview({
           </>
         )}
 
+        {/* Works for every book — file-backed or shell. Placed next
+            to the Library buttons since it's a "study tool" entry
+            point the same way. */}
+        <CreateWhiteboardButton />
+
         {/* Keep one download fallback for users who want the file
             offline or in a different reader. Single link, not the
             format matrix that was here before. */}
@@ -384,20 +412,23 @@ function UploadedOverview({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <Button
-          variant="primary"
-          onClick={handleOpen}
-          disabled={loading || !storagePath}
-        >
-          {loading ? (
-            <Loader2 size={16} className="animate-spin" />
-          ) : (
-            <>
-              <BookOpen size={16} />
-              {t("book.overview.openInReader")}
-            </>
-          )}
-        </Button>
+        {storagePath && (
+          <Button
+            variant="primary"
+            onClick={handleOpen}
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <>
+                <BookOpen size={16} />
+                {t("book.overview.openInReader")}
+              </>
+            )}
+          </Button>
+        )}
+        <CreateWhiteboardButton />
       </div>
 
       <div className="rounded-lg border border-glass-border bg-glass-bg/50 p-4 text-sm">

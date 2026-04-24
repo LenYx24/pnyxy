@@ -1,18 +1,30 @@
 #!/usr/bin/env node
 /**
- * Import public-domain books into catalog_books from:
+ * Import books into catalog_books from:
  *   - Project Gutenberg (via the Gutendex API — sorted by popularity)
+ *     Full text + metadata for public-domain books.
  *   - Standard Ebooks (via their OPDS feed)
+ *     Full text + metadata; requires Patrons Circle membership.
  *   - MEK (Magyar Elektronikus Könyvtár) (via OAI-PMH)
+ *     Hungarian public-domain; requires MEK_OAI_URL env var.
+ *   - Open Library (via their search API)
+ *     **Metadata only** — title/author/cover/description/ISBN. No
+ *     file is distributed. Perfect for seeding in-copyright titles
+ *     (Harry Potter, textbooks, contemporary fiction) so users can
+ *     still use annotations / notes / forum / streaks without us
+ *     redistributing the book.
  *
  * Usage:
  *   pnpm import-books --source=gutenberg --limit=500
+ *   pnpm import-books --source=open-library --query="bestseller" --limit=200
+ *   pnpm import-books --source=open-library --query="philosophy" --limit=100
  *   pnpm import-books --source=standard-ebooks --limit=1000
  *   pnpm import-books --source=mek --limit=500 --dry-run
  *
  * Flags:
- *   --source   gutenberg | standard-ebooks | mek   (default: gutenberg)
+ *   --source   gutenberg | standard-ebooks | mek | open-library  (default: gutenberg)
  *   --limit    Max books to import this run         (default: 500)
+ *   --query    Open Library search query (required for --source=open-library)
  *   --dry-run  Print what would be inserted, no DB writes
  *
  * Credentials: put SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in
@@ -192,19 +204,68 @@ function gutendexToCatalog(b) {
 
 // ── Adapter: Standard Ebooks (OPDS) ────────────────────────
 //
-// Standard Ebooks publishes an OPDS Atom feed listing every title.
-// The full catalog is ~1000 curated books so we pull the whole
-// thing and the --limit flag acts as a cap, not a page size.
+// **HEADS UP**: Standard Ebooks gated their OPDS catalog behind
+// Patrons Circle membership (a donation tier) sometime in 2024/25.
+// Both `/opds/all` and `/feeds/opds/new-releases` now return 401 to
+// unauthenticated requests. To import from SE you need to either:
 //
-// Entries are Atom XML; we extract the handful of fields we need
-// with regex. A proper XML parser would be safer but would add a
-// dependency for a one-off script — the feed's shape is stable.
+//   a) Become a Patron and set SE_EMAIL in .env.local. The password
+//      field is empty — SE uses Basic auth with <email>: as creds.
+//
+//   b) Clone specific books from their GitHub org
+//      (github.com/standardebooks) and upload by hand.
+//
+// If SE_EMAIL is unset, the import fails fast with a hint.
+//
+// The feed URL candidates below are tried in order; the first one
+// that returns 200 wins. SE has reorganized these paths a few times,
+// so being tolerant is cheap insurance.
 
-const SE_FEED_URL = "https://standardebooks.org/opds/all";
+const SE_FEED_URL_CANDIDATES = [
+  "https://standardebooks.org/feeds/opds/all",
+  "https://standardebooks.org/opds/all",
+  "https://standardebooks.org/feeds/opds/new-releases",
+];
 
 async function importStandardEbooks(limit) {
-  const res = await fetchWithRetry(SE_FEED_URL);
-  const xml = await res.text();
+  const email = process.env.SE_EMAIL;
+  if (!email) {
+    console.error(
+      "Standard Ebooks requires Patrons Circle authentication.\n" +
+        "Set SE_EMAIL=<your-patron-email> in .env.local, then re-run.\n" +
+        "(Password field is intentionally empty — SE uses Basic auth\n" +
+        "with the email as the username.)\n" +
+        "Sign up at https://standardebooks.org/donate",
+    );
+    return 0;
+  }
+  const authHeader = `Basic ${Buffer.from(`${email}:`).toString("base64")}`;
+
+  let feedUrl = null;
+  let xml = null;
+  for (const candidate of SE_FEED_URL_CANDIDATES) {
+    try {
+      const res = await fetch(candidate, {
+        headers: {
+          "User-Agent": "pnyxy-importer/1.0 (+https://pnyxy.com)",
+          Authorization: authHeader,
+        },
+      });
+      if (res.ok) {
+        feedUrl = candidate;
+        xml = await res.text();
+        break;
+      }
+    } catch {
+      // fall through to the next candidate
+    }
+  }
+  if (!xml) {
+    throw new Error(
+      "None of the Standard Ebooks OPDS URLs returned 200 — credentials may be invalid or the feed moved again.",
+    );
+  }
+  console.log(`Standard Ebooks: using feed ${feedUrl}`);
   const entries = xml.split(/<entry[\s>]/).slice(1);
   console.log(`Standard Ebooks: ${entries.length} entries in feed`);
 
@@ -318,25 +379,39 @@ function matchXml(body, tag) {
 
 // ── Adapter: MEK (Magyar Elektronikus Könyvtár) ────────────
 //
-// MEK doesn't have a modern REST API but does expose OAI-PMH
-// (a standard digital-library harvesting protocol) at
-// `http://mek.oszk.hu/oai.oai`. The protocol returns Dublin Core
-// metadata in XML with resumption tokens for pagination.
+// **HEADS UP**: MEK's OAI-PMH URL isn't documented publicly. My
+// original guess (`/oai.oai`) returned 404, and the OAI-PMH registry
+// that once tracked provider baseURLs was shut down 2025-07-18.
 //
-// Caveats:
+// To use this adapter you need to find MEK's current OAI-PMH baseURL
+// (email their librarians: info@mek.oszk.hu, or check their docs)
+// and set it via:
+//
+//     MEK_OAI_URL=https://actual-mek-oai-url pnpm import-books --source=mek
+//
+// Once a working URL is known, the rest of the adapter is generic
+// OAI-PMH Dublin Core harvesting — should just work.
+//
+// Caveats once the URL is resolved:
 //   - Cover URLs aren't part of Dublin Core → cover_url is null.
 //     Expect most MEK books to render without a cover image.
 //   - dc:identifier is usually a page URL (e.g. https://mek.oszk.hu/00001/00001/)
-//     not a direct EPUB/PDF. The real file lives at <identifier>/<id>.pdf
-//     by convention; we set download_url to the page so the user
-//     reaches MEK's own download picker.
-//   - This adapter is untested against live MEK data — run with
-//     --dry-run first and sanity-check a few records.
+//     not a direct EPUB/PDF. We set download_url to that page so the
+//     user lands on MEK's own download picker.
 
-const MEK_OAI_URL =
-  process.env.MEK_OAI_URL ?? "http://mek.oszk.hu/oai.oai";
+const MEK_OAI_URL = process.env.MEK_OAI_URL;
 
 async function importMEK(limit) {
+  if (!MEK_OAI_URL) {
+    console.error(
+      "MEK_OAI_URL not set. The OAI-PMH baseURL for MEK isn't public\n" +
+        "and my guess returned 404. Set MEK_OAI_URL to the correct\n" +
+        "baseURL in .env.local and re-run, e.g.:\n" +
+        "  MEK_OAI_URL=http://mek.oszk.hu/cgi-bin/xyz pnpm import-books --source=mek\n",
+    );
+    return 0;
+  }
+
   let imported = 0;
   let seen = 0;
   let token = null;
@@ -431,6 +506,116 @@ function parseMEKRecord(body) {
   };
 }
 
+// ── Adapter: Open Library (metadata only) ──────────────────
+//
+// Open Library is the Internet Archive's catalog project. Their
+// metadata is CC0-licensed and free to redistribute — perfect for
+// seeding in-copyright titles (Harry Potter, current fiction,
+// textbooks) where we *can* store title/author/cover/description
+// but cannot redistribute the file itself.
+//
+// Search API: https://openlibrary.org/search.json?q=<query>&limit=100
+//   - Returns up to 100 books per page, supports `offset` for paging
+//   - Fields include: title, author_name[], cover_i (cover edition id),
+//     first_publish_year, isbn[], number_of_pages_median, subject[],
+//     language[]
+// Covers: https://covers.openlibrary.org/b/id/<cover_i>-L.jpg
+//
+// Imported records have download_url = null so the reader shows the
+// "metadata only" badge on them. Users can still use the book detail
+// page for forum threads, notes, whiteboards, reading streaks, etc.
+
+const OL_PAGE_SIZE = 100;
+
+async function importOpenLibrary(limit, query) {
+  if (!query) {
+    console.error(
+      "Open Library imports require --query=<search terms>. " +
+        'Example: --query="harry potter", --query="dune", --query="philosophy"',
+    );
+    return 0;
+  }
+
+  let imported = 0;
+  let offset = 0;
+
+  while (imported < limit) {
+    const url =
+      `https://openlibrary.org/search.json?` +
+      `q=${encodeURIComponent(query)}&limit=${OL_PAGE_SIZE}&offset=${offset}`;
+    const res = await fetchWithRetry(url);
+    const body = await res.json();
+    const docs = body.docs ?? [];
+    if (docs.length === 0) break;
+
+    const candidates = docs.map(openLibraryToCatalog).filter(Boolean);
+    const sourceIds = candidates.map((c) => c.source_id);
+    const already = await existingSourceIds("open_library", sourceIds);
+    const fresh = candidates.filter((c) => !already.has(c.source_id));
+    const slice = fresh.slice(0, limit - imported);
+
+    if (slice.length > 0) {
+      await insertBatch(slice);
+      imported += slice.length;
+    }
+    console.log(
+      `Open Library: offset=${offset} imported=${imported}/${limit} (skipped ${candidates.length - fresh.length} already in catalog)`,
+    );
+
+    offset += OL_PAGE_SIZE;
+    if (offset >= (body.numFound ?? 0)) break;
+    await sleep(300); // polite pause between pages
+  }
+  return imported;
+}
+
+/** Convert an Open Library search doc into CatalogBookInsert. */
+function openLibraryToCatalog(d) {
+  if (!d?.key) return null;
+  const title = (d.title ?? "").trim();
+  const authors = Array.isArray(d.author_name)
+    ? d.author_name.filter(Boolean)
+    : [];
+  if (!title || authors.length === 0) return null;
+
+  // OL's work id lives at d.key (e.g. "/works/OL45883W"). Strip the
+  // path prefix so our source_id matches the user-facing slug.
+  const workId = String(d.key).replace(/^\/works\//, "");
+
+  const cover_url =
+    d.cover_i != null
+      ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg`
+      : null;
+
+  const language = Array.isArray(d.language) ? d.language[0] : null;
+  const isbn_13 = Array.isArray(d.isbn)
+    ? d.isbn.find((i) => typeof i === "string" && i.length === 13) ?? null
+    : null;
+  const isbn_10 = Array.isArray(d.isbn)
+    ? d.isbn.find((i) => typeof i === "string" && i.length === 10) ?? null
+    : null;
+
+  // Description is NOT in the search endpoint — pulling it would
+  // require a second request per book. Skipping for now; the book
+  // detail page can fetch on demand if we ever want it.
+  return {
+    title,
+    authors,
+    description: null,
+    cover_url,
+    isbn_13,
+    isbn_10,
+    page_count: d.number_of_pages_median ?? null,
+    language,
+    categories: Array.isArray(d.subject) ? d.subject.slice(0, 10) : [],
+    source: "open_library",
+    source_id: `ol:${workId}`,
+    download_url: null, // metadata-only — users can't read it inline
+    status: "verified",
+    verified_at: new Date().toISOString(),
+  };
+}
+
 // ── Main ───────────────────────────────────────────────────
 
 async function main() {
@@ -443,6 +628,8 @@ async function main() {
     else if (SOURCE === "standard-ebooks")
       count = await importStandardEbooks(LIMIT);
     else if (SOURCE === "mek") count = await importMEK(LIMIT);
+    else if (SOURCE === "open-library")
+      count = await importOpenLibrary(LIMIT, args.query);
     else {
       console.error(`Unknown --source=${SOURCE}`);
       process.exit(1);

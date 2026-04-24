@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { FilePlus, FolderSearch, Upload, UploadCloud, Loader2, Link as LinkIcon } from "lucide-react";
+import { FilePlus, FolderSearch, Upload, UploadCloud, Loader2, Link as LinkIcon, BookPlus } from "lucide-react";
 import { Button, Kbd } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useOpenDocument } from "@/hooks/use-open-document";
@@ -24,6 +24,7 @@ import { AllBooksTab } from "./AllBooksTab";
 import { FolderPickerModal } from "./FolderPickerModal";
 import { UploadPdfModal } from "./UploadPdfModal";
 import { DeviceBookScanModal } from "./DeviceBookScanModal";
+import { AddManualBookModal } from "./AddManualBookModal";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import type { BookStatusTag } from "@/types/database";
 
@@ -134,6 +135,7 @@ export function LibraryPage() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [scanModalOpen, setScanModalOpen] = useState(false);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
+  const [manualModalOpen, setManualModalOpen] = useState(false);
 
   // Shared dispatcher used by both URL-import and drag-drop: PDFs go to
   // the cloud library (when signed in); other formats just open in the
@@ -468,7 +470,11 @@ export function LibraryPage() {
         </div>
       )}
 
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Header: stacks vertically below lg (1024px) because the
+          button row + title + storage bar won't fit cleanly side-by-
+          side on mid-sizes. Previously we switched at sm which left
+          a crowded window where buttons overlapped the title. */}
+      <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-bold text-text-primary">
@@ -549,6 +555,17 @@ export function LibraryPage() {
             <LinkIcon size={18} />
             <span className="hidden sm:inline">
               {t("library.actions.fromUrl")}
+            </span>
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setManualModalOpen(true)}
+            title={t("library.actions.manualTitle")}
+            className="px-3 py-1.5 sm:px-5 sm:py-2.5"
+          >
+            <BookPlus size={18} />
+            <span className="hidden sm:inline">
+              {t("library.actions.manual")}
             </span>
           </Button>
           <input
@@ -664,6 +681,12 @@ export function LibraryPage() {
         open={urlModalOpen}
         onClose={() => setUrlModalOpen(false)}
         onFile={importFile}
+      />
+
+      {/* Manual "shell book" modal — add metadata-only book */}
+      <AddManualBookModal
+        open={manualModalOpen}
+        onClose={() => setManualModalOpen(false)}
       />
 
       {/* Move single item to folder */}

@@ -7,6 +7,8 @@ import { cn } from "@/lib/cn";
 import { Footer } from "@/components/layout/Footer";
 import { HeroSection } from "./HeroSection";
 import { FeaturesSection } from "./FeaturesSection";
+import { PricingSection } from "./PricingSection";
+import { FaqSection } from "./FaqSection";
 import { OpenSourceSection } from "./OpenSourceSection";
 
 export function LandingPage() {
@@ -76,6 +78,8 @@ export function LandingPage() {
 
       <HeroSection />
       <FeaturesSection />
+      <PricingSection />
+      <FaqSection />
       <OpenSourceSection />
       <Footer />
     </div>
