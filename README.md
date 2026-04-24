@@ -1,6 +1,8 @@
 # Pnyxy Reader
 
-A modern PDF reader and digital library built with React, TypeScript, and Supabase. Read, annotate, organize, and discover books — on web, desktop, and mobile.
+**[pnyxy.com](https://pnyxy.com)** · AI-assisted reading and learning platform.
+
+A modern PDF and EPUB reader with annotations, notes, AI chat, vocabulary flashcards, and community discussions. Built with React, TypeScript, Supabase, and Tauri — runs on web, desktop, and mobile.
 
 ## Features
 

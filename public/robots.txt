@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /auth/
+Disallow: /reader/
+Disallow: /admin/
+
+Sitemap: https://pnyxy.com/sitemap.xml
