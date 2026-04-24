@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 import { Star } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 /**
- * Read-only star display. Shows a compact "<avg> ★ · <count>" line.
- * When `count === 0`, renders a muted "not yet rated" hint instead
- * of empty stars so the UI isn't noisy on un-rated books.
+ * Read-only star display. Shows a compact "<avg> ★ · <count>" line
+ * when the book has at least one rating. Renders nothing for
+ * unrated books — absence is less noisy than a placeholder.
  */
 export function StarRatingDisplay({
   avg,
@@ -19,14 +18,7 @@ export function StarRatingDisplay({
   size?: number;
   className?: string;
 }) {
-  const { t } = useTranslation();
-  if (!count) {
-    return (
-      <span className={cn("text-[10px] text-text-muted", className)}>
-        {t("ratings.notYetRated")}
-      </span>
-    );
-  }
+  if (!count) return null;
   return (
     <span
       className={cn(

@@ -1,5 +1,6 @@
-import { BookOpen } from "lucide-react";
-import { GlassCard, StarRatingDisplay } from "@/components/ui";
+import { BookOpen, FileX2 } from "lucide-react";
+import { StarRatingDisplay } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import type { CatalogBook } from "@/types/catalog";
 
 interface BrowseBookShelfCardProps {
@@ -8,41 +9,60 @@ interface BrowseBookShelfCardProps {
 }
 
 /**
- * Compact variant of BrowseBookCard for horizontal shelves. Drops
- * the description, free-badge, and body padding so the card fits
- * inside a ~160-176px shelf slot without bloating vertical space on
- * the browse page. Title + author only; description lives on the
- * book detail page.
+ * Compact shelf card. Blends into the page — no border, no card
+ * background, just the cover and a small metadata block beneath.
+ * The cover lives inside a fixed-ratio container so cards in a row
+ * all have the same height regardless of cover dimensions.
  */
 export function BrowseBookShelfCard({ book, onClick }: BrowseBookShelfCardProps) {
+  const hasFile = !!(book.ia_id || book.download_url);
+
   return (
-    <GlassCard className="cursor-pointer overflow-hidden" onClick={onClick}>
-      {book.cover_url ? (
-        <img
-          src={book.cover_url}
-          alt={book.title}
-          className="aspect-[2/3] w-full object-cover"
-          loading="lazy"
-        />
-      ) : (
-        <div className="flex aspect-[2/3] w-full items-center justify-center bg-gradient-to-br from-accent-purple/30 to-accent-blue/30">
-          <BookOpen size={36} className="text-white/20" />
-        </div>
+    <button
+      type="button"
+      onClick={onClick}
+      title={`${book.title}${book.authors.length ? " — " + book.authors.join(", ") : ""}`}
+      className={cn(
+        "group flex w-full flex-col text-left transition-transform",
+        "cursor-pointer focus:outline-none",
       )}
-      <div className="p-2.5">
-        <h3 className="truncate text-xs font-semibold text-text-primary">
+    >
+      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md bg-glass-bg">
+        {book.cover_url ? (
+          <img
+            src={book.cover_url}
+            alt={book.title}
+            className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-purple/25 to-accent-blue/25">
+            <BookOpen size={28} className="text-white/20" />
+          </div>
+        )}
+        {!hasFile && (
+          <span
+            className="absolute right-1 top-1 rounded bg-bg-primary/80 p-0.5 text-text-muted backdrop-blur-sm"
+            title="Metadata only — no file attached"
+          >
+            <FileX2 size={10} />
+          </span>
+        )}
+      </div>
+      <div className="mt-1.5 min-w-0">
+        <h3 className="truncate text-[11px] font-semibold leading-tight text-text-primary">
           {book.title}
         </h3>
-        <p className="truncate text-[11px] text-text-muted">
+        <p className="truncate text-[10px] leading-tight text-text-muted">
           {book.authors.join(", ") || "—"}
         </p>
         <StarRatingDisplay
           avg={book.rating_avg}
           count={book.rating_count}
-          size={10}
-          className="mt-1"
+          size={9}
+          className="mt-0.5"
         />
       </div>
-    </GlassCard>
+    </button>
   );
 }

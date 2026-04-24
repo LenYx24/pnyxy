@@ -18,6 +18,7 @@
     "no": "Nem"
   },
   "sidebar": {
+    "home": "Kezdőlap",
     "browse": "Felfedezés",
     "chat": "Csevegés",
     "library": "Könyvtár",
@@ -265,6 +266,26 @@
     "notYetRated": "Még nincs értékelés",
     "yourRating": "A te értékelésed: {{stars}}",
     "signInToRate": "Jelentkezz be az értékeléshez →"
+  },
+  "home": {
+    "title": "Kezdőlap",
+    "subtitle": "Innen indul az olvasás.",
+    "seeAll": "Összes →",
+    "shelves": {
+      "featured": "Kiemelt",
+      "newThisWeek": "E heti újdonságok"
+    },
+    "sidePanel": {
+      "yourLibrary": "A könyvtárad",
+      "bookCount_one": "{{count}} könyv",
+      "bookCount_other": "{{count}} könyv",
+      "openLibrary": "Könyvtár megnyitása",
+      "signedOutHint": "Jelentkezz be, hogy kövesd mit olvasol.",
+      "signIn": "Bejelentkezés",
+      "discover": "Fedezz fel többet",
+      "discoverHint": "Több ezer közkincs könyv a katalógusban.",
+      "browseCatalog": "Katalógus böngészése"
+    }
   },
   "library": {
     "title": "Könyvtár",
@@ -668,11 +689,15 @@
     },
     "overview": {
       "addToLibrary": "Hozzáadás a könyvtárhoz",
-      "removeFromLibrary": "Eltávolítás a könyvtárból",
+      "removeFromLibrary": "Eltávolítás",
       "inYourLibrary": "A könyvtáradban",
+      "inYourLibraryOpen": "A könyvtáradban — megnyitás",
       "addToLibraryAria": "Hozzáadás a könyvtárhoz",
       "removeFromLibraryAria": "Eltávolítás a könyvtárból",
       "openInReader": "Megnyitás az olvasóban",
+      "read": "Olvasás",
+      "download": "Letöltés",
+      "readCorsFallback": "A fájlt nem sikerült közvetlenül betölteni (a szolgáltató tiltja). A letöltést új lapon indítottuk el helyette.",
       "publicDomainHint": "Ez a könyv közkincs, szabadon letölthető az Internet Archive-ról.",
       "description": "Leírás",
       "categories": "Kategóriák",

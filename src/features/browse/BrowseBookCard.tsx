@@ -1,5 +1,6 @@
-import { BookOpen, Download } from "lucide-react";
-import { GlassCard, StarRatingDisplay } from "@/components/ui";
+import { BookOpen, FileX2 } from "lucide-react";
+import { StarRatingDisplay } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import type { CatalogBook } from "@/types/catalog";
 
 interface BrowseBookCardProps {
@@ -7,49 +8,61 @@ interface BrowseBookCardProps {
   onClick: () => void;
 }
 
+/**
+ * Grid card for Browse. Matches the shelf card visually — no card
+ * chrome, fixed 2:3 cover ratio — so rows stay aligned regardless
+ * of the cover's actual aspect. A single file-availability glyph
+ * (bottom right) flags metadata-only books; readable books wear no
+ * badge, keeping chrome to a minimum.
+ */
 export function BrowseBookCard({ book, onClick }: BrowseBookCardProps) {
-  const hasDownload = !!(book.ia_id || book.download_url);
+  const hasFile = !!(book.ia_id || book.download_url);
 
   return (
-    <GlassCard className="cursor-pointer overflow-hidden" onClick={onClick}>
-      <div className="relative">
+    <button
+      type="button"
+      onClick={onClick}
+      title={`${book.title}${book.authors.length ? " — " + book.authors.join(", ") : ""}`}
+      className={cn(
+        "group flex w-full flex-col text-left transition-transform",
+        "cursor-pointer focus:outline-none",
+      )}
+    >
+      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md bg-glass-bg">
         {book.cover_url ? (
           <img
             src={book.cover_url}
             alt={book.title}
-            className="h-48 w-full object-cover"
+            className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
             loading="lazy"
           />
         ) : (
-          <div className="flex h-48 items-center justify-center bg-gradient-to-br from-accent-purple/30 to-accent-blue/30">
-            <BookOpen size={48} className="text-white/20" />
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-purple/25 to-accent-blue/25">
+            <BookOpen size={36} className="text-white/20" />
           </div>
         )}
-        {hasDownload && (
-          <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-green-500/90 px-2 py-0.5 text-[10px] font-semibold text-white">
-            <Download size={10} />
-            Free
+        {!hasFile && (
+          <span
+            className="absolute right-1.5 top-1.5 rounded bg-bg-primary/80 p-1 text-text-muted backdrop-blur-sm"
+            title="Metadata only — no file attached"
+          >
+            <FileX2 size={12} />
           </span>
         )}
       </div>
-      <div className="p-4">
-        <h3 className="mb-1 truncate text-sm font-semibold text-text-primary">
+      <div className="mt-2 min-w-0">
+        <h3 className="truncate text-sm font-semibold leading-tight text-text-primary">
           {book.title}
         </h3>
-        <p className="mb-1 truncate text-xs text-text-muted">
+        <p className="truncate text-xs leading-tight text-text-muted">
           {book.authors.join(", ") || "Unknown author"}
         </p>
         <StarRatingDisplay
           avg={book.rating_avg}
           count={book.rating_count}
-          className="mb-2"
+          className="mt-1"
         />
-        {book.description && (
-          <p className="line-clamp-2 text-xs text-text-secondary">
-            {book.description}
-          </p>
-        )}
       </div>
-    </GlassCard>
+    </button>
   );
 }

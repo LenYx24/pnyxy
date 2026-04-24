@@ -12,7 +12,7 @@ import {
 import { useNavigate } from "react-router";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Checkbox, GlassCard, TagBadge } from "@/components/ui";
+import { Checkbox, TagBadge } from "@/components/ui";
 import { PdfCoverThumbnail } from "@/components/ui/PdfCoverThumbnail";
 import { useTagStore, bookKey } from "@/stores/tag-store";
 import { TagPickerDropdown } from "./TagPickerDropdown";
@@ -118,39 +118,26 @@ export function LibraryBookCard({
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <GlassCard
+      <div
         className={cn(
-          "group relative cursor-pointer",
-          selected && "ring-2 ring-accent-purple bg-accent-purple/5",
+          "group relative",
+          selected && "ring-2 ring-accent-purple rounded-md",
           isDragging && "opacity-50",
         )}
       >
-        <div onClick={handleClick}>
-          {/* Selection checkbox */}
-          {onToggleSelect && (
-            <div
-              className={cn(
-                "absolute left-2 top-2 z-10 transition-opacity",
-                selectionActive || selected
-                  ? "opacity-100"
-                  : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
-              )}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Checkbox
-                checked={selected}
-                onChange={() => onToggleSelect(selKey, { ctrlKey: false, shiftKey: false })}
-              />
-            </div>
-          )}
-
-          {/* Cover */}
-          <div className="w-full overflow-hidden rounded-t-xl" style={{ height: coverHeight }}>
+        <div
+          onClick={handleClick}
+          title={`${title}${author ? " — " + author : ""}`}
+          className="cursor-pointer"
+        >
+          {/* Cover — fixed 2:3 aspect so every library card is the
+              same visual size regardless of the actual cover image. */}
+          <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md bg-glass-bg">
             {coverUrl ? (
               <img
                 src={coverUrl}
                 alt={title}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
               />
             ) : entry.source === "uploaded" ? (
               <PdfCoverThumbnail
@@ -159,7 +146,7 @@ export function LibraryBookCard({
                 height={coverHeight}
               />
             ) : (
-              <div className="flex h-full items-center justify-center bg-gradient-to-br from-accent-purple/30 to-accent-blue/30">
+              <div className="flex h-full items-center justify-center bg-gradient-to-br from-accent-purple/25 to-accent-blue/25">
                 <span
                   className={cn(
                     "font-bold text-white/20",
@@ -170,45 +157,62 @@ export function LibraryBookCard({
                 </span>
               </div>
             )}
-          </div>
 
-          {/* "Uploaded" badge */}
-          {entry.source === "uploaded" && (
-            <span
+            {/* Selection checkbox — sits on the cover so it's visible
+                on dark covers too. */}
+            {onToggleSelect && (
+              <div
+                className={cn(
+                  "absolute left-1.5 top-1.5 z-10 transition-opacity",
+                  selectionActive || selected
+                    ? "opacity-100"
+                    : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
+                )}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Checkbox
+                  checked={selected}
+                  onChange={() => onToggleSelect(selKey, { ctrlKey: false, shiftKey: false })}
+                />
+              </div>
+            )}
+
+            {/* Subtle uploaded-source indicator. The full badge has
+                been downgraded to a corner glyph to match the catalog
+                card's metadata-only icon. */}
+            {entry.source === "uploaded" && (
+              <span
+                className="absolute bottom-1.5 left-1.5 rounded bg-bg-primary/80 p-0.5 text-accent-purple backdrop-blur-sm"
+                title="Uploaded file"
+              >
+                <Upload size={10} />
+              </span>
+            )}
+
+            {/* Favorite toggle — hover-reveal on desktop unless set. */}
+            <button
+              onClick={toggleFavorite}
+              aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+              title={isFavorite ? "Remove from favorites" : "Add to favorites"}
               className={cn(
-                "absolute top-2 flex items-center gap-1 rounded-md bg-accent-purple/80 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm",
-                onToggleSelect ? "left-8" : "left-2",
+                "absolute right-1.5 top-10 z-10 rounded-lg p-1.5 backdrop-blur-sm transition-colors cursor-pointer",
+                isFavorite
+                  ? "bg-pink-500/80 text-white hover:bg-pink-500"
+                  : "bg-black/40 text-white/70 hover:bg-black/60 hover:text-white",
+                isFavorite
+                  ? "opacity-100"
+                  : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
               )}
             >
-              <Upload size={10} />
-              Uploaded
-            </span>
-          )}
+              <Heart size={14} fill={isFavorite ? "currentColor" : "none"} />
+            </button>
+          </div>
 
-          {/* Favorite toggle — always visible on mobile, hover on desktop
-              when not already set. Positioned below the menu button. */}
-          <button
-            onClick={toggleFavorite}
-            aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
-            title={isFavorite ? "Remove from favorites" : "Add to favorites"}
-            className={cn(
-              "absolute right-2 top-11 z-10 rounded-lg p-1.5 backdrop-blur-sm transition-colors cursor-pointer",
-              isFavorite
-                ? "bg-pink-500/80 text-white hover:bg-pink-500"
-                : "bg-black/40 text-white/70 hover:bg-black/60 hover:text-white",
-              isFavorite
-                ? "opacity-100"
-                : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
-            )}
-          >
-            <Heart size={14} fill={isFavorite ? "currentColor" : "none"} />
-          </button>
-
-          {/* Info */}
-          <div className={cn("p-3", compact && "p-2")}>
+          {/* Info — plain text below the cover, no card padding. */}
+          <div className={cn("mt-2 min-w-0", compact && "mt-1.5")}>
             <h3
               className={cn(
-                "mb-0.5 truncate font-semibold text-text-primary",
+                "truncate font-semibold leading-tight text-text-primary",
                 compact ? "text-xs" : "text-sm",
               )}
             >
@@ -216,7 +220,7 @@ export function LibraryBookCard({
             </h3>
             <p
               className={cn(
-                "truncate text-text-muted",
+                "truncate leading-tight text-text-muted",
                 compact ? "text-[10px]" : "text-xs",
               )}
             >
@@ -232,8 +236,8 @@ export function LibraryBookCard({
           </div>
         </div>
 
-        {/* 3-dot menu */}
-        <div ref={menuRef} className="absolute right-2 top-2">
+        {/* 3-dot menu — positioned over the cover. */}
+        <div ref={menuRef} className="absolute right-1.5 top-1.5">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -318,7 +322,7 @@ export function LibraryBookCard({
             />
           )}
         </div>
-      </GlassCard>
+      </div>
 
       {entry.source === "uploaded" && (
         <ShareBookModal

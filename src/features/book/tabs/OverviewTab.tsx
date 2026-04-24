@@ -10,7 +10,7 @@ import {
   FileText,
   Trash2,
 } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import {
   Button,
   CategoryChip,
@@ -21,6 +21,7 @@ import { getDownloadOptions } from "@/lib/open-library";
 import { useBrowseStore } from "@/stores/browse-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useRatingStore } from "@/stores/rating-store";
+import { useOpenCatalogBook } from "@/hooks/use-open-catalog-book";
 import {
   useOpenUploadedDocument,
   prefetchBookBlob,
@@ -57,6 +58,7 @@ function CatalogOverview({
   categories: Category[];
 }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const {
     userLibraryIds,
@@ -64,6 +66,11 @@ function CatalogOverview({
     removeFromUserLibrary,
     checkUserLibrary,
   } = useBrowseStore();
+  const {
+    openCatalogBook,
+    loading: readLoading,
+    error: readError,
+  } = useOpenCatalogBook();
   const [libraryLoading, setLibraryLoading] = useState(false);
   const inLibrary = userLibraryIds.has(book.id);
 
@@ -114,15 +121,11 @@ function CatalogOverview({
     ];
   }
 
-  const handleToggleLibrary = async () => {
+  const handleAddToLibrary = async () => {
     if (!user) return;
     setLibraryLoading(true);
     try {
-      if (inLibrary) {
-        await removeFromUserLibrary(book.id);
-      } else {
-        await addToUserLibrary(book.id);
-      }
+      await addToUserLibrary(book.id);
     } catch (err) {
       console.error(err);
     } finally {
@@ -130,60 +133,105 @@ function CatalogOverview({
     }
   };
 
+  const handleRemoveFromLibrary = async () => {
+    if (!user) return;
+    setLibraryLoading(true);
+    try {
+      await removeFromUserLibrary(book.id);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+
+  const hasReadable = !!(book.download_url || book.ia_id);
+  const primaryDownload = downloads[0];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        {user && (
+        {/* Read — primary CTA when the book has an attached file.
+            Streams the remote URL into the reader; falls back to a
+            new-tab download when CORS blocks the fetch. */}
+        {hasReadable && (
           <Button
-            variant={inLibrary ? "secondary" : "primary"}
-            onClick={handleToggleLibrary}
+            variant="primary"
+            onClick={() => openCatalogBook(book)}
+            disabled={readLoading}
+          >
+            {readLoading ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <BookOpen size={16} />
+            )}
+            {t("book.overview.read")}
+          </Button>
+        )}
+
+        {/* Library: separate Add vs (Open/Remove) buttons so clicks
+            never surprise the user. When in library: "Open library"
+            is primary, "Remove" is an unobtrusive ghost beside it. */}
+        {user && !inLibrary && (
+          <Button
+            variant="secondary"
+            onClick={handleAddToLibrary}
             disabled={libraryLoading}
-            aria-label={
-              inLibrary
-                ? t("book.overview.removeFromLibraryAria")
-                : t("book.overview.addToLibraryAria")
-            }
-            className={
-              inLibrary
-                ? "group hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
-                : undefined
-            }
+            aria-label={t("book.overview.addToLibraryAria")}
           >
             {libraryLoading ? (
               <Loader2 size={16} className="animate-spin" />
-            ) : inLibrary ? (
-              <>
-                <Check size={16} className="group-hover:hidden" />
-                <Trash2 size={16} className="hidden group-hover:inline" />
-                <span className="group-hover:hidden">
-                  {t("book.overview.inYourLibrary")}
-                </span>
-                <span className="hidden group-hover:inline">
-                  {t("book.overview.removeFromLibrary")}
-                </span>
-              </>
             ) : (
-              <>
-                <Plus size={16} />
-                {t("book.overview.addToLibrary")}
-              </>
+              <Plus size={16} />
             )}
+            {t("book.overview.addToLibrary")}
           </Button>
         )}
-        {downloads.map((dl) => (
+        {user && inLibrary && (
+          <>
+            <Button variant="secondary" onClick={() => navigate("/library")}>
+              <Check size={16} className="text-green-400" />
+              {t("book.overview.inYourLibraryOpen")}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={handleRemoveFromLibrary}
+              disabled={libraryLoading}
+              aria-label={t("book.overview.removeFromLibraryAria")}
+              className="hover:text-red-400"
+            >
+              {libraryLoading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Trash2 size={16} />
+              )}
+              {t("book.overview.removeFromLibrary")}
+            </Button>
+          </>
+        )}
+
+        {/* Keep one download fallback for users who want the file
+            offline or in a different reader. Single link, not the
+            format matrix that was here before. */}
+        {primaryDownload && (
           <a
-            key={dl.format}
-            href={dl.url}
+            href={primaryDownload.url}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-5 py-2.5 text-sm font-medium text-text-primary backdrop-blur-md transition-all duration-200 hover:bg-glass-hover"
           >
             <Download size={16} />
-            {dl.label}
+            {t("book.overview.download")}
             <ExternalLink size={12} className="text-text-muted" />
           </a>
-        ))}
+        )}
       </div>
+
+      {readError === "cors-fallback" && (
+        <p className="rounded-lg bg-yellow-500/10 px-3 py-2 text-xs text-yellow-400">
+          {t("book.overview.readCorsFallback")}
+        </p>
+      )}
 
       {book.ia_id && (
         <p className="rounded-lg bg-green-500/10 px-3 py-2 text-xs text-green-400">

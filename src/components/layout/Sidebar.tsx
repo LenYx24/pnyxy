@@ -1,6 +1,7 @@
 import { NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
+  Home,
   Compass,
   Library,
   BookOpen,
@@ -22,6 +23,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useIsMobile, useIsDesktop } from "@/hooks/use-media-query";
 
 const baseNavItems = [
+  { to: "/", icon: Home, key: "home" as const },
   { to: "/browse", icon: Compass, key: "browse" as const },
   { to: "/library", icon: Library, key: "library" as const },
   { to: "/reader", icon: BookOpen, key: "reader" as const },

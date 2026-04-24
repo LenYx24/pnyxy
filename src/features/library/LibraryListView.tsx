@@ -8,7 +8,6 @@ import {
   Trash2,
   FolderInput,
   Upload,
-  FileText,
   Tag,
   GripVertical,
   Share2,
@@ -422,6 +421,10 @@ function BookRow({
   const selKey = `book:${entry.id}`;
   const title = getTitle(entry);
   const author = getAuthor(entry);
+  const coverUrl =
+    entry.source === "catalog"
+      ? entry.catalog_book.cover_url
+      : entry.book.cover_url;
 
   const handleClick = (e: React.MouseEvent) => {
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
@@ -484,11 +487,31 @@ function BookRow({
         {/* Spacer matching chevron in folder rows */}
         <div className="mr-1 hidden w-[26px] sm:block" />
 
-        {/* File icon */}
-        <FileText size={density.icon} className="mr-2 shrink-0 text-text-muted" />
+        {/* Cover thumbnail — 2:3 mini-cover. Falls back to a gradient
+            tile with the first letter when no cover is available. */}
+        <div className="mr-2.5 aspect-[2/3] h-8 shrink-0 overflow-hidden rounded-sm bg-glass-bg sm:h-9">
+          {coverUrl ? (
+            <img
+              src={coverUrl}
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-purple/25 to-accent-blue/25">
+              <span className="text-xs font-bold text-white/30">
+                {title.charAt(0).toUpperCase()}
+              </span>
+            </div>
+          )}
+        </div>
 
         {/* Title */}
-        <span className={cn("min-w-0 flex-1 truncate text-text-primary", density.text)}>
+        <span
+          className={cn("min-w-0 flex-1 truncate text-text-primary", density.text)}
+          title={`${title}${author ? " — " + author : ""}`}
+        >
           {title}
         </span>
 

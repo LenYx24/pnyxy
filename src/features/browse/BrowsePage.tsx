@@ -6,10 +6,8 @@ import { Button, CategoryChip } from "@/components/ui";
 import { useBrowseStore } from "@/stores/browse-store";
 import { useCategoryStore } from "@/stores/category-store";
 import { BrowseBookCard } from "./BrowseBookCard";
-import { BrowseBookShelfCard } from "./BrowseBookShelfCard";
 import { AddBookModal } from "./AddBookModal";
 import { CreateCategoryModal } from "./CreateCategoryModal";
-import { Shelf } from "./Shelf";
 
 export function BrowsePage() {
   const { t } = useTranslation();
@@ -24,10 +22,7 @@ export function BrowsePage() {
     searchQuery,
     activeCategory,
     totalCount,
-    featuredBooks,
-    newThisWeekBooks,
     fetchCatalogBooks,
-    fetchShelves,
     searchCatalog,
     filterByCategory,
     loadMore,
@@ -43,10 +38,9 @@ export function BrowsePage() {
 
   useEffect(() => {
     fetchCatalogBooks();
-    fetchShelves();
     checkUserLibrary();
     fetchCategories();
-  }, [fetchCatalogBooks, fetchShelves, checkUserLibrary, fetchCategories]);
+  }, [fetchCatalogBooks, checkUserLibrary, fetchCategories]);
 
   // Push-update the browse list when admins approve / reject / edit books.
   useEffect(() => {
@@ -92,46 +86,6 @@ export function BrowsePage() {
           <span className="sm:hidden">{t("browse.addBookShort")}</span>
         </Button>
       </div>
-
-      {/* Shelves. Hidden when the user is actively searching or filtering —
-          in those modes the grid below is the primary content. */}
-      {!searchQuery && !activeCategory && (
-        <>
-          <Shelf
-            title={t("browse.shelves.featured")}
-            itemCount={featuredBooks.length}
-          >
-            {featuredBooks.map((book) => (
-              <div
-                key={book.id}
-                className="shrink-0 basis-[9rem] snap-start sm:basis-[10rem]"
-              >
-                <BrowseBookShelfCard
-                  book={book}
-                  onClick={() => navigate(`/books/${book.id}`)}
-                />
-              </div>
-            ))}
-          </Shelf>
-
-          <Shelf
-            title={t("browse.shelves.newThisWeek")}
-            itemCount={newThisWeekBooks.length}
-          >
-            {newThisWeekBooks.map((book) => (
-              <div
-                key={book.id}
-                className="shrink-0 basis-[9rem] snap-start sm:basis-[10rem]"
-              >
-                <BrowseBookShelfCard
-                  book={book}
-                  onClick={() => navigate(`/books/${book.id}`)}
-                />
-              </div>
-            ))}
-          </Shelf>
-        </>
-      )}
 
       <div className="relative mb-3">
         <Search
@@ -203,7 +157,7 @@ export function BrowsePage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {catalogBooks.map((book) => (
               <BrowseBookCard
                 key={book.id}

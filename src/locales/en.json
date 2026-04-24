@@ -18,6 +18,7 @@
     "no": "No"
   },
   "sidebar": {
+    "home": "Home",
     "browse": "Browse",
     "library": "Library",
     "reader": "Reader",
@@ -265,6 +266,26 @@
     "notYetRated": "Not yet rated",
     "yourRating": "Your rating: {{stars}}",
     "signInToRate": "Sign in to rate →"
+  },
+  "home": {
+    "title": "Home",
+    "subtitle": "Your reading starting point.",
+    "seeAll": "See all →",
+    "shelves": {
+      "featured": "Featured",
+      "newThisWeek": "New this week"
+    },
+    "sidePanel": {
+      "yourLibrary": "Your library",
+      "bookCount_one": "{{count}} book",
+      "bookCount_other": "{{count}} books",
+      "openLibrary": "Open library",
+      "signedOutHint": "Sign in to track what you're reading.",
+      "signIn": "Sign in",
+      "discover": "Discover more",
+      "discoverHint": "Thousands of public-domain books in the catalog.",
+      "browseCatalog": "Browse catalog"
+    }
   },
   "library": {
     "title": "Library",
@@ -668,11 +689,15 @@
     },
     "overview": {
       "addToLibrary": "Add to My Library",
-      "removeFromLibrary": "Remove from Library",
+      "removeFromLibrary": "Remove",
       "inYourLibrary": "In Your Library",
+      "inYourLibraryOpen": "In your library — open",
       "addToLibraryAria": "Add to library",
       "removeFromLibraryAria": "Remove from library",
       "openInReader": "Open in Reader",
+      "read": "Read",
+      "download": "Download",
+      "readCorsFallback": "Couldn't fetch the file directly (the publisher blocked cross-origin requests). We opened a download in a new tab instead.",
       "publicDomainHint": "This book is in the public domain and can be freely downloaded from the Internet Archive.",
       "description": "Description",
       "categories": "Categories",

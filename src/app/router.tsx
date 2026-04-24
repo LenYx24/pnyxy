@@ -2,6 +2,7 @@ import { Navigate, createBrowserRouter, redirect } from "react-router";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { LandingPage } from "@/features/landing/LandingPage";
+import { HomePage } from "@/features/home/HomePage";
 import { BrowsePage } from "@/features/browse/BrowsePage";
 import { BookPage } from "@/features/book/BookPage";
 import { OverviewTab } from "@/features/book/tabs/OverviewTab";
@@ -80,7 +81,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <BrowsePage />,
+        element: <HomePage />,
         // First-time visitors land on /landing so they see the pitch
         // before the catalog. The flag is set on the LandingPage
         // mount, so subsequent visits go straight to browse — daily
