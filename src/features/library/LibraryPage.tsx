@@ -13,6 +13,8 @@ import { OpenFromUrlModal } from "./OpenFromUrlModal";
 import { StorageUsageBar } from "./StorageUsageBar";
 import { StreakPill } from "./StreakCard";
 import { useIsMobile } from "@/hooks/use-media-query";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { RefreshCw } from "lucide-react";
 import { useLibraryPrefs } from "./useLibraryPrefs";
 import { LibraryToolbar } from "./LibraryToolbar";
 import { SelectionBar } from "./SelectionBar";
@@ -162,6 +164,15 @@ export function LibraryPage() {
     fetchFolders();
     fetchStorageUsage();
   }, [fetchLibrary, fetchFolders, fetchStorageUsage]);
+
+  // Pull-to-refresh on mobile. Refetches the library + folders + usage
+  // when the user pulls past the trigger distance from the top.
+  const { pullDistance, isRefreshing } = usePullToRefresh({
+    enabled: isMobile,
+    onRefresh: useCallback(async () => {
+      await Promise.all([fetchLibrary(), fetchFolders(), fetchStorageUsage()]);
+    }, [fetchLibrary, fetchFolders, fetchStorageUsage]),
+  });
 
   // Clear selection when switching tabs
   const handleTabChange = useCallback(
@@ -387,6 +398,33 @@ export function LibraryPage() {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* Pull-to-refresh indicator (mobile only). Fades in as the
+          user pulls; spins while refreshing. */}
+      {(pullDistance > 0 || isRefreshing) && (
+        <div
+          className="pointer-events-none fixed left-0 right-0 top-safe-top z-30 flex justify-center"
+          style={{
+            transform: `translateY(${isRefreshing ? 12 : Math.max(pullDistance - 30, 0)}px)`,
+            opacity: isRefreshing ? 1 : Math.min(pullDistance / 70, 1),
+            transition: isRefreshing ? "transform 150ms ease-out" : undefined,
+          }}
+        >
+          <div className="rounded-full border border-glass-border bg-bg-secondary/90 p-2 shadow-lg backdrop-blur-md">
+            <RefreshCw
+              size={18}
+              className={cn(
+                "text-accent-purple",
+                isRefreshing && "animate-spin",
+              )}
+              style={
+                !isRefreshing
+                  ? { transform: `rotate(${Math.min(pullDistance * 3, 360)}deg)` }
+                  : undefined
+              }
+            />
+          </div>
+        </div>
+      )}
       {/* Drop overlay — shown while a file drag is hovering. */}
       {dragOver && (
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-bg-primary/70 backdrop-blur-sm">

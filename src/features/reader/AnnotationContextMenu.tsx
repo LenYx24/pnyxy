@@ -9,6 +9,7 @@ import {
   BookOpen,
   Languages,
   Loader2,
+  Share2,
 } from "lucide-react";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -189,6 +190,40 @@ export function AnnotationContextMenu() {
     const text = contextMenu.selection?.text ?? highlight?.selection.text;
     if (text) {
       navigator.clipboard.writeText(text);
+    }
+    hideContextMenu();
+    window.getSelection()?.removeAllRanges();
+  }, [contextMenu.selection, highlight, hideContextMenu]);
+
+  const handleShare = useCallback(async () => {
+    const text = contextMenu.selection?.text ?? highlight?.selection.text ?? "";
+    if (!text.trim()) return;
+    const doc = useReaderStore.getState().getActiveDoc();
+    const title = doc?.customTitle ?? doc?.meta.title ?? "";
+    const page =
+      contextMenu.selection?.rects[0]?.pageNum ??
+      highlight?.selection.rects[0]?.pageNum;
+    const attribution = [title, page != null ? `p. ${page}` : null]
+      .filter(Boolean)
+      .join(" · ");
+    const body = attribution ? `"${text}"\n\n— ${attribution}` : `"${text}"`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: title || "Pnyxy highlight",
+          text: body,
+        });
+        hideContextMenu();
+        return;
+      } catch {
+        // User cancelled or share failed — fall through to clipboard.
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(body);
+    } catch {
+      // Clipboard may be blocked; nothing else we can do here.
     }
     hideContextMenu();
     window.getSelection()?.removeAllRanges();
@@ -460,6 +495,16 @@ export function AnnotationContextMenu() {
             >
               <Copy size={14} />
               {t("reader.annotationMenu.copyText")}
+            </button>
+          )}
+
+          {(hasSelection || hasHighlight) && (
+            <button
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              onClick={handleShare}
+            >
+              <Share2 size={14} />
+              {t("reader.annotationMenu.share")}
             </button>
           )}
 

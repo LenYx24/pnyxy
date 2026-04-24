@@ -14,6 +14,11 @@ interface UIState {
   /** Reader-only "zen" mode: hides toolbar, dockview panels, and all
    *  surrounding chrome. The active viewer fills the screen. */
   zenMode: boolean;
+  /** Mobile reader: when true, the toolbar slides out of view so the
+   *  PDF takes the full screen. A tap on the viewer area toggles it
+   *  back — ReadEra / Apple Books pattern. Session-only; not
+   *  persisted (always resets to visible on a fresh open). */
+  mobileChromeHidden: boolean;
   toggleSidebar: () => void;
   toggleReaderSidebar: () => void;
   setLoading: (loading: boolean, message?: string) => void;
@@ -21,6 +26,8 @@ interface UIState {
   setMobileReaderPanel: (panel: MobileReaderPanel) => void;
   toggleZenMode: () => void;
   setZenMode: (on: boolean) => void;
+  toggleMobileChromeHidden: () => void;
+  setMobileChromeHidden: (hidden: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -31,6 +38,7 @@ export const useUIStore = create<UIState>((set) => ({
   mobileSidebarOpen: false,
   mobileReaderPanel: "none",
   zenMode: false,
+  mobileChromeHidden: false,
   toggleSidebar: () =>
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   toggleReaderSidebar: () =>
@@ -41,6 +49,9 @@ export const useUIStore = create<UIState>((set) => ({
   setMobileReaderPanel: (panel) => set({ mobileReaderPanel: panel }),
   toggleZenMode: () => set((s) => ({ zenMode: !s.zenMode })),
   setZenMode: (on) => set({ zenMode: on }),
+  toggleMobileChromeHidden: () =>
+    set((s) => ({ mobileChromeHidden: !s.mobileChromeHidden })),
+  setMobileChromeHidden: (hidden) => set({ mobileChromeHidden: hidden }),
 }));
 
 export function saveDockviewLayout(layout: object) {

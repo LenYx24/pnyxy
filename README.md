@@ -140,6 +140,60 @@ src-tauri/            # Tauri Rust backend (desktop/mobile)
 | `pnpm tauri:dev` | Desktop dev mode |
 | `pnpm tauri:build` | Desktop production build |
 
+## Releasing
+
+Pnyxy ships in three targets: the Cloudflare-hosted web app, the Tauri desktop binaries, and the Tauri mobile builds. A release is one version string applied to all of them.
+
+### 1. Bump the version
+
+`scripts/bump-version.mjs` writes the same version into `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml` in one go. It refuses to run on a dirty working tree so a typo can't sneak in.
+
+```sh
+pnpm bump 0.2.0           # strict semver; no leading "v"
+git diff                   # sanity check
+git commit -am "Release 0.2.0"
+git tag v0.2.0
+git push && git push --tags
+```
+
+### 2. Web — Cloudflare Workers
+
+Push to `main` and GitHub Actions builds + deploys automatically. To deploy manually:
+
+```sh
+pnpm deploy:worker         # runs `pnpm build` then `wrangler deploy`
+```
+
+Before the first deploy, set the Worker secrets listed under [Cloudflare Worker / Pages secrets](#cloudflare-worker--pages-secrets).
+
+### 3. Desktop — Tauri binaries
+
+```sh
+pnpm tauri:build           # builds .exe / .msi (Windows), .dmg (macOS), .AppImage / .deb (Linux)
+```
+
+Artefacts land under `src-tauri/target/release/bundle/`. For signed, multi-platform builds, use the release workflow in `.github/workflows/` or run `pnpm tauri:build` on each host OS.
+
+### 4. Mobile — Tauri Android / iOS
+
+```sh
+# One-time per machine
+pnpm tauri:android:init    # requires Android Studio + NDK
+pnpm tauri:ios:init        # requires Xcode (macOS only)
+
+# Release builds
+pnpm tauri:android:build   # produces an unsigned .apk / .aab under src-tauri/gen/android/
+pnpm tauri:ios:build       # produces an .ipa under src-tauri/gen/apple/
+```
+
+Sign the outputs with your Play Console / App Store certificates before upload.
+
+### 5. Post-release
+
+- Push the tag: `git push --tags`
+- Verify the web build at the production URL (icon + PWA install prompt should work on Android)
+- Attach desktop binaries to the GitHub release
+
 ## Auth setup
 
 Pnyxy ships Supabase auth config and branded email templates in `supabase/`. After you've linked your Supabase project, apply them with the CLI:

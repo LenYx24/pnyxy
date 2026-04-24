@@ -211,7 +211,8 @@ export function ReaderToolbar({
   ];
 
   return (
-    <div className="flex h-11 items-center justify-between border-b border-glass-border bg-bg-secondary/60 backdrop-blur-md px-2 sm:px-4">
+    <div className="border-b border-glass-border bg-bg-secondary/60 backdrop-blur-md pt-safe-top pl-safe-left pr-safe-right">
+    <div className="flex h-11 items-center justify-between px-2 sm:px-4">
       {/* Left: back button + title (click to edit) */}
       <div className="flex flex-1 min-w-0 items-center gap-1">
         <button
@@ -697,6 +698,7 @@ export function ReaderToolbar({
           </div>
         </>
       )}
+    </div>
     </div>
   );
 }

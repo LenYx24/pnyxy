@@ -71,6 +71,14 @@
 }
 
 @layer base {
+  html {
+    /* Kill the browser's default pull-to-refresh and sideways history
+     * gestures: the reader implements its own tap/swipe/pinch model
+     * and Library has a bespoke pull-to-refresh. Without this, a
+     * downward drag at the top of any page fires Chrome's refresh. */
+    overscroll-behavior: none;
+  }
+
   body {
     @apply bg-bg-primary text-text-primary font-sans antialiased;
     margin: 0;

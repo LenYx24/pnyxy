@@ -848,7 +848,8 @@
       "commentPlaceholder": "Írj egy kommentet…",
       "commentAction": "Komment",
       "savedToVocab": "Mentve a szótárba",
-      "undo": "Visszavonás"
+      "undo": "Visszavonás",
+      "share": "Megosztás…"
     },
     "aiChat": {
       "title": "AI chat",

@@ -4,6 +4,7 @@ import { BotMessageSquare, Send, Trash2, AlertCircle, Settings, X } from "lucide
 import { useAiChatStore } from "@/stores/ai-chat-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useReaderStore } from "@/stores/reader-store";
+import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { cn } from "@/lib/cn";
 import type { IDockviewPanelProps } from "dockview";
 import type { ChatMessage } from "@/lib/ai-client";
@@ -59,6 +60,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const keyboardInset = useKeyboardInset();
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -235,8 +237,13 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="border-t border-glass-border p-3">
+      {/* Input. On mobile the soft keyboard would cover this area;
+          paddingBottom lifts it above the keyboard using the
+          visualViewport-derived inset. */}
+      <div
+        className="border-t border-glass-border p-3 transition-[padding] duration-150"
+        style={{ paddingBottom: keyboardInset > 0 ? keyboardInset + 12 : undefined }}
+      >
         <div className="flex gap-2">
           <textarea
             ref={textareaRef}

@@ -17,6 +17,7 @@ import { EpubViewer } from "./EpubViewer";
 import { CommentsSidebar } from "./CommentsSidebar";
 import { SearchOverlay } from "./SearchOverlay";
 import { AiChatPanel, AiChatPanelContent } from "./AiChatPanel";
+import { useMobileReaderGestures } from "./use-mobile-reader-gestures";
 import {
   ScreenshotRectSelector,
   type ScreenshotRect,
@@ -273,38 +274,178 @@ function MobileReaderLayout({
     setMobileReaderPanel(mobileReaderPanel === "aiChat" ? "none" : "aiChat");
   }, [mobileReaderPanel, setMobileReaderPanel]);
 
+  // Close panels with ESC. On mobile this matters for iPad/Android
+  // users with an external keyboard; on phone it's cheap insurance.
+  useEffect(() => {
+    if (mobileReaderPanel === "none") return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMobileReaderPanel("none");
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [mobileReaderPanel, setMobileReaderPanel]);
+
+  // Android back-gesture / system back-button support: when a panel
+  // opens we push a no-op history entry. The back gesture triggers
+  // popstate, which closes the panel instead of navigating away
+  // from /reader. If the user dismisses the panel any other way,
+  // we remove the extra entry via history.back() — guarded by the
+  // pushed flag so we only pop our own entry.
+  useEffect(() => {
+    if (mobileReaderPanel === "none") return;
+    let poppedByUs = false;
+    history.pushState({ pnyxyPanel: mobileReaderPanel }, "");
+    const onPop = () => {
+      poppedByUs = true;
+      setMobileReaderPanel("none");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      if (!poppedByUs && history.state?.pnyxyPanel) {
+        history.back();
+      }
+    };
+  }, [mobileReaderPanel, setMobileReaderPanel]);
+
+  // Tap-to-toggle chrome (ReadEra pattern). A click on the viewer
+  // area that isn't on an interactive element, isn't the tail of a
+  // selection drag, and isn't during an open context menu toggles the
+  // toolbar visibility. onClick fires only on completed taps — drags
+  // and scrolls don't trigger it — so this is safe for PDF.js's text
+  // selection + highlight flows.
+  const toggleMobileChromeHidden = useUIStore(
+    (s) => s.toggleMobileChromeHidden,
+  );
+  const setMobileChromeHidden = useUIStore((s) => s.setMobileChromeHidden);
+  const mobileChromeHidden = useUIStore((s) => s.mobileChromeHidden);
+  const chromeVisible = !mobileChromeHidden || mobileReaderPanel !== "none";
+  const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
+
+  // Start each reader session with chrome hidden — the user opens a
+  // book to read, not to stare at the toolbar. Resets on every new
+  // document so an explicit reveal doesn't persist across books.
+  useEffect(() => {
+    setMobileChromeHidden(true);
+  }, [activeDocumentId, setMobileChromeHidden]);
+
+  // Touch gestures: horizontal swipe → page turn (PDF only), pinch →
+  // zoom. Swipe disabled on EPUB/markdown/text since they don't have
+  // discrete pages in the same sense.
+  const activeDoc = useReaderStore((s) => s.getActiveDoc());
+  const nextPage = useReaderStore((s) => s.nextPage);
+  const prevPage = useReaderStore((s) => s.prevPage);
+  const setZoomLevel = useReaderStore((s) => s.setZoomLevel);
+  const isPaginated = activeDoc?.meta.capabilities.paginated ?? false;
+
+  const viewerRef = useRef<HTMLDivElement>(null);
+  const pinchBaseZoomRef = useRef(0);
+
+  const { wasJustGestureRef } = useMobileReaderGestures({
+    targetRef: viewerRef,
+    enableSwipe: isPaginated && mobileReaderPanel === "none",
+    enablePinch: mobileReaderPanel === "none",
+    onSwipeLeft: nextPage,
+    onSwipeRight: prevPage,
+    onPinch: useCallback(
+      (scale: number) => {
+        if (pinchBaseZoomRef.current === 0) {
+          pinchBaseZoomRef.current =
+            useReaderStore.getState().getActiveDoc()?.zoomLevel ?? 100;
+        }
+        setZoomLevel(pinchBaseZoomRef.current * scale);
+      },
+      [setZoomLevel],
+    ),
+  });
+
+  // Reset the pinch baseline whenever no pinch is in progress. A
+  // fresh baseline is captured on the next onPinch call.
+  useEffect(() => {
+    const clear = () => {
+      pinchBaseZoomRef.current = 0;
+    };
+    window.addEventListener("touchend", clear);
+    window.addEventListener("touchcancel", clear);
+    return () => {
+      window.removeEventListener("touchend", clear);
+      window.removeEventListener("touchcancel", clear);
+    };
+  }, []);
+
+  const handleViewerTap = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (mobileReaderPanel !== "none") return; // backdrop handles it
+      if (wasJustGestureRef.current) return; // swipe/pinch just ended
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.closest(
+          "button, a, input, textarea, select, [role='button'], [contenteditable]",
+        )
+      ) {
+        return;
+      }
+      const selection = window.getSelection();
+      if (selection && selection.toString().length > 0) return;
+      if (document.querySelector("[data-annotation-context-menu]")) return;
+      toggleMobileChromeHidden();
+    },
+    [mobileReaderPanel, toggleMobileChromeHidden, wasJustGestureRef],
+  );
+
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
-      <ReaderToolbar
-        isFullscreen={isFullscreen}
-        onToggleFullscreen={onToggleFullscreen}
-        onToggleComments={handleToggleComments}
-        isDrawMode={isDrawMode}
-        onToggleDrawMode={onToggleDrawMode}
-        onScreenshot={onScreenshot}
-        onScreenshotRect={onScreenshotRect}
-        onPrint={onPrint}
-        onToggleSearch={handleToggleSearch}
-        onToggleAiChat={handleToggleAiChat}
-        onToggleZenMode={onToggleZenMode}
-      />
-      <div className="relative flex-1 overflow-hidden">
+      {/* Toolbar is an absolute overlay so the viewer keeps the full
+          screen even while chrome is visible. Slides off-screen when
+          the user hides chrome. Always visible while a panel is open
+          (so the user has orientation). */}
+      <div
+        className={cn(
+          "absolute left-0 right-0 top-0 z-20 transition-transform duration-200 ease-out",
+          chromeVisible ? "translate-y-0" : "-translate-y-full",
+        )}
+      >
+        <ReaderToolbar
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={onToggleFullscreen}
+          onToggleComments={handleToggleComments}
+          isDrawMode={isDrawMode}
+          onToggleDrawMode={onToggleDrawMode}
+          onScreenshot={onScreenshot}
+          onScreenshotRect={onScreenshotRect}
+          onPrint={onPrint}
+          onToggleSearch={handleToggleSearch}
+          onToggleAiChat={handleToggleAiChat}
+          onToggleZenMode={onToggleZenMode}
+        />
+      </div>
+      <div
+        ref={viewerRef}
+        className="relative flex-1 overflow-hidden touch-pan-y"
+        onClick={handleViewerTap}
+      >
         <ActiveViewer />
         <SearchOverlay />
       </div>
 
-      {/* Backdrop for overlay panels */}
+      {/* Backdrop for overlay panels — covers the full viewport
+          (including the safe-inset strip at the top) so taps anywhere
+          outside the panel dismiss it. */}
       {mobileReaderPanel !== "none" && (
         <div
-          className="absolute inset-0 top-11 z-30 bg-black/40"
+          className="absolute inset-0 z-30 bg-black/40"
           onClick={() => setMobileReaderPanel("none")}
         />
       )}
 
-      {/* TOC panel - slides from left */}
+      {/* TOC panel - slides from left. Covers the full viewport
+          height; internal padding keeps the header + close button
+          below the notch on devices with safe-area-inset-top. */}
       <div
         className={cn(
-          "absolute left-0 top-11 bottom-0 z-40 w-[85vw] max-w-[20rem] border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
+          "absolute left-0 top-0 bottom-0 z-40 flex w-[85vw] max-w-[20rem] flex-col border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pl-safe-left",
           mobileReaderPanel === "toc" ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -320,7 +461,7 @@ function MobileReaderLayout({
             <X size={20} />
           </button>
         </div>
-        <div className="h-[calc(100%-3rem)] overflow-y-auto">
+        <div className="flex-1 overflow-y-auto">
           <ReaderSidebarContent
             onOpenFile={() => {}}
             onOpenBook={() => setMobileReaderPanel("none")}
@@ -335,7 +476,7 @@ function MobileReaderLayout({
       {/* Comments panel - slides from right */}
       <div
         className={cn(
-          "absolute right-0 top-11 bottom-0 z-40 w-[85vw] max-w-[20rem] border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
+          "absolute right-0 top-0 bottom-0 z-40 flex w-[85vw] max-w-[20rem] flex-col border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
           mobileReaderPanel === "comments" ? "translate-x-0" : "translate-x-full",
         )}
       >
@@ -351,7 +492,7 @@ function MobileReaderLayout({
             <X size={20} />
           </button>
         </div>
-        <div className="h-[calc(100%-3rem)] overflow-y-auto">
+        <div className="flex-1 overflow-y-auto">
           <CommentsSidebar />
         </div>
       </div>
@@ -360,7 +501,7 @@ function MobileReaderLayout({
           its own header (with the close button) when onClose is passed. */}
       <div
         className={cn(
-          "absolute right-0 top-11 bottom-0 z-40 w-[85vw] max-w-[20rem] border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300",
+          "absolute right-0 top-0 bottom-0 z-40 w-[85vw] max-w-[20rem] border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
           mobileReaderPanel === "aiChat" ? "translate-x-0" : "translate-x-full",
         )}
       >
