@@ -205,6 +205,18 @@
     "continueNoAccount": "Tovább fiók nélkül →",
     "featuresTitle": "Minden, ami az okosabb olvasáshoz kell",
     "featuresSubtitle": "Eszközök, amiket tényleg úgy tervezünk, ahogy az emberek a könyvekből tanulnak.",
+    "openSource": {
+      "title": "Nyílt és bővíthető",
+      "subtitle": "A Pnyxy MIT licenc alatt érhető el, és úgy épül fel, hogy a felhasználóival együtt nőjön. Forkold, csillagozd, vagy telepíts közösségi témákat és pluginokat.",
+      "repo": {
+        "title": "Támogasd GitHubon",
+        "description": "A Pnyxy fő repositoryja — csillagozd, jelezz hibát, nyiss PR-t, vagy indíts saját példányt."
+      },
+      "community": {
+        "title": "Közösségi témák és pluginok",
+        "description": "Külön registry repo, ahová bárki beküldhet témákat vagy sandbox-ban futó plugineket, amiket az app betölt."
+      }
+    },
     "features": {
       "smartReading": {
         "title": "Okos olvasó",

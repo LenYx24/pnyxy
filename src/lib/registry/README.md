@@ -2,7 +2,7 @@
 
 This module fetches **themes** and **plugins** authored by the community
 from a public GitHub repository (default
-`https://github.com/pnyxy/pnyxy-community`). Files are pulled raw via
+`https://github.com/LenYx24/pnyxy-community`). Files are pulled raw via
 `raw.githubusercontent.com` with a 1-hour `localStorage` cache.
 
 When the primary registry is unreachable (offline / corp proxy / DNS
@@ -121,7 +121,7 @@ instances across the API boundary.
 
 ## Submitting a contribution
 
-1. Fork `pnyxy/pnyxy-community`.
+1. Fork `LenYx24/pnyxy-community`.
 2. Add your files in `themes/` or `plugins/<id>/<version>/`.
 3. Add an entry to `index.json`.
 4. Open a PR.

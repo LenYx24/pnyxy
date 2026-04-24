@@ -176,7 +176,7 @@ export function BrowseCommunityModal({ mode, onClose }: BrowseCommunityModalProp
 
         <div className="border-t border-glass-border p-3">
           <a
-            href="https://github.com/pnyxy/pnyxy-community"
+            href="https://github.com/LenYx24/pnyxy-community"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-accent-purple"

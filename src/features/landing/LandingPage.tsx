@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { Footer } from "@/components/layout/Footer";
 import { HeroSection } from "./HeroSection";
 import { FeaturesSection } from "./FeaturesSection";
+import { OpenSourceSection } from "./OpenSourceSection";
 
 export function LandingPage() {
   const { t } = useTranslation();
@@ -18,6 +19,18 @@ export function LandingPage() {
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Mark that this visitor has seen the landing. The index-route
+  // loader in src/app/router.tsx reads this flag and skips the
+  // redirect on future visits.
+  useEffect(() => {
+    try {
+      localStorage.setItem("pnyxy:has-seen-landing", "1");
+    } catch {
+      // Storage may be blocked (private mode + strict settings) —
+      // that's fine, user will see landing again next time.
+    }
   }, []);
 
   return (
@@ -63,6 +76,7 @@ export function LandingPage() {
 
       <HeroSection />
       <FeaturesSection />
+      <OpenSourceSection />
       <Footer />
     </div>
   );

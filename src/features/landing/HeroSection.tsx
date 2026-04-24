@@ -18,18 +18,16 @@ export function HeroSection() {
         <div className="absolute bottom-[30%] right-[15%] h-12 w-12 rotate-45 rounded-lg border border-accent-blue/15 animate-[float_9s_ease-in-out_infinite_0.5s]" />
       </div>
 
-      <h1 className="mb-6">
+      <h1 className="mb-6 flex flex-col items-center gap-3">
         <img
-          src="/logo_with_text.svg"
-          alt="Pnyxy"
-          className="mx-auto h-32 w-auto sm:h-40 md:h-48"
-          // Glow temporarily disabled now that the lighter logo variant
-          // is used. Re-enable by restoring the filter below.
-          // style={{
-          //   filter:
-          //     "drop-shadow(0 0 18px rgba(230,220,255,0.95)) drop-shadow(0 0 60px rgba(196,181,253,0.75)) drop-shadow(0 0 140px rgba(139,92,246,0.5))",
-          // }}
+          src="/logo.svg"
+          alt=""
+          aria-hidden="true"
+          className="h-24 w-auto sm:h-28 md:h-32"
         />
+        <span className="text-5xl font-bold tracking-tight text-text-primary sm:text-6xl md:text-7xl">
+          Pnyxy
+        </span>
       </h1>
 
       <p className="mb-4 max-w-2xl text-xl text-text-secondary sm:text-2xl">

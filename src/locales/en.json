@@ -205,6 +205,18 @@
     "continueNoAccount": "Continue without an account →",
     "featuresTitle": "Everything you need to read smarter",
     "featuresSubtitle": "Powerful tools designed around how people actually learn from books.",
+    "openSource": {
+      "title": "Open and extensible",
+      "subtitle": "Pnyxy is MIT-licensed and built to grow with its users. Fork it, star it, or drop in community themes and plugins.",
+      "repo": {
+        "title": "Contribute on GitHub",
+        "description": "The main Pnyxy repository — star it, file issues, open PRs, or self-host your own instance."
+      },
+      "community": {
+        "title": "Community themes & plugins",
+        "description": "A separate registry repo where anyone can submit themes and sandboxed plugins that load into the app."
+      }
+    },
     "features": {
       "smartReading": {
         "title": "Smart Reading",

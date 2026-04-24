@@ -279,7 +279,7 @@ and configure each one. Preferences sync to Supabase
 
 A theme is a JSON object that overrides CSS custom properties. Drop a
 file like this into the community registry repo
-([pnyxy-community](https://github.com/pnyxy/pnyxy-community)) under
+([pnyxy-community](https://github.com/LenYx24/pnyxy-community)) under
 `themes/<id>.json`:
 
 ```json

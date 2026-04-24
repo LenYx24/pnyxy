@@ -78,7 +78,25 @@ export const router = createBrowserRouter([
     element: <AppLayout />,
     errorElement: <RouteErrorBoundary />,
     children: [
-      { index: true, element: <BrowsePage /> },
+      {
+        index: true,
+        element: <BrowsePage />,
+        // First-time visitors land on /landing so they see the pitch
+        // before the catalog. The flag is set on the LandingPage
+        // mount, so subsequent visits go straight to browse — daily
+        // anonymous users aren't re-pitched every visit. Only the
+        // literal index path is gated; /browse/:id and other deep
+        // links stay reachable for shared URLs.
+        loader: () => {
+          if (typeof window === "undefined") return null;
+          try {
+            if (localStorage.getItem("pnyxy:has-seen-landing")) return null;
+          } catch {
+            return null;
+          }
+          return redirect("/landing");
+        },
+      },
       { path: "browse", element: <BrowsePage /> },
       {
         path: "browse/:bookId",
