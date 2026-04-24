@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Outlet, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, BookOpen, Loader2 } from "lucide-react";
@@ -5,12 +6,21 @@ import { Button } from "@/components/ui";
 import { BookPageContext } from "./BookPageContext";
 import { BookPageSidebar } from "./BookPageSidebar";
 import { useBookData } from "./useBookData";
+import { trackRecentlyViewed } from "@/features/browse/recently-viewed";
 
 export function BookPage() {
   const { t } = useTranslation();
   const { bookId } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
   const { data, loading, notFound } = useBookData(bookId);
+
+  // Track catalog-book visits for the "Recently viewed" shelf (which
+  // will live on the future Home page). Non-catalog books are ignored.
+  useEffect(() => {
+    if (data?.source === "catalog" && data.book.id) {
+      trackRecentlyViewed(data.book.id);
+    }
+  }, [data?.source, data?.book.id]);
 
   if (loading) {
     return (

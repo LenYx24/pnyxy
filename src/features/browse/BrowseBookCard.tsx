@@ -1,5 +1,5 @@
 import { BookOpen, Download } from "lucide-react";
-import { GlassCard } from "@/components/ui";
+import { GlassCard, StarRatingDisplay } from "@/components/ui";
 import type { CatalogBook } from "@/types/catalog";
 
 interface BrowseBookCardProps {
@@ -36,9 +36,14 @@ export function BrowseBookCard({ book, onClick }: BrowseBookCardProps) {
         <h3 className="mb-1 truncate text-sm font-semibold text-text-primary">
           {book.title}
         </h3>
-        <p className="mb-2 truncate text-xs text-text-muted">
+        <p className="mb-1 truncate text-xs text-text-muted">
           {book.authors.join(", ") || "Unknown author"}
         </p>
+        <StarRatingDisplay
+          avg={book.rating_avg}
+          count={book.rating_count}
+          className="mb-2"
+        />
         {book.description && (
           <p className="line-clamp-2 text-xs text-text-secondary">
             {book.description}

@@ -28,6 +28,10 @@ export interface CatalogBook {
   verified_by: string | null;
   created_at: string;
   updated_at: string;
+  /** Aggregate columns maintained by the book_ratings trigger.
+   *  Defaults to 0 for books that have never been rated. */
+  rating_avg: number;
+  rating_count: number;
 }
 
 export interface CatalogBookInsert {

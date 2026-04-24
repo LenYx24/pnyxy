@@ -10,10 +10,17 @@ import {
   FileText,
   Trash2,
 } from "lucide-react";
-import { Button, CategoryChip } from "@/components/ui";
+import { Link } from "react-router";
+import {
+  Button,
+  CategoryChip,
+  StarRatingDisplay,
+  StarRatingInput,
+} from "@/components/ui";
 import { getDownloadOptions } from "@/lib/open-library";
 import { useBrowseStore } from "@/stores/browse-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { useRatingStore } from "@/stores/rating-store";
 import {
   useOpenUploadedDocument,
   prefetchBookBlob,
@@ -60,9 +67,41 @@ function CatalogOverview({
   const [libraryLoading, setLibraryLoading] = useState(false);
   const inLibrary = userLibraryIds.has(book.id);
 
+  // Local copy of the aggregate so a rating action updates the UI
+  // without needing to re-fetch the book through useBookData.
+  const [ratingAgg, setRatingAgg] = useState({
+    avg: book.rating_avg,
+    count: book.rating_count,
+  });
+  const myRating = useRatingStore((s) => s.myRatings.get(book.id));
+  const rateBook = useRatingStore((s) => s.rateBook);
+  const clearRating = useRatingStore((s) => s.clearRating);
+  const fetchMyRatings = useRatingStore((s) => s.fetchMyRatings);
+
   useEffect(() => {
     checkUserLibrary();
   }, [checkUserLibrary]);
+
+  useEffect(() => {
+    setRatingAgg({ avg: book.rating_avg, count: book.rating_count });
+  }, [book.id, book.rating_avg, book.rating_count]);
+
+  useEffect(() => {
+    if (user) fetchMyRatings();
+  }, [user, fetchMyRatings]);
+
+  const handleRate = async (stars: number) => {
+    const updated = await rateBook(book.id, stars);
+    if (updated) {
+      setRatingAgg({ avg: updated.rating_avg, count: updated.rating_count });
+    }
+  };
+  const handleClearRating = async () => {
+    const updated = await clearRating(book.id);
+    if (updated) {
+      setRatingAgg({ avg: updated.rating_avg, count: updated.rating_count });
+    }
+  };
 
   let downloads: DownloadOption[] = [];
   if (book.ia_id) {
@@ -162,6 +201,44 @@ function CatalogOverview({
           </p>
         </div>
       )}
+
+      <div className="rounded-lg border border-glass-border bg-glass-bg p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary">
+              {t("ratings.blockTitle")}
+            </h3>
+            <StarRatingDisplay
+              avg={ratingAgg.avg}
+              count={ratingAgg.count}
+              size={14}
+              className="mt-1"
+            />
+          </div>
+          {user ? (
+            <div className="flex items-center gap-3">
+              <StarRatingInput
+                value={myRating}
+                onChange={handleRate}
+                onClear={handleClearRating}
+                size={24}
+              />
+              {myRating != null && (
+                <span className="text-xs text-text-muted">
+                  {t("ratings.yourRating", { stars: myRating })}
+                </span>
+              )}
+            </div>
+          ) : (
+            <Link
+              to="/auth"
+              className="text-xs text-accent-purple hover:underline"
+            >
+              {t("ratings.signInToRate")}
+            </Link>
+          )}
+        </div>
+      </div>
 
       <MetaGrid
         entries={[

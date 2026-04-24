@@ -27,8 +27,12 @@ interface BrowseState {
   userLibraryIds: Set<string>;
   totalCount: number;
   page: number;
+  /** Top-of-page shelves. Fetched independently of the paginated grid. */
+  featuredBooks: CatalogBook[];
+  newThisWeekBooks: CatalogBook[];
 
   fetchCatalogBooks: () => Promise<void>;
+  fetchShelves: () => Promise<void>;
   searchCatalog: (query: string) => Promise<void>;
   filterByCategory: (categoryId: string | null) => Promise<void>;
   loadMore: () => Promise<void>;
@@ -70,6 +74,49 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
   userLibraryIds: new Set(),
   totalCount: 0,
   page: 0,
+  featuredBooks: [],
+  newThisWeekBooks: [],
+
+  /**
+   * Fetch the two top-of-page shelves in parallel. Featured is a
+   * stable alphabetical slice of the catalog; "New this week" is
+   * verified in the last 7 days, newest first. Both cap at 10 —
+   * the shelf is horizontally scrollable but shouldn't need to
+   * load a large prefix.
+   */
+  fetchShelves: async () => {
+    const SHELF_SIZE = 10;
+    const sevenDaysAgo = new Date(
+      Date.now() - 7 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    const [featuredRes, newRes] = await Promise.all([
+      supabase
+        .from("catalog_books")
+        .select("*")
+        .eq("status", "verified")
+        .order("title", { ascending: true })
+        .range(0, SHELF_SIZE - 1),
+      supabase
+        .from("catalog_books")
+        .select("*")
+        .eq("status", "verified")
+        .gte("verified_at", sevenDaysAgo)
+        .order("verified_at", { ascending: false })
+        .range(0, SHELF_SIZE - 1),
+    ]);
+
+    if (featuredRes.error) {
+      logError("browse-store:fetchShelves:featured", featuredRes.error.message);
+    }
+    if (newRes.error) {
+      logError("browse-store:fetchShelves:new", newRes.error.message);
+    }
+    set({
+      featuredBooks: (featuredRes.data ?? []) as CatalogBook[],
+      newThisWeekBooks: (newRes.data ?? []) as CatalogBook[],
+    });
+  },
 
   fetchCatalogBooks: async () => {
     set({ isLoading: true, page: 0 });

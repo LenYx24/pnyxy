@@ -7,3 +7,4 @@ export { Toggle } from "./Toggle";
 export { Slider } from "./Slider";
 export { TagBadge, getTagLabel, ALL_STATUS_TAGS } from "./TagBadge";
 export { CategoryChip } from "./CategoryChip";
+export { StarRatingDisplay, StarRatingInput } from "./StarRating";

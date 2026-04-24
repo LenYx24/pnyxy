@@ -6,8 +6,10 @@ import { Button, CategoryChip } from "@/components/ui";
 import { useBrowseStore } from "@/stores/browse-store";
 import { useCategoryStore } from "@/stores/category-store";
 import { BrowseBookCard } from "./BrowseBookCard";
+import { BrowseBookShelfCard } from "./BrowseBookShelfCard";
 import { AddBookModal } from "./AddBookModal";
 import { CreateCategoryModal } from "./CreateCategoryModal";
+import { Shelf } from "./Shelf";
 
 export function BrowsePage() {
   const { t } = useTranslation();
@@ -22,7 +24,10 @@ export function BrowsePage() {
     searchQuery,
     activeCategory,
     totalCount,
+    featuredBooks,
+    newThisWeekBooks,
     fetchCatalogBooks,
+    fetchShelves,
     searchCatalog,
     filterByCategory,
     loadMore,
@@ -38,9 +43,10 @@ export function BrowsePage() {
 
   useEffect(() => {
     fetchCatalogBooks();
+    fetchShelves();
     checkUserLibrary();
     fetchCategories();
-  }, [fetchCatalogBooks, checkUserLibrary, fetchCategories]);
+  }, [fetchCatalogBooks, fetchShelves, checkUserLibrary, fetchCategories]);
 
   // Push-update the browse list when admins approve / reject / edit books.
   useEffect(() => {
@@ -71,12 +77,12 @@ export function BrowsePage() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-text-primary">
+          <h2 className="text-xl font-bold text-text-primary sm:text-2xl">
             {t("browse.title")}
           </h2>
-          <p className="text-sm text-text-secondary">
+          <p className="text-xs text-text-secondary sm:text-sm">
             {t("browse.subtitle")}
           </p>
         </div>
@@ -87,7 +93,47 @@ export function BrowsePage() {
         </Button>
       </div>
 
-      <div className="relative mb-4">
+      {/* Shelves. Hidden when the user is actively searching or filtering —
+          in those modes the grid below is the primary content. */}
+      {!searchQuery && !activeCategory && (
+        <>
+          <Shelf
+            title={t("browse.shelves.featured")}
+            itemCount={featuredBooks.length}
+          >
+            {featuredBooks.map((book) => (
+              <div
+                key={book.id}
+                className="shrink-0 basis-[9rem] snap-start sm:basis-[10rem]"
+              >
+                <BrowseBookShelfCard
+                  book={book}
+                  onClick={() => navigate(`/books/${book.id}`)}
+                />
+              </div>
+            ))}
+          </Shelf>
+
+          <Shelf
+            title={t("browse.shelves.newThisWeek")}
+            itemCount={newThisWeekBooks.length}
+          >
+            {newThisWeekBooks.map((book) => (
+              <div
+                key={book.id}
+                className="shrink-0 basis-[9rem] snap-start sm:basis-[10rem]"
+              >
+                <BrowseBookShelfCard
+                  book={book}
+                  onClick={() => navigate(`/books/${book.id}`)}
+                />
+              </div>
+            ))}
+          </Shelf>
+        </>
+      )}
+
+      <div className="relative mb-3">
         <Search
           size={16}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
@@ -144,7 +190,7 @@ export function BrowsePage() {
         </div>
       )}
 
-      {!subcategories.length && <div className="mb-4" />}
+      {!subcategories.length && <div className="mb-2" />}
 
       {/* Book grid */}
       {isLoading && catalogBooks.length === 0 ? (

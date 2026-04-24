@@ -253,7 +253,18 @@
     "all": "All",
     "category": "Category",
     "empty": "No books found. Be the first to add one!",
-    "loadMore": "Load More"
+    "loadMore": "Load More",
+    "shelves": {
+      "featured": "Featured",
+      "newThisWeek": "New this week",
+      "recentlyViewed": "Recently viewed"
+    }
+  },
+  "ratings": {
+    "blockTitle": "Ratings",
+    "notYetRated": "Not yet rated",
+    "yourRating": "Your rating: {{stars}}",
+    "signInToRate": "Sign in to rate →"
   },
   "library": {
     "title": "Library",

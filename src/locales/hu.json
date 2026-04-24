@@ -253,7 +253,18 @@
     "all": "Összes",
     "category": "Kategória",
     "empty": "Nincs találat. Legyél te az első, aki hozzáad egyet!",
-    "loadMore": "Több betöltése"
+    "loadMore": "Több betöltése",
+    "shelves": {
+      "featured": "Kiemelt",
+      "newThisWeek": "E heti újdonságok",
+      "recentlyViewed": "Nemrég megtekintett"
+    }
+  },
+  "ratings": {
+    "blockTitle": "Értékelések",
+    "notYetRated": "Még nincs értékelés",
+    "yourRating": "A te értékelésed: {{stars}}",
+    "signInToRate": "Jelentkezz be az értékeléshez →"
   },
   "library": {
     "title": "Könyvtár",
