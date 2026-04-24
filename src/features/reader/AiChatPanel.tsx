@@ -4,6 +4,7 @@ import { BotMessageSquare, Send, Trash2, AlertCircle, Settings, X } from "lucide
 import { useAiChatStore } from "@/stores/ai-chat-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useReaderStore } from "@/stores/reader-store";
+import { useUIStore } from "@/stores/ui-store";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { cn } from "@/lib/cn";
 import type { IDockviewPanelProps } from "dockview";
@@ -24,10 +25,21 @@ interface AiChatPanelContentProps {
 
 function CloseButton({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
+  // Hit the store directly in addition to calling onClose. On mobile
+  // the prop-chain lambda seemed to silently drop the close — belt
+  // and braces: reach straight into the zustand action and bypass
+  // any React reconciliation weirdness.
+  const setMobileReaderPanel = useUIStore((s) => s.setMobileReaderPanel);
+  const handleClose = (e: React.SyntheticEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setMobileReaderPanel("none");
+    onClose();
+  };
   return (
     <button
       type="button"
-      onClick={onClose}
+      onClick={handleClose}
       aria-label={t("reader.aiChat.closeAria")}
       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-transparent bg-glass-bg/60 text-text-secondary transition-colors hover:border-glass-border hover:bg-glass-hover hover:text-text-primary cursor-pointer"
     >

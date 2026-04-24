@@ -287,29 +287,6 @@ function MobileReaderLayout({
     return () => window.removeEventListener("keydown", handler);
   }, [mobileReaderPanel, setMobileReaderPanel]);
 
-  // Android back-gesture / system back-button support: when a panel
-  // opens we push a no-op history entry. The back gesture triggers
-  // popstate, which closes the panel instead of navigating away
-  // from /reader. If the user dismisses the panel any other way,
-  // we remove the extra entry via history.back() — guarded by the
-  // pushed flag so we only pop our own entry.
-  useEffect(() => {
-    if (mobileReaderPanel === "none") return;
-    let poppedByUs = false;
-    history.pushState({ pnyxyPanel: mobileReaderPanel }, "");
-    const onPop = () => {
-      poppedByUs = true;
-      setMobileReaderPanel("none");
-    };
-    window.addEventListener("popstate", onPop);
-    return () => {
-      window.removeEventListener("popstate", onPop);
-      if (!poppedByUs && history.state?.pnyxyPanel) {
-        history.back();
-      }
-    };
-  }, [mobileReaderPanel, setMobileReaderPanel]);
-
   // Tap-to-toggle chrome (ReadEra pattern). A click on the viewer
   // area that isn't on an interactive element, isn't the tail of a
   // selection drag, and isn't during an open context menu toggles the
@@ -501,7 +478,7 @@ function MobileReaderLayout({
           its own header (with the close button) when onClose is passed. */}
       <div
         className={cn(
-          "absolute right-0 top-0 bottom-0 z-40 w-[85vw] max-w-[20rem] border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
+          "absolute right-0 top-0 bottom-0 z-40 flex w-[85vw] max-w-[20rem] flex-col border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
           mobileReaderPanel === "aiChat" ? "translate-x-0" : "translate-x-full",
         )}
       >
