@@ -109,7 +109,7 @@ console.log("Next steps:");
 console.log(
   `  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml`,
 );
-console.log(`  git commit -m "chore: release v${version}"`);
+console.log(`  git commit -m "Release v${version}"`);
 console.log(`  git push`);
 console.log(`  git tag v${version}`);
 console.log(`  git push origin v${version}`);
