@@ -15,7 +15,7 @@ import {
   Share2,
   Info,
 } from "lucide-react";
-import { useDroppable } from "@dnd-kit/core";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox, TagBadge } from "@/components/ui";
@@ -189,29 +189,43 @@ function FolderRow({
   density,
   sortableId,
 }: FolderRowProps) {
-  const isTopLevel = depth === 0 && !!sortableId;
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-    isOver,
-  } = useSortable({ id: sortableId ?? folder.id, disabled: !isTopLevel });
+  const isTopLevel = depth === 0;
 
-  // Nested folders aren't sortable, but they should still accept drops
-  // so users can drop a top-level book/folder into a nested folder.
-  const { setNodeRef: setDropNodeRef, isOver: isOverNested } = useDroppable({
-    id: `nested-folder:${folder.id}`,
-    data: { type: "folder", folderId: folder.id },
+  // Top-level folders participate in the SortableContext for sibling
+  // reorder. Nested folders are draggable (so users can drag them out)
+  // but not part of any sortable list — they only accept drops via the
+  // inner "nest" zone below.
+  const sortable = useSortable({
+    id: sortableId ?? `folder:${folder.id}`,
+    disabled: !isTopLevel,
+  });
+  const draggable = useDraggable({
+    id: `folder:${folder.id}`,
     disabled: isTopLevel,
   });
 
+  // Inner "nest into me" droppable. Covers the middle of the row — top
+  // and bottom edges remain part of the outer sortable so the sortable
+  // reorder only triggers when the user is hovering near an edge, not
+  // when they're squarely over a folder. This is the file-manager
+  // convention (Finder, Explorer): drop in middle = nest, drop on edge
+  // = place above/below.
+  const nest = useDroppable({
+    id: `nest:${folder.id}`,
+    data: { type: "folder", folderId: folder.id },
+  });
+
+  const setNodeRef = isTopLevel ? sortable.setNodeRef : draggable.setNodeRef;
+  const attributes = isTopLevel ? sortable.attributes : draggable.attributes;
+  const listeners = isTopLevel ? sortable.listeners : draggable.listeners;
+  const isDragging = isTopLevel ? sortable.isDragging : draggable.isDragging;
   const style = isTopLevel
-    ? { transform: CSS.Transform.toString(transform), transition }
+    ? {
+        transform: CSS.Transform.toString(sortable.transform),
+        transition: sortable.transition,
+      }
     : undefined;
-  const showDropTargetHighlight = isOver || isOverNested;
+  const showDropTargetHighlight = nest.isOver;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const selKey = `folder:${folder.id}`;
@@ -261,20 +275,13 @@ function FolderRow({
     ],
   );
 
-  // Combined ref: top-level rows are also a sortable; nested folders
-  // are only a drop target.
-  const setCombinedRef = (el: HTMLDivElement | null) => {
-    if (isTopLevel) setNodeRef(el);
-    else setDropNodeRef(el);
-  };
-
   return (
-    <div ref={setCombinedRef} style={style} {...(isTopLevel ? attributes : {})}>
+    <div ref={setNodeRef} style={style} {...attributes}>
       <div
         {...contextHandlers}
-        {...(isTopLevel ? listeners : {})}
+        {...listeners}
         className={cn(
-          "group flex select-none items-center border-b border-glass-border/30 px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
+          "group relative flex select-none items-center border-b border-glass-border/30 px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
           density.py,
           selected && "bg-accent-purple/10",
           isDragging && "opacity-50",
@@ -284,16 +291,27 @@ function FolderRow({
         style={{ paddingLeft: 8 + indent }}
         onClick={handleClick}
       >
-        {/* Drag handle — kept as a visual cue. The whole row is now
-            draggable too, so the icon is just an affordance. */}
-        {isTopLevel && (
-          <div
-            className="mr-1 shrink-0 text-text-muted/50"
-            aria-hidden="true"
-          >
-            <GripVertical size={14} />
-          </div>
-        )}
+        {/* "Nest into me" drop zone — covers the middle of the row.
+            Sized smaller than the row so the top/bottom edges remain
+            the outer sortable's drop target (used for sibling reorder
+            on top-level rows). When the cursor is in the middle, this
+            inner zone wins collision detection because it has the
+            smaller bounding box, and we get a drop-into-folder action
+            instead of a sibling-reorder. */}
+        <div
+          ref={nest.setNodeRef}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0"
+          style={{ top: 6, bottom: 6 }}
+        />
+        {/* Drag handle — kept as a visual cue. The whole row is
+            draggable; the icon is just an affordance. */}
+        <div
+          className="mr-1 shrink-0 text-text-muted/50"
+          aria-hidden="true"
+        >
+          <GripVertical size={14} />
+        </div>
 
         {/* Checkbox */}
         <div
@@ -454,19 +472,30 @@ function BookRow({
 }: BookRowProps) {
   const navigate = useNavigate();
 
-  const isTopLevel = depth === 0 && !!sortableId;
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: sortableId ?? entry.id, disabled: !isTopLevel });
+  const isTopLevel = depth === 0;
+  // Top-level: sortable (sibling reorder + drag). Nested: draggable
+  // only — same drag UX, just not part of any sortable list.
+  const sortable = useSortable({
+    id: sortableId ?? `book:${entry.id}`,
+    disabled: !isTopLevel,
+  });
+  const draggable = useDraggable({
+    id: `book:${entry.id}`,
+    disabled: isTopLevel,
+  });
+  const setNodeRef = isTopLevel ? sortable.setNodeRef : draggable.setNodeRef;
+  const attributes = isTopLevel ? sortable.attributes : draggable.attributes;
+  const listeners = isTopLevel ? sortable.listeners : draggable.listeners;
+  const isDragging = isTopLevel ? sortable.isDragging : draggable.isDragging;
+  const transform = isTopLevel ? sortable.transform : draggable.transform;
+  const transition = isTopLevel ? sortable.transition : undefined;
 
-  const style = isTopLevel
-    ? { transform: CSS.Transform.toString(transform), transition }
-    : undefined;
+  // Apply the drag transform regardless of nesting so the row visibly
+  // follows the cursor while being dragged.
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
@@ -554,10 +583,10 @@ function BookRow({
   });
 
   return (
-    <div ref={isTopLevel ? setNodeRef : undefined} style={style} {...(isTopLevel ? attributes : {})}>
+    <div ref={setNodeRef} style={style} {...attributes}>
       <div
         {...contextHandlers}
-        {...(isTopLevel ? listeners : {})}
+        {...listeners}
         className={cn(
           "group flex select-none items-center border-b border-glass-border/30 px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
           density.py,
@@ -568,14 +597,13 @@ function BookRow({
         onClick={handleClick}
       >
         {/* Drag handle — visual cue; the entire row is draggable. */}
-        {isTopLevel && (
-          <div
-            className="mr-1 shrink-0 text-text-muted/50"
-            aria-hidden="true"
-          >
-            <GripVertical size={14} />
-          </div>
-        )}
+        <div
+          className="mr-1 shrink-0 text-text-muted/50"
+          aria-hidden="true"
+        >
+          <GripVertical size={14} />
+        </div>
+
 
         {/* Checkbox */}
         <div

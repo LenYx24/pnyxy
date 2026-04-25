@@ -49,9 +49,12 @@ export function BrowseBookShelfCard({ book, onClick }: BrowseBookShelfCardProps)
           </span>
         )}
       </div>
-      {/* min-h reserves space for an unrated row so cards in a shelf
-          align uniformly whether or not StarRatingDisplay renders. */}
-      <div className="mt-1.5 min-h-[3rem] min-w-0">
+      {/* Fixed-height metadata block. h-12 reserves exactly 3rem so
+          cards in a shelf align identically whether StarRatingDisplay
+          renders or not (it returns null when there are 0 ratings).
+          overflow-hidden clips anything unexpectedly tall so a stray
+          card can't visually grow the whole row. */}
+      <div className="mt-1.5 flex h-12 min-w-0 flex-col overflow-hidden">
         <h3 className="truncate text-[11px] font-semibold leading-tight text-text-primary">
           {book.title}
         </h3>

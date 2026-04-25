@@ -183,10 +183,10 @@ export function AllBooksTab({
       const activeId = active.id as string;
       const overId = over.id as string;
 
-      // Drop into a *nested* folder — these have id "nested-folder:xxx"
-      // and live below the top-level sortable list.
-      if (overId.startsWith("nested-folder:")) {
-        const targetFolderId = overId.slice("nested-folder:".length);
+      // "Nest into" — the inner droppable that covers the middle of a
+      // folder row. Drops here move the dragged item into the folder.
+      if (overId.startsWith("nest:")) {
+        const targetFolderId = overId.slice("nest:".length);
         if (activeId.startsWith("book:")) {
           const book = bookMap.get(activeId);
           if (book) void moveBookToFolder(book, targetFolderId);
@@ -199,24 +199,10 @@ export function AllBooksTab({
         return;
       }
 
-      // Drop ON a top-level folder row — same intent, different id space.
-      if (overId.startsWith("folder:")) {
-        const targetFolderId = overId.slice("folder:".length);
-        if (activeId.startsWith("book:")) {
-          const book = bookMap.get(activeId);
-          if (book) {
-            void moveBookToFolder(book, targetFolderId);
-            return;
-          }
-        }
-        if (activeId.startsWith("folder:") && activeId !== overId) {
-          const draggedFolderId = activeId.slice("folder:".length);
-          void moveFolderToFolder(draggedFolderId, targetFolderId);
-          return;
-        }
-      }
-
-      // Fallback: reorder within the current folder's sibling list.
+      // Sortable target. Top-level folder/book rows are part of the
+      // SortableContext — dropping near their top/bottom edge reorders
+      // the sibling list. (The middle of folder rows is handled by the
+      // nest droppable above, so we don't need to special-case it here.)
       const oldIndex = orderedKeys.indexOf(activeId);
       const newIndex = orderedKeys.indexOf(overId);
       if (oldIndex === -1 || newIndex === -1) return;
