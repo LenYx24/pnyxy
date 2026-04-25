@@ -9,22 +9,25 @@ import { useSettingsStore } from "@/stores/settings-store";
 // Initialize auth listener once at startup (Zustand stores work outside React)
 useAuthStore.getState().initialize();
 
-// When the user transitions from signed-out to signed-in (or the
-// profile loads), pull theme/plugin preferences down from Supabase.
-let lastUserId: string | null = useAuthStore.getState().user?.id ?? null;
+// When the user transitions from signed-out to signed-in and the
+// profile is available, pull theme/plugin preferences down from
+// Supabase — once. We deliberately don't re-hydrate on every later
+// profile update: auth-store's profile snapshot is updated locally
+// when the user edits their display name, but its `preferences` blob
+// can be stale relative to whatever the user has changed in the
+// settings store since sign-in. Re-hydrating in that case clobbered
+// the user's recent theme pick (and any other preference) with an old
+// value. Settings store is the source of truth after the initial
+// hydrate; subsequent changes are pushed up via syncPreferences.
+let hydratedForUser: string | null = null;
 useAuthStore.subscribe((state) => {
   const id = state.user?.id ?? null;
-  if (id && id !== lastUserId) {
-    lastUserId = id;
-    // Profile may load slightly after the user appears; hydrate
-    // again once it lands.
-    useSettingsStore.getState().hydrateFromRemote(state.profile?.preferences);
-  } else if (!id) {
-    lastUserId = null;
+  if (!id) {
+    hydratedForUser = null;
+    return;
   }
-});
-useAuthStore.subscribe((state, prev) => {
-  if (state.profile && state.profile !== prev.profile) {
+  if (state.profile && hydratedForUser !== id) {
+    hydratedForUser = id;
     useSettingsStore.getState().hydrateFromRemote(state.profile.preferences);
   }
 });

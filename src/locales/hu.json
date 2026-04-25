@@ -919,9 +919,19 @@
   "forum": {
     "title": "Fórum",
     "subtitle": "Csatlakozz közösségekhez és beszélgess másokkal",
+    "feedSubtitle": "A Pnyxy közösségeinek bejegyzései egy helyen.",
+    "feedEmpty": "Még nincs bejegyzés. Csatlakozz egy közösséghez, vagy posztolj te magad.",
+    "exploreTitle": "Közösségek felfedezése",
+    "backToFeed": "Vissza a feedhez",
+    "browseAll": "Összes",
     "createCommunity": "Közösség létrehozása",
     "yourCommunities": "A közösségeid",
     "discover": "Felfedezés",
+    "sort": {
+      "hot": "Felkapott",
+      "new": "Új",
+      "top": "Top"
+    },
     "searchPlaceholder": "Közösségek keresése…",
     "noMatch": "Nincs a keresésnek megfelelő közösség.",
     "empty": "Még nincs közösség. Legyél te az első!",

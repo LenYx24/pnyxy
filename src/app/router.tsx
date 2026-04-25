@@ -44,6 +44,7 @@ import { RoadmapDetailPage } from "@/features/roadmaps/RoadmapDetailPage";
 import { RoadmapEditorPage } from "@/features/roadmaps/RoadmapEditorPage";
 import { ChatPage } from "@/features/chat/ChatPage";
 import { ForumPage } from "@/features/forum/ForumPage";
+import { ForumExplorePage } from "@/features/forum/ForumExplorePage";
 import { CommunityPage } from "@/features/forum/CommunityPage";
 import { PostPage } from "@/features/forum/PostPage";
 import { PostComposer } from "@/features/forum/PostComposer";
@@ -128,6 +129,7 @@ export const router = createBrowserRouter([
       { path: "roadmaps/:roadmapId", element: <RoadmapDetailPage /> },
       { path: "roadmaps/:roadmapId/edit", element: <RoadmapEditorPage /> },
       { path: "forum", element: <ForumPage /> },
+      { path: "forum/explore", element: <ForumExplorePage /> },
       { path: "forum/c/:slug", element: <CommunityPage /> },
       { path: "forum/c/:slug/p/:postId", element: <PostPage /> },
       { path: "forum/c/:slug/new", element: <PostComposer /> },

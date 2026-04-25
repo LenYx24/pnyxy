@@ -919,9 +919,19 @@
   "forum": {
     "title": "Forum",
     "subtitle": "Join communities and discuss with others",
+    "feedSubtitle": "Posts from communities across Pnyxy.",
+    "feedEmpty": "No posts yet. Join a community or post one yourself.",
+    "exploreTitle": "Explore communities",
+    "backToFeed": "Back to feed",
+    "browseAll": "Browse all",
     "createCommunity": "Create Community",
     "yourCommunities": "Your Communities",
     "discover": "Discover",
+    "sort": {
+      "hot": "Hot",
+      "new": "New",
+      "top": "Top"
+    },
     "searchPlaceholder": "Search communities…",
     "noMatch": "No communities match your search.",
     "empty": "No communities yet. Create the first one!",
