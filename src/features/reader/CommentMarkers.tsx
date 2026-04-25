@@ -1,19 +1,20 @@
 import { MessageSquare } from "lucide-react";
 import { useAnnotationStore } from "@/stores/annotation-store";
+import type { Comment } from "@/types/annotation";
 import { cn } from "@/lib/cn";
+
+const EMPTY: Comment[] = [];
 
 interface CommentMarkersProps {
   pageNum: number;
 }
 
 export function CommentMarkers({ pageNum }: CommentMarkersProps) {
-  const comments = useAnnotationStore((s) => s.comments);
+  const pageComments = useAnnotationStore(
+    (s) => s.commentsByPage.get(pageNum) ?? EMPTY,
+  );
   const selectedAnnotationId = useAnnotationStore((s) => s.selectedAnnotationId);
   const setSelectedAnnotation = useAnnotationStore((s) => s.setSelectedAnnotation);
-
-  const pageComments = Array.from(comments.values()).filter((c) =>
-    c.selection.rects.some((r) => r.pageNum === pageNum),
-  );
 
   if (pageComments.length === 0) return null;
 

@@ -30,7 +30,13 @@ interface CommunityState {
 }
 
 function slugify(name: string): string {
+  // NFD splits accented letters into base + combining mark; the
+  // diacritics regex then strips the marks. Without this step
+  // Hungarian / accented names lose entire letters ("Művészet"
+  // became "mvszet" — not just ugly, sometimes empty).
   return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .trim()
     .replace(/\s+/g, "-")
@@ -151,8 +157,11 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
       throw new Error("Description contains inappropriate language.");
     }
 
-    const slug = input.slug || slugify(input.name);
-    if (!slug) throw new Error("Invalid community name.");
+    let slug = input.slug || slugify(input.name);
+    // If the user picked a name made entirely of unsupported chars
+    // (emoji, all-symbols), generate a timestamp suffix so the
+    // insert succeeds rather than blocking the user.
+    if (!slug) slug = `c-${Date.now().toString(36)}`;
 
     // Try insert, retry with suffix on slug collision
     for (let attempt = 0; attempt < 3; attempt++) {

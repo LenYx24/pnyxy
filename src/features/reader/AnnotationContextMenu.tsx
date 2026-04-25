@@ -63,6 +63,21 @@ async function fetchDefinition(word: string): Promise<DictionaryEntry | null> {
   return { word: first.word, phonetic, meanings };
 }
 
+/**
+ * MyMemory's free API requires real two-letter source + target lang
+ * codes — `langpair=autodetect|hu` silently returns the input
+ * untranslated. Cheap heuristic: pick `hu` when the text contains
+ * Hungarian-specific accented characters (ő, ű, é, …); otherwise
+ * `en`. This covers the dominant HU-student use case (English
+ * textbook ↔ Hungarian) without an extra round-trip detector. Users
+ * who pick a target same as the detected source will see "no
+ * translation needed" via MyMemory's match score.
+ */
+function detectSourceLang(text: string): string {
+  if (/[őűáéíóúöüÁÉÍÓÚŐŰÖÜ]/.test(text)) return "hu";
+  return "en";
+}
+
 const TRANSLATE_LANGUAGES = [
   { code: "en", label: "English" },
   { code: "es", label: "Spanish" },
@@ -331,8 +346,10 @@ export function AnnotationContextMenu() {
     setTranslateError("");
 
     try {
-      const text = encodeURIComponent(selectedText.trim());
-      const langPair = `autodetect|${translateTargetLanguage}`;
+      const trimmed = selectedText.trim();
+      const text = encodeURIComponent(trimmed);
+      const source = detectSourceLang(trimmed);
+      const langPair = `${source}|${translateTargetLanguage}`;
       const res = await fetch(
         `https://api.mymemory.translated.net/get?q=${text}&langpair=${langPair}`,
       );
@@ -360,8 +377,10 @@ export function AnnotationContextMenu() {
         setTranslating(true);
         setTranslatedText("");
         setTranslateError("");
-        const text = encodeURIComponent(selectedText.trim());
-        const langPair = `autodetect|${e.target.value}`;
+        const trimmed = selectedText.trim();
+        const text = encodeURIComponent(trimmed);
+        const source = detectSourceLang(trimmed);
+        const langPair = `${source}|${e.target.value}`;
         fetch(
           `https://api.mymemory.translated.net/get?q=${text}&langpair=${langPair}`,
         )
@@ -631,35 +650,31 @@ export function AnnotationContextMenu() {
           </div>
         </div>
       ) : showTranslate ? (
-        /* Translate panel */
-        <div className="flex flex-col gap-2 p-1 w-56">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-text-primary flex items-center gap-1.5">
-              <Languages size={14} />
+        /* Translate panel — wider, with the source-detection chip
+           visible and the language picker on its own row so the
+           translation result has room to breathe. */
+        <div className="flex w-72 flex-col gap-2 p-1">
+          <div className="flex items-center gap-1.5">
+            <Languages size={14} className="text-accent-purple" />
+            <span className="text-xs font-medium text-text-primary">
               {t("reader.annotationMenu.translatePanelTitle")}
             </span>
-            <select
-              value={translateTargetLanguage}
-              onChange={handleLanguageChange}
-              className="rounded border border-glass-border bg-glass-bg px-1.5 py-0.5 text-xs text-text-primary outline-none focus:border-accent-purple cursor-pointer"
-            >
-              {TRANSLATE_LANGUAGES.map(({ code, label }) => (
-                <option key={code} value={code}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            <span className="ml-auto rounded bg-glass-bg px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-text-muted">
+              {detectSourceLang(selectedText.trim())}
+              <span className="mx-1">→</span>
+              {translateTargetLanguage}
+            </span>
           </div>
 
           {/* Source text */}
-          <div className="rounded bg-glass-bg/50 px-2 py-1.5 text-xs text-text-muted italic leading-relaxed max-h-16 overflow-y-auto">
-            {selectedText.trim().length > 100
-              ? selectedText.trim().slice(0, 100) + "…"
+          <div className="max-h-20 overflow-y-auto rounded bg-glass-bg/50 px-2 py-1.5 text-xs italic leading-relaxed text-text-muted">
+            {selectedText.trim().length > 200
+              ? selectedText.trim().slice(0, 200) + "…"
               : selectedText.trim()}
           </div>
 
-          {/* Translation result */}
-          <div className="rounded bg-glass-bg px-2 py-1.5 text-xs text-text-primary leading-relaxed min-h-[2rem] max-h-24 overflow-y-auto">
+          {/* Translation result — give it real vertical room. */}
+          <div className="max-h-40 min-h-[3rem] overflow-y-auto rounded bg-glass-bg px-2 py-1.5 text-xs leading-relaxed text-text-primary">
             {translating && (
               <span className="flex items-center gap-1.5 text-text-muted">
                 <Loader2 size={12} className="animate-spin" />
@@ -674,17 +689,39 @@ export function AnnotationContextMenu() {
             )}
           </div>
 
+          {/* Target language picker */}
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="translate-lang"
+              className="text-[11px] text-text-muted"
+            >
+              {t("reader.annotationMenu.translateTargetLabel")}
+            </label>
+            <select
+              id="translate-lang"
+              value={translateTargetLanguage}
+              onChange={handleLanguageChange}
+              className="flex-1 cursor-pointer rounded border border-glass-border bg-glass-bg px-2 py-1 text-xs text-text-primary outline-none focus:border-accent-purple"
+            >
+              {TRANSLATE_LANGUAGES.map(({ code, label }) => (
+                <option key={code} value={code}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Actions */}
           <div className="flex justify-end gap-1">
             <button
-              className="rounded px-2 py-1 text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
+              className="rounded px-2 py-1 text-xs text-text-muted transition-colors hover:text-text-secondary cursor-pointer"
               onClick={() => setShowTranslate(false)}
             >
               {t("reader.annotationMenu.back")}
             </button>
             {translatedText && (
               <button
-                className="rounded bg-accent-purple/20 px-2 py-1 text-xs text-accent-purple hover:bg-accent-purple/30 transition-colors cursor-pointer"
+                className="rounded bg-accent-purple/20 px-2 py-1 text-xs text-accent-purple transition-colors hover:bg-accent-purple/30 cursor-pointer"
                 onClick={() => {
                   navigator.clipboard.writeText(translatedText);
                   hideContextMenu();

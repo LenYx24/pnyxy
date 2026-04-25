@@ -1,5 +1,5 @@
 import { useAnnotationStore } from "@/stores/annotation-store";
-import type { HighlightColor } from "@/types/annotation";
+import type { Highlight, HighlightColor } from "@/types/annotation";
 import { cn } from "@/lib/cn";
 
 const COLOR_MAP: Record<HighlightColor, string> = {
@@ -10,18 +10,18 @@ const COLOR_MAP: Record<HighlightColor, string> = {
   orange: "#fb923c",
 };
 
+const EMPTY: Highlight[] = [];
+
 interface HighlightLayerProps {
   pageNum: number;
 }
 
 export function HighlightLayer({ pageNum }: HighlightLayerProps) {
-  const highlights = useAnnotationStore((s) => s.highlights);
+  const pageHighlights = useAnnotationStore(
+    (s) => s.highlightsByPage.get(pageNum) ?? EMPTY,
+  );
   const selectedAnnotationId = useAnnotationStore(
     (s) => s.selectedAnnotationId,
-  );
-
-  const pageHighlights = Array.from(highlights.values()).filter((h) =>
-    h.selection.rects.some((r) => r.pageNum === pageNum),
   );
 
   if (pageHighlights.length === 0) return null;

@@ -63,17 +63,31 @@ export function AppLayout() {
   return (
     <div className="min-h-screen bg-bg-primary">
       {!isReaderRoute && <Sidebar />}
+      {/* main is flex-col + min-h-screen so a flex-1 content wrapper
+          stretches to fill the viewport on short pages — that's what
+          pins the footer (and the bottom-nav spacer) to the visual
+          bottom on About / Privacy / Terms / Help. */}
       <main
         className={cn(
-          "transition-[margin] duration-200 ease-out",
-          isReaderRoute
-            ? "p-0"
-            : "p-4 pb-20 md:p-6 md:pb-6",
+          "flex min-h-screen flex-col transition-[margin] duration-200 ease-out",
           !isReaderRoute && isDesktop && (sidebarCollapsed ? "ml-sidebar-collapsed" : "ml-sidebar-expanded"),
         )}
       >
-        <Outlet />
+        <div
+          className={cn(
+            "flex-1",
+            isReaderRoute ? "p-0" : "p-4 md:p-6",
+          )}
+        >
+          <Outlet />
+        </div>
         {showFooter && <Footer />}
+        {/* Spacer so app routes' content + bottom-nav don't overlap
+            on mobile. Footer routes already render their own block
+            and we accept it sitting partly behind the nav there. */}
+        {!isReaderRoute && !showFooter && (
+          <div aria-hidden className="h-16 md:h-0" />
+        )}
       </main>
       {!isReaderRoute && !focusActive && <BottomNav />}
       <StreakCelebrationModal />

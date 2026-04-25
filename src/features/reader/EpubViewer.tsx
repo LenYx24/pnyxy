@@ -40,10 +40,16 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
     const book = adapter.getBook?.();
     if (!book) return;
 
+    // `scrolled-continuous` + the matching manager renders all spine
+    // items in one long scrollable document — what users expect when
+    // they "open a book". `scrolled-doc` (the previous setting) only
+    // renders a single chapter, which made the book look stuck on the
+    // first chapter no matter what the user did.
     const rendition = book.renderTo(el, {
       width: "100%",
       height: "100%",
-      flow: "scrolled-doc",
+      flow: "scrolled-continuous",
+      manager: "continuous",
     });
     renditionRef.current = rendition;
     void rendition.display();

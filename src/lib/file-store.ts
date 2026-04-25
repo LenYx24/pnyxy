@@ -7,3 +7,7 @@ export function registerFile(id: string, file: File) {
 export function getFile(id: string): File | undefined {
   return files.get(id);
 }
+
+export function unregisterFile(id: string): void {
+  files.delete(id);
+}

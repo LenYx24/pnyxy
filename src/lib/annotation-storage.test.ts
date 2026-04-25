@@ -65,7 +65,7 @@ describe("getDB", () => {
     const { getDB } = await loadModule();
     const db = await getDB();
     expect(db.name).toBe("pnyxy-annotations");
-    expect(db.version).toBe(6);
+    expect(db.version).toBe(7);
     expect(Array.from(db.objectStoreNames).sort()).toEqual(
       [
         "bookmarks",
@@ -73,6 +73,8 @@ describe("getDB", () => {
         "documentMeta",
         "highlights",
         "notes",
+        "roadmaps",
+        "roadmapEnrollments",
         "vocab",
         "whiteboards",
       ].sort(),

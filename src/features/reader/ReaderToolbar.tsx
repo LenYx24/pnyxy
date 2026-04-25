@@ -22,6 +22,7 @@ import {
   MoreHorizontal,
   BotMessageSquare,
   BookmarkPlus,
+  PanelLeft,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useReaderStore, useActiveDocument, type ZoomMode } from "@/stores/reader-store";
@@ -124,6 +125,7 @@ interface ReaderToolbarProps {
   onToggleSearch?: () => void;
   onToggleAiChat?: () => void;
   onToggleZenMode?: () => void;
+  onToggleSidebar?: () => void;
 }
 
 export function ReaderToolbar({
@@ -138,6 +140,7 @@ export function ReaderToolbar({
   onToggleSearch,
   onToggleAiChat,
   onToggleZenMode,
+  onToggleSidebar,
 }: ReaderToolbarProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -200,6 +203,7 @@ export function ReaderToolbar({
     { label: t("reader.toolbar.search"), icon: Search, onClick: onToggleSearch },
     { label: t("reader.toolbar.comments"), icon: MessageSquare, onClick: onToggleComments },
     { label: t("reader.toolbar.aiChat"), icon: BotMessageSquare, onClick: onToggleAiChat },
+    ...(onToggleSidebar ? [{ label: t("reader.toolbar.toggleSidebar"), icon: PanelLeft, onClick: onToggleSidebar }] : []),
     { label: t("reader.toolbar.zenMode"), icon: Focus, onClick: onToggleZenMode },
     { label: isFullscreen ? t("reader.toolbar.exitFullscreen") : t("reader.toolbar.fullscreen"), icon: isFullscreen ? Minimize : Maximize, onClick: onToggleFullscreen },
   ];

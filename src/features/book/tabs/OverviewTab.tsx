@@ -8,6 +8,7 @@ import {
   ExternalLink,
   BookOpen,
   FileText,
+  FileX2,
   Trash2,
   PenLine,
 } from "lucide-react";
@@ -255,6 +256,8 @@ function CatalogOverview({
         )}
       </div>
 
+      {!hasReadable && <NoFileBanner />}
+
       {readError === "cors-fallback" && (
         <p className="rounded-lg bg-yellow-500/10 px-3 py-2 text-xs text-yellow-400">
           {t("book.overview.readCorsFallback")}
@@ -431,15 +434,19 @@ function UploadedOverview({
         <CreateWhiteboardButton />
       </div>
 
-      <div className="rounded-lg border border-glass-border bg-glass-bg/50 p-4 text-sm">
-        <p className="mb-1 flex items-center gap-1.5 text-text-muted">
-          <FileText size={14} />
-          {t("book.overview.uploadedFile")}
-        </p>
-        <p className="text-xs text-text-secondary">
-          {t("book.overview.uploadedHint")}
-        </p>
-      </div>
+      {!storagePath && <NoFileBanner />}
+
+      {storagePath && (
+        <div className="rounded-lg border border-glass-border bg-glass-bg/50 p-4 text-sm">
+          <p className="mb-1 flex items-center gap-1.5 text-text-muted">
+            <FileText size={14} />
+            {t("book.overview.uploadedFile")}
+          </p>
+          <p className="text-xs text-text-secondary">
+            {t("book.overview.uploadedHint")}
+          </p>
+        </div>
+      )}
 
       <MetaGrid
         entries={[
@@ -503,4 +510,27 @@ function formatBytes(n: number): string {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
   return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+/**
+ * Banner shown when the book has no readable file attached. Catalog
+ * books without a download URL and shell uploaded books with no
+ * storage_path land here. Lets the reader know notes/whiteboards/forum
+ * still work — their attempt to open the book wasn't a bug.
+ */
+function NoFileBanner() {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-3">
+      <FileX2 size={18} className="mt-0.5 shrink-0 text-yellow-400" />
+      <div className="min-w-0 text-sm">
+        <p className="font-medium text-text-primary">
+          {t("book.overview.noFile.title")}
+        </p>
+        <p className="mt-0.5 text-xs text-text-secondary">
+          {t("book.overview.noFile.body")}
+        </p>
+      </div>
+    </div>
+  );
 }

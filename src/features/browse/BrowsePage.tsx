@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Search, Plus, Loader2 } from "lucide-react";
+import { Search, Plus, Loader2, Import } from "lucide-react";
 import { Button, CategoryChip } from "@/components/ui";
 import { useBrowseStore } from "@/stores/browse-store";
 import { useCategoryStore } from "@/stores/category-store";
@@ -80,11 +80,21 @@ export function BrowsePage() {
             {t("browse.subtitle")}
           </p>
         </div>
-        <Button variant="secondary" onClick={() => setModalOpen(true)}>
-          <Plus size={18} />
-          <span className="hidden sm:inline">{t("browse.addBook")}</span>
-          <span className="sm:hidden">{t("browse.addBookShort")}</span>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => navigate("/catalog/import")}
+          >
+            <Import size={18} />
+            <span className="hidden sm:inline">{t("browse.import")}</span>
+            <span className="sm:hidden">{t("browse.importShort")}</span>
+          </Button>
+          <Button variant="secondary" onClick={() => setModalOpen(true)}>
+            <Plus size={18} />
+            <span className="hidden sm:inline">{t("browse.addBook")}</span>
+            <span className="sm:hidden">{t("browse.addBookShort")}</span>
+          </Button>
+        </div>
       </div>
 
       <div className="relative mb-3">

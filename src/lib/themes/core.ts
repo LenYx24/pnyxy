@@ -58,6 +58,58 @@ export const CORE_THEMES = {
       "--color-glass-hover": "rgba(0, 0, 0, 0.06)",
     },
   },
+  "comfort-sepia": {
+    id: "comfort-sepia",
+    name: "Comfort Sepia",
+    description:
+      "Warm parchment background with dark sepia text — low contrast and no pure white, designed for long reading sessions.",
+    author: "Pnyxy",
+    apiVersion: 1,
+    variant: "light",
+    tokens: {
+      // Paper-like background with no pure white anywhere.
+      "--color-bg-primary": "#f4ecd8",
+      "--color-bg-secondary": "#ebe2cc",
+      "--color-bg-tertiary": "#d8cdb3",
+      // Warm-amber accent so links/buttons sit naturally on parchment.
+      "--color-accent-purple": "#a85a1f",
+      "--color-accent-blue": "#7c5b2a",
+      // Dark sepia text instead of black — lowers contrast just enough
+      // to reduce strain without losing legibility (≥7:1 on bg-primary).
+      "--color-text-primary": "#3a2e21",
+      "--color-text-secondary": "#5c4a36",
+      "--color-text-muted": "#8a755e",
+      "--color-glass-bg": "rgba(60, 40, 20, 0.05)",
+      "--color-glass-border": "rgba(60, 40, 20, 0.14)",
+      "--color-glass-hover": "rgba(60, 40, 20, 0.08)",
+    },
+  },
+  "comfort-night": {
+    id: "comfort-night",
+    name: "Comfort Night",
+    description:
+      "Warm amber-tinted dark theme with no blue spectrum — evening-friendly, candlelight feel.",
+    author: "Pnyxy",
+    apiVersion: 1,
+    variant: "dark",
+    tokens: {
+      // Very dark warm brown instead of cool black — fewer short-
+      // wavelength photons, easier on circadian rhythm at night.
+      "--color-bg-primary": "#1a120a",
+      "--color-bg-secondary": "#251a10",
+      "--color-bg-tertiary": "#322415",
+      // Amber + warm gold accents; deliberately no blue.
+      "--color-accent-purple": "#d4923a",
+      "--color-accent-blue": "#e8b663",
+      // Warm cream text — soft on dark warm bg.
+      "--color-text-primary": "#f0e2c8",
+      "--color-text-secondary": "#bea886",
+      "--color-text-muted": "#806a4f",
+      "--color-glass-bg": "rgba(255, 200, 120, 0.05)",
+      "--color-glass-border": "rgba(255, 200, 120, 0.14)",
+      "--color-glass-hover": "rgba(255, 200, 120, 0.08)",
+    },
+  },
   midnight: {
     id: "midnight",
     name: "Midnight",

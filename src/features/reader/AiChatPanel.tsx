@@ -6,6 +6,7 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { useReaderStore } from "@/stores/reader-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
+import { renderMarkdown } from "@/lib/markdown-message";
 import { cn } from "@/lib/cn";
 import type { IDockviewPanelProps } from "dockview";
 import type { ChatMessage } from "@/lib/ai-client";
@@ -70,13 +71,18 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const clearConversation = useAiChatStore((s) => s.clearConversation);
 
   const [input, setInput] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const keyboardInset = useKeyboardInset();
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom by setting scrollTop on the local container.
+  // We avoided scrollIntoView({ behavior: "smooth" }) here because some
+  // mobile WebViews propagate the smooth scroll up to ancestors,
+  // shifting the reader layout when the AI panel was opened.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
   }, [messages, streamingContent]);
 
   // Auto-resize textarea
@@ -197,7 +203,10 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-3"
+      >
         {messages.length === 0 && !isStreaming && (
           <div className="flex flex-col items-center gap-2 py-8 text-center">
             <BotMessageSquare size={24} className="text-text-muted/50" />
@@ -207,24 +216,32 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           </div>
         )}
 
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={cn(
-              "max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",
-              msg.role === "user"
-                ? "ml-auto bg-accent-purple/20 text-text-primary"
-                : "mr-auto bg-glass-bg text-text-secondary",
-            )}
-          >
-            {msg.content}
-          </div>
-        ))}
+        {messages.map((msg, i) =>
+          msg.role === "user" ? (
+            <div
+              key={i}
+              className="ml-auto max-w-[85%] whitespace-pre-wrap rounded-lg bg-accent-purple/20 px-3 py-2 text-sm text-text-primary"
+            >
+              {msg.content}
+            </div>
+          ) : (
+            <div
+              key={i}
+              className="ai-message mr-auto max-w-[85%] rounded-lg bg-glass-bg px-3 py-2 text-sm text-text-secondary"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+            />
+          ),
+        )}
 
         {isStreaming && streamingContent && (
-          <div className="mr-auto max-w-[85%] rounded-lg bg-glass-bg px-3 py-2 text-sm text-text-secondary whitespace-pre-wrap">
-            {streamingContent}
-            <span className="inline-block w-1.5 h-4 ml-0.5 bg-accent-purple/60 animate-pulse" />
+          <div className="mr-auto max-w-[85%] rounded-lg bg-glass-bg px-3 py-2 text-sm text-text-secondary">
+            <span
+              className="ai-message"
+              dangerouslySetInnerHTML={{
+                __html: renderMarkdown(streamingContent),
+              }}
+            />
+            <span className="inline-block h-4 w-1.5 ml-0.5 align-text-bottom bg-accent-purple/60 animate-pulse" />
           </div>
         )}
 
@@ -245,8 +262,6 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             {error}
           </div>
         )}
-
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input. On mobile the soft keyboard would cover this area;

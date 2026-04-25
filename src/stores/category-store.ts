@@ -51,10 +51,18 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
       data: { user },
     } = await supabase.auth.getUser();
 
-    const slug = name
+    // Normalize accents to ASCII first (NFD splits "ő" into "o" + ◌̋,
+    // which the diacritics regex then strips). Without this step,
+    // "Művészet" turned into "m-v-szet" — ugly and risked empty
+    // slugs for accent-heavy names.
+    let slug = name
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
+    // Fallback for emoji-only / pure-symbol names — keep insert valid.
+    if (!slug) slug = `cat-${Date.now().toString(36)}`;
 
     const { error } = await supabase.from("categories").insert({
       name,

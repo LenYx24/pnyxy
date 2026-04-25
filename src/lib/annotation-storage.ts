@@ -2,7 +2,7 @@ import { openDB, type IDBPDatabase } from "idb";
 import type { Highlight, Comment } from "@/types/annotation";
 
 const DB_NAME = "pnyxy-annotations";
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -37,6 +37,15 @@ export function getDB(): Promise<IDBPDatabase> {
           // IDB index, so dedupe is enforced at the store layer.
           vs.createIndex("dueAt", "dueAt");
           vs.createIndex("sourceDocumentId", "sourceDocumentId");
+        }
+        if (!db.objectStoreNames.contains("roadmaps")) {
+          db.createObjectStore("roadmaps", { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains("roadmapEnrollments")) {
+          const es = db.createObjectStore("roadmapEnrollments", {
+            keyPath: "id",
+          });
+          es.createIndex("roadmapId", "roadmapId");
         }
       },
     });

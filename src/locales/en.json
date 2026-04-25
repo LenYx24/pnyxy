@@ -19,7 +19,7 @@
   },
   "sidebar": {
     "home": "Home",
-    "browse": "Browse",
+    "browse": "Catalog",
     "library": "Library",
     "reader": "Reader",
     "chat": "Chat",
@@ -27,6 +27,7 @@
     "review": "Review",
     "vocabulary": "Vocabulary",
     "streaks": "Streaks",
+    "roadmaps": "Roadmaps",
     "forum": "Forum",
     "settings": "Settings",
     "admin": "Admin",
@@ -211,7 +212,7 @@
       "subtitle": "Pnyxy is MIT-licensed and built to grow with its users. Fork it, star it, or drop in community themes and plugins.",
       "repo": {
         "title": "Contribute on GitHub",
-        "description": "The main Pnyxy repository — star it, file issues, open PRs, or self-host your own instance."
+        "description": "The main Pnyxy repository. Star it, file issues, open PRs, or self-host your own instance."
       },
       "community": {
         "title": "Community themes & plugins",
@@ -229,11 +230,12 @@
         "features": [
           "Full PDF and EPUB reader with annotations, notes, whiteboards",
           "Browse a public catalog of open-domain books",
-          "AI chat for the open page — daily quota",
+          "AI chat for the open page (daily quota)",
           "Vocabulary flashcards with FSRS spaced repetition",
           "Community forum, ratings, and shared discussions",
+          "Cross-device sync for vocab, whiteboards, ratings, and library",
           "Mobile + desktop + web (PWA)",
-          "Self-host the whole stack — it's open source"
+          "Self-host the whole stack, it's open source"
         ]
       },
       "premium": {
@@ -245,9 +247,8 @@
         "features": [
           "Larger daily AI quota + access to higher-quality models",
           "More cloud storage for your uploaded books",
-          "OCR for scanned textbooks — searchable, selectable, AI-readable",
+          "OCR for scanned textbooks: searchable, selectable, AI-readable",
           "X-Ray: character & concept index for your personal uploads",
-          "Cross-device sync for vocabulary, whiteboards, and highlights",
           "Priority support and early access to new features"
         ]
       },
@@ -259,7 +260,7 @@
       "items": {
         "isItFree": {
           "q": "Is Pnyxy free to use?",
-          "a": "Yes — every core feature is free right now: reading, annotations, notes, whiteboards, AI chat (with a daily quota), vocabulary flashcards, forum, and the community book catalog. A paid Premium tier is planned for people who need bigger AI quotas, more storage, OCR, and X-Ray. Everything that's free today stays free."
+          "a": "Yes. Every core feature is free right now: reading, annotations, notes, whiteboards, AI chat (with a daily quota), vocabulary flashcards, forum, and the community book catalog. A paid Premium tier is planned for people who need bigger AI quotas, more storage, OCR, and X-Ray. Everything that's free today stays free."
         },
         "copyright": {
           "q": "Can I read any book on Pnyxy?",
@@ -275,7 +276,7 @@
         },
         "offline": {
           "q": "Does it work offline?",
-          "a": "Mostly. Once a book is opened it's cached locally — you can read, annotate, and take notes without internet. AI chat, community forum, and book catalog search require a connection. Full offline mode (sync-later) is on the roadmap."
+          "a": "Mostly. Once a book is opened it's cached locally, so you can read, annotate, and take notes without internet. AI chat, community forum, and book catalog search require a connection. Full offline mode (sync-later) is on the roadmap."
         },
         "formats": {
           "q": "What file formats are supported?",
@@ -287,7 +288,7 @@
         },
         "selfHost": {
           "q": "Can I self-host?",
-          "a": "Yes — the README has the full deployment guide. You'll need a Supabase project (free tier works), a Cloudflare Workers account for the web host, and API keys if you want the Pnyxy AI proxy. Desktop and mobile builds use Tauri and don't need any backend."
+          "a": "Yes. The README has the full deployment guide. You'll need a Supabase project (free tier works), a Cloudflare Workers account for the web host, and API keys if you want the Pnyxy AI proxy. Desktop and mobile builds use Tauri and don't need any backend."
         }
       }
     },
@@ -295,10 +296,6 @@
       "smartReading": {
         "title": "Smart Reading",
         "description": "Read EPUBs and PDFs with a distraction-free, customizable reader built for deep focus."
-      },
-      "video": {
-        "title": "Video Integration",
-        "description": "Link YouTube lectures and tutorials directly to your book chapters for multimedia learning."
       },
       "studyTools": {
         "title": "Study Tools",
@@ -315,14 +312,20 @@
       "community": {
         "title": "Community",
         "description": "Share highlights, discuss books, and learn together with other readers."
+      },
+      "plugins": {
+        "title": "Build Your Own Plugins",
+        "description": "Technical users can extend Pnyxy with custom plugins. They run sandboxed and ship to other readers through the community registry."
       }
     }
   },
   "browse": {
-    "title": "Browse",
+    "title": "Catalog",
     "subtitle": "Discover books in the community catalog",
     "addBook": "Add a Book",
     "addBookShort": "Add",
+    "import": "Import",
+    "importShort": "Import",
     "searchPlaceholder": "Search by title…",
     "all": "All",
     "category": "Category",
@@ -342,6 +345,41 @@
   },
   "whiteboard": {
     "notFound": "Whiteboard not found."
+  },
+  "catalogImport": {
+    "title": "Import books",
+    "subtitle": "Search across public catalogs and pull metadata (and files when available) into Pnyxy.",
+    "searchIn": "Search in",
+    "searchPlaceholder": "Search by title, author, ISBN…",
+    "emptyQuery": "Type a query above to search.",
+    "noResults": "No matches across the selected sources.",
+    "add": "Add",
+    "added": "Added",
+    "hasFile": "Readable file",
+    "metadataOnly": "Metadata only",
+    "metadataOnlyTooltip": "No file attached — notes + forum still work",
+    "sources": {
+      "openLibrary": {
+        "name": "Open Library",
+        "hint": "Broadest catalog. Metadata only (no file)."
+      },
+      "gutenberg": {
+        "name": "Project Gutenberg",
+        "hint": "Public-domain books with downloadable EPUB / PDF."
+      },
+      "standardEbooks": {
+        "name": "Standard Ebooks",
+        "hint": "Curated English classics."
+      },
+      "mek": {
+        "name": "MEK",
+        "hint": "Hungarian public-domain library."
+      }
+    },
+    "disabled": {
+      "patron_auth_required": "Requires Standard Ebooks Patrons Circle — configure SE_EMAIL.",
+      "endpoint_unknown": "Public OAI-PMH endpoint unknown — contact MEK."
+    }
   },
   "home": {
     "title": "Home",
@@ -637,6 +675,57 @@
     "minGoal": "{{minutes}} min goal",
     "historyHint": "Filled squares are days you hit the 5-minute reading goal."
   },
+  "roadmaps": {
+    "title": "Roadmaps",
+    "tagline": "Plan a learning path, enroll, and check off nodes as you go.",
+    "new": "New roadmap",
+    "createAndEdit": "Create & edit",
+    "untitled": "Untitled roadmap",
+    "titleLabel": "Title",
+    "titlePlaceholder": "e.g. Hungarian literature for grade 11",
+    "enrolledHeading": "In progress",
+    "completedHeading": "Completed ({{count}})",
+    "yoursHeading": "Your roadmaps",
+    "empty": "No roadmaps yet — create one to start mapping out a learning path.",
+    "emptyDetail": "This roadmap is empty. Add some learning steps to begin.",
+    "editorEmpty": "An empty canvas. Add a node to get started.",
+    "addNode": "Add step",
+    "addFirstNode": "Add the first step",
+    "deleteNode": "Delete step",
+    "nodeTitle": "Title",
+    "nodeDescription": "Notes",
+    "nodeMinutes": "Estimated minutes",
+    "nodeCount_one": "{{count}} step",
+    "nodeCount_other": "{{count}} steps",
+    "selectNodeHint": "Select a node to edit it.",
+    "connectHint": "Drag from the bottom of one node to the top of another to connect them.",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "What's this roadmap about?",
+    "preview": "Preview",
+    "startBuilding": "Start building",
+    "startLearning": "Start learning",
+    "unenroll": "Unenroll",
+    "unenrollConfirm": "Stop tracking this roadmap? Your progress will be cleared.",
+    "deleteConfirm": "Delete this roadmap? This can't be undone.",
+    "complete": "Complete",
+    "percentComplete": "{{pct}}% complete",
+    "markComplete": "Mark complete",
+    "markIncomplete": "Mark not complete",
+    "scheduledFor": "Scheduled for",
+    "resetSchedule": "Reset to auto-scheduled",
+    "notFound": "Roadmap not found.",
+    "backToList": "Back to roadmaps",
+    "enroll": {
+      "title": "Start learning",
+      "subtitle": "Tell us your pace and we'll project a finish date.",
+      "weekdayHours": "Hours on weekdays",
+      "weekendHours": "Hours on weekends",
+      "workOnWeekends": "Work on weekends",
+      "totalEstimate": "Total estimate: {{total}}",
+      "finishBy": "Projected finish: {{date}}",
+      "confirm": "Enroll"
+    }
+  },
   "chat": {
     "title": "Chat",
     "untitled": "Untitled conversation",
@@ -799,6 +888,10 @@
       "categories": "Categories",
       "uploadedFile": "This is an uploaded file.",
       "uploadedHint": "Only basic metadata is extracted today. AI-assisted enrichment (summary, auto-categorization, cover detection) is planned.",
+      "noFile": {
+        "title": "No file attached",
+        "body": "This book is metadata-only — there's nothing to read in the reader. You can still take notes, draw whiteboards, and discuss it on the forum."
+      },
       "meta": {
         "publisher": "Publisher",
         "published": "Published",
@@ -879,10 +972,11 @@
   "reader": {
     "sidebar": {
       "readerHeading": "Reader",
-      "openAnotherPdf": "Open another PDF",
+      "openAnotherPdf": "Open another file",
       "openDocuments": "Open Documents",
-      "openBook": "Open book",
-      "openBookTitle": "Open the book viewer",
+      "openAnother": "Open file…",
+      "openFromLibrary": "Open from library",
+      "openFromLibraryShort": "From library",
       "outline": "Outline",
       "outlineTitle": "Outline view",
       "thumbnails": "Thumbnails",
@@ -905,6 +999,25 @@
       "deleteWhiteboard": "Delete whiteboard",
       "countSelected": "{{count}} selected",
       "delete": "Delete"
+    },
+    "tabs": {
+      "untitled": "Untitled",
+      "close": "Close tab"
+    },
+    "bottomBar": {
+      "contents": "Contents",
+      "search": "Search",
+      "bookmark": "Bookmark",
+      "comments": "Comments",
+      "ai": "AI"
+    },
+    "libraryPicker": {
+      "title": "Open from library",
+      "search": "Search your library…",
+      "empty": "Your library is empty. Add a book first.",
+      "noMatches": "No matches.",
+      "alreadyOpen": "Already open",
+      "noFile": "No file"
     },
     "page": {
       "panelNote": "Note",
@@ -955,6 +1068,7 @@
       "aiChatTitle": "AI Chat (Ctrl+I)",
       "bookmarkPage": "Bookmark this page",
       "zenMode": "Zen mode",
+      "toggleSidebar": "Toggle sidebar",
       "fullscreen": "Fullscreen",
       "exitFullscreen": "Exit Fullscreen"
     },
@@ -979,6 +1093,7 @@
       "changeColor": "Change color",
       "removeHighlight": "Remove highlight",
       "translatePanelTitle": "Translate",
+      "translateTargetLabel": "Target",
       "translating": "Translating…",
       "translateFailed": "Translation failed",
       "translateConnectFailed": "Could not connect to translation service",

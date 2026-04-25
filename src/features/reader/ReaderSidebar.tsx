@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FilePlus, FileText, StickyNote, PenTool, List, LayoutGrid, Trash2, BookOpen, Bookmark } from "lucide-react";
+import { FilePlus, FileText, Library, StickyNote, PenTool, List, LayoutGrid, Trash2, Bookmark } from "lucide-react";
+import { useUIStore } from "@/stores/ui-store";
 import { ThumbnailToc } from "./ThumbnailToc";
 import { BookmarksPanel } from "./BookmarksPanel";
 import { cn } from "@/lib/cn";
@@ -73,9 +74,6 @@ function TocEntry({
 
 interface ReaderSidebarContentProps {
   onOpenFile?: () => void;
-  /** Focus the book viewer panel — lets the user jump back from
-   * a note or whiteboard tab without having to hunt for the tab. */
-  onOpenBook?: () => void;
   onOpenNote?: (noteId: string) => void;
   onCreateNote?: () => void;
   onOpenWhiteboard?: (whiteboardId: string) => void;
@@ -87,7 +85,6 @@ interface ReaderSidebarContentProps {
 /** Inner content component used by Dockview panel (no outer sizing wrapper) */
 export function ReaderSidebarContent({
   onOpenFile,
-  onOpenBook,
   onOpenNote,
   onCreateNote,
   onOpenWhiteboard,
@@ -277,11 +274,20 @@ export function ReaderSidebarContent({
           {t("reader.sidebar.readerHeading")}
         </h3>
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => useUIStore.getState().setLibraryPickerOpen(true)}
+            className="rounded-md p-1 text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+            title={t("reader.sidebar.openFromLibrary")}
+            aria-label={t("reader.sidebar.openFromLibrary")}
+          >
+            <Library size={16} />
+          </button>
           {onOpenFile && (
             <button
               onClick={onOpenFile}
               className="rounded-md p-1 text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
               title={t("reader.sidebar.openAnotherPdf")}
+              aria-label={t("reader.sidebar.openAnotherPdf")}
             >
               <FilePlus size={16} />
             </button>
@@ -289,10 +295,14 @@ export function ReaderSidebarContent({
         </div>
       </div>
 
-      {/* Open documents list */}
-      {docEntries.length > 1 && (
+      {/* Open documents list — always rendered (even with 1 doc)
+          so the user discovers they can keep multiple books loaded
+          and switch between them. The "Open another" button at the
+          bottom lets them add a sibling book without leaving the
+          reader. */}
+      {docEntries.length > 0 && (
         <div className="border-b border-glass-border p-2 space-y-0.5">
-          <p className="px-3 py-1 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+          <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
             {t("reader.sidebar.openDocuments")}
           </p>
           {docEntries.map(([id, _doc]) => (
@@ -300,37 +310,51 @@ export function ReaderSidebarContent({
               key={id}
               onClick={() => setActiveDocument(id)}
               className={cn(
-                "flex items-center gap-2 w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors cursor-pointer",
+                "flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors cursor-pointer",
                 activeDocumentId === id
                   ? "bg-accent-purple/15 text-accent-purple"
                   : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
               )}
             >
               <FileText size={14} className="shrink-0" />
-              <span className="truncate">
-                {getDisplayTitle(id)}
-              </span>
+              <span className="truncate">{getDisplayTitle(id)}</span>
             </button>
           ))}
+          <div className="mt-1 grid grid-cols-2 gap-1">
+            <button
+              onClick={() => useUIStore.getState().setLibraryPickerOpen(true)}
+              className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-glass-border px-2 py-1.5 text-xs text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            >
+              <Library size={13} className="shrink-0" />
+              {t("reader.sidebar.openFromLibraryShort")}
+            </button>
+            <button
+              onClick={onOpenFile}
+              className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-glass-border px-2 py-1.5 text-xs text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            >
+              <FilePlus size={13} className="shrink-0" />
+              {t("reader.sidebar.openAnother")}
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Tab bar */}
+      {/* Tab bar — icon-only with tooltip on hover */}
       <div className="border-b border-glass-border px-2 py-1.5 flex items-center gap-1 overflow-x-auto">
         {tabItems.map(({ key, icon: Icon, label }) => (
           <button
             key={key}
             onClick={() => setSidebarTab(key)}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors cursor-pointer",
+              "flex shrink-0 items-center justify-center rounded-md p-2 transition-colors cursor-pointer",
               sidebarTab === key
                 ? "bg-accent-purple/15 text-accent-purple"
                 : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
             )}
             title={label}
+            aria-label={label}
           >
-            <Icon size={14} />
-            <span className="hidden sm:inline">{label}</span>
+            <Icon size={16} />
           </button>
         ))}
       </div>
@@ -340,41 +364,31 @@ export function ReaderSidebarContent({
       <div className="border-b border-glass-border px-2 py-1 flex items-center gap-1 overflow-x-auto">
         {sidebarTab === "contents" && meta && (
           <>
-            {onOpenBook && (
-              <button
-                onClick={onOpenBook}
-                className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
-                title={t("reader.sidebar.openBookTitle")}
-              >
-                <BookOpen size={14} />
-                <span>{t("reader.sidebar.openBook")}</span>
-              </button>
-            )}
             <button
               onClick={() => setTocViewMode("outline")}
               className={cn(
-                "flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors cursor-pointer",
+                "flex shrink-0 items-center justify-center rounded-md p-1.5 transition-colors cursor-pointer",
                 tocViewMode === "outline"
                   ? "text-accent-purple bg-accent-purple/10"
                   : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
               )}
               title={t("reader.sidebar.outlineTitle")}
+              aria-label={t("reader.sidebar.outline")}
             >
               <List size={14} />
-              <span>{t("reader.sidebar.outline")}</span>
             </button>
             <button
               onClick={() => setTocViewMode("thumbnail")}
               className={cn(
-                "flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors cursor-pointer",
+                "flex shrink-0 items-center justify-center rounded-md p-1.5 transition-colors cursor-pointer",
                 tocViewMode === "thumbnail"
                   ? "text-accent-purple bg-accent-purple/10"
                   : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
               )}
               title={t("reader.sidebar.thumbnailsTitle")}
+              aria-label={t("reader.sidebar.thumbnails")}
             >
               <LayoutGrid size={14} />
-              <span>{t("reader.sidebar.thumbnails")}</span>
             </button>
           </>
         )}
@@ -386,11 +400,11 @@ export function ReaderSidebarContent({
         {sidebarTab === "notes" && onCreateNote && (
           <button
             onClick={onCreateNote}
-            className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+            className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
             title={t("reader.sidebar.newNote")}
+            aria-label={t("reader.sidebar.newNote")}
           >
             <StickyNote size={14} />
-            <span>{t("reader.sidebar.newNote")}</span>
           </button>
         )}
         {sidebarTab === "whiteboards" && onCreateWhiteboard && (
@@ -398,7 +412,7 @@ export function ReaderSidebarContent({
             onClick={onCreateWhiteboard}
             disabled={!whiteboardCreationAllowed}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
+              "flex shrink-0 items-center justify-center rounded-md p-1.5 transition-colors",
               whiteboardCreationAllowed
                 ? "text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
                 : "text-text-muted/40 cursor-not-allowed",
@@ -408,9 +422,9 @@ export function ReaderSidebarContent({
                 ? t("reader.sidebar.newWhiteboard")
                 : t("reader.sidebar.whiteboardsGated")
             }
+            aria-label={t("reader.sidebar.newWhiteboard")}
           >
             <PenTool size={14} />
-            <span>{t("reader.sidebar.newWhiteboard")}</span>
           </button>
         )}
       </div>

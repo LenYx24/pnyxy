@@ -162,6 +162,72 @@
   }
 }
 
+/* Markdown rendering inside AI chat bubbles. Tight vertical
+ * rhythm — chat is dense — and readable code blocks. */
+.ai-message > * + * { margin-top: 0.5rem; }
+.ai-message p { margin: 0; }
+.ai-message h1, .ai-message h2, .ai-message h3 {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.ai-message h1 { font-size: 1.05rem; }
+.ai-message h2 { font-size: 1rem; }
+.ai-message h3 { font-size: 0.95rem; }
+.ai-message strong { color: var(--color-text-primary); font-weight: 600; }
+.ai-message em { font-style: italic; }
+.ai-message a {
+  color: var(--color-accent-purple);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ai-message ul, .ai-message ol {
+  padding-left: 1.25rem;
+  margin: 0;
+}
+.ai-message ul { list-style: disc; }
+.ai-message ol { list-style: decimal; }
+.ai-message li + li { margin-top: 0.15rem; }
+.ai-message code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  border-radius: 0.25rem;
+  background: var(--color-glass-bg);
+  color: var(--color-text-primary);
+}
+.ai-message pre {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-glass-border);
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  overflow-x: auto;
+}
+.ai-message pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-primary);
+}
+.ai-message blockquote {
+  border-left: 2px solid var(--color-glass-border);
+  padding-left: 0.75rem;
+  color: var(--color-text-muted);
+}
+.ai-message table {
+  border-collapse: collapse;
+  font-size: 0.85em;
+}
+.ai-message th, .ai-message td {
+  border: 1px solid var(--color-glass-border);
+  padding: 0.3rem 0.5rem;
+}
+.ai-message th { font-weight: 600; color: var(--color-text-primary); }
+.ai-message hr {
+  border: none;
+  border-top: 1px solid var(--color-glass-border);
+  margin: 0.5rem 0;
+}
+
 /* ── Print: hide everything except the active viewer ───────────
  * The reader calls window.print(); this CSS strips chrome so the
  * browser rasterizes just the PDF canvas + DOM-based overlays
@@ -195,4 +261,97 @@
   [data-active-viewer] [data-no-print] {
     display: none !important;
   }
+}
+
+/* ----------------------------------------------------------------- */
+/* xyflow / @xyflow/react — themed for the app's glass dark surface.  */
+/* The library ships a light default; we override CSS variables so   */
+/* the controls and minimap blend into Pnyxy's theme.                 */
+/* ----------------------------------------------------------------- */
+
+.react-flow {
+  --xy-controls-button-background-color: var(--color-bg-secondary);
+  --xy-controls-button-background-color-hover: var(--color-glass-hover);
+  --xy-controls-button-color: var(--color-text-secondary);
+  --xy-controls-button-color-hover: var(--color-text-primary);
+  --xy-controls-button-border-color: var(--color-glass-border);
+  --xy-edge-stroke: var(--color-text-muted);
+  --xy-edge-stroke-selected: var(--color-accent-purple);
+  --xy-selection-background-color: rgb(from var(--color-accent-purple) r g b / 0.15);
+  --xy-selection-border: 1px dashed var(--color-accent-purple);
+}
+
+/* The Controls container itself — glass card on hover. */
+.react-flow__controls {
+  box-shadow: none;
+  border: 1px solid var(--color-glass-border);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+}
+
+.react-flow__controls-button {
+  border-bottom: 1px solid var(--color-glass-border);
+}
+.react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+.react-flow__controls-button svg {
+  fill: currentColor;
+}
+
+/* Edge default colour matches text-muted, selected pops accent. */
+.react-flow__edge-path {
+  stroke: var(--color-text-muted);
+}
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:focus .react-flow__edge-path {
+  stroke: var(--color-accent-purple);
+  stroke-width: 2;
+}
+/* Make the invisible click-target wider so edges are easy to grab. */
+.react-flow__edge-interaction {
+  stroke-width: 18 !important;
+}
+
+/* Drag feedback on nodes — subtle lift while user is dragging. */
+.react-flow__node {
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    opacity 120ms ease;
+}
+.react-flow__node.dragging {
+  transform: scale(1.04);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 0 0 2px var(--color-accent-purple);
+  cursor: grabbing;
+  z-index: 10;
+}
+.react-flow__node:not(.dragging) {
+  cursor: grab;
+}
+.react-flow__node.selected:not(.dragging) {
+  box-shadow: 0 0 0 2px var(--color-accent-purple);
+}
+
+/* Background dot colour against dark themes. */
+.react-flow__background-pattern {
+  color: var(--color-glass-border);
+}
+
+/* ----------------------------------------------------------------- */
+/* Hide native number input spinners globally — they're inconsistent  */
+/* across browsers and clash with the dark theme. Components that      */
+/* need explicit +/- controls use the NumberInput component.           */
+/* ----------------------------------------------------------------- */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }

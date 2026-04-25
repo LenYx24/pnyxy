@@ -310,9 +310,7 @@ export function AllBooksTab({
             })}
           >
             <FolderPlus size={16} />
-            <span className="hidden sm:inline">
-              {t("library.allBooks.newFolder")}
-            </span>
+            <span>{t("library.allBooks.newFolder")}</span>
             <Kbd
               shortcut={{ key: "f", ctrl: true, shift: true }}
               className="ml-1 hidden lg:inline-flex"

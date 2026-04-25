@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
-import { useBrowseStore } from "@/stores/browse-store";
 import type { CatalogBook } from "@/types/catalog";
 import { Shelf } from "./Shelf";
-import { BrowseBookCard } from "./BrowseBookCard";
+import { BrowseBookShelfCard } from "./BrowseBookShelfCard";
 import { getRecentlyViewedIds } from "./recently-viewed";
 
 /**
@@ -17,7 +17,7 @@ import { getRecentlyViewedIds } from "./recently-viewed";
  */
 export function RecentlyViewedShelf() {
   const { t } = useTranslation();
-  const setSelectedBook = useBrowseStore((s) => s.setSelectedBook);
+  const navigate = useNavigate();
   const [books, setBooks] = useState<CatalogBook[]>([]);
 
   useEffect(() => {
@@ -60,11 +60,11 @@ export function RecentlyViewedShelf() {
       {books.map((book) => (
         <div
           key={book.id}
-          className="shrink-0 basis-[10rem] snap-start sm:basis-[11rem]"
+          className="shrink-0 basis-[7.5rem] snap-start sm:basis-[8.5rem]"
         >
-          <BrowseBookCard
+          <BrowseBookShelfCard
             book={book}
-            onClick={() => setSelectedBook(book)}
+            onClick={() => navigate(`/books/${book.id}`)}
           />
         </div>
       ))}

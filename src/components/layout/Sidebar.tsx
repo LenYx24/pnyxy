@@ -7,6 +7,7 @@ import {
   BookOpen,
   BookMarked,
   Flame,
+  Map,
   MessagesSquare,
   FileQuestion,
   BrainCircuit,
@@ -32,6 +33,7 @@ const baseNavItems = [
   { to: "/quizzes/review", icon: BrainCircuit, key: "review" as const },
   { to: "/vocabulary", icon: BookMarked, key: "vocabulary" as const },
   { to: "/streaks", icon: Flame, key: "streaks" as const },
+  { to: "/roadmaps", icon: Map, key: "roadmaps" as const },
   { to: "/forum", icon: MessagesSquare, key: "forum" as const },
   { to: "/settings", icon: Settings, key: "settings" as const },
 ];

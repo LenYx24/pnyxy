@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import i18n from "@/lib/i18n";
 import { BookOpen, FilePlus, Loader2, X } from "lucide-react";
@@ -11,6 +11,9 @@ import {
 } from "dockview";
 import { ReaderSidebarContent } from "./ReaderSidebar";
 import { ReaderToolbar } from "./ReaderToolbar";
+import { DocumentTabs } from "./DocumentTabs";
+import { LibraryPickerModal } from "./LibraryPickerModal";
+import { MobileReaderBottomBar } from "./MobileReaderBottomBar";
 import { PdfViewer } from "./PdfViewer";
 import { TextViewer } from "./TextViewer";
 import { EpubViewer } from "./EpubViewer";
@@ -53,26 +56,6 @@ function TocPanel(props: IDockviewPanelProps) {
   const handleOpenFile = useCallback(() => {
     triggerFilePicker();
   }, [triggerFilePicker]);
-
-  // Focus whichever viewer panel is present: the multi-doc viewer
-  // ("viewer-<docId>"), the single default viewer ("pdfViewer"), or
-  // the whiteboard-over-PDF canvas ("pdfCanvasWhiteboard"). Useful
-  // for jumping back to the book from a note or whiteboard tab.
-  const handleOpenBook = useCallback(() => {
-    const activeDocId = useReaderStore.getState().activeDocumentId;
-    const candidates = [
-      activeDocId ? `viewer-${activeDocId}` : null,
-      "pdfViewer",
-      "pdfCanvasWhiteboard",
-    ].filter((id): id is string => id !== null);
-    for (const id of candidates) {
-      const panel = dockviewApi.getPanel(id);
-      if (panel) {
-        panel.api.setActive();
-        return;
-      }
-    }
-  }, [dockviewApi]);
 
   const handleOpenNote = useCallback(
     (noteId: string) => {
@@ -168,7 +151,6 @@ function TocPanel(props: IDockviewPanelProps) {
     <>
       <ReaderSidebarContent
         onOpenFile={handleOpenFile}
-        onOpenBook={handleOpenBook}
         onOpenNote={handleOpenNote}
         onCreateNote={handleCreateNote}
         onOpenWhiteboard={handleOpenWhiteboard}
@@ -257,6 +239,7 @@ function MobileReaderLayout({
   onToggleZenMode,
 }: MobileReaderLayoutProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const mobileReaderPanel = useUIStore((s) => s.mobileReaderPanel);
   const setMobileReaderPanel = useUIStore((s) => s.setMobileReaderPanel);
 
@@ -273,6 +256,33 @@ function MobileReaderLayout({
   const handleToggleAiChat = useCallback(() => {
     setMobileReaderPanel(mobileReaderPanel === "aiChat" ? "none" : "aiChat");
   }, [mobileReaderPanel, setMobileReaderPanel]);
+
+  // On mobile we don't have Dockview, so a whiteboard opens as a full
+  // page via the standalone /whiteboards/:id route. Closing the panel
+  // first prevents the slide-over from being stuck open after navigate.
+  const handleCreateWhiteboard = useCallback(() => {
+    const id = useWhiteboardStore.getState().createWhiteboard();
+    setMobileReaderPanel("none");
+    navigate(`/whiteboards/${id}`);
+  }, [navigate, setMobileReaderPanel]);
+
+  const handleOpenWhiteboard = useCallback(
+    (whiteboardId: string) => {
+      setMobileReaderPanel("none");
+      navigate(`/whiteboards/${whiteboardId}`);
+    },
+    [navigate, setMobileReaderPanel],
+  );
+
+  const handleOpenContents = useCallback(() => {
+    setMobileReaderPanel(mobileReaderPanel === "toc" ? "none" : "toc");
+  }, [mobileReaderPanel, setMobileReaderPanel]);
+
+  const handleBookmark = useCallback(() => {
+    const doc = useReaderStore.getState().getActiveDoc();
+    if (!doc) return;
+    useBookmarkStore.getState().addBookmark(doc.currentPage);
+  }, []);
 
   // Close panels with ESC. On mobile this matters for iPad/Android
   // users with an external keyboard; on phone it's cheap insurance.
@@ -407,6 +417,16 @@ function MobileReaderLayout({
         <SearchOverlay />
       </div>
 
+      <MobileReaderBottomBar
+        visible={chromeVisible}
+        activePanel={mobileReaderPanel}
+        onOpenContents={handleOpenContents}
+        onToggleSearch={handleToggleSearch}
+        onBookmark={handleBookmark}
+        onToggleComments={handleToggleComments}
+        onToggleAiChat={handleToggleAiChat}
+      />
+
       {/* Backdrop for overlay panels — covers the full viewport
           (including the safe-inset strip at the top) so taps anywhere
           outside the panel dismiss it. */}
@@ -453,11 +473,10 @@ function MobileReaderLayout({
             <div className="flex-1 overflow-y-auto">
               <ReaderSidebarContent
                 onOpenFile={() => {}}
-                onOpenBook={() => setMobileReaderPanel("none")}
                 onOpenNote={() => {}}
                 onCreateNote={() => {}}
-                onOpenWhiteboard={() => {}}
-                onCreateWhiteboard={() => {}}
+                onOpenWhiteboard={handleOpenWhiteboard}
+                onCreateWhiteboard={handleCreateWhiteboard}
               />
             </div>
           </>
@@ -578,6 +597,8 @@ export function ReaderPage() {
   const zenMode = useUIStore((s) => s.zenMode);
   const setZenMode = useUIStore((s) => s.setZenMode);
   const toggleZenMode = useUIStore((s) => s.toggleZenMode);
+  const libraryPickerOpen = useUIStore((s) => s.libraryPickerOpen);
+  const setLibraryPickerOpen = useUIStore((s) => s.setLibraryPickerOpen);
 
   const hasDocuments = documents.size > 0;
 
@@ -690,6 +711,26 @@ export function ReaderPage() {
     handler: useCallback(() => setZoomMode("fit-width"), [setZoomMode]),
   });
 
+  // Ctrl/Cmd + mouse-wheel zooms the PDF instead of the whole page.
+  // Document-level listener with passive: false so we can
+  // preventDefault and stop the browser's native page-zoom. Scoped
+  // by hit-testing the event target — only triggers when the wheel
+  // event happened over the active viewer, otherwise normal page
+  // zoom is preserved (e.g., on the sidebar or a Dockview header).
+  useEffect(() => {
+    const onWheel = (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const target = e.target as HTMLElement | null;
+      if (!target?.closest("[data-active-viewer], [data-pdf-viewer]")) return;
+      e.preventDefault();
+      const store = useReaderStore.getState();
+      if (e.deltaY < 0) store.zoomIn();
+      else store.zoomOut();
+    };
+    document.addEventListener("wheel", onWheel, { passive: false });
+    return () => document.removeEventListener("wheel", onWheel);
+  }, []);
+
   const prevPageHandler = useCallback(() => {
     const activeDoc = useReaderStore.getState().getActiveDoc();
     if (activeDoc && activeDoc.currentPage > 1) goToPage(activeDoc.currentPage - 1);
@@ -732,29 +773,31 @@ export function ReaderPage() {
     preventDefault: false,
   });
 
+  const toggleSidebar = useCallback(() => {
+    const api = dockviewApiRef.current;
+    if (!api) return;
+    const tocPanel = api.getPanel("toc");
+    if (tocPanel) {
+      api.removePanel(tocPanel);
+    } else {
+      api.addPanel({
+        id: "toc",
+        component: "toc",
+        title: i18n.t("reader.page.panelToc"),
+        position: { direction: "left" },
+        initialWidth: tocWidthRef.current,
+        minimumWidth: 180,
+        maximumWidth: 400,
+      });
+    }
+  }, []);
+
   useKeyboardShortcut({
     id: "reader:toggle-toc",
     key: "\\",
     ctrl: true,
     description: "Toggle table of contents",
-    handler: useCallback(() => {
-      const api = dockviewApiRef.current;
-      if (!api) return;
-      const tocPanel = api.getPanel("toc");
-      if (tocPanel) {
-        api.removePanel(tocPanel);
-      } else {
-        api.addPanel({
-          id: "toc",
-          component: "toc",
-          title: i18n.t("reader.page.panelToc"),
-          position: { direction: "left" },
-          initialWidth: tocWidthRef.current,
-          minimumWidth: 180,
-          maximumWidth: 400,
-        });
-      }
-    }, []),
+    handler: toggleSidebar,
   });
 
   useKeyboardShortcut({
@@ -896,10 +939,27 @@ export function ReaderPage() {
   const [rectScreenshotActive, setRectScreenshotActive] = useState(false);
 
   const saveCanvas = useCallback((canvas: HTMLCanvasElement) => {
+    // Trigger the file download as before…
     const link = document.createElement("a");
     link.download = `screenshot-${Date.now()}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
+    // …and also push the bitmap onto the clipboard so the user can
+    // immediately paste into chat / notes / Slack without juggling
+    // the saved file. ClipboardItem requires a Promise<Blob>, so we
+    // pass the toBlob callback inside one. Fail silently — clipboard
+    // permission may be denied (Safari < 13, http origins, focus
+    // missing) and that's OK: the file still downloaded.
+    try {
+      canvas.toBlob((blob) => {
+        if (!blob || !navigator.clipboard?.write) return;
+        navigator.clipboard
+          .write([new ClipboardItem({ "image/png": blob })])
+          .catch(() => {});
+      }, "image/png");
+    } catch {
+      // ClipboardItem missing or blocked — nothing else to do.
+    }
   }, []);
 
   const handleScreenshot = useCallback(async () => {
@@ -1283,7 +1343,9 @@ export function ReaderPage() {
               onToggleSearch={toggleSearch}
               onToggleAiChat={toggleAiChat}
               onToggleZenMode={toggleZenMode}
+              onToggleSidebar={toggleSidebar}
             />
+            <DocumentTabs />
             <div className="relative flex-1 overflow-hidden">
               <DockviewReact
                 className="pnyxy-dockview-theme h-full w-full"
@@ -1308,6 +1370,11 @@ export function ReaderPage() {
         <ScreenshotRectSelector
           onCapture={handleRectScreenshotCapture}
           onCancel={() => setRectScreenshotActive(false)}
+        />
+      )}
+      {libraryPickerOpen && (
+        <LibraryPickerModal
+          onClose={() => setLibraryPickerOpen(false)}
         />
       )}
       <FocusSessionBadge />

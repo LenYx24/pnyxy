@@ -1,21 +1,21 @@
 import { useTranslation } from "react-i18next";
 import {
   BookOpen,
-  Video,
   PenTool,
   Sparkles,
   Flame,
   Users,
+  Puzzle,
 } from "lucide-react";
-import { GlassCard } from "@/components/ui";
+import { GlassCard, Reveal } from "@/components/ui";
 
 const features = [
   { icon: BookOpen, key: "smartReading" as const },
-  { icon: Video, key: "video" as const },
   { icon: PenTool, key: "studyTools" as const },
   { icon: Sparkles, key: "aiAssistant" as const },
   { icon: Flame, key: "streaks" as const },
   { icon: Users, key: "community" as const },
+  { icon: Puzzle, key: "plugins" as const },
 ];
 
 export function FeaturesSection() {
@@ -30,18 +30,20 @@ export function FeaturesSection() {
       </p>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {features.map(({ icon: Icon, key }) => (
-          <GlassCard key={key} className="p-6">
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-accent-purple/15">
-              <Icon size={20} className="text-accent-purple" />
-            </div>
-            <h3 className="mb-2 text-lg font-semibold text-text-primary">
-              {t(`landing.features.${key}.title`)}
-            </h3>
-            <p className="text-sm leading-relaxed text-text-secondary">
-              {t(`landing.features.${key}.description`)}
-            </p>
-          </GlassCard>
+        {features.map(({ icon: Icon, key }, i) => (
+          <Reveal key={key} delay={i * 80}>
+            <GlassCard className="p-6">
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-accent-purple/15">
+                <Icon size={20} className="text-accent-purple" />
+              </div>
+              <h3 className="mb-2 text-lg font-semibold text-text-primary">
+                {t(`landing.features.${key}.title`)}
+              </h3>
+              <p className="text-sm leading-relaxed text-text-secondary">
+                {t(`landing.features.${key}.description`)}
+              </p>
+            </GlassCard>
+          </Reveal>
         ))}
       </div>
     </section>

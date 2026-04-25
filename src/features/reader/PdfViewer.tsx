@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -19,6 +20,74 @@ import { AnnotationContextMenu } from "./AnnotationContextMenu";
 import { CommentPopover } from "./CommentPopover";
 import { Loader2 } from "lucide-react";
 
+type ZoomMode = "fit-width" | "fit-page" | "custom";
+
+interface PageSlotProps {
+  pageNum: number;
+  offsetTop: number;
+  pageHeight: number;
+  effectivePageWidth: number;
+  zoomMode: ZoomMode;
+  zoomLevel: number;
+  containerWidth: number;
+  containerHeight: number;
+  onRenderSuccess: (pageNum: number) => void;
+}
+
+// Renders one virtualized page + its overlay layers. Memoized so a scroll-
+// driven parent re-render doesn't redraw every visible page; only pages
+// whose primitive props actually change re-render.
+const PageSlot = memo(function PageSlot({
+  pageNum,
+  offsetTop,
+  pageHeight,
+  effectivePageWidth,
+  zoomMode,
+  zoomLevel,
+  containerWidth,
+  containerHeight,
+  onRenderSuccess,
+}: PageSlotProps) {
+  const pageProps =
+    zoomMode === "fit-width"
+      ? { width: containerWidth > 0 ? containerWidth - 48 : undefined }
+      : zoomMode === "fit-page"
+        ? { height: containerHeight > 0 ? containerHeight - 24 : undefined }
+        : { scale: zoomLevel / 100 };
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: offsetTop,
+        left: 0,
+        width: "100%",
+        display: "flex",
+        justifyContent: "center",
+      }}
+    >
+      <div style={{ position: "relative" }}>
+        <Page
+          pageNumber={pageNum}
+          {...pageProps}
+          loading={
+            <div
+              className="flex items-center justify-center gap-2 text-text-secondary"
+              style={{ height: pageHeight, width: effectivePageWidth }}
+            >
+              <Loader2 size={16} className="animate-spin" />
+            </div>
+          }
+          onRenderSuccess={() => onRenderSuccess(pageNum)}
+        />
+        <HighlightLayer pageNum={pageNum} />
+        <SearchHighlightLayer pageNum={pageNum} />
+        <CommentMarkers pageNum={pageNum} />
+      </div>
+    </div>
+  );
+});
+
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf-assets/pdf.worker.min.mjs";
 
 const PAGE_GAP = 12;
@@ -26,6 +95,19 @@ const A4_RATIO = 1.4142; // height/width for A4
 
 function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+}
+
+// First index `i` in a sorted ascending array where arr[i] > target.
+// Returns arr.length if no such element exists.
+function upperBound(arr: number[], target: number): number {
+  let lo = 0;
+  let hi = arr.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (arr[mid] <= target) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
 }
 
 function smoothScrollTo(
@@ -125,19 +207,6 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     }
   }, [zoomMode, zoomLevel, containerWidth, containerHeight]);
 
-  const getPageProps = useCallback(() => {
-    switch (zoomMode) {
-      case "fit-width":
-        return { width: containerWidth > 0 ? containerWidth - 48 : undefined };
-      case "fit-page":
-        return {
-          height: containerHeight > 0 ? containerHeight - 24 : undefined,
-        };
-      case "custom":
-        return { scale: zoomLevel / 100 };
-    }
-  }, [zoomMode, zoomLevel, containerWidth, containerHeight]);
-
   // Estimate page height from cached dimensions or A4 ratio
   const getPageHeight = useCallback(
     (pageNum: number): number => {
@@ -180,13 +249,23 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     const viewportTop = scrollTop - containerHeight; // overscan = 1 viewport
     const viewportBottom = scrollTop + containerHeight * 2;
 
+    // Binary search for the first page that could overlap the viewport.
+    // pageOffsets is sorted ascending; first page with top > viewportTop
+    // is the upper bound, so the candidate first visible page is one before.
+    const ub = upperBound(pageOffsets, viewportTop);
+    let startIdx = Math.max(0, ub - 1);
+    // The page just before may not actually overlap (if its bottom < viewportTop).
+    if (
+      startIdx < pageOffsets.length - 1 &&
+      pageOffsets[startIdx] + getPageHeight(startIdx + 1) < viewportTop
+    ) {
+      startIdx += 1;
+    }
+
     const pages: number[] = [];
-    for (let i = 0; i < totalPages; i++) {
-      const pageTop = pageOffsets[i];
-      const pageBottom = pageTop + getPageHeight(i + 1);
-      if (pageBottom >= viewportTop && pageTop <= viewportBottom) {
-        pages.push(i + 1);
-      }
+    for (let i = startIdx; i < totalPages; i++) {
+      if (pageOffsets[i] > viewportBottom) break;
+      pages.push(i + 1);
     }
     return pages;
   }, [scrollTop, containerHeight, totalPages, pageOffsets, getPageHeight]);
@@ -204,18 +283,26 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       // Skip page detection during programmatic scrolls to avoid feedback loops
       if (programmaticScrollRef.current) return;
 
-      // Find page whose center is closest to viewport center
+      // Find page whose center is closest to viewport center.
+      // Binary-search the page that contains the viewport center, then
+      // also check its neighbour above for the actual closest center.
       if (pageOffsets.length === 0) return;
       const viewportCenter = st + containerHeight / 2;
-      let closestPage = 1;
-      let closestDist = Infinity;
+      const ub = upperBound(pageOffsets, viewportCenter);
+      const containingIdx = Math.max(0, ub - 1);
+      const candidates =
+        containingIdx + 1 < pageOffsets.length
+          ? [containingIdx, containingIdx + 1]
+          : [containingIdx];
 
-      for (let i = 0; i < pageOffsets.length; i++) {
-        const pageCenter = pageOffsets[i] + getPageHeight(i + 1) / 2;
+      let closestPage = candidates[0] + 1;
+      let closestDist = Infinity;
+      for (const idx of candidates) {
+        const pageCenter = pageOffsets[idx] + getPageHeight(idx + 1) / 2;
         const dist = Math.abs(pageCenter - viewportCenter);
         if (dist < closestDist) {
           closestDist = dist;
-          closestPage = i + 1;
+          closestPage = idx + 1;
         }
       }
 
@@ -270,17 +357,14 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   useEffect(() => {
     if (pageOffsets.length === 0 || containerHeight === 0) return;
     const viewportCenter = scrollTop + containerHeight / 2;
-    for (let i = 0; i < pageOffsets.length; i++) {
-      const pageTop = pageOffsets[i];
-      const pageHeight = getPageHeight(i + 1);
-      const pageBottom = pageTop + pageHeight;
-      if (viewportCenter >= pageTop && viewportCenter <= pageBottom) {
-        anchorRef.current = {
-          page: i + 1,
-          fraction: (viewportCenter - pageTop) / pageHeight,
-        };
-        break;
-      }
+    const idx = Math.max(0, upperBound(pageOffsets, viewportCenter) - 1);
+    const pageTop = pageOffsets[idx];
+    const pageHeight = getPageHeight(idx + 1);
+    if (viewportCenter >= pageTop && viewportCenter <= pageTop + pageHeight) {
+      anchorRef.current = {
+        page: idx + 1,
+        fraction: (viewportCenter - pageTop) / pageHeight,
+      };
     }
   }, [scrollTop, pageOffsets, getPageHeight, containerHeight]);
 
@@ -362,39 +446,18 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
           }}
         >
           {visiblePages.map((pageNum) => (
-            <div
+            <PageSlot
               key={pageNum}
-              style={{
-                position: "absolute",
-                top: pageOffsets[pageNum - 1],
-                left: 0,
-                width: "100%",
-                display: "flex",
-                justifyContent: "center",
-              }}
-            >
-              <div style={{ position: "relative" }}>
-                <Page
-                  pageNumber={pageNum}
-                  {...getPageProps()}
-                  loading={
-                    <div
-                      className="flex items-center justify-center gap-2 text-text-secondary"
-                      style={{
-                        height: getPageHeight(pageNum),
-                        width: effectivePageWidth,
-                      }}
-                    >
-                      <Loader2 size={16} className="animate-spin" />
-                    </div>
-                  }
-                  onRenderSuccess={() => handlePageRenderSuccess(pageNum)}
-                />
-                <HighlightLayer pageNum={pageNum} />
-                <SearchHighlightLayer pageNum={pageNum} />
-                <CommentMarkers pageNum={pageNum} />
-              </div>
-            </div>
+              pageNum={pageNum}
+              offsetTop={pageOffsets[pageNum - 1]}
+              pageHeight={getPageHeight(pageNum)}
+              effectivePageWidth={effectivePageWidth}
+              zoomMode={zoomMode}
+              zoomLevel={zoomLevel}
+              containerWidth={containerWidth}
+              containerHeight={containerHeight}
+              onRenderSuccess={handlePageRenderSuccess}
+            />
           ))}
         </div>
       </Document>

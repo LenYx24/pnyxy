@@ -19,6 +19,9 @@ interface UIState {
    *  back — ReadEra / Apple Books pattern. Session-only; not
    *  persisted (always resets to visible on a fresh open). */
   mobileChromeHidden: boolean;
+  /** Reader's "open from library" picker modal. */
+  libraryPickerOpen: boolean;
+  setLibraryPickerOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   toggleReaderSidebar: () => void;
   setLoading: (loading: boolean, message?: string) => void;
@@ -39,6 +42,8 @@ export const useUIStore = create<UIState>((set) => ({
   mobileReaderPanel: "none",
   zenMode: false,
   mobileChromeHidden: false,
+  libraryPickerOpen: false,
+  setLibraryPickerOpen: (open) => set({ libraryPickerOpen: open }),
   toggleSidebar: () =>
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   toggleReaderSidebar: () =>

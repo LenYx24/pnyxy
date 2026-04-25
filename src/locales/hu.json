@@ -19,7 +19,7 @@
   },
   "sidebar": {
     "home": "Kezdőlap",
-    "browse": "Felfedezés",
+    "browse": "Katalógus",
     "chat": "Csevegés",
     "library": "Könyvtár",
     "reader": "Olvasó",
@@ -27,6 +27,7 @@
     "review": "Ismétlés",
     "vocabulary": "Szótár",
     "streaks": "Sorozatok",
+    "roadmaps": "Útvonalak",
     "forum": "Fórum",
     "settings": "Beállítások",
     "admin": "Admin",
@@ -199,19 +200,19 @@
     "goToLibrary": "Irány a Könyvtár",
     "signIn": "Bejelentkezés",
     "download": "Letöltés",
-    "tagline": "Intelligens olvasótársad",
-    "subtitle": "A Pnyxy egy AI-val támogatott olvasó- és tanulóplatform, amelyen a felhasználók könyvek, kvízek és közösségi beszélgetések segítségével mélyíthetik el a tudásukat.",
+    "tagline": "Az okos olvasótársad",
+    "subtitle": "A Pnyxy egy AI-támogatású olvasó- és tanulóplatform, ahol könyvekkel, kvízekkel és közösségi beszélgetésekkel fejlesztheted a tudásodat.",
     "getStarted": "Kezdjük el",
     "learnMore": "Tudj meg többet",
     "continueNoAccount": "Tovább fiók nélkül →",
     "featuresTitle": "Minden, ami az okosabb olvasáshoz kell",
-    "featuresSubtitle": "Eszközök, amiket tényleg úgy tervezünk, ahogy az emberek a könyvekből tanulnak.",
+    "featuresSubtitle": "Eszközök, amelyeket arra terveztünk, ahogyan az emberek tényleg tanulnak a könyvekből.",
     "openSource": {
       "title": "Nyílt és bővíthető",
       "subtitle": "A Pnyxy MIT licenc alatt érhető el, és úgy épül fel, hogy a felhasználóival együtt nőjön. Forkold, csillagozd, vagy telepíts közösségi témákat és pluginokat.",
       "repo": {
         "title": "Támogasd GitHubon",
-        "description": "A Pnyxy fő repositoryja — csillagozd, jelezz hibát, nyiss PR-t, vagy indíts saját példányt."
+        "description": "A Pnyxy fő repója. Csillagozd, jelezz hibát, nyiss PR-t, vagy indíts saját példányt."
       },
       "community": {
         "title": "Közösségi témák és pluginok",
@@ -220,7 +221,7 @@
     },
     "pricing": {
       "title": "Csomagok és árak",
-      "subtitle": "Most ingyenes, és nagyvonalú is marad. A Premium a roadmapen van azoknak, akik több helyet és AI-t szeretnének.",
+      "subtitle": "Most ingyenes, és az is marad. A Premium azoknak készül, akiknek több tárhely vagy több AI kell.",
       "free": {
         "name": "Ingyenes",
         "price": "0 Ft",
@@ -228,12 +229,13 @@
         "tagline": "Minden alapfunkció, a legtöbbhöz még fiók sem kell.",
         "features": [
           "Teljes PDF- és EPUB-olvasó jelölésekkel, jegyzetekkel, táblákkal",
-          "Közkincs könyvek nyilvános katalógusa",
-          "AI chat a nyitott oldalhoz — napi kvótával",
+          "Szabadon elérhető klasszikusok nyilvános katalógusa",
+          "AI chat a nyitott oldalhoz (napi kvótával)",
           "Szótár / tanulókártyák FSRS ütemezéssel",
           "Közösségi fórum, értékelések, megbeszélések",
+          "Eszközök közötti szinkron szótárhoz, táblákhoz, értékelésekhez, könyvtárhoz",
           "Mobil + asztali + web (PWA)",
-          "Az egész stack önhosztolható — nyílt forráskódú"
+          "Az egész stack önhosztolható, nyílt forráskódú"
         ]
       },
       "premium": {
@@ -245,9 +247,8 @@
         "features": [
           "Nagyobb napi AI kvóta + hozzáférés erősebb modellekhez",
           "Több felhőalapú tárhely a saját könyvekhez",
-          "OCR beszkennelt tankönyvekhez — kereshető, AI által olvasható",
+          "OCR beszkennelt tankönyvekhez: kereshető, AI által olvasható",
           "X-Ray: szereplő- és fogalomindex a saját feltöltésekhez",
-          "Eszközök közötti szinkron a szótárhoz, táblákhoz, jelölésekhez",
           "Prioritásos támogatás és korai hozzáférés az új funkciókhoz"
         ]
       },
@@ -259,15 +260,15 @@
       "items": {
         "isItFree": {
           "q": "Ingyenes a Pnyxy?",
-          "a": "Igen — az összes alapfunkció jelenleg ingyenes: olvasás, jelölések, jegyzetek, táblák, AI chat (napi kvótával), tanulókártyák, fórum és a közösségi katalógus. Egy fizetős Premium csomagot tervezünk azoknak, akiknek nagyobb AI kvóta, több tárhely, OCR és X-Ray kell. Ami ma ingyenes, az ingyenes marad."
+          "a": "Igen, az összes alapfunkció jelenleg ingyenes: olvasás, jelölések, jegyzetek, táblák, AI chat (napi kvótával), tanulókártyák, fórum és a közösségi katalógus. Egy fizetős Premium csomagot tervezünk azoknak, akiknek nagyobb AI kvóta, több tárhely, OCR vagy X-Ray kell. Ami ma ingyenes, az ingyenes marad."
         },
         "copyright": {
           "q": "Bármilyen könyvet olvashatok?",
-          "a": "A beépített katalógus csak közkincs könyveket oszt meg (Project Gutenberg, Standard Ebooks, MEK). A saját tulajdonú, szerzői jogvédett könyvekhez (papír, megvett PDF) vagy feltöltheted privátan, vagy létrehozhatsz egy csak metaadat-alapú \"shell\" bejegyzést, és használhatod a jegyzetelés/közösségi funkciókat anélkül, hogy bármit feltöltenél. Szerzői jogvédett anyagot nem tárolunk."
+          "a": "A beépített katalógus csak szabadon elérhető műveket oszt meg (Project Gutenberg, Standard Ebooks, MEK). Saját, szerzői jogvédett könyveidet (papírból szkennelve vagy megvett PDF) vagy feltöltheted privátan, vagy létrehozhatsz egy csak metaadat-alapú „héj” bejegyzést, és használhatod a jegyzetelést és a közösségi funkciókat anélkül, hogy bármit feltöltenél. Szerzői jogvédett anyagot nem tárolunk."
         },
         "privacy": {
           "q": "Ki látja a jegyzeteimet és kijelöléseimet?",
-          "a": "Csak te. A jegyzetek, jelölések, könyvjelzők és táblák helyben tárolódnak, és ha be vagy jelentkezve, a saját Supabase sorodba szinkronizálódnak — row-level security védi. Másnak semmi nem látható, amit nem posztolsz tudatosan a fórumra."
+          "a": "Csak te. A jegyzetek, jelölések, könyvjelzők és táblák helyben tárolódnak, és ha be vagy jelentkezve, a saját Supabase fiókodba szinkronizálódnak, sor-szintű hozzáférés-védelemmel. Másnak semmi nem látható, amit te magad nem teszel közzé a fórumon."
         },
         "ai": {
           "q": "Tanul az AI a könyveimen vagy jegyzeteimen?",
@@ -275,7 +276,7 @@
         },
         "offline": {
           "q": "Működik offline?",
-          "a": "Nagyrészt. Amint megnyitottál egy könyvet, helyi cache-ben van — olvashatsz, jelölhetsz, jegyzetelhetsz internet nélkül. AI chat, fórum és katalóguskeresés viszont kapcsolatot igényel. A teljes offline mód (később szinkron) a roadmapen van."
+          "a": "Nagyrészt. Amint megnyitottál egy könyvet, az helyben tárolódik, így internet nélkül is olvashatsz, jelölhetsz és jegyzetelhetsz. Az AI chat, a fórum és a katalóguskeresés viszont kapcsolatot igényel. A teljes offline mód (későbbi szinkronnal) a tervek között van."
         },
         "formats": {
           "q": "Milyen fájlformátumok támogatottak?",
@@ -287,18 +288,14 @@
         },
         "selfHost": {
           "q": "Tudom saját szerveren futtatni?",
-          "a": "Igen — a README tartalmaz teljes telepítési útmutatót. Kell egy Supabase projekt (ingyenes is elég), egy Cloudflare Workers fiók a web hosthoz, és API kulcsok a Pnyxy AI proxyhoz. Az asztali és mobil buildek Tauri-ra épülnek, nem igényelnek backendet."
+          "a": "Igen, a README tartalmaz teljes telepítési útmutatót. Kell egy Supabase projekt (az ingyenes csomag is elég), egy Cloudflare Workers fiók a webes hosztoláshoz, és API kulcsok, ha a Pnyxy AI proxyt szeretnéd használni. Az asztali és mobil verziók Tauri-ra épülnek, nincs szükségük backendre."
         }
       }
     },
     "features": {
       "smartReading": {
         "title": "Okos olvasó",
-        "description": "EPUB és PDF zavartalan, testreszabható olvasásra tervezve — a mély fókuszhoz."
-      },
-      "video": {
-        "title": "Videó integráció",
-        "description": "YouTube-előadásokat és magyarázóvideókat köss össze a könyv fejezeteivel."
+        "description": "EPUB- és PDF-olvasás zavaró elemek nélkül, testreszabhatóan, a mély összpontosításhoz."
       },
       "studyTools": {
         "title": "Tanulóeszközök",
@@ -306,7 +303,7 @@
       },
       "aiAssistant": {
         "title": "AI asszisztens",
-        "description": "Magyarázatok, összefoglalók és válaszok a könyvekről — AI-vel."
+        "description": "AI segítségével magyarázatokat, összefoglalókat és válaszokat kapsz a könyveidről."
       },
       "streaks": {
         "title": "Sorozatok és célok",
@@ -315,14 +312,20 @@
       "community": {
         "title": "Közösség",
         "description": "Oszd meg a kiemeléseket, beszéld át a könyveket és tanulj másokkal együtt."
+      },
+      "plugins": {
+        "title": "Saját bővítmények",
+        "description": "A fejlesztők saját bővítményekkel egészíthetik ki a Pnyxy-t. Ezek homokozóban futnak, és a közösségi registry-n keresztül megoszthatók."
       }
     }
   },
   "browse": {
-    "title": "Felfedezés",
+    "title": "Katalógus",
     "subtitle": "Fedezz fel könyveket a közösségi katalógusban",
     "addBook": "Könyv hozzáadása",
     "addBookShort": "Új",
+    "import": "Importálás",
+    "importShort": "Import",
     "searchPlaceholder": "Keresés cím szerint…",
     "all": "Összes",
     "category": "Kategória",
@@ -342,6 +345,41 @@
   },
   "whiteboard": {
     "notFound": "A tábla nem található."
+  },
+  "catalogImport": {
+    "title": "Könyvek importálása",
+    "subtitle": "Keress a nyilvános katalógusokban, és emelj át metaadatokat (és fájlokat, ha van) a Pnyxybe.",
+    "searchIn": "Forrás",
+    "searchPlaceholder": "Cím, szerző, ISBN szerint…",
+    "emptyQuery": "Írj be egy keresést a fenti mezőbe.",
+    "noResults": "Nincs találat a kiválasztott forrásokban.",
+    "add": "Hozzáad",
+    "added": "Hozzáadva",
+    "hasFile": "Olvasható fájl",
+    "metadataOnly": "Csak metaadat",
+    "metadataOnlyTooltip": "Nincs fájl — a jegyzetek és fórum így is működnek",
+    "sources": {
+      "openLibrary": {
+        "name": "Open Library",
+        "hint": "A legszélesebb katalógus. Csak metaadat (fájl nélkül)."
+      },
+      "gutenberg": {
+        "name": "Project Gutenberg",
+        "hint": "Szabadon elérhető klasszikusok letölthető EPUB / PDF fájllal."
+      },
+      "standardEbooks": {
+        "name": "Standard Ebooks",
+        "hint": "Angol nyelvű gondozott klasszikusok."
+      },
+      "mek": {
+        "name": "MEK",
+        "hint": "Magyar közkincs könyvtár."
+      }
+    },
+    "disabled": {
+      "patron_auth_required": "Standard Ebooks Patrons Circle szükséges — állítsd be az SE_EMAIL-t.",
+      "endpoint_unknown": "A nyilvános OAI-PMH URL nem ismert — kérdezd meg a MEK-et."
+    }
   },
   "home": {
     "title": "Kezdőlap",
@@ -637,6 +675,57 @@
     "minGoal": "{{minutes}} perces cél",
     "historyHint": "A kitöltött négyzetek olyan napok, amikor teljesítetted az 5 perces olvasási célt."
   },
+  "roadmaps": {
+    "title": "Útvonalak",
+    "tagline": "Tervezz tanulási útvonalat, iratkozz be, és pipáld ki a lépéseket sorra.",
+    "new": "Új útvonal",
+    "createAndEdit": "Létrehozás és szerkesztés",
+    "untitled": "Névtelen útvonal",
+    "titleLabel": "Cím",
+    "titlePlaceholder": "pl. Magyar irodalom 11. osztály",
+    "enrolledHeading": "Folyamatban",
+    "completedHeading": "Befejezett ({{count}})",
+    "yoursHeading": "Saját útvonalaid",
+    "empty": "Még nincs útvonal — hozz létre egyet, hogy elkezdj egy tanulási tervet.",
+    "emptyDetail": "Ez az útvonal üres. Adj hozzá tanulási lépéseket a kezdéshez.",
+    "editorEmpty": "Üres vászon. Adj hozzá egy lépést a kezdéshez.",
+    "addNode": "Lépés hozzáadása",
+    "addFirstNode": "Első lépés hozzáadása",
+    "deleteNode": "Lépés törlése",
+    "nodeTitle": "Cím",
+    "nodeDescription": "Leírás",
+    "nodeMinutes": "Becsült perc",
+    "nodeCount_one": "{{count}} lépés",
+    "nodeCount_other": "{{count}} lépés",
+    "selectNodeHint": "Válassz ki egy csomópontot a szerkesztéshez.",
+    "connectHint": "Húzd az egyik csomópont aljáról a másik tetejére az összekötéshez.",
+    "descriptionLabel": "Leírás",
+    "descriptionPlaceholder": "Miről szól ez az útvonal?",
+    "preview": "Előnézet",
+    "startBuilding": "Építés indítása",
+    "startLearning": "Tanulás indítása",
+    "unenroll": "Kiiratkozás",
+    "unenrollConfirm": "Megszünteted az útvonal követését? A haladásod elveszik.",
+    "deleteConfirm": "Biztosan törlöd ezt az útvonalat? Nem visszavonható.",
+    "complete": "Kész",
+    "percentComplete": "{{pct}}% kész",
+    "markComplete": "Kész",
+    "markIncomplete": "Mégse kész",
+    "scheduledFor": "Tervezett dátum",
+    "resetSchedule": "Visszaállítás automatikusra",
+    "notFound": "Nincs ilyen útvonal.",
+    "backToList": "Vissza az útvonalakhoz",
+    "enroll": {
+      "title": "Tanulás indítása",
+      "subtitle": "Add meg, milyen tempóban haladsz, és kiszámoljuk a várható befejezési dátumot.",
+      "weekdayHours": "Óra hétköznap",
+      "weekendHours": "Óra hétvégén",
+      "workOnWeekends": "Hétvégén is tanulok",
+      "totalEstimate": "Teljes becslés: {{total}}",
+      "finishBy": "Várható befejezés: {{date}}",
+      "confirm": "Beiratkozás"
+    }
+  },
   "chat": {
     "title": "Csevegés",
     "untitled": "Névtelen beszélgetés",
@@ -799,6 +888,10 @@
       "categories": "Kategóriák",
       "uploadedFile": "Ez egy feltöltött fájl.",
       "uploadedHint": "Jelenleg csak az alap metaadatokat nyerjük ki. AI-vezérelt gazdagítás (összefoglaló, automatikus kategorizálás, borító felismerés) tervben van.",
+      "noFile": {
+        "title": "Nincs fájl csatolva",
+        "body": "Ez a könyv csak metaadat alapú, nincs mit megnyitni az olvasóban. Jegyzetelni, táblát rajzolni és a fórumon beszélgetni viszont továbbra is tudsz róla."
+      },
       "meta": {
         "publisher": "Kiadó",
         "published": "Megjelent",
@@ -879,10 +972,11 @@
   "reader": {
     "sidebar": {
       "readerHeading": "Olvasó",
-      "openAnotherPdf": "Másik PDF megnyitása",
+      "openAnotherPdf": "Másik fájl megnyitása",
       "openDocuments": "Nyitott dokumentumok",
-      "openBook": "Könyv megnyitása",
-      "openBookTitle": "Könyvnézet megnyitása",
+      "openAnother": "Fájl megnyitása…",
+      "openFromLibrary": "Könyvtárból megnyitás",
+      "openFromLibraryShort": "Könyvtárból",
       "outline": "Vázlat",
       "outlineTitle": "Vázlat nézet",
       "thumbnails": "Miniatűrök",
@@ -905,6 +999,25 @@
       "deleteWhiteboard": "Tábla törlése",
       "countSelected": "{{count}} kijelölve",
       "delete": "Törlés"
+    },
+    "tabs": {
+      "untitled": "Névtelen",
+      "close": "Fül bezárása"
+    },
+    "bottomBar": {
+      "contents": "Tartalom",
+      "search": "Keresés",
+      "bookmark": "Könyvjelző",
+      "comments": "Megjegyzések",
+      "ai": "AI"
+    },
+    "libraryPicker": {
+      "title": "Megnyitás könyvtárból",
+      "search": "Keresés a könyvtárban…",
+      "empty": "A könyvtárad üres. Először adj hozzá egy könyvet.",
+      "noMatches": "Nincs találat.",
+      "alreadyOpen": "Már nyitva",
+      "noFile": "Nincs fájl"
     },
     "page": {
       "panelNote": "Jegyzet",
@@ -955,6 +1068,7 @@
       "aiChatTitle": "AI chat (Ctrl+I)",
       "bookmarkPage": "Oldal könyvjelzése",
       "zenMode": "Zen mód",
+      "toggleSidebar": "Oldalsáv ki/be",
       "fullscreen": "Teljes képernyő",
       "exitFullscreen": "Kilépés a teljes képernyőből"
     },
@@ -979,6 +1093,7 @@
       "changeColor": "Szín módosítása",
       "removeHighlight": "Kiemelés eltávolítása",
       "translatePanelTitle": "Fordítás",
+      "translateTargetLabel": "Cél",
       "translating": "Fordítás…",
       "translateFailed": "A fordítás sikertelen",
       "translateConnectFailed": "Nem sikerült csatlakozni a fordító szolgáltatáshoz",

@@ -2,7 +2,28 @@ import { create } from "zustand";
 import type { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { containsProfanity } from "@/lib/profanity-filter";
+import { logError } from "@/lib/logger";
 import type { Profile, UserBan } from "@/types/database";
+
+/**
+ * Pull any per-user Supabase-backed state that lives in other
+ * stores. Called after we detect a signed-in session — lets
+ * returning users see their cloud-synced whiteboards / vocab / etc
+ * on a fresh device without having to navigate to each feature
+ * before it hydrates. Each call is fire-and-forget so one slow
+ * fetch doesn't block the others or the auth flow.
+ */
+async function hydrateSyncedStores() {
+  try {
+    // Dynamic import keeps this off the critical path; the
+    // whiteboard-store module pulls in IndexedDB + PDF rendering
+    // plumbing that's heavy at app boot.
+    const { useWhiteboardStore } = await import("./whiteboard-store");
+    useWhiteboardStore.getState().syncFromCloud();
+  } catch (err) {
+    logError("auth-store:hydrateSyncedStores", err);
+  }
+}
 
 const AVATAR_BUCKET = "avatars";
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
@@ -51,6 +72,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (session?.user) {
         get().fetchProfile();
         get().checkBanStatus();
+        hydrateSyncedStores();
       }
     });
 
@@ -61,6 +83,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (session?.user) {
         get().fetchProfile();
         get().checkBanStatus();
+        hydrateSyncedStores();
       } else {
         set({ profile: null, isBanned: false, banInfo: null });
       }

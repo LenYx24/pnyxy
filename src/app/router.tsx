@@ -4,6 +4,7 @@ import { RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { LandingPage } from "@/features/landing/LandingPage";
 import { HomePage } from "@/features/home/HomePage";
 import { BrowsePage } from "@/features/browse/BrowsePage";
+import { ImportCatalogPage } from "@/features/catalog-import/ImportCatalogPage";
 import { BookPage } from "@/features/book/BookPage";
 import { OverviewTab } from "@/features/book/tabs/OverviewTab";
 import { LearnHubTab } from "@/features/book/tabs/LearnHubTab";
@@ -38,6 +39,9 @@ import { ProfilePage } from "@/features/profile/ProfilePage";
 import { AdminPage } from "@/features/admin/AdminPage";
 import { StreaksPage } from "@/features/streaks/StreaksPage";
 import { LeaderboardsPage } from "@/features/streaks/LeaderboardsPage";
+import { RoadmapsPage } from "@/features/roadmaps/RoadmapsPage";
+import { RoadmapDetailPage } from "@/features/roadmaps/RoadmapDetailPage";
+import { RoadmapEditorPage } from "@/features/roadmaps/RoadmapEditorPage";
 import { ChatPage } from "@/features/chat/ChatPage";
 import { ForumPage } from "@/features/forum/ForumPage";
 import { CommunityPage } from "@/features/forum/CommunityPage";
@@ -100,6 +104,8 @@ export const router = createBrowserRouter([
         },
       },
       { path: "browse", element: <BrowsePage /> },
+      { path: "catalog", element: <BrowsePage /> },
+      { path: "catalog/import", element: <ImportCatalogPage /> },
       {
         path: "browse/:bookId",
         loader: ({ params }) => redirect(`/books/${params.bookId}`),
@@ -118,6 +124,9 @@ export const router = createBrowserRouter([
       },
       { path: "library", element: <LibraryPage /> },
       { path: "streaks", element: <StreaksPage /> },
+      { path: "roadmaps", element: <RoadmapsPage /> },
+      { path: "roadmaps/:roadmapId", element: <RoadmapDetailPage /> },
+      { path: "roadmaps/:roadmapId/edit", element: <RoadmapEditorPage /> },
       { path: "forum", element: <ForumPage /> },
       { path: "forum/c/:slug", element: <CommunityPage /> },
       { path: "forum/c/:slug/p/:postId", element: <PostPage /> },

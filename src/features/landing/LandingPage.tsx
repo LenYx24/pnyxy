@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { MeshBackground, Button } from "@/components/ui";
+import { MeshBackground, Button, Reveal } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/cn";
 import { Footer } from "@/components/layout/Footer";
@@ -77,10 +77,18 @@ export function LandingPage() {
       </header>
 
       <HeroSection />
-      <FeaturesSection />
-      <PricingSection />
-      <FaqSection />
-      <OpenSourceSection />
+      <Reveal>
+        <FeaturesSection />
+      </Reveal>
+      <Reveal>
+        <PricingSection />
+      </Reveal>
+      <Reveal>
+        <FaqSection />
+      </Reveal>
+      <Reveal>
+        <OpenSourceSection />
+      </Reveal>
       <Footer />
     </div>
   );

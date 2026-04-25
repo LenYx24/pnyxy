@@ -1,6 +1,8 @@
 export { Button } from "./Button";
 export { Checkbox } from "./Checkbox";
 export { GlassCard } from "./GlassCard";
+export { NumberInput } from "./NumberInput";
+export { Reveal } from "./Reveal";
 export { Kbd } from "./Kbd";
 export { MeshBackground } from "./MeshBackground";
 export { Toggle } from "./Toggle";

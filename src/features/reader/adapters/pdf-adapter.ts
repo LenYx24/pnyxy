@@ -100,28 +100,29 @@ export function createPdfAdapter(): DocumentAdapter {
 
     async search(query: string, opts: SearchOptions): Promise<SearchMatch[]> {
       if (!doc || !query) return [];
-      const regex = buildSearchRegex(query, opts);
-      if (!regex) return [];
+      const builtRegex = buildSearchRegex(query, opts);
+      if (!builtRegex) return [];
+      // Narrow into a non-null binding so inner closures don't lose it.
+      const regex = builtRegex;
 
       const currentDoc = doc;
-      const matches: SearchMatch[] = [];
-      let matchSeq = 0;
+      const numPages = currentDoc.numPages;
 
-      for (let pageNum = 1; pageNum <= currentDoc.numPages; pageNum++) {
+      type ItemRange = {
+        start: number;
+        end: number;
+        item: {
+          str: string;
+          width: number;
+          height: number;
+          transform: number[];
+        };
+      };
+
+      async function searchPage(pageNum: number): Promise<SearchMatch[]> {
         const page = await currentDoc.getPage(pageNum);
         const viewport = page.getViewport({ scale: 1 });
         const content = await page.getTextContent();
-
-        type ItemRange = {
-          start: number;
-          end: number;
-          item: {
-            str: string;
-            width: number;
-            height: number;
-            transform: number[];
-          };
-        };
 
         const ranges: ItemRange[] = [];
         let flat = "";
@@ -136,8 +137,10 @@ export function createPdfAdapter(): DocumentAdapter {
           flat += " ";
         }
 
+        const out: SearchMatch[] = [];
         // matchAll needs a fresh global regex per-page.
         const pageRegex = new RegExp(regex.source, regex.flags);
+        let seq = 0;
         for (const m of flat.matchAll(pageRegex)) {
           if (m.index === undefined) continue;
           const matchStart = m.index;
@@ -146,7 +149,6 @@ export function createPdfAdapter(): DocumentAdapter {
 
           const rects: PageRect[] = [];
           for (const r of ranges) {
-            // Overlap test — any portion of this item overlaps the match.
             if (r.end <= matchStart || r.start >= matchEnd) continue;
             const t = r.item.transform;
             const tx = t[4];
@@ -169,8 +171,8 @@ export function createPdfAdapter(): DocumentAdapter {
             flat.slice(snippetStart, snippetEnd) +
             (snippetEnd < flat.length ? "…" : "");
 
-          matches.push({
-            id: `pdf:${pageNum}:${matchSeq++}`,
+          out.push({
+            id: `pdf:${pageNum}:${seq++}`,
             pageNum,
             snippet,
             snippetMatchStart:
@@ -180,8 +182,37 @@ export function createPdfAdapter(): DocumentAdapter {
             rects,
           });
         }
+        return out;
       }
 
+      // Process pages with bounded concurrency. The pdfjs worker pipelines
+      // requests, so a small pool is much faster than a sequential loop on
+      // big documents while staying friendly to the worker thread.
+      const CONCURRENCY = 8;
+      const results: SearchMatch[][] = new Array(numPages);
+      let nextPage = 1;
+
+      async function worker() {
+        while (true) {
+          const pageNum = nextPage++;
+          if (pageNum > numPages) return;
+          results[pageNum - 1] = await searchPage(pageNum);
+        }
+      }
+
+      const workers: Promise<void>[] = [];
+      for (let i = 0; i < Math.min(CONCURRENCY, numPages); i++) {
+        workers.push(worker());
+      }
+      await Promise.all(workers);
+
+      // Flatten in page order so the consumer's "next/prev" navigation is
+      // monotonic across pages.
+      const matches: SearchMatch[] = [];
+      for (let i = 0; i < numPages; i++) {
+        const pageMatches = results[i];
+        if (pageMatches) matches.push(...pageMatches);
+      }
       return matches;
     },
 
