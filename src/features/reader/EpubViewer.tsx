@@ -32,6 +32,8 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
     (s) => s.experimental_allowAnnotationsForAllFormats,
   );
   const epubFlow = useSettingsStore((s) => s.epubFlow);
+  const epubFontScale = useSettingsStore((s) => s.epubFontScale);
+  const epubLineHeight = useSettingsStore((s) => s.epubLineHeight);
   // Survives across the rendition re-mount that fires when the user
   // toggles flow modes — without this the reader would snap back to
   // chapter 1 on every toggle.
@@ -74,6 +76,11 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
     };
     rendition.on("relocated", handleRelocated);
 
+    // Apply typography before the first display so the initial paint
+    // already uses the user's preferred size — avoids a visible reflow.
+    rendition.themes.fontSize(`${Math.round(epubFontScale * 100)}%`);
+    rendition.themes.override("line-height", String(epubLineHeight), true);
+
     void rendition.display(lastCfiRef.current ?? undefined);
 
     return () => {
@@ -85,7 +92,19 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
       }
       renditionRef.current = null;
     };
+    // epubFontScale / epubLineHeight are intentionally not deps — the
+    // separate effect below applies them live without a re-mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc, epubFlow]);
+
+  // Live-apply typography changes (slider drags) without remounting.
+  // epub.js's themes API patches CSS in the rendered iframe(s) directly.
+  useEffect(() => {
+    const rendition = renditionRef.current;
+    if (!rendition) return;
+    rendition.themes.fontSize(`${Math.round(epubFontScale * 100)}%`);
+    rendition.themes.override("line-height", String(epubLineHeight), true);
+  }, [epubFontScale, epubLineHeight]);
 
   // When the active match changes, jump the rendition to its spine item.
   useEffect(() => {

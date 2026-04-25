@@ -117,7 +117,12 @@
       "epubFlowScrolled": "Continuous scroll",
       "epubFlowScrolledHint": "One long page you scroll through — best on desktop.",
       "epubFlowPaginated": "Paginated",
-      "epubFlowPaginatedHint": "Discrete pages you swipe between — best on mobile."
+      "epubFlowPaginatedHint": "Discrete pages you swipe between — best on mobile.",
+      "epubFontScale": "EPUB font size",
+      "epubFontScaleHint": "Scales the EPUB's body text. Applies live to open books.",
+      "epubLineHeight": "EPUB line height",
+      "epubLineHeightHint": "More line height makes long passages easier on the eyes.",
+      "reset": "Reset"
     },
     "experimental": {
       "heading": "Experimental / Developer",

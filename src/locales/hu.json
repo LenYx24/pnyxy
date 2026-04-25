@@ -117,7 +117,12 @@
       "epubFlowScrolled": "Folyamatos görgetés",
       "epubFlowScrolledHint": "Egyetlen hosszú oldal — desktopon a legjobb.",
       "epubFlowPaginated": "Lapozós",
-      "epubFlowPaginatedHint": "Külön oldalak, amelyek között lapozni lehet — mobilon a legjobb."
+      "epubFlowPaginatedHint": "Külön oldalak, amelyek között lapozni lehet — mobilon a legjobb.",
+      "epubFontScale": "EPUB betűméret",
+      "epubFontScaleHint": "Az EPUB szövegét méretezi. A változás azonnal érvényesül a nyitott könyvekre.",
+      "epubLineHeight": "EPUB sormagasság",
+      "epubLineHeightHint": "Nagyobb sormagasság kíméli a szemet hosszabb olvasásnál.",
+      "reset": "Visszaállítás"
     },
     "experimental": {
       "heading": "Kísérleti / Fejlesztői",

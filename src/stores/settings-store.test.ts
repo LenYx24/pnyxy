@@ -226,8 +226,57 @@ describe("settings-store migrate — v4 → v5", () => {
   });
 });
 
+describe("settings-store migrate — v5 → v6", () => {
+  it("seeds typography defaults when missing", async () => {
+    seedPersistedState(5, {
+      epubFlow: "paginated",
+    });
+    const { useSettingsStore } = await import("./settings-store");
+    const state = useSettingsStore.getState();
+
+    expect(state.epubFontScale).toBe(1.0);
+    expect(state.epubLineHeight).toBe(1.5);
+  });
+
+  it("preserves valid persisted typography values", async () => {
+    seedPersistedState(5, {
+      epubFontScale: 1.25,
+      epubLineHeight: 1.8,
+    });
+    const { useSettingsStore } = await import("./settings-store");
+    const state = useSettingsStore.getState();
+
+    expect(state.epubFontScale).toBe(1.25);
+    expect(state.epubLineHeight).toBe(1.8);
+  });
+
+  it("clamps out-of-range typography values back to defaults", async () => {
+    seedPersistedState(5, {
+      epubFontScale: 4,
+      epubLineHeight: -1,
+    });
+    const { useSettingsStore } = await import("./settings-store");
+    const state = useSettingsStore.getState();
+
+    expect(state.epubFontScale).toBe(1.0);
+    expect(state.epubLineHeight).toBe(1.5);
+  });
+
+  it("coerces non-numeric typography values back to defaults", async () => {
+    seedPersistedState(5, {
+      epubFontScale: "huge",
+      epubLineHeight: null,
+    });
+    const { useSettingsStore } = await import("./settings-store");
+    const state = useSettingsStore.getState();
+
+    expect(state.epubFontScale).toBe(1.0);
+    expect(state.epubLineHeight).toBe(1.5);
+  });
+});
+
 describe("settings-store migrate — full chain", () => {
-  it("walks v0 all the way to v5 in a single rehydration pass", async () => {
+  it("walks v0 all the way to v6 in a single rehydration pass", async () => {
     seedPersistedState(0, {
       aiProvider: "openai",
       // No tracker fields, no theme fields, no plugin fields.
@@ -243,5 +292,7 @@ describe("settings-store migrate — full chain", () => {
     expect(state.experimental_allowAnnotationsForAllFormats).toBe(false);
     expect(state.experimental_allowWhiteboardForAllFormats).toBe(false);
     expect(state.epubFlow).toBe("scrolled");
+    expect(state.epubFontScale).toBe(1.0);
+    expect(state.epubLineHeight).toBe(1.5);
   });
 });

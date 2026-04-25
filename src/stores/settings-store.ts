@@ -37,6 +37,14 @@ interface SettingsState {
   scrollAnimationDuration: number;
   defaultFitMode: FitMode;
   epubFlow: EpubFlow;
+  /**
+   * Multiplier applied to the EPUB body font size. 1.0 = the EPUB's
+   * own default, 0.7–1.6 covers the comfortable range without breaking
+   * line layout in epub.js.
+   */
+  epubFontScale: number;
+  /** Unitless CSS line-height applied inside the EPUB iframe. */
+  epubLineHeight: number;
   tagColors: Partial<Record<BookStatusTag, ColorKey>>;
   enabledProviders: AiProvider[];
   anthropicApiKey: string;
@@ -78,6 +86,8 @@ interface SettingsState {
   setScrollAnimationDuration: (v: number) => void;
   setDefaultFitMode: (v: FitMode) => void;
   setEpubFlow: (v: EpubFlow) => void;
+  setEpubFontScale: (v: number) => void;
+  setEpubLineHeight: (v: number) => void;
   setTagColor: (tag: BookStatusTag, color: ColorKey) => void;
   setEnabledProviders: (list: AiProvider[]) => void;
   toggleProvider: (provider: AiProvider) => void;
@@ -121,6 +131,8 @@ export const useSettingsStore = create<SettingsState>()(
       scrollAnimationDuration: 300,
       defaultFitMode: "fit-width",
       epubFlow: "scrolled",
+      epubFontScale: 1.0,
+      epubLineHeight: 1.5,
       tagColors: {},
       enabledProviders: ["pnyxy"],
       anthropicApiKey: "",
@@ -147,6 +159,10 @@ export const useSettingsStore = create<SettingsState>()(
         set({ scrollAnimationDuration: Math.min(Math.max(v, 100), 1000) }),
       setDefaultFitMode: (v) => set({ defaultFitMode: v }),
       setEpubFlow: (v) => set({ epubFlow: v }),
+      setEpubFontScale: (v) =>
+        set({ epubFontScale: Math.min(Math.max(v, 0.7), 1.6) }),
+      setEpubLineHeight: (v) =>
+        set({ epubLineHeight: Math.min(Math.max(v, 1.0), 2.2) }),
       setTagColor: (tag, color) =>
         set((state) => ({ tagColors: { ...state.tagColors, [tag]: color } })),
       setEnabledProviders: (list) =>
@@ -395,7 +411,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "pnyxy-reader:settings",
-      version: 5,
+      version: 6,
       partialize: (state) => {
         // Persist everything; pluginStorage is local-only (stays in
         // localStorage) and is intentionally NOT synced to Supabase.
@@ -493,6 +509,17 @@ export const useSettingsStore = create<SettingsState>()(
           if (state.epubFlow !== "scrolled" && state.epubFlow !== "paginated") {
             state.epubFlow = "scrolled";
           }
+        }
+        // v5 → v6: seed EPUB typography knobs. Defaults match the
+        // EPUB's own intrinsic styling so existing readers don't see
+        // their books re-flow on upgrade.
+        if (version < 6) {
+          const fs = Number(state.epubFontScale);
+          state.epubFontScale =
+            Number.isFinite(fs) && fs >= 0.7 && fs <= 1.6 ? fs : 1.0;
+          const lh = Number(state.epubLineHeight);
+          state.epubLineHeight =
+            Number.isFinite(lh) && lh >= 1.0 && lh <= 2.2 ? lh : 1.5;
         }
         return state as unknown as SettingsState;
       },

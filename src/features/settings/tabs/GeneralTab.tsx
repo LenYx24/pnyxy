@@ -22,12 +22,16 @@ export function GeneralTab() {
     scrollAnimationDuration,
     defaultFitMode,
     epubFlow,
+    epubFontScale,
+    epubLineHeight,
     experimental_allowAnnotationsForAllFormats,
     experimental_allowWhiteboardForAllFormats,
     setPageScrollBehavior,
     setScrollAnimationDuration,
     setDefaultFitMode,
     setEpubFlow,
+    setEpubFontScale,
+    setEpubLineHeight,
     setExperimentalAnnotations,
     setExperimentalWhiteboard,
   } = useSettingsStore();
@@ -181,6 +185,58 @@ export function GeneralTab() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-sm font-medium text-text-primary">
+              {t("settings.reader.epubFontScale")}
+            </p>
+            <button
+              type="button"
+              onClick={() => setEpubFontScale(1.0)}
+              className="text-xs text-text-muted hover:text-accent-purple cursor-pointer"
+            >
+              {t("settings.reader.reset")}
+            </button>
+          </div>
+          <p className="text-xs text-text-muted">
+            {t("settings.reader.epubFontScaleHint")}
+          </p>
+          <Slider
+            value={Math.round(epubFontScale * 100)}
+            onChange={(v) => setEpubFontScale(v / 100)}
+            min={70}
+            max={160}
+            step={5}
+            valueLabel={`${Math.round(epubFontScale * 100)}%`}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-sm font-medium text-text-primary">
+              {t("settings.reader.epubLineHeight")}
+            </p>
+            <button
+              type="button"
+              onClick={() => setEpubLineHeight(1.5)}
+              className="text-xs text-text-muted hover:text-accent-purple cursor-pointer"
+            >
+              {t("settings.reader.reset")}
+            </button>
+          </div>
+          <p className="text-xs text-text-muted">
+            {t("settings.reader.epubLineHeightHint")}
+          </p>
+          <Slider
+            value={Math.round(epubLineHeight * 10)}
+            onChange={(v) => setEpubLineHeight(v / 10)}
+            min={10}
+            max={22}
+            step={1}
+            valueLabel={epubLineHeight.toFixed(1)}
+          />
         </div>
       </section>
 
