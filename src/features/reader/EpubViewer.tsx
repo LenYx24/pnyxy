@@ -1,10 +1,14 @@
-import { useEffect, useRef } from "react";
-import type { Book, Rendition } from "epubjs";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { Book, Contents, Rendition } from "epubjs";
 import { useReaderStore, useDocumentState } from "@/stores/reader-store";
 import { useSearchStore } from "@/stores/search-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { AnnotationContextMenu } from "./AnnotationContextMenu";
 import { CommentPopover } from "./CommentPopover";
+import {
+  EpubSelectionPopover,
+  type EpubSelectionState,
+} from "./EpubSelectionPopover";
 
 interface EpubViewerProps {
   documentId?: string;
@@ -38,6 +42,9 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
   // toggles flow modes — without this the reader would snap back to
   // chapter 1 on every toggle.
   const lastCfiRef = useRef<string | null>(null);
+
+  const [selection, setSelection] = useState<EpubSelectionState | null>(null);
+  const dismissSelection = useCallback(() => setSelection(null), []);
 
   // Mount the rendition whenever the underlying Book instance — or the
   // user's flow preference — changes. Switching flow requires a full
@@ -73,8 +80,39 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
     const handleRelocated = (location: { start?: { cfi?: string } }) => {
       const cfi = location?.start?.cfi;
       if (typeof cfi === "string") lastCfiRef.current = cfi;
+      // Page-turn or scroll invalidates the selection's viewport coords.
+      setSelection(null);
     };
     rendition.on("relocated", handleRelocated);
+
+    // epubjs emits `selected` whenever a selection settles inside any
+    // rendered iframe. Without this hook, EPUB text selection is a
+    // black hole — the user selects, the OS shows native handles, and
+    // nothing app-side ever knows.
+    const handleSelected = (_cfiRange: string, contents: Contents) => {
+      const win = contents.window;
+      const sel = win?.getSelection?.();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+      const text = sel.toString().trim();
+      if (!text) return;
+      const range = sel.getRangeAt(0);
+      const rangeRect = range.getBoundingClientRect();
+      // Selection rect is in iframe-viewport coords; translate into the
+      // outer viewport by adding the iframe element's own position.
+      const frame = win.frameElement as HTMLIFrameElement | null;
+      if (!frame) return;
+      const frameRect = frame.getBoundingClientRect();
+      setSelection({
+        text,
+        rect: {
+          left: frameRect.left + rangeRect.left,
+          top: frameRect.top + rangeRect.top,
+          width: rangeRect.width,
+          height: rangeRect.height,
+        },
+      });
+    };
+    rendition.on("selected", handleSelected);
 
     // Apply typography before the first display so the initial paint
     // already uses the user's preferred size — avoids a visible reflow.
@@ -86,11 +124,13 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
     return () => {
       try {
         rendition.off("relocated", handleRelocated);
+        rendition.off("selected", handleSelected);
         rendition.destroy();
       } catch {
         // epubjs may throw on double-destroy; safe to swallow.
       }
       renditionRef.current = null;
+      setSelection(null);
     };
     // epubFontScale / epubLineHeight are intentionally not deps — the
     // separate effect below applies them live without a re-mount.
@@ -132,6 +172,10 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
           <CommentPopover />
         </>
       )}
+      <EpubSelectionPopover
+        selection={selection}
+        onDismiss={dismissSelection}
+      />
     </div>
   );
 }

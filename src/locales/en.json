@@ -991,6 +991,13 @@
     "signOut": "Sign Out"
   },
   "reader": {
+    "epubSelection": {
+      "label": "Selection actions",
+      "copy": "Copy",
+      "copied": "Copied",
+      "translate": "Translate",
+      "dismiss": "Dismiss"
+    },
     "sidebar": {
       "readerHeading": "Reader",
       "openAnotherPdf": "Open another file",

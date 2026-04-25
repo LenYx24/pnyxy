@@ -991,6 +991,13 @@
     "signOut": "Kijelentkezés"
   },
   "reader": {
+    "epubSelection": {
+      "label": "Kijelölés műveletek",
+      "copy": "Másolás",
+      "copied": "Másolva",
+      "translate": "Fordítás",
+      "dismiss": "Bezárás"
+    },
     "sidebar": {
       "readerHeading": "Olvasó",
       "openAnotherPdf": "Másik fájl megnyitása",
