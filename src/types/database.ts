@@ -34,6 +34,7 @@ export interface Profile {
   preferences: Record<string, unknown>;
   role: UserRole;
   storage_tier: StorageTier;
+  onboarded: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "@/stores/settings-store";
-import type { FitMode } from "@/stores/settings-store";
+import type { FitMode, EpubFlow } from "@/stores/settings-store";
 import { Toggle, Slider } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import {
@@ -21,11 +21,13 @@ export function GeneralTab() {
     pageScrollBehavior,
     scrollAnimationDuration,
     defaultFitMode,
+    epubFlow,
     experimental_allowAnnotationsForAllFormats,
     experimental_allowWhiteboardForAllFormats,
     setPageScrollBehavior,
     setScrollAnimationDuration,
     setDefaultFitMode,
+    setEpubFlow,
     setExperimentalAnnotations,
     setExperimentalWhiteboard,
   } = useSettingsStore();
@@ -40,6 +42,19 @@ export function GeneralTab() {
       value: "fit-page",
       label: t("settings.reader.fitPage"),
       description: t("settings.reader.fitPageHint"),
+    },
+  ];
+
+  const epubFlowOptions: { value: EpubFlow; label: string; description: string }[] = [
+    {
+      value: "scrolled",
+      label: t("settings.reader.epubFlowScrolled"),
+      description: t("settings.reader.epubFlowScrolledHint"),
+    },
+    {
+      value: "paginated",
+      label: t("settings.reader.epubFlowPaginated"),
+      description: t("settings.reader.epubFlowPaginatedHint"),
     },
   ];
 
@@ -131,6 +146,32 @@ export function GeneralTab() {
                 className={cn(
                   "flex-1 rounded-lg border px-3 py-2.5 text-left transition-colors cursor-pointer",
                   defaultFitMode === opt.value
+                    ? "border-accent-purple bg-accent-purple/10 text-accent-purple"
+                    : "border-glass-border bg-glass-bg text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+                )}
+              >
+                <span className="block text-sm font-medium">{opt.label}</span>
+                <span className="block text-xs opacity-70 mt-0.5">{opt.description}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-sm font-medium text-text-primary mb-1">
+            {t("settings.reader.epubFlow")}
+          </p>
+          <p className="text-xs text-text-muted mb-3">
+            {t("settings.reader.epubFlowHint")}
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {epubFlowOptions.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setEpubFlow(opt.value)}
+                className={cn(
+                  "flex-1 rounded-lg border px-3 py-2.5 text-left transition-colors cursor-pointer",
+                  epubFlow === opt.value
                     ? "border-accent-purple bg-accent-purple/10 text-accent-purple"
                     : "border-glass-border bg-glass-bg text-text-secondary hover:bg-glass-hover hover:text-text-primary",
                 )}

@@ -194,8 +194,40 @@ describe("settings-store migrate — v3 → v4", () => {
   });
 });
 
+describe("settings-store migrate — v4 → v5", () => {
+  it("seeds epubFlow to 'scrolled' when missing", async () => {
+    seedPersistedState(4, {
+      activeThemeId: "pnyxy-dark",
+    });
+    const { useSettingsStore } = await import("./settings-store");
+    const state = useSettingsStore.getState();
+
+    expect(state.epubFlow).toBe("scrolled");
+  });
+
+  it("preserves a previously persisted 'paginated' choice", async () => {
+    seedPersistedState(4, {
+      epubFlow: "paginated",
+    });
+    const { useSettingsStore } = await import("./settings-store");
+    const state = useSettingsStore.getState();
+
+    expect(state.epubFlow).toBe("paginated");
+  });
+
+  it("coerces an unknown persisted value back to 'scrolled'", async () => {
+    seedPersistedState(4, {
+      epubFlow: "garbage",
+    });
+    const { useSettingsStore } = await import("./settings-store");
+    const state = useSettingsStore.getState();
+
+    expect(state.epubFlow).toBe("scrolled");
+  });
+});
+
 describe("settings-store migrate — full chain", () => {
-  it("walks v0 all the way to v4 in a single rehydration pass", async () => {
+  it("walks v0 all the way to v5 in a single rehydration pass", async () => {
     seedPersistedState(0, {
       aiProvider: "openai",
       // No tracker fields, no theme fields, no plugin fields.
@@ -210,5 +242,6 @@ describe("settings-store migrate — full chain", () => {
     expect(state.installedPlugins).toEqual({});
     expect(state.experimental_allowAnnotationsForAllFormats).toBe(false);
     expect(state.experimental_allowWhiteboardForAllFormats).toBe(false);
+    expect(state.epubFlow).toBe("scrolled");
   });
 });

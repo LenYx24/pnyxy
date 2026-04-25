@@ -65,13 +65,13 @@ export function AuthPage() {
     try {
       if (tab === "sign-in") {
         await signIn(email, password);
-        navigate("/library");
+        navigate("/auth/welcome");
       } else {
         await signUp(email, password, displayName.trim() || undefined);
         // If email confirmation is enabled, no session will be created immediately.
         const { session } = useAuthStore.getState();
         if (session?.user) {
-          navigate("/library");
+          navigate("/auth/welcome");
         } else {
           setSignUpSuccess(true);
         }

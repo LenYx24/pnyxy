@@ -31,8 +31,15 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
   const allowAnnotations = useSettingsStore(
     (s) => s.experimental_allowAnnotationsForAllFormats,
   );
+  const epubFlow = useSettingsStore((s) => s.epubFlow);
+  // Survives across the rendition re-mount that fires when the user
+  // toggles flow modes — without this the reader would snap back to
+  // chapter 1 on every toggle.
+  const lastCfiRef = useRef<string | null>(null);
 
-  // Mount the rendition whenever the underlying Book instance changes.
+  // Mount the rendition whenever the underlying Book instance — or the
+  // user's flow preference — changes. Switching flow requires a full
+  // tear-down and re-create; epubjs doesn't reactively update it.
   useEffect(() => {
     const el = containerRef.current;
     if (!el || !doc) return;
@@ -40,29 +47,45 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
     const book = adapter.getBook?.();
     if (!book) return;
 
-    // `scrolled-continuous` + the matching manager renders all spine
-    // items in one long scrollable document — what users expect when
-    // they "open a book". `scrolled-doc` (the previous setting) only
-    // renders a single chapter, which made the book look stuck on the
-    // first chapter no matter what the user did.
-    const rendition = book.renderTo(el, {
-      width: "100%",
-      height: "100%",
-      flow: "scrolled-continuous",
-      manager: "continuous",
-    });
+    // "scrolled" → all spine items in one continuous scroll (closer to
+    // a web page; preferred on desktop). "paginated" → discrete pages
+    // with swipe-to-flip (preferred on mobile and for prose).
+    const rendition =
+      epubFlow === "paginated"
+        ? book.renderTo(el, {
+            width: "100%",
+            height: "100%",
+            flow: "paginated",
+            manager: "default",
+          })
+        : book.renderTo(el, {
+            width: "100%",
+            height: "100%",
+            flow: "scrolled-continuous",
+            manager: "continuous",
+          });
     renditionRef.current = rendition;
-    void rendition.display();
+
+    // Capture position on every relocation so a flow toggle (or future
+    // re-mount) can restore where the reader was.
+    const handleRelocated = (location: { start?: { cfi?: string } }) => {
+      const cfi = location?.start?.cfi;
+      if (typeof cfi === "string") lastCfiRef.current = cfi;
+    };
+    rendition.on("relocated", handleRelocated);
+
+    void rendition.display(lastCfiRef.current ?? undefined);
 
     return () => {
       try {
+        rendition.off("relocated", handleRelocated);
         rendition.destroy();
       } catch {
         // epubjs may throw on double-destroy; safe to swallow.
       }
       renditionRef.current = null;
     };
-  }, [doc]);
+  }, [doc, epubFlow]);
 
   // When the active match changes, jump the rendition to its spine item.
   useEffect(() => {

@@ -59,7 +59,7 @@
     "continueAnonymous": "Continue without account",
     "welcome": {
       "title": "Welcome to Pnyxy!",
-      "body": "Your email is confirmed. You're all set to start building your library.",
+      "body": "You're all set to start building your library.",
       "continueCta": "Continue to your library"
     },
     "forgot": {
@@ -111,7 +111,13 @@
       "fitWidth": "Fit Width",
       "fitWidthHint": "Scale pages to fill the viewer width",
       "fitPage": "Fit Page",
-      "fitPageHint": "Scale pages to fit entirely in view"
+      "fitPageHint": "Scale pages to fit entirely in view",
+      "epubFlow": "EPUB reading mode",
+      "epubFlowHint": "Choose how EPUBs flow on screen. Switching applies to currently open books too.",
+      "epubFlowScrolled": "Continuous scroll",
+      "epubFlowScrolledHint": "One long page you scroll through — best on desktop.",
+      "epubFlowPaginated": "Paginated",
+      "epubFlowPaginatedHint": "Discrete pages you swipe between — best on mobile."
     },
     "experimental": {
       "heading": "Experimental / Developer",

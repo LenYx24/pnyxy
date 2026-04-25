@@ -17,6 +17,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { supabase } from "@/lib/supabase";
 
 export type FitMode = "fit-width" | "fit-page";
+export type EpubFlow = "scrolled" | "paginated";
 export type AiProvider = "pnyxy" | "anthropic" | "openai";
 
 export const ALL_AI_PROVIDERS: readonly AiProvider[] = [
@@ -35,6 +36,7 @@ interface SettingsState {
   pageScrollBehavior: "smooth" | "instant";
   scrollAnimationDuration: number;
   defaultFitMode: FitMode;
+  epubFlow: EpubFlow;
   tagColors: Partial<Record<BookStatusTag, ColorKey>>;
   enabledProviders: AiProvider[];
   anthropicApiKey: string;
@@ -75,6 +77,7 @@ interface SettingsState {
   setPageScrollBehavior: (v: "smooth" | "instant") => void;
   setScrollAnimationDuration: (v: number) => void;
   setDefaultFitMode: (v: FitMode) => void;
+  setEpubFlow: (v: EpubFlow) => void;
   setTagColor: (tag: BookStatusTag, color: ColorKey) => void;
   setEnabledProviders: (list: AiProvider[]) => void;
   toggleProvider: (provider: AiProvider) => void;
@@ -117,6 +120,7 @@ export const useSettingsStore = create<SettingsState>()(
       pageScrollBehavior: "smooth",
       scrollAnimationDuration: 300,
       defaultFitMode: "fit-width",
+      epubFlow: "scrolled",
       tagColors: {},
       enabledProviders: ["pnyxy"],
       anthropicApiKey: "",
@@ -142,6 +146,7 @@ export const useSettingsStore = create<SettingsState>()(
       setScrollAnimationDuration: (v) =>
         set({ scrollAnimationDuration: Math.min(Math.max(v, 100), 1000) }),
       setDefaultFitMode: (v) => set({ defaultFitMode: v }),
+      setEpubFlow: (v) => set({ epubFlow: v }),
       setTagColor: (tag, color) =>
         set((state) => ({ tagColors: { ...state.tagColors, [tag]: color } })),
       setEnabledProviders: (list) =>
@@ -390,7 +395,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "pnyxy-reader:settings",
-      version: 4,
+      version: 5,
       partialize: (state) => {
         // Persist everything; pluginStorage is local-only (stays in
         // localStorage) and is intentionally NOT synced to Supabase.
@@ -479,6 +484,14 @@ export const useSettingsStore = create<SettingsState>()(
           }
           if (typeof state.experimental_allowWhiteboardForAllFormats !== "boolean") {
             state.experimental_allowWhiteboardForAllFormats = false;
+          }
+        }
+        // v4 → v5: seed EPUB flow preference. "scrolled" matches the
+        // pre-toggle behavior so existing readers don't see a sudden
+        // layout change after the upgrade.
+        if (version < 5) {
+          if (state.epubFlow !== "scrolled" && state.epubFlow !== "paginated") {
+            state.epubFlow = "scrolled";
           }
         }
         return state as unknown as SettingsState;

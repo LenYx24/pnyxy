@@ -59,7 +59,7 @@
     "continueAnonymous": "Tovább fiók nélkül",
     "welcome": {
       "title": "Üdv a Pnyxy-n!",
-      "body": "Az e-mailed megerősítve. Mehet a könyvtár építése.",
+      "body": "Mehet a könyvtár építése.",
       "continueCta": "Tovább a könyvtárhoz"
     },
     "forgot": {
@@ -111,7 +111,13 @@
       "fitWidth": "Szélességhez",
       "fitWidthHint": "Oldalak az olvasó szélességére skálázva",
       "fitPage": "Oldalhoz",
-      "fitPageHint": "Oldalak teljes egészében a nézetbe illesztve"
+      "fitPageHint": "Oldalak teljes egészében a nézetbe illesztve",
+      "epubFlow": "EPUB olvasási mód",
+      "epubFlowHint": "Válaszd ki, hogyan jelenjenek meg az EPUB-ok. A módosítás a már megnyitott könyvekre is érvényes.",
+      "epubFlowScrolled": "Folyamatos görgetés",
+      "epubFlowScrolledHint": "Egyetlen hosszú oldal — desktopon a legjobb.",
+      "epubFlowPaginated": "Lapozós",
+      "epubFlowPaginatedHint": "Külön oldalak, amelyek között lapozni lehet — mobilon a legjobb."
     },
     "experimental": {
       "heading": "Kísérleti / Fejlesztői",

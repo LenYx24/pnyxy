@@ -55,6 +55,7 @@ interface AuthState {
   uploadAvatar: (file: File) => Promise<void>;
   removeAvatar: () => Promise<void>;
   checkBanStatus: () => Promise<void>;
+  markOnboarded: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -129,7 +130,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/library`,
+        redirectTo: `${window.location.origin}/auth/welcome`,
       },
     });
     if (error) {
@@ -299,6 +300,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     set({ isBanned: !!data, banInfo: data });
+  },
+
+  markOnboarded: async () => {
+    const user = get().user;
+    if (!user) return;
+    if (get().profile?.onboarded) return;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ onboarded: true })
+      .eq("id", user.id);
+
+    if (error) {
+      logError("auth-store:markOnboarded", error);
+      return;
+    }
+    set((state) => ({
+      profile: state.profile ? { ...state.profile, onboarded: true } : null,
+    }));
   },
 }));
 
