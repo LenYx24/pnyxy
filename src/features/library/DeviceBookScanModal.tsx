@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   X,
   FolderSearch,
+  FolderClosed,
+  FolderOpen,
   FileText,
   Check,
+  ChevronRight,
   Loader2,
   AlertTriangle,
 } from "lucide-react";
@@ -18,13 +21,28 @@ interface DeviceBookScanModalProps {
   onClose: () => void;
 }
 
-interface ScannedFile {
+type FileStatus = "pending" | "uploading" | "done" | "skipped" | "error";
+
+interface FileNode {
+  kind: "file";
+  id: string;
+  name: string;
+  path: string;
   file: File;
-  relativePath: string;
-  id: string; // synthetic key: path + size for stable React keys
-  status: "pending" | "uploading" | "done" | "skipped" | "error";
+  size: number;
+  status: FileStatus;
   message?: string;
 }
+
+interface FolderNode {
+  kind: "folder";
+  id: string;
+  name: string;
+  path: string;
+  children: TreeNode[];
+}
+
+type TreeNode = FileNode | FolderNode;
 
 const PDF_EXT = /\.pdf$/i;
 
@@ -36,16 +54,21 @@ function formatBytes(bytes: number): string {
 }
 
 /**
- * Scans a directory selected by the user for book files (PDFs) and lets
- * the user pick which to upload to their cloud library. Uses the
- * non-standard but widely supported `webkitdirectory` attribute so we
- * don't need any native (Tauri) bridge — works in both the browser and
+ * Scans a folder selected by the user for book files (PDFs) and lets
+ * the user pick which to upload. Renders the folder structure as a
+ * checkable tree — toggling a folder cascades to all its descendants.
+ *
+ * Uses the non-standard but widely supported `webkitdirectory`
+ * attribute so we don't need a native bridge — works in browsers and
  * Tauri's webview.
  */
 export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [scanned, setScanned] = useState<ScannedFile[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [tree, setTree] = useState<TreeNode[]>([]);
+  // File-level selection. Folder checked-state is derived (all children
+  // selected = checked, some = indeterminate, none = unchecked).
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [isScanning, setIsScanning] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importDone, setImportDone] = useState(false);
@@ -59,9 +82,10 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
   useEffect(() => {
     if (open) {
       fetchStorageUsage();
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset local state when the modal is opened
-      setScanned([]);
-      setSelected(new Set());
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset local state when the modal opens
+      setTree([]);
+      setSelectedFileIds(new Set());
+      setExpandedFolders(new Set());
       setIsScanning(false);
       setImporting(false);
       setImportDone(false);
@@ -81,41 +105,124 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
     setIsScanning(true);
     setScanError(null);
 
-    const results: ScannedFile[] = [];
+    // Walk the FileList building a tree keyed by path segments.
+    const root: TreeNode[] = [];
+    const folderMap = new Map<string, FolderNode>();
+    const allFileIds: string[] = [];
+    const allFolderIds: string[] = [];
+
+    function getOrCreateFolder(segments: string[]): TreeNode[] {
+      // Returns the children array of the folder denoted by `segments`.
+      // Creates intermediate folders as needed.
+      let parentList = root;
+      let runningPath = "";
+      for (const seg of segments) {
+        runningPath = runningPath ? `${runningPath}/${seg}` : seg;
+        let folder = folderMap.get(runningPath);
+        if (!folder) {
+          folder = {
+            kind: "folder",
+            id: `dir:${runningPath}`,
+            name: seg,
+            path: runningPath,
+            children: [],
+          };
+          folderMap.set(runningPath, folder);
+          allFolderIds.push(folder.id);
+          parentList.push(folder);
+        }
+        parentList = folder.children;
+      }
+      return parentList;
+    }
+
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
       if (!PDF_EXT.test(f.name)) continue;
       const rel =
         (f as File & { webkitRelativePath?: string }).webkitRelativePath ||
         f.name;
-      results.push({
+      const segments = rel.split("/");
+      const fileName = segments.pop() ?? f.name;
+      const childList = getOrCreateFolder(segments);
+      const id = `file:${rel}::${f.size}::${f.lastModified}`;
+      childList.push({
+        kind: "file",
+        id,
+        name: fileName,
+        path: rel,
         file: f,
-        relativePath: rel,
-        id: `${rel}::${f.size}::${f.lastModified}`,
+        size: f.size,
         status: "pending",
       });
+      allFileIds.push(id);
     }
 
-    results.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+    // Sort each folder's children: folders first, then files, both alpha.
+    function sortChildren(list: TreeNode[]) {
+      list.sort((a, b) => {
+        if (a.kind !== b.kind) return a.kind === "folder" ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+      for (const node of list) {
+        if (node.kind === "folder") sortChildren(node.children);
+      }
+    }
+    sortChildren(root);
 
-    setScanned(results);
-    // Default to nothing selected so users can't accidentally import an
-    // entire drive's worth of PDFs with one tap. Small scans (<= 5 files)
-    // auto-select since that's almost certainly what the user wanted.
-    setSelected(
-      results.length > 0 && results.length <= 5
-        ? new Set(results.map((r) => r.id))
-        : new Set(),
-    );
+    setTree(root);
+    // Default: everything selected, every folder expanded.
+    setSelectedFileIds(new Set(allFileIds));
+    setExpandedFolders(new Set(allFolderIds));
     setIsScanning(false);
 
-    if (results.length === 0) {
+    if (allFileIds.length === 0) {
       setScanError("No PDF files were found in that folder.");
     }
   }, []);
 
-  const toggleOne = useCallback((id: string) => {
-    setSelected((prev) => {
+  // Flatten helpers — used both to derive folder check-state and to
+  // walk all file nodes during import.
+  const allFiles: FileNode[] = useMemo(() => {
+    const out: FileNode[] = [];
+    function walk(nodes: TreeNode[]) {
+      for (const n of nodes) {
+        if (n.kind === "file") out.push(n);
+        else walk(n.children);
+      }
+    }
+    walk(tree);
+    return out;
+  }, [tree]);
+
+  const collectDescendantFileIds = useCallback(
+    (node: TreeNode): string[] => {
+      const out: string[] = [];
+      function walk(n: TreeNode) {
+        if (n.kind === "file") out.push(n.id);
+        else for (const c of n.children) walk(c);
+      }
+      walk(node);
+      return out;
+    },
+    [],
+  );
+
+  const folderState = useCallback(
+    (node: FolderNode): "all" | "some" | "none" => {
+      const ids = collectDescendantFileIds(node);
+      if (ids.length === 0) return "none";
+      let selected = 0;
+      for (const id of ids) if (selectedFileIds.has(id)) selected++;
+      if (selected === 0) return "none";
+      if (selected === ids.length) return "all";
+      return "some";
+    },
+    [collectDescendantFileIds, selectedFileIds],
+  );
+
+  const toggleFile = useCallback((id: string) => {
+    setSelectedFileIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -123,69 +230,106 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
     });
   }, []);
 
-  const selectAll = useCallback(() => {
-    setSelected(new Set(scanned.map((s) => s.id)));
-  }, [scanned]);
+  const toggleFolder = useCallback(
+    (folder: FolderNode) => {
+      const ids = collectDescendantFileIds(folder);
+      const state = folderState(folder);
+      setSelectedFileIds((prev) => {
+        const next = new Set(prev);
+        if (state === "all") {
+          for (const id of ids) next.delete(id);
+        } else {
+          // any partial → check all
+          for (const id of ids) next.add(id);
+        }
+        return next;
+      });
+    },
+    [collectDescendantFileIds, folderState],
+  );
 
-  const selectNone = useCallback(() => {
-    setSelected(new Set());
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }, []);
 
-  const selectedFiles = scanned.filter((s) => selected.has(s.id));
-  const selectedBytes = selectedFiles.reduce((sum, f) => sum + f.file.size, 0);
+  const expandAll = useCallback(() => {
+    const ids: string[] = [];
+    function walk(nodes: TreeNode[]) {
+      for (const n of nodes) {
+        if (n.kind === "folder") {
+          ids.push(n.id);
+          walk(n.children);
+        }
+      }
+    }
+    walk(tree);
+    setExpandedFolders(new Set(ids));
+  }, [tree]);
+
+  const collapseAll = useCallback(() => {
+    setExpandedFolders(new Set());
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedFileIds(new Set(allFiles.map((f) => f.id)));
+  }, [allFiles]);
+
+  const selectNone = useCallback(() => {
+    setSelectedFileIds(new Set());
+  }, []);
+
+  const selectedFiles = allFiles.filter((f) => selectedFileIds.has(f.id));
+  const selectedBytes = selectedFiles.reduce((sum, f) => sum + f.size, 0);
   const remainingBytes = storageUsage
     ? storageUsage.limitBytes - storageUsage.usedBytes
     : Infinity;
   const wouldExceed = selectedBytes > remainingBytes;
 
+  // Update a single file's status — used during the import loop.
+  const updateFileStatus = useCallback(
+    (id: string, patch: Partial<Pick<FileNode, "status" | "message">>) => {
+      setTree((prev) => {
+        function walk(nodes: TreeNode[]): TreeNode[] {
+          return nodes.map((n) => {
+            if (n.kind === "file") {
+              return n.id === id ? { ...n, ...patch } : n;
+            }
+            return { ...n, children: walk(n.children) };
+          });
+        }
+        return walk(prev);
+      });
+    },
+    [],
+  );
+
   const startImport = useCallback(async () => {
     if (selectedFiles.length === 0 || wouldExceed) return;
     setImporting(true);
 
-    // Capture a mutable working list we can update as we go.
-    const working: ScannedFile[] = scanned.map((s) =>
-      selected.has(s.id) ? { ...s, status: "pending" } : s,
-    );
-    setScanned(working);
-
-    for (const item of working) {
-      if (!selected.has(item.id)) continue;
-
-      // Mark uploading
-      setScanned((prev) =>
-        prev.map((s) => (s.id === item.id ? { ...s, status: "uploading" } : s)),
-      );
-
+    for (const item of selectedFiles) {
+      updateFileStatus(item.id, { status: "uploading" });
       try {
         const bookId = await uploadPdf(item.file);
         if (bookId) {
-          setScanned((prev) =>
-            prev.map((s) => (s.id === item.id ? { ...s, status: "done" } : s)),
-          );
+          updateFileStatus(item.id, { status: "done" });
         } else {
-          // uploadPdf handles its own error state; inspect it
           const err = useUploadStore.getState().error;
-          setScanned((prev) =>
-            prev.map((s) =>
-              s.id === item.id
-                ? {
-                    ...s,
-                    status: err?.toLowerCase().includes("already")
-                      ? "skipped"
-                      : "error",
-                    message: err ?? "Upload failed",
-                  }
-                : s,
-            ),
-          );
+          updateFileStatus(item.id, {
+            status: err?.toLowerCase().includes("already")
+              ? "skipped"
+              : "error",
+            message: err ?? "Upload failed",
+          });
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Upload failed";
-        setScanned((prev) =>
-          prev.map((s) =>
-            s.id === item.id ? { ...s, status: "error", message: msg } : s,
-          ),
-        );
+        updateFileStatus(item.id, { status: "error", message: msg });
       }
     }
 
@@ -194,11 +338,10 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
     setImporting(false);
     setImportDone(true);
   }, [
-    scanned,
-    selected,
-    selectedFiles.length,
+    selectedFiles,
     wouldExceed,
     uploadPdf,
+    updateFileStatus,
     fetchLibrary,
     fetchStorageUsage,
   ]);
@@ -210,9 +353,9 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
 
   if (!open) return null;
 
-  const successCount = scanned.filter((s) => s.status === "done").length;
-  const skippedCount = scanned.filter((s) => s.status === "skipped").length;
-  const errorCount = scanned.filter((s) => s.status === "error").length;
+  const successCount = allFiles.filter((s) => s.status === "done").length;
+  const skippedCount = allFiles.filter((s) => s.status === "skipped").length;
+  const errorCount = allFiles.filter((s) => s.status === "error").length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -224,7 +367,7 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-glass-border p-4">
           <h2 className="text-lg font-semibold text-text-primary">
-            Scan device for books
+            Scan folder for books
           </h2>
           <button
             onClick={handleClose}
@@ -237,7 +380,7 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
 
         {/* Body */}
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          {scanned.length === 0 ? (
+          {tree.length === 0 ? (
             <div
               onClick={isScanning ? undefined : triggerScan}
               className={cn(
@@ -250,9 +393,9 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
                 Pick a folder to scan for PDFs
               </p>
               <p className="text-center text-xs text-text-muted">
-                Every PDF found inside the folder (and its subfolders) will
-                be listed. Nothing is selected by default — check the ones you
-                want, then click Import.
+                Every PDF inside the folder (and its subfolders) is shown as
+                a tree. Everything is ticked by default — uncheck the ones
+                you don't want, then click Import.
               </p>
               {scanError && (
                 <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-1.5 text-xs text-amber-400">
@@ -262,16 +405,16 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
             </div>
           ) : (
             <div className="space-y-3">
-              {/* Selection summary */}
+              {/* Selection summary + bulk actions */}
               <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-text-secondary">
                 <div>
-                  Found <strong>{scanned.length}</strong>{" "}
-                  {scanned.length === 1 ? "file" : "files"} ·{" "}
-                  <strong>{selected.size}</strong> selected (
+                  Found <strong>{allFiles.length}</strong>{" "}
+                  {allFiles.length === 1 ? "file" : "files"} ·{" "}
+                  <strong>{selectedFileIds.size}</strong> selected (
                   {formatBytes(selectedBytes)})
                 </div>
                 {!importing && !importDone && (
-                  <div className="flex gap-2 text-xs">
+                  <div className="flex flex-wrap gap-2 text-xs">
                     <button
                       onClick={selectAll}
                       className="rounded border border-glass-border px-2 py-0.5 text-text-secondary hover:text-text-primary cursor-pointer"
@@ -285,6 +428,18 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
                       Select none
                     </button>
                     <button
+                      onClick={expandAll}
+                      className="rounded border border-glass-border px-2 py-0.5 text-text-secondary hover:text-text-primary cursor-pointer"
+                    >
+                      Expand all
+                    </button>
+                    <button
+                      onClick={collapseAll}
+                      className="rounded border border-glass-border px-2 py-0.5 text-text-secondary hover:text-text-primary cursor-pointer"
+                    >
+                      Collapse all
+                    </button>
+                    <button
                       onClick={triggerScan}
                       className="rounded border border-glass-border px-2 py-0.5 text-text-secondary hover:text-text-primary cursor-pointer"
                     >
@@ -293,18 +448,6 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
                   </div>
                 )}
               </div>
-
-              {/* Large-scan warning — many folders contain dozens of PDFs
-                  the user didn't mean to upload. */}
-              {scanned.length > 20 && !importing && !importDone && (
-                <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 p-3">
-                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-400" />
-                  <p className="text-xs text-amber-400">
-                    {scanned.length} PDFs found. Pick only the ones you want to
-                    upload — large batches can eat through your storage quota.
-                  </p>
-                </div>
-              )}
 
               {/* Storage warning */}
               {wouldExceed && !importing && !importDone && (
@@ -318,7 +461,6 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
                 </div>
               )}
 
-              {/* Storage bar */}
               {storageUsage && (
                 <StorageUsageBar
                   usedBytes={storageUsage.usedBytes}
@@ -327,43 +469,25 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
                 />
               )}
 
-              {/* File list */}
-              <ul className="divide-y divide-glass-border overflow-hidden rounded-lg border border-glass-border">
-                {scanned.map((item) => {
-                  const isSelected = selected.has(item.id);
-                  return (
-                    <li
-                      key={item.id}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2 text-sm transition-colors",
-                        item.status === "done" && "bg-green-500/5",
-                        item.status === "error" && "bg-red-500/5",
-                        item.status === "skipped" && "bg-amber-500/5",
-                      )}
-                    >
-                      {!importing && !importDone && (
-                        <Checkbox
-                          checked={isSelected}
-                          onChange={() => toggleOne(item.id)}
-                        />
-                      )}
-                      <FileText
-                        size={16}
-                        className="shrink-0 text-accent-purple"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-text-primary">
-                          {item.file.name}
-                        </p>
-                        <p className="truncate text-xs text-text-muted">
-                          {item.relativePath} · {formatBytes(item.file.size)}
-                        </p>
-                      </div>
-                      <StatusBadge item={item} />
-                    </li>
-                  );
-                })}
-              </ul>
+              {/* Tree */}
+              <div className="overflow-hidden rounded-lg border border-glass-border">
+                <ul>
+                  {tree.map((node) => (
+                    <TreeRow
+                      key={node.id}
+                      node={node}
+                      depth={0}
+                      expanded={expandedFolders}
+                      onToggleExpanded={toggleExpanded}
+                      onToggleFile={toggleFile}
+                      onToggleFolder={toggleFolder}
+                      selectedFileIds={selectedFileIds}
+                      folderState={folderState}
+                      readOnly={importing || importDone}
+                    />
+                  ))}
+                </ul>
+              </div>
 
               {/* Import summary after run */}
               {importDone && (
@@ -392,12 +516,10 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
               >
                 Cancel
               </Button>
-              {scanned.length > 0 && (
+              {tree.length > 0 && (
                 <Button
                   onClick={startImport}
-                  disabled={
-                    importing || selected.size === 0 || wouldExceed
-                  }
+                  disabled={importing || selectedFileIds.size === 0 || wouldExceed}
                 >
                   {importing ? (
                     <>
@@ -407,8 +529,8 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
                   ) : (
                     <>
                       <Check size={16} />
-                      Import {selected.size}{" "}
-                      {selected.size === 1 ? "file" : "files"}
+                      Import {selectedFileIds.size}{" "}
+                      {selectedFileIds.size === 1 ? "file" : "files"}
                     </>
                   )}
                 </Button>
@@ -433,8 +555,132 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
   );
 }
 
-function StatusBadge({ item }: { item: ScannedFile }) {
-  switch (item.status) {
+interface TreeRowProps {
+  node: TreeNode;
+  depth: number;
+  expanded: Set<string>;
+  onToggleExpanded: (id: string) => void;
+  onToggleFile: (id: string) => void;
+  onToggleFolder: (node: FolderNode) => void;
+  selectedFileIds: Set<string>;
+  folderState: (node: FolderNode) => "all" | "some" | "none";
+  readOnly: boolean;
+}
+
+function TreeRow({
+  node,
+  depth,
+  expanded,
+  onToggleExpanded,
+  onToggleFile,
+  onToggleFolder,
+  selectedFileIds,
+  folderState,
+  readOnly,
+}: TreeRowProps) {
+  const indent = depth * 16;
+
+  if (node.kind === "file") {
+    const isSelected = selectedFileIds.has(node.id);
+    return (
+      <li
+        className={cn(
+          "flex items-center gap-2 px-2 py-1.5 text-sm transition-colors hover:bg-glass-hover",
+          node.status === "done" && "bg-green-500/5",
+          node.status === "error" && "bg-red-500/5",
+          node.status === "skipped" && "bg-amber-500/5",
+        )}
+        style={{ paddingLeft: 8 + indent }}
+      >
+        {!readOnly && (
+          <Checkbox
+            checked={isSelected}
+            onChange={() => onToggleFile(node.id)}
+          />
+        )}
+        {/* spacer matching folder chevron */}
+        <span className="inline-block w-4" />
+        <FileText size={14} className="shrink-0 text-accent-purple" />
+        <span className="min-w-0 flex-1 truncate text-text-primary">
+          {node.name}
+        </span>
+        <span className="shrink-0 text-xs text-text-muted">
+          {formatBytes(node.size)}
+        </span>
+        <FileStatusBadge node={node} />
+      </li>
+    );
+  }
+
+  const isExpanded = expanded.has(node.id);
+  const state = folderState(node);
+
+  return (
+    <>
+      <li
+        className="flex items-center gap-2 px-2 py-1.5 text-sm transition-colors hover:bg-glass-hover"
+        style={{ paddingLeft: 8 + indent }}
+      >
+        {!readOnly && (
+          <Checkbox
+            checked={state === "all"}
+            indeterminate={state === "some"}
+            onChange={() => onToggleFolder(node)}
+          />
+        )}
+        <button
+          onClick={() => onToggleExpanded(node.id)}
+          aria-label={isExpanded ? "Collapse" : "Expand"}
+          className="shrink-0 rounded p-0.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+        >
+          <ChevronRight
+            size={12}
+            className={cn(
+              "transition-transform duration-150",
+              isExpanded && "rotate-90",
+            )}
+          />
+        </button>
+        {isExpanded ? (
+          <FolderOpen size={14} className="shrink-0 text-accent-purple/70" />
+        ) : (
+          <FolderClosed size={14} className="shrink-0 text-accent-purple/70" />
+        )}
+        <span className="min-w-0 flex-1 truncate font-medium text-text-primary">
+          {node.name}
+        </span>
+        <span className="shrink-0 text-xs text-text-muted">
+          {countFiles(node)} {countFiles(node) === 1 ? "file" : "files"}
+        </span>
+      </li>
+      {isExpanded &&
+        node.children.map((child) => (
+          <TreeRow
+            key={child.id}
+            node={child}
+            depth={depth + 1}
+            expanded={expanded}
+            onToggleExpanded={onToggleExpanded}
+            onToggleFile={onToggleFile}
+            onToggleFolder={onToggleFolder}
+            selectedFileIds={selectedFileIds}
+            folderState={folderState}
+            readOnly={readOnly}
+          />
+        ))}
+    </>
+  );
+}
+
+function countFiles(node: TreeNode): number {
+  if (node.kind === "file") return 1;
+  let n = 0;
+  for (const c of node.children) n += countFiles(c);
+  return n;
+}
+
+function FileStatusBadge({ node }: { node: FileNode }) {
+  switch (node.status) {
     case "uploading":
       return (
         <span className="flex items-center gap-1 text-xs text-text-muted">
@@ -451,10 +697,7 @@ function StatusBadge({ item }: { item: ScannedFile }) {
       );
     case "skipped":
       return (
-        <span
-          className="text-xs text-amber-400"
-          title={item.message}
-        >
+        <span className="text-xs text-amber-400" title={node.message}>
           Skipped
         </span>
       );
@@ -462,7 +705,7 @@ function StatusBadge({ item }: { item: ScannedFile }) {
       return (
         <span
           className="flex items-center gap-1 text-xs text-red-400"
-          title={item.message}
+          title={node.message}
         >
           <AlertTriangle size={12} />
           Failed

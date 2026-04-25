@@ -131,8 +131,12 @@ export function LibraryBookCard({
           className="cursor-pointer"
         >
           {/* Cover — fixed 2:3 aspect so every library card is the
-              same visual size regardless of the actual cover image. */}
-          <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md bg-glass-bg">
+              same visual size regardless of the actual cover image.
+              The tinted bg + soft border + shadow make the cover area
+              read as an intentional card even when a thumbnail
+              doesn't fill it (e.g. shorter PDF page rendered as a
+              cover). */}
+          <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
             {coverUrl ? (
               <img
                 src={coverUrl}

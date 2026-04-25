@@ -28,7 +28,7 @@ export function BrowseBookCard({ book, onClick }: BrowseBookCardProps) {
         "cursor-pointer focus:outline-none",
       )}
     >
-      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md bg-glass-bg">
+      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
         {book.cover_url ? (
           <img
             src={book.cover_url}

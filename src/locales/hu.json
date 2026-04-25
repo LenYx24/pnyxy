@@ -415,8 +415,8 @@
     "importingFailed_one": "({{count}} sikertelen)",
     "importingFailed_other": "({{count}} sikertelen)",
     "actions": {
-      "scan": "Eszköz beolvasása",
-      "scanTitle": "Könyvek keresése az eszközön ({{shortcut}})",
+      "scan": "Mappa beolvasása",
+      "scanTitle": "Válassz egy mappát és importáld a könyveket ({{shortcut}})",
       "upload": "Feltöltés",
       "uploadTitle": "Könyv feltöltése ({{shortcut}})",
       "open": "Megnyitás",
@@ -552,7 +552,7 @@
       "viewGrid": "Rács",
       "viewList": "Lista",
       "openUrl": "Megnyitás URL-ről",
-      "scanDevice": "Eszköz beolvasása"
+      "scanDevice": "Mappa beolvasása"
     },
     "empty": {
       "title": "A könyvtárad üres",

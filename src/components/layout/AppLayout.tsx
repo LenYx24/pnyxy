@@ -10,6 +10,7 @@ import { setShortcutGate } from "@/lib/keyboard-shortcuts";
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
 import { Footer } from "./Footer";
+import { ContextMenu } from "@/components/ui";
 import { BannedScreen } from "@/features/admin/BannedScreen";
 import { StreakCelebrationModal } from "@/features/library/StreakCelebrationModal";
 
@@ -60,9 +61,18 @@ export function AppLayout() {
     return <BannedScreen />;
   }
 
+  // Sidebar (desktop/tablet) is shown on the reader too, so users can
+  // jump back to library / browse / streaks without backing out. On
+  // mobile the reader has its own permanent bottom bar
+  // (MobileReaderBottomBar), so we still hide the global BottomNav
+  // there to avoid stacking two bottom rails on a phone.
+  const showSidebar = !focusActive;
+  const showBottomNav = !isReaderRoute && !focusActive;
+  const sidebarMargin = showSidebar && isDesktop;
+
   return (
     <div className="min-h-screen bg-bg-primary">
-      {!isReaderRoute && <Sidebar />}
+      {showSidebar && <Sidebar />}
       {/* main is flex-col + min-h-screen so a flex-1 content wrapper
           stretches to fill the viewport on short pages — that's what
           pins the footer (and the bottom-nav spacer) to the visual
@@ -70,7 +80,7 @@ export function AppLayout() {
       <main
         className={cn(
           "flex min-h-screen flex-col transition-[margin] duration-200 ease-out",
-          !isReaderRoute && isDesktop && (sidebarCollapsed ? "ml-sidebar-collapsed" : "ml-sidebar-expanded"),
+          sidebarMargin && (sidebarCollapsed ? "ml-sidebar-collapsed" : "ml-sidebar-expanded"),
         )}
       >
         <div
@@ -85,12 +95,13 @@ export function AppLayout() {
         {/* Spacer so app routes' content + bottom-nav don't overlap
             on mobile. Footer routes already render their own block
             and we accept it sitting partly behind the nav there. */}
-        {!isReaderRoute && !showFooter && (
+        {showBottomNav && !showFooter && (
           <div aria-hidden className="h-16 md:h-0" />
         )}
       </main>
-      {!isReaderRoute && !focusActive && <BottomNav />}
+      {showBottomNav && <BottomNav />}
       <StreakCelebrationModal />
+      <ContextMenu />
     </div>
   );
 }

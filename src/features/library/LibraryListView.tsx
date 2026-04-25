@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import {
+  BookOpen,
   Folder,
+  FolderOpen,
   ChevronRight,
   MoreVertical,
   Pencil,
@@ -13,11 +15,14 @@ import {
   Share2,
   Info,
 } from "lucide-react";
+import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox, TagBadge } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useTagStore, bookKey } from "@/stores/tag-store";
+import { useContextMenu } from "@/hooks/use-context-menu";
+import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { TagPickerDropdown } from "./TagPickerDropdown";
 import { ShareBookModal } from "./ShareBookModal";
 import { BookInfoModal } from "./BookInfoModal";
@@ -192,11 +197,21 @@ function FolderRow({
     transform,
     transition,
     isDragging,
+    isOver,
   } = useSortable({ id: sortableId ?? folder.id, disabled: !isTopLevel });
+
+  // Nested folders aren't sortable, but they should still accept drops
+  // so users can drop a top-level book/folder into a nested folder.
+  const { setNodeRef: setDropNodeRef, isOver: isOverNested } = useDroppable({
+    id: `nested-folder:${folder.id}`,
+    data: { type: "folder", folderId: folder.id },
+    disabled: isTopLevel,
+  });
 
   const style = isTopLevel
     ? { transform: CSS.Transform.toString(transform), transition }
     : undefined;
+  const showDropTargetHighlight = isOver || isOverNested;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const selKey = `folder:${folder.id}`;
@@ -216,24 +231,65 @@ function FolderRow({
 
   const indent = Math.min(depth * 20, 80);
 
+  // Right-click + long-press menu. Items are computed lazily so they
+  // capture fresh callbacks at the moment the menu opens.
+  const contextHandlers = useContextMenu(
+    (): ContextMenuEntry[] => [
+      {
+        id: "open",
+        label: "Open",
+        icon: FolderOpen,
+        onClick: () => onNavigate(folder.id),
+      },
+      {
+        id: "rename",
+        label: "Rename",
+        icon: Pencil,
+        onClick: () => {
+          const name = prompt("Rename folder:", folder.name);
+          if (name?.trim()) onRename(folder.id, name.trim());
+        },
+      },
+      { id: "div-1", divider: true },
+      {
+        id: "delete",
+        label: "Delete",
+        icon: Trash2,
+        danger: true,
+        onClick: () => onDelete(folder.id),
+      },
+    ],
+  );
+
+  // Combined ref: top-level rows are also a sortable; nested folders
+  // are only a drop target.
+  const setCombinedRef = (el: HTMLDivElement | null) => {
+    if (isTopLevel) setNodeRef(el);
+    else setDropNodeRef(el);
+  };
+
   return (
-    <div ref={isTopLevel ? setNodeRef : undefined} style={style} {...(isTopLevel ? attributes : {})}>
+    <div ref={setCombinedRef} style={style} {...(isTopLevel ? attributes : {})}>
       <div
+        {...contextHandlers}
+        {...(isTopLevel ? listeners : {})}
         className={cn(
-          "group flex items-center border-b border-glass-border/30 px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
+          "group flex select-none items-center border-b border-glass-border/30 px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
           density.py,
           selected && "bg-accent-purple/10",
           isDragging && "opacity-50",
+          showDropTargetHighlight &&
+            "bg-accent-purple/15 ring-1 ring-inset ring-accent-purple/50",
         )}
         style={{ paddingLeft: 8 + indent }}
         onClick={handleClick}
       >
-        {/* Drag handle */}
+        {/* Drag handle — kept as a visual cue. The whole row is now
+            draggable too, so the icon is just an affordance. */}
         {isTopLevel && (
           <div
-            className="mr-1 shrink-0 cursor-grab text-text-muted/50 hover:text-text-muted active:cursor-grabbing"
-            {...listeners}
-            onClick={(e) => e.stopPropagation()}
+            className="mr-1 shrink-0 text-text-muted/50"
+            aria-hidden="true"
           >
             <GripVertical size={14} />
           </div>
@@ -445,11 +501,65 @@ function BookRow({
 
   const indent = Math.min(depth * 20, 80);
 
+  const contextHandlers = useContextMenu((): ContextMenuEntry[] => {
+    const items: ContextMenuEntry[] = [
+      {
+        id: "open",
+        label: "Open",
+        icon: BookOpen,
+        onClick: () => {
+          if (entry.source === "catalog") {
+            navigate(`/books/${entry.catalog_book_id}`);
+          } else {
+            navigate(`/books/${entry.book.id}`);
+          }
+        },
+      },
+      {
+        id: "info",
+        label: "File info",
+        icon: Info,
+        onClick: () => setInfoOpen(true),
+      },
+      {
+        id: "tags",
+        label: "Manage tags",
+        icon: Tag,
+        onClick: () => setTagPickerOpen(true),
+      },
+      {
+        id: "move",
+        label: "Move to folder…",
+        icon: FolderInput,
+        onClick: () => onMove(entry),
+      },
+    ];
+    if (entry.source === "uploaded") {
+      items.push({
+        id: "share",
+        label: "Share with community",
+        icon: Share2,
+        onClick: () => setShareOpen(true),
+      });
+    }
+    items.push({ id: "div-1", divider: true });
+    items.push({
+      id: "remove",
+      label: entry.source === "uploaded" ? "Delete" : "Remove from library",
+      icon: Trash2,
+      danger: true,
+      onClick: () => onRemove(entry),
+    });
+    return items;
+  });
+
   return (
     <div ref={isTopLevel ? setNodeRef : undefined} style={style} {...(isTopLevel ? attributes : {})}>
       <div
+        {...contextHandlers}
+        {...(isTopLevel ? listeners : {})}
         className={cn(
-          "group flex items-center border-b border-glass-border/30 px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
+          "group flex select-none items-center border-b border-glass-border/30 px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
           density.py,
           selected && "bg-accent-purple/10",
           isDragging && "opacity-50",
@@ -457,12 +567,11 @@ function BookRow({
         style={{ paddingLeft: 8 + indent }}
         onClick={handleClick}
       >
-        {/* Drag handle */}
+        {/* Drag handle — visual cue; the entire row is draggable. */}
         {isTopLevel && (
           <div
-            className="mr-1 shrink-0 cursor-grab text-text-muted/50 hover:text-text-muted active:cursor-grabbing"
-            {...listeners}
-            onClick={(e) => e.stopPropagation()}
+            className="mr-1 shrink-0 text-text-muted/50"
+            aria-hidden="true"
           >
             <GripVertical size={14} />
           </div>

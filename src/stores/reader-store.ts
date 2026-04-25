@@ -9,7 +9,7 @@ export type ZoomMode = "fit-width" | "fit-page" | "custom";
 
 const ZOOM_STEP = 15;
 const ZOOM_MIN = 25;
-const ZOOM_MAX = 400;
+const ZOOM_MAX = 1000;
 const PROGRESS_PERSIST_DEBOUNCE_MS = 800;
 
 export interface DocumentState {

@@ -470,11 +470,12 @@ export function LibraryPage() {
         </div>
       )}
 
-      {/* Header: stacks vertically below lg (1024px) because the
+      {/* Header: stacks vertically below xl (1280px) because the
           button row + title + storage bar won't fit cleanly side-by-
-          side on mid-sizes. Previously we switched at sm which left
-          a crowded window where buttons overlapped the title. */}
-      <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          side on mid-sizes. We previously switched at sm, then lg —
+          both left crowded windows where buttons overlapped the
+          title. xl is the first width with comfortable room for both. */}
+      <div className="mb-6 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-bold text-text-primary">

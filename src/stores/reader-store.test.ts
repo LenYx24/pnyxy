@@ -303,13 +303,13 @@ describe("zoom", () => {
     expect(doc.zoomMode).toBe("custom");
   });
 
-  it("zoomIn is capped at 400", async () => {
+  it("zoomIn is capped at 1000", async () => {
     const { useReaderStore } = await loadStores();
     await useReaderStore.getState().addDocument(makeAdapter(), FAKE_FILE);
-    useReaderStore.getState().setZoomLevel(395);
+    useReaderStore.getState().setZoomLevel(995);
     useReaderStore.getState().zoomIn();
     expect(useReaderStore.getState().documents.get("doc-1")?.zoomLevel).toBe(
-      400,
+      1000,
     );
   });
 
@@ -327,13 +327,13 @@ describe("zoom", () => {
     );
   });
 
-  it("setZoomLevel clamps into [25, 400] and switches to custom", async () => {
+  it("setZoomLevel clamps into [25, 1000] and switches to custom", async () => {
     const { useReaderStore } = await loadStores();
     await useReaderStore.getState().addDocument(makeAdapter(), FAKE_FILE);
 
     useReaderStore.getState().setZoomLevel(99999);
     expect(useReaderStore.getState().documents.get("doc-1")?.zoomLevel).toBe(
-      400,
+      1000,
     );
     useReaderStore.getState().setZoomLevel(0);
     expect(useReaderStore.getState().documents.get("doc-1")?.zoomLevel).toBe(

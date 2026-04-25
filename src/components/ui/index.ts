@@ -1,5 +1,6 @@
 export { Button } from "./Button";
 export { Checkbox } from "./Checkbox";
+export { ContextMenu } from "./ContextMenu";
 export { GlassCard } from "./GlassCard";
 export { NumberInput } from "./NumberInput";
 export { Reveal } from "./Reveal";

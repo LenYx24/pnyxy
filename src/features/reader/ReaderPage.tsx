@@ -450,7 +450,7 @@ function MobileReaderLayout({
       {/* TOC panel - slides from left */}
       <div
         className={cn(
-          "absolute left-0 top-0 bottom-0 z-40 flex w-[85vw] max-w-[20rem] flex-col border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pl-safe-left",
+          "absolute left-0 top-0 bottom-0 z-40 flex w-full flex-col border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pl-safe-left",
           mobileReaderPanel === "toc"
             ? "translate-x-0"
             : "-translate-x-full pointer-events-none",
@@ -486,7 +486,7 @@ function MobileReaderLayout({
       {/* Comments panel - slides from right */}
       <div
         className={cn(
-          "absolute right-0 top-0 bottom-0 z-40 flex w-[85vw] max-w-[20rem] flex-col border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
+          "absolute right-0 top-0 bottom-0 z-40 flex w-full flex-col border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
           mobileReaderPanel === "comments"
             ? "translate-x-0"
             : "translate-x-full pointer-events-none",
@@ -516,7 +516,7 @@ function MobileReaderLayout({
       {/* AI Chat panel - slides from right */}
       <div
         className={cn(
-          "absolute right-0 top-0 bottom-0 z-40 flex w-[85vw] max-w-[20rem] flex-col border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
+          "absolute right-0 top-0 bottom-0 z-40 flex w-full flex-col border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
           mobileReaderPanel === "aiChat"
             ? "translate-x-0"
             : "translate-x-full pointer-events-none",

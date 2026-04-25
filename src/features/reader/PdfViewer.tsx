@@ -420,7 +420,12 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       onScroll={handleScroll}
       data-pdf-viewer
       data-active-viewer
-      className="h-full w-full overflow-auto bg-bg-primary"
+      // touch-pan-y blocks the browser's native pinch-zoom on this
+      // element so our two-finger pinch handler (in the parent
+      // viewerRef) can drive setZoomLevel instead. Without this, on
+      // mobile the browser would zoom the layout viewport and our
+      // pinch listener would never get a chance to run.
+      className="h-full w-full touch-pan-y overflow-auto bg-bg-primary"
     >
       <Document
         file={meta.fileUrl}

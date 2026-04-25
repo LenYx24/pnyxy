@@ -415,8 +415,8 @@
     "importingFailed_one": "({{count}} failed)",
     "importingFailed_other": "({{count}} failed)",
     "actions": {
-      "scan": "Scan device",
-      "scanTitle": "Scan device for books ({{shortcut}})",
+      "scan": "Scan folder",
+      "scanTitle": "Pick a folder and import its books ({{shortcut}})",
       "upload": "Upload",
       "uploadTitle": "Upload a book ({{shortcut}})",
       "open": "Open",
@@ -552,7 +552,7 @@
       "viewGrid": "Grid",
       "viewList": "List",
       "openUrl": "Open from URL",
-      "scanDevice": "Scan device"
+      "scanDevice": "Scan folder"
     },
     "empty": {
       "title": "Your library is empty",

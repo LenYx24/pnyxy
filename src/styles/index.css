@@ -97,13 +97,22 @@
     border-radius: 3px;
   }
 
-  /* PDF text layer: keep text invisible for selection, fix font jumps */
+  /* PDF text layer: keep text invisible for selection, fix font jumps.
+     The explicit user-select + touch-callout on mobile is needed
+     because parent containers set touch-action: pan-y, which on some
+     mobile WebViews suppresses long-press selection unless the
+     selectable element itself opts back in. */
   .react-pdf__Page__textContent {
     color: transparent !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -webkit-touch-callout: default !important;
   }
   .react-pdf__Page__textContent span {
     font-family: inherit !important;
     color: transparent !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
   }
   .react-pdf__Page__textContent span::selection {
     background-color: rgba(139, 92, 246, 0.3);

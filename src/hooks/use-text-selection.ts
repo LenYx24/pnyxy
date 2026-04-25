@@ -114,6 +114,29 @@ export function useTextSelection(
         .showContextMenu(e.clientX, e.clientY, data.selection, null);
     };
 
+    // Mobile path. Selection on touch devices completes on touchend
+    // rather than mouseup; long-press → drag-to-extend → release. The
+    // selection state may not be settled at touchend time, so peek
+    // again on the next frame.
+    const handleTouchEnd = (e: TouchEvent) => {
+      const touch = e.changedTouches[0];
+      if (!touch) return;
+      const x = touch.clientX;
+      const y = touch.clientY;
+      // selectionchange fires before touchend on some platforms, but
+      // on others the selection is finalised in the next tick. A
+      // double-rAF makes both cases work.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const data = getSelectionData();
+          if (!data) return;
+          useAnnotationStore
+            .getState()
+            .showContextMenu(x, y, data.selection, null);
+        });
+      });
+    };
+
     const handleContextMenu = (e: MouseEvent) => {
       const data = getSelectionData();
       const highlightId = findHighlightAtPoint(e.clientX, e.clientY);
@@ -152,6 +175,7 @@ export function useTextSelection(
     };
 
     container.addEventListener("mouseup", handleMouseUp);
+    container.addEventListener("touchend", handleTouchEnd);
     container.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("mousedown", handleMouseDown);
     document.addEventListener("keydown", handleKeyDown);
@@ -159,6 +183,7 @@ export function useTextSelection(
 
     return () => {
       container.removeEventListener("mouseup", handleMouseUp);
+      container.removeEventListener("touchend", handleTouchEnd);
       container.removeEventListener("contextmenu", handleContextMenu);
       document.removeEventListener("mousedown", handleMouseDown);
       document.removeEventListener("keydown", handleKeyDown);

@@ -79,6 +79,8 @@ export function AllBooksTab({
   const createFolderPath = useLibraryStore((s) => s.createFolderPath);
   const renameFolder = useLibraryStore((s) => s.renameFolder);
   const deleteFolder = useLibraryStore((s) => s.deleteFolder);
+  const moveBookToFolder = useLibraryStore((s) => s.moveBookToFolder);
+  const moveFolderToFolder = useLibraryStore((s) => s.moveFolderToFolder);
 
   const getTagsForBook = useTagStore((s) => s.getTagsForBook);
 
@@ -178,14 +180,58 @@ export function AllBooksTab({
       const { active, over } = event;
       if (!over || active.id === over.id) return;
 
-      const oldIndex = orderedKeys.indexOf(active.id as string);
-      const newIndex = orderedKeys.indexOf(over.id as string);
+      const activeId = active.id as string;
+      const overId = over.id as string;
+
+      // Drop into a *nested* folder — these have id "nested-folder:xxx"
+      // and live below the top-level sortable list.
+      if (overId.startsWith("nested-folder:")) {
+        const targetFolderId = overId.slice("nested-folder:".length);
+        if (activeId.startsWith("book:")) {
+          const book = bookMap.get(activeId);
+          if (book) void moveBookToFolder(book, targetFolderId);
+        } else if (activeId.startsWith("folder:")) {
+          const draggedFolderId = activeId.slice("folder:".length);
+          if (draggedFolderId !== targetFolderId) {
+            void moveFolderToFolder(draggedFolderId, targetFolderId);
+          }
+        }
+        return;
+      }
+
+      // Drop ON a top-level folder row — same intent, different id space.
+      if (overId.startsWith("folder:")) {
+        const targetFolderId = overId.slice("folder:".length);
+        if (activeId.startsWith("book:")) {
+          const book = bookMap.get(activeId);
+          if (book) {
+            void moveBookToFolder(book, targetFolderId);
+            return;
+          }
+        }
+        if (activeId.startsWith("folder:") && activeId !== overId) {
+          const draggedFolderId = activeId.slice("folder:".length);
+          void moveFolderToFolder(draggedFolderId, targetFolderId);
+          return;
+        }
+      }
+
+      // Fallback: reorder within the current folder's sibling list.
+      const oldIndex = orderedKeys.indexOf(activeId);
+      const newIndex = orderedKeys.indexOf(overId);
       if (oldIndex === -1 || newIndex === -1) return;
 
       const newOrder = arrayMove(orderedKeys, oldIndex, newIndex);
       setSortOrder(contextId, newOrder);
     },
-    [orderedKeys, contextId, setSortOrder],
+    [
+      orderedKeys,
+      contextId,
+      setSortOrder,
+      bookMap,
+      moveBookToFolder,
+      moveFolderToFolder,
+    ],
   );
 
   const handleDragCancel = useCallback(() => {

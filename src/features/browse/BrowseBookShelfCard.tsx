@@ -27,7 +27,7 @@ export function BrowseBookShelfCard({ book, onClick }: BrowseBookShelfCardProps)
         "cursor-pointer focus:outline-none",
       )}
     >
-      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md bg-glass-bg">
+      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
         {book.cover_url ? (
           <img
             src={book.cover_url}
@@ -49,7 +49,9 @@ export function BrowseBookShelfCard({ book, onClick }: BrowseBookShelfCardProps)
           </span>
         )}
       </div>
-      <div className="mt-1.5 min-w-0">
+      {/* min-h reserves space for an unrated row so cards in a shelf
+          align uniformly whether or not StarRatingDisplay renders. */}
+      <div className="mt-1.5 min-h-[3rem] min-w-0">
         <h3 className="truncate text-[11px] font-semibold leading-tight text-text-primary">
           {book.title}
         </h3>
