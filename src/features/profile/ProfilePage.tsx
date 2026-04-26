@@ -1,7 +1,14 @@
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { UserCircle, LogIn, Upload, Loader2, Trash2 } from "lucide-react";
+import {
+  UserCircle,
+  LogIn,
+  Upload,
+  Loader2,
+  Trash2,
+  ClipboardPaste,
+} from "lucide-react";
 import { Button } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
 import { containsProfanity } from "@/lib/profanity-filter";
@@ -18,8 +25,54 @@ export function ProfilePage() {
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Single source of truth for the "an upload is in flight" gate. The
+  // global paste listener fires from a closure that may have a stale
+  // `avatarBusy` state value, so we read this ref instead.
+  const busyRef = useRef(false);
 
   const displayNameFlagged = containsProfanity(displayName);
+
+  async function uploadFile(file: File) {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setAvatarError(null);
+    setAvatarBusy(true);
+    try {
+      await uploadAvatar(file);
+    } catch (err) {
+      if (err instanceof Error) setAvatarError(err.message);
+    } finally {
+      setAvatarBusy(false);
+      busyRef.current = false;
+    }
+  }
+
+  // Listen for paste anywhere on the profile page. If the clipboard
+  // contains an image (e.g. a screenshot or a copied image from
+  // another tab), upload it as the avatar. Text pastes have no image
+  // items, so they fall through and the input below still receives
+  // them normally.
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      if (!useAuthStore.getState().user) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.kind === "file" && item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            void uploadFile(file);
+            return;
+          }
+        }
+      }
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+    // uploadFile is stable enough — it only reads from refs/setState.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!user) {
     return (
@@ -75,17 +128,36 @@ export function ProfilePage() {
     // Reset the input so picking the same file again still fires a change event.
     e.target.value = "";
     if (!file) return;
+    await uploadFile(file);
+  }
 
+  // Mobile-friendly fallback for keyboards without Ctrl+V. Reads the
+  // OS clipboard via the async Clipboard API; the click counts as the
+  // user gesture browsers require for clipboard reads.
+  async function pasteFromClipboard() {
+    if (busyRef.current) return;
     setAvatarError(null);
-    setAvatarBusy(true);
+    if (!navigator.clipboard?.read) {
+      setAvatarError(t("profile.pasteUnsupported"));
+      return;
+    }
     try {
-      await uploadAvatar(file);
-    } catch (err) {
-      if (err instanceof Error) {
-        setAvatarError(err.message);
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imageType = item.types.find((type) =>
+          type.startsWith("image/"),
+        );
+        if (!imageType) continue;
+        const blob = await item.getType(imageType);
+        const ext = imageType.split("/")[1] ?? "png";
+        const file = new File([blob], `pasted.${ext}`, { type: imageType });
+        await uploadFile(file);
+        return;
       }
-    } finally {
-      setAvatarBusy(false);
+      setAvatarError(t("profile.pasteNoImage"));
+    } catch (err) {
+      if (err instanceof Error) setAvatarError(err.message);
+      else setAvatarError(t("profile.pasteFailed"));
     }
   }
 
@@ -164,6 +236,15 @@ export function ProfilePage() {
             {profile?.avatar_url
               ? t("profile.changeAvatar")
               : t("profile.uploadAvatar")}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={pasteFromClipboard}
+            disabled={avatarBusy}
+            title={t("profile.pasteAvatarTitle")}
+          >
+            <ClipboardPaste size={16} />
+            {t("profile.pasteAvatar")}
           </Button>
           {profile?.avatar_url && (
             <Button
