@@ -6,6 +6,13 @@ export interface ChatConversation {
   title: string;
   /** Null = "loose at the root" of the conversation list. */
   folder_id: string | null;
+  /** Set when the conversation was started from the reader's
+   *  text-selection menu. Used to (a) show a context pill above
+   *  the composer and (b) turn [p.N] citations from the assistant
+   *  into clickable links back to /reader/<source_doc_id>?page=N. */
+  source_doc_id: string | null;
+  source_doc_title: string | null;
+  source_page: number | null;
   created_at: string;
   updated_at: string;
   active_leaf_id: string | null;

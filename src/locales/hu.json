@@ -725,6 +725,26 @@
     "tagline": "Tervezz tanulási útvonalat, iratkozz be, és pipáld ki a lépéseket sorra.",
     "new": "Új útvonal",
     "createAndEdit": "Létrehozás és szerkesztés",
+    "aiGenerate": {
+      "button": "Generálás AI-val",
+      "title": "AI által generált útvonal",
+      "topicLabel": "Mit szeretnél megtanulni?",
+      "topicPlaceholder": "pl. Lineáris algebra ML-hez, relációs adatbázisok alapjai…",
+      "topicHint": "Az AI előfeltétel-sorrendben felvázol egy lépéssort. Mentés előtt átnézheted.",
+      "countLabel": "Lépések száma: {{count}}",
+      "generate": "Generálás",
+      "generatingShort": "Generálás…",
+      "generating": "AI-tól kérünk útvonalat. Általában néhány másodperc.",
+      "previewLabel_one": "{{count}} lépés, {{edges}} előfeltétel",
+      "previewLabel_other": "{{count}} lépés, {{edges}} előfeltétel",
+      "regenerate": "Újragenerálás",
+      "accept": "Mentés és szerkesztő megnyitása",
+      "errors": {
+        "emptyTopic": "Először írd be, mit szeretnél megtanulni.",
+        "parseFailed": "Az AI válasza nem érvényes útvonal-JSON volt. Próbálj másik modellt vagy fogalmazd át a témát.",
+        "noResponse": "Az AI nem válaszolt. Ellenőrizd a szolgáltató beállításait és próbáld újra."
+      }
+    },
     "untitled": "Névtelen útvonal",
     "titleLabel": "Cím",
     "titlePlaceholder": "pl. Magyar irodalom 11. osztály",
@@ -791,6 +811,8 @@
     "branchesCount_other": "{{count}} ág",
     "branchN": "{{n}}. ág",
     "branchingFrom": "Elágazás innen: {{snippet}}",
+    "sourceContext": "Innen: {{title}} · {{page}}. oldal",
+    "openInReader": "Megnyitás az olvasóban",
     "sidebar": {
       "empty": "Még nincs beszélgetés."
     },
@@ -810,7 +832,36 @@
       "delete": "Mappa törlése",
       "deleteConfirm": "Törlöd a(z) „{{name}}” mappát? A benne lévő beszélgetések visszakerülnek a gyökérbe.",
       "moveTo": "Áthelyezés mappába…",
-      "root": "Gyökér (nincs mappa)"
+      "root": "Gyökér (nincs mappa)",
+      "dropToRoot": "Húzd ide a gyökérbe helyezéshez"
+    },
+    "flashcards": {
+      "title": "Mentés tanulókártyaként",
+      "saveAction": "Mentés tanulókártyaként",
+      "defaultTitle": "Tanulókártyák csevegésből",
+      "savedDescription": "Csevegésüzenetből generálva",
+      "titleLabel": "Kvíz címe",
+      "extracting": "Kártyák kinyerése az üzenetből…",
+      "noneFound": "Nem találtam kinyerhető tartalmat — próbáld egy hosszabb vagy érdemibb üzenettel.",
+      "extractFailed": "Nem sikerült értelmezni az AI válaszát kártyaként. Próbáld újra.",
+      "editHint_one": "{{count}} kártya. Szerkeszthető, törölhető, bővíthető mentés előtt.",
+      "editHint_other": "{{count}} kártya. Szerkeszthető, törölhető, bővíthető mentés előtt.",
+      "questionPlaceholder": "Kérdés…",
+      "answerPlaceholder": "Válasz…",
+      "removeCard": "Kártya törlése",
+      "addCard": "Még egy kártya",
+      "saveQuiz_one": "{{count}} kártya mentése",
+      "saveQuiz_other": "{{count}} kártya mentése"
+    },
+    "readingContext": {
+      "title": "Olvasási előzmények beillesztése a kérdésbe",
+      "button": "Olvasásom",
+      "weekTitle": "Ezen a héten",
+      "weekHint": "Az elmúlt 7 napban megnyitott könyvek",
+      "recentTitle": "Legutóbbi olvasás",
+      "recentHint": "A legutóbbi 10 könyv",
+      "weekIntro": "Íme amit ezen a héten olvastam:",
+      "recentIntro": "Íme a legutóbbi olvasási aktivitásom:"
     }
   },
   "readingPlans": {
@@ -1221,7 +1272,8 @@
       "commentAction": "Komment",
       "savedToVocab": "Mentve a szótárba",
       "undo": "Visszavonás",
-      "share": "Megosztás…"
+      "share": "Megosztás…",
+      "sendToChat": "Küldés AI csevegésre"
     },
     "aiChat": {
       "title": "AI chat",

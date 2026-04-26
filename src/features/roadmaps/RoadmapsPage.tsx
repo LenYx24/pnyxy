@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, Map as MapIcon, Plus, Trophy } from "lucide-react";
+import { ChevronRight, Map as MapIcon, Plus, Sparkles, Trophy } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useRoadmapStore } from "@/stores/roadmap-store";
 import { progressFraction } from "./lib/scheduler";
+import { AiGenerateRoadmapModal } from "./AiGenerateRoadmapModal";
 
 export function RoadmapsPage() {
   const { t } = useTranslation();
@@ -17,6 +18,7 @@ export function RoadmapsPage() {
 
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
 
   useEffect(() => {
     if (!loaded) void load();
@@ -75,14 +77,25 @@ export function RoadmapsPage() {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-accent-purple px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
-        >
-          <Plus size={16} />
-          {t("roadmaps.new")}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setAiOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-accent-purple/40 bg-accent-purple/10 px-3 py-2 text-sm font-medium text-accent-purple transition-colors hover:bg-accent-purple/20"
+          >
+            <Sparkles size={16} />
+            {t("roadmaps.aiGenerate.button")}
+          </button>
+          <button
+            onClick={() => setCreating(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-accent-purple px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+          >
+            <Plus size={16} />
+            {t("roadmaps.new")}
+          </button>
+        </div>
       </div>
+
+      <AiGenerateRoadmapModal open={aiOpen} onClose={() => setAiOpen(false)} />
 
       {creating && (
         <div className="rounded-xl border border-glass-border bg-glass-bg/50 p-4">

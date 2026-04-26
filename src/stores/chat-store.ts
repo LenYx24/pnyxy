@@ -11,6 +11,22 @@ import type {
 
 // ── Store ─────────────────────────────────────────────────
 
+/** Hand-off slot for the reader → chat flow. The reader fills this
+ *  on "Send to AI chat", navigates the user to /chat, and ChatPage
+ *  drains it on mount: creates a fresh conversation tagged with the
+ *  source document, prefills the composer with the selected text,
+ *  and shows a context pill. */
+export interface ChatDraft {
+  text: string;
+  source: ChatSourceContext;
+}
+
+export interface ChatSourceContext {
+  docId: string;
+  docTitle: string;
+  page: number | null;
+}
+
 interface ChatState {
   conversations: ChatConversation[];
   folders: ChatFolder[];
@@ -23,9 +39,20 @@ interface ChatState {
   /** True while the assistant is streaming its reply into a message. */
   streamingMessageId: string | null;
   isLoading: boolean;
+  /** Pending hand-off from the reader. ChatPage consumes & clears it. */
+  pendingDraft: ChatDraft | null;
 
   fetchConversations: () => Promise<void>;
-  createConversation: (title?: string, folderId?: string | null) => Promise<string | null>;
+  createConversation: (
+    title?: string,
+    folderId?: string | null,
+    source?: ChatSourceContext | null,
+  ) => Promise<string | null>;
+  /** Reader-side: stash a draft + source context, then navigate. */
+  setPendingDraft: (draft: ChatDraft | null) => void;
+  /** ChatPage-side: read & clear in one step (so the next mount
+   *  doesn't replay the same draft). */
+  consumePendingDraft: () => ChatDraft | null;
   openConversation: (conversationId: string) => Promise<void>;
   renameConversation: (id: string, title: string) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
@@ -42,6 +69,10 @@ interface ChatState {
    *  conversations inside are sent back to the root via the
    *  `on delete set null` FK. */
   deleteFolder: (id: string) => Promise<void>;
+  /** Reparent a folder. `parentId = null` → top-level. Refuses to
+   *  set the folder as a descendant of itself (would orphan the
+   *  subtree from the user's view via the cycle). */
+  moveFolderToParent: (id: string, parentId: string | null) => Promise<void>;
 
   /** Switch the active leaf without sending anything — used when the
    *  user picks a different branch from the tree. */
@@ -71,6 +102,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
   activeLeafId: null,
   streamingMessageId: null,
   isLoading: false,
+  pendingDraft: null,
+
+  setPendingDraft(draft) {
+    set({ pendingDraft: draft });
+  },
+  consumePendingDraft() {
+    const draft = get().pendingDraft;
+    if (draft) set({ pendingDraft: null });
+    return draft;
+  },
 
   async fetchConversations() {
     set({ isLoading: true });
@@ -96,14 +137,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  async createConversation(title = "", folderId = null) {
+  async createConversation(title = "", folderId = null, source = null) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in to use chat.");
     const { data, error } = await supabase
       .from("chat_conversations")
-      .insert({ user_id: user.id, title, folder_id: folderId })
+      .insert({
+        user_id: user.id,
+        title,
+        folder_id: folderId,
+        source_doc_id: source?.docId ?? null,
+        source_doc_title: source?.docTitle ?? null,
+        source_page: source?.page ?? null,
+      })
       .select()
       .single();
     if (error || !data) {
@@ -282,6 +330,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .eq("user_id", user.id)
       .order("created_at", { ascending: true });
     if (error) {
+      // Migration 00029 not applied yet — PostgREST returns 42P01
+      // ("relation does not exist") which surfaces as a 404 here.
+      // Treat that as "feature not available yet" instead of an
+      // error: the rest of the chat keeps working until the user
+      // runs `supabase db push`.
+      const code = (error as { code?: string }).code;
+      const msg = error.message ?? "";
+      if (code === "42P01" || /does not exist|chat_folders/i.test(msg)) {
+        set({ folders: [] });
+        return;
+      }
       logError("chat:fetchFolders", error);
       return;
     }
@@ -337,9 +396,103 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // conversations — refresh both lists so the UI matches.
     await Promise.all([get().fetchFolders(), get().fetchConversations()]);
   },
+
+  async moveFolderToParent(id, parentId) {
+    if (id === parentId) return;
+    // Cycle guard: walk up from the proposed new parent — if we hit
+    // `id` somewhere in its ancestor chain, the move would orphan the
+    // subtree from the user's view (a folder can't be its own
+    // descendant). Bail silently in that case.
+    if (parentId !== null) {
+      const folders = get().folders;
+      let cursor: string | null = parentId;
+      while (cursor) {
+        if (cursor === id) return;
+        const next: ChatFolder | undefined = folders.find((f) => f.id === cursor);
+        cursor = next?.parent_id ?? null;
+      }
+    }
+    const { error } = await supabase
+      .from("chat_folders")
+      .update({ parent_id: parentId })
+      .eq("id", id);
+    if (error) {
+      logError("chat:moveFolderToParent", error);
+      return;
+    }
+    set((s) => ({
+      folders: s.folders.map((f) =>
+        f.id === id ? { ...f, parent_id: parentId } : f,
+      ),
+    }));
+  },
 }));
 
 // ── Shared send implementation ─────────────────────────────
+
+/**
+ * Ask the AI for a 3-5 word title summarising a user message,
+ * apply it to the conversation row, and refresh the list. Best-
+ * effort — failures are silent and the conversation stays
+ * "Untitled" so the rest of the chat keeps working.
+ *
+ * Fired from `sendOrBranch` only when the conversation has no
+ * title yet AND this is the first message in the tree (no
+ * parent). That way long-running threads don't keep retitling
+ * themselves on every send.
+ */
+async function autoTitleConversation(
+  conversationId: string,
+  firstUserMessage: string,
+  preferredProvider: AiProvider | undefined,
+  set: (partial: Partial<ChatState> | ((s: ChatState) => Partial<ChatState>)) => void,
+  get: () => ChatState,
+) {
+  try {
+    let title = "";
+    for await (const chunk of streamChatResponse(
+      [
+        {
+          role: "user",
+          content:
+            "Summarise the following message as a short conversation title — 3 to 6 words, no quotes, no trailing punctuation, plain text:\n\n" +
+            firstUserMessage,
+        },
+      ],
+      "",
+      "",
+      { preferredProvider, maxOutputTokens: 30 },
+    )) {
+      title += chunk.delta;
+    }
+    title = title
+      .trim()
+      .replace(/^["'`]|["'`]$/g, "")
+      .replace(/[.\s]+$/, "")
+      .slice(0, 80);
+    if (!title) return;
+
+    const { error } = await supabase
+      .from("chat_conversations")
+      .update({ title })
+      .eq("id", conversationId);
+    if (error) {
+      logError("chat:autoTitle", error);
+      return;
+    }
+    set((s) => ({
+      conversations: s.conversations.map((c) =>
+        c.id === conversationId ? { ...c, title } : c,
+      ),
+    }));
+    // Surface a no-op getter call to satisfy the linter that we
+    // intentionally read state — keeps the closure stable even if
+    // we extend this later to consult more conversation state.
+    void get;
+  } catch (err) {
+    logError("chat:autoTitle:exception", err);
+  }
+}
 
 async function sendOrBranch(
   conversationId: string,
@@ -373,6 +526,15 @@ async function sendOrBranch(
     next.set(userMsg.id, userMsg);
     return { messages: next, activeLeafId: userMsg.id };
   });
+
+  // First message in a fresh conversation — fire an async title
+  // request. We don't await it because the user shouldn't have to
+  // wait for a name to start chatting; the sidebar updates when
+  // the title resolves.
+  const conv = get().conversations.find((c) => c.id === conversationId);
+  if (parentId === null && conv && !conv.title.trim()) {
+    void autoTitleConversation(conversationId, trimmed, preferredProvider, set, get);
+  }
 
   // 2. Build the prompt path from the root up to and including the new user msg.
   const path = pathFromRoot(get().messages, userMsg.id);
@@ -410,17 +572,21 @@ async function sendOrBranch(
   });
 
   // 4. Stream the response, accumulating and patching the message.
-  // Routes through the shared `streamChatResponse` so the standalone
-  // chat picks up the same provider chain (Pnyxy proxy + user's
-  // Anthropic / OpenAI keys) the reader's AI panel uses. The
-  // `preferredProvider` arg lets the composer's model picker hop
-  // the chain order for this one message — falling back to the rest
-  // of the chain if the chosen provider fails before yielding.
+  // If the conversation was started from the reader (source set on
+  // the row), feed the doc title + a citation-format hint into the
+  // system prompt — the page-context is empty because we don't
+  // have the live PDF here, but the model still gets enough to
+  // ground answers and emit `[p.N]` citations the message renderer
+  // turns into clickable links.
+  const convForStream = get().conversations.find(
+    (c) => c.id === conversationId,
+  );
+  const sourceTitle = convForStream?.source_doc_title ?? "";
   let acc = "";
   try {
     for await (const chunk of streamChatResponse(
       promptMessages,
-      "",
+      sourceTitle,
       "",
       { preferredProvider },
     )) {

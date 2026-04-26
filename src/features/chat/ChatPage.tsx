@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
 import {
   MessagesSquare,
   Plus,
@@ -17,8 +20,25 @@ import {
   FolderPlus,
   Folder as FolderIcon,
   FolderInput,
+  BookOpen,
+  Sparkles,
+  History,
 } from "lucide-react";
 import { FloatingMenu } from "@/components/ui";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { restrictToWindowEdges } from "@/lib/dnd-modifiers";
 import { cn } from "@/lib/cn";
 import { useAuthStore } from "@/stores/auth-store";
 import {
@@ -30,6 +50,11 @@ import {
 import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
 import { getConfiguredProviders } from "@/lib/ai-client";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
+import {
+  fetchRecentReading,
+  formatReadingContextPrompt,
+} from "@/lib/reading-context";
+import { SaveAsFlashcardsModal } from "./SaveAsFlashcardsModal";
 import type { ChatMessage } from "@/types/chat";
 
 const PROVIDER_LABEL: Record<AiProvider, string> = {
@@ -38,8 +63,33 @@ const PROVIDER_LABEL: Record<AiProvider, string> = {
   openai: "GPT",
 };
 
+// Render assistant markdown to sanitized HTML. Same pattern as
+// `forum/CommentThread.tsx` — `marked` parses, DOMPurify strips
+// anything dangerous before it lands in `dangerouslySetInnerHTML`.
+// Tables / code blocks / headings / lists / inline code all come
+// from `marked`'s GFM defaults; the prose styling below makes them
+// look right inside a chat bubble.
+function renderMarkdown(md: string, sourceDocId: string | null): string {
+  // Citation pre-pass: when the conversation knows which document
+  // it's about, rewrite the model's `[p.42]` tokens into proper
+  // markdown links to /reader/<docId>?page=42 *before* marked sees
+  // them. marked then turns them into anchors; DOMPurify keeps the
+  // anchor element + the (relative) href but strips anything
+  // dangerous. Conversations without a source doc skip this and
+  // render the citations as plain text.
+  const withCitations = sourceDocId
+    ? md.replace(
+        /\[(p\.?\s?(\d+))\]/g,
+        (_match, label, page) =>
+          `[${label}](/reader/${sourceDocId}?page=${page})`,
+      )
+    : md;
+  return DOMPurify.sanitize(marked.parse(withCitations, { async: false }) as string);
+}
+
 export function ChatPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
 
   const conversations = useChatStore((s) => s.conversations);
@@ -63,12 +113,67 @@ export function ChatPage() {
   const createFolder = useChatStore((s) => s.createFolder);
   const renameFolder = useChatStore((s) => s.renameFolder);
   const deleteFolder = useChatStore((s) => s.deleteFolder);
+  const moveFolderToParent = useChatStore((s) => s.moveFolderToParent);
+
+  // Drag-and-drop sensors. Pointer for mouse, Touch with a delay so
+  // a regular tap on a conversation still opens it instead of
+  // dragging on the first finger move, Keyboard for accessibility.
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 5 },
+    }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Move targets are encoded into droppable ids:
+    //   nest:<folderId>  → drop INTO this folder
+    //   root             → drop at the top level
+    const intoFolderId = overId === "root"
+      ? null
+      : overId.startsWith("nest:")
+        ? overId.slice("nest:".length)
+        : undefined;
+    if (intoFolderId === undefined) return;
+
+    if (activeId.startsWith("conv:")) {
+      const id = activeId.slice("conv:".length);
+      void moveConversationToFolder(id, intoFolderId);
+    } else if (activeId.startsWith("folder:")) {
+      const id = activeId.slice("folder:".length);
+      // Don't try to drop a folder into itself — moveFolderToParent
+      // also catches descendant cycles.
+      if (id === intoFolderId) return;
+      void moveFolderToParent(id, intoFolderId);
+    }
+  };
 
   const [input, setInput] = useState("");
   const [branchFromId, setBranchFromId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const threadEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Textarea auto-resize. After every input change we reset height
+  // to 0 (so `scrollHeight` reports the natural intrinsic height,
+  // not the previous larger value) then snap to scrollHeight, capped
+  // at ~12rem. Both grow on multi-line paste and shrink when the
+  // user deletes lines. useLayoutEffect runs before paint so the
+  // user never sees the height jitter.
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "0px";
+    const max = 12 * 16; // 12rem
+    el.style.height = `${Math.min(el.scrollHeight, max)}px`;
+  }, [input]);
 
   // Per-conversation provider override. Initial value = the first
   // currently-configured provider (mirrors the saved fallback chain).
@@ -112,6 +217,68 @@ export function ChatPage() {
       fetchFolders();
     }
   }, [user, fetchConversations, fetchFolders]);
+
+  // Reader → chat hand-off. When the user clicks "Send to AI chat"
+  // from the reader's annotation menu, the reader stashes a draft
+  // (selected text + source doc context) and navigates here. Drain
+  // the draft once on mount: create a fresh conversation tagged
+  // with the source, prefill the composer, and let them edit / send.
+  useEffect(() => {
+    if (!user) return;
+    const draft = useChatStore.getState().consumePendingDraft();
+    if (!draft) return;
+    void (async () => {
+      const id = await createConversation("", null, draft.source);
+      if (!id) return;
+      await openConversation(id);
+      setInput(draft.text);
+    })();
+    // Drain only once per mount / sign-in event. Subsequent reader
+    // sends will re-fire the navigation and a fresh consume.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const activeConversation = useMemo(
+    () => conversations.find((c) => c.id === activeId) ?? null,
+    [conversations, activeId],
+  );
+
+  // Flashcard extractor — opens with the chosen assistant message's
+  // content. Held at this level (not inside MessageBubble) so the
+  // modal lives outside the message bubble's portal logic and can
+  // freely overlay the entire app.
+  const [flashcardSource, setFlashcardSource] = useState<{
+    text: string;
+    title: string;
+  } | null>(null);
+
+  // Reading-context injector. Loads the user's recent reading from
+  // book_resume_state, formats it as a plain-text bullet list, and
+  // appends to the composer textarea. The user sees what the AI
+  // sees — no hidden context.
+  const readingContextBtnRef = useRef<HTMLButtonElement>(null);
+  const [readingMenuOpen, setReadingMenuOpen] = useState(false);
+  const insertReadingContext = async (mode: "week" | "all") => {
+    setReadingMenuOpen(false);
+    const books = await fetchRecentReading(
+      mode === "week" ? { days: 7, limit: 10 } : { limit: 10 },
+    );
+    const intro =
+      mode === "week"
+        ? t("chat.readingContext.weekIntro")
+        : t("chat.readingContext.recentIntro");
+    const prompt = formatReadingContextPrompt(books, intro);
+    setInput((prev) => (prev ? `${prev}\n\n${prompt}` : prompt));
+    // Bring focus back to the textarea so the user can keep typing
+    // their actual question right after the inserted context.
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
+    });
+  };
 
   // Auto-scroll to the latest message as stream tokens arrive.
   useEffect(() => {
@@ -174,9 +341,12 @@ export function ChatPage() {
   const branchParent = branchFromId ? messages.get(branchFromId) : null;
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-3.5rem)] w-full max-w-6xl gap-0 p-0 sm:h-screen sm:gap-4 sm:p-4">
-      {/* Sidebar: folder tree + conversations */}
-      <aside className="hidden w-64 shrink-0 flex-col gap-2 rounded-xl border border-glass-border bg-glass-bg/40 p-2 sm:flex">
+    <div className="flex h-[calc(100vh-3.5rem)] w-full p-0 sm:h-screen">
+      {/* Sidebar: folder tree + conversations. Pinned flush to the
+          left + top edge per the Gemini-style layout — no card
+          rounding, no outer page padding. The right border doubles
+          as the divider against the main pane. */}
+      <aside className="hidden w-64 shrink-0 flex-col gap-2 border-r border-glass-border bg-glass-bg/40 p-2 sm:flex">
         <div className="flex items-center gap-1">
           <button
             onClick={handleNew}
@@ -198,34 +368,44 @@ export function ChatPage() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          {conversations.length === 0 && folders.length === 0 ? (
-            <p className="px-2 py-4 text-center text-xs text-text-muted">
-              {t("chat.sidebar.empty")}
-            </p>
-          ) : (
-            <ChatTree
-              folders={folders}
-              conversations={conversations}
-              activeId={activeId}
-              editingId={editingId}
-              editTitle={editTitle}
-              onOpen={openConversation}
-              onStartEdit={(id, title) => {
-                setEditingId(id);
-                setEditTitle(title);
-              }}
-              onCancelEdit={() => setEditingId(null)}
-              onSaveTitle={handleSaveTitle}
-              onEditTitleChange={setEditTitle}
-              onDelete={deleteConversation}
-              onMove={moveConversationToFolder}
-              onRenameFolder={renameFolder}
-              onDeleteFolder={deleteFolder}
-              t={t}
-            />
-          )}
-        </div>
+        <DndContext
+          sensors={dndSensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToWindowEdges]}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex-1 overflow-y-auto">
+            {conversations.length === 0 && folders.length === 0 ? (
+              <p className="px-2 py-4 text-center text-xs text-text-muted">
+                {t("chat.sidebar.empty")}
+              </p>
+            ) : (
+              <>
+                <RootDropZone label={t("chat.folders.dropToRoot")} />
+                <ChatTree
+                  folders={folders}
+                  conversations={conversations}
+                  activeId={activeId}
+                  editingId={editingId}
+                  editTitle={editTitle}
+                  onOpen={openConversation}
+                  onStartEdit={(id, title) => {
+                    setEditingId(id);
+                    setEditTitle(title);
+                  }}
+                  onCancelEdit={() => setEditingId(null)}
+                  onSaveTitle={handleSaveTitle}
+                  onEditTitleChange={setEditTitle}
+                  onDelete={deleteConversation}
+                  onMove={moveConversationToFolder}
+                  onRenameFolder={renameFolder}
+                  onDeleteFolder={deleteFolder}
+                  t={t}
+                />
+              </>
+            )}
+          </div>
+        </DndContext>
       </aside>
 
       {/* Main pane */}
@@ -316,15 +496,23 @@ export function ChatPage() {
           </div>
         )}
 
-        {/* Active conversation — thread */}
+        {/* Active conversation — thread inside a Gemini-style "paved
+            middle path": the message column is capped at max-w-3xl
+            and centered, regardless of how wide the main pane is. */}
         {activeId && (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex-1 space-y-3 overflow-y-auto p-3 sm:p-4">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+              <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
               {isLoading && threadPath.length === 0 && (
-                <p className="flex items-center gap-2 text-xs text-text-muted">
-                  <Loader2 size={12} className="animate-spin" />
-                  {t("chat.loading")}
-                </p>
+                <div
+                  className="flex items-center justify-center py-16"
+                  aria-label={t("chat.loading")}
+                >
+                  <Loader2
+                    size={28}
+                    className="animate-spin text-accent-purple/80"
+                  />
+                </div>
               )}
 
               {threadPath.length === 0 && !isLoading && (
@@ -340,15 +528,60 @@ export function ChatPage() {
                   messages={messages}
                   activeLeafId={activeLeafId}
                   streamingMessageId={streamingMessageId}
+                  sourceDocId={activeConversation?.source_doc_id ?? null}
                   onBranchHere={() => setBranchFromId(msg.id)}
                   onPickBranch={setActiveLeaf}
+                  onSaveAsFlashcards={() =>
+                    setFlashcardSource({
+                      text: msg.content,
+                      title:
+                        activeConversation?.title ||
+                        t("chat.flashcards.defaultTitle"),
+                    })
+                  }
                 />
               ))}
               <div ref={threadEndRef} />
+              </div>
             </div>
 
             {/* Composer */}
             <div className="border-t border-glass-border bg-bg-primary/30 p-3">
+              {/* Source-document context pill — present when this
+                  conversation was started from the reader. Click it
+                  to jump back to the page the user was on when they
+                  sent the selection. */}
+              {activeConversation?.source_doc_id && (
+                <div className="mx-auto mb-2 flex w-full max-w-3xl items-center gap-2 rounded-md border border-accent-blue/30 bg-accent-blue/10 px-2 py-1.5 text-xs text-accent-blue">
+                  <BookOpen size={12} />
+                  <span className="min-w-0 flex-1 truncate">
+                    {t("chat.sourceContext", {
+                      title: activeConversation.source_doc_title ?? "—",
+                      page: activeConversation.source_page ?? "—",
+                    })}
+                  </span>
+                  <a
+                    href={`/reader/${activeConversation.source_doc_id}${
+                      activeConversation.source_page
+                        ? `?page=${activeConversation.source_page}`
+                        : ""
+                    }`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate(
+                        `/reader/${activeConversation.source_doc_id}${
+                          activeConversation.source_page
+                            ? `?page=${activeConversation.source_page}`
+                            : ""
+                        }`,
+                      );
+                    }}
+                    className="rounded px-1.5 py-0.5 text-[11px] underline-offset-2 hover:bg-accent-blue/20 hover:underline cursor-pointer"
+                  >
+                    {t("chat.openInReader")}
+                  </a>
+                </div>
+              )}
               {branchParent && (
                 <div className="mb-2 flex items-center justify-between gap-2 rounded-md border border-accent-purple/30 bg-accent-purple/10 px-2 py-1.5 text-xs text-accent-purple">
                   <span className="flex items-center gap-1.5">
@@ -368,41 +601,70 @@ export function ChatPage() {
                   </button>
                 </div>
               )}
-              {/* Model picker + mic + send. The model dropdown is
-                  always rendered (defaults to Pnyxy) so picking a
-                  model feels first-class rather than buried in
-                  settings. The mic only appears when the browser
-                  exposes the Web Speech API. */}
-              <div className="flex items-end gap-2">
-                <div className="flex flex-1 flex-col gap-1.5">
-                  <div className="flex items-center justify-between gap-2 px-1">
-                    <label className="flex items-center gap-1.5 text-[11px] text-text-muted">
-                      <span className="font-medium uppercase tracking-wider">
-                        {t("chat.composer.modelLabel")}
-                      </span>
-                      <select
-                        value={selectedProvider}
-                        onChange={(e) =>
-                          setSelectedProvider(e.target.value as AiProvider)
-                        }
-                        className="rounded border border-glass-border bg-bg-primary/50 px-1.5 py-0.5 text-xs text-text-secondary outline-none focus:border-accent-purple"
+              {/* Model picker (header) + composer row (textbox flanked
+                  by mic/send, all vertically centered). The model
+                  dropdown is a styled FloatingMenu trigger — visually
+                  consistent with the rest of the app, no native
+                  <select> ugly-by-default behaviour. */}
+              <div className="mx-auto w-full max-w-3xl">
+                <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
+                  <div className="flex items-center gap-3">
+                    <ModelPicker
+                      value={selectedProvider}
+                      options={configuredProviders}
+                      onChange={setSelectedProvider}
+                      label={t("chat.composer.modelLabel")}
+                    />
+                    <button
+                      ref={readingContextBtnRef}
+                      onClick={() => setReadingMenuOpen((v) => !v)}
+                      className="inline-flex items-center gap-1 rounded-md border border-glass-border bg-bg-primary/50 px-2 py-0.5 text-[11px] text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                      title={t("chat.readingContext.title")}
+                    >
+                      <History size={11} />
+                      {t("chat.readingContext.button")}
+                    </button>
+                    <FloatingMenu
+                      open={readingMenuOpen}
+                      anchorRef={readingContextBtnRef}
+                      onClose={() => setReadingMenuOpen(false)}
+                      className="w-56"
+                    >
+                      <button
+                        onClick={() => insertReadingContext("week")}
+                        className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
                       >
-                        {configuredProviders.map((p) => (
-                          <option key={p} value={p}>
-                            {PROVIDER_LABEL[p]}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {speech.error && (
-                      <span className="text-[11px] text-red-400">
-                        {speech.error === "not-allowed"
-                          ? t("chat.composer.micDenied")
-                          : t("chat.composer.micError")}
-                      </span>
-                    )}
+                        <span className="font-medium">
+                          {t("chat.readingContext.weekTitle")}
+                        </span>
+                        <span className="text-[11px] text-text-muted">
+                          {t("chat.readingContext.weekHint")}
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => insertReadingContext("all")}
+                        className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                      >
+                        <span className="font-medium">
+                          {t("chat.readingContext.recentTitle")}
+                        </span>
+                        <span className="text-[11px] text-text-muted">
+                          {t("chat.readingContext.recentHint")}
+                        </span>
+                      </button>
+                    </FloatingMenu>
                   </div>
+                  {speech.error && (
+                    <span className="text-[11px] text-red-400">
+                      {speech.error === "not-allowed"
+                        ? t("chat.composer.micDenied")
+                        : t("chat.composer.micError")}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
                   <textarea
+                    ref={textareaRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -418,66 +680,127 @@ export function ChatPage() {
                     }
                     rows={1}
                     className={cn(
-                      "min-h-[2.5rem] max-h-[12rem] resize-none rounded-lg border bg-glass-bg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition-colors",
+                      "block w-full resize-none overflow-y-auto rounded-lg border bg-glass-bg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition-colors",
                       speech.listening
                         ? "border-accent-purple ring-2 ring-accent-purple/30"
                         : "border-glass-border focus:border-accent-purple",
                     )}
                     disabled={streamingMessageId !== null}
                   />
-                </div>
-                {speech.supported && (
+                  {speech.supported && (
+                    <button
+                      onClick={() =>
+                        speech.listening ? speech.stop() : speech.start()
+                      }
+                      disabled={streamingMessageId !== null}
+                      className={cn(
+                        "shrink-0 rounded-lg p-2 transition-colors cursor-pointer",
+                        speech.listening
+                          ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                          : "bg-glass-bg text-text-muted hover:bg-glass-hover hover:text-text-primary",
+                      )}
+                      aria-label={
+                        speech.listening
+                          ? t("chat.composer.stopListening")
+                          : t("chat.composer.startListening")
+                      }
+                      title={
+                        speech.listening
+                          ? t("chat.composer.stopListening")
+                          : t("chat.composer.startListening")
+                      }
+                    >
+                      {speech.listening ? (
+                        <MicOff size={16} />
+                      ) : (
+                        <Mic size={16} />
+                      )}
+                    </button>
+                  )}
                   <button
-                    onClick={() =>
-                      speech.listening ? speech.stop() : speech.start()
-                    }
-                    disabled={streamingMessageId !== null}
+                    onClick={handleSend}
+                    disabled={!input.trim() || streamingMessageId !== null}
                     className={cn(
                       "shrink-0 rounded-lg p-2 transition-colors cursor-pointer",
-                      speech.listening
-                        ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                        : "bg-glass-bg text-text-muted hover:bg-glass-hover hover:text-text-primary",
+                      input.trim() && streamingMessageId === null
+                        ? "bg-accent-purple text-white hover:bg-accent-purple/80"
+                        : "bg-glass-bg text-text-muted",
                     )}
-                    aria-label={
-                      speech.listening
-                        ? t("chat.composer.stopListening")
-                        : t("chat.composer.startListening")
-                    }
-                    title={
-                      speech.listening
-                        ? t("chat.composer.stopListening")
-                        : t("chat.composer.startListening")
-                    }
+                    aria-label={t("chat.send")}
                   >
-                    {speech.listening ? (
-                      <MicOff size={16} />
+                    {streamingMessageId !== null ? (
+                      <Loader2 size={16} className="animate-spin" />
                     ) : (
-                      <Mic size={16} />
+                      <Send size={16} />
                     )}
                   </button>
-                )}
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim() || streamingMessageId !== null}
-                  className={cn(
-                    "shrink-0 rounded-lg p-2 transition-colors cursor-pointer",
-                    input.trim() && streamingMessageId === null
-                      ? "bg-accent-purple text-white hover:bg-accent-purple/80"
-                      : "bg-glass-bg text-text-muted",
-                  )}
-                  aria-label={t("chat.send")}
-                >
-                  {streamingMessageId !== null ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Send size={16} />
-                  )}
-                </button>
+                </div>
               </div>
             </div>
           </div>
         )}
       </main>
+      {flashcardSource && (
+        <SaveAsFlashcardsModal
+          open={!!flashcardSource}
+          onClose={() => setFlashcardSource(null)}
+          passage={flashcardSource.text}
+          defaultTitle={flashcardSource.title}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Model dropdown ──────────────────────────────────────────
+
+function ModelPicker({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: AiProvider;
+  options: AiProvider[];
+  onChange: (next: AiProvider) => void;
+  label: string;
+}) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
+      <span className="font-medium uppercase tracking-wider">{label}</span>
+      <button
+        ref={triggerRef}
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 rounded-md border border-glass-border bg-bg-primary/50 px-2 py-0.5 text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+      >
+        {PROVIDER_LABEL[value]}
+        <ChevronDown size={11} />
+      </button>
+      <FloatingMenu
+        open={open}
+        anchorRef={triggerRef}
+        onClose={() => setOpen(false)}
+        className="w-44"
+      >
+        {options.map((p) => (
+          <button
+            key={p}
+            onClick={() => {
+              onChange(p);
+              setOpen(false);
+            }}
+            className={cn(
+              "flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer",
+              value === p ? "text-accent-purple" : "text-text-secondary",
+            )}
+          >
+            <span>{PROVIDER_LABEL[p]}</span>
+            {value === p && <Check size={12} />}
+          </button>
+        ))}
+      </FloatingMenu>
     </div>
   );
 }
@@ -487,17 +810,25 @@ function MessageBubble({
   messages,
   activeLeafId,
   streamingMessageId,
+  sourceDocId,
   onBranchHere,
   onPickBranch,
+  onSaveAsFlashcards,
 }: {
   msg: ChatMessage;
   messages: Map<string, ChatMessage>;
   activeLeafId: string | null;
   streamingMessageId: string | null;
+  /** Set when the conversation has a source doc — citation tokens
+   *  in assistant messages get post-processed into clickable links. */
+  sourceDocId: string | null;
   onBranchHere: () => void;
   onPickBranch: (id: string) => void;
+  /** Open the flashcards extractor over this message's content. */
+  onSaveAsFlashcards: () => void;
 }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const isUser = msg.role === "user";
   const isStreaming = msg.id === streamingMessageId;
   const branches = countBranches(messages, msg.id);
@@ -525,7 +856,36 @@ function MessageBubble({
           isStreaming && "animate-pulse",
         )}
       >
-        <div className="whitespace-pre-wrap break-words">{msg.content}</div>
+        {/* User messages render as preformatted text (the user typed
+            them — no need to interpret markdown). Assistant messages
+            go through marked + DOMPurify so code blocks, tables,
+            lists, headings, and inline code all render properly. */}
+        {isUser ? (
+          <div className="whitespace-pre-wrap break-words">{msg.content}</div>
+        ) : (
+          <div
+            className="ai-message break-words"
+            // Intercept clicks on internal links (citation tokens
+            // become <a href="/reader/..."> after the markdown
+            // pre-pass) so they use react-router instead of doing a
+            // full page reload. External and unrecognised hrefs fall
+            // through to the browser's default behaviour.
+            onClick={(e) => {
+              const target = e.target as HTMLElement;
+              const anchor = target.closest("a");
+              if (!anchor) return;
+              const href = anchor.getAttribute("href") ?? "";
+              if (href.startsWith("/")) {
+                e.preventDefault();
+                e.stopPropagation();
+                navigate(href);
+              }
+            }}
+            dangerouslySetInnerHTML={{
+              __html: renderMarkdown(msg.content, sourceDocId),
+            }}
+          />
+        )}
 
         {/* Actions: visible on hover or when there are branches */}
         <div
@@ -544,6 +904,19 @@ function MessageBubble({
             <GitBranch size={10} />
             {t("chat.branchHere")}
           </button>
+          {/* Save-as-flashcards: only on assistant messages, only
+              once the stream has finished (the extractor would just
+              choke on a half-written passage). */}
+          {!isUser && !isStreaming && msg.content.trim().length > 40 && (
+            <button
+              onClick={onSaveAsFlashcards}
+              className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              title={t("chat.flashcards.saveAction")}
+            >
+              <Sparkles size={10} />
+              {t("chat.flashcards.saveAction")}
+            </button>
+          )}
           {branches > 1 && (
             <button
               onClick={() => setShowBranches((v) => !v)}
@@ -664,10 +1037,29 @@ function FolderRow({
   const subFolders = childFolders.get(folder.id) ?? [];
   const subConversations = folderConversations.get(folder.id) ?? [];
   const t = rest.t;
+  // Drag a folder to reparent it; drop conversations / other folders
+  // on the row body to nest them inside.
+  const draggable = useDraggable({ id: `folder:${folder.id}` });
+  const droppable = useDroppable({ id: `nest:${folder.id}` });
+  // dnd-kit's `setNodeRef` is a callback ref, not a `.current`-bearing
+  // ref; combining two hooks on one node is the documented pattern.
+  const combineRef = (el: HTMLDivElement | null) => {
+    draggable.setNodeRef(el);
+    droppable.setNodeRef(el);
+  };
   return (
     <>
       <div
-        className="group flex items-center gap-1 rounded-md px-1.5 py-1 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary"
+        ref={combineRef}
+        {...draggable.attributes}
+        {...draggable.listeners}
+        className={cn(
+          "group flex items-center gap-1 rounded-md px-1.5 py-1 text-text-secondary transition-colors cursor-grab active:cursor-grabbing",
+          droppable.isOver
+            ? "bg-accent-purple/20 ring-1 ring-accent-purple/60"
+            : "hover:bg-glass-hover hover:text-text-primary",
+          draggable.isDragging && "opacity-40",
+        )}
         style={{ paddingLeft: 6 + depth * 12 }}
       >
         <button
@@ -758,11 +1150,23 @@ function ConversationRow({
   const isEditing = editingId === conversation.id;
   const moveBtnRef = useRef<HTMLButtonElement>(null);
   const [showMove, setShowMove] = useState(false);
+  // Conversations are draggable but not droppable — drop targets are
+  // folders and the root strip. While editing the title we disable
+  // the drag listener so the input doesn't get hijacked.
+  const draggable = useDraggable({
+    id: `conv:${conversation.id}`,
+    disabled: isEditing,
+  });
 
   return (
     <div
+      ref={draggable.setNodeRef}
+      {...(isEditing ? {} : draggable.attributes)}
+      {...(isEditing ? {} : draggable.listeners)}
       className={cn(
         "group flex items-center gap-1 rounded-md px-1.5 py-1 transition-colors",
+        !isEditing && "cursor-grab active:cursor-grabbing",
+        draggable.isDragging && "opacity-40",
         isActive
           ? "bg-accent-purple/15 text-accent-purple"
           : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
@@ -861,6 +1265,32 @@ function ConversationRow({
           </button>
         </>
       )}
+    </div>
+  );
+}
+
+// Slim drop strip pinned to the top of the conversation list. Drop
+// a conversation or folder onto it to send it back to the root
+// (folder_id / parent_id = null). Only visually announces itself
+// when there's an active drag — invisible the rest of the time so
+// it doesn't take up sidebar space when no one's reaching for it.
+function RootDropZone({ label }: { label: string }) {
+  const { setNodeRef, isOver, active } = useDroppable({ id: "root" });
+  const dragging = !!active;
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "transition-all",
+        dragging
+          ? "mb-1.5 flex items-center justify-center rounded-md border border-dashed py-1.5 text-[11px]"
+          : "h-0 overflow-hidden",
+        isOver
+          ? "border-accent-purple bg-accent-purple/15 text-accent-purple"
+          : "border-glass-border text-text-muted",
+      )}
+    >
+      {dragging && label}
     </div>
   );
 }

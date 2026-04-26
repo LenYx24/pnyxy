@@ -1,0 +1,356 @@
+import { streamChatResponse } from "@/lib/ai-client";
+import type { RoadmapNode, RoadmapEdge } from "@/types/roadmap";
+
+export const MIN_ROADMAP_NODES = 3;
+export const MAX_ROADMAP_NODES = 20;
+export const DEFAULT_ROADMAP_NODES = 8;
+
+/**
+ * One result of an AI generation pass: a set of nodes + edges ready
+ * to drop into `useRoadmapStore.upsertNode` / `upsertEdge`. Both
+ * have real UUIDs already (the AI's internal "n1", "n2" labels are
+ * resolved into UUIDs here so callers don't have to rewrite ids).
+ */
+export interface GeneratedRoadmap {
+  nodes: RoadmapNode[];
+  edges: RoadmapEdge[];
+}
+
+export type RoadmapGenerationErrorKind =
+  | "empty_topic"
+  | "count_out_of_range"
+  | "no_response"
+  | "parse_failed"
+  | "shape_invalid"
+  | "provider_error";
+
+export class RoadmapGenerationError extends Error {
+  readonly kind: RoadmapGenerationErrorKind;
+  readonly cause?: unknown;
+  constructor(message: string, kind: RoadmapGenerationErrorKind, cause?: unknown) {
+    super(message);
+    this.name = "RoadmapGenerationError";
+    this.kind = kind;
+    this.cause = cause;
+  }
+}
+
+function buildRoadmapSystemPrompt(maxNodes: number): string {
+  return `You are designing a learning roadmap — a directed acyclic graph of
+learning units that the user works through. Output ONLY valid JSON,
+no preamble, no markdown fence, no commentary.
+
+Shape:
+{
+  "title": string,                 // a short title for the roadmap
+  "description": string,           // 1–2 sentences, plain text
+  "nodes": [
+    {
+      "id": "n1" | "n2" | ...,     // internal label, just for edges
+      "title": string,             // a topic to learn (5–60 chars)
+      "description": string,       // 1–3 sentences explaining what to learn
+      "estimatedMinutes": number   // realistic minutes for an average learner
+    },
+    ...
+  ],
+  "edges": [
+    { "source": "n1", "target": "n2" },   // n1 is a prerequisite of n2
+    ...
+  ]
+}
+
+Rules:
+- Produce 3 to ${maxNodes} nodes — enough to cover the topic without bloat.
+- Sequence the topics from foundational to advanced; the edges encode
+  prerequisites (source must be learned before target).
+- The graph MUST be a DAG. No cycles. No self-loops. No duplicate edges.
+- estimatedMinutes: pick realistic numbers (typically 30–240); don't lump
+  every node at the same value.
+- Titles are short and concrete ("Linear maps and matrix representations"),
+  not vague ("Section 3").
+- Do not nest objects. Do not include any field other than the ones above.`;
+}
+
+function buildRoadmapUserPrompt(topic: string): string {
+  return `Topic: ${topic.trim()}`;
+}
+
+interface RawNode {
+  id?: unknown;
+  title?: unknown;
+  description?: unknown;
+  estimatedMinutes?: unknown;
+}
+
+interface RawEdge {
+  source?: unknown;
+  target?: unknown;
+}
+
+interface RawRoadmap {
+  title?: unknown;
+  description?: unknown;
+  nodes?: unknown;
+  edges?: unknown;
+}
+
+function stripCodeFences(text: string): string {
+  let out = text.trim();
+  if (out.startsWith("```")) {
+    out = out.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  }
+  // Defensive: if there's prose around the object, slice from the first
+  // `{` to the matching final `}` so a leading "Here's your roadmap:"
+  // doesn't break the parse.
+  const first = out.indexOf("{");
+  const last = out.lastIndexOf("}");
+  if (first !== -1 && last !== -1 && last > first) {
+    out = out.slice(first, last + 1);
+  }
+  return out.trim();
+}
+
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === "string" && v.trim().length > 0;
+}
+
+interface ValidatedDraft {
+  title: string;
+  description: string;
+  nodes: Array<{
+    aiId: string;
+    title: string;
+    description: string;
+    estimatedMinutes: number;
+  }>;
+  edges: Array<{ source: string; target: string }>;
+}
+
+function validateDraft(raw: unknown): ValidatedDraft {
+  if (!raw || typeof raw !== "object") {
+    throw new RoadmapGenerationError(
+      "AI response was not an object.",
+      "shape_invalid",
+    );
+  }
+  const r = raw as RawRoadmap;
+  if (!isNonEmptyString(r.title)) {
+    throw new RoadmapGenerationError(
+      "AI response is missing the title.",
+      "shape_invalid",
+    );
+  }
+  if (!Array.isArray(r.nodes) || r.nodes.length < MIN_ROADMAP_NODES) {
+    throw new RoadmapGenerationError(
+      "AI response has too few nodes.",
+      "shape_invalid",
+    );
+  }
+  if (!Array.isArray(r.edges)) {
+    throw new RoadmapGenerationError(
+      "AI response is missing the edges list.",
+      "shape_invalid",
+    );
+  }
+
+  const seenIds = new Set<string>();
+  const nodes: ValidatedDraft["nodes"] = [];
+  for (const raw of r.nodes as RawNode[]) {
+    if (!raw || typeof raw !== "object") continue;
+    if (
+      !isNonEmptyString(raw.id) ||
+      !isNonEmptyString(raw.title) ||
+      typeof raw.estimatedMinutes !== "number" ||
+      !Number.isFinite(raw.estimatedMinutes)
+    )
+      continue;
+    const id = raw.id.trim();
+    if (seenIds.has(id)) continue;
+    seenIds.add(id);
+    nodes.push({
+      aiId: id,
+      title: raw.title.trim(),
+      description: isNonEmptyString(raw.description) ? raw.description.trim() : "",
+      // Clamp to a sane range. Models occasionally hand back hours-as-minutes.
+      estimatedMinutes: Math.max(
+        5,
+        Math.min(600, Math.round(raw.estimatedMinutes)),
+      ),
+    });
+  }
+  if (nodes.length < MIN_ROADMAP_NODES) {
+    throw new RoadmapGenerationError(
+      "Not enough valid nodes after filtering.",
+      "shape_invalid",
+    );
+  }
+
+  const validIds = new Set(nodes.map((n) => n.aiId));
+  const edgeKeys = new Set<string>();
+  const edges: ValidatedDraft["edges"] = [];
+  for (const raw of r.edges as RawEdge[]) {
+    if (!raw || typeof raw !== "object") continue;
+    if (!isNonEmptyString(raw.source) || !isNonEmptyString(raw.target)) continue;
+    const source = raw.source.trim();
+    const target = raw.target.trim();
+    if (source === target) continue;
+    if (!validIds.has(source) || !validIds.has(target)) continue;
+    const key = `${source}->${target}`;
+    if (edgeKeys.has(key)) continue;
+    edgeKeys.add(key);
+    edges.push({ source, target });
+  }
+
+  return {
+    title: r.title.trim(),
+    description: isNonEmptyString(r.description) ? r.description.trim() : "",
+    nodes,
+    edges,
+  };
+}
+
+/**
+ * Drop any edge that would close a cycle, building the live graph
+ * incrementally. Order-stable: earlier edges win, so the model's
+ * intended sequencing survives. The result is guaranteed acyclic
+ * even when the model occasionally produces a cycle.
+ */
+function dropCycles<T extends { source: string; target: string }>(
+  edges: T[],
+): T[] {
+  const liveAdj = new Map<string, string[]>();
+  // "Would adding source → target close a cycle?" iff target can
+  // already reach source in the live graph. BFS from `target`.
+  const reaches = (from: string, target: string): boolean => {
+    const visited = new Set<string>();
+    const queue = [from];
+    while (queue.length > 0) {
+      const cur = queue.shift()!;
+      if (cur === target) return true;
+      if (visited.has(cur)) continue;
+      visited.add(cur);
+      for (const n of liveAdj.get(cur) ?? []) queue.push(n);
+    }
+    return false;
+  };
+  const accepted: T[] = [];
+  for (const e of edges) {
+    if (reaches(e.target, e.source)) continue;
+    accepted.push(e);
+    if (!liveAdj.has(e.source)) liveAdj.set(e.source, []);
+    liveAdj.get(e.source)!.push(e.target);
+  }
+  return accepted;
+}
+
+/**
+ * Generate a roadmap draft from a topic. The result still needs to
+ * be saved by the caller (createRoadmap + upsertNode + upsertEdge);
+ * this function only handles "talk to the AI and parse the JSON".
+ */
+export async function generateRoadmap({
+  topic,
+  maxNodes = DEFAULT_ROADMAP_NODES,
+  signal,
+}: {
+  topic: string;
+  maxNodes?: number;
+  signal?: AbortSignal;
+}): Promise<{
+  title: string;
+  description: string;
+  nodes: RoadmapNode[];
+  edges: RoadmapEdge[];
+}> {
+  const trimmedTopic = topic.trim();
+  if (!trimmedTopic) {
+    throw new RoadmapGenerationError(
+      "A topic is required.",
+      "empty_topic",
+    );
+  }
+  if (
+    !Number.isInteger(maxNodes) ||
+    maxNodes < MIN_ROADMAP_NODES ||
+    maxNodes > MAX_ROADMAP_NODES
+  ) {
+    throw new RoadmapGenerationError(
+      `Node count must be between ${MIN_ROADMAP_NODES} and ${MAX_ROADMAP_NODES}.`,
+      "count_out_of_range",
+    );
+  }
+
+  let buf = "";
+  try {
+    for await (const chunk of streamChatResponse(
+      [{ role: "user", content: buildRoadmapUserPrompt(trimmedTopic) }],
+      "",
+      "",
+      {
+        systemPromptOverride: buildRoadmapSystemPrompt(maxNodes),
+        // Plenty of headroom for a 20-node roadmap with descriptions.
+        maxOutputTokens: 4000,
+      },
+    )) {
+      if (signal?.aborted) {
+        throw new RoadmapGenerationError(
+          "Generation cancelled.",
+          "provider_error",
+        );
+      }
+      buf += chunk.delta;
+    }
+  } catch (err) {
+    if (err instanceof RoadmapGenerationError) throw err;
+    throw new RoadmapGenerationError(
+      err instanceof Error ? err.message : "Provider error.",
+      "provider_error",
+      err,
+    );
+  }
+
+  if (!buf.trim()) {
+    throw new RoadmapGenerationError(
+      "AI returned no content.",
+      "no_response",
+    );
+  }
+
+  const cleaned = stripCodeFences(buf);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (err) {
+    throw new RoadmapGenerationError(
+      "AI response wasn't valid JSON.",
+      "parse_failed",
+      err,
+    );
+  }
+  const draft = validateDraft(parsed);
+
+  // Map AI ids ("n1", "n2", ...) → real UUIDs and rewrite edges.
+  const idMap = new Map<string, string>();
+  for (const n of draft.nodes) idMap.set(n.aiId, crypto.randomUUID());
+
+  const nodes: RoadmapNode[] = draft.nodes.map((n) => ({
+    id: idMap.get(n.aiId)!,
+    type: "text",
+    title: n.title,
+    description: n.description,
+    estimatedMinutes: n.estimatedMinutes,
+  }));
+
+  const safeEdges = dropCycles(draft.edges).map((e) => ({
+    id: crypto.randomUUID(),
+    source: idMap.get(e.source)!,
+    target: idMap.get(e.target)!,
+  }));
+
+  return {
+    title: draft.title,
+    description: draft.description,
+    nodes,
+    edges: safeEdges,
+  };
+}

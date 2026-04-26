@@ -725,6 +725,26 @@
     "tagline": "Plan a learning path, enroll, and check off nodes as you go.",
     "new": "New roadmap",
     "createAndEdit": "Create & edit",
+    "aiGenerate": {
+      "button": "Generate with AI",
+      "title": "Generate a roadmap with AI",
+      "topicLabel": "What do you want to learn?",
+      "topicPlaceholder": "e.g. Linear algebra for ML, fundamentals of relational databases…",
+      "topicHint": "The AI will sketch out a prerequisite-ordered set of learning steps. You'll get to review before saving.",
+      "countLabel": "Number of steps: {{count}}",
+      "generate": "Generate",
+      "generatingShort": "Generating…",
+      "generating": "Asking the AI for a roadmap. This usually takes a few seconds.",
+      "previewLabel_one": "{{count}} step, {{edges}} prerequisites",
+      "previewLabel_other": "{{count}} steps, {{edges}} prerequisites",
+      "regenerate": "Regenerate",
+      "accept": "Save & open editor",
+      "errors": {
+        "emptyTopic": "Type what you want to learn first.",
+        "parseFailed": "The AI's response wasn't valid roadmap JSON. Try a different model or rephrase the topic.",
+        "noResponse": "The AI didn't respond. Check your provider settings and try again."
+      }
+    },
     "untitled": "Untitled roadmap",
     "titleLabel": "Title",
     "titlePlaceholder": "e.g. Hungarian literature for grade 11",
@@ -791,6 +811,8 @@
     "branchesCount_other": "{{count}} branches",
     "branchN": "Branch {{n}}",
     "branchingFrom": "Branching from: {{snippet}}",
+    "sourceContext": "From {{title}} · p.{{page}}",
+    "openInReader": "Open in reader",
     "sidebar": {
       "empty": "No conversations yet."
     },
@@ -810,7 +832,36 @@
       "delete": "Delete folder",
       "deleteConfirm": "Delete folder \"{{name}}\"? Conversations inside go back to the root.",
       "moveTo": "Move to folder…",
-      "root": "Root (no folder)"
+      "root": "Root (no folder)",
+      "dropToRoot": "Drop here to move to root"
+    },
+    "flashcards": {
+      "title": "Save as flashcards",
+      "saveAction": "Save as flashcards",
+      "defaultTitle": "Flashcards from chat",
+      "savedDescription": "Generated from a chat message",
+      "titleLabel": "Quiz title",
+      "extracting": "Extracting flashcards from this message…",
+      "noneFound": "Couldn't find anything to extract — try a longer or more substantive message.",
+      "extractFailed": "Couldn't parse the AI response as flashcards. Try again.",
+      "editHint_one": "{{count}} card found. Edit, remove, or add more before saving.",
+      "editHint_other": "{{count}} cards found. Edit, remove, or add more before saving.",
+      "questionPlaceholder": "Question…",
+      "answerPlaceholder": "Answer…",
+      "removeCard": "Remove card",
+      "addCard": "Add another card",
+      "saveQuiz_one": "Save {{count}} card",
+      "saveQuiz_other": "Save {{count}} cards"
+    },
+    "readingContext": {
+      "title": "Insert recent reading activity into the prompt",
+      "button": "My reading",
+      "weekTitle": "This week",
+      "weekHint": "Books I've opened in the last 7 days",
+      "recentTitle": "Recent reading",
+      "recentHint": "Most recent 10 books",
+      "weekIntro": "Here's what I've been reading this past week:",
+      "recentIntro": "Here's my recent reading activity:"
     }
   },
   "readingPlans": {
@@ -1221,7 +1272,8 @@
       "commentAction": "Comment",
       "savedToVocab": "Saved to vocabulary",
       "undo": "Undo",
-      "share": "Share…"
+      "share": "Share…",
+      "sendToChat": "Send to AI chat"
     },
     "aiChat": {
       "title": "AI Chat",

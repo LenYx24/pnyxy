@@ -27,6 +27,12 @@ export function AppLayout() {
   // focus session is active (user explicitly asked for an
   // uninterrupted reading surface).
   const isReaderRoute = location.pathname.startsWith("/reader");
+  // Chat wants a flush, full-width layout too — the conversation
+  // sidebar should sit right against the global app sidebar with no
+  // gap, and the thread should use the full viewport. Same p-0
+  // treatment as the reader.
+  const isChatRoute = location.pathname.startsWith("/chat");
+  const useFlushContent = isReaderRoute || isChatRoute;
 
   // Footer is only rendered on the informational / legal pages. The
   // main app surfaces (library, browse, reader, settings, profile,
@@ -90,7 +96,7 @@ export function AppLayout() {
         <div
           className={cn(
             "flex-1",
-            isReaderRoute ? "p-0" : "p-4 md:p-6",
+            useFlushContent ? "p-0" : "p-4 md:p-6",
           )}
         >
           <Outlet />

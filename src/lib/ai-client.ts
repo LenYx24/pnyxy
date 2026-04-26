@@ -88,6 +88,11 @@ export async function extractPdfText(
 }
 
 function buildSystemPrompt(documentTitle: string, pageContext: string) {
+  // The "[p.N]" hint is intentional — Pnyxy's chat renderer
+  // post-processes that exact token into a clickable link back to
+  // the reader at /reader/<docId>?page=N. Other formats (page 42,
+  // P. 42, page-42) won't be linked, so we tell the model the
+  // canonical shape.
   return `You are an AI assistant helping the user understand a PDF document titled "${documentTitle}".
 
 Here is the text from the pages the user is currently viewing:
@@ -96,7 +101,7 @@ Here is the text from the pages the user is currently viewing:
 ${pageContext}
 ---
 
-Answer questions about this document. Be concise and helpful. Reference specific page numbers when relevant. If the answer is not in the provided text, say so.`;
+Answer questions about this document. Be concise and helpful. When you reference a specific page, cite it inline using the format [p.N] where N is the page number (e.g. "the author's main argument [p.42]"). If the answer is not in the provided text, say so.`;
 }
 
 // ── Top-level streaming with provider fallback ──────────────

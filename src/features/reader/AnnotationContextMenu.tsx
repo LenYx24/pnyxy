@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 import { createPortal } from "react-dom";
 import {
   Copy,
@@ -10,11 +11,13 @@ import {
   Languages,
   Loader2,
   Share2,
+  Bot,
 } from "lucide-react";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useVocabStore } from "@/stores/vocab-store";
 import { useReaderStore } from "@/stores/reader-store";
+import { useChatStore } from "@/stores/chat-store";
 import type { HighlightColor } from "@/types/annotation";
 
 const COLORS: { color: HighlightColor; hex: string }[] = [
@@ -209,6 +212,31 @@ export function AnnotationContextMenu() {
     hideContextMenu();
     window.getSelection()?.removeAllRanges();
   }, [contextMenu.selection, highlight, hideContextMenu]);
+
+  const navigate = useNavigate();
+  const handleSendToChat = useCallback(() => {
+    const text = (
+      contextMenu.selection?.text ?? highlight?.selection.text ?? ""
+    ).trim();
+    if (!text) return;
+    const doc = useReaderStore.getState().getActiveDoc();
+    if (!doc) return;
+    // Stash a draft for ChatPage to drain on mount: it'll create a
+    // new conversation tagged with this doc + page, prefill the
+    // composer with a quote-formatted version of the selection, and
+    // show a context pill above the composer.
+    useChatStore.getState().setPendingDraft({
+      text: `> ${text.replace(/\n/g, "\n> ")}\n\n`,
+      source: {
+        docId: doc.meta.id,
+        docTitle: doc.customTitle || doc.meta.title || "Untitled",
+        page: doc.currentPage ?? null,
+      },
+    });
+    hideContextMenu();
+    window.getSelection()?.removeAllRanges();
+    navigate("/chat");
+  }, [contextMenu.selection, highlight, hideContextMenu, navigate]);
 
   const handleShare = useCallback(async () => {
     const text = contextMenu.selection?.text ?? highlight?.selection.text ?? "";
@@ -506,6 +534,16 @@ export function AnnotationContextMenu() {
             <MessageSquare size={14} />
             {t("reader.annotationMenu.addComment")}
           </button>
+
+          {(hasSelection || hasHighlight) && (
+            <button
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              onClick={handleSendToChat}
+            >
+              <Bot size={14} />
+              {t("reader.annotationMenu.sendToChat")}
+            </button>
+          )}
 
           {(hasSelection || hasHighlight) && (
             <button
