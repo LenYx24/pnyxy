@@ -10,6 +10,8 @@ export interface Quiz {
   uploaded_book_id: string | null;
   catalog_book_id: string | null;
   question_count: number;
+  randomize_questions: boolean;
+  randomize_options: boolean;
   created_at: string;
   updated_at: string;
 }

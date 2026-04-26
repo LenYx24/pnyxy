@@ -45,6 +45,8 @@ interface QuizState {
     visibility: QuizVisibility;
     uploaded_book_id: string | null;
     catalog_book_id: string | null;
+    randomize_questions?: boolean;
+    randomize_options?: boolean;
     questions: QuizQuestionDraft[];
   }) => Promise<string | null>;
 
@@ -58,6 +60,8 @@ interface QuizState {
         | "visibility"
         | "uploaded_book_id"
         | "catalog_book_id"
+        | "randomize_questions"
+        | "randomize_options"
       >
     >,
     questions?: QuizQuestionDraft[],
@@ -287,6 +291,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         visibility: input.visibility,
         uploaded_book_id: input.uploaded_book_id,
         catalog_book_id: input.catalog_book_id,
+        randomize_questions: input.randomize_questions ?? false,
+        randomize_options: input.randomize_options ?? false,
       })
       .select()
       .single();
@@ -372,6 +378,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         visibility: "private",
         uploaded_book_id: source.quiz.uploaded_book_id,
         catalog_book_id: source.quiz.catalog_book_id,
+        randomize_questions: source.quiz.randomize_questions,
+        randomize_options: source.quiz.randomize_options,
       })
       .select()
       .single();

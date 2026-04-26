@@ -9,6 +9,39 @@ import type { SubmitAnswer } from "@/stores/quiz-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { gradeAnswer, type Quiz, type QuizQuestion } from "@/types/quiz";
 
+// Pairs each question with the order in which its options should be
+// displayed. For non-mcq4 kinds (or when randomize_options is off)
+// the order is identity [0,1,2,3] — the renderer can ignore the
+// distinction. For mcq4 with randomization enabled, the array is a
+// permutation. The user's pick is in *displayed-index space* and we
+// translate back via this array before storing the answer, so the
+// stored selected_index always matches the canonical option order
+// in the database (which is what FSRS / attempt history rely on).
+type PlayItem = {
+  question: QuizQuestion;
+  optionOrder: number[];
+};
+
+function shuffle<T>(arr: readonly T[]): T[] {
+  const result = arr.slice();
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+function buildPlayOrder(quiz: Quiz, questions: QuizQuestion[]): PlayItem[] {
+  const ordered = quiz.randomize_questions ? shuffle(questions) : questions;
+  return ordered.map((q) => ({
+    question: q,
+    optionOrder:
+      quiz.randomize_options && q.kind === "mcq4"
+        ? shuffle([0, 1, 2, 3])
+        : [0, 1, 2, 3],
+  }));
+}
+
 export function QuizTakePage() {
   const { t } = useTranslation();
   const { quizId } = useParams<{ quizId: string }>();
@@ -20,6 +53,7 @@ export function QuizTakePage() {
   const [loading, setLoading] = useState(true);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [playOrder, setPlayOrder] = useState<PlayItem[]>([]);
 
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<SubmitAnswer[]>([]);
@@ -38,6 +72,7 @@ export function QuizTakePage() {
       if (data) {
         setQuiz(data.quiz);
         setQuestions(data.questions);
+        setPlayOrder(buildPlayOrder(data.quiz, data.questions));
       }
       setLoading(false);
     })();
@@ -46,12 +81,13 @@ export function QuizTakePage() {
     };
   }, [quizId, getQuiz]);
 
-  const q = questions[current];
+  const playItem = playOrder[current];
+  const q = playItem?.question;
   const score = useMemo(
     () => answers.reduce((n, a) => (a.is_correct ? n + 1 : n), 0),
     [answers],
   );
-  const isLast = current === questions.length - 1;
+  const isLast = current === playOrder.length - 1;
 
   if (loading) {
     return (
@@ -60,7 +96,7 @@ export function QuizTakePage() {
       </div>
     );
   }
-  if (!quiz || questions.length === 0) {
+  if (!quiz || playOrder.length === 0 || !q || !playItem) {
     return (
       <div className="mx-auto w-full max-w-xl p-6 text-center">
         <p className="text-text-muted">{t("quizzes.take.noQuestions")}</p>
@@ -81,13 +117,19 @@ export function QuizTakePage() {
 
   const reveal = () => {
     if (!canReveal) return;
+    // pickedIndex is in *displayed* order. Translate to the canonical
+    // option index before storing so submitAttempt / FSRS see the
+    // same selected_index they would have for an unshuffled quiz.
+    const originalIndex =
+      pickedIndex !== null && q.kind !== "short_answer"
+        ? playItem.optionOrder[pickedIndex]
+        : null;
     const answer: SubmitAnswer = {
       question_id: q.id,
-      selected_index:
-        q.kind === "short_answer" ? null : pickedIndex,
+      selected_index: q.kind === "short_answer" ? null : originalIndex,
       selected_text: q.kind === "short_answer" ? typedText.trim() : null,
       is_correct: gradeAnswer(q, {
-        selected_index: pickedIndex,
+        selected_index: originalIndex,
         selected_text: typedText,
       }),
     };
@@ -117,6 +159,9 @@ export function QuizTakePage() {
   };
 
   const restart = () => {
+    // Re-shuffle on restart so a "Retry" actually feels different
+    // when randomization is on.
+    setPlayOrder(buildPlayOrder(quiz, questions));
     setCurrent(0);
     setAnswers([]);
     setPickedIndex(null);
@@ -126,7 +171,7 @@ export function QuizTakePage() {
   };
 
   if (done) {
-    const pct = Math.round((score / questions.length) * 100);
+    const pct = Math.round((score / playOrder.length) * 100);
     return (
       <div className="mx-auto w-full max-w-2xl space-y-5 p-4 sm:p-6">
         <header className="space-y-1 text-center">
@@ -134,7 +179,7 @@ export function QuizTakePage() {
             {t("quizzes.take.results")}
           </p>
           <h1 className="text-3xl font-bold text-text-primary">
-            {score} / {questions.length}
+            {score} / {playOrder.length}
           </h1>
           <p
             className={cn(
@@ -156,7 +201,7 @@ export function QuizTakePage() {
         </header>
 
         <section className="space-y-3">
-          {questions.map((question, idx) => (
+          {playOrder.map(({ question }, idx) => (
             <ResultCard
               key={question.id}
               index={idx}
@@ -196,14 +241,14 @@ export function QuizTakePage() {
         <p className="text-xs uppercase tracking-wider text-text-muted">
           {t("quizzes.take.progress", {
             current: current + 1,
-            total: questions.length,
+            total: playOrder.length,
           })}
         </p>
         <div className="mt-1 h-1 w-full rounded-full bg-glass-bg">
           <div
             className="h-full rounded-full bg-accent-purple transition-all"
             style={{
-              width: `${(current / questions.length) * 100}%`,
+              width: `${(current / playOrder.length) * 100}%`,
             }}
           />
         </div>
@@ -215,8 +260,18 @@ export function QuizTakePage() {
 
       {q.kind === "mcq4" && (
         <McqOptions
-          options={[q.option_a, q.option_b, q.option_c, q.option_d]}
-          correctIndex={q.correct_index}
+          // Permute the option strings into displayed order. The
+          // `selected` and `correctIndex` props are also in displayed
+          // space — translate correct_index via optionOrder.indexOf.
+          options={playItem.optionOrder.map(
+            (origIdx) =>
+              [q.option_a, q.option_b, q.option_c, q.option_d][origIdx],
+          )}
+          correctIndex={
+            q.correct_index !== null
+              ? playItem.optionOrder.indexOf(q.correct_index)
+              : null
+          }
           selected={pickedIndex}
           revealed={revealed}
           onSelect={setPickedIndex}
