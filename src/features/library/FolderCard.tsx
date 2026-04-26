@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Folder, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Checkbox, GlassCard } from "@/components/ui";
+import { Checkbox, FloatingMenu, GlassCard } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { Folder as FolderType } from "@/types/database";
 
@@ -45,23 +45,12 @@ export function FolderCard({
     : undefined;
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const selKey = `folder:${folder.id}`;
   const iconSize = Math.round(Math.min(Math.max(coverHeight * 0.35, 24), 48));
   // Mirror LibraryBookCard's compact threshold so both cards share
   // the exact same layout heights in the grid.
   const compact = coverHeight < 100;
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [menuOpen]);
 
   const handleClick = (e: React.MouseEvent) => {
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
@@ -134,9 +123,11 @@ export function FolderCard({
           </div>
         </div>
 
-        {/* 3-dot menu */}
-        <div ref={menuRef} className="absolute right-2 top-2">
+        {/* 3-dot menu — portal-rendered via FloatingMenu so the
+            dropdown can't be clipped by the card's overflow-hidden. */}
+        <div className="absolute right-2 top-2">
           <button
+            ref={triggerRef}
             onClick={(e) => {
               e.stopPropagation();
               setMenuOpen((v) => !v);
@@ -151,36 +142,39 @@ export function FolderCard({
             <MoreVertical size={16} />
           </button>
 
-          {menuOpen && (
-            <div className="absolute right-0 top-8 z-20 w-40 rounded-lg border border-glass-border bg-bg-secondary/95 py-1 shadow-lg backdrop-blur-xl">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  const name = prompt(
-                    t("library.folderCard.renamePrompt"),
-                    folder.name,
-                  );
-                  if (name && name.trim()) onRename(folder.id, name.trim());
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              >
-                <Pencil size={14} />
-                {t("library.folderCard.rename")}
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  onDelete(folder.id);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 transition-colors hover:bg-glass-hover cursor-pointer"
-              >
-                <Trash2 size={14} />
-                {t("library.folderCard.delete")}
-              </button>
-            </div>
-          )}
+          <FloatingMenu
+            open={menuOpen}
+            anchorRef={triggerRef}
+            onClose={() => setMenuOpen(false)}
+            className="w-40"
+          >
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(false);
+                const name = prompt(
+                  t("library.folderCard.renamePrompt"),
+                  folder.name,
+                );
+                if (name && name.trim()) onRename(folder.id, name.trim());
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            >
+              <Pencil size={14} />
+              {t("library.folderCard.rename")}
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(false);
+                onDelete(folder.id);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 transition-colors hover:bg-glass-hover cursor-pointer"
+            >
+              <Trash2 size={14} />
+              {t("library.folderCard.delete")}
+            </button>
+          </FloatingMenu>
         </div>
       </GlassCard>
     </div>

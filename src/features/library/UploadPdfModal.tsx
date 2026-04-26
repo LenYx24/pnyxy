@@ -27,6 +27,7 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
   const clearError = useUploadStore((s) => s.clearError);
   const fetchStorageUsage = useUploadStore((s) => s.fetchStorageUsage);
   const fetchLibrary = useLibraryStore((s) => s.fetchLibrary);
+  const currentFolderId = useLibraryStore((s) => s.currentFolderId);
 
   useEffect(() => {
     if (open) {
@@ -70,7 +71,7 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
 
   const handleUpload = async () => {
     if (!selectedFile) return;
-    const bookId = await uploadPdf(selectedFile);
+    const bookId = await uploadPdf(selectedFile, currentFolderId);
     if (bookId) {
       setSuccess(true);
       await fetchLibrary();

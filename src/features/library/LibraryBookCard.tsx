@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useRef, useState } from "react";
 import {
   MoreVertical,
   FolderInput,
@@ -12,7 +12,7 @@ import {
 import { useNavigate } from "react-router";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Checkbox, TagBadge } from "@/components/ui";
+import { Checkbox, FloatingMenu, TagBadge } from "@/components/ui";
 import { PdfCoverThumbnail } from "@/components/ui/PdfCoverThumbnail";
 import { useTagStore, bookKey } from "@/stores/tag-store";
 import { TagPickerDropdown } from "./TagPickerDropdown";
@@ -62,7 +62,7 @@ export function LibraryBookCard({
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const key = bookKey(entry);
   const tags = useTagStore((s) => s.bookTags.get(key)) ?? [];
   const addTag = useTagStore((s) => s.addTag);
@@ -87,17 +87,6 @@ export function LibraryBookCard({
 
   const selKey = `book:${entry.id}`;
   const compact = coverHeight < 100;
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [menuOpen]);
 
   const handleClick = (e: React.MouseEvent) => {
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
@@ -240,9 +229,12 @@ export function LibraryBookCard({
           </div>
         </div>
 
-        {/* 3-dot menu — positioned over the cover. */}
-        <div ref={menuRef} className="absolute right-1.5 top-1.5">
+        {/* 3-dot menu — positioned over the cover. The dropdown
+            itself is portal-rendered via FloatingMenu so it can't be
+            clipped by the card / grid container. */}
+        <div className="absolute right-1.5 top-1.5">
           <button
+            ref={triggerRef}
             onClick={(e) => {
               e.stopPropagation();
               setMenuOpen((v) => !v);
@@ -258,70 +250,74 @@ export function LibraryBookCard({
             <MoreVertical size={16} />
           </button>
 
-          {menuOpen && (
-            <div className="absolute right-0 top-8 z-20 w-48 rounded-lg border border-glass-border bg-bg-secondary/95 py-1 shadow-lg backdrop-blur-xl">
+          <FloatingMenu
+            open={menuOpen}
+            anchorRef={triggerRef}
+            onClose={() => setMenuOpen(false)}
+            className="w-48"
+          >
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(false);
+                setInfoOpen(true);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            >
+              <Info size={14} />
+              File Info
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(false);
+                setTagPickerOpen(true);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            >
+              <Tag size={14} />
+              Manage Tags
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(false);
+                onMove(entry);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            >
+              <FolderInput size={14} />
+              Move to Folder
+            </button>
+            {entry.source === "uploaded" && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setMenuOpen(false);
-                  setInfoOpen(true);
+                  setShareOpen(true);
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
               >
-                <Info size={14} />
-                File Info
+                <Share2 size={14} />
+                Share with community
               </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  setTagPickerOpen(true);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              >
-                <Tag size={14} />
-                Manage Tags
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  onMove(entry);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              >
-                <FolderInput size={14} />
-                Move to Folder
-              </button>
-              {entry.source === "uploaded" && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMenuOpen(false);
-                    setShareOpen(true);
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-                >
-                  <Share2 size={14} />
-                  Share with community
-                </button>
-              )}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  onRemove(entry);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 transition-colors hover:bg-glass-hover cursor-pointer"
-              >
-                <Trash2 size={14} />
-                {entry.source === "uploaded" ? "Delete" : "Remove from Library"}
-              </button>
-            </div>
-          )}
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(false);
+                onRemove(entry);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 transition-colors hover:bg-glass-hover cursor-pointer"
+            >
+              <Trash2 size={14} />
+              {entry.source === "uploaded" ? "Delete" : "Remove from Library"}
+            </button>
+          </FloatingMenu>
           {tagPickerOpen && (
             <TagPickerDropdown
               item={entry}
+              anchorRef={triggerRef}
               onClose={() => setTagPickerOpen(false)}
             />
           )}

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
 import {
   BookOpen,
@@ -9,6 +9,7 @@ import {
   Pencil,
   Trash2,
   FolderInput,
+  FolderPlus,
   Upload,
   Tag,
   GripVertical,
@@ -18,7 +19,7 @@ import {
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Checkbox, TagBadge } from "@/components/ui";
+import { Checkbox, FloatingMenu, TagBadge } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useTagStore, bookKey } from "@/stores/tag-store";
 import { useContextMenu } from "@/hooks/use-context-menu";
@@ -74,22 +75,12 @@ function ContextMenu({
   open: boolean;
   onToggle: () => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        onToggle();
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open, onToggle]);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <div ref={ref} className="relative shrink-0">
+    <div className="shrink-0">
       <button
+        ref={triggerRef}
         onClick={(e) => {
           e.stopPropagation();
           onToggle();
@@ -103,11 +94,18 @@ function ContextMenu({
       >
         <MoreVertical size={14} />
       </button>
-      {open && (
-        <div className="absolute right-0 top-8 z-20 w-44 rounded-lg border border-glass-border bg-bg-secondary/95 py-1 shadow-lg backdrop-blur-xl">
-          {children}
-        </div>
-      )}
+      {/* Portal-rendered so the menu can't be clipped by the list
+          container's `overflow-x-auto` (the bug this whole detour
+          fixes). Position is computed from the trigger's bounding
+          rect so it still feels visually attached to the button. */}
+      <FloatingMenu
+        open={open}
+        anchorRef={triggerRef}
+        onClose={onToggle}
+        className="w-44"
+      >
+        {children}
+      </FloatingMenu>
     </div>
   );
 }
@@ -161,6 +159,9 @@ interface FolderRowProps {
   allBooks: UnifiedLibraryItem[];
   onMoveBook: (entry: UnifiedLibraryItem) => void;
   onRemoveBook: (entry: UnifiedLibraryItem) => void;
+  /** Open the create-folder modal targeting this folder as parent.
+   *  Wired to the "New subfolder" context-menu entry. */
+  onCreateSubfolder?: (parentFolderId: string) => void;
   expandedFolders: Set<string>;
   selectedIds: Set<string>;
   density: RowDensity;
@@ -184,6 +185,7 @@ function FolderRow({
   allBooks,
   onMoveBook,
   onRemoveBook,
+  onCreateSubfolder,
   expandedFolders,
   selectedIds,
   density,
@@ -248,31 +250,44 @@ function FolderRow({
   // Right-click + long-press menu. Items are computed lazily so they
   // capture fresh callbacks at the moment the menu opens.
   const contextHandlers = useContextMenu(
-    (): ContextMenuEntry[] => [
-      {
-        id: "open",
-        label: "Open",
-        icon: FolderOpen,
-        onClick: () => onNavigate(folder.id),
-      },
-      {
-        id: "rename",
-        label: "Rename",
-        icon: Pencil,
-        onClick: () => {
-          const name = prompt("Rename folder:", folder.name);
-          if (name?.trim()) onRename(folder.id, name.trim());
+    (): ContextMenuEntry[] => {
+      const items: ContextMenuEntry[] = [
+        {
+          id: "open",
+          label: "Open",
+          icon: FolderOpen,
+          onClick: () => onNavigate(folder.id),
         },
-      },
-      { id: "div-1", divider: true },
-      {
-        id: "delete",
-        label: "Delete",
-        icon: Trash2,
-        danger: true,
-        onClick: () => onDelete(folder.id),
-      },
-    ],
+        {
+          id: "rename",
+          label: "Rename",
+          icon: Pencil,
+          onClick: () => {
+            const name = prompt("Rename folder:", folder.name);
+            if (name?.trim()) onRename(folder.id, name.trim());
+          },
+        },
+      ];
+      if (onCreateSubfolder) {
+        items.push({
+          id: "new-subfolder",
+          label: "New subfolder",
+          icon: FolderPlus,
+          onClick: () => onCreateSubfolder(folder.id),
+        });
+      }
+      items.push(
+        { id: "div-1", divider: true },
+        {
+          id: "delete",
+          label: "Delete",
+          icon: Trash2,
+          danger: true,
+          onClick: () => onDelete(folder.id),
+        },
+      );
+      return items;
+    },
   );
 
   return (
@@ -412,6 +427,7 @@ function FolderRow({
                 allBooks={allBooks}
                 onMoveBook={onMoveBook}
                 onRemoveBook={onRemoveBook}
+                onCreateSubfolder={onCreateSubfolder}
                 expandedFolders={expandedFolders}
                 selectedIds={selectedIds}
                 density={density}
@@ -501,6 +517,11 @@ function BookRow({
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  // Anchor for the tag picker. Wraps the ContextMenu's button area so
+  // the picker pops near the 3-dots (which is the "Manage tags" entry
+  // they just clicked from). The 3-dots button itself is owned by
+  // ContextMenu so we can't ref it directly — wrapping is simpler.
+  const tagAnchorRef = useRef<HTMLDivElement>(null);
   const tagKey = bookKey(entry);
   const tags = useTagStore((s) => s.bookTags.get(tagKey)) ?? [];
   const selKey = `book:${entry.id}`;
@@ -685,7 +706,7 @@ function BookRow({
         </span>
 
         {/* Menu */}
-        <div className="relative">
+        <div ref={tagAnchorRef} className="relative">
           <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
             <MenuItem
               icon={Info}
@@ -734,6 +755,7 @@ function BookRow({
           {tagPickerOpen && (
             <TagPickerDropdown
               item={entry}
+              anchorRef={tagAnchorRef}
               onClose={() => setTagPickerOpen(false)}
             />
           )}
@@ -776,6 +798,11 @@ interface LibraryListViewProps {
   onDeleteFolder: (id: string) => void;
   onMoveBook: (entry: UnifiedLibraryItem) => void;
   onRemoveBook: (entry: UnifiedLibraryItem) => void;
+  /** "New subfolder" — wired through to FolderRow's context menu. */
+  onCreateSubfolder?: (parentFolderId: string) => void;
+  /** "New folder" — fired by the empty-area right-click on the list
+   *  container, creating a folder at the currently-viewed level. */
+  onCreateRootFolder?: () => void;
   cardSize?: number;
 }
 
@@ -792,6 +819,8 @@ export function LibraryListView({
   onDeleteFolder,
   onMoveBook,
   onRemoveBook,
+  onCreateSubfolder,
+  onCreateRootFolder,
   cardSize = 200,
 }: LibraryListViewProps) {
   const density = getRowDensity(cardSize);
@@ -811,7 +840,7 @@ export function LibraryListView({
   if (folders.length === 0 && books.length === 0) return null;
 
   return (
-    <div className="overflow-x-auto overflow-y-hidden rounded-lg border border-glass-border">
+    <LibraryListContainer onCreateRootFolder={onCreateRootFolder}>
       {/* Column headers */}
       <div className="flex items-center border-b border-glass-border bg-glass-bg px-2 py-1.5 text-[11px] font-medium uppercase tracking-wider text-text-muted sm:px-3">
         <div className="mr-1 w-4 shrink-0" /> {/* drag handle spacer */}
@@ -852,6 +881,7 @@ export function LibraryListView({
             allBooks={allBooks}
             onMoveBook={onMoveBook}
             onRemoveBook={onRemoveBook}
+            onCreateSubfolder={onCreateSubfolder}
             expandedFolders={expandedFolders}
             selectedIds={selectedIds}
             density={density}
@@ -873,6 +903,41 @@ export function LibraryListView({
           density={density}
         />
       ))}
+    </LibraryListContainer>
+  );
+}
+
+// Wraps the list with the original styling + the empty-area context
+// menu. Using a sub-component because `useContextMenu` is a hook and
+// has to live inside its own component to keep call-order stable.
+function LibraryListContainer({
+  children,
+  onCreateRootFolder,
+}: {
+  children: React.ReactNode;
+  onCreateRootFolder?: () => void;
+}) {
+  // The hook spreads `onContextMenu` (which calls stopPropagation),
+  // so right-clicks on rows that already have their own menu won't
+  // bubble up to this container — only clicks on empty space do.
+  const containerCtx = useContextMenu((): ContextMenuEntry[] =>
+    onCreateRootFolder
+      ? [
+          {
+            id: "new-folder-here",
+            label: "New folder",
+            icon: FolderPlus,
+            onClick: () => onCreateRootFolder(),
+          },
+        ]
+      : [],
+  );
+  return (
+    <div
+      {...containerCtx}
+      className="overflow-x-auto overflow-y-hidden rounded-lg border border-glass-border"
+    >
+      {children}
     </div>
   );
 }

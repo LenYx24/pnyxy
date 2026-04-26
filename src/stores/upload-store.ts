@@ -17,7 +17,11 @@ interface UploadState {
   storageUsage: StorageUsage | null;
 
   fetchStorageUsage: () => Promise<void>;
-  uploadPdf: (file: File) => Promise<string | null>;
+  /** Upload a PDF and create the corresponding `books` row. The
+   *  optional `folderId` lands the new book in that folder — used
+   *  by the library's drag-drop / upload-from-folder flows so an
+   *  upload "lands where you are" instead of jumping back to root. */
+  uploadPdf: (file: File, folderId?: string | null) => Promise<string | null>;
   clearError: () => void;
 }
 
@@ -55,7 +59,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     });
   },
 
-  uploadPdf: async (file: File) => {
+  uploadPdf: async (file: File, folderId?: string | null) => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -158,6 +162,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
           format: "pdf" as const,
           page_count: pageCount,
           file_hash: fileHash,
+          folder_id: folderId ?? null,
         })
         .select("id")
         .single();

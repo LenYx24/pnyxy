@@ -27,6 +27,7 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const fetchLibrary = useLibraryStore((s) => s.fetchLibrary);
+  const currentFolderId = useLibraryStore((s) => s.currentFolderId);
 
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
@@ -97,6 +98,9 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
       const { error: insertErr } = await supabase.from("books").insert({
         user_id: user.id,
         org_id: orgId,
+        // Land manually-added books in whichever folder the user
+        // is currently looking at, mirroring the upload behaviour.
+        folder_id: currentFolderId ?? null,
         title: trimmedTitle,
         author: trimmedAuthor,
         cover_url: coverUrl.trim() || null,

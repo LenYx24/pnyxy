@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import {
   DndContext,
   closestCenter,
+  KeyboardSensor,
   PointerSensor,
   TouchSensor,
   useSensor,
@@ -17,10 +18,15 @@ import {
 import {
   SortableContext,
   arrayMove,
+  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import {
+  restrictToVerticalAxis,
+  restrictToWindowEdges,
+} from "@/lib/dnd-modifiers";
 import {
   ArrowLeft,
   Plus,
@@ -103,13 +109,18 @@ export function QuizEditorPage() {
   const [loadingInitial, setLoadingInitial] = useState(!!quizId);
 
   // Pointer for desktop, Touch with a delay so a tap on the drag
-  // handle doesn't conflict with normal scrolling on mobile.
+  // handle doesn't conflict with normal scrolling on mobile, plus
+  // Keyboard for a11y (Tab to a question, Space to pick up, arrow
+  // keys to move, Space to drop).
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
     }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: 200, tolerance: 5 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
 
@@ -483,6 +494,7 @@ export function QuizEditorPage() {
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
           onDragEnd={handleDragEnd}
         >
           <SortableContext

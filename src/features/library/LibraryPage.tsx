@@ -53,6 +53,7 @@ export function LibraryPage() {
   const isLoading = useLibraryStore((s) => s.isLoading);
   const fetchLibrary = useLibraryStore((s) => s.fetchLibrary);
   const fetchFolders = useLibraryStore((s) => s.fetchFolders);
+  const currentFolderId = useLibraryStore((s) => s.currentFolderId);
 
   const storageUsage = useUploadStore((s) => s.storageUsage);
   const fetchStorageUsage = useUploadStore((s) => s.fetchStorageUsage);
@@ -369,7 +370,9 @@ export function LibraryPage() {
 
         try {
           if (PDF_RE.test(file.name) && user) {
-            const bookId = await uploadPdf(file);
+            // Land the upload in whichever folder the user is
+            // currently viewing — drag-drop "places where you are".
+            const bookId = await uploadPdf(file, currentFolderId);
             if (!bookId) errors += 1;
           } else {
             // Non-PDF, or PDF but not signed in — open locally. Only
@@ -387,7 +390,14 @@ export function LibraryPage() {
       await fetchLibrary();
       await fetchStorageUsage();
     },
-    [user, uploadPdf, openFile, fetchLibrary, fetchStorageUsage],
+    [
+      user,
+      uploadPdf,
+      openFile,
+      fetchLibrary,
+      fetchStorageUsage,
+      currentFolderId,
+    ],
   );
 
   const isUploaded = removeEntry?.source === "uploaded";

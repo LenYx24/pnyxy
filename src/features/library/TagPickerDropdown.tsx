@@ -1,31 +1,29 @@
-import { useRef, useEffect } from "react";
+import type { RefObject } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { ALL_STATUS_TAGS, getTagLabel, getTagColor } from "@/components/ui/TagBadge";
+import { FloatingMenu } from "@/components/ui";
 import { useTagStore, bookKey } from "@/stores/tag-store";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 
 interface TagPickerDropdownProps {
   item: UnifiedLibraryItem;
   onClose: () => void;
+  /** Element the dropdown anchors to. Required so the picker can
+   *  render via portal and escape any clipping ancestor (cards have
+   *  `overflow: hidden`, the list container has `overflow-x-auto`). */
+  anchorRef: RefObject<HTMLElement | null>;
 }
 
-export function TagPickerDropdown({ item, onClose }: TagPickerDropdownProps) {
-  const ref = useRef<HTMLDivElement>(null);
+export function TagPickerDropdown({
+  item,
+  onClose,
+  anchorRef,
+}: TagPickerDropdownProps) {
   const tagKey = bookKey(item);
   const tags = useTagStore((s) => s.bookTags.get(tagKey)) ?? [];
   const addTag = useTagStore((s) => s.addTag);
   const removeTag = useTagStore((s) => s.removeTag);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        onClose();
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [onClose]);
 
   const handleToggle = async (tag: typeof ALL_STATUS_TAGS[number]) => {
     if (tags.includes(tag)) {
@@ -36,10 +34,11 @@ export function TagPickerDropdown({ item, onClose }: TagPickerDropdownProps) {
   };
 
   return (
-    <div
-      ref={ref}
-      className="absolute right-0 top-8 z-30 w-48 max-w-[calc(100vw-1rem)] rounded-lg border border-glass-border bg-bg-secondary/95 py-1 shadow-lg backdrop-blur-xl"
-      onClick={(e) => e.stopPropagation()}
+    <FloatingMenu
+      open={true}
+      anchorRef={anchorRef}
+      onClose={onClose}
+      className="w-48"
     >
       <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
         Reading Status
@@ -53,7 +52,9 @@ export function TagPickerDropdown({ item, onClose }: TagPickerDropdownProps) {
             onClick={() => handleToggle(tag)}
             className={cn(
               "flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-glass-hover cursor-pointer",
-              active ? "text-accent-purple" : "text-text-secondary hover:text-text-primary",
+              active
+                ? "text-accent-purple"
+                : "text-text-secondary hover:text-text-primary",
             )}
           >
             <div
@@ -72,6 +73,6 @@ export function TagPickerDropdown({ item, onClose }: TagPickerDropdownProps) {
           </button>
         );
       })}
-    </div>
+    </FloatingMenu>
   );
 }

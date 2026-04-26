@@ -4,19 +4,29 @@ import { useTranslation } from "react-i18next";
 import {
   DndContext,
   closestCenter,
+  defaultDropAnimationSideEffects,
   DragOverlay,
+  KeyboardSensor,
   PointerSensor,
+  TouchSensor,
+  useDroppable,
   useSensor,
   useSensors,
   type DragStartEvent,
   type DragEndEvent,
+  type DropAnimation,
 } from "@dnd-kit/core";
 import {
   SortableContext,
   rectSortingStrategy,
+  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
+import {
+  restrictToVerticalAxis,
+  restrictToWindowEdges,
+} from "@/lib/dnd-modifiers";
 import {
   ChevronRight,
   FolderPlus,
@@ -26,6 +36,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button, GlassCard, Kbd } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import { useLibraryStore } from "@/stores/library-store";
 import { useTagStore } from "@/stores/tag-store";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
@@ -168,6 +179,19 @@ export function AllBooksTab({
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
     }),
+    // Mobile: long-press kicks off the drag so a regular tap on a
+    // row still navigates / opens the context menu instead of
+    // dragging away on the first finger move.
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 5 },
+    }),
+    // Keyboard a11y: Tab to a row, Space to pick up, arrows to
+    // move, Space to drop. `sortableKeyboardCoordinates` from
+    // @dnd-kit/sortable hooks the arrow-key navigation into the
+    // sortable strategy so the moves are valid drop targets.
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -187,6 +211,25 @@ export function AllBooksTab({
       // folder row. Drops here move the dragged item into the folder.
       if (overId.startsWith("nest:")) {
         const targetFolderId = overId.slice("nest:".length);
+        if (activeId.startsWith("book:")) {
+          const book = bookMap.get(activeId);
+          if (book) void moveBookToFolder(book, targetFolderId);
+        } else if (activeId.startsWith("folder:")) {
+          const draggedFolderId = activeId.slice("folder:".length);
+          if (draggedFolderId !== targetFolderId) {
+            void moveFolderToFolder(draggedFolderId, targetFolderId);
+          }
+        }
+        return;
+      }
+
+      // Breadcrumb drop — drop a row onto any crumb in the path
+      // (including "Library" root) to move it to that level. This is
+      // the file-manager pattern (Finder, Explorer, Drive) and is the
+      // only way to get a nested folder back out to the top level.
+      if (overId.startsWith("breadcrumb:")) {
+        const tail = overId.slice("breadcrumb:".length);
+        const targetFolderId = tail === "root" ? null : tail;
         if (activeId.startsWith("book:")) {
           const book = bookMap.get(activeId);
           if (book) void moveBookToFolder(book, targetFolderId);
@@ -227,8 +270,21 @@ export function AllBooksTab({
   // ─── Other handlers ───────────────────────────────────────
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
+  // When set, the create-folder modal targets this folder as parent
+  // instead of `currentFolderId` — used by the "New subfolder" entry
+  // in a folder row's context menu so the new folder lands inside the
+  // right-clicked folder, not the visible folder.
+  const [createParentOverride, setCreateParentOverride] = useState<
+    string | null | undefined
+  >(undefined);
 
   const handleCreateFolder = useCallback(() => {
+    setCreateParentOverride(undefined);
+    setCreateFolderOpen(true);
+  }, []);
+
+  const handleCreateSubfolder = useCallback((parentFolderId: string) => {
+    setCreateParentOverride(parentFolderId);
     setCreateFolderOpen(true);
   }, []);
 
@@ -236,7 +292,11 @@ export function AllBooksTab({
     // Name may be a slash-separated path like "p1/p2/p3"; createFolderPath
     // walks each segment, reusing existing siblings and creating missing
     // parents. A bare name (no "/") behaves exactly as before.
-    await createFolderPath(name, currentFolderId);
+    const parent =
+      createParentOverride !== undefined
+        ? createParentOverride
+        : currentFolderId;
+    await createFolderPath(name, parent);
   };
 
   const handleDeleteFolder = (id: string) => {
@@ -280,22 +340,53 @@ export function AllBooksTab({
   const isEmpty = filteredFolders.length === 0 && filteredBooks.length === 0;
   const coverHeight = Math.round(cardSize * 0.6);
 
+  // List view is a strict vertical stack, so pin the drag transform
+  // to the Y axis — eliminates horizontal drift that the user almost
+  // never intends. Grid view stays 2D since rows wrap. Always clamp
+  // to window edges so a fast finger flick can't carry the overlay
+  // off-screen on mobile.
+  const dndModifiers =
+    viewMode === "list"
+      ? [restrictToVerticalAxis, restrictToWindowEdges]
+      : [restrictToWindowEdges];
+
   // ─── Drag overlay content ────────────────────────────────
   const activeDragFolder = activeId ? folderMap.get(activeId) : null;
   const activeDragBook = activeId ? bookMap.get(activeId) : null;
+  // Smooth "settle into place" on drop instead of the default snap.
+  // Same easing dnd-kit ships in `defaultDropAnimation`, but with the
+  // sideEffects helper so the dragged source row keeps its dimming
+  // briefly while the overlay finishes animating.
+  const dropAnimation: DropAnimation = {
+    duration: 200,
+    easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
+    sideEffects: defaultDropAnimationSideEffects({
+      styles: { active: { opacity: "0.5" } },
+    }),
+  };
 
   return (
     <div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        modifiers={dndModifiers}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
       {/* Toolbar: Breadcrumbs + Actions */}
       <div className="mb-4 flex items-center justify-between gap-2">
-        {/* Breadcrumbs */}
+        {/* Breadcrumbs — non-current crumbs are drop targets, so the
+            user can drag a folder/book onto any ancestor level
+            (including "Library" root) to move it there. */}
         <nav className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm">
-          <button
+          <BreadcrumbDropTarget
+            dropId="breadcrumb:root"
             onClick={() => navigateToFolder(null)}
-            className="cursor-pointer text-text-muted transition-colors hover:text-text-primary"
           >
             {t("library.allBooks.breadcrumbRoot")}
-          </button>
+          </BreadcrumbDropTarget>
           {folderPath.map((folder, i) => (
             <span key={folder.id} className="flex items-center gap-1">
               <ChevronRight size={14} className="text-text-muted" />
@@ -304,12 +395,12 @@ export function AllBooksTab({
                   {folder.name}
                 </span>
               ) : (
-                <button
+                <BreadcrumbDropTarget
+                  dropId={`breadcrumb:${folder.id}`}
                   onClick={() => navigateToFolder(folder.id)}
-                  className="cursor-pointer text-text-muted transition-colors hover:text-text-primary"
                 >
                   {folder.name}
-                </button>
+                </BreadcrumbDropTarget>
               )}
             </span>
           ))}
@@ -393,13 +484,7 @@ export function AllBooksTab({
 
       {/* Content */}
       {!isEmpty && (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          onDragCancel={handleDragCancel}
-        >
+        <>
           <SortableContext
             items={orderedKeys}
             strategy={viewMode === "grid" ? rectSortingStrategy : verticalListSortingStrategy}
@@ -418,6 +503,8 @@ export function AllBooksTab({
                 onDeleteFolder={handleDeleteFolder}
                 onMoveBook={onMoveBook}
                 onRemoveBook={onRemoveBook}
+                onCreateSubfolder={handleCreateSubfolder}
+                onCreateRootFolder={handleCreateFolder}
                 cardSize={cardSize}
               />
             )}
@@ -471,7 +558,7 @@ export function AllBooksTab({
             )}
           </SortableContext>
 
-          <DragOverlay>
+          <DragOverlay dropAnimation={dropAnimation}>
             {activeDragFolder && (
               <div style={{ width: cardSize }} className="pointer-events-none">
                 <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent-purple">
@@ -513,8 +600,9 @@ export function AllBooksTab({
               </div>
             )}
           </DragOverlay>
-        </DndContext>
+        </>
       )}
+      </DndContext>
 
       {/* Create folder modal */}
       <CreateFolderModal
@@ -560,5 +648,39 @@ export function AllBooksTab({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * One crumb in the breadcrumb path. Behaves as a normal nav button,
+ * but also registers as a dnd-kit drop target — dropping a folder or
+ * book here moves it to that level. The hover highlight comes from
+ * `isOver`; collision detection in dnd-kit picks the smallest
+ * matching bounding box, so a crumb deep in the path doesn't grab
+ * drops aimed at the row body underneath.
+ */
+function BreadcrumbDropTarget({
+  dropId,
+  onClick,
+  children,
+}: {
+  dropId: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: dropId });
+  return (
+    <button
+      ref={setNodeRef}
+      onClick={onClick}
+      className={cn(
+        "shrink-0 rounded px-1.5 py-0.5 cursor-pointer transition-colors",
+        isOver
+          ? "bg-accent-purple/20 text-accent-purple ring-1 ring-accent-purple/60"
+          : "text-text-muted hover:text-text-primary hover:bg-glass-hover",
+      )}
+    >
+      {children}
+    </button>
   );
 }
