@@ -41,7 +41,7 @@ export function OrganizationsTab() {
     return (
       <section className="rounded-xl border border-glass-border bg-glass-bg/50 p-6 text-center">
         <p className="text-sm text-text-muted">
-          {t("settings.organizations.signInFirst")}
+          {t("settings.organizationsSection.signInFirst")}
         </p>
       </section>
     );
@@ -82,14 +82,14 @@ export function OrganizationsTab() {
       <div className="flex items-center gap-2">
         <Building2 size={18} className="text-text-secondary" />
         <h2 className="text-lg font-semibold text-text-primary">
-          {t("settings.organizations.heading")}
+          {t("settings.organizationsSection.heading")}
         </h2>
       </div>
       <p className="text-xs text-text-muted">
-        {t("settings.organizations.description")}
+        {t("settings.organizationsSection.description")}
       </p>
       <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-300/90">
-        {t("settings.organizations.scopingNotice")}
+        {t("settings.organizationsSection.scopingNotice")}
       </p>
 
       {error && (
@@ -122,13 +122,13 @@ export function OrganizationsTab() {
         <div className="space-y-3 rounded-lg border border-glass-border bg-bg-primary/40 p-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-text-secondary">
-              {t("settings.organizations.nameLabel")}
+              {t("settings.organizationsSection.nameLabel")}
             </label>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder={t("settings.organizations.namePlaceholder")}
+              placeholder={t("settings.organizationsSection.namePlaceholder")}
               maxLength={60}
               autoFocus
               className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple"
@@ -136,7 +136,7 @@ export function OrganizationsTab() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-text-secondary">
-              {t("settings.organizations.colorLabel")}
+              {t("settings.organizationsSection.colorLabel")}
             </label>
             <ColorPicker value={newColor} onChange={setNewColor} />
           </div>
@@ -156,7 +156,7 @@ export function OrganizationsTab() {
               onClick={handleCreate}
               disabled={!newName.trim() || submitting}
             >
-              {t("settings.organizations.create")}
+              {t("settings.organizationsSection.create")}
             </Button>
           </div>
         </div>
@@ -167,7 +167,7 @@ export function OrganizationsTab() {
           className="gap-1 text-xs"
         >
           <Plus size={14} />
-          {t("settings.organizations.newOrg")}
+          {t("settings.organizationsSection.newOrg")}
         </Button>
       )}
 
@@ -179,12 +179,12 @@ export function OrganizationsTab() {
           />
           <div className="relative z-10 w-full max-w-sm rounded-xl border border-glass-border bg-bg-secondary/95 p-6 backdrop-blur-xl">
             <h3 className="mb-2 text-lg font-semibold text-text-primary">
-              {t("settings.organizations.confirmDeleteTitle", {
+              {t("settings.organizationsSection.confirmDeleteTitle", {
                 name: confirmDelete.name,
               })}
             </h3>
             <p className="mb-4 text-sm text-text-muted">
-              {t("settings.organizations.confirmDeleteBody")}
+              {t("settings.organizationsSection.confirmDeleteBody")}
             </p>
             <div className="flex justify-end gap-2">
               <Button
@@ -201,7 +201,7 @@ export function OrganizationsTab() {
               >
                 {deleting
                   ? t("common.deleting")
-                  : t("settings.organizations.deleteOrg")}
+                  : t("settings.organizationsSection.deleteOrg")}
               </button>
             </div>
           </div>
@@ -274,14 +274,14 @@ function OrgRow({
       />
       {org.is_default ? (
         <span className="shrink-0 rounded-full bg-glass-bg px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-text-muted">
-          {t("settings.organizations.defaultBadge")}
+          {t("settings.organizationsSection.defaultBadge")}
         </span>
       ) : (
         <button
           type="button"
           onClick={onDelete}
-          aria-label={t("settings.organizations.deleteOrg")}
-          title={t("settings.organizations.deleteOrg")}
+          aria-label={t("settings.organizationsSection.deleteOrg")}
+          title={t("settings.organizationsSection.deleteOrg")}
           className="shrink-0 rounded p-1.5 text-text-muted transition-colors hover:bg-red-500/10 hover:text-red-400 cursor-pointer"
         >
           <Trash2 size={14} />
@@ -308,8 +308,8 @@ function ColorPicker({
       <button
         type="button"
         onClick={() => onChange(null)}
-        aria-label={t("settings.organizations.colorNone")}
-        title={t("settings.organizations.colorNone")}
+        aria-label={t("settings.organizationsSection.colorNone")}
+        title={t("settings.organizationsSection.colorNone")}
         className={cn(
           "inline-flex items-center justify-center rounded-full border-2 transition-colors cursor-pointer",
           buttonSize,
@@ -335,8 +335,8 @@ function ColorPicker({
             key={key}
             type="button"
             onClick={() => onChange(key)}
-            aria-label={t(`settings.organizations.color.${key}`)}
-            title={t(`settings.organizations.color.${key}`)}
+            aria-label={t(`settings.organizationsSection.color.${key}`)}
+            title={t(`settings.organizationsSection.color.${key}`)}
             className={cn(
               "inline-flex items-center justify-center rounded-full border-2 transition-colors cursor-pointer",
               buttonSize,

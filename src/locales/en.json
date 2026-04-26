@@ -176,7 +176,7 @@
       "heading": "Tags",
       "description": "Customize the color for each reading status tag."
     },
-    "organizations": {
+    "organizationsSection": {
       "heading": "Organizations",
       "description": "Group your work into separate spaces — School, Personal, Work — and switch between them from the sidebar.",
       "scopingNotice": "Right now organizations only scope your library (folders, uploaded books, catalog additions). Quizzes, reading plans, vocab, whiteboards, and roadmaps are still shared across orgs — per-feature scoping lands in follow-up updates.",
