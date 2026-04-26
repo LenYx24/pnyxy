@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { DocumentAdapter, DocumentMeta, TocItem } from "@/types/document";
 import { loadDocumentMeta, saveDocumentMeta } from "@/lib/annotation-storage";
+import { fetchResumeState, saveResumeState } from "@/lib/resume-state";
 import { useSettingsStore } from "@/stores/settings-store";
 import { getTracker, type TrackerContext } from "@/lib/reading-trackers";
 import { hostEventBus } from "@/lib/plugins/api/events";
@@ -26,6 +27,14 @@ export interface DocumentState {
   lastPosition: number;
   /** Furthest page counted as read by the active tracker. */
   progressPage: number;
+  /** 0..1 fractional position WITHIN `lastPosition`. Reported by the
+   *  PDF viewer on scroll; restored on reopen so resume is
+   *  pixel-precise rather than just snapping to the page top. */
+  scrollOffset: number;
+  /** EPUB Canonical Fragment Identifier — null for PDFs. The EPUB
+   *  viewer reports it on every relocate and consumes it on first
+   *  render via `rendition.display(cfi)`. */
+  cfi: string | null;
 }
 
 interface ReaderState {
@@ -58,6 +67,13 @@ interface ReaderState {
    * bypassing the tracker's normal advancement rules.
    */
   manualSetProgress: (page: number, docId?: string) => void;
+  /** Update the fractional scroll position within the current page
+   *  (PDF). Persisted on a debounce so a flick-scroll doesn't hammer
+   *  IndexedDB or the network. */
+  setScrollOffset: (offset: number, docId?: string) => void;
+  /** Update the EPUB CFI as the user navigates the spine. Persisted
+   *  on a debounce so page-flip doesn't hammer the network. */
+  setCfi: (cfi: string, docId?: string) => void;
 }
 
 function updateDoc(
@@ -90,6 +106,8 @@ function schedulePersistProgress(docId: string): void {
           ...stored,
           lastPosition: doc.lastPosition,
           progressPage: doc.progressPage,
+          scrollOffset: doc.scrollOffset,
+          cfi: doc.cfi ?? undefined,
         });
       })
       .catch(() => {
@@ -97,8 +115,18 @@ function schedulePersistProgress(docId: string): void {
           documentId: docId,
           lastPosition: doc.lastPosition,
           progressPage: doc.progressPage,
+          scrollOffset: doc.scrollOffset,
+          cfi: doc.cfi ?? undefined,
         });
       });
+    // Mirror to the cloud (best-effort, fire-and-forget). The lib
+    // layer swallows failures; an offline session keeps working
+    // off the IndexedDB copy until the next online persist.
+    void saveResumeState(docId, {
+      page: doc.lastPosition,
+      scrollOffset: doc.scrollOffset,
+      cfi: doc.cfi,
+    });
   }, PROGRESS_PERSIST_DEBOUNCE_MS);
   progressSaveTimers.set(docId, timer);
 }
@@ -169,8 +197,14 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     let zoomMode: ZoomMode = useSettingsStore.getState().defaultFitMode;
     let lastPosition = 1;
     let progressPage = 0;
+    let scrollOffset = 0;
+    let cfi: string | null = null;
+
+    // Local IndexedDB read — works offline, populated from previous
+    // sessions on this device.
+    let stored: Awaited<ReturnType<typeof loadDocumentMeta>>;
     try {
-      const stored = await loadDocumentMeta(meta.id);
+      stored = await loadDocumentMeta(meta.id);
       if (stored?.customTitle) customTitle = stored.customTitle;
       if (stored?.zoomMode === "fit-width" || stored?.zoomMode === "fit-page") {
         zoomMode = stored.zoomMode;
@@ -181,8 +215,30 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       if (typeof stored?.progressPage === "number") {
         progressPage = clampProgress(stored.progressPage, meta.totalPages);
       }
+      if (typeof stored?.scrollOffset === "number") {
+        scrollOffset = stored.scrollOffset;
+      }
+      if (typeof stored?.cfi === "string") cfi = stored.cfi;
     } catch {
       // ignore
+    }
+
+    // Cloud read — overrides local when newer. Best-effort; offline
+    // or unauth'd sessions just skip this and use the local copy.
+    try {
+      const cloud = await fetchResumeState(meta.id);
+      if (cloud) {
+        const cloudTs = new Date(cloud.updated_at).getTime();
+        const localTs = stored?.updatedAt ?? 0;
+        if (cloudTs > localTs) {
+          const cloudPage = clampProgress(cloud.page, meta.totalPages) || 1;
+          lastPosition = cloudPage;
+          scrollOffset = cloud.scroll_offset ?? 0;
+          cfi = cloud.cfi ?? null;
+        }
+      }
+    } catch {
+      // ignore — local copy already loaded above
     }
 
     const docState: DocumentState = {
@@ -197,6 +253,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       customTitle,
       lastPosition,
       progressPage,
+      scrollOffset,
+      cfi,
     };
 
     const next = new Map(get().documents);
@@ -236,8 +294,17 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     if (!doc) return;
     const clamped = Math.min(Math.max(page, 1), doc.totalPages);
     if (doc.totalPages <= 0 || clamped === doc.currentPage) return;
+    // Reset scrollOffset on imperative navigation so the next
+    // scrollToPage lands at page top (TOC click, search jump,
+    // bookmark — none of which mean "halfway down the page").
+    // Natural scroll-driven page changes go through setCurrentPage,
+    // which preserves scrollOffset.
     const updated = recordPageChange(
-      updateDoc(documents, id, { currentPage: clamped, scrollToPage: clamped }),
+      updateDoc(documents, id, {
+        currentPage: clamped,
+        scrollToPage: clamped,
+        scrollOffset: 0,
+      }),
       id,
       doc.currentPage,
       clamped,
@@ -254,7 +321,11 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     const next = Math.min(doc.currentPage + 1, doc.totalPages);
     if (next === doc.currentPage) return;
     const updated = recordPageChange(
-      updateDoc(documents, id, { currentPage: next, scrollToPage: next }),
+      updateDoc(documents, id, {
+        currentPage: next,
+        scrollToPage: next,
+        scrollOffset: 0,
+      }),
       id,
       doc.currentPage,
       next,
@@ -271,7 +342,11 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     const prev = Math.max(doc.currentPage - 1, 1);
     if (prev === doc.currentPage) return;
     const updated = recordPageChange(
-      updateDoc(documents, id, { currentPage: prev, scrollToPage: prev }),
+      updateDoc(documents, id, {
+        currentPage: prev,
+        scrollToPage: prev,
+        scrollOffset: 0,
+      }),
       id,
       doc.currentPage,
       prev,
@@ -387,6 +462,32 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     const next = clampProgress(result, doc.totalPages);
     if (next === doc.progressPage) return;
     set({ documents: updateDoc(documents, id, { progressPage: next }) });
+    schedulePersistProgress(id);
+  },
+
+  setScrollOffset(offset, docId) {
+    const id = docId ?? get().activeDocumentId;
+    if (!id) return;
+    const { documents } = get();
+    const doc = documents.get(id);
+    if (!doc) return;
+    // Clamp and snap to 4 decimals to avoid an infinite stream of
+    // "imperceptibly different" persists from sub-pixel scroll
+    // jitter (e.g. trackpad inertia).
+    const clamped = Math.max(0, Math.min(1, offset));
+    const rounded = Math.round(clamped * 10000) / 10000;
+    if (Math.abs(rounded - doc.scrollOffset) < 0.0001) return;
+    set({ documents: updateDoc(documents, id, { scrollOffset: rounded }) });
+    schedulePersistProgress(id);
+  },
+
+  setCfi(cfi, docId) {
+    const id = docId ?? get().activeDocumentId;
+    if (!id) return;
+    const { documents } = get();
+    const doc = documents.get(id);
+    if (!doc || doc.cfi === cfi) return;
+    set({ documents: updateDoc(documents, id, { cfi }) });
     schedulePersistProgress(id);
   },
 }));

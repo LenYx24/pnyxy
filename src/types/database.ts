@@ -230,6 +230,20 @@ export interface ReadingProgress {
   updated_at: string;
 }
 
+// ── Book Resume State (cross-device sync) ───────────────────
+
+export interface BookResumeState {
+  user_id: string;
+  /** Adapter content hash — stable across devices for the same file. */
+  doc_id: string;
+  page: number;
+  /** 0..1 fraction within `page`. Null = top of page. */
+  scroll_offset: number | null;
+  /** EPUB CFI — null for PDFs. */
+  cfi: string | null;
+  updated_at: string;
+}
+
 // ── User Reports ───────────────────────────────────────────
 
 export interface UserReport {
@@ -275,6 +289,7 @@ export interface Database {
       notes: { Row: DbNote };
       whiteboards: { Row: DbWhiteboard };
       reading_progress: { Row: ReadingProgress };
+      book_resume_state: { Row: BookResumeState };
       catalog_books: { Row: CatalogBook; Insert: CatalogBookInsert };
       user_library: { Row: UserLibraryEntry };
       user_reports: { Row: UserReport };

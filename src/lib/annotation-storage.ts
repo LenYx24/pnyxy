@@ -98,6 +98,16 @@ export interface StoredDocumentMeta {
   lastPosition?: number;
   /** Furthest page the active tracker has counted as "read". */
   progressPage?: number;
+  /** 0..1 fractional position WITHIN `lastPosition` — together they
+   *  give a pixel-precise resume point instead of just snapping to
+   *  the top of the page. Null/undefined = top of page. */
+  scrollOffset?: number;
+  /** EPUB Canonical Fragment Identifier — the canonical position
+   *  inside an EPUB's spine. Null/undefined for PDFs. */
+  cfi?: string;
+  /** Epoch ms — used to reconcile with the cloud sync row. The cloud
+   *  side has its own `updated_at`; whichever is newer wins on open. */
+  updatedAt?: number;
 }
 
 export async function loadDocumentMeta(
@@ -111,7 +121,10 @@ export async function saveDocumentMeta(
   meta: StoredDocumentMeta,
 ): Promise<void> {
   const db = await getDB();
-  await db.put("documentMeta", meta);
+  // Stamp updatedAt on every write so the cloud-vs-local merge can
+  // make a timestamp comparison without each caller having to
+  // remember to set it.
+  await db.put("documentMeta", { ...meta, updatedAt: Date.now() });
 }
 
 // --- TOC Width ---

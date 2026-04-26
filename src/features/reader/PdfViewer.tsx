@@ -147,6 +147,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   const doc = useDocumentState(docId ?? "");
 
   const setCurrentPage = useReaderStore((s) => s.setCurrentPage);
+  const setScrollOffset = useReaderStore((s) => s.setScrollOffset);
   const clearScrollRequest = useReaderStore((s) => s.clearScrollRequest);
 
   const meta = doc?.meta ?? null;
@@ -154,6 +155,9 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   const zoomMode = doc?.zoomMode ?? "fit-width";
   const zoomLevel = doc?.zoomLevel ?? 100;
   const scrollToPage = doc?.scrollToPage ?? null;
+  // Throttle "report current scroll fraction to the store" so user
+  // scrolling doesn't fire 60 state updates / sec.
+  const offsetReportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   useTextSelection(containerRef);
@@ -322,8 +326,20 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     const el = containerRef.current;
     if (!el) return;
 
-    const targetOffset = pageOffsets[scrollToPage - 1];
-    if (targetOffset !== undefined) {
+    const pageTop = pageOffsets[scrollToPage - 1];
+    if (pageTop !== undefined) {
+      // Pixel-precise resume: add `scrollOffset * pageHeight` so we
+      // land exactly where the user left off, not just the page top.
+      // Read the offset imperatively at fire time — having it as a
+      // reactive dep would re-trigger this scroll effect every time
+      // the user scrolls. The store resets scrollOffset to 0 on
+      // imperative navigation (TOC click / next / prev / goToPage)
+      // so this only adjusts on the very first scroll after open.
+      const pageHeight = getPageHeight(scrollToPage);
+      const offset =
+        useReaderStore.getState().documents.get(docId ?? "")?.scrollOffset ?? 0;
+      const targetOffset = pageTop + offset * pageHeight;
+
       // Suppress scroll-handler page updates during programmatic scroll
       programmaticScrollRef.current = true;
 
@@ -351,9 +367,12 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       }
     }
     clearScrollRequest(docId ?? undefined);
-  }, [scrollToPage, pageOffsets, clearScrollRequest, pageScrollBehavior, scrollAnimationDuration, docId]);
+  }, [scrollToPage, pageOffsets, clearScrollRequest, pageScrollBehavior, scrollAnimationDuration, docId, getPageHeight]);
 
-  // Save anchor before zoom changes (on every scroll update)
+  // Save anchor before zoom changes (on every scroll update). Same
+  // (page, fraction) pair feeds the resume-state cloud sync via a
+  // throttled report — we re-use the anchor math instead of computing
+  // it twice.
   useEffect(() => {
     if (pageOffsets.length === 0 || containerHeight === 0) return;
     const viewportCenter = scrollTop + containerHeight / 2;
@@ -361,12 +380,20 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     const pageTop = pageOffsets[idx];
     const pageHeight = getPageHeight(idx + 1);
     if (viewportCenter >= pageTop && viewportCenter <= pageTop + pageHeight) {
-      anchorRef.current = {
-        page: idx + 1,
-        fraction: (viewportCenter - pageTop) / pageHeight,
-      };
+      const fraction = (viewportCenter - pageTop) / pageHeight;
+      anchorRef.current = { page: idx + 1, fraction };
+      // Skip during programmatic scrolls (initial resume / TOC jump
+      // / smooth-scroll-to-page) so we don't overwrite the just-
+      // restored offset with whatever transient value the smooth
+      // animation passes through.
+      if (!programmaticScrollRef.current) {
+        if (offsetReportTimerRef.current) clearTimeout(offsetReportTimerRef.current);
+        offsetReportTimerRef.current = setTimeout(() => {
+          setScrollOffset(fraction, docId ?? undefined);
+        }, 250);
+      }
     }
-  }, [scrollTop, pageOffsets, getPageHeight, containerHeight]);
+  }, [scrollTop, pageOffsets, getPageHeight, containerHeight, setScrollOffset, docId]);
 
   // Clear cached dimensions when zoom changes so stale sizes don't corrupt layout
   useLayoutEffect(() => {

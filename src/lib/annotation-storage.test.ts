@@ -231,7 +231,11 @@ describe("tocWidth helpers", () => {
     const { saveTocWidth, loadDocumentMeta } = await loadModule();
     await saveTocWidth(DOC_B, 200);
     const meta = await loadDocumentMeta(DOC_B);
-    expect(meta).toEqual({ documentId: DOC_B, tocWidth: 200 });
+    // saveDocumentMeta auto-stamps `updatedAt`; assert the rest matches
+    // and that updatedAt is a number, without coupling the test to the
+    // exact wall-clock value.
+    expect(meta).toMatchObject({ documentId: DOC_B, tocWidth: 200 });
+    expect(typeof meta?.updatedAt).toBe("number");
   });
 });
 

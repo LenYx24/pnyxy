@@ -76,10 +76,15 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
     renditionRef.current = rendition;
 
     // Capture position on every relocation so a flow toggle (or future
-    // re-mount) can restore where the reader was.
+    // re-mount) can restore where the reader was. Also pipes the CFI
+    // into the reader-store so it gets persisted (IndexedDB + cloud)
+    // and survives a different-device reopen.
     const handleRelocated = (location: { start?: { cfi?: string } }) => {
       const cfi = location?.start?.cfi;
-      if (typeof cfi === "string") lastCfiRef.current = cfi;
+      if (typeof cfi === "string") {
+        lastCfiRef.current = cfi;
+        useReaderStore.getState().setCfi(cfi, doc.meta.id);
+      }
       // Page-turn or scroll invalidates the selection's viewport coords.
       setSelection(null);
     };
@@ -119,7 +124,10 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
     rendition.themes.fontSize(`${Math.round(epubFontScale * 100)}%`);
     rendition.themes.override("line-height", String(epubLineHeight), true);
 
-    void rendition.display(lastCfiRef.current ?? undefined);
+    // Initial position: prefer the local ref (set during a flow-mode
+    // toggle remount in this same session), fall back to the cloud-/
+    // local-synced CFI on the document state for a fresh open.
+    void rendition.display(lastCfiRef.current ?? doc.cfi ?? undefined);
 
     return () => {
       try {
