@@ -165,7 +165,16 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   const [containerHeight, setContainerHeight] = useState(0);
   const dimensionsRef = useRef<Map<number, PageDimensions>>(new Map());
   const rafRef = useRef<number>(0);
-  const prevZoomRef = useRef({ zoomMode, zoomLevel });
+  // Tracks the previous zoom snapshot. We also stash the prior
+  // `effectivePageWidth` so that on a zoom step we can scale cached
+  // page dimensions proportionally instead of clearing them — which
+  // is the cure for the "blink" where pages briefly collapsed to
+  // 0 height while react-pdf re-rasterised at the new scale.
+  const prevZoomRef = useRef({
+    zoomMode,
+    zoomLevel,
+    effectivePageWidth: 0,
+  });
   const anchorRef = useRef<{ page: number; fraction: number } | null>(null);
   const programmaticScrollRef = useRef(false);
 
@@ -481,11 +490,39 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     }
   }, [scrollTop, pageOffsets, getPageHeight, containerHeight, setScrollOffset, docId]);
 
-  // Clear cached dimensions when zoom changes so stale sizes don't corrupt layout
+  // On zoom change, instead of *clearing* cached page dimensions
+  // (which collapses every page slot to 0 height for the frame between
+  // "user clicked zoom" and "react-pdf finished re-rasterising"), we
+  // SCALE the cached dims by the size ratio. Layout stays consistent;
+  // pages render at the new resolution under the same scaffolding,
+  // and the user sees a smooth transition instead of the blank flash.
+  // `handlePageRenderSuccess` overwrites each entry with the real
+  // measured size as the new render lands, correcting any sub-pixel
+  // drift from the proportional scale.
   useLayoutEffect(() => {
     const prev = prevZoomRef.current;
-    if (prev.zoomMode !== zoomMode || prev.zoomLevel !== zoomLevel) {
-      dimensionsRef.current.clear();
+    const zoomChanged =
+      prev.zoomMode !== zoomMode || prev.zoomLevel !== zoomLevel;
+
+    if (zoomChanged) {
+      const ratio =
+        prev.effectivePageWidth > 0 && effectivePageWidth > 0
+          ? effectivePageWidth / prev.effectivePageWidth
+          : 0;
+      if (ratio > 0 && Math.abs(ratio - 1) > 0.001) {
+        const next = new Map<number, PageDimensions>();
+        for (const [page, dim] of dimensionsRef.current) {
+          next.set(page, {
+            width: dim.width * ratio,
+            height: dim.height * ratio,
+          });
+        }
+        dimensionsRef.current = next;
+      } else if (ratio === 0) {
+        // No prior baseline (component just mounted) — clearing is
+        // safer than keeping stale dims.
+        dimensionsRef.current.clear();
+      }
 
       if (anchorRef.current && containerRef.current && pageOffsets.length > 0) {
         const { page, fraction } = anchorRef.current;
@@ -500,9 +537,27 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
           setScrollTop(containerRef.current.scrollTop);
         }
       }
-      prevZoomRef.current = { zoomMode, zoomLevel };
+      prevZoomRef.current = { zoomMode, zoomLevel, effectivePageWidth };
+    } else if (
+      prev.effectivePageWidth !== effectivePageWidth &&
+      effectivePageWidth > 0
+    ) {
+      // Zoom didn't change, but the effective page width did (most
+      // commonly: the very first valid containerWidth measurement, or
+      // a panel resize). Keep the baseline up to date so the *next*
+      // zoom change has a ratio to work with — without this, the
+      // first-ever zoom click after open would always fall through
+      // to the clear-and-rerender path.
+      prevZoomRef.current = { zoomMode, zoomLevel, effectivePageWidth };
     }
-  }, [zoomMode, zoomLevel, pageOffsets, getPageHeight, containerHeight]);
+  }, [
+    zoomMode,
+    zoomLevel,
+    effectivePageWidth,
+    pageOffsets,
+    getPageHeight,
+    containerHeight,
+  ]);
 
   // Handle page render success — cache dimensions
   const handlePageRenderSuccess = useCallback((pageNum: number) => {

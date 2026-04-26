@@ -864,21 +864,38 @@ export function ReaderPage() {
     const api = dockviewApiRef.current;
     if (!api) return;
 
-    if (isDrawMode) {
-      // Switch back: remove whiteboard panel, re-add PDF viewer
-      const wbPanel = api.getPanel("pdfCanvasWhiteboard");
-      if (wbPanel) api.removePanel(wbPanel);
+    // Swap pattern: ADD the replacement panel into the SAME group as
+    // the panel we're replacing (`direction: "within"`), THEN remove
+    // the original. Doing the add first means the destination group
+    // keeps its existing proportions — dockview only redistributes
+    // space when a group becomes empty, which never happens here.
+    //
+    // This fixes two symptoms the old "remove first, then add" code
+    // produced:
+    //   1. Toggling on shrunk the reader area while the chat panel
+    //      took over its space (because the viewer's group went away,
+    //      then the new whiteboard was added with no position hint
+    //      and dockview picked a default tiny slot).
+    //   2. Toggling off collapsed the TOC into the top tab-bar
+    //      (because by the time the new pdfViewer was added, the TOC
+    //      group was the only target left and dockview slotted the
+    //      viewer in as a tab there).
 
-      // Re-add the PDF viewer panel
+    if (isDrawMode) {
+      const wbPanel = api.getPanel("pdfCanvasWhiteboard");
+      if (!wbPanel) {
+        setIsDrawMode(false);
+        return;
+      }
       api.addPanel({
         id: "pdfViewer",
         component: "pdfViewer",
         title: i18n.t("reader.page.panelDocument"),
+        position: { referencePanel: "pdfCanvasWhiteboard", direction: "within" },
       });
-
+      api.removePanel(wbPanel);
       setIsDrawMode(false);
     } else {
-      // Switch to draw mode: remove PDF viewer, add whiteboard in its place
       const activeDoc = useReaderStore.getState().getActiveDoc();
       if (!activeDoc?.meta?.fileUrl) return;
 
@@ -889,7 +906,7 @@ export function ReaderPage() {
       if (!activeDoc.meta.capabilities.paginated && !allowAll) return;
 
       const viewerPanel = api.getPanel("pdfViewer");
-      if (viewerPanel) api.removePanel(viewerPanel);
+      if (!viewerPanel) return;
 
       // Reuse existing whiteboard or create a new one
       if (!drawWhiteboardIdRef.current) {
@@ -904,8 +921,9 @@ export function ReaderPage() {
           whiteboardId: drawWhiteboardIdRef.current,
           pdfDocumentUrl: activeDoc.meta.fileUrl,
         },
+        position: { referencePanel: "pdfViewer", direction: "within" },
       });
-
+      api.removePanel(viewerPanel);
       setIsDrawMode(true);
     }
   }, [isDrawMode]);
@@ -1171,6 +1189,14 @@ export function ReaderPage() {
           api.fromJSON(saved as ReturnType<typeof api.toJSON>);
           // After restoring layout, apply the correct TOC width
           restoreTocWidth();
+          // If the saved layout had the whiteboard active (the user
+          // closed the reader while in draw mode), reflect that in
+          // the local toggle state. Without this, the next press of
+          // the draw button would think the user is in viewer mode
+          // and try to add a duplicate whiteboard.
+          if (api.getPanel("pdfCanvasWhiteboard")) {
+            setIsDrawMode(true);
+          }
           // Set up layout persistence after restoring
           setupLayoutPersistence();
           return;

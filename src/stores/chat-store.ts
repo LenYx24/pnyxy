@@ -1,77 +1,19 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
-import type { ChatConversation, ChatMessage } from "@/types/chat";
-
-// ── Streaming helpers ──────────────────────────────────────
-
-/** Parse the Anthropic-style SSE we get from chat-proxy (same shape
- *  ai-client uses), yielding text deltas. */
-async function* parseSseDeltas(
-  body: ReadableStream<Uint8Array>,
-): AsyncGenerator<string, void, unknown> {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let nl;
-      while ((nl = buffer.indexOf("\n")) !== -1) {
-        const line = buffer.slice(0, nl).replace(/\r$/, "");
-        buffer = buffer.slice(nl + 1);
-        if (!line.startsWith("data:")) continue;
-        const data = line.slice(5).trim();
-        if (!data) continue;
-        try {
-          const event = JSON.parse(data);
-          if (
-            event?.type === "content_block_delta" &&
-            typeof event?.delta?.text === "string"
-          ) {
-            yield event.delta.text as string;
-          }
-        } catch {
-          // skip
-        }
-      }
-    }
-  } finally {
-    reader.releaseLock();
-  }
-}
-
-async function proxyChat(
-  messages: { role: "user" | "assistant" | "system"; content: string }[],
-): Promise<ReadableStream<Uint8Array> | null> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData?.session?.access_token;
-
-  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-proxy`;
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-  };
-  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ messages }),
-  });
-  if (!res.ok || !res.body) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`chat-proxy ${res.status}: ${txt || res.statusText}`);
-  }
-  return res.body;
-}
+import { streamChatResponse } from "@/lib/ai-client";
+import type { AiProvider } from "@/stores/settings-store";
+import type {
+  ChatConversation,
+  ChatFolder,
+  ChatMessage,
+} from "@/types/chat";
 
 // ── Store ─────────────────────────────────────────────────
 
 interface ChatState {
   conversations: ChatConversation[];
+  folders: ChatFolder[];
   /** All messages for the currently-opened conversation, keyed by id. */
   messages: Map<string, ChatMessage>;
   activeConversationId: string | null;
@@ -83,28 +25,47 @@ interface ChatState {
   isLoading: boolean;
 
   fetchConversations: () => Promise<void>;
-  createConversation: (title?: string) => Promise<string | null>;
+  createConversation: (title?: string, folderId?: string | null) => Promise<string | null>;
   openConversation: (conversationId: string) => Promise<void>;
   renameConversation: (id: string, title: string) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
+  /** Move a conversation into the given folder, or null to send it
+   *  back to the root. */
+  moveConversationToFolder: (id: string, folderId: string | null) => Promise<void>;
   clearActive: () => void;
+
+  // ── Folders ─────────────────────────────────────────────────
+  fetchFolders: () => Promise<void>;
+  createFolder: (name: string, parentId?: string | null) => Promise<string | null>;
+  renameFolder: (id: string, name: string) => Promise<void>;
+  /** Deletes the folder and any nested subfolders (cascades), but
+   *  conversations inside are sent back to the root via the
+   *  `on delete set null` FK. */
+  deleteFolder: (id: string) => Promise<void>;
 
   /** Switch the active leaf without sending anything — used when the
    *  user picks a different branch from the tree. */
   setActiveLeaf: (messageId: string) => Promise<void>;
 
   /** Append a new user message to the current active leaf, then stream
-   *  the assistant's reply. Both are persisted. */
-  sendMessage: (text: string) => Promise<void>;
+   *  the assistant's reply. Both are persisted. The optional
+   *  `preferredProvider` overrides the saved provider chain order
+   *  for this single message — used by the composer's model picker. */
+  sendMessage: (text: string, preferredProvider?: AiProvider) => Promise<void>;
 
   /** Create a new user message whose parent is `parentMessageId` (can
    *  be any message in the conversation — that's the "branch from
    *  here" UX). Then stream the assistant's reply. */
-  branchFrom: (parentMessageId: string, text: string) => Promise<void>;
+  branchFrom: (
+    parentMessageId: string,
+    text: string,
+    preferredProvider?: AiProvider,
+  ) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
   conversations: [],
+  folders: [],
   messages: new Map(),
   activeConversationId: null,
   activeLeafId: null,
@@ -135,14 +96,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  async createConversation(title = "") {
+  async createConversation(title = "", folderId = null) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in to use chat.");
     const { data, error } = await supabase
       .from("chat_conversations")
-      .insert({ user_id: user.id, title })
+      .insert({ user_id: user.id, title, folder_id: folderId })
       .select()
       .single();
     if (error || !data) {
@@ -263,16 +224,118 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .eq("id", activeConversationId);
   },
 
-  async sendMessage(text) {
+  async sendMessage(text, preferredProvider) {
     const { activeConversationId, activeLeafId } = get();
     if (!activeConversationId) return;
-    await sendOrBranch(activeConversationId, activeLeafId, text, set, get);
+    await sendOrBranch(
+      activeConversationId,
+      activeLeafId,
+      text,
+      preferredProvider,
+      set,
+      get,
+    );
   },
 
-  async branchFrom(parentMessageId, text) {
+  async branchFrom(parentMessageId, text, preferredProvider) {
     const { activeConversationId } = get();
     if (!activeConversationId) return;
-    await sendOrBranch(activeConversationId, parentMessageId, text, set, get);
+    await sendOrBranch(
+      activeConversationId,
+      parentMessageId,
+      text,
+      preferredProvider,
+      set,
+      get,
+    );
+  },
+
+  async moveConversationToFolder(id, folderId) {
+    const { error } = await supabase
+      .from("chat_conversations")
+      .update({ folder_id: folderId })
+      .eq("id", id);
+    if (error) {
+      logError("chat:moveConversation", error);
+      throw error;
+    }
+    set((s) => ({
+      conversations: s.conversations.map((c) =>
+        c.id === id ? { ...c, folder_id: folderId } : c,
+      ),
+    }));
+  },
+
+  // ── Folders ─────────────────────────────────────────────────
+
+  async fetchFolders() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      set({ folders: [] });
+      return;
+    }
+    const { data, error } = await supabase
+      .from("chat_folders")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true });
+    if (error) {
+      logError("chat:fetchFolders", error);
+      return;
+    }
+    set({ folders: (data ?? []) as ChatFolder[] });
+  },
+
+  async createFolder(name, parentId = null) {
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data, error } = await supabase
+      .from("chat_folders")
+      .insert({ user_id: user.id, name: trimmed, parent_id: parentId })
+      .select()
+      .single();
+    if (error || !data) {
+      logError("chat:createFolder", error);
+      return null;
+    }
+    await get().fetchFolders();
+    return data.id as string;
+  },
+
+  async renameFolder(id, name) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const { error } = await supabase
+      .from("chat_folders")
+      .update({ name: trimmed })
+      .eq("id", id);
+    if (error) {
+      logError("chat:renameFolder", error);
+      return;
+    }
+    set((s) => ({
+      folders: s.folders.map((f) => (f.id === id ? { ...f, name: trimmed } : f)),
+    }));
+  },
+
+  async deleteFolder(id) {
+    const { error } = await supabase
+      .from("chat_folders")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      logError("chat:deleteFolder", error);
+      return;
+    }
+    // Server cascaded subfolders and set folder_id=null on
+    // conversations — refresh both lists so the UI matches.
+    await Promise.all([get().fetchFolders(), get().fetchConversations()]);
   },
 }));
 
@@ -282,6 +345,7 @@ async function sendOrBranch(
   conversationId: string,
   parentId: string | null,
   text: string,
+  preferredProvider: AiProvider | undefined,
   set: (partial: Partial<ChatState> | ((s: ChatState) => Partial<ChatState>)) => void,
   get: () => ChatState,
 ) {
@@ -346,12 +410,21 @@ async function sendOrBranch(
   });
 
   // 4. Stream the response, accumulating and patching the message.
+  // Routes through the shared `streamChatResponse` so the standalone
+  // chat picks up the same provider chain (Pnyxy proxy + user's
+  // Anthropic / OpenAI keys) the reader's AI panel uses. The
+  // `preferredProvider` arg lets the composer's model picker hop
+  // the chain order for this one message — falling back to the rest
+  // of the chain if the chosen provider fails before yielding.
   let acc = "";
   try {
-    const stream = await proxyChat(promptMessages);
-    if (!stream) throw new Error("No stream returned");
-    for await (const delta of parseSseDeltas(stream)) {
-      acc += delta;
+    for await (const chunk of streamChatResponse(
+      promptMessages,
+      "",
+      "",
+      { preferredProvider },
+    )) {
+      acc += chunk.delta;
       set((s) => {
         const next = new Map(s.messages);
         const existing = next.get(asstMsg.id);

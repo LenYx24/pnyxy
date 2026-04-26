@@ -111,7 +111,10 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   pdfLoadProgress: null,
 
   activeTool: "pen",
-  strokeColor: "#ffffff",
+  // Default to black: nearly every PDF has a white-ish background,
+  // so a white stroke would be invisible on the common case. Users
+  // can pick any other color from the toolbar palette for dark scans.
+  strokeColor: "#000000",
   strokeWidth: 2,
 
   selectedElementIds: new Set(),

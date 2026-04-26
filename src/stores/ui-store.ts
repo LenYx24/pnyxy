@@ -1,6 +1,12 @@
 import { create } from "zustand";
 
-const DOCKVIEW_LAYOUT_KEY = "pnyxy-reader:dockview-layout";
+// Bumped key suffix when the dockview swap semantics changed (the
+// "draw mode" toggle bug fix). Old saved layouts could have the TOC
+// living as a tab inside the viewer's group instead of its own
+// left-side panel — restoring that JSON would re-create the bug. The
+// version bump invalidates those layouts so users get a clean
+// default on first load after the upgrade.
+const DOCKVIEW_LAYOUT_KEY = "pnyxy-reader:dockview-layout:v2";
 
 type MobileReaderPanel = "none" | "toc" | "comments" | "aiChat";
 
@@ -116,6 +122,13 @@ function sanitizeDockviewLayout(layout: unknown): object | null {
 }
 
 export function loadDockviewLayout(): object | null {
+  // Sweep the legacy key one time so users on the v1 layout don't
+  // keep a stale entry hanging around in localStorage forever.
+  try {
+    localStorage.removeItem("pnyxy-reader:dockview-layout");
+  } catch {
+    // ignore
+  }
   try {
     const raw = localStorage.getItem(DOCKVIEW_LAYOUT_KEY);
     if (raw) return sanitizeDockviewLayout(JSON.parse(raw));

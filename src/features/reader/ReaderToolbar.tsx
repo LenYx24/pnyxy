@@ -172,6 +172,13 @@ export function ReaderToolbar({
 
   const isMobile = useIsMobile();
   const isDesktop = useIsDesktop();
+  // The hamburger is only useful when the global app sidebar is
+  // hidden — when it's already visible, its own internal toggle is
+  // right there and ours becomes a duplicate. On mobile the global
+  // sidebar lives behind the bottom-nav drawer, so the hamburger is
+  // redundant there too.
+  const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
+  const showAppSidebarToggle = sidebarCollapsed && !isMobile;
 
   if (!activeDoc) return null;
 
@@ -219,17 +226,19 @@ export function ReaderToolbar({
   return (
     <div className="border-b border-glass-border bg-bg-secondary/60 backdrop-blur-md pt-safe-top pl-safe-left pr-safe-right">
     <div className="flex h-11 items-center justify-between px-2 sm:px-4">
-      {/* Left: hamburger (toggles the global app sidebar — collapsed
-          on the reader hides it entirely so reading gets the full
-          width back), back button, title (click to edit) */}
+      {/* Left: hamburger (only when sidebar is hidden — toggles the
+          global app sidebar back into view), back button, title
+          (click to edit) */}
       <div className="flex flex-1 min-w-0 items-center gap-1">
-        <button
-          onClick={() => useUIStore.getState().toggleSidebar()}
-          className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer shrink-0"
-          title={t("reader.toolbar.toggleAppSidebar")}
-        >
-          <Menu size={16} />
-        </button>
+        {showAppSidebarToggle && (
+          <button
+            onClick={() => useUIStore.getState().toggleSidebar()}
+            className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer shrink-0"
+            title={t("reader.toolbar.toggleAppSidebar")}
+          >
+            <Menu size={16} />
+          </button>
+        )}
         <button
           onClick={() => navigate("/library")}
           className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer shrink-0"

@@ -16,7 +16,9 @@
     "finish": "Finish",
     "exit": "Exit",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "expand": "Expand",
+    "collapse": "Collapse"
   },
   "sidebar": {
     "home": "Home",
@@ -791,6 +793,24 @@
     "branchingFrom": "Branching from: {{snippet}}",
     "sidebar": {
       "empty": "No conversations yet."
+    },
+    "composer": {
+      "modelLabel": "Model",
+      "listeningPlaceholder": "Listening… speak now",
+      "startListening": "Dictate (microphone)",
+      "stopListening": "Stop dictating",
+      "micDenied": "Microphone access blocked",
+      "micError": "Couldn't capture audio"
+    },
+    "folders": {
+      "create": "New folder",
+      "namePrompt": "Folder name:",
+      "renamePrompt": "Rename folder:",
+      "rename": "Rename folder",
+      "delete": "Delete folder",
+      "deleteConfirm": "Delete folder \"{{name}}\"? Conversations inside go back to the root.",
+      "moveTo": "Move to folder…",
+      "root": "Root (no folder)"
     }
   },
   "readingPlans": {

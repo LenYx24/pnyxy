@@ -16,7 +16,9 @@
     "finish": "Befejezés",
     "exit": "Kilépés",
     "yes": "Igen",
-    "no": "Nem"
+    "no": "Nem",
+    "expand": "Kibontás",
+    "collapse": "Összecsukás"
   },
   "sidebar": {
     "home": "Kezdőlap",
@@ -791,6 +793,24 @@
     "branchingFrom": "Elágazás innen: {{snippet}}",
     "sidebar": {
       "empty": "Még nincs beszélgetés."
+    },
+    "composer": {
+      "modelLabel": "Modell",
+      "listeningPlaceholder": "Figyelek… beszélj most",
+      "startListening": "Diktálás (mikrofon)",
+      "stopListening": "Diktálás leállítása",
+      "micDenied": "A mikrofon hozzáférés le van tiltva",
+      "micError": "Nem sikerült rögzíteni a hangot"
+    },
+    "folders": {
+      "create": "Új mappa",
+      "namePrompt": "Mappa neve:",
+      "renamePrompt": "Mappa átnevezése:",
+      "rename": "Mappa átnevezése",
+      "delete": "Mappa törlése",
+      "deleteConfirm": "Törlöd a(z) „{{name}}” mappát? A benne lévő beszélgetések visszakerülnek a gyökérbe.",
+      "moveTo": "Áthelyezés mappába…",
+      "root": "Gyökér (nincs mappa)"
     }
   },
   "readingPlans": {

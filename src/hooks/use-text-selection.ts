@@ -106,23 +106,24 @@ export function useTextSelection(
       // Don't show on right-click (handled by contextmenu event)
       if (e.button === 2) return;
 
+      // Mirror the right-click path: probe for BOTH a selection and
+      // a highlight at the cursor and pass both to the menu. Without
+      // probing both, a click-on-highlight that happens while a stale
+      // text selection from earlier is still alive would land in the
+      // selection branch and never expose the "Remove Highlight"
+      // entry. Showing them together keeps the menu honest about
+      // what actions apply to what's under the cursor.
       const data = getSelectionData();
-      if (data) {
-        useAnnotationStore
-          .getState()
-          .showContextMenu(e.clientX, e.clientY, data.selection, null);
-        return;
-      }
-      // No fresh selection — but check whether the click landed on
-      // an existing highlight. Without this, a desktop user with no
-      // mouse-2 button (e.g. trackpad without right-click enabled)
-      // had no way to select / delete a highlight; the only path
-      // was the contextmenu event below.
       const highlightId = findHighlightAtPoint(e.clientX, e.clientY);
-      if (highlightId) {
+      if (data || highlightId) {
         useAnnotationStore
           .getState()
-          .showContextMenu(e.clientX, e.clientY, null, highlightId);
+          .showContextMenu(
+            e.clientX,
+            e.clientY,
+            data?.selection ?? null,
+            highlightId,
+          );
       }
     };
 
@@ -141,20 +142,16 @@ export function useTextSelection(
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           const data = getSelectionData();
-          if (data) {
-            useAnnotationStore
-              .getState()
-              .showContextMenu(x, y, data.selection, null);
-            return;
-          }
-          // Tap on an existing highlight — opens the same menu the
-          // right-click path opens, so mobile users can change color
-          // / remove the highlight without a "Delete" key.
           const highlightId = findHighlightAtPoint(x, y);
-          if (highlightId) {
+          if (data || highlightId) {
             useAnnotationStore
               .getState()
-              .showContextMenu(x, y, null, highlightId);
+              .showContextMenu(
+                x,
+                y,
+                data?.selection ?? null,
+                highlightId,
+              );
           }
         });
       });

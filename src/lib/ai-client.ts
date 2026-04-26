@@ -116,6 +116,12 @@ export interface StreamOptions {
   systemPromptOverride?: string;
   /** Raises the per-request output cap; clamped server-side for Pnyxy. */
   maxOutputTokens?: number;
+  /** When the user has explicitly picked a provider (chat composer's
+   *  model dropdown), tries this one FIRST regardless of the saved
+   *  enabledProviders order. Falls back to the rest of the chain on
+   *  failure-before-yield, so a per-message override never strands
+   *  the user with an unreachable provider. */
+  preferredProvider?: AiProvider;
 }
 
 export async function* streamChatResponse(
@@ -124,7 +130,18 @@ export async function* streamChatResponse(
   pageContext: string,
   options: StreamOptions = {},
 ): AsyncGenerator<{ delta: string; provider: AiProvider }, void, unknown> {
-  const candidates = getConfiguredProviders();
+  const configured = getConfiguredProviders();
+  // Honor a per-message override if the picked provider is actually
+  // configured. Otherwise behave as before — silent fallback rather
+  // than failing loudly, since the dropdown UI may briefly hold a
+  // stale value while settings are being edited in another tab.
+  const candidates =
+    options.preferredProvider && configured.includes(options.preferredProvider)
+      ? [
+          options.preferredProvider,
+          ...configured.filter((p) => p !== options.preferredProvider),
+        ]
+      : configured;
 
   if (candidates.length === 0) {
     throw new AiProviderError(

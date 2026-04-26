@@ -11,7 +11,14 @@ import {
   X,
   Check,
   ChevronRight,
+  ChevronDown,
+  Mic,
+  MicOff,
+  FolderPlus,
+  Folder as FolderIcon,
+  FolderInput,
 } from "lucide-react";
+import { FloatingMenu } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useAuthStore } from "@/stores/auth-store";
 import {
@@ -20,7 +27,16 @@ import {
   countBranches,
   childrenOf,
 } from "@/stores/chat-store";
+import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
+import { getConfiguredProviders } from "@/lib/ai-client";
+import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import type { ChatMessage } from "@/types/chat";
+
+const PROVIDER_LABEL: Record<AiProvider, string> = {
+  pnyxy: "Pnyxy",
+  anthropic: "Claude",
+  openai: "GPT",
+};
 
 export function ChatPage() {
   const { t } = useTranslation();
@@ -37,10 +53,16 @@ export function ChatPage() {
   const openConversation = useChatStore((s) => s.openConversation);
   const deleteConversation = useChatStore((s) => s.deleteConversation);
   const renameConversation = useChatStore((s) => s.renameConversation);
+  const moveConversationToFolder = useChatStore((s) => s.moveConversationToFolder);
   const clearActive = useChatStore((s) => s.clearActive);
   const sendMessage = useChatStore((s) => s.sendMessage);
   const branchFrom = useChatStore((s) => s.branchFrom);
   const setActiveLeaf = useChatStore((s) => s.setActiveLeaf);
+  const folders = useChatStore((s) => s.folders);
+  const fetchFolders = useChatStore((s) => s.fetchFolders);
+  const createFolder = useChatStore((s) => s.createFolder);
+  const renameFolder = useChatStore((s) => s.renameFolder);
+  const deleteFolder = useChatStore((s) => s.deleteFolder);
 
   const [input, setInput] = useState("");
   const [branchFromId, setBranchFromId] = useState<string | null>(null);
@@ -48,9 +70,48 @@ export function ChatPage() {
   const [editTitle, setEditTitle] = useState("");
   const threadEndRef = useRef<HTMLDivElement>(null);
 
+  // Per-conversation provider override. Initial value = the first
+  // currently-configured provider (mirrors the saved fallback chain).
+  // The dropdown is always present; if the user has only Pnyxy
+  // enabled, it just shows Pnyxy with no other choices.
+  const enabledProviders = useSettingsStore((s) => s.enabledProviders);
+  const configuredProviders = useMemo(
+    () => getConfiguredProviders(),
+    // configuration changes when settings change — re-evaluate.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [enabledProviders],
+  );
+  const [selectedProvider, setSelectedProvider] = useState<AiProvider>(
+    () => configuredProviders[0] ?? "pnyxy",
+  );
+  // If the user disables the picked provider, fall back to whatever's
+  // first in the still-configured list — better than holding a stale
+  // value that streamChatResponse will silently ignore.
   useEffect(() => {
-    if (user) fetchConversations();
-  }, [user, fetchConversations]);
+    if (!configuredProviders.includes(selectedProvider)) {
+      setSelectedProvider(configuredProviders[0] ?? "pnyxy");
+    }
+  }, [configuredProviders, selectedProvider]);
+
+  // Speech-to-text — appends finalized chunks to the textarea, leaves
+  // partial / interim results dropped (could surface as a ghost line
+  // later if it reads as choppy).
+  const speech = useSpeechRecognition({
+    onResult: (text) => {
+      setInput((prev) =>
+        prev
+          ? prev + (prev.endsWith(" ") ? "" : " ") + text.trim()
+          : text.trim(),
+      );
+    },
+  });
+
+  useEffect(() => {
+    if (user) {
+      fetchConversations();
+      fetchFolders();
+    }
+  }, [user, fetchConversations, fetchFolders]);
 
   // Auto-scroll to the latest message as stream tokens arrive.
   useEffect(() => {
@@ -71,17 +132,21 @@ export function ChatPage() {
     const text = input.trim();
     if (!text) return;
     setInput("");
+    // Stop dictation when the user submits — otherwise the next
+    // utterance lands on the now-empty textarea and looks like a
+    // ghost transcript.
+    if (speech.listening) speech.stop();
     if (branchFromId) {
       const parentId = branchFromId;
       setBranchFromId(null);
-      await branchFrom(parentId, text);
+      await branchFrom(parentId, text, selectedProvider);
     } else {
       if (!activeId) {
         const id = await createConversation();
         if (!id) return;
         await openConversation(id);
       }
-      await sendMessage(text);
+      await sendMessage(text, selectedProvider);
     }
   };
 
@@ -110,92 +175,55 @@ export function ChatPage() {
 
   return (
     <div className="mx-auto flex h-[calc(100vh-3.5rem)] w-full max-w-6xl gap-0 p-0 sm:h-screen sm:gap-4 sm:p-4">
-      {/* Sidebar: conversations list */}
+      {/* Sidebar: folder tree + conversations */}
       <aside className="hidden w-64 shrink-0 flex-col gap-2 rounded-xl border border-glass-border bg-glass-bg/40 p-2 sm:flex">
-        <button
-          onClick={handleNew}
-          className="flex items-center justify-center gap-2 rounded-md border border-dashed border-glass-border bg-glass-bg/30 px-3 py-2 text-xs text-text-muted transition-colors hover:border-accent-purple/40 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-        >
-          <Plus size={14} />
-          {t("chat.newConversation")}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleNew}
+            className="flex flex-1 items-center justify-center gap-2 rounded-md border border-dashed border-glass-border bg-glass-bg/30 px-3 py-2 text-xs text-text-muted transition-colors hover:border-accent-purple/40 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+          >
+            <Plus size={14} />
+            {t("chat.newConversation")}
+          </button>
+          <button
+            onClick={async () => {
+              const name = prompt(t("chat.folders.namePrompt"));
+              if (name?.trim()) await createFolder(name.trim());
+            }}
+            title={t("chat.folders.create")}
+            aria-label={t("chat.folders.create")}
+            className="rounded-md border border-dashed border-glass-border bg-glass-bg/30 p-2 text-text-muted transition-colors hover:border-accent-purple/40 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+          >
+            <FolderPlus size={14} />
+          </button>
+        </div>
 
         <div className="flex-1 overflow-y-auto">
-          {conversations.length === 0 ? (
+          {conversations.length === 0 && folders.length === 0 ? (
             <p className="px-2 py-4 text-center text-xs text-text-muted">
               {t("chat.sidebar.empty")}
             </p>
           ) : (
-            <ul className="flex flex-col gap-0.5">
-              {conversations.map((c) => {
-                const isActive = c.id === activeId;
-                const isEditing = editingId === c.id;
-                return (
-                  <li
-                    key={c.id}
-                    className={cn(
-                      "group flex items-center gap-1 rounded-md px-2 py-1.5 transition-colors",
-                      isActive
-                        ? "bg-accent-purple/15 text-accent-purple"
-                        : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
-                    )}
-                  >
-                    {isEditing ? (
-                      <>
-                        <input
-                          autoFocus
-                          value={editTitle}
-                          onChange={(e) => setEditTitle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleSaveTitle(c.id);
-                            if (e.key === "Escape") setEditingId(null);
-                          }}
-                          className="flex-1 min-w-0 rounded border border-glass-border bg-bg-primary/50 px-1.5 py-0.5 text-xs text-text-primary outline-none focus:border-accent-purple"
-                        />
-                        <button
-                          onClick={() => handleSaveTitle(c.id)}
-                          className="rounded p-1 text-green-400 hover:bg-glass-hover cursor-pointer"
-                        >
-                          <Check size={12} />
-                        </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="rounded p-1 text-text-muted hover:bg-glass-hover cursor-pointer"
-                        >
-                          <X size={12} />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => openConversation(c.id)}
-                          className="flex-1 min-w-0 truncate text-left text-xs cursor-pointer"
-                        >
-                          {c.title || t("chat.untitled")}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingId(c.id);
-                            setEditTitle(c.title);
-                          }}
-                          className="rounded p-1 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-text-primary group-hover:opacity-100 cursor-pointer"
-                          aria-label={t("chat.rename")}
-                        >
-                          <Pencil size={11} />
-                        </button>
-                        <button
-                          onClick={() => deleteConversation(c.id)}
-                          className="rounded p-1 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-red-400 group-hover:opacity-100 cursor-pointer"
-                          aria-label={t("chat.delete")}
-                        >
-                          <Trash2 size={11} />
-                        </button>
-                      </>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+            <ChatTree
+              folders={folders}
+              conversations={conversations}
+              activeId={activeId}
+              editingId={editingId}
+              editTitle={editTitle}
+              onOpen={openConversation}
+              onStartEdit={(id, title) => {
+                setEditingId(id);
+                setEditTitle(title);
+              }}
+              onCancelEdit={() => setEditingId(null)}
+              onSaveTitle={handleSaveTitle}
+              onEditTitleChange={setEditTitle}
+              onDelete={deleteConversation}
+              onMove={moveConversationToFolder}
+              onRenameFolder={renameFolder}
+              onDeleteFolder={deleteFolder}
+              t={t}
+            />
           )}
         </div>
       </aside>
@@ -340,21 +368,94 @@ export function ChatPage() {
                   </button>
                 </div>
               )}
+              {/* Model picker + mic + send. The model dropdown is
+                  always rendered (defaults to Pnyxy) so picking a
+                  model feels first-class rather than buried in
+                  settings. The mic only appears when the browser
+                  exposes the Web Speech API. */}
               <div className="flex items-end gap-2">
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <div className="flex items-center justify-between gap-2 px-1">
+                    <label className="flex items-center gap-1.5 text-[11px] text-text-muted">
+                      <span className="font-medium uppercase tracking-wider">
+                        {t("chat.composer.modelLabel")}
+                      </span>
+                      <select
+                        value={selectedProvider}
+                        onChange={(e) =>
+                          setSelectedProvider(e.target.value as AiProvider)
+                        }
+                        className="rounded border border-glass-border bg-bg-primary/50 px-1.5 py-0.5 text-xs text-text-secondary outline-none focus:border-accent-purple"
+                      >
+                        {configuredProviders.map((p) => (
+                          <option key={p} value={p}>
+                            {PROVIDER_LABEL[p]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {speech.error && (
+                      <span className="text-[11px] text-red-400">
+                        {speech.error === "not-allowed"
+                          ? t("chat.composer.micDenied")
+                          : t("chat.composer.micError")}
+                      </span>
+                    )}
+                  </div>
+                  <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                    placeholder={
+                      speech.listening
+                        ? t("chat.composer.listeningPlaceholder")
+                        : t("chat.composerPlaceholder")
                     }
-                  }}
-                  placeholder={t("chat.composerPlaceholder")}
-                  rows={1}
-                  className="min-h-[2.5rem] max-h-[12rem] flex-1 resize-none rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple"
-                  disabled={streamingMessageId !== null}
-                />
+                    rows={1}
+                    className={cn(
+                      "min-h-[2.5rem] max-h-[12rem] resize-none rounded-lg border bg-glass-bg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition-colors",
+                      speech.listening
+                        ? "border-accent-purple ring-2 ring-accent-purple/30"
+                        : "border-glass-border focus:border-accent-purple",
+                    )}
+                    disabled={streamingMessageId !== null}
+                  />
+                </div>
+                {speech.supported && (
+                  <button
+                    onClick={() =>
+                      speech.listening ? speech.stop() : speech.start()
+                    }
+                    disabled={streamingMessageId !== null}
+                    className={cn(
+                      "shrink-0 rounded-lg p-2 transition-colors cursor-pointer",
+                      speech.listening
+                        ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                        : "bg-glass-bg text-text-muted hover:bg-glass-hover hover:text-text-primary",
+                    )}
+                    aria-label={
+                      speech.listening
+                        ? t("chat.composer.stopListening")
+                        : t("chat.composer.startListening")
+                    }
+                    title={
+                      speech.listening
+                        ? t("chat.composer.stopListening")
+                        : t("chat.composer.startListening")
+                    }
+                  >
+                    {speech.listening ? (
+                      <MicOff size={16} />
+                    ) : (
+                      <Mic size={16} />
+                    )}
+                  </button>
+                )}
                 <button
                   onClick={handleSend}
                   disabled={!input.trim() || streamingMessageId !== null}
@@ -477,6 +578,289 @@ function MessageBubble({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Sidebar tree ────────────────────────────────────────────
+
+interface ChatTreeProps {
+  folders: import("@/types/chat").ChatFolder[];
+  conversations: import("@/types/chat").ChatConversation[];
+  activeId: string | null;
+  editingId: string | null;
+  editTitle: string;
+  onOpen: (id: string) => void;
+  onStartEdit: (id: string, title: string) => void;
+  onCancelEdit: () => void;
+  onSaveTitle: (id: string) => void;
+  onEditTitleChange: (s: string) => void;
+  onDelete: (id: string) => void;
+  onMove: (id: string, folderId: string | null) => void;
+  onRenameFolder: (id: string, name: string) => void;
+  onDeleteFolder: (id: string) => void;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+}
+
+function ChatTree(props: ChatTreeProps) {
+  const { folders, conversations } = props;
+  // Index conversations and child folders by parent for cheap lookup.
+  // Folder tree is flat-with-parent_id; we render recursively from
+  // the roots (parent_id === null) downward.
+  const childFolders = useMemo(() => {
+    const m = new Map<string | null, typeof folders>();
+    for (const f of folders) {
+      const arr = m.get(f.parent_id) ?? [];
+      arr.push(f);
+      m.set(f.parent_id, arr);
+    }
+    return m;
+  }, [folders]);
+  const folderConversations = useMemo(() => {
+    const m = new Map<string | null, typeof conversations>();
+    for (const c of conversations) {
+      const arr = m.get(c.folder_id) ?? [];
+      arr.push(c);
+      m.set(c.folder_id, arr);
+    }
+    return m;
+  }, [conversations]);
+
+  // Root: loose conversations first, then top-level folders.
+  return (
+    <div className="flex flex-col gap-0.5">
+      {(folderConversations.get(null) ?? []).map((c) => (
+        <ConversationRow key={c.id} conversation={c} depth={0} {...props} />
+      ))}
+      {(childFolders.get(null) ?? []).map((f) => (
+        <FolderRow
+          key={f.id}
+          folder={f}
+          depth={0}
+          childFolders={childFolders}
+          folderConversations={folderConversations}
+          {...props}
+        />
+      ))}
+    </div>
+  );
+}
+
+interface FolderRowProps extends ChatTreeProps {
+  folder: import("@/types/chat").ChatFolder;
+  depth: number;
+  childFolders: Map<string | null, import("@/types/chat").ChatFolder[]>;
+  folderConversations: Map<string | null, import("@/types/chat").ChatConversation[]>;
+}
+
+function FolderRow({
+  folder,
+  depth,
+  childFolders,
+  folderConversations,
+  ...rest
+}: FolderRowProps) {
+  const [expanded, setExpanded] = useState(true);
+  const subFolders = childFolders.get(folder.id) ?? [];
+  const subConversations = folderConversations.get(folder.id) ?? [];
+  const t = rest.t;
+  return (
+    <>
+      <div
+        className="group flex items-center gap-1 rounded-md px-1.5 py-1 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary"
+        style={{ paddingLeft: 6 + depth * 12 }}
+      >
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+          aria-label={expanded ? t("common.collapse") : t("common.expand")}
+        >
+          {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        </button>
+        <FolderIcon size={12} className="shrink-0 text-text-muted" />
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="min-w-0 flex-1 truncate text-left text-xs font-medium cursor-pointer"
+          title={folder.name}
+        >
+          {folder.name}
+        </button>
+        <button
+          onClick={() => {
+            const next = prompt(t("chat.folders.renamePrompt"), folder.name);
+            if (next?.trim()) rest.onRenameFolder(folder.id, next.trim());
+          }}
+          className="rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-text-primary group-hover:opacity-100 cursor-pointer"
+          aria-label={t("chat.folders.rename")}
+        >
+          <Pencil size={10} />
+        </button>
+        <button
+          onClick={() => {
+            if (confirm(t("chat.folders.deleteConfirm", { name: folder.name }))) {
+              rest.onDeleteFolder(folder.id);
+            }
+          }}
+          className="rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-red-400 group-hover:opacity-100 cursor-pointer"
+          aria-label={t("chat.folders.delete")}
+        >
+          <Trash2 size={10} />
+        </button>
+      </div>
+      {expanded && (
+        <>
+          {subConversations.map((c) => (
+            <ConversationRow
+              key={c.id}
+              conversation={c}
+              depth={depth + 1}
+              {...rest}
+            />
+          ))}
+          {subFolders.map((f) => (
+            <FolderRow
+              key={f.id}
+              folder={f}
+              depth={depth + 1}
+              childFolders={childFolders}
+              folderConversations={folderConversations}
+              {...rest}
+            />
+          ))}
+        </>
+      )}
+    </>
+  );
+}
+
+interface ConversationRowProps extends ChatTreeProps {
+  conversation: import("@/types/chat").ChatConversation;
+  depth: number;
+}
+
+function ConversationRow({
+  conversation,
+  depth,
+  folders,
+  activeId,
+  editingId,
+  editTitle,
+  onOpen,
+  onStartEdit,
+  onCancelEdit,
+  onSaveTitle,
+  onEditTitleChange,
+  onDelete,
+  onMove,
+  t,
+}: ConversationRowProps) {
+  const isActive = conversation.id === activeId;
+  const isEditing = editingId === conversation.id;
+  const moveBtnRef = useRef<HTMLButtonElement>(null);
+  const [showMove, setShowMove] = useState(false);
+
+  return (
+    <div
+      className={cn(
+        "group flex items-center gap-1 rounded-md px-1.5 py-1 transition-colors",
+        isActive
+          ? "bg-accent-purple/15 text-accent-purple"
+          : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+      )}
+      style={{ paddingLeft: 6 + depth * 12 }}
+    >
+      {isEditing ? (
+        <>
+          <input
+            autoFocus
+            value={editTitle}
+            onChange={(e) => onEditTitleChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSaveTitle(conversation.id);
+              if (e.key === "Escape") onCancelEdit();
+            }}
+            className="flex-1 min-w-0 rounded border border-glass-border bg-bg-primary/50 px-1.5 py-0.5 text-xs text-text-primary outline-none focus:border-accent-purple"
+          />
+          <button
+            onClick={() => onSaveTitle(conversation.id)}
+            className="rounded p-1 text-green-400 hover:bg-glass-hover cursor-pointer"
+          >
+            <Check size={12} />
+          </button>
+          <button
+            onClick={onCancelEdit}
+            className="rounded p-1 text-text-muted hover:bg-glass-hover cursor-pointer"
+          >
+            <X size={12} />
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="w-5 shrink-0" aria-hidden="true" />
+          <button
+            onClick={() => onOpen(conversation.id)}
+            className="flex-1 min-w-0 truncate text-left text-xs cursor-pointer"
+          >
+            {conversation.title || t("chat.untitled")}
+          </button>
+          <button
+            ref={moveBtnRef}
+            onClick={() => setShowMove((v) => !v)}
+            className="rounded p-1 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-text-primary group-hover:opacity-100 cursor-pointer"
+            aria-label={t("chat.folders.moveTo")}
+            title={t("chat.folders.moveTo")}
+          >
+            <FolderInput size={10} />
+          </button>
+          <FloatingMenu
+            open={showMove}
+            anchorRef={moveBtnRef}
+            onClose={() => setShowMove(false)}
+            className="w-48"
+          >
+            <button
+              onClick={() => {
+                onMove(conversation.id, null);
+                setShowMove(false);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            >
+              <FolderIcon size={12} className="text-text-muted" />
+              {t("chat.folders.root")}
+            </button>
+            {folders.length > 0 && (
+              <div className="my-0.5 h-px bg-glass-border" />
+            )}
+            {folders.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => {
+                  onMove(conversation.id, f.id);
+                  setShowMove(false);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              >
+                <FolderIcon size={12} className="text-text-muted" />
+                {f.name}
+              </button>
+            ))}
+          </FloatingMenu>
+          <button
+            onClick={() => onStartEdit(conversation.id, conversation.title)}
+            className="rounded p-1 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-text-primary group-hover:opacity-100 cursor-pointer"
+            aria-label={t("chat.rename")}
+          >
+            <Pencil size={11} />
+          </button>
+          <button
+            onClick={() => onDelete(conversation.id)}
+            className="rounded p-1 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-red-400 group-hover:opacity-100 cursor-pointer"
+            aria-label={t("chat.delete")}
+          >
+            <Trash2 size={11} />
+          </button>
+        </>
+      )}
     </div>
   );
 }
