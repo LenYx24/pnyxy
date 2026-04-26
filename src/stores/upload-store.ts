@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import { createPdfAdapter } from "@/features/reader/adapters/pdf-adapter";
+import { useOrgStore } from "./org-store";
 import type { StorageTier } from "@/types/database";
 
 interface StorageUsage {
@@ -63,6 +64,14 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       return null;
     }
 
+    const orgId = useOrgStore.getState().currentOrgId;
+    if (!orgId) {
+      set({
+        error: "No active organization. Pick one from the sidebar.",
+      });
+      return null;
+    }
+
     set({ isUploading: true, uploadProgress: 0, error: null });
 
     try {
@@ -98,23 +107,32 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
       set({ uploadProgress: 30 });
 
-      // 3. Duplicate check
+      // 3. Duplicate check, scoped to the current org so the same
+      // PDF can live in multiple workspaces (e.g. "Personal" and
+      // "School") if the user wants. The storage path embeds the
+      // org id so each upload gets its own file.
       const { data: existing } = await supabase
         .from("books")
         .select("id")
         .eq("user_id", user.id)
+        .eq("org_id", orgId)
         .eq("file_hash", fileHash)
         .maybeSingle();
 
       if (existing) {
-        set({ error: "This PDF is already in your library.", isUploading: false });
+        set({
+          error: "This PDF is already in this organization's library.",
+          isUploading: false,
+        });
         return null;
       }
 
       set({ uploadProgress: 40 });
 
-      // 4. Upload to Supabase Storage
-      const storagePath = `${user.id}/${fileHash}.pdf`;
+      // 4. Upload to Supabase Storage. Path includes org id so the
+      // same PDF in two orgs gets two distinct storage files —
+      // deleting one org's copy doesn't break the other's.
+      const storagePath = `${user.id}/${orgId}/${fileHash}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from("book-files")
         .upload(storagePath, file, {
@@ -134,6 +152,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
         .from("books")
         .insert({
           user_id: user.id,
+          org_id: orgId,
           title,
           author,
           format: "pdf" as const,

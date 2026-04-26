@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
 import { containsProfanity } from "@/lib/profanity-filter";
+import { useOrgStore } from "./org-store";
 import type { CatalogBook, CatalogBookInsert } from "@/types/catalog";
 
 function assertCatalogBookClean(book: CatalogBookInsert) {
@@ -277,8 +278,14 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
     } = await supabase.auth.getUser();
     if (!user) throw new Error("Must be signed in");
 
+    const orgId = useOrgStore.getState().currentOrgId;
+    if (!orgId) {
+      throw new Error("No active organization. Pick one from the sidebar.");
+    }
+
     const { error } = await supabase.from("user_library").insert({
       user_id: user.id,
+      org_id: orgId,
       catalog_book_id: bookId,
     });
 
@@ -298,10 +305,16 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
     } = await supabase.auth.getUser();
     if (!user) throw new Error("Must be signed in");
 
+    const orgId = useOrgStore.getState().currentOrgId;
+    // No-op if there's no active org — there can't be a row to
+    // delete in that case.
+    if (!orgId) return;
+
     const { error } = await supabase
       .from("user_library")
       .delete()
       .eq("user_id", user.id)
+      .eq("org_id", orgId)
       .eq("catalog_book_id", bookId);
 
     if (error) {
@@ -325,10 +338,17 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
       return;
     }
 
+    const orgId = useOrgStore.getState().currentOrgId;
+    if (!orgId) {
+      set({ userLibraryIds: new Set() });
+      return;
+    }
+
     const { data, error } = await supabase
       .from("user_library")
       .select("catalog_book_id")
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .eq("org_id", orgId);
 
     if (error) {
       logError("browse-store:checkUserLibrary", error.message);
@@ -420,3 +440,16 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
     };
   },
 }));
+
+// Re-check which catalog books are in "my library" whenever the
+// active org changes — the in-library badge on browse cards should
+// reflect the current org's holdings, not whichever org was active
+// last.
+useOrgStore.subscribe((state, prev) => {
+  if (state.currentOrgId === prev.currentOrgId) return;
+  if (state.currentOrgId) {
+    void useBrowseStore.getState().checkUserLibrary();
+  } else {
+    useBrowseStore.setState({ userLibraryIds: new Set() });
+  }
+});

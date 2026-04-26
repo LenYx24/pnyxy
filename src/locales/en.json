@@ -33,7 +33,12 @@
     "settings": "Settings",
     "admin": "Admin",
     "signIn": "Sign in",
-    "profile": "Profile"
+    "profile": "Profile",
+    "noName": "No name",
+    "orgSwitcher": {
+      "title": "Switch workspace",
+      "manage": "Manage organizations"
+    }
   },
   "auth": {
     "signIn": "Sign in",
@@ -88,6 +93,7 @@
     "general": "General",
     "appearance": "Appearance",
     "ai": "AI",
+    "organizations": "Organizations",
     "tags": "Tags",
     "plugins": "Plugins",
     "shortcuts": "Shortcuts",
@@ -169,6 +175,30 @@
     "tagsSection": {
       "heading": "Tags",
       "description": "Customize the color for each reading status tag."
+    },
+    "organizations": {
+      "heading": "Organizations",
+      "description": "Group your work into separate spaces — School, Personal, Work — and switch between them from the sidebar.",
+      "scopingNotice": "Right now organizations only scope your library (folders, uploaded books, catalog additions). Quizzes, reading plans, vocab, whiteboards, and roadmaps are still shared across orgs — per-feature scoping lands in follow-up updates.",
+      "signInFirst": "Sign in to manage organizations.",
+      "newOrg": "New organization",
+      "create": "Create",
+      "nameLabel": "Name",
+      "namePlaceholder": "School, Personal, Work…",
+      "colorLabel": "Color",
+      "colorNone": "No color",
+      "color": {
+        "purple": "Purple",
+        "blue": "Blue",
+        "green": "Green",
+        "amber": "Amber",
+        "pink": "Pink",
+        "red": "Red"
+      },
+      "defaultBadge": "Default",
+      "deleteOrg": "Delete",
+      "confirmDeleteTitle": "Delete \"{{name}}\"?",
+      "confirmDeleteBody": "Removes the organization. Your books, quizzes, and other content stay in place — they're not scoped to organizations yet."
     },
     "shortcutsSection": {
       "heading": "Keyboard Shortcuts",
@@ -453,6 +483,7 @@
       "authorRequired": "Author is required.",
       "pagesInvalid": "Pages must be a non-negative number.",
       "signInRequired": "Sign in to add a book.",
+      "noActiveOrg": "No active organization. Pick one from the sidebar before adding a book.",
       "failed": "Couldn't add the book — try again."
     },
     "tabs": {

@@ -33,7 +33,12 @@
     "settings": "Beállítások",
     "admin": "Admin",
     "signIn": "Bejelentkezés",
-    "profile": "Profil"
+    "profile": "Profil",
+    "noName": "Nincs név",
+    "orgSwitcher": {
+      "title": "Munkaterület váltása",
+      "manage": "Szervezetek kezelése"
+    }
   },
   "auth": {
     "signIn": "Bejelentkezés",
@@ -88,6 +93,7 @@
     "general": "Általános",
     "appearance": "Megjelenés",
     "ai": "AI",
+    "organizations": "Szervezetek",
     "tags": "Címkék",
     "plugins": "Bővítmények",
     "shortcuts": "Gyorsbillentyűk",
@@ -169,6 +175,30 @@
     "tagsSection": {
       "heading": "Címkék",
       "description": "Állítsd be a színt minden olvasási állapot címkéhez."
+    },
+    "organizations": {
+      "heading": "Szervezetek",
+      "description": "Csoportosítsd a munkádat külön terekbe — Egyetem, Magán, Munka — és válts közöttük az oldalsávból.",
+      "scopingNotice": "A szervezetek jelenleg csak a könyvtáradat szűrik (mappák, feltöltött könyvek, katalógusból hozzáadottak). A kvízek, olvasási tervek, szókincs, jegyzettáblák és roadmapek továbbra is megosztva jelennek meg az összes szervezet között — a többi terület szűrése a következő frissítésekben érkezik.",
+      "signInFirst": "Jelentkezz be a szervezetek kezeléséhez.",
+      "newOrg": "Új szervezet",
+      "create": "Létrehozás",
+      "nameLabel": "Név",
+      "namePlaceholder": "Egyetem, Magán, Munka…",
+      "colorLabel": "Szín",
+      "colorNone": "Nincs szín",
+      "color": {
+        "purple": "Lila",
+        "blue": "Kék",
+        "green": "Zöld",
+        "amber": "Borostyán",
+        "pink": "Rózsaszín",
+        "red": "Piros"
+      },
+      "defaultBadge": "Alapértelmezett",
+      "deleteOrg": "Törlés",
+      "confirmDeleteTitle": "Törlöd: \"{{name}}\"?",
+      "confirmDeleteBody": "Eltávolítja a szervezetet. A könyveid, kvízeid és egyéb tartalmaid maradnak — egyelőre nem tartoznak külön szervezetekhez."
     },
     "shortcutsSection": {
       "heading": "Gyorsbillentyűk",
@@ -453,6 +483,7 @@
       "authorRequired": "A szerző megadása kötelező.",
       "pagesInvalid": "Az oldalszám nem lehet negatív.",
       "signInRequired": "Jelentkezz be a hozzáadáshoz.",
+      "noActiveOrg": "Nincs aktív szervezet. Válassz egyet az oldalsávból, mielőtt könyvet adsz hozzá.",
       "failed": "Nem sikerült hozzáadni — próbáld újra."
     },
     "tabs": {

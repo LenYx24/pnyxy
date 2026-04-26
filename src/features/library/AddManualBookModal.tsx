@@ -5,6 +5,7 @@ import { Button } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLibraryStore } from "@/stores/library-store";
+import { useOrgStore } from "@/stores/org-store";
 import { logError } from "@/lib/logger";
 
 interface AddManualBookModalProps {
@@ -88,8 +89,14 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
         throw new Error(t("library.addManual.pagesInvalid"));
       }
 
+      const orgId = useOrgStore.getState().currentOrgId;
+      if (!orgId) {
+        throw new Error(t("library.addManual.noActiveOrg"));
+      }
+
       const { error: insertErr } = await supabase.from("books").insert({
         user_id: user.id,
+        org_id: orgId,
         title: trimmedTitle,
         author: trimmedAuthor,
         cover_url: coverUrl.trim() || null,

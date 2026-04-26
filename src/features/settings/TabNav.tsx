@@ -11,6 +11,7 @@ import {
   Info,
   MessageSquarePlus,
   ChevronDown,
+  Building2,
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { cn } from "@/lib/cn";
@@ -27,6 +28,7 @@ export const SETTINGS_TABS: TabDef[] = [
   { to: "general", labelKey: "general", icon: SettingsIcon },
   { to: "appearance", labelKey: "appearance", icon: Palette },
   { to: "ai", labelKey: "ai", icon: BotMessageSquare },
+  { to: "organizations", labelKey: "organizations", icon: Building2 },
   { to: "tags", labelKey: "tags", icon: Tag },
   { to: "plugins", labelKey: "plugins", icon: Puzzle },
   { to: "shortcuts", labelKey: "shortcuts", icon: Keyboard },

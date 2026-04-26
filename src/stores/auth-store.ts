@@ -23,6 +23,12 @@ async function hydrateSyncedStores() {
   } catch (err) {
     logError("auth-store:hydrateSyncedStores", err);
   }
+  try {
+    const { useOrgStore } = await import("./org-store");
+    void useOrgStore.getState().fetchMine();
+  } catch (err) {
+    logError("auth-store:hydrateOrgs", err);
+  }
 }
 
 const AVATAR_BUCKET = "avatars";
@@ -87,6 +93,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         hydrateSyncedStores();
       } else {
         set({ profile: null, isBanned: false, banInfo: null });
+        // Drop org state on sign-out so the next user (or anonymous
+        // session) doesn't see the previous user's switcher contents.
+        void import("./org-store").then(({ useOrgStore }) =>
+          useOrgStore.getState().reset(),
+        );
       }
     });
 

@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
 import { containsProfanity } from "@/lib/profanity-filter";
 import { useTagStore } from "./tag-store";
+import { useOrgStore } from "./org-store";
 import type {
   UnifiedLibraryItem,
   CatalogLibraryItem,
@@ -60,6 +61,17 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     } = await supabase.auth.getUser();
     if (!user) return;
 
+    // No active org yet (e.g. orgs still hydrating after sign-in)
+    // — the org-store subscription below will retrigger this fetch
+    // as soon as currentOrgId becomes a real id, so just present an
+    // empty library in the meantime instead of leaking another
+    // org's contents.
+    const orgId = useOrgStore.getState().currentOrgId;
+    if (!orgId) {
+      set({ books: [], isLoading: false });
+      return;
+    }
+
     set({ isLoading: true });
 
     // Fetch catalog books and uploaded books in parallel
@@ -68,11 +80,13 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         .from("user_library")
         .select("id, catalog_book_id, folder_id, added_at, catalog_book:catalog_books(*)")
         .eq("user_id", user.id)
+        .eq("org_id", orgId)
         .order("added_at", { ascending: false }),
       supabase
         .from("books")
         .select("id, title, author, cover_url, page_count, format, file_hash, folder_id, created_at, book_files(storage_path, file_name, size_bytes)")
         .eq("user_id", user.id)
+        .eq("org_id", orgId)
         .order("created_at", { ascending: false }),
     ]);
 
@@ -137,10 +151,17 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     } = await supabase.auth.getUser();
     if (!user) return;
 
+    const orgId = useOrgStore.getState().currentOrgId;
+    if (!orgId) {
+      set({ folders: [], currentFolderId: null, folderPath: [] });
+      return;
+    }
+
     const { data, error } = await supabase
       .from("folders")
       .select("*")
       .eq("user_id", user.id)
+      .eq("org_id", orgId)
       .order("sort_order");
 
     if (error) {
@@ -171,10 +192,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     } = await supabase.auth.getUser();
     if (!user) return null;
 
+    const orgId = useOrgStore.getState().currentOrgId;
+    if (!orgId) {
+      throw new Error("No active organization. Pick one from the sidebar.");
+    }
+
     const { data, error } = await supabase
       .from("folders")
       .insert({
         user_id: user.id,
+        org_id: orgId,
         name,
         parent_id: parentId,
         sort_order: 0,
@@ -369,3 +396,22 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     return get().books.slice(0, limit);
   },
 }));
+
+// Refetch library + folders whenever the active org changes (e.g. on
+// fresh hydration after sign-in, or when the user picks a new org
+// from the sidebar). Switching to a null org clears local state so
+// the previous org's contents don't leak into a signed-out view.
+useOrgStore.subscribe((state, prev) => {
+  if (state.currentOrgId === prev.currentOrgId) return;
+  if (state.currentOrgId) {
+    void useLibraryStore.getState().fetchLibrary();
+    void useLibraryStore.getState().fetchFolders();
+  } else {
+    useLibraryStore.setState({
+      books: [],
+      folders: [],
+      currentFolderId: null,
+      folderPath: [],
+    });
+  }
+});

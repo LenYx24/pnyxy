@@ -22,6 +22,7 @@ import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useIsMobile, useIsDesktop } from "@/hooks/use-media-query";
+import { OrgSwitcher } from "./OrgSwitcher";
 
 const baseNavItems = [
   { to: "/", icon: Home, key: "home" as const },
@@ -116,6 +117,13 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </nav>
 
+      {/* Org switcher — pinned above the profile row, Notion-style.
+          Only shown when there are orgs to pick from (i.e. when
+          signed in). */}
+      {user && (
+        <OrgSwitcher collapsed={collapsed} onNavigate={onNavigate} />
+      )}
+
       {/* Profile / Sign in section */}
       {user ? (
         <NavLink
@@ -139,10 +147,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           {!collapsed && (
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">
-                {profile?.display_name || "No name"}
-              </p>
-              <p className="truncate text-xs text-text-muted">
-                {user.email}
+                {profile?.display_name || t("sidebar.noName")}
               </p>
             </div>
           )}

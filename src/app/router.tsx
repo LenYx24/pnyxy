@@ -18,6 +18,7 @@ import { SettingsPage } from "@/features/settings/SettingsPage";
 import { GeneralTab } from "@/features/settings/tabs/GeneralTab";
 import { AppearanceTab } from "@/features/settings/tabs/AppearanceTab";
 import { AiTab } from "@/features/settings/tabs/AiTab";
+import { OrganizationsTab } from "@/features/settings/tabs/OrganizationsTab";
 import { TagsTab } from "@/features/settings/tabs/TagsTab";
 import { PluginsTab } from "@/features/settings/tabs/PluginsTab";
 import { ShortcutsTab } from "@/features/settings/tabs/ShortcutsTab";
@@ -146,6 +147,7 @@ export const router = createBrowserRouter([
           { path: "general", element: <GeneralTab /> },
           { path: "appearance", element: <AppearanceTab /> },
           { path: "ai", element: <AiTab /> },
+          { path: "organizations", element: <OrganizationsTab /> },
           { path: "tags", element: <TagsTab /> },
           { path: "plugins", element: <PluginsTab /> },
           { path: "shortcuts", element: <ShortcutsTab /> },
