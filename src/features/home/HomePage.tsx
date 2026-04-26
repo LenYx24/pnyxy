@@ -64,7 +64,7 @@ export function HomePage() {
             {featuredBooks.map((book) => (
               <div
                 key={book.id}
-                className="shrink-0 basis-[7.5rem] snap-start sm:basis-[8.5rem]"
+                className="w-[7.5rem] shrink-0 snap-start sm:w-[8.5rem]"
               >
                 <BrowseBookShelfCard
                   book={book}
@@ -83,7 +83,7 @@ export function HomePage() {
             {newThisWeekBooks.map((book) => (
               <div
                 key={book.id}
-                className="shrink-0 basis-[7.5rem] snap-start sm:basis-[8.5rem]"
+                className="w-[7.5rem] shrink-0 snap-start sm:w-[8.5rem]"
               >
                 <BrowseBookShelfCard
                   book={book}
