@@ -61,12 +61,16 @@ export function AppLayout() {
     return <BannedScreen />;
   }
 
-  // Sidebar (desktop/tablet) is shown on the reader too, so users can
-  // jump back to library / browse / streaks without backing out. On
-  // mobile the reader has its own permanent bottom bar
-  // (MobileReaderBottomBar), so we still hide the global BottomNav
-  // there to avoid stacking two bottom rails on a phone.
-  const showSidebar = !focusActive;
+  // Sidebar (desktop/tablet) is shown on most routes, but on the
+  // reader we *fully* hide it when collapsed instead of leaving the
+  // narrow rail visible. Reading benefits from every horizontal pixel,
+  // and the reader's own toolbar grows a hamburger that expands the
+  // sidebar back when the user wants to navigate away. On mobile the
+  // reader has its own permanent bottom bar (MobileReaderBottomBar),
+  // so we still hide the global BottomNav there to avoid stacking two
+  // bottom rails on a phone.
+  const hideSidebarForReader = isReaderRoute && sidebarCollapsed;
+  const showSidebar = !focusActive && !hideSidebarForReader;
   const showBottomNav = !isReaderRoute && !focusActive;
   const sidebarMargin = showSidebar && isDesktop;
 

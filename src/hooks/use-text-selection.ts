@@ -107,11 +107,23 @@ export function useTextSelection(
       if (e.button === 2) return;
 
       const data = getSelectionData();
-      if (!data) return;
-
-      useAnnotationStore
-        .getState()
-        .showContextMenu(e.clientX, e.clientY, data.selection, null);
+      if (data) {
+        useAnnotationStore
+          .getState()
+          .showContextMenu(e.clientX, e.clientY, data.selection, null);
+        return;
+      }
+      // No fresh selection — but check whether the click landed on
+      // an existing highlight. Without this, a desktop user with no
+      // mouse-2 button (e.g. trackpad without right-click enabled)
+      // had no way to select / delete a highlight; the only path
+      // was the contextmenu event below.
+      const highlightId = findHighlightAtPoint(e.clientX, e.clientY);
+      if (highlightId) {
+        useAnnotationStore
+          .getState()
+          .showContextMenu(e.clientX, e.clientY, null, highlightId);
+      }
     };
 
     // Mobile path. Selection on touch devices completes on touchend
@@ -129,10 +141,21 @@ export function useTextSelection(
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           const data = getSelectionData();
-          if (!data) return;
-          useAnnotationStore
-            .getState()
-            .showContextMenu(x, y, data.selection, null);
+          if (data) {
+            useAnnotationStore
+              .getState()
+              .showContextMenu(x, y, data.selection, null);
+            return;
+          }
+          // Tap on an existing highlight — opens the same menu the
+          // right-click path opens, so mobile users can change color
+          // / remove the highlight without a "Delete" key.
+          const highlightId = findHighlightAtPoint(x, y);
+          if (highlightId) {
+            useAnnotationStore
+              .getState()
+              .showContextMenu(x, y, null, highlightId);
+          }
         });
       });
     };

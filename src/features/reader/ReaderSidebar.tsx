@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FilePlus, FileText, Library, StickyNote, PenTool, List, LayoutGrid, Trash2, Bookmark } from "lucide-react";
+import { ChevronDown, FilePlus, FileText, Library, StickyNote, PenTool, List, LayoutGrid, Trash2, Bookmark } from "lucide-react";
 import { useUIStore } from "@/stores/ui-store";
 import { ThumbnailToc } from "./ThumbnailToc";
 import { BookmarksPanel } from "./BookmarksPanel";
@@ -42,32 +42,75 @@ function TocEntry({
 }) {
   const page = item.pageIndex + 1;
   const isActive = activePage === page;
+  const hasChildren = item.children.length > 0;
+  // Default-expand the top level so the user sees the table of
+  // contents at a glance; deeper levels collapse by default to keep
+  // long TOCs scannable. Toggling overrides this for that node.
+  const [expanded, setExpanded] = useState(depth === 0);
+  // Indent grows with depth — keep arithmetic in one spot so the
+  // chevron and the row text stay aligned.
+  const indentPx = depth * 12;
 
   return (
     <>
-      <button
-        onClick={() => onNavigate(page)}
+      <div
         className={cn(
-          "block w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors cursor-pointer",
+          "flex w-full items-center gap-0.5 rounded-md transition-colors",
           isActive
             ? "bg-accent-purple/15 text-accent-purple"
             : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
-          depth === 1 && "pl-6 text-xs",
-          depth >= 2 && "pl-9 text-xs",
         )}
+        style={{ paddingLeft: indentPx }}
       >
-        {item.title}
-      </button>
-      {item.children.map((child, i) => (
-        <TocEntry
-          key={i}
-          item={child}
-          depth={depth + 1}
-          currentPage={currentPage}
-          activePage={activePage}
-          onNavigate={onNavigate}
-        />
-      ))}
+        {/* Chevron toggle — only rendered when there are children
+            so leaf rows stay flush with the row text instead of
+            getting an empty-icon gap. */}
+        {hasChildren ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded((v) => !v);
+            }}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+            aria-label={expanded ? "Collapse" : "Expand"}
+            aria-expanded={expanded}
+          >
+            <ChevronDown
+              size={14}
+              className={cn(
+                "transition-transform duration-150",
+                !expanded && "-rotate-90",
+              )}
+            />
+          </button>
+        ) : (
+          <span className="w-6 shrink-0" aria-hidden="true" />
+        )}
+        <button
+          onClick={() => onNavigate(page)}
+          className={cn(
+            "min-w-0 flex-1 truncate rounded-md py-1.5 pr-3 text-left transition-colors cursor-pointer",
+            depth === 0 ? "text-sm" : "text-xs",
+          )}
+          title={item.title}
+        >
+          {item.title}
+        </button>
+      </div>
+      {hasChildren && expanded && (
+        <>
+          {item.children.map((child, i) => (
+            <TocEntry
+              key={i}
+              item={child}
+              depth={depth + 1}
+              currentPage={currentPage}
+              activePage={activePage}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </>
+      )}
     </>
   );
 }
@@ -320,22 +363,6 @@ export function ReaderSidebarContent({
               <span className="truncate">{getDisplayTitle(id)}</span>
             </button>
           ))}
-          <div className="mt-1 grid grid-cols-2 gap-1">
-            <button
-              onClick={() => useUIStore.getState().setLibraryPickerOpen(true)}
-              className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-glass-border px-2 py-1.5 text-xs text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-            >
-              <Library size={13} className="shrink-0" />
-              {t("reader.sidebar.openFromLibraryShort")}
-            </button>
-            <button
-              onClick={onOpenFile}
-              className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-glass-border px-2 py-1.5 text-xs text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-            >
-              <FilePlus size={13} className="shrink-0" />
-              {t("reader.sidebar.openAnother")}
-            </button>
-          </div>
         </div>
       )}
 

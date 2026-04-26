@@ -1130,6 +1130,7 @@
     },
     "toolbar": {
       "backToLibrary": "Vissza a könyvtárba",
+      "toggleAppSidebar": "Alkalmazás oldalsáv ki/be",
       "renameTitle": "Kattints az átnevezéshez",
       "zoomCustomTitle": "Kattints egyéni nagyításhoz, dupla kattintás az illesztési módok váltásához",
       "fitWidth": "Szélesség",

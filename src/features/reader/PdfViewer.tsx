@@ -247,11 +247,39 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   // Determine visible pages based on scroll position (virtualization)
   const [scrollTop, setScrollTop] = useState(0);
 
+  // Track scroll velocity (px/ms) so we can dynamically widen the
+  // render window during a fast fling / middle-click drag. Without
+  // this the user sees blank pages for a brief moment because the
+  // static 1+2 overscan can't keep up with a 5000+ px/sec scroll.
+  // The velocity peaks while the user is dragging and decays back
+  // to zero a few hundred ms after they stop — at which point the
+  // overscan returns to its calm-reading default.
+  const [scrollVelocity, setScrollVelocity] = useState(0);
+  const lastScrollSampleRef = useRef<{ y: number; t: number } | null>(null);
+  const velocityDecayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
   const visiblePages = useMemo(() => {
     if (totalPages === 0 || pageOffsets.length === 0) return [];
 
-    const viewportTop = scrollTop - containerHeight; // overscan = 1 viewport
-    const viewportBottom = scrollTop + containerHeight * 2;
+    // Calm reading (default): 1 viewport above, 2 below. Reading
+    // goes downward, so the static prefetch is biased that way.
+    // Fast scroll: when velocity exceeds ~1.5 px/ms (a fling, a
+    // middle-click drag, a Page-Down spam) we expand to 4 viewports
+    // in the scroll direction. Pages enter the render queue ahead
+    // of the scroll instead of having to catch up.
+    const fastScroll = scrollVelocity > 1.5;
+    const aheadFactor = fastScroll
+      ? Math.min(6, 2 + scrollVelocity * 0.8) // grows with velocity, capped
+      : 2;
+    // Direction: +scrollVelocity = scrolling down, -scrollVelocity = up.
+    // We expand on the side the user is heading toward.
+    const goingDown = scrollVelocity >= 0;
+    const aboveFactor = goingDown ? 1 : aheadFactor;
+    const belowFactor = goingDown ? aheadFactor : 1;
+    const viewportTop = scrollTop - containerHeight * aboveFactor;
+    const viewportBottom = scrollTop + containerHeight * (1 + belowFactor);
 
     // Binary search for the first page that could overlap the viewport.
     // pageOffsets is sorted ascending; first page with top > viewportTop
@@ -272,7 +300,40 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       pages.push(i + 1);
     }
     return pages;
-  }, [scrollTop, containerHeight, totalPages, pageOffsets, getPageHeight]);
+  }, [
+    scrollTop,
+    containerHeight,
+    totalPages,
+    pageOffsets,
+    getPageHeight,
+    scrollVelocity,
+  ]);
+
+  // Pages to keep rendered specifically because the user just asked
+  // to *jump* there (TOC click, page input, bookmark, search hit).
+  // Without this, the target page only enters `visiblePages` AFTER
+  // the scroll animation lands — the user sees blank space mid-jump
+  // while pdf.js catches up. Adding the target ± 1 to the render
+  // tree the moment `scrollToPage` is set kicks the render off in
+  // parallel with the smooth-scroll animation, so the page is ready
+  // (or nearly so) when the scroll arrives.
+  const jumpPrefetchPages = useMemo(() => {
+    if (scrollToPage === null) return new Set<number>();
+    const set = new Set<number>();
+    for (let p = scrollToPage - 1; p <= scrollToPage + 1; p++) {
+      if (p >= 1 && p <= totalPages) set.add(p);
+    }
+    return set;
+  }, [scrollToPage, totalPages]);
+
+  // Final render list: visible pages ∪ jump prefetch. Sorted so the
+  // DOM order stays stable as visibility changes (prevents flicker).
+  const renderedPages = useMemo(() => {
+    if (jumpPrefetchPages.size === 0) return visiblePages;
+    const set = new Set(visiblePages);
+    for (const p of jumpPrefetchPages) set.add(p);
+    return Array.from(set).sort((a, b) => a - b);
+  }, [visiblePages, jumpPrefetchPages]);
 
   // Scroll handler — RAF-throttled, updates current page
   const handleScroll = useCallback(() => {
@@ -283,6 +344,31 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     rafRef.current = requestAnimationFrame(() => {
       const st = el.scrollTop;
       setScrollTop(st);
+
+      // Sample velocity from the last position+timestamp pair. Sign
+      // is preserved (+ = scrolling down, − = up) so the overscan
+      // can extend on the side the user is heading toward. Decay
+      // back to zero 250ms after the last scroll event so the
+      // prefetch window relaxes when the user stops.
+      const now = performance.now();
+      const prev = lastScrollSampleRef.current;
+      if (prev) {
+        const dt = now - prev.t;
+        if (dt > 0) {
+          const dy = st - prev.y;
+          // Dampen with the previous reading so a single jittery
+          // sample doesn't flap the overscan.
+          setScrollVelocity((v) => v * 0.4 + (dy / dt) * 0.6);
+        }
+      }
+      lastScrollSampleRef.current = { y: st, t: now };
+      if (velocityDecayTimerRef.current) {
+        clearTimeout(velocityDecayTimerRef.current);
+      }
+      velocityDecayTimerRef.current = setTimeout(() => {
+        setScrollVelocity(0);
+        lastScrollSampleRef.current = null;
+      }, 250);
 
       // Skip page detection during programmatic scrolls to avoid feedback loops
       if (programmaticScrollRef.current) return;
@@ -477,7 +563,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
             margin: "0 auto",
           }}
         >
-          {visiblePages.map((pageNum) => (
+          {renderedPages.map((pageNum) => (
             <PageSlot
               key={pageNum}
               pageNum={pageNum}

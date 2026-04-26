@@ -23,8 +23,10 @@ import {
   BotMessageSquare,
   BookmarkPlus,
   PanelLeft,
+  Menu,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useUIStore } from "@/stores/ui-store";
 import { useReaderStore, useActiveDocument, type ZoomMode } from "@/stores/reader-store";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useBookmarkStore } from "@/stores/bookmark-store";
@@ -105,7 +107,7 @@ function ZoomInput({
         e.preventDefault();
         onCycleMode();
       }}
-      className="min-w-[3rem] rounded px-1 py-0.5 text-center text-xs text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+      className="min-w-[3rem] rounded px-1 py-0.5 text-center text-xs font-medium text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
       title={t("reader.toolbar.zoomCustomTitle")}
     >
       {displayText}
@@ -217,8 +219,17 @@ export function ReaderToolbar({
   return (
     <div className="border-b border-glass-border bg-bg-secondary/60 backdrop-blur-md pt-safe-top pl-safe-left pr-safe-right">
     <div className="flex h-11 items-center justify-between px-2 sm:px-4">
-      {/* Left: back button + title (click to edit) */}
+      {/* Left: hamburger (toggles the global app sidebar — collapsed
+          on the reader hides it entirely so reading gets the full
+          width back), back button, title (click to edit) */}
       <div className="flex flex-1 min-w-0 items-center gap-1">
+        <button
+          onClick={() => useUIStore.getState().toggleSidebar()}
+          className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer shrink-0"
+          title={t("reader.toolbar.toggleAppSidebar")}
+        >
+          <Menu size={16} />
+        </button>
         <button
           onClick={() => navigate("/library")}
           className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer shrink-0"
@@ -286,9 +297,12 @@ export function ReaderToolbar({
             value={pageInput}
             onChange={(e) => setPageInput(e.target.value)}
             placeholder={String(currentPage)}
-            className="w-10 rounded border border-glass-border bg-glass-bg px-1.5 py-0.5 text-center text-xs text-text-primary outline-none focus:border-accent-purple"
+            // Bumped from text-xs to text-sm + semibold so the page
+            // number reads at a glance — it's the most-looked-at
+            // value in the toolbar but used to be the lowest-contrast.
+            className="w-12 rounded border border-glass-border bg-glass-bg px-1.5 py-0.5 text-center text-sm font-semibold text-text-primary outline-none focus:border-accent-purple"
           />
-          <span className="text-xs text-text-muted">/ {totalPages}</span>
+          <span className="text-sm font-medium text-text-secondary">/ {totalPages}</span>
         </form>
 
         <button
@@ -302,6 +316,30 @@ export function ReaderToolbar({
         >
           <ChevronRight size={16} />
         </button>
+
+        {/* Lookup actions — Search and AI chat sit next to page nav
+            because they're "interrupt my reading to find / ask
+            something" actions, not toolbar tools. Mobile keeps them
+            in the overflow menu (this center block stays compact). */}
+        {!isMobile && (
+          <>
+            <div className="mx-1 h-4 w-px bg-glass-border" />
+            <button
+              onClick={onToggleSearch}
+              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              title={t("reader.toolbar.searchTitle")}
+            >
+              <Search size={16} />
+            </button>
+            <button
+              onClick={onToggleAiChat}
+              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              title={t("reader.toolbar.aiChatTitle")}
+            >
+              <BotMessageSquare size={16} />
+            </button>
+          </>
+        )}
       </div>
 
       {/* Right section */}
@@ -440,25 +478,11 @@ export function ReaderToolbar({
             )}
             <div className="mx-1 h-4 w-px bg-glass-border" />
             <button
-              onClick={onToggleSearch}
-              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title={t("reader.toolbar.searchTitle")}
-            >
-              <Search size={16} />
-            </button>
-            <button
               onClick={onToggleComments}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
               title={t("reader.toolbar.commentsTitle")}
             >
               <MessageSquare size={16} />
-            </button>
-            <button
-              onClick={onToggleAiChat}
-              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title={t("reader.toolbar.aiChatTitle")}
-            >
-              <BotMessageSquare size={16} />
             </button>
             <div className="mx-1 h-4 w-px bg-glass-border" />
             <ReadingTrackerControl />
@@ -633,14 +657,6 @@ export function ReaderToolbar({
             >
               <Printer size={16} />
             </button>
-            {/* Search */}
-            <button
-              onClick={onToggleSearch}
-              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title={t("reader.toolbar.searchTitle")}
-            >
-              <Search size={16} />
-            </button>
             {/* Comments panel toggle */}
             <button
               onClick={onToggleComments}
@@ -648,14 +664,6 @@ export function ReaderToolbar({
               title={t("reader.toolbar.commentsTitle")}
             >
               <MessageSquare size={16} />
-            </button>
-            {/* AI Chat toggle */}
-            <button
-              onClick={onToggleAiChat}
-              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title={t("reader.toolbar.aiChatTitle")}
-            >
-              <BotMessageSquare size={16} />
             </button>
             <div className="mx-1 h-4 w-px bg-glass-border" />
             <ReadingTrackerControl />

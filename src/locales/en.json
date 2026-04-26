@@ -1130,6 +1130,7 @@
     },
     "toolbar": {
       "backToLibrary": "Back to library",
+      "toggleAppSidebar": "Toggle app sidebar",
       "renameTitle": "Click to rename",
       "zoomCustomTitle": "Click to set custom zoom, double-click to cycle fit mode",
       "fitWidth": "Width",
