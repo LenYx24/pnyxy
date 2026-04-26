@@ -22,10 +22,23 @@ interface PlanItemDraft {
 
 interface CreatePlanInput {
   title: string;
+  description?: string | null;
+  color?: string | null;
   start_date: string;
   end_date: string;
   ignore_weekends: boolean;
+  /** May be empty — a plan can be created without books and have
+   *  them attached later from the detail page. */
   items: PlanItemDraft[];
+}
+
+interface UpdatePlanPatch {
+  title?: string;
+  description?: string | null;
+  color?: string | null;
+  start_date?: string;
+  end_date?: string;
+  ignore_weekends?: boolean;
 }
 
 interface PlanState {
@@ -33,7 +46,18 @@ interface PlanState {
   isLoading: boolean;
 
   fetchMine: () => Promise<void>;
+  /** Returns the plan with its items, or null. Used by the detail
+   *  page when navigated directly without a prior list load. */
+  getPlan: (planId: string) => Promise<ReadingPlanWithItems | null>;
   createPlan: (input: CreatePlanInput) => Promise<string | null>;
+  /** Patch the plan row, and if `items` is provided, replace the
+   *  item set wholesale (delete + re-insert). Replace-all is fine
+   *  for the small per-plan dataset and avoids per-row diffing. */
+  updatePlan: (
+    planId: string,
+    patch: UpdatePlanPatch,
+    items?: PlanItemDraft[],
+  ) => Promise<void>;
   deletePlan: (planId: string) => Promise<void>;
   setStatus: (
     planId: string,
@@ -96,6 +120,33 @@ export const useReadingPlanStore = create<PlanState>((set, get) => ({
     }
   },
 
+  async getPlan(planId) {
+    const [planRes, itemsRes] = await Promise.all([
+      supabase
+        .from("reading_plans")
+        .select("*")
+        .eq("id", planId)
+        .maybeSingle(),
+      supabase
+        .from("reading_plan_items")
+        .select("*")
+        .eq("plan_id", planId)
+        .order("ordering", { ascending: true }),
+    ]);
+    if (planRes.error || !planRes.data) {
+      if (planRes.error) logError("reading-plan:getPlan", planRes.error);
+      return null;
+    }
+    if (itemsRes.error) {
+      logError("reading-plan:getPlan:items", itemsRes.error);
+      return null;
+    }
+    return {
+      plan: planRes.data as ReadingPlan,
+      items: (itemsRes.data ?? []) as ReadingPlanItem[],
+    };
+  },
+
   async createPlan(input) {
     const {
       data: { user },
@@ -107,6 +158,8 @@ export const useReadingPlanStore = create<PlanState>((set, get) => ({
       .insert({
         user_id: user.id,
         title: input.title.trim(),
+        description: input.description?.trim() || null,
+        color: input.color ?? null,
         start_date: input.start_date,
         end_date: input.end_date,
         ignore_weekends: input.ignore_weekends,
@@ -140,6 +193,61 @@ export const useReadingPlanStore = create<PlanState>((set, get) => ({
 
     await get().fetchMine();
     return plan.id as string;
+  },
+
+  async updatePlan(planId, patch, items) {
+    const planPatch: Record<string, unknown> = {};
+    if (patch.title !== undefined) planPatch.title = patch.title.trim();
+    if (patch.description !== undefined)
+      planPatch.description = patch.description?.trim() || null;
+    if (patch.color !== undefined) planPatch.color = patch.color ?? null;
+    if (patch.start_date !== undefined) planPatch.start_date = patch.start_date;
+    if (patch.end_date !== undefined) planPatch.end_date = patch.end_date;
+    if (patch.ignore_weekends !== undefined)
+      planPatch.ignore_weekends = patch.ignore_weekends;
+
+    if (Object.keys(planPatch).length > 0) {
+      const { error } = await supabase
+        .from("reading_plans")
+        .update(planPatch)
+        .eq("id", planId);
+      if (error) {
+        logError("reading-plan:updatePlan", error);
+        throw error;
+      }
+    }
+
+    if (items) {
+      // Replace-all: delete existing item rows, then insert the new
+      // set. Cheap for the per-plan size and avoids per-row diffing.
+      const { error: delErr } = await supabase
+        .from("reading_plan_items")
+        .delete()
+        .eq("plan_id", planId);
+      if (delErr) {
+        logError("reading-plan:updatePlan:delItems", delErr);
+        throw delErr;
+      }
+      if (items.length > 0) {
+        const rows = items.map((it, i) => ({
+          plan_id: planId,
+          book_id: it.book_id ?? null,
+          catalog_book_id: it.catalog_book_id ?? null,
+          start_page: it.start_page ?? null,
+          end_page: it.end_page ?? null,
+          ordering: it.ordering ?? i,
+        }));
+        const { error: insErr } = await supabase
+          .from("reading_plan_items")
+          .insert(rows);
+        if (insErr) {
+          logError("reading-plan:updatePlan:insItems", insErr);
+          throw insErr;
+        }
+      }
+    }
+
+    await get().fetchMine();
   },
 
   async deletePlan(planId) {

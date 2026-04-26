@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Plus, Calendar, BookOpen, Trash2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -13,11 +14,12 @@ import {
   type BookProgressMap,
   type BookTotalsLookup,
 } from "@/stores/reading-plan-store";
-import { CreateReadingPlanModal } from "./CreateReadingPlanModal";
+import { planColorClasses } from "@/lib/plan-colors";
 import type { ReadingPlanWithItems } from "@/types/reading-plan";
 
 export function ReadingPlansSection() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const plans = useReadingPlanStore((s) => s.plans);
   const fetchPlans = useReadingPlanStore((s) => s.fetchMine);
@@ -26,7 +28,6 @@ export function ReadingPlansSection() {
   const books = useLibraryStore((s) => s.books);
   const fetchLibrary = useLibraryStore((s) => s.fetchLibrary);
 
-  const [createOpen, setCreateOpen] = useState(false);
   const [progressMap, setProgressMap] = useState<BookProgressMap>(new Map());
   const [loadingProgress, setLoadingProgress] = useState(false);
 
@@ -111,7 +112,7 @@ export function ReadingPlansSection() {
         </div>
         <Button
           variant="primary"
-          onClick={() => setCreateOpen(true)}
+          onClick={() => navigate("/plans/new")}
           className="gap-2 px-3 py-1.5 text-xs sm:text-sm"
         >
           <Plus size={14} />
@@ -140,18 +141,13 @@ export function ReadingPlansSection() {
               progressMap={progressMap}
               lookup={lookup}
               loadingProgress={loadingProgress}
+              onOpen={() => navigate(`/plans/${p.plan.id}`)}
               onDelete={() => deletePlan(p.plan.id)}
               onComplete={() => setStatus(p.plan.id, "completed")}
             />
           ))}
         </div>
       )}
-
-      <CreateReadingPlanModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={() => fetchPlans()}
-      />
     </section>
   );
 }
@@ -161,6 +157,7 @@ function PlanCard({
   progressMap,
   lookup,
   loadingProgress,
+  onOpen,
   onDelete,
   onComplete,
 }: {
@@ -168,6 +165,7 @@ function PlanCard({
   progressMap: BookProgressMap;
   lookup: BookTotalsLookup;
   loadingProgress: boolean;
+  onOpen: () => void;
   onDelete: () => void;
   onComplete: () => void;
 }) {
@@ -181,14 +179,32 @@ function PlanCard({
   const ahead = progress.pagesAhead;
   const isCompleted = plan.plan.status === "completed";
   const isDone = progress.completion >= 1;
+  const colorClasses = planColorClasses(plan.plan.color);
+
+  // Whole-card click navigates to the detail page; the action buttons
+  // call stopPropagation to avoid double-fires.
+  const stopAndCall = (handler: () => void) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handler();
+  };
 
   return (
     <div
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
       className={cn(
-        "relative rounded-xl border p-4 transition-colors",
+        "relative cursor-pointer rounded-xl border-l-4 border p-4 transition-colors hover:bg-glass-hover",
+        colorClasses.border,
         isCompleted
           ? "border-green-500/30 bg-green-500/5"
-          : "border-glass-border bg-glass-bg/40",
+          : cn("border-glass-border", colorClasses.bg || "bg-glass-bg/40"),
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -196,6 +212,11 @@ function PlanCard({
           <h3 className="truncate text-sm font-semibold text-text-primary">
             {plan.plan.title}
           </h3>
+          {plan.plan.description && (
+            <p className="mt-0.5 line-clamp-2 text-[11px] text-text-secondary">
+              {plan.plan.description}
+            </p>
+          )}
           <p className="mt-0.5 text-[11px] text-text-muted">
             {plan.plan.start_date} → {plan.plan.end_date}
             {plan.plan.ignore_weekends &&
@@ -205,7 +226,7 @@ function PlanCard({
         <div className="flex shrink-0 items-center gap-1">
           {!isCompleted && isDone && (
             <button
-              onClick={onComplete}
+              onClick={stopAndCall(onComplete)}
               aria-label={t("readingPlans.card.markComplete")}
               title={t("readingPlans.card.markComplete")}
               className="rounded-md p-1.5 text-green-400 transition-colors hover:bg-glass-hover cursor-pointer"
@@ -214,7 +235,7 @@ function PlanCard({
             </button>
           )}
           <button
-            onClick={onDelete}
+            onClick={stopAndCall(onDelete)}
             aria-label={t("readingPlans.card.delete")}
             title={t("readingPlans.card.delete")}
             className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-red-400 cursor-pointer"

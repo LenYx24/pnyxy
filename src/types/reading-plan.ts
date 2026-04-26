@@ -4,6 +4,11 @@ export interface ReadingPlan {
   id: string;
   user_id: string;
   title: string;
+  description: string | null;
+  /** Palette key from PLAN_COLORS (see lib/plan-colors.ts), or null
+   *  for the default neutral border. Stored as a short string rather
+   *  than a hex so the UI keeps a consistent theme. */
+  color: string | null;
   /** ISO date (YYYY-MM-DD) */
   start_date: string;
   end_date: string;

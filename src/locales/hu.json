@@ -4,6 +4,7 @@
     "cancel": "Mégse",
     "save": "Mentés",
     "saving": "Mentés…",
+    "deleting": "Törlés…",
     "delete": "Törlés",
     "edit": "Szerkesztés",
     "remove": "Eltávolítás",
@@ -780,24 +781,51 @@
       "markComplete": "Befejezettnek jelöl",
       "delete": "Törlés"
     },
-    "create": {
-      "title": "Új olvasási terv",
-      "planTitle": "Cím",
-      "planTitlePlaceholder": "Tavaszi félév olvasás…",
+    "detail": {
+      "newTitle": "Új olvasási terv",
+      "newSubtitle": "Add meg a dátumokat és a célt — könyveket később is hozzá lehet adni.",
+      "editTitle": "Olvasási terv szerkesztése",
+      "editSubtitle": "Bármely mezőt frissítheted, könyveket adhatsz hozzá, vagy módosíthatod az oldaltartományokat.",
+      "signInFirst": "Jelentkezz be az olvasási terveid megtekintéséhez vagy szerkesztéséhez.",
+      "notFound": "Olvasási terv nem található.",
+      "backToList": "Vissza az olvasási tervekhez",
+      "titleLabel": "Cím",
+      "titlePlaceholder": "Tavaszi félév olvasás…",
+      "descriptionLabel": "Leírás",
+      "descriptionPlaceholder": "Nem kötelező — mit fed le ez a terv, miért csinálod, mi a siker.",
+      "colorLabel": "Szín",
+      "colorNone": "Nincs szín",
+      "color": {
+        "purple": "Lila",
+        "blue": "Kék",
+        "green": "Zöld",
+        "amber": "Borostyán",
+        "pink": "Rózsaszín",
+        "red": "Piros"
+      },
       "startDate": "Kezdődátum",
       "endDate": "Záródátum",
       "ignoreWeekends": "Csak hétköznap",
       "ignoreWeekendsHint": "A szombat és vasárnap kimarad a napi célok kiszámításából.",
       "booksHeading": "Könyvek",
+      "booksHint": "Nem kötelező — később is hozzáadhatsz könyveket egy olyan célhoz, amit most rögzítesz.",
       "addBook": "Könyv hozzáadása",
-      "noBooksHint": "Adj hozzá legalább egy könyvet a könyvtáradból.",
+      "noBooksHint": "Még nincs könyv hozzáadva. A terv így is menthető — később bármikor adhatsz hozzá.",
       "pickBook": "Válassz könyvet…",
       "useRange": "Csak egy oldaltartomány ebből a könyvből",
       "startPage": "Kezdőoldal",
       "endPage": "Záróoldal",
       "totalPages": "/ {{total}}",
       "create": "Terv létrehozása",
-      "creating": "Létrehozás…"
+      "save": "Változtatások mentése",
+      "markComplete": "Befejezettnek jelöl",
+      "deletePlan": "Terv törlése",
+      "confirmDeleteTitle": "Biztosan törlöd?",
+      "confirmDeleteBody": "Ez véglegesen eltávolítja a tervet és a hozzá tartozó könyveket. Az olvasási előrehaladásod nem érintett.",
+      "errors": {
+        "saveFailed": "Nem sikerült menteni a tervet.",
+        "deleteFailed": "Nem sikerült törölni a tervet."
+      }
     }
   },
   "leaderboards": {

@@ -39,6 +39,7 @@ import { ProfilePage } from "@/features/profile/ProfilePage";
 import { AdminPage } from "@/features/admin/AdminPage";
 import { StreaksPage } from "@/features/streaks/StreaksPage";
 import { LeaderboardsPage } from "@/features/streaks/LeaderboardsPage";
+import { PlanDetailPage } from "@/features/streaks/PlanDetailPage";
 import { RoadmapsPage } from "@/features/roadmaps/RoadmapsPage";
 import { RoadmapDetailPage } from "@/features/roadmaps/RoadmapDetailPage";
 import { RoadmapEditorPage } from "@/features/roadmaps/RoadmapEditorPage";
@@ -125,6 +126,8 @@ export const router = createBrowserRouter([
       },
       { path: "library", element: <LibraryPage /> },
       { path: "streaks", element: <StreaksPage /> },
+      { path: "plans/new", element: <PlanDetailPage /> },
+      { path: "plans/:planId", element: <PlanDetailPage /> },
       { path: "roadmaps", element: <RoadmapsPage /> },
       { path: "roadmaps/:roadmapId", element: <RoadmapDetailPage /> },
       { path: "roadmaps/:roadmapId/edit", element: <RoadmapEditorPage /> },

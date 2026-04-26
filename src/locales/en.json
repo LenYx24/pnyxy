@@ -4,6 +4,7 @@
     "cancel": "Cancel",
     "save": "Save",
     "saving": "Saving…",
+    "deleting": "Deleting…",
     "delete": "Delete",
     "edit": "Edit",
     "remove": "Remove",
@@ -780,24 +781,51 @@
       "markComplete": "Mark complete",
       "delete": "Delete"
     },
-    "create": {
-      "title": "New reading plan",
-      "planTitle": "Title",
-      "planTitlePlaceholder": "Spring semester reading…",
+    "detail": {
+      "newTitle": "New reading plan",
+      "newSubtitle": "Set the dates and goal — books are optional and can be added later.",
+      "editTitle": "Edit reading plan",
+      "editSubtitle": "Update any field, attach more books, or change the page ranges.",
+      "signInFirst": "Please sign in to view or edit your reading plans.",
+      "notFound": "Reading plan not found.",
+      "backToList": "Back to reading plans",
+      "titleLabel": "Title",
+      "titlePlaceholder": "Spring semester reading…",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Optional — what this plan covers, why you're doing it, what success looks like.",
+      "colorLabel": "Color",
+      "colorNone": "No color",
+      "color": {
+        "purple": "Purple",
+        "blue": "Blue",
+        "green": "Green",
+        "amber": "Amber",
+        "pink": "Pink",
+        "red": "Red"
+      },
       "startDate": "Start date",
       "endDate": "End date",
       "ignoreWeekends": "Weekdays only",
       "ignoreWeekendsHint": "Skip Saturday and Sunday when distributing daily targets.",
       "booksHeading": "Books",
+      "booksHint": "Optional — leave empty for a goal you'll fill in later.",
       "addBook": "Add book",
-      "noBooksHint": "Add at least one book from your library.",
+      "noBooksHint": "No books attached yet. The plan can still be saved — add books any time.",
       "pickBook": "Pick a book…",
       "useRange": "Only a page range of this book",
       "startPage": "Start page",
       "endPage": "End page",
       "totalPages": "of {{total}}",
       "create": "Create plan",
-      "creating": "Creating…"
+      "save": "Save changes",
+      "markComplete": "Mark complete",
+      "deletePlan": "Delete plan",
+      "confirmDeleteTitle": "Delete this plan?",
+      "confirmDeleteBody": "This permanently removes the plan and its books. Your reading progress is unaffected.",
+      "errors": {
+        "saveFailed": "Could not save the plan.",
+        "deleteFailed": "Could not delete the plan."
+      }
     }
   },
   "leaderboards": {
