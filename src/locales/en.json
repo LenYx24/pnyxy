@@ -767,6 +767,7 @@
     "descriptionLabel": "Description",
     "descriptionPlaceholder": "What's this roadmap about?",
     "preview": "Preview",
+    "editWithAi": "Edit with AI",
     "startBuilding": "Start building",
     "startLearning": "Start learning",
     "unenroll": "Unenroll",
@@ -813,6 +814,8 @@
     "branchingFrom": "Branching from: {{snippet}}",
     "sourceContext": "From {{title}} · p.{{page}}",
     "openInReader": "Open in reader",
+    "editingRoadmap": "Editing roadmap: {{title}}",
+    "openInEditor": "Open in editor",
     "sidebar": {
       "empty": "No conversations yet."
     },

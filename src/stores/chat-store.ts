@@ -1,7 +1,23 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
-import { streamChatResponse } from "@/lib/ai-client";
+import {
+  streamChatResponse,
+  streamChatWithTools,
+  type ContentBlock,
+  type TextBlock,
+  type ToolMessage,
+  type ToolResultBlock,
+  type ToolStopReason,
+} from "@/lib/ai-client";
+import {
+  ROADMAP_TOOLS,
+  LabelMap,
+  formatRoadmapSnapshot,
+  buildRoadmapEditSystemPrompt,
+  dispatchRoadmapTool,
+} from "@/lib/roadmap-tools";
+import { useRoadmapStore } from "@/stores/roadmap-store";
 import type { AiProvider } from "@/stores/settings-store";
 import type {
   ChatConversation,
@@ -11,14 +27,18 @@ import type {
 
 // ── Store ─────────────────────────────────────────────────
 
-/** Hand-off slot for the reader → chat flow. The reader fills this
- *  on "Send to AI chat", navigates the user to /chat, and ChatPage
- *  drains it on mount: creates a fresh conversation tagged with the
- *  source document, prefills the composer with the selected text,
- *  and shows a context pill. */
+/** Hand-off slot for the reader → chat flow and the editor → chat
+ *  flow. Whichever upstream surface triggers a chat fills this and
+ *  navigates the user to /chat; ChatPage drains it on mount and
+ *  creates a fresh conversation with whichever fields are set. */
 export interface ChatDraft {
   text: string;
-  source: ChatSourceContext;
+  /** Reader-side context: shows a "from <Book>, p.42" pill and lets
+   *  the assistant emit clickable [p.N] citations. */
+  source?: ChatSourceContext | null;
+  /** Editor-side context: ties the conversation to an artifact the
+   *  AI is allowed to mutate via tool calls. */
+  target?: { roadmapId?: string | null; quizId?: string | null } | null;
 }
 
 export interface ChatSourceContext {
@@ -47,6 +67,9 @@ interface ChatState {
     title?: string,
     folderId?: string | null,
     source?: ChatSourceContext | null,
+    /** Tie the conversation to an editable artifact. When set, the
+     *  AI gets tool-use access to mutate it live. */
+    target?: { roadmapId?: string | null; quizId?: string | null } | null,
   ) => Promise<string | null>;
   /** Reader-side: stash a draft + source context, then navigate. */
   setPendingDraft: (draft: ChatDraft | null) => void;
@@ -137,7 +160,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  async createConversation(title = "", folderId = null, source = null) {
+  async createConversation(title = "", folderId = null, source = null, target = null) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -151,6 +174,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         source_doc_id: source?.docId ?? null,
         source_doc_title: source?.docTitle ?? null,
         source_page: source?.page ?? null,
+        target_roadmap_id: target?.roadmapId ?? null,
+        target_quiz_id: target?.quizId ?? null,
       })
       .select()
       .single();
@@ -572,31 +597,42 @@ async function sendOrBranch(
   });
 
   // 4. Stream the response, accumulating and patching the message.
-  // If the conversation was started from the reader (source set on
-  // the row), feed the doc title + a citation-format hint into the
-  // system prompt — the page-context is empty because we don't
-  // have the live PDF here, but the model still gets enough to
-  // ground answers and emit `[p.N]` citations the message renderer
-  // turns into clickable links.
+  // Branch on conversation type:
+  //   - target_roadmap_id set → agentic tool-use loop (AI edits roadmap live)
+  //   - source_doc_id set     → text stream with doc-title context for [p.N] citations
+  //   - otherwise             → plain text stream
   const convForStream = get().conversations.find(
     (c) => c.id === conversationId,
   );
+  const targetRoadmapId = convForStream?.target_roadmap_id ?? null;
   const sourceTitle = convForStream?.source_doc_title ?? "";
+  const patchAssistant = (content: string) =>
+    set((s) => {
+      const next = new Map(s.messages);
+      const existing = next.get(asstMsg.id);
+      if (existing) next.set(asstMsg.id, { ...existing, content });
+      return { messages: next };
+    });
+
   let acc = "";
   try {
-    for await (const chunk of streamChatResponse(
-      promptMessages,
-      sourceTitle,
-      "",
-      { preferredProvider },
-    )) {
-      acc += chunk.delta;
-      set((s) => {
-        const next = new Map(s.messages);
-        const existing = next.get(asstMsg.id);
-        if (existing) next.set(asstMsg.id, { ...existing, content: acc });
-        return { messages: next };
-      });
+    if (targetRoadmapId) {
+      acc = await runRoadmapAgenticLoop(
+        targetRoadmapId,
+        promptMessages,
+        preferredProvider,
+        patchAssistant,
+      );
+    } else {
+      for await (const chunk of streamChatResponse(
+        promptMessages,
+        sourceTitle,
+        "",
+        { preferredProvider },
+      )) {
+        acc += chunk.delta;
+        patchAssistant(acc);
+      }
     }
   } catch (err) {
     logError("chat:sendMessage:stream", err);
@@ -668,4 +704,114 @@ export function childrenOf(
   }
   out.sort((a, b) => a.created_at.localeCompare(b.created_at));
   return out;
+}
+
+// ── Roadmap agentic loop ───────────────────────────────────
+//
+// Runs streamChatWithTools, dispatching each tool_call live against
+// useRoadmapStore. After the model finishes a turn with stop_reason
+// "tool_use", appends the executed tool_use blocks + their results
+// and calls again. Loops until end_turn or the safety cap is hit.
+//
+// The visible chat content interleaves model text with one bullet
+// line per tool call ("✓ Added node n5: ..."), built up in the same
+// string the streaming UI is patching, so the user sees edits land
+// in real time.
+
+const MAX_AGENTIC_ROUNDS = 8;
+
+async function runRoadmapAgenticLoop(
+  roadmapId: string,
+  history: Array<{ role: "user" | "assistant"; content: string }>,
+  preferredProvider: AiProvider | undefined,
+  patchAssistant: (content: string) => void,
+): Promise<string> {
+  const roadmap = useRoadmapStore.getState().roadmaps.get(roadmapId);
+  if (!roadmap) {
+    return `⚠ Roadmap not found.`;
+  }
+  // The label map is rebuilt fresh from the live state so the model
+  // sees stable n1..nN labels even if earlier turns added/removed
+  // nodes; add_node calls in the current turn extend it in-place.
+  const labels = new LabelMap(roadmap.nodes);
+  const snapshot = formatRoadmapSnapshot(roadmap, labels);
+  const systemPrompt = buildRoadmapEditSystemPrompt(snapshot);
+
+  const toolMessages: ToolMessage[] = history.map((m) => ({
+    role: m.role,
+    content: m.content,
+  }));
+
+  let acc = "";
+  for (let round = 0; round < MAX_AGENTIC_ROUNDS; round++) {
+    const turnBlocks: ContentBlock[] = [];
+    const pendingResults: ToolResultBlock[] = [];
+    let textBuf = "";
+    let stopReason: ToolStopReason = "other";
+
+    const flushText = () => {
+      if (textBuf) {
+        turnBlocks.push({ type: "text", text: textBuf } as TextBlock);
+        textBuf = "";
+      }
+    };
+
+    for await (const event of streamChatWithTools(toolMessages, {
+      systemPrompt,
+      tools: ROADMAP_TOOLS,
+      maxOutputTokens: 4000,
+      preferredProvider,
+    })) {
+      if (event.kind === "text_delta") {
+        textBuf += event.text;
+        acc += event.text;
+        patchAssistant(acc);
+      } else if (event.kind === "tool_call") {
+        flushText();
+        const result = dispatchRoadmapTool(
+          event.name,
+          event.input,
+          roadmapId,
+          labels,
+        );
+        // Insert as a markdown blockquote so the tool-call line
+        // renders visually offset from the model's prose. Adjacent
+        // blockquote lines collapse into a single quoted block.
+        acc += (acc.endsWith("\n\n") || acc === "" ? "" : "\n\n") +
+          `> ${result.summary}\n`;
+        patchAssistant(acc);
+        turnBlocks.push({
+          type: "tool_use",
+          id: event.id,
+          name: event.name,
+          input: event.input,
+        });
+        pendingResults.push({
+          type: "tool_result",
+          tool_use_id: event.id,
+          content: result.modelOutput,
+          is_error: !result.ok,
+        });
+      } else if (event.kind === "stop") {
+        flushText();
+        stopReason = event.reason;
+      }
+    }
+
+    if (turnBlocks.length === 0) {
+      // Defensive: model returned nothing parseable. Avoid pushing an
+      // empty assistant message — the API rejects those.
+      break;
+    }
+    toolMessages.push({ role: "assistant", content: turnBlocks });
+
+    if (stopReason !== "tool_use" || pendingResults.length === 0) break;
+
+    toolMessages.push({ role: "user", content: pendingResults });
+    // Visual separator between rounds so the next text block starts
+    // on its own line rather than glued to the last bullet.
+    if (!acc.endsWith("\n")) acc += "\n";
+  }
+
+  return acc.trim() || "(no response)";
 }

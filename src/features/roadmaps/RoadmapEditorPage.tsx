@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Eye, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Eye, Plus, Sparkles, Trash2 } from "lucide-react";
 import { NumberInput } from "@/components/ui";
 import { useRoadmap, useRoadmapStore } from "@/stores/roadmap-store";
+import { useChatStore } from "@/stores/chat-store";
 import type { RoadmapNode } from "@/types/roadmap";
 import { RoadmapGraph } from "./components/RoadmapGraph";
 import { makeBlankNode } from "./lib/scheduler";
@@ -65,6 +66,18 @@ export function RoadmapEditorPage() {
     upsertEdge(roadmap.id, { id: crypto.randomUUID(), source, target });
   };
 
+  // Hand off to /chat with the roadmap as the agentic target. ChatPage
+  // drains the pending draft on mount and creates a conversation
+  // tagged with target_roadmap_id, which switches sendMessage into
+  // the tool-use loop.
+  const handleEditWithAi = () => {
+    useChatStore.getState().setPendingDraft({
+      text: "",
+      target: { roadmapId: roadmap.id },
+    });
+    navigate("/chat");
+  };
+
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-glass-border p-3 sm:p-4">
@@ -86,6 +99,13 @@ export function RoadmapEditorPage() {
           />
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleEditWithAi}
+            className="inline-flex items-center gap-1.5 rounded-md border border-glass-border px-2.5 py-1.5 text-xs text-text-secondary hover:bg-glass-hover"
+          >
+            <Sparkles size={14} />
+            <span className="hidden sm:inline">{t("roadmaps.editWithAi")}</span>
+          </button>
           <button
             onClick={handleAddNode}
             className="inline-flex items-center gap-1.5 rounded-md bg-accent-purple px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"

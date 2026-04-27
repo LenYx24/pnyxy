@@ -1,11 +1,51 @@
 import { pdfjs } from "react-pdf";
 import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
 import { supabase } from "@/lib/supabase";
+import type { ToolDef } from "@/lib/roadmap-tools";
 
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
 }
+
+// ── Tool-use types ───────────────────────────────────────────
+
+export type TextBlock = { type: "text"; text: string };
+export type ToolUseBlock = {
+  type: "tool_use";
+  id: string;
+  name: string;
+  input: unknown;
+};
+export type ToolResultBlock = {
+  type: "tool_result";
+  tool_use_id: string;
+  content: string;
+  is_error?: boolean;
+};
+export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock;
+
+export interface ToolMessage {
+  role: "user" | "assistant";
+  content: string | ContentBlock[];
+}
+
+export type ToolStopReason =
+  | "end_turn"
+  | "tool_use"
+  | "max_tokens"
+  | "other";
+
+export type ToolStreamEvent =
+  | { kind: "text_delta"; text: string; provider: AiProvider }
+  | {
+      kind: "tool_call";
+      id: string;
+      name: string;
+      input: unknown;
+      provider: AiProvider;
+    }
+  | { kind: "stop"; reason: ToolStopReason; provider: AiProvider };
 
 export type AiErrorCode = "quota" | "auth" | "network" | "config" | "other";
 
@@ -483,4 +523,553 @@ async function* parseOpenAiSse(
       // skip malformed events
     }
   }
+}
+
+// ── Tool-use streaming (single provider round-trip) ──────────
+//
+// `streamChatWithTools` yields a normalized event stream — text
+// deltas, fully-assembled tool_call events, and a stop event with
+// the reason. The orchestrator (chat-store) handles the agentic
+// loop: collect tool_call events, dispatch them, append a user
+// message with tool_result blocks, and call this generator again
+// until stop.reason === "end_turn".
+//
+// Provider fallback applies the same way as text-only streaming:
+// if a provider fails before yielding, try the next one.
+
+export interface StreamWithToolsOptions {
+  systemPrompt: string;
+  tools: ToolDef[];
+  maxOutputTokens?: number;
+  preferredProvider?: AiProvider;
+}
+
+export async function* streamChatWithTools(
+  messages: ToolMessage[],
+  options: StreamWithToolsOptions,
+): AsyncGenerator<ToolStreamEvent, void, unknown> {
+  const configured = getConfiguredProviders();
+  const candidates =
+    options.preferredProvider && configured.includes(options.preferredProvider)
+      ? [
+          options.preferredProvider,
+          ...configured.filter((p) => p !== options.preferredProvider),
+        ]
+      : configured;
+
+  if (candidates.length === 0) {
+    throw new AiProviderError(
+      "No AI providers configured. Enable Pnyxy or add an API key in Settings.",
+      "config",
+      "pnyxy",
+    );
+  }
+
+  let lastError: Error | null = null;
+
+  for (const provider of candidates) {
+    let yielded = false;
+    try {
+      for await (const event of streamToolsForProvider(provider, messages, options)) {
+        yielded = true;
+        yield event;
+      }
+      return;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      if (yielded) throw error;
+      lastError = error;
+    }
+  }
+
+  throw lastError ??
+    new AiProviderError("All providers failed.", "other", candidates[0]);
+}
+
+function streamToolsForProvider(
+  provider: AiProvider,
+  messages: ToolMessage[],
+  options: StreamWithToolsOptions,
+): AsyncGenerator<ToolStreamEvent, void, unknown> {
+  switch (provider) {
+    case "pnyxy":
+      return streamToolsPnyxy(messages, options);
+    case "anthropic":
+      return streamToolsAnthropic(messages, options);
+    case "openai":
+      return streamToolsOpenAi(messages, options);
+  }
+}
+
+// ── Anthropic tool use (browser-direct) ──────────────────────
+
+async function* streamToolsAnthropic(
+  messages: ToolMessage[],
+  options: StreamWithToolsOptions,
+): AsyncGenerator<ToolStreamEvent, void, unknown> {
+  const apiKey = useSettingsStore.getState().anthropicApiKey;
+  if (!apiKey) {
+    throw new AiProviderError(
+      "Anthropic API key not set.",
+      "config",
+      "anthropic",
+    );
+  }
+
+  const { default: Anthropic } = await import("@anthropic-ai/sdk");
+  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+
+  const stream = client.messages.stream({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
+    system: options.systemPrompt,
+    tools: options.tools.map((t) => ({
+      name: t.name,
+      description: t.description,
+      input_schema: t.input_schema,
+    })),
+    messages: messages.map(toAnthropicMessage),
+  });
+
+  // Track partial tool_use blocks across content_block_delta events
+  // so we can yield a single tool_call event with the parsed input
+  // when the block stops.
+  const partialTools = new Map<
+    number,
+    { id: string; name: string; jsonBuf: string }
+  >();
+  let stopReason: ToolStopReason = "other";
+
+  try {
+    for await (const event of stream) {
+      if (event.type === "content_block_start") {
+        const block = (event as { content_block: unknown }).content_block as {
+          type: string;
+          id?: string;
+          name?: string;
+        };
+        if (block.type === "tool_use" && block.id && block.name) {
+          partialTools.set(event.index, {
+            id: block.id,
+            name: block.name,
+            jsonBuf: "",
+          });
+        }
+      } else if (event.type === "content_block_delta") {
+        const delta = (event as { delta: unknown }).delta as {
+          type: string;
+          text?: string;
+          partial_json?: string;
+        };
+        if (delta.type === "text_delta" && typeof delta.text === "string") {
+          yield { kind: "text_delta", text: delta.text, provider: "anthropic" };
+        } else if (
+          delta.type === "input_json_delta" &&
+          typeof delta.partial_json === "string"
+        ) {
+          const slot = partialTools.get(event.index);
+          if (slot) slot.jsonBuf += delta.partial_json;
+        }
+      } else if (event.type === "content_block_stop") {
+        const slot = partialTools.get(event.index);
+        if (slot) {
+          let parsed: unknown = {};
+          try {
+            parsed = slot.jsonBuf ? JSON.parse(slot.jsonBuf) : {};
+          } catch {
+            parsed = { __parse_error: slot.jsonBuf };
+          }
+          yield {
+            kind: "tool_call",
+            id: slot.id,
+            name: slot.name,
+            input: parsed,
+            provider: "anthropic",
+          };
+          partialTools.delete(event.index);
+        }
+      } else if (event.type === "message_delta") {
+        const reason = (event as { delta?: { stop_reason?: string } }).delta
+          ?.stop_reason;
+        if (reason === "end_turn") stopReason = "end_turn";
+        else if (reason === "tool_use") stopReason = "tool_use";
+        else if (reason === "max_tokens") stopReason = "max_tokens";
+      }
+    }
+    yield { kind: "stop", reason: stopReason, provider: "anthropic" };
+  } catch (err) {
+    throw normalizeSdkError(err, "anthropic");
+  }
+}
+
+// ── Pnyxy proxy tool use (Anthropic-shaped SSE) ──────────────
+
+async function* streamToolsPnyxy(
+  messages: ToolMessage[],
+  options: StreamWithToolsOptions,
+): AsyncGenerator<ToolStreamEvent, void, unknown> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
+
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat-proxy`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  };
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        // The proxy auto-detects tool-mode by the presence of `tools`
+        // on the request body and switches to a richer SSE stream.
+        toolMessages: messages,
+        systemPromptOverride: options.systemPrompt,
+        tools: options.tools,
+        maxOutputTokens: options.maxOutputTokens,
+        // documentTitle/pageContext are unused in tool mode but the
+        // proxy still expects the keys for the input-token estimate.
+        documentTitle: "",
+        pageContext: "",
+        messages: [],
+      }),
+    });
+  } catch (err) {
+    throw new AiProviderError(
+      err instanceof Error ? err.message : "Network error",
+      "network",
+      "pnyxy",
+    );
+  }
+
+  if (!response.ok) {
+    let errMsg = `AI proxy error (${response.status})`;
+    try {
+      const body = await response.json();
+      if (body?.error?.message) errMsg = body.error.message;
+    } catch {
+      // ignore
+    }
+    throw new AiProviderError(
+      errMsg,
+      classifyStatus(response.status),
+      "pnyxy",
+      response.status,
+    );
+  }
+  if (!response.body) {
+    throw new AiProviderError(
+      "AI proxy returned an empty response",
+      "other",
+      "pnyxy",
+    );
+  }
+
+  yield* parseAnthropicSseTools(response.body, "pnyxy");
+}
+
+// Same shape as the SDK loop above but operating on the raw
+// Anthropic SSE wire format that the Pnyxy proxy passes through.
+async function* parseAnthropicSseTools(
+  body: ReadableStream<Uint8Array>,
+  provider: AiProvider,
+): AsyncGenerator<ToolStreamEvent, void, unknown> {
+  const partialTools = new Map<
+    number,
+    { id: string; name: string; jsonBuf: string }
+  >();
+  let stopReason: ToolStopReason = "other";
+
+  for await (const data of readSseLines(body)) {
+    if (!data || data === "[DONE]") continue;
+    let event: {
+      type?: string;
+      index?: number;
+      content_block?: { type?: string; id?: string; name?: string };
+      delta?: {
+        type?: string;
+        text?: string;
+        partial_json?: string;
+        stop_reason?: string;
+      };
+    };
+    try {
+      event = JSON.parse(data);
+    } catch {
+      continue;
+    }
+    if (event.type === "content_block_start" && typeof event.index === "number") {
+      const block = event.content_block;
+      if (block?.type === "tool_use" && block.id && block.name) {
+        partialTools.set(event.index, {
+          id: block.id,
+          name: block.name,
+          jsonBuf: "",
+        });
+      }
+    } else if (
+      event.type === "content_block_delta" &&
+      typeof event.index === "number"
+    ) {
+      if (
+        event.delta?.type === "text_delta" &&
+        typeof event.delta.text === "string"
+      ) {
+        yield { kind: "text_delta", text: event.delta.text, provider };
+      } else if (
+        event.delta?.type === "input_json_delta" &&
+        typeof event.delta.partial_json === "string"
+      ) {
+        const slot = partialTools.get(event.index);
+        if (slot) slot.jsonBuf += event.delta.partial_json;
+      }
+    } else if (
+      event.type === "content_block_stop" &&
+      typeof event.index === "number"
+    ) {
+      const slot = partialTools.get(event.index);
+      if (slot) {
+        let parsed: unknown = {};
+        try {
+          parsed = slot.jsonBuf ? JSON.parse(slot.jsonBuf) : {};
+        } catch {
+          parsed = { __parse_error: slot.jsonBuf };
+        }
+        yield {
+          kind: "tool_call",
+          id: slot.id,
+          name: slot.name,
+          input: parsed,
+          provider,
+        };
+        partialTools.delete(event.index);
+      }
+    } else if (event.type === "message_delta") {
+      const reason = event.delta?.stop_reason;
+      if (reason === "end_turn") stopReason = "end_turn";
+      else if (reason === "tool_use") stopReason = "tool_use";
+      else if (reason === "max_tokens") stopReason = "max_tokens";
+    }
+  }
+  yield { kind: "stop", reason: stopReason, provider };
+}
+
+// ── OpenAI tool use (browser-direct) ─────────────────────────
+
+async function* streamToolsOpenAi(
+  messages: ToolMessage[],
+  options: StreamWithToolsOptions,
+): AsyncGenerator<ToolStreamEvent, void, unknown> {
+  const apiKey = useSettingsStore.getState().openaiApiKey;
+  if (!apiKey) {
+    throw new AiProviderError("OpenAI API key not set.", "config", "openai");
+  }
+
+  let response: Response;
+  try {
+    response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
+        stream: true,
+        tools: options.tools.map((t) => ({
+          type: "function",
+          function: {
+            name: t.name,
+            description: t.description,
+            parameters: t.input_schema,
+          },
+        })),
+        messages: [
+          { role: "system", content: options.systemPrompt },
+          ...messages.flatMap(toOpenAiMessages),
+        ],
+      }),
+    });
+  } catch (err) {
+    throw new AiProviderError(
+      err instanceof Error ? err.message : "Network error",
+      "network",
+      "openai",
+    );
+  }
+
+  if (!response.ok) {
+    let errMsg = `OpenAI error (${response.status})`;
+    try {
+      const body = await response.json();
+      if (body?.error?.message) errMsg = body.error.message;
+    } catch {
+      const text = await response.text().catch(() => "");
+      if (text) errMsg = `OpenAI error (${response.status}): ${text}`;
+    }
+    throw new AiProviderError(
+      errMsg,
+      classifyStatus(response.status),
+      "openai",
+      response.status,
+    );
+  }
+  if (!response.body) {
+    throw new AiProviderError(
+      "OpenAI returned an empty response",
+      "other",
+      "openai",
+    );
+  }
+
+  // OpenAI streams tool-call arguments as partial JSON keyed by
+  // `index`; the id/name show up on the first chunk for that slot
+  // and the last chunk carries `finish_reason`.
+  const partialTools = new Map<
+    number,
+    { id: string; name: string; jsonBuf: string }
+  >();
+  let stopReason: ToolStopReason = "other";
+
+  for await (const data of readSseLines(response.body)) {
+    if (!data || data === "[DONE]") continue;
+    let event: {
+      choices?: Array<{
+        delta?: {
+          content?: string;
+          tool_calls?: Array<{
+            index?: number;
+            id?: string;
+            type?: string;
+            function?: { name?: string; arguments?: string };
+          }>;
+        };
+        finish_reason?: string;
+      }>;
+    };
+    try {
+      event = JSON.parse(data);
+    } catch {
+      continue;
+    }
+    const choice = event.choices?.[0];
+    if (!choice) continue;
+    const textDelta = choice.delta?.content;
+    if (typeof textDelta === "string" && textDelta.length > 0) {
+      yield { kind: "text_delta", text: textDelta, provider: "openai" };
+    }
+    const tcDeltas = choice.delta?.tool_calls;
+    if (tcDeltas) {
+      for (const tc of tcDeltas) {
+        if (typeof tc.index !== "number") continue;
+        let slot = partialTools.get(tc.index);
+        if (!slot) {
+          slot = {
+            id: tc.id ?? `tc-${tc.index}`,
+            name: tc.function?.name ?? "",
+            jsonBuf: "",
+          };
+          partialTools.set(tc.index, slot);
+        }
+        if (tc.id) slot.id = tc.id;
+        if (tc.function?.name) slot.name = tc.function.name;
+        if (typeof tc.function?.arguments === "string") {
+          slot.jsonBuf += tc.function.arguments;
+        }
+      }
+    }
+    if (choice.finish_reason === "tool_calls") stopReason = "tool_use";
+    else if (choice.finish_reason === "stop") stopReason = "end_turn";
+    else if (choice.finish_reason === "length") stopReason = "max_tokens";
+  }
+
+  // Flush completed tool calls. OpenAI doesn't have an analogue of
+  // content_block_stop, so we drain at end-of-stream.
+  for (const slot of partialTools.values()) {
+    if (!slot.name) continue;
+    let parsed: unknown = {};
+    try {
+      parsed = slot.jsonBuf ? JSON.parse(slot.jsonBuf) : {};
+    } catch {
+      parsed = { __parse_error: slot.jsonBuf };
+    }
+    yield {
+      kind: "tool_call",
+      id: slot.id,
+      name: slot.name,
+      input: parsed,
+      provider: "openai",
+    };
+  }
+  yield { kind: "stop", reason: stopReason, provider: "openai" };
+}
+
+// ── Cross-provider message-shape converters ──────────────────
+
+function toAnthropicMessage(m: ToolMessage): {
+  role: "user" | "assistant";
+  content: string | ContentBlock[];
+} {
+  return { role: m.role, content: m.content };
+}
+
+/**
+ * One Anthropic-style ToolMessage may explode into multiple OpenAI
+ * messages: an assistant turn with tool_use blocks needs a single
+ * `assistant` message carrying `tool_calls`, and a user turn with
+ * tool_result blocks splits into one `tool` message per result.
+ */
+function toOpenAiMessages(m: ToolMessage): Array<Record<string, unknown>> {
+  if (typeof m.content === "string") {
+    return [{ role: m.role, content: m.content }];
+  }
+  if (m.role === "assistant") {
+    const text = m.content
+      .filter((b): b is TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("");
+    const toolUses = m.content.filter(
+      (b): b is ToolUseBlock => b.type === "tool_use",
+    );
+    const msg: Record<string, unknown> = { role: "assistant" };
+    if (text) msg.content = text;
+    if (toolUses.length > 0) {
+      msg.tool_calls = toolUses.map((b) => ({
+        id: b.id,
+        type: "function",
+        function: {
+          name: b.name,
+          arguments: JSON.stringify(b.input ?? {}),
+        },
+      }));
+    }
+    if (!msg.content && !msg.tool_calls) msg.content = "";
+    return [msg];
+  }
+  // User turn: text and tool_result blocks. Tool results go into
+  // `role: "tool"` messages addressed by tool_call_id; remaining
+  // text is sent as a normal user message before them.
+  const texts = m.content
+    .filter((b): b is TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+  const toolResults = m.content.filter(
+    (b): b is ToolResultBlock => b.type === "tool_result",
+  );
+  const out: Array<Record<string, unknown>> = [];
+  if (texts) out.push({ role: "user", content: texts });
+  for (const r of toolResults) {
+    out.push({
+      role: "tool",
+      tool_call_id: r.tool_use_id,
+      content: r.content,
+    });
+  }
+  return out;
 }

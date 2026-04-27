@@ -13,6 +13,12 @@ export interface ChatConversation {
   source_doc_id: string | null;
   source_doc_title: string | null;
   source_page: number | null;
+  /** Set when the conversation is tied to an editable artifact. The
+   *  store injects the artifact's current state into the system
+   *  prompt and enables the matching tool dispatcher so the AI can
+   *  apply edits live. Mutually exclusive with target_quiz_id. */
+  target_roadmap_id: string | null;
+  target_quiz_id: string | null;
   created_at: string;
   updated_at: string;
   active_leaf_id: string | null;

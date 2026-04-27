@@ -87,7 +87,7 @@ export function Footer() {
 
         <div className="flex items-center gap-3">
           <a
-            href="https://github.com/LenYx24/pnyxy-reader"
+            href="https://github.com/LenYx24/pnyxy"
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md p-1.5 transition-colors hover:bg-glass-hover hover:text-text-primary"

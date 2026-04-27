@@ -328,7 +328,7 @@
         },
         "openSource": {
           "q": "Tényleg nyílt forráskódú?",
-          "a": "Igen. A kód MIT licenc alatt van, elérhető: github.com/LenYx24/pnyxy-reader. Issue-k, PR-ek, forkok szívesen látottak. Külön repóban élnek a futásidőben betöltődő közösségi témák és pluginok."
+          "a": "Igen. A kód MIT licenc alatt van, elérhető: github.com/LenYx24/pnyxy. Issue-k, PR-ek, forkok szívesen látottak. Külön repóban élnek a futásidőben betöltődő közösségi témák és pluginok."
         },
         "selfHost": {
           "q": "Tudom saját szerveren futtatni?",
@@ -767,6 +767,7 @@
     "descriptionLabel": "Leírás",
     "descriptionPlaceholder": "Miről szól ez az útvonal?",
     "preview": "Előnézet",
+    "editWithAi": "Szerkesztés AI-jal",
     "startBuilding": "Építés indítása",
     "startLearning": "Tanulás indítása",
     "unenroll": "Kiiratkozás",
@@ -813,6 +814,8 @@
     "branchingFrom": "Elágazás innen: {{snippet}}",
     "sourceContext": "Innen: {{title}} · {{page}}. oldal",
     "openInReader": "Megnyitás az olvasóban",
+    "editingRoadmap": "Útvonal szerkesztése: {{title}}",
+    "openInEditor": "Megnyitás a szerkesztőben",
     "sidebar": {
       "empty": "Még nincs beszélgetés."
     },

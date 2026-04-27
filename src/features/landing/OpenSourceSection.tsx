@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Palette, Puzzle } from "lucide-react";
 import { GlassCard } from "@/components/ui";
 
-const REPO_URL = "https://github.com/LenYx24/pnyxy-reader";
+const REPO_URL = "https://github.com/LenYx24/pnyxy";
 const COMMUNITY_URL = "https://github.com/LenYx24/pnyxy-community";
 
 /** Lucide 1.x drops the GitHub mark for trademark reasons — inline
@@ -55,7 +55,7 @@ export function OpenSourceSection() {
               {t("landing.openSource.repo.description")}
             </p>
             <p className="mt-4 text-xs text-accent-purple">
-              github.com/LenYx24/pnyxy-reader →
+              github.com/LenYx24/pnyxy →
             </p>
           </GlassCard>
         </a>

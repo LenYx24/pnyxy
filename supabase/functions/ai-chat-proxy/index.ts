@@ -91,6 +91,22 @@ interface ChatRequestBody {
   systemPromptOverride?: string;
   /** Clamped to HARD_MAX_OUTPUT_TOKENS server-side; billed worst-case. */
   maxOutputTokens?: number;
+  /**
+   * Tool-use mode. When `tools` is non-empty we route exclusively to
+   * Anthropic (the only upstream we wire tool-use through), pass the
+   * structured `toolMessages` instead of `messages`, and forward every
+   * Anthropic SSE event type — not just text_delta — so the browser
+   * can collect tool_use blocks and run the agentic loop.
+   */
+  tools?: Array<{
+    name: string;
+    description: string;
+    input_schema: Record<string, unknown>;
+  }>;
+  toolMessages?: Array<{
+    role: "user" | "assistant";
+    content: string | Array<Record<string, unknown>>;
+  }>;
 }
 
 function buildSystemPrompt(documentTitle: string, pageContext: string): string {
@@ -133,7 +149,13 @@ Deno.serve(async (req) => {
     return jsonError(400, "bad_request", "Invalid JSON body");
   }
 
-  if (!Array.isArray(body.messages) || body.messages.length === 0) {
+  const toolMode =
+    Array.isArray(body.tools) &&
+    body.tools.length > 0 &&
+    Array.isArray(body.toolMessages) &&
+    body.toolMessages.length > 0;
+
+  if (!toolMode && (!Array.isArray(body.messages) || body.messages.length === 0)) {
     return jsonError(400, "bad_request", "messages required");
   }
 
@@ -145,11 +167,14 @@ Deno.serve(async (req) => {
   // Estimate tokens up-front for the quota check. We bill the
   // worst case (input + max output) so a quota-exceeded response
   // can never be racy.
-  const inputTokens =
-    estimateTokens(body.pageContext ?? "") +
-    estimateTokens(body.systemPromptOverride ?? "") +
-    body.messages.reduce((sum, m) => sum + estimateTokens(m.content), 0) +
-    estimateTokens(body.documentTitle ?? "");
+  const inputTokens = toolMode
+    ? estimateTokens(body.systemPromptOverride ?? "") +
+      estimateTokens(JSON.stringify(body.tools ?? [])) +
+      estimateTokens(JSON.stringify(body.toolMessages ?? []))
+    : estimateTokens(body.pageContext ?? "") +
+      estimateTokens(body.systemPromptOverride ?? "") +
+      body.messages.reduce((sum, m) => sum + estimateTokens(m.content), 0) +
+      estimateTokens(body.documentTitle ?? "");
   const estimatedTotal = inputTokens + maxOutputTokens;
 
   // ── Quota check (auth user OR anon by IP) ──
@@ -203,7 +228,29 @@ Deno.serve(async (req) => {
     body.systemPromptOverride ??
     buildSystemPrompt(body.documentTitle, body.pageContext);
 
-  // ── Try OpenAI first, fall back to Anthropic ──
+  // ── Tool mode: Anthropic only (passes through all SSE events) ──
+  if (toolMode) {
+    if (!anthropicKey) {
+      return jsonError(
+        501,
+        "tool_mode_unavailable",
+        "Tool-use requires an Anthropic upstream key.",
+      );
+    }
+    const stream = await tryAnthropicWithTools(
+      anthropicKey,
+      systemPrompt,
+      body.toolMessages!,
+      body.tools!,
+      maxOutputTokens,
+    );
+    if (stream) {
+      return new Response(stream, { headers: sseHeaders });
+    }
+    return jsonError(502, "upstream_error", "Anthropic upstream failed");
+  }
+
+  // ── Plain text mode: OpenAI first, fall back to Anthropic ──
   if (openaiKey) {
     const stream = await tryOpenAi(
       openaiKey,
@@ -367,6 +414,52 @@ async function tryAnthropic(
   }
 
   // Anthropic SSE is what the client already parses — pass through.
+  return upstream.body;
+}
+
+/**
+ * Tool-use variant: forwards `tools` + structured `toolMessages` to
+ * Anthropic and pipes every SSE event back unchanged. The browser's
+ * Anthropic-shaped tool-use parser handles content_block_start /
+ * input_json_delta / content_block_stop / message_delta itself —
+ * this proxy is only here to keep the Anthropic key off the client.
+ */
+async function tryAnthropicWithTools(
+  apiKey: string,
+  systemPrompt: string,
+  toolMessages: NonNullable<ChatRequestBody["toolMessages"]>,
+  tools: NonNullable<ChatRequestBody["tools"]>,
+  maxOutputTokens: number,
+): Promise<ReadableStream<Uint8Array> | null> {
+  let upstream: Response;
+  try {
+    upstream = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: ANTHROPIC_MODEL,
+        max_tokens: maxOutputTokens,
+        stream: true,
+        system: systemPrompt,
+        tools,
+        messages: toolMessages,
+      }),
+    });
+  } catch (err) {
+    console.error("Anthropic (tools) request failed:", err);
+    return null;
+  }
+
+  if (!upstream.ok || !upstream.body) {
+    const text = await upstream.text().catch(() => "");
+    console.error(`Anthropic (tools) returned ${upstream.status}: ${text}`);
+    return null;
+  }
+
   return upstream.body;
 }
 

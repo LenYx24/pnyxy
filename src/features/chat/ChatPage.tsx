@@ -23,6 +23,7 @@ import {
   BookOpen,
   Sparkles,
   History,
+  Map as MapIcon,
 } from "lucide-react";
 import { FloatingMenu } from "@/components/ui";
 import {
@@ -47,6 +48,7 @@ import {
   countBranches,
   childrenOf,
 } from "@/stores/chat-store";
+import { useRoadmap, useRoadmapStore } from "@/stores/roadmap-store";
 import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
 import { getConfiguredProviders } from "@/lib/ai-client";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
@@ -228,7 +230,12 @@ export function ChatPage() {
     const draft = useChatStore.getState().consumePendingDraft();
     if (!draft) return;
     void (async () => {
-      const id = await createConversation("", null, draft.source);
+      const id = await createConversation(
+        "",
+        null,
+        draft.source ?? null,
+        draft.target ?? null,
+      );
       if (!id) return;
       await openConversation(id);
       setInput(draft.text);
@@ -242,6 +249,18 @@ export function ChatPage() {
     () => conversations.find((c) => c.id === activeId) ?? null,
     [conversations, activeId],
   );
+
+  // Roadmap-edit mode: when the conversation is tied to a roadmap,
+  // load the roadmap store (it's IndexedDB-backed and may not be in
+  // memory if the user landed on /chat directly) and resolve the
+  // current title for the pill.
+  const targetRoadmapId = activeConversation?.target_roadmap_id ?? null;
+  const targetRoadmap = useRoadmap(targetRoadmapId ?? undefined);
+  const roadmapsLoaded = useRoadmapStore((s) => s.loaded);
+  const loadRoadmaps = useRoadmapStore((s) => s.load);
+  useEffect(() => {
+    if (targetRoadmapId && !roadmapsLoaded) void loadRoadmaps();
+  }, [targetRoadmapId, roadmapsLoaded, loadRoadmaps]);
 
   // Flashcard extractor — opens with the chosen assistant message's
   // content. Held at this level (not inside MessageBubble) so the
@@ -547,6 +566,31 @@ export function ChatPage() {
 
             {/* Composer */}
             <div className="border-t border-glass-border bg-bg-primary/30 p-3">
+              {/* Roadmap edit-mode pill — present when this
+                  conversation is tied to a roadmap. The AI has tool
+                  access; tool calls render as quoted lines inline. */}
+              {targetRoadmapId && (
+                <div className="mx-auto mb-2 flex w-full max-w-3xl items-center gap-2 rounded-md border border-accent-purple/30 bg-accent-purple/10 px-2 py-1.5 text-xs text-accent-purple">
+                  <MapIcon size={12} />
+                  <span className="min-w-0 flex-1 truncate">
+                    {t("chat.editingRoadmap", {
+                      title:
+                        targetRoadmap?.title ||
+                        t("roadmaps.untitled"),
+                    })}
+                  </span>
+                  <a
+                    href={`/roadmaps/${targetRoadmapId}/edit`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate(`/roadmaps/${targetRoadmapId}/edit`);
+                    }}
+                    className="rounded px-1.5 py-0.5 text-[11px] underline-offset-2 hover:bg-accent-purple/20 hover:underline cursor-pointer"
+                  >
+                    {t("chat.openInEditor")}
+                  </a>
+                </div>
+              )}
               {/* Source-document context pill — present when this
                   conversation was started from the reader. Click it
                   to jump back to the page the user was on when they

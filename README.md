@@ -43,8 +43,8 @@ A modern PDF and EPUB reader with annotations, notes, AI chat, vocabulary flashc
 ### Setup
 
 ```sh
-git clone https://github.com/LenYx24/pnyxy-reader.git
-cd pnyxy-reader
+git clone https://github.com/LenYx24/pnyxy.git
+cd pnyxy
 pnpm install
 ```
 
