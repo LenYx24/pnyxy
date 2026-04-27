@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Outlet, useLocation } from "react-router";
+import { Outlet, useLocation, useNavigate } from "react-router";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
 import { useAuthStore } from "@/stores/auth-store";
@@ -11,10 +11,11 @@ import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
 import { Footer } from "./Footer";
 import { ContextMenu } from "@/components/ui";
+import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { BannedScreen } from "@/features/admin/BannedScreen";
 import { StreakCelebrationModal } from "@/features/library/StreakCelebrationModal";
 
-const STATIC_PAGE_PATHS = ["/about", "/privacy", "/terms", "/help"];
+const STATIC_PAGE_PATHS = ["/about", "/privacy", "/terms", "/help", "/tutorial"];
 
 export function AppLayout() {
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
@@ -22,6 +23,7 @@ export function AppLayout() {
   const focusActive = useFocusStore((s) => s.active);
   const isDesktop = useIsDesktop();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Hide chrome (sidebar, topbar, bottom nav) when in reader OR when a
   // focus session is active (user explicitly asked for an
@@ -48,6 +50,16 @@ export function AppLayout() {
     ctrl: true,
     description: "Toggle sidebar",
     handler: toggleSidebar,
+  });
+  // Cmd/Ctrl+, opens Settings — the universal "Preferences" hotkey
+  // (VSCode, Obsidian, macOS, Discord). The shortcut handler treats
+  // ctrl as cmd-or-ctrl, so this works on both platforms.
+  useKeyboardShortcut({
+    id: "app:open-settings",
+    key: ",",
+    ctrl: true,
+    description: "Open settings",
+    handler: () => navigate("/settings"),
   });
 
   // While a focus session is active, only reading-related shortcuts and
@@ -112,6 +124,7 @@ export function AppLayout() {
       {showBottomNav && <BottomNav />}
       <StreakCelebrationModal />
       <ContextMenu />
+      <CommandPalette />
     </div>
   );
 }

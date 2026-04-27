@@ -63,6 +63,11 @@ export function LandingPage() {
           />
         </Link>
         <div className="flex items-center gap-2">
+          <Link to="/tutorial" className="hidden sm:block">
+            <Button variant="ghost" className="text-sm">
+              {t("landing.tutorial")}
+            </Button>
+          </Link>
           <Link to="/download">
             <Button variant="ghost" className="text-sm">
               {t("landing.download")}

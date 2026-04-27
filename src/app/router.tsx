@@ -54,6 +54,7 @@ import { AboutPage } from "@/features/static/AboutPage";
 import { PrivacyPage } from "@/features/static/PrivacyPage";
 import { TermsPage } from "@/features/static/TermsPage";
 import { HelpPage } from "@/features/static/HelpPage";
+import { TutorialPage } from "@/features/static/TutorialPage";
 import { DownloadPage } from "@/features/static/DownloadPage";
 
 export const router = createBrowserRouter([
@@ -173,6 +174,7 @@ export const router = createBrowserRouter([
       { path: "privacy", element: <PrivacyPage /> },
       { path: "terms", element: <TermsPage /> },
       { path: "help", element: <HelpPage /> },
+      { path: "tutorial", element: <TutorialPage /> },
       { path: "download", element: <DownloadPage /> },
       { path: "leaderboards", element: <LeaderboardsPage /> },
       { path: "chat", element: <ChatPage /> },

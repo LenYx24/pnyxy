@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Search, LayoutGrid, List, X, RefreshCw, SlidersHorizontal } from "lucide-react";
-import { Kbd, Slider } from "@/components/ui";
+import { Slider } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useIsMobile } from "@/hooks/use-media-query";
-import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
-import { formatShortcut } from "@/lib/keyboard-shortcuts";
 import type { ViewMode } from "./useLibraryPrefs";
 
 interface LibraryToolbarProps {
@@ -47,16 +45,11 @@ export function LibraryToolbar({
     setTimeout(() => inputRef.current?.focus(), 0);
   }, []);
 
-  useKeyboardShortcut({
-    id: "library:search",
-    key: "k",
-    ctrl: true,
-    description: "Focus library search",
-    handler: focusSearch,
-  });
-  // Keyboard-shortcut descriptions are registered in a central registry
-  // at bind time and rendered in the Shortcuts settings page; they stay
-  // in English until the registry itself is localised.
+  // Ctrl+K used to focus this input; that shortcut now opens the
+  // global command palette instead. The library search is still a
+  // visible input — click it or Tab to it. The palette covers the
+  // "I want to find this book" flow with broader scope (catalog, nav,
+  // commands) anyway.
 
   // Escape clears/blurs search when active; the central registry skips
   // keydown events originating inside inputs except for Escape, so this
@@ -176,19 +169,13 @@ export function LibraryToolbar({
           ) : (
             <button
               onClick={focusSearch}
-              title={t("library.toolbar.searchShortcut", {
-                shortcut: formatShortcut({ key: "k", ctrl: true }),
-              })}
+              title={t("library.toolbar.search")}
               className="flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
             >
               <Search size={14} />
               <span className="hidden sm:inline">
                 {t("library.toolbar.search")}
               </span>
-              <Kbd
-                shortcut={{ key: "k", ctrl: true }}
-                className="hidden lg:inline-flex"
-              />
             </button>
           )}
         </div>

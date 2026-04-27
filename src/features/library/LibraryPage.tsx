@@ -1,11 +1,19 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { FilePlus, FolderSearch, Upload, UploadCloud, Loader2, Link as LinkIcon, BookPlus } from "lucide-react";
-import { Button, Kbd } from "@/components/ui";
+import {
+  FilePlus,
+  FolderSearch,
+  Upload,
+  UploadCloud,
+  Loader2,
+  Link as LinkIcon,
+  BookPlus,
+  Plus,
+} from "lucide-react";
+import { Button, FloatingMenu } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useOpenDocument } from "@/hooks/use-open-document";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
-import { formatShortcut } from "@/lib/keyboard-shortcuts";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useUploadStore } from "@/stores/upload-store";
@@ -19,7 +27,6 @@ import { useLibraryPrefs } from "./useLibraryPrefs";
 import { LibraryToolbar } from "./LibraryToolbar";
 import { SelectionBar } from "./SelectionBar";
 import { TagFilterBar } from "./TagFilterBar";
-import { HomeTab } from "./HomeTab";
 import { AllBooksTab } from "./AllBooksTab";
 import { FolderPickerModal } from "./FolderPickerModal";
 import { UploadPdfModal } from "./UploadPdfModal";
@@ -28,25 +35,11 @@ import { AddManualBookModal } from "./AddManualBookModal";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import type { BookStatusTag } from "@/types/database";
 
-const STORAGE_KEY = "pnyxy-library-tab";
-
-const tabs = [
-  { key: "home", labelKey: "library.tabs.home" },
-  { key: "all", labelKey: "library.tabs.allBooks" },
-] as const;
-
-type TabKey = (typeof tabs)[number]["key"];
-
 export function LibraryPage() {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const { fileInputRef, triggerFilePicker, handleFileSelect, openFile } =
     useOpenDocument();
-
-  const [activeTab, setActiveTab] = useState<TabKey>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved === "home" || saved === "all" ? saved : "home";
-  });
 
   const books = useLibraryStore((s) => s.books);
   const folders = useLibraryStore((s) => s.folders);
@@ -177,27 +170,12 @@ export function LibraryPage() {
     }, [fetchLibrary, fetchFolders, fetchStorageUsage]),
   });
 
-  // Clear selection when switching tabs
-  const handleTabChange = useCallback(
-    (key: TabKey) => {
-      setActiveTab(key);
-      localStorage.setItem(STORAGE_KEY, key);
-      clearSelection();
-    },
-    [clearSelection],
-  );
-
-  // Keyboard shortcuts
+  // Keyboard shortcuts. The corresponding on-button hint chips are
+  // gone (the user said they were too much visual noise) — these
+  // bindings are still functional, just no longer advertised inline;
+  // the global ? overlay surfaces them when the user wants a list.
   const openUploadModal = useCallback(() => setUploadModalOpen(true), []);
   const openScanModal = useCallback(() => setScanModalOpen(true), []);
-  const switchToHome = useCallback(
-    () => handleTabChange("home"),
-    [handleTabChange],
-  );
-  const switchToAll = useCallback(
-    () => handleTabChange("all"),
-    [handleTabChange],
-  );
 
   useKeyboardShortcut({
     id: "library:open-file",
@@ -220,20 +198,6 @@ export function LibraryPage() {
     shift: true,
     description: "Scan device for books",
     handler: openScanModal,
-  });
-  useKeyboardShortcut({
-    id: "library:tab-home",
-    key: "1",
-    alt: true,
-    description: "Switch to Home tab",
-    handler: switchToHome,
-  });
-  useKeyboardShortcut({
-    id: "library:tab-all",
-    key: "2",
-    alt: true,
-    description: "Switch to All Books tab",
-    handler: switchToAll,
   });
 
   const handleMoveBook = (entry: UnifiedLibraryItem) => {
@@ -491,7 +455,7 @@ export function LibraryPage() {
             <h2 className="text-2xl font-bold text-text-primary">
               {t("library.yourLibrary")}
             </h2>
-            {isMobile && <StreakPill />}
+            <StreakPill />
           </div>
           <p className="text-sm text-text-secondary">
             {t("library.bookCount", { count: books.length })}
@@ -505,115 +469,28 @@ export function LibraryPage() {
             />
           )}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            onClick={openScanModal}
-            title={t("library.actions.scanTitle", {
-              shortcut: formatShortcut({ key: "d", ctrl: true, shift: true }),
-            })}
-            className="px-3 py-1.5 sm:px-5 sm:py-2.5"
-          >
-            <FolderSearch size={18} />
-            <span className="hidden sm:inline">
-              {t("library.actions.scan")}
-            </span>
-            <Kbd
-              shortcut={{ key: "d", ctrl: true, shift: true }}
-              className="ml-1 hidden lg:inline-flex"
-            />
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setUploadModalOpen(true)}
-            title={t("library.actions.uploadTitle", {
-              shortcut: formatShortcut({ key: "u", ctrl: true }),
-            })}
-            className="px-3 py-1.5 sm:px-5 sm:py-2.5"
-          >
-            <Upload size={18} />
-            <span className="hidden sm:inline">
-              {t("library.actions.upload")}
-            </span>
-            <Kbd
-              shortcut={{ key: "u", ctrl: true }}
-              className="ml-1 hidden lg:inline-flex"
-            />
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={triggerFilePicker}
-            title={t("library.actions.openTitle", {
-              shortcut: formatShortcut({ key: "o", ctrl: true }),
-            })}
-            className="px-3 py-1.5 sm:px-5 sm:py-2.5"
-          >
-            <FilePlus size={18} />
-            <span className="hidden sm:inline">
-              {t("library.actions.open")}
-            </span>
-            <Kbd
-              shortcut={{ key: "o", ctrl: true }}
-              className="ml-1 hidden lg:inline-flex"
-            />
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setUrlModalOpen(true)}
-            title={t("library.actions.fromUrlTitle")}
-            className="px-3 py-1.5 sm:px-5 sm:py-2.5"
-          >
-            <LinkIcon size={18} />
-            <span className="hidden sm:inline">
-              {t("library.actions.fromUrl")}
-            </span>
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setManualModalOpen(true)}
-            title={t("library.actions.manualTitle")}
-            className="px-3 py-1.5 sm:px-5 sm:py-2.5"
-          >
-            <BookPlus size={18} />
-            <span className="hidden sm:inline">
-              {t("library.actions.manual")}
-            </span>
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.epub,.txt,.md,.markdown"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-        </div>
-      </div>
-
-      {/* Tab bar */}
-      <div className="mb-4 flex gap-1 rounded-lg border border-glass-border bg-glass-bg p-1 backdrop-blur-md">
-        {tabs.map(({ key, labelKey }, idx) => {
-          const tabShortcut = { key: String(idx + 1), alt: true };
-          const label = t(labelKey);
-          return (
-            <button
-              key={key}
-              onClick={() => handleTabChange(key)}
-              title={t("library.tabs.tabTitle", {
-                name: label,
-                shortcut: formatShortcut(tabShortcut),
-              })}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors cursor-pointer",
-                activeTab === key
-                  ? "bg-accent-purple/15 text-accent-purple"
-                  : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
-              )}
-            >
-              <span>{label}</span>
-              <Kbd shortcut={tabShortcut} className="hidden lg:inline-flex" />
-            </button>
-          );
-        })}
+        {/* Action row — primary "Upload" lives at the top level
+            because that's the high-frequency action; the rest
+            (scan, open file, from URL, manual) sit behind a single
+            "+" overflow to keep the header from feeling busy.
+            Per-book "Open in reader" buttons inside the grid/list
+            replace the standalone "Open" header button for the
+            common case of "I want to read a book that's already in
+            my library". */}
+        <LibraryAddMenu
+          onUpload={() => setUploadModalOpen(true)}
+          onScan={openScanModal}
+          onOpenFile={triggerFilePicker}
+          onFromUrl={() => setUrlModalOpen(true)}
+          onManual={() => setManualModalOpen(true)}
+        />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.epub,.txt,.md,.markdown"
+          className="hidden"
+          onChange={handleFileSelect}
+        />
       </div>
 
       {/* Toolbar: search, view toggle, size slider */}
@@ -635,37 +512,24 @@ export function LibraryPage() {
         <TagFilterBar activeTag={activeTag} onTagChange={setActiveTag} />
       )}
 
-      {/* Tab content */}
-      {activeTab === "home" && (
-        <HomeTab
-          onMoveBook={handleMoveBook}
-          onRemoveBook={handleRemoveBook}
-          viewMode={viewMode}
-          cardSize={cardSize}
-          searchQuery={searchQuery}
-          selectedIds={selectedIds}
-          selectionActive={selectionActive}
-          onToggleSelect={handleToggleSelect}
-          activeTag={activeTag}
-          isLoading={isLoading}
-        />
-      )}
-      {activeTab === "all" && (
-        <AllBooksTab
-          onMoveBook={handleMoveBook}
-          onRemoveBook={handleRemoveBook}
-          viewMode={viewMode}
-          cardSize={cardSize}
-          searchQuery={searchQuery}
-          selectedIds={selectedIds}
-          selectionActive={selectionActive}
-          onToggleSelect={handleToggleSelect}
-          activeTag={activeTag}
-          sortOrders={sortOrders}
-          setSortOrder={setSortOrder}
-          isLoading={isLoading}
-        />
-      )}
+      {/* Single library view — the old Home / All Books tabs
+          collapsed into one. "Recently added" moved to the Home
+          page so it's still discoverable without forcing tab state
+          here. */}
+      <AllBooksTab
+        onMoveBook={handleMoveBook}
+        onRemoveBook={handleRemoveBook}
+        viewMode={viewMode}
+        cardSize={cardSize}
+        searchQuery={searchQuery}
+        selectedIds={selectedIds}
+        selectionActive={selectionActive}
+        onToggleSelect={handleToggleSelect}
+        activeTag={activeTag}
+        sortOrders={sortOrders}
+        setSortOrder={setSortOrder}
+        isLoading={isLoading}
+      />
 
       {/* Selection action bar */}
       <SelectionBar
@@ -755,6 +619,107 @@ export function LibraryPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The compact "Add" cluster: a primary "Upload" button next to a
+ * secondary "+" overflow that opens a small menu with the rarer
+ * sources (scan, open file, from URL, manual). Replaces the old row
+ * of five equal-weight buttons that the user found busy.
+ */
+function AddMenuItem({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: typeof FolderSearch;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-secondary hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+    >
+      <Icon size={14} className="shrink-0" />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function LibraryAddMenu({
+  onUpload,
+  onScan,
+  onOpenFile,
+  onFromUrl,
+  onManual,
+}: {
+  onUpload: () => void;
+  onScan: () => void;
+  onOpenFile: () => void;
+  onFromUrl: () => void;
+  onManual: () => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  // FloatingMenu anchors to whichever element this ref points at;
+  // a wrapping span keeps the ref typing simple (the underlying
+  // Button component doesn't forward refs).
+  const triggerRef = useRef<HTMLSpanElement>(null);
+
+  const close = () => setOpen(false);
+  const wrap = (fn: () => void) => () => {
+    fn();
+    close();
+  };
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button
+        variant="primary"
+        onClick={onUpload}
+        title={t("library.actions.upload")}
+        className="px-3 py-1.5 sm:px-5 sm:py-2.5"
+      >
+        <Upload size={18} />
+        <span className="hidden sm:inline">{t("library.actions.upload")}</span>
+      </Button>
+      <span ref={triggerRef} className="inline-flex">
+        <Button
+          variant="secondary"
+          onClick={() => setOpen((v) => !v)}
+          title={t("library.actions.more")}
+          aria-label={t("library.actions.more")}
+          className="px-3 py-1.5 sm:px-3 sm:py-2.5"
+        >
+          <Plus size={18} />
+        </Button>
+      </span>
+      <FloatingMenu open={open} anchorRef={triggerRef} onClose={close}>
+        <AddMenuItem
+          icon={FilePlus}
+          label={t("library.actions.open")}
+          onClick={wrap(onOpenFile)}
+        />
+        <AddMenuItem
+          icon={FolderSearch}
+          label={t("library.actions.scan")}
+          onClick={wrap(onScan)}
+        />
+        <AddMenuItem
+          icon={LinkIcon}
+          label={t("library.actions.fromUrl")}
+          onClick={wrap(onFromUrl)}
+        />
+        <AddMenuItem
+          icon={BookPlus}
+          label={t("library.actions.manual")}
+          onClick={wrap(onManual)}
+        />
+      </FloatingMenu>
     </div>
   );
 }

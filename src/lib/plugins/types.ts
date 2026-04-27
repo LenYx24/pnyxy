@@ -36,6 +36,13 @@ export interface PluginManifest {
    * runtime (Tauri-only) will read this list to opt in.
    */
   runtime?: Array<"sandboxed" | "native">;
+  /**
+   * Whether the plugin should be enabled out of the box for new users.
+   * Used by the settings-store migration. Most core plugins are
+   * opt-in; flip this for ones that are too useful to hide behind
+   * the plugin manager (e.g. the global ? cheatsheet).
+   */
+  defaultEnabled?: boolean;
 }
 
 /** Host events that plugins can subscribe to via `events.on`. */

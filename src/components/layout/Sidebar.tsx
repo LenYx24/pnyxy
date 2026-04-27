@@ -1,55 +1,46 @@
+import { useState } from "react";
 import { NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
-  Home,
-  Compass,
-  Library,
-  BookOpen,
-  BookMarked,
-  Flame,
-  Map,
-  MessagesSquare,
-  FileQuestion,
-  BrainCircuit,
-  Settings,
-  Shield,
+  ChevronDown,
+  GraduationCap,
   LogIn,
   Menu,
+  Settings as SettingsIcon,
   X,
-  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { useReaderStore } from "@/stores/reader-store";
 import { useIsMobile, useIsDesktop } from "@/hooks/use-media-query";
 import { OrgSwitcher } from "./OrgSwitcher";
-
-const baseNavItems = [
-  { to: "/", icon: Home, key: "home" as const },
-  { to: "/browse", icon: Compass, key: "browse" as const },
-  { to: "/library", icon: Library, key: "library" as const },
-  { to: "/reader", icon: BookOpen, key: "reader" as const },
-  { to: "/chat", icon: Bot, key: "chat" as const },
-  { to: "/quizzes", icon: FileQuestion, key: "quizzes" as const },
-  { to: "/quizzes/review", icon: BrainCircuit, key: "review" as const },
-  { to: "/vocabulary", icon: BookMarked, key: "vocabulary" as const },
-  { to: "/streaks", icon: Flame, key: "streaks" as const },
-  { to: "/roadmaps", icon: Map, key: "roadmaps" as const },
-  { to: "/forum", icon: MessagesSquare, key: "forum" as const },
-  { to: "/settings", icon: Settings, key: "settings" as const },
-];
+import { visibleSidebarItems, type NavItem } from "@/lib/navigation";
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const { user, profile } = useAuthStore();
   const isDesktop = useIsDesktop();
+  // Reader item is conditional on there being a book to return to —
+  // this matches the user's mental model: "Reader" only makes sense
+  // as a destination if you have something open.
+  const hasActiveBook = useReaderStore(
+    (s) => s.activeDocumentId !== null && s.documents.has(s.activeDocumentId),
+  );
 
   const collapsed = isDesktop && sidebarCollapsed;
+  const isAdmin = profile?.role === "admin";
 
-  const navItems = profile?.role === "admin"
-    ? [...baseNavItems, { to: "/admin", icon: Shield, key: "admin" as const }]
-    : baseNavItems;
+  const allItems = visibleSidebarItems({ hasActiveBook, isAdmin });
+  const primaryItems = allItems.filter((i) => i.group === "primary");
+  const studyItems = allItems.filter((i) => i.group === "study");
+  const profileGroupItems = allItems.filter((i) => i.group === "profile");
+
+  // Study submenu — collapsed by default, session-only state. The
+  // user said the goal is reduced clutter, so revealing 4 extra
+  // study links should be an explicit click each session.
+  const [studyOpen, setStudyOpen] = useState(false);
 
   const initial = (
     profile?.display_name?.[0] ?? user?.email?.[0] ?? "?"
@@ -60,14 +51,22 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div
         className={cn(
           "flex h-14 items-center border-b border-glass-border px-4",
-          collapsed && "justify-center px-2",
+          collapsed && "px-2",
         )}
       >
-        {!collapsed && (
-          <NavLink to="/" aria-label="Pnyxy home" className="flex items-center">
-            <img src="/logo.svg" alt="Pnyxy" className="h-10 w-auto" />
-          </NavLink>
-        )}
+        {/* Logo doubles as the home link — replacing the standalone
+            "Home" nav item we used to render separately. */}
+        <NavLink
+          to="/"
+          aria-label="Pnyxy home"
+          className={cn(
+            "flex min-w-0 items-center overflow-hidden",
+            collapsed && "hidden",
+          )}
+          onClick={onNavigate}
+        >
+          <img src="/logo.svg" alt="Pnyxy" className="h-10 w-auto" />
+        </NavLink>
         {/* Hamburger collapse toggle — desktop only (on tablet the
             sidebar is an overlay closed via the X below). */}
         {isDesktop && (
@@ -75,7 +74,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             onClick={toggleSidebar}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={`${collapsed ? "Expand" : "Collapse"} sidebar (Ctrl+B)`}
-            className="ml-auto rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            className={cn(
+              "rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer",
+              collapsed ? "mx-auto" : "ml-auto",
+            )}
           >
             <Menu size={20} />
           </button>
@@ -91,30 +93,56 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         )}
       </div>
 
-      <nav className="flex-1 space-y-1 p-2">
-        {navItems.map(({ to, icon: Icon, key }) => {
-          const label = t(`sidebar.${key}`);
-          return (
-            <NavLink
-              key={to}
-              to={to}
-              onClick={onNavigate}
-              title={label}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                  collapsed && "justify-center px-0",
-                  isActive
-                    ? "bg-accent-purple/15 text-accent-purple"
-                    : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
-                )
-              }
-            >
-              <Icon size={20} />
-              {!collapsed && <span>{label}</span>}
-            </NavLink>
-          );
-        })}
+      <nav className="flex-1 space-y-1 overflow-y-auto p-2">
+        {primaryItems.map((item) => (
+          <div key={item.to}>
+            <SidebarNavItem
+              item={item}
+              collapsed={collapsed}
+              onNavigate={onNavigate}
+            />
+            {/* Study submenu — collapsible group containing the
+                lower-traffic study tools (quizzes, review,
+                vocabulary, roadmaps). Anchored just below Chat so
+                related "thinking-mode" tools sit together. */}
+            {item.key === "chat" && studyItems.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setStudyOpen((v) => !v)}
+                  title={t("sidebar.study")}
+                  className="mt-1 flex w-full items-center rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                >
+                  <GraduationCap size={20} className="shrink-0" />
+                  <SidebarLabel collapsed={collapsed}>
+                    {t("sidebar.study")}
+                  </SidebarLabel>
+                  {!collapsed && (
+                    <ChevronDown
+                      size={14}
+                      className={cn(
+                        "ml-auto shrink-0 transition-transform",
+                        studyOpen && "rotate-180",
+                      )}
+                    />
+                  )}
+                </button>
+                {studyOpen && !collapsed && (
+                  <div className="mt-1 space-y-1 pl-3">
+                    {studyItems.map((studyItem) => (
+                      <SidebarNavItem
+                        key={studyItem.to}
+                        item={studyItem}
+                        collapsed={collapsed}
+                        onNavigate={onNavigate}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        ))}
       </nav>
 
       {/* Org switcher — pinned above the profile row, Notion-style.
@@ -124,59 +152,161 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <OrgSwitcher collapsed={collapsed} onNavigate={onNavigate} />
       )}
 
-      {/* Profile / Sign in section */}
+      {/* Admin link, when present, sits above the profile block. */}
+      {profileGroupItems.map((item) => (
+        <SidebarNavItem
+          key={item.to}
+          item={item}
+          collapsed={collapsed}
+          onNavigate={onNavigate}
+          variant="profile-group"
+        />
+      ))}
+
+      {/* Profile row + settings gear. The two are siblings so the
+          gear stays visible (and clickable) even when the avatar
+          row's NavLink is the active route. When collapsed only the
+          avatar shows — the gear is reachable via the command palette
+          or by expanding the sidebar. */}
       {user ? (
-        <NavLink
-          to="/profile"
-          onClick={onNavigate}
-          className={({ isActive }) =>
-            cn(
-              "flex items-center gap-3 border-t border-glass-border px-3 py-3 transition-colors",
-              collapsed && "justify-center px-0",
-              isActive
-                ? "bg-accent-purple/15 text-accent-purple"
-                : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
-            )
-          }
-        >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-purple/15">
-            <span className="text-sm font-bold text-accent-purple">
-              {initial}
-            </span>
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">
-                {profile?.display_name || t("sidebar.noName")}
-              </p>
-            </div>
+        <div
+          className={cn(
+            "flex items-center gap-1 border-t border-glass-border px-2 py-2",
           )}
-        </NavLink>
+        >
+          <NavLink
+            to="/profile"
+            onClick={onNavigate}
+            className={({ isActive }) =>
+              cn(
+                "flex min-w-0 flex-1 items-center rounded-lg px-1.5 py-1.5 transition-colors",
+                isActive
+                  ? "bg-accent-purple/15 text-accent-purple"
+                  : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+              )
+            }
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-purple/15">
+              <span className="text-sm font-bold text-accent-purple">
+                {initial}
+              </span>
+            </div>
+            <SidebarLabel collapsed={collapsed}>
+              <span className="block truncate text-sm font-medium">
+                {profile?.display_name || t("sidebar.noName")}
+              </span>
+            </SidebarLabel>
+          </NavLink>
+          {!collapsed && (
+            <NavLink
+              to="/settings"
+              onClick={onNavigate}
+              title={t("sidebar.settings")}
+              aria-label={t("sidebar.settings")}
+              className={({ isActive }) =>
+                cn(
+                  "rounded-md p-1.5 transition-colors",
+                  isActive
+                    ? "bg-accent-purple/15 text-accent-purple"
+                    : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
+                )
+              }
+            >
+              <SettingsIcon size={16} />
+            </NavLink>
+          )}
+        </div>
       ) : (
         <NavLink
           to="/auth"
           onClick={onNavigate}
           className={({ isActive }) =>
             cn(
-              "flex items-center gap-3 border-t border-glass-border px-3 py-3 transition-colors",
-              collapsed && "justify-center px-0",
+              "flex items-center border-t border-glass-border px-3 py-3 transition-colors",
               isActive
                 ? "bg-accent-purple/15 text-accent-purple"
                 : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
             )
           }
         >
-          <LogIn size={20} />
-          {!collapsed && (
+          <LogIn size={20} className="shrink-0" />
+          <SidebarLabel collapsed={collapsed}>
             <span className="text-sm font-medium">{t("sidebar.signIn")}</span>
-          )}
+          </SidebarLabel>
         </NavLink>
       )}
-
-      {/* Collapse-toggle button removed in favor of the top-of-page
-          breadcrumb bar (AppLayout → Breadcrumbs). Ctrl+B still toggles
-          the collapse for keyboard users. */}
     </>
+  );
+}
+
+/**
+ * One nav row. Layout stays identical between expanded and collapsed
+ * — the icon is always at `px-3` and the label collapses *in place*
+ * via max-width + opacity. This is what fixes the old "icons teleport
+ * to centre" jank: nothing is unmounted, nothing toggles
+ * `justify-center`, the row just narrows alongside the container.
+ */
+function SidebarNavItem({
+  item,
+  collapsed,
+  onNavigate,
+  variant,
+}: {
+  item: NavItem;
+  collapsed: boolean;
+  onNavigate?: () => void;
+  variant?: "profile-group";
+}) {
+  const { t } = useTranslation();
+  const Icon = item.icon;
+  const label = t(`sidebar.${item.key}`);
+  return (
+    <NavLink
+      to={item.to}
+      onClick={onNavigate}
+      title={label}
+      end={item.to === "/"}
+      className={({ isActive }) =>
+        cn(
+          "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+          variant === "profile-group" && "mx-2",
+          isActive
+            ? "bg-accent-purple/15 text-accent-purple"
+            : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+        )
+      }
+    >
+      <Icon size={20} className="shrink-0" />
+      <SidebarLabel collapsed={collapsed}>{label}</SidebarLabel>
+    </NavLink>
+  );
+}
+
+/**
+ * Wraps a label so it animates *in place* when the sidebar collapses
+ * — the span keeps occupying its slot in the layout but its
+ * max-width + opacity transition to zero, so the icon never jumps.
+ * `whitespace-nowrap` + `overflow-hidden` keep mid-animation text
+ * from wrapping into a second line as it clips.
+ */
+function SidebarLabel({
+  collapsed,
+  children,
+}: {
+  collapsed: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      className={cn(
+        "min-w-0 overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin] duration-200 ease-out",
+        collapsed
+          ? "ml-0 max-w-0 opacity-0"
+          : "ml-3 max-w-[12rem] opacity-100",
+      )}
+    >
+      {children}
+    </span>
   );
 }
 

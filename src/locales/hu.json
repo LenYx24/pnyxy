@@ -37,9 +37,26 @@
     "signIn": "Bejelentkezés",
     "profile": "Profil",
     "noName": "Nincs név",
+    "study": "Tanulás",
+    "openCommandPalette": "Parancspaletta megnyitása",
     "orgSwitcher": {
       "title": "Munkaterület váltása",
       "manage": "Szervezetek kezelése"
+    }
+  },
+  "commandPalette": {
+    "placeholder": "Keresés vagy ugrás…",
+    "empty": "Nincs találat.",
+    "close": "Bezárás",
+    "section": {
+      "navigate": "Navigáció",
+      "book": "Könyv megnyitása",
+      "command": "Parancsok"
+    },
+    "hint": {
+      "navigate": "navigálás",
+      "select": "kiválasztás",
+      "close": "bezárás"
     }
   },
   "auth": {
@@ -244,6 +261,7 @@
     "goToLibrary": "Irány a Könyvtár",
     "signIn": "Bejelentkezés",
     "download": "Letöltés",
+    "tutorial": "Útmutató",
     "tagline": "Az okos olvasótársad",
     "subtitle": "A Pnyxy egy AI-támogatású olvasó- és tanulóplatform, ahol könyvekkel, kvízekkel és közösségi beszélgetésekkel fejlesztheted a tudásodat.",
     "getStarted": "Kezdjük el",
@@ -431,7 +449,8 @@
     "seeAll": "Összes →",
     "shelves": {
       "featured": "Kiemelt",
-      "newThisWeek": "E heti újdonságok"
+      "newThisWeek": "E heti újdonságok",
+      "recentlyAdded": "Nemrég hozzáadva"
     },
     "sidePanel": {
       "yourLibrary": "A könyvtárad",
@@ -464,11 +483,13 @@
       "upload": "Feltöltés",
       "uploadTitle": "Könyv feltöltése ({{shortcut}})",
       "open": "Megnyitás",
+      "openInReader": "Olvasás",
       "openTitle": "Fájl megnyitása ({{shortcut}})",
       "fromUrl": "URL-ről",
       "fromUrlTitle": "Fájl megnyitása URL-ről",
       "manual": "Kézi rögzítés",
-      "manualTitle": "Könyv kézi hozzáadása — papíralapú vagy fájl nélküli könyvekhez"
+      "manualTitle": "Könyv kézi hozzáadása — papíralapú vagy fájl nélküli könyvekhez",
+      "more": "Továbbiak"
     },
     "addManual": {
       "title": "Könyv hozzáadása kézzel",
@@ -665,6 +686,10 @@
     },
     "help": {
       "title": "Súgó",
+      "tutorial": {
+        "heading": "Új vagy itt? Kezdd a tutoriallal",
+        "body": "5 perces áttekintés az olvasásról, AI chatről, kvízekről, roadmapekről és a gyorsbillentyűkről."
+      },
       "opening": {
         "heading": "Dokumentum megnyitása",
         "body": "Dobj egy fájlt a Könyvtárba vagy használd a feltöltés gombot. PDF, EPUB, Markdown és sima szöveges fájl is támogatott."
@@ -684,6 +709,89 @@
       "reporting": {
         "heading": "Hibabejelentés",
         "body": "Találtál egy hibát? Keress minket a láblécben lévő GitHub linken."
+      }
+    },
+    "tutorial": {
+      "title": "Első lépések a Pnyxy-vel",
+      "intro": "A Pnyxy egy olvasó- és tanulóalkalmazás: hozd a saját könyveidet, beszélgess róluk az AI-jal, és alakítsd át az olvasottakat kvízekké, szótárrá és tanulási útvonalakká. Ez az oldal egy 5 perces áttekintés azokról a részekről, amiket nap mint nap használni fogsz.",
+      "tocTitle": "Az oldalon",
+      "tocLabel": "Tutorial szakaszok",
+      "sections": {
+        "quickStart": {
+          "title": "Gyors indítás",
+          "body": "Egy percen belül olvashatsz. Bejelentkezés csak a felhőszinkronhoz, az AI-kvótához és a közösségi funkciókhoz kell — a katalógus névtelen böngészése regisztráció nélkül is működik.",
+          "bullets": {
+            "0": "Jelentkezz be vagy regisztrálj a kezdőoldalról (Google vagy email).",
+            "1": "Nyisd meg a Könyvtárat, és kattints a \"Feltöltés\" gombra egy PDF hozzáadásához, vagy válassz egy ingyenes könyvet a Katalógusból.",
+            "2": "Bármelyik feltöltött könyvön kattints az \"Olvasás\" gombra, hogy egyből az olvasóba ugorj.",
+            "3": "Húzz egy PDF / EPUB / TXT / Markdown fájlt bárhova a Könyvtár oldalon a gyors importáláshoz."
+          }
+        },
+        "reading": {
+          "title": "Olvasás és jegyzetelés",
+          "body": "Az olvasó támogatja a PDF és EPUB formátumokat. Jelölj ki bármilyen szöveget kiemeléshez, jegyzeteléshez vagy AI-nak küldéshez — az annotációk bejelentkezett állapotban szinkronizálódnak az eszközök között.",
+          "bullets": {
+            "0": "Jelölj ki kiválasztott szöveget tetszőleges színnel. Az annotációs panel összegyűjti az összes jelölést a könyvben átnézéshez.",
+            "1": "Tetszőleges megjegyzést fűzhetsz egy kiemeléshez — hasznos az aktív olvasás \"miért fontos ez\" feléhez.",
+            "2": "Nyisd meg az oldalsó jegyzettömböt szabad szöveghez és táblavázlathoz, ami nem köthető konkrét szakaszhoz.",
+            "3": "Jobb klikk egy kijelölésen: lefordíthatod, kikeresheted a szótárban, vagy elküldheted az AI chatbe oldalhivatkozással."
+          }
+        },
+        "aiChat": {
+          "title": "AI chat, ami ismeri a könyved",
+          "body": "Az AI panel három módban működik: általános asszisztensként, dokumentumhoz horgonyozva (a hivatkozásai konkrét oldalakra mutatnak vissza), és roadmaphez kötve (így szerkesztheti a gráfot helyetted).",
+          "bullets": {
+            "0": "Válaszd ki a szolgáltatót a komponálóban — Pnyxy ingyenes kvótája, saját Anthropic kulcs vagy OpenAI kulcs.",
+            "1": "Ha a chatet az olvasó kijelöléséből indítod, a válaszok [p.42] formátumú hivatkozásokat tartalmaznak, amik visszavezetnek az oldalra.",
+            "2": "Bármelyik AI üzenetből kattints a \"Mentés flashcardokként\" gombra a kérdés/válasz párok kivonásához a szótárba.",
+            "3": "Roadmapen kattints a \"Szerkesztés AI-jal\" gombra, és beszélgess a gráfról — a modell élőben tud csomópontokat hozzáadni, eltávolítani és átrendezni."
+          }
+        },
+        "activeRecall": {
+          "title": "Kvízek, flashcardok és szótár",
+          "body": "Az egyszeri elolvasás még nem tanulás. A Pnyxy ismétlésalapú gyakorlássá alakítja a tartalmat, hogy a következő vizsga után is megmaradjon a tudás.",
+          "bullets": {
+            "0": "Generálj kvízt egy feltöltött könyvből — feleletválasztós, igaz/hamis vagy rövid válaszos.",
+            "1": "Ments flashcardokat bármelyik AI válaszból vagy közvetlenül egy kiemelt szakaszból.",
+            "2": "A Szótár fül a saját szógyűjteményed — az olvasás közben kikeresett szavak ide kerülnek ismétlésre.",
+            "3": "A Gyakorlás képernyő FSRS algoritmust használ, így a nehezebb kártyák gyakrabban térnek vissza, mint a már tudottak."
+          }
+        },
+        "planTrack": {
+          "title": "Roadmapek és sorozatok",
+          "body": "Tervezz meg egy tanulási utat, majd tartsd fenn a napi szokást. A roadmap témák irányított gráfja; a sorozat (streak) egy napi 5 perces olvasási cél.",
+          "bullets": {
+            "0": "Generálj roadmapet egy témából (\"Lineáris algebra ML-hez\"), és az AI felvázolja az előfeltétel szerint rendezett csomópontokat.",
+            "1": "Iratkozz be egy roadmapre, és a heti óraszám alapján a rendszer megbecsüli a befejezés dátumát — pipáld ki a csomópontokat menet közben.",
+            "2": "A sorozat automatikusan frissül, amíg napi 5 percet olvasol. A Sorozatok oldalon látható a hőtérkép és a leghosszabb sorozatod.",
+            "3": "Mindkettő megjelenik a Főoldalon kártyaként és az oldalsávban menüpontként, hogy ne veszítsd el a fonalat."
+          }
+        },
+        "community": {
+          "title": "Fórum és közösség",
+          "body": "Beszélgetések és viták könyvekről — még korai állapotban, de a vázat már megépítettük. Bármelyik könyvedhez indíthatsz beszélgetést.",
+          "bullets": {
+            "0": "Minden könyvnél van egy \"Beszélgetés\" fül hozzászólásokkal és válaszokkal.",
+            "1": "A Fórum oldal összesíti a megosztott könyvek beszélgetéseit.",
+            "2": "Ossz meg egy feltöltött könyvet a közösséggel a könyvkártya 3 pontos menüjéből (csak PDF, a tulajdon a tied marad)."
+          }
+        },
+        "powerTips": {
+          "title": "Billentyűzet és navigáció",
+          "body": "Ha az alapokkal megvagy, ezek a gyorsbillentyűk gyorsabbá teszik a Pnyxy-t, mint a kattintgatás.",
+          "bullets": {
+            "0": "Cmd/Ctrl + K — parancspaletta megnyitása: keress oldalak és könyveid között, ugorj bárhova egy billentyűleütéssel.",
+            "1": "Cmd/Ctrl + , — Beállítások megnyitása (az univerzális preferences gyorsbillentyű).",
+            "2": "Cmd/Ctrl + B — oldalsáv összecsukása vagy kibontása.",
+            "3": "Nyomd meg a ? gombot bárhol egy beviteli mezőn kívül — megnyílik a teljes gyorsbillentyű-lista."
+          }
+        }
+      },
+      "footer": {
+        "title": "Több segítségre van szükséged?",
+        "bodyPrefix": "Ha valami nem működik, vagy elakadtál, a ",
+        "helpLink": "Súgó oldal",
+        "bodySuffix": " GYIK-et tartalmaz, és leírja, hogyan jelents hibát. Minden bejelentést elolvasunk."
       }
     },
     "privacy": {

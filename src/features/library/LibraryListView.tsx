@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   BookOpen,
   Folder,
@@ -487,6 +488,7 @@ function BookRow({
   sortableId,
 }: BookRowProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const isTopLevel = depth === 0;
   // Top-level: sortable (sibling reorder + drag). Nested: draggable
@@ -704,6 +706,23 @@ function BookRow({
         <span className="mr-2 hidden w-20 shrink-0 text-xs text-text-muted lg:block">
           {formatDate(entry.added_at)}
         </span>
+
+        {/* Quick "Open in reader" — uploaded books only. Lives just
+            before the 3-dot menu so it's reachable in the same eye
+            sweep as the rest of the per-row actions. */}
+        {entry.source === "uploaded" && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/reader/${entry.book.id}`);
+            }}
+            aria-label={t("library.actions.openInReader")}
+            title={t("library.actions.openInReader")}
+            className="mr-1.5 shrink-0 rounded-md bg-accent-purple/15 p-1.5 text-accent-purple transition-colors hover:bg-accent-purple/25 cursor-pointer"
+          >
+            <BookOpen size={14} />
+          </button>
+        )}
 
         {/* Menu */}
         <div ref={tagAnchorRef} className="relative">

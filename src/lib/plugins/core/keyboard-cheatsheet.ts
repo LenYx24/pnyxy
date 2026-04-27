@@ -12,6 +12,7 @@ export const keyboardCheatsheetManifest: PluginManifest = {
   entry: "",
   permissions: ["commands"],
   runtime: ["sandboxed"],
+  defaultEnabled: true,
 };
 
 const OVERLAY_ID = "plugin-keyboard-cheatsheet-overlay";

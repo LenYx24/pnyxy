@@ -411,7 +411,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "pnyxy-reader:settings",
-      version: 6,
+      version: 7,
       partialize: (state) => {
         // Persist everything; pluginStorage is local-only (stays in
         // localStorage) and is intentionally NOT synced to Supabase.
@@ -520,6 +520,23 @@ export const useSettingsStore = create<SettingsState>()(
           const lh = Number(state.epubLineHeight);
           state.epubLineHeight =
             Number.isFinite(lh) && lh >= 1.0 && lh <= 2.2 ? lh : 1.5;
+        }
+        // v6 → v7: pick up new plugin defaults. The earlier "all
+        // core plugins start disabled" rule meant the global ?
+        // cheatsheet was invisible to anyone who never opened the
+        // plugin tab. Plugins now opt-in to a true default via
+        // `defaultEnabled` on the manifest; flip them on for any
+        // existing user whose stored value is false.
+        if (version < 7) {
+          const pluginDefaults = buildDefaultPluginSettings();
+          const existing =
+            (state.enabledPlugins as Record<string, boolean>) ?? {};
+          const next: Record<string, boolean> = { ...existing };
+          for (const [id, def] of Object.entries(pluginDefaults.enabledPlugins)) {
+            if (def === true) next[id] = true;
+            else if (next[id] === undefined) next[id] = def;
+          }
+          state.enabledPlugins = next;
         }
         return state as unknown as SettingsState;
       },

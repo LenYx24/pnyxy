@@ -8,7 +8,9 @@ import {
   Share2,
   Info,
   Heart,
+  BookOpen,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -43,6 +45,7 @@ export function LibraryBookCard({
   sortableId,
 }: LibraryBookCardProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const sortable = useSortable({ id: sortableId ?? entry.id, disabled: !sortableId });
   const {
@@ -180,6 +183,24 @@ export function LibraryBookCard({
               >
                 <Upload size={10} />
               </span>
+            )}
+
+            {/* Quick "Open in reader" — only on uploaded books (the
+                only source with a file to render). One click straight
+                to the reader instead of the two-click default
+                (card → book page → Read). */}
+            {entry.source === "uploaded" && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/reader/${entry.book.id}`);
+                }}
+                aria-label={t("library.actions.openInReader")}
+                title={t("library.actions.openInReader")}
+                className="absolute bottom-1.5 right-1.5 z-10 rounded-lg bg-accent-purple/90 p-1.5 text-white shadow-md backdrop-blur-sm transition-colors hover:bg-accent-purple cursor-pointer"
+              >
+                <BookOpen size={14} />
+              </button>
             )}
 
             {/* Favorite toggle — hover-reveal on desktop unless set. */}

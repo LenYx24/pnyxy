@@ -37,9 +37,26 @@
     "signIn": "Sign in",
     "profile": "Profile",
     "noName": "No name",
+    "study": "Study",
+    "openCommandPalette": "Open command palette",
     "orgSwitcher": {
       "title": "Switch workspace",
       "manage": "Manage organizations"
+    }
+  },
+  "commandPalette": {
+    "placeholder": "Search or jump to…",
+    "empty": "No results.",
+    "close": "Close",
+    "section": {
+      "navigate": "Navigate",
+      "book": "Open book",
+      "command": "Commands"
+    },
+    "hint": {
+      "navigate": "to navigate",
+      "select": "to select",
+      "close": "to close"
     }
   },
   "auth": {
@@ -244,6 +261,7 @@
     "goToLibrary": "Go to Library",
     "signIn": "Sign In",
     "download": "Download",
+    "tutorial": "Tutorial",
     "tagline": "Your intelligent reading companion",
     "subtitle": "Pnyxy is an AI-assisted reading and learning platform where users deepen their knowledge through books, quizzes, and community discussions.",
     "getStarted": "Get Started",
@@ -431,7 +449,8 @@
     "seeAll": "See all →",
     "shelves": {
       "featured": "Featured",
-      "newThisWeek": "New this week"
+      "newThisWeek": "New this week",
+      "recentlyAdded": "Recently added"
     },
     "sidePanel": {
       "yourLibrary": "Your library",
@@ -464,11 +483,13 @@
       "upload": "Upload",
       "uploadTitle": "Upload a book ({{shortcut}})",
       "open": "Open",
+      "openInReader": "Open in reader",
       "openTitle": "Open a file ({{shortcut}})",
       "fromUrl": "From URL",
       "fromUrlTitle": "Open a file from a URL",
       "manual": "Manual entry",
-      "manualTitle": "Add a book by hand — for physical copies or books without a file"
+      "manualTitle": "Add a book by hand — for physical copies or books without a file",
+      "more": "More"
     },
     "addManual": {
       "title": "Add a book manually",
@@ -665,6 +686,10 @@
     },
     "help": {
       "title": "Help",
+      "tutorial": {
+        "heading": "New here? Start with the tutorial",
+        "body": "A 5-minute walkthrough covering reading, AI chat, quizzes, roadmaps, and the keyboard shortcuts."
+      },
       "opening": {
         "heading": "Opening a document",
         "body": "Drop a file into the Library or use the upload button. PDF, EPUB, Markdown, and plain-text files are all supported."
@@ -684,6 +709,89 @@
       "reporting": {
         "heading": "Reporting issues",
         "body": "Found a bug? Reach out via the GitHub link in the footer."
+      }
+    },
+    "tutorial": {
+      "title": "Getting started with Pnyxy",
+      "intro": "Pnyxy is a reading + study app: bring your own books, talk to them with AI, and turn what you read into quizzes, vocabulary, and learning roadmaps. This page is a 5-minute walkthrough of the parts you'll actually use day to day.",
+      "tocTitle": "On this page",
+      "tocLabel": "Tutorial sections",
+      "sections": {
+        "quickStart": {
+          "title": "Quick start",
+          "body": "You can be reading inside a minute. Sign in is only required for cloud sync, AI quotas, and the social features — anonymous browsing of the catalog works without an account.",
+          "bullets": {
+            "0": "Sign in or create an account from the landing page (Google or email).",
+            "1": "Open the Library and click \"Upload\" to add a PDF, or pick a free book from the Catalog.",
+            "2": "Click the small \"Open in reader\" button on any uploaded book to jump straight into reading.",
+            "3": "Drag a PDF / EPUB / TXT / Markdown file anywhere on the Library page to import it the fast way."
+          }
+        },
+        "reading": {
+          "title": "Reading & annotating",
+          "body": "The reader supports PDF and EPUB. Select any text to mark it up, leave a note, or send it straight to AI — annotations sync across devices when signed in.",
+          "bullets": {
+            "0": "Highlight selected text in any color. The annotation panel collects every mark across the book for review.",
+            "1": "Add a free-form comment to a highlight — useful for the \"why does this matter\" half of active reading.",
+            "2": "Open the side notes pad for free-form text and whiteboard sketches that aren't tied to a specific passage.",
+            "3": "Right-click a selection to translate it, look the word up, or send it to the AI chat with a citation back to the page."
+          }
+        },
+        "aiChat": {
+          "title": "AI chat that knows your book",
+          "body": "The AI panel works in three modes: as a general assistant, anchored to a document (so its citations link back to specific pages), and tied to a roadmap (so it can edit the graph for you).",
+          "bullets": {
+            "0": "Pick the provider in the composer — Pnyxy's free quota, your own Anthropic key, or your OpenAI key.",
+            "1": "When chat is started from a reader selection, replies use [p.42] tokens that link straight back to the page.",
+            "2": "From any AI message, hit \"Save as flashcards\" to extract Q/A pairs into the vocabulary deck.",
+            "3": "On a roadmap, click \"Edit with AI\" to chat about the graph — the model can add, remove, and reorder nodes live."
+          }
+        },
+        "activeRecall": {
+          "title": "Quizzes, flashcards & vocabulary",
+          "body": "Reading once isn't learning. Pnyxy turns content into spaced-repetition reviews so what you read sticks past the next exam.",
+          "bullets": {
+            "0": "Generate a quiz from a passage you uploaded — multiple choice, true/false, or short-answer.",
+            "1": "Save flashcards from any AI answer or directly from a highlighted passage.",
+            "2": "The Vocabulary tab is your word deck — words you looked up while reading get queued for review.",
+            "3": "The Review screen runs the FSRS algorithm, so cards you struggle with come back sooner than ones you know."
+          }
+        },
+        "planTrack": {
+          "title": "Roadmaps & streaks",
+          "body": "Plan a learning path, then keep the daily habit going. Roadmaps are directed graphs of topics; streaks are a 5-minute-a-day reading goal.",
+          "bullets": {
+            "0": "Generate a roadmap from a topic (\"Linear algebra for ML\") and the AI sketches a prerequisite-ordered set of nodes.",
+            "1": "Enroll in a roadmap to project a finish date based on your weekly hours, then check off nodes as you go.",
+            "2": "Streaks update automatically as long as you read for 5 minutes a day. The Streaks page shows the heatmap and your best streak.",
+            "3": "Both surface as cards on Home and as items in the sidebar so you don't lose track of what you're working on."
+          }
+        },
+        "community": {
+          "title": "Forum & community",
+          "body": "Discussions and debates around books — early stage today, but the wiring is there. You can spin up a thread for any book in your library.",
+          "bullets": {
+            "0": "Each book has a \"Discuss\" tab with comments and replies.",
+            "1": "The Forum index aggregates threads across every shared book.",
+            "2": "Share an uploaded book with the community from the book card's 3-dot menu (PDF only, you keep ownership)."
+          }
+        },
+        "powerTips": {
+          "title": "Keyboard & navigation",
+          "body": "Once you've got the basics, these shortcuts make Pnyxy faster than clicking around.",
+          "bullets": {
+            "0": "Cmd/Ctrl + K — open the command palette: search across pages and your books, jump anywhere in one keystroke.",
+            "1": "Cmd/Ctrl + , — open Settings (the universal Preferences hotkey).",
+            "2": "Cmd/Ctrl + B — collapse or expand the sidebar.",
+            "3": "Press ? anywhere outside an input — opens the cheatsheet listing every registered shortcut."
+          }
+        }
+      },
+      "footer": {
+        "title": "Need more help?",
+        "bodyPrefix": "If something's broken or you're still stuck, the ",
+        "helpLink": "Help page",
+        "bodySuffix": " covers FAQs and lists how to report a bug. We read every issue."
       }
     },
     "privacy": {

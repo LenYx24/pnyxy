@@ -22,11 +22,12 @@ describe("CORE_PLUGINS", () => {
 });
 
 describe("buildDefaultPluginSettings", () => {
-  it("returns an entry for every core plugin, all disabled by default", () => {
+  it("returns an entry for every core plugin, defaulted by manifest.defaultEnabled", () => {
     const defaults = buildDefaultPluginSettings();
-    for (const id of Object.keys(CORE_PLUGINS)) {
+    for (const [id, entry] of Object.entries(CORE_PLUGINS)) {
+      const expected = entry.manifest.defaultEnabled === true;
       expect(defaults.enabledPlugins).toHaveProperty(id);
-      expect(defaults.enabledPlugins[id]).toBe(false);
+      expect(defaults.enabledPlugins[id]).toBe(expected);
       expect(defaults.pluginSettings).toHaveProperty(id);
       expect(defaults.pluginSettings[id]).toEqual({});
     }
@@ -37,8 +38,9 @@ describe("buildDefaultPluginSettings", () => {
     const b = buildDefaultPluginSettings();
     expect(a).not.toBe(b);
     expect(a.enabledPlugins).not.toBe(b.enabledPlugins);
-    a.enabledPlugins["reading-stats"] = true;
-    expect(b.enabledPlugins["reading-stats"]).toBe(false);
+    const before = b.enabledPlugins["reading-stats"];
+    a.enabledPlugins["reading-stats"] = !before;
+    expect(b.enabledPlugins["reading-stats"]).toBe(before);
   });
 });
 

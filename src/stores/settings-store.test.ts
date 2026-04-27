@@ -142,8 +142,12 @@ describe("settings-store migrate — v2 → v3", () => {
     });
     const { useSettingsStore } = await import("./settings-store");
     const state = useSettingsStore.getState();
+    // Existing user opt-in survives the v2→v3 merge.
     expect(state.enabledPlugins["reading-stats"]).toBe(true);
-    expect(state.enabledPlugins["keyboard-cheatsheet"]).toBe(false);
+    // keyboard-cheatsheet ships defaultEnabled=true on its manifest,
+    // so the migration picks up the manifest default rather than
+    // the old "everything off" rule.
+    expect(state.enabledPlugins["keyboard-cheatsheet"]).toBe(true);
   });
 
   it("merges per-plugin user settings on top of plugin defaults", async () => {

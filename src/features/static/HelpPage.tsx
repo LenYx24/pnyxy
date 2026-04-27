@@ -1,4 +1,4 @@
-import { HelpCircle } from "lucide-react";
+import { Compass, HelpCircle } from "lucide-react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 
@@ -14,6 +14,26 @@ export function HelpPage() {
           {t("static.help.title")}
         </h1>
       </div>
+
+      {/* New-user funnel: tutorial first, FAQ-style help below.
+          The tutorial is the broader walkthrough; this Help page is
+          for the "I'm stuck on a specific thing" lookups. */}
+      <Link
+        to="/tutorial"
+        className="flex items-start gap-3 rounded-xl border border-accent-purple/30 bg-accent-purple/10 p-4 transition-colors hover:bg-accent-purple/15 sm:p-5"
+      >
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-purple/20 text-accent-purple">
+          <Compass size={18} />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-text-primary">
+            {t("static.help.tutorial.heading")}
+          </h2>
+          <p className="text-sm text-text-secondary">
+            {t("static.help.tutorial.body")}
+          </p>
+        </div>
+      </Link>
 
       <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6 text-sm leading-relaxed text-text-secondary">
         <div>

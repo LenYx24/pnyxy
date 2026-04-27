@@ -11,6 +11,7 @@ import { Shelf } from "@/features/browse/Shelf";
 import { BrowseBookShelfCard } from "@/features/browse/BrowseBookShelfCard";
 import { RecentlyViewedShelf } from "@/features/browse/RecentlyViewedShelf";
 import { CategoryShelf } from "./CategoryShelf";
+import { RecentlyAddedShelf } from "./RecentlyAddedShelf";
 
 export function HomePage() {
   const { t } = useTranslation();
@@ -55,6 +56,12 @@ export function HomePage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_18rem]">
         {/* Main column — stacked shelves */}
         <main className="min-w-0">
+          {/* User's own books first — what they care about most when
+              they land on home. The shelf renders nothing if the
+              library is empty, so signed-out / first-run users go
+              straight into the catalog content below. */}
+          {user && <RecentlyAddedShelf />}
+
           <Shelf
             title={t("home.shelves.featured")}
             itemCount={featuredBooks.length}

@@ -46,9 +46,12 @@ export function getPluginManifest(
 
 /**
  * Default `enabledPlugins` map used by the settings-store migration.
- * Core plugins are **disabled by default** — users opt in via
- * Settings → Plugins. Community plugins default to enabled when
- * installed (opt-in happened at install time).
+ * Most core plugins are **disabled by default** — users opt in via
+ * Settings → Plugins. A plugin manifest can flip `defaultEnabled`
+ * to ship turned on (e.g. the global `?` cheatsheet, which would
+ * otherwise be invisible to anyone who never opens the plugin tab).
+ * Community plugins default to enabled when installed (opt-in
+ * happened at install time).
  */
 export function buildDefaultPluginSettings(): {
   enabledPlugins: Record<string, boolean>;
@@ -56,8 +59,8 @@ export function buildDefaultPluginSettings(): {
 } {
   const enabledPlugins: Record<string, boolean> = {};
   const pluginSettings: Record<string, Record<string, unknown>> = {};
-  for (const [id] of Object.entries(CORE_PLUGINS)) {
-    enabledPlugins[id] = false;
+  for (const [id, entry] of Object.entries(CORE_PLUGINS)) {
+    enabledPlugins[id] = entry.manifest.defaultEnabled === true;
     pluginSettings[id] = {};
   }
   return { enabledPlugins, pluginSettings };
