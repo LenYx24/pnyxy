@@ -69,7 +69,7 @@ interface WhiteboardState {
   /** Pull whiteboards from Supabase, merge into local IDB + in-memory
    *  list. Called after sign-in. Cloud wins on conflict. */
   syncFromCloud: () => Promise<void>;
-  createWhiteboard: () => string;
+  createWhiteboard: (opts?: { bookId?: string; title?: string }) => string;
   /** Most recent cloud-sync error (quota, network). Cleared by the
    *  UI when acknowledged. */
   lastSyncError: string | null;
@@ -151,14 +151,15 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     }
   },
 
-  createWhiteboard() {
+  createWhiteboard(opts?: { bookId?: string; title?: string }) {
     const wb: WhiteboardData = {
       id: crypto.randomUUID(),
-      title: "Untitled Whiteboard",
+      title: opts?.title ?? "Untitled Whiteboard",
       elements: [],
       background: "solid",
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      bookId: opts?.bookId,
     };
     set((s) => ({ whiteboards: [wb, ...s.whiteboards] }));
     dbSaveWhiteboard(wb);

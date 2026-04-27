@@ -10,6 +10,7 @@ import {
   Library as LibraryIcon,
   Map as MapIcon,
   MessagesSquare,
+  Pencil,
   Settings,
   Shield,
   type LucideIcon,
@@ -49,6 +50,7 @@ export const NAV_ITEMS: NavItem[] = [
 
   // Primary destinations — the everyday surfaces.
   { to: "/library", icon: LibraryIcon, key: "library", group: "primary" },
+  { to: "/workspace", icon: Pencil, key: "workspace", group: "primary" },
   { to: "/chat", icon: Bot, key: "chat", group: "primary" },
   { to: "/browse", icon: Compass, key: "browse", group: "primary" },
   { to: "/forum", icon: MessagesSquare, key: "forum", group: "primary" },

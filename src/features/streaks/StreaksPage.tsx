@@ -1,13 +1,18 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Flame, Trophy, Target, Calendar, Brain } from "lucide-react";
-import { useStreakStore } from "@/stores/streak-store";
+import { Flame, Trophy, Target, Calendar, Brain, Plus } from "lucide-react";
+import { Button } from "@/components/ui";
+import { GOAL_SECONDS, useStreakStore } from "@/stores/streak-store";
 import { cn } from "@/lib/cn";
 import { ReadingPlansSection } from "./ReadingPlansSection";
+import { StreakHeatmap } from "./StreakHeatmap";
+import { LogReadingTimeModal } from "./LogReadingTimeModal";
 
-const GOAL_SECONDS = 300; // 5 minutes; mirrors streak-store's constant.
-const HISTORY_DAYS = 30;
+// 12-week heatmap (84 days). 30 was nice but the GitHub-style grid
+// works best when there's enough columns to feel like a "year"
+// rather than a wall of dots.
+const HISTORY_DAYS = 84;
 
 function dateKey(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -44,6 +49,8 @@ export function StreaksPage() {
   const getTodayRecord = useStreakStore((s) => s.getTodayRecord);
   const dailyRecords = useStreakStore((s) => s.dailyRecords);
 
+  const [logOpen, setLogOpen] = useState(false);
+
   const currentStreak = getCurrentStreak();
   const today = getTodayRecord();
   const todayMinutes = Math.floor(today.seconds / 60);
@@ -63,13 +70,23 @@ export function StreaksPage() {
             {t("streaks.title")}
           </h1>
         </div>
-        <Link
-          to="/leaderboards"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary"
-        >
-          <Trophy size={14} className="text-yellow-400" />
-          {t("streaks.viewLeaderboards")}
-        </Link>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="primary"
+            onClick={() => setLogOpen(true)}
+            className="px-3 py-1.5 text-xs"
+          >
+            <Plus size={14} />
+            {t("streaks.log.button")}
+          </Button>
+          <Link
+            to="/leaderboards"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary"
+          >
+            <Trophy size={14} className="text-yellow-400" />
+            {t("streaks.viewLeaderboards")}
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -141,17 +158,13 @@ export function StreaksPage() {
             {t("streaks.lastNDays", { days: HISTORY_DAYS })}
           </h2>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {history.map((d) => (
-            <DayCell key={d.key} day={d} />
-          ))}
-        </div>
-        <p className="text-xs text-text-muted">
-          {t("streaks.historyHint")}
-        </p>
+        <StreakHeatmap records={dailyRecords} />
+        <p className="text-xs text-text-muted">{t("streaks.historyHint")}</p>
       </section>
 
       <ReadingPlansSection />
+
+      <LogReadingTimeModal open={logOpen} onClose={() => setLogOpen(false)} />
     </div>
   );
 }
@@ -183,28 +196,4 @@ function StatTile({
   );
 }
 
-function DayCell({
-  day,
-}: {
-  day: { key: string; date: Date; seconds: number; goalCompleted: boolean };
-}) {
-  const minutes = Math.floor(day.seconds / 60);
-  const label = `${day.date.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  })} — ${minutes} min`;
-  return (
-    <div
-      title={label}
-      className={cn(
-        "h-6 w-6 rounded-sm border",
-        day.goalCompleted
-          ? "border-green-500/60 bg-green-500/70"
-          : day.seconds > 0
-            ? "border-accent-purple/40 bg-accent-purple/30"
-            : "border-glass-border bg-glass-bg/30",
-      )}
-    />
-  );
-}
+// DayCell removed — replaced by the GitHub-style StreakHeatmap.

@@ -46,6 +46,7 @@ export function LibraryPage() {
   const isLoading = useLibraryStore((s) => s.isLoading);
   const fetchLibrary = useLibraryStore((s) => s.fetchLibrary);
   const fetchFolders = useLibraryStore((s) => s.fetchFolders);
+  const fetchInProgress = useLibraryStore((s) => s.fetchInProgress);
   const currentFolderId = useLibraryStore((s) => s.currentFolderId);
 
   const storageUsage = useUploadStore((s) => s.storageUsage);
@@ -159,7 +160,8 @@ export function LibraryPage() {
     fetchLibrary();
     fetchFolders();
     fetchStorageUsage();
-  }, [fetchLibrary, fetchFolders, fetchStorageUsage]);
+    fetchInProgress();
+  }, [fetchLibrary, fetchFolders, fetchStorageUsage, fetchInProgress]);
 
   // Pull-to-refresh on mobile. Refetches the library + folders + usage
   // when the user pulls past the trigger distance from the top.

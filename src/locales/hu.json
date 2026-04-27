@@ -27,6 +27,7 @@
     "browse": "Katalógus",
     "chat": "Csevegés",
     "library": "Könyvtár",
+    "workspace": "Munkaasztal",
     "reader": "Olvasó",
     "quizzes": "Kvízek",
     "review": "Ismétlés",
@@ -474,6 +475,7 @@
   "library": {
     "title": "Könyvtár",
     "yourLibrary": "A könyvtárad",
+    "reading": "Olvasás",
     "bookCount_one": "{{count}} könyv a gyűjteményedben",
     "bookCount_other": "{{count}} könyv a gyűjteményedben",
     "dropOverlay": {
@@ -816,6 +818,24 @@
     "terms": "Feltételek",
     "help": "Súgó"
   },
+  "workspace": {
+    "title": "Munkaasztal",
+    "subtitle": "Jegyzetek és táblák, amik nem kötődnek konkrét könyvhöz — a gondolataidnak, terveidnek és gyors vázlatoknak fenntartva.",
+    "notes": {
+      "heading": "Jegyzetek",
+      "emptyTitle": "Még nincs jegyzet",
+      "emptyBody": "Írj le egy gondolatot, egy értekezleti jegyzetet vagy egy kutatási irányt — a Pnyxy két könyv között is megőrzi."
+    },
+    "whiteboards": {
+      "heading": "Táblák",
+      "newEmpty": "Új tábla",
+      "defaultTitle": "Névtelen tábla",
+      "untitled": "Névtelen tábla",
+      "updated": "Frissítve {{date}}",
+      "emptyTitle": "Még nincs tábla",
+      "emptyBody": "Hozz létre egy üres vásznat ötleteléshez vagy egy probléma vizuális megoldásához."
+    }
+  },
   "streaks": {
     "title": "Sorozatok",
     "currentStreak": "Jelenlegi sorozat",
@@ -833,7 +853,28 @@
     "inProgress": "Folyamatban",
     "minRead": "{{minutes}} perc olvasás",
     "minGoal": "{{minutes}} perces cél",
-    "historyHint": "A kitöltött négyzetek olyan napok, amikor teljesítetted az 5 perces olvasási célt."
+    "historyHint": "Minden négyzet egy napot jelöl. A sötétebb árnyalat több olvasott időt jelent. Kattints alább, hogy rögzítsd az appon kívül olvasott időt.",
+    "heatmap": {
+      "less": "Kevesebb",
+      "more": "Több",
+      "tooltip": "{{date}} — {{minutes}} perc",
+      "tooltipMixed": "{{date}} — {{minutes}} perc (ebből {{manualMinutes}} kézzel rögzítve)"
+    },
+    "log": {
+      "button": "Idő rögzítése",
+      "title": "Olvasási idő rögzítése",
+      "description": "Jegyezd fel az appon kívül olvasott időt — papírkönyv, ebook másik eszközön. A mai napot vagy az elmúlt {{days}} napot tudod rögzíteni.",
+      "day": "Nap",
+      "today": "ma",
+      "minutes": "Olvasott percek",
+      "submit": "Rögzítés",
+      "leaderboardNote": "A kézi bejegyzések beleszámítanak a sorozatba, de nem befolyásolják a ranglistát.",
+      "errors": {
+        "invalidMinutes": "Adj meg egy pozitív percszámot.",
+        "tooMany": "A maximum {{max}} perc naponta.",
+        "rejected": "Nem sikerült rögzíteni — a dátum kívül esik a tartományon vagy érvénytelen az érték."
+      }
+    }
   },
   "roadmaps": {
     "title": "Útvonalak",
@@ -886,7 +927,9 @@
     "startBuilding": "Építés indítása",
     "startLearning": "Tanulás indítása",
     "unenroll": "Kiiratkozás",
+    "unenrollTitle": "Kiiratkozás az útvonalból",
     "unenrollConfirm": "Megszünteted az útvonal követését? A haladásod elveszik.",
+    "deleteTitle": "Útvonal törlése",
     "deleteConfirm": "Biztosan törlöd ezt az útvonalat? Nem visszavonható.",
     "complete": "Kész",
     "percentComplete": "{{pct}}% kész",
@@ -1095,7 +1138,33 @@
       "learn": "Tanulás",
       "discuss": "Beszélgetés",
       "notes": "Jegyzetek",
+      "bookmarks": "Könyvjelzők",
+      "whiteboards": "Táblák",
       "resources": "Források"
+    },
+    "bookmarks": {
+      "heading": "Könyvjelzők",
+      "description": "Ehhez a könyvhöz mentett oldalak — kattints egyre, hogy az olvasóban odaugorj.",
+      "emptyTitle": "Még nincs könyvjelző",
+      "emptyBody": "Tegyél könyvjelzőt egy oldalra az olvasó jobb oldali menüjéből, és itt fog megjelenni."
+    },
+    "whiteboards": {
+      "heading": "Táblák",
+      "description": "Szabadkézi vázlatfelületek ehhez a könyvhöz kötve.",
+      "newEmpty": "Új tábla",
+      "defaultTitle": "Tábla — {{book}}",
+      "untitled": "Névtelen tábla",
+      "emptyTitle": "Még nincs tábla",
+      "emptyBody": "Hozz létre egy üres vásznat ötleteléshez, fogalmi térkép rajzolásához vagy egy feladat megoldásához.",
+      "updated": "Frissítve {{date}}",
+      "itemCount_one": "elem",
+      "itemCount_other": "elem"
+    },
+    "pageTracker": {
+      "notStarted": "Még nem kezdted",
+      "currentOnly": "{{current}}. oldal",
+      "progress": "{{current}} / {{total}}. oldal",
+      "editTitle": "Állítsd be, hányadik oldalon tartasz"
     },
     "tabs": {
       "notesHeading": "Jegyzetek",
@@ -1259,6 +1328,9 @@
     "signOut": "Kijelentkezés"
   },
   "reader": {
+    "addCommentTitle": "Megjegyzés hozzáadása",
+    "addCommentPlaceholder": "A gondolataid erről a részről…",
+    "addCommentSubmit": "Hozzáadás",
     "epubSelection": {
       "label": "Kijelölés műveletek",
       "copy": "Másolás",

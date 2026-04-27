@@ -8,6 +8,8 @@ import {
   StickyNote,
   Link as LinkIcon,
   ChevronDown,
+  Bookmark as BookmarkIcon,
+  Pencil,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-media-query";
@@ -17,7 +19,14 @@ import { LEARN_METHODS } from "./LEARN_METHODS";
 interface NavItem {
   to: string;
   /** i18n key under `book.nav`. */
-  labelKey: "overview" | "learn" | "discuss" | "notes" | "resources";
+  labelKey:
+    | "overview"
+    | "learn"
+    | "discuss"
+    | "notes"
+    | "bookmarks"
+    | "whiteboards"
+    | "resources";
   icon: LucideIcon;
   end?: boolean;
 }
@@ -29,6 +38,16 @@ function useNavItems(bookId: string): NavItem[] {
       { to: `/books/${bookId}/learn`, labelKey: "learn", icon: GraduationCap },
       { to: `/books/${bookId}/discuss`, labelKey: "discuss", icon: MessageSquare },
       { to: `/books/${bookId}/notes`, labelKey: "notes", icon: StickyNote },
+      {
+        to: `/books/${bookId}/bookmarks`,
+        labelKey: "bookmarks",
+        icon: BookmarkIcon,
+      },
+      {
+        to: `/books/${bookId}/whiteboards`,
+        labelKey: "whiteboards",
+        icon: Pencil,
+      },
       { to: `/books/${bookId}/resources`, labelKey: "resources", icon: LinkIcon },
     ],
     [bookId],

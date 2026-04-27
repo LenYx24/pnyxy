@@ -17,9 +17,16 @@ interface LibraryState {
   isLoading: boolean;
   currentFolderId: string | null;
   folderPath: Folder[];
+  /** Set of doc_ids the user has any saved reading position for —
+   *  used to render a "Reading" pill on the matching library cards
+   *  so currently-active books pop visually. Populated by
+   *  fetchInProgress(). Starts empty so signed-out / pre-fetch
+   *  states render no pill rather than wrong pills. */
+  inProgressDocIds: Set<string>;
 
   fetchLibrary: () => Promise<void>;
   fetchFolders: () => Promise<void>;
+  fetchInProgress: () => Promise<void>;
   createFolder: (name: string, parentId: string | null) => Promise<Folder | null>;
   /** Accepts a slash-separated path like "p1/p2/p3" and creates any
    * missing ancestors, returning the deepest (last) folder. */
@@ -54,6 +61,29 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   isLoading: false,
   currentFolderId: null,
   folderPath: [],
+  inProgressDocIds: new Set<string>(),
+
+  fetchInProgress: async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      set({ inProgressDocIds: new Set() });
+      return;
+    }
+    const { data, error } = await supabase
+      .from("book_resume_state")
+      .select("doc_id")
+      .eq("user_id", user.id);
+    if (error) {
+      logError("library-store:fetchInProgress", error.message);
+      return;
+    }
+    const ids = new Set<string>(
+      (data ?? []).map((r) => r.doc_id as string),
+    );
+    set({ inProgressDocIds: ids });
+  },
 
   fetchLibrary: async () => {
     const {

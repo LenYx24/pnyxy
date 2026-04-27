@@ -50,6 +50,25 @@
   }
 }
 
+/*
+ * Slow breathing glow used by the focus session badge. Tailwind's
+ * animate-pulse cycles in 2s and ramps opacity hard — too anxious
+ * for a calm focus mode. This goes 4s and modulates a coloured
+ * box-shadow instead, so the badge feels like it's gently
+ * inhaling/exhaling rather than blinking.
+ */
+@keyframes pnyxy-focus-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.0),
+      0 4px 12px 0 rgba(0, 0, 0, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 18px 4px rgba(168, 85, 247, 0.25),
+      0 4px 12px 0 rgba(0, 0, 0, 0.15);
+  }
+}
+
 @keyframes drift {
   0%,
   100% {

@@ -9,6 +9,8 @@ import {
   type DockviewApi,
   type IDockviewPanelProps,
 } from "dockview";
+import { PromptModal } from "@/components/ui";
+import type { TextSelection } from "@/types/annotation";
 import { ReaderSidebarContent } from "./ReaderSidebar";
 import { ReaderToolbar } from "./ReaderToolbar";
 import { DocumentTabs } from "./DocumentTabs";
@@ -604,6 +606,13 @@ export function ReaderPage() {
 
   const dockviewApiRef = useRef<DockviewApi | null>(null);
   const layoutSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Comment-via-shortcut state. The Ctrl+Shift+M shortcut used to
+  // call window.prompt() inline; we now stash the active selection
+  // here and render a styled PromptModal at the bottom of the
+  // page, then commit the comment on submit.
+  const [commentPromptSelection, setCommentPromptSelection] =
+    useState<TextSelection | null>(null);
   const tocWidthRef = useRef<number>(256);
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -848,11 +857,7 @@ export function ReaderPage() {
     handler: useCallback(() => {
       const { contextMenu } = useAnnotationStore.getState();
       if (contextMenu.visible && contextMenu.selection) {
-        // If context menu is visible with a selection, prompt for comment
-        const text = prompt("Add comment:");
-        if (text?.trim()) {
-          useAnnotationStore.getState().addComment(contextMenu.selection, text.trim());
-        }
+        setCommentPromptSelection(contextMenu.selection);
       }
     }, []),
   });
@@ -1404,6 +1409,20 @@ export function ReaderPage() {
         />
       )}
       <FocusSessionBadge />
+      <PromptModal
+        open={commentPromptSelection !== null}
+        title={t("reader.addCommentTitle")}
+        placeholder={t("reader.addCommentPlaceholder")}
+        confirmLabel={t("reader.addCommentSubmit")}
+        onClose={() => setCommentPromptSelection(null)}
+        onSubmit={(text) => {
+          if (commentPromptSelection) {
+            useAnnotationStore
+              .getState()
+              .addComment(commentPromptSelection, text);
+          }
+        }}
+      />
     </div>
   );
 }

@@ -16,7 +16,9 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox, FloatingMenu, TagBadge } from "@/components/ui";
 import { PdfCoverThumbnail } from "@/components/ui/PdfCoverThumbnail";
+import { useLibraryStore } from "@/stores/library-store";
 import { useTagStore, bookKey } from "@/stores/tag-store";
+import { bookIdSegment } from "@/lib/slugify";
 import { TagPickerDropdown } from "./TagPickerDropdown";
 import { ShareBookModal } from "./ShareBookModal";
 import { BookInfoModal } from "./BookInfoModal";
@@ -46,6 +48,13 @@ export function LibraryBookCard({
 }: LibraryBookCardProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  // Surface a small "Reading" pill on books the user has any saved
+  // resume position for. Reads from the library store's set of
+  // in-progress doc ids — populated once on Library mount, free to
+  // read per-card.
+  const isInProgress = useLibraryStore((s) =>
+    s.inProgressDocIds.has(entry.source === "catalog" ? entry.catalog_book_id : entry.book.id),
+  );
 
   const sortable = useSortable({ id: sortableId ?? entry.id, disabled: !sortableId });
   const {
@@ -101,10 +110,14 @@ export function LibraryBookCard({
       onToggleSelect?.(selKey, { ctrlKey: false, shiftKey: false });
       return;
     }
+    // Pre-bake the slug into the URL so first-click navigation
+    // skips the canonical-redirect bounce on the BookPage.
     if (entry.source === "catalog") {
-      navigate(`/books/${entry.catalog_book_id}`);
+      navigate(
+        `/books/${bookIdSegment(entry.catalog_book_id, entry.catalog_book.title)}`,
+      );
     } else {
-      navigate(`/books/${entry.book.id}`);
+      navigate(`/books/${bookIdSegment(entry.book.id, entry.book.title)}`);
     }
   };
 
@@ -184,6 +197,19 @@ export function LibraryBookCard({
                 title="Uploaded file"
               >
                 <Upload size={10} />
+              </span>
+            )}
+
+            {/* "Reading" pill — visible signal that the user has
+                already started this book. Top-left corner; hides
+                during selection mode so it doesn't overlap with
+                the always-visible checkbox at the same spot. */}
+            {isInProgress && !selectionActive && !selected && (
+              <span
+                className="absolute left-1.5 top-1.5 rounded-full bg-accent-purple/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur-sm sm:opacity-100 sm:group-hover:opacity-0"
+                title={t("library.reading")}
+              >
+                {t("library.reading")}
               </span>
             )}
 

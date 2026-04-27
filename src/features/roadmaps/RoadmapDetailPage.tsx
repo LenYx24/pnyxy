@@ -15,6 +15,7 @@ import {
   useRoadmap,
   useRoadmapStore,
 } from "@/stores/roadmap-store";
+import { ConfirmModal } from "@/components/ui";
 import { RoadmapGraph } from "./components/RoadmapGraph";
 import { EnrollDialog } from "./EnrollDialog";
 import {
@@ -39,6 +40,8 @@ export function RoadmapDetailPage() {
 
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [unenrollConfirmOpen, setUnenrollConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!loaded) void load();
@@ -88,11 +91,10 @@ export function RoadmapDetailPage() {
     toggleNodeComplete(enrollment.id, id);
   };
 
-  const handleDelete = () => {
-    if (window.confirm(t("roadmaps.deleteConfirm"))) {
-      deleteRoadmap(roadmap.id);
-      navigate("/roadmaps");
-    }
+  const handleDelete = () => setDeleteConfirmOpen(true);
+  const performDelete = () => {
+    deleteRoadmap(roadmap.id);
+    navigate("/roadmaps");
   };
 
   return (
@@ -138,11 +140,7 @@ export function RoadmapDetailPage() {
                 </span>
               </div>
               <button
-                onClick={() => {
-                  if (window.confirm(t("roadmaps.unenrollConfirm"))) {
-                    unenroll(enrollment.id);
-                  }
-                }}
+                onClick={() => setUnenrollConfirmOpen(true)}
                 className="inline-flex items-center gap-1.5 rounded-md border border-glass-border px-2.5 py-1.5 text-xs text-text-secondary hover:bg-glass-hover"
               >
                 <XCircle size={14} />
@@ -274,6 +272,27 @@ export function RoadmapDetailPage() {
           onClose={() => setEnrollDialogOpen(false)}
         />
       )}
+
+      <ConfirmModal
+        open={deleteConfirmOpen}
+        title={t("roadmaps.deleteTitle")}
+        body={t("roadmaps.deleteConfirm")}
+        confirmLabel={t("common.delete")}
+        danger
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={performDelete}
+      />
+
+      <ConfirmModal
+        open={unenrollConfirmOpen}
+        title={t("roadmaps.unenrollTitle")}
+        body={t("roadmaps.unenrollConfirm")}
+        confirmLabel={t("roadmaps.unenroll")}
+        onClose={() => setUnenrollConfirmOpen(false)}
+        onConfirm={() => {
+          if (enrollment) unenroll(enrollment.id);
+        }}
+      />
     </div>
   );
 }

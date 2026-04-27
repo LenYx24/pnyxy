@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Folder, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Checkbox, FloatingMenu } from "@/components/ui";
+import { Checkbox, FloatingMenu, PromptModal } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { Folder as FolderType } from "@/types/database";
 
@@ -45,6 +45,7 @@ export function FolderCard({
     : undefined;
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const selKey = `folder:${folder.id}`;
   // coverHeight is now only used as a hint for icon scaling — the
@@ -162,11 +163,7 @@ export function FolderCard({
               onClick={(e) => {
                 e.stopPropagation();
                 setMenuOpen(false);
-                const name = prompt(
-                  t("library.folderCard.renamePrompt"),
-                  folder.name,
-                );
-                if (name && name.trim()) onRename(folder.id, name.trim());
+                setRenameOpen(true);
               }}
               className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
             >
@@ -187,6 +184,13 @@ export function FolderCard({
           </FloatingMenu>
         </div>
       </div>
+      <PromptModal
+        open={renameOpen}
+        title={t("library.folderCard.rename")}
+        defaultValue={folder.name}
+        onClose={() => setRenameOpen(false)}
+        onSubmit={(name) => onRename(folder.id, name)}
+      />
     </div>
   );
 }

@@ -1,17 +1,29 @@
-import { useEffect } from "react";
-import { Outlet, useNavigate, useParams } from "react-router";
+import { useEffect, useMemo } from "react";
+import { Outlet, useLocation, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, BookOpen, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { BookPageContext } from "./BookPageContext";
 import { BookPageSidebar } from "./BookPageSidebar";
+import { PageTracker } from "./PageTracker";
 import { useBookData } from "./useBookData";
 import { trackRecentlyViewed } from "@/features/browse/recently-viewed";
+import { bookIdSegment, parseBookIdSegment } from "@/lib/slugify";
 
 export function BookPage() {
   const { t } = useTranslation();
-  const { bookId } = useParams<{ bookId: string }>();
+  const { bookId: rawBookId } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // The :bookId URL param may include a decorative slug suffix
+  // ("voros-es-fekete--<uuid>"). Parse the real id out for the DB
+  // lookup; preserve the raw segment for the redirect comparison.
+  const { id: bookId } = useMemo(
+    () => (rawBookId ? parseBookIdSegment(rawBookId) : { id: undefined, slug: null }),
+    [rawBookId],
+  );
+
   const { data, loading, notFound } = useBookData(bookId);
 
   // Track catalog-book visits for the "Recently viewed" shelf (which
@@ -21,6 +33,26 @@ export function BookPage() {
       trackRecentlyViewed(data.book.id);
     }
   }, [data?.source, data?.book.id]);
+
+  // Canonicalize the URL once the book title is known. If the user
+  // landed on a bare `/books/<id>` link or a stale slug, swap it
+  // for `<slug>--<id>` via `replace` (no history entry, no flash).
+  // Sub-routes (notes, bookmarks, …) are preserved by inheriting
+  // whatever follows the bookId segment in the current pathname.
+  useEffect(() => {
+    if (!data || !rawBookId) return;
+    const canonical = bookIdSegment(bookId!, data.book.title);
+    if (canonical === rawBookId) return;
+    // Replace the first path segment after `/books/` with the
+    // canonical value, leaving everything past it intact.
+    const tail = location.pathname.replace(
+      new RegExp(`^/books/${rawBookId}`),
+      "",
+    );
+    navigate(`/books/${canonical}${tail}${location.search}`, {
+      replace: true,
+    });
+  }, [data, bookId, rawBookId, location.pathname, location.search, navigate]);
 
   if (loading) {
     return (
@@ -52,46 +84,74 @@ export function BookPage() {
 
   return (
     <BookPageContext.Provider value={data}>
-      <div className="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-6">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-sm text-text-muted transition-colors hover:text-text-primary cursor-pointer"
-        >
-          <ArrowLeft size={16} />
-          {t("book.back")}
-        </button>
+      {/* Mobile keeps the older stacked layout (header + dropdown
+          nav + content). Desktop gets the chat-style two-pane: a
+          fixed-width left rail with a sticky sidebar nav, and the
+          remaining viewport for the active tab — books with a lot
+          of bookmarks / notes / whiteboards now use the screen
+          properly instead of being capped at max-w-6xl. */}
+      <div className="flex min-h-full flex-col md:flex-row">
+        <aside className="md:w-64 md:shrink-0 md:border-r md:border-glass-border md:bg-glass-bg/40">
+          <div className="space-y-3 p-4 md:sticky md:top-0 md:max-h-screen md:overflow-y-auto md:p-3">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 text-xs text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+            >
+              <ArrowLeft size={14} />
+              {t("book.back")}
+            </button>
 
-        <div className="flex items-start gap-4">
-          <div className="shrink-0">
-            {coverUrl ? (
-              <img
-                src={coverUrl}
-                alt={title}
-                className="h-24 w-16 rounded-lg object-cover shadow-md sm:h-32 sm:w-20"
-              />
-            ) : (
-              <div className="flex h-24 w-16 items-center justify-center rounded-lg bg-gradient-to-br from-accent-purple/30 to-accent-blue/30 shadow-md sm:h-32 sm:w-20">
-                <BookOpen size={24} className="text-white/20" />
+            {/* Compact book identity: cover + title stacked, just
+                enough to anchor the sidebar without shrinking the
+                main pane. */}
+            <div className="flex items-start gap-3">
+              <div className="shrink-0">
+                {coverUrl ? (
+                  <img
+                    src={coverUrl}
+                    alt={title}
+                    className="h-20 w-14 rounded-md object-cover shadow-md"
+                  />
+                ) : (
+                  <div className="flex h-20 w-14 items-center justify-center rounded-md bg-gradient-to-br from-accent-purple/30 to-accent-blue/30 shadow-md">
+                    <BookOpen size={20} className="text-white/20" />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-2xl font-bold text-text-primary">{title}</h1>
-            <p className="text-sm text-text-secondary">{authors}</p>
-            {data.source === "uploaded" && (
-              <span className="mt-2 inline-flex items-center gap-1 rounded-md bg-accent-purple/15 px-2 py-0.5 text-[10px] font-semibold text-accent-purple">
-                {t("book.uploadedBadge")}
-              </span>
-            )}
-          </div>
-        </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="line-clamp-2 text-sm font-semibold text-text-primary">
+                  {title}
+                </h1>
+                <p className="line-clamp-1 text-[11px] text-text-muted">
+                  {authors}
+                </p>
+                {data.source === "uploaded" && (
+                  <span className="mt-1 inline-flex items-center gap-1 rounded bg-accent-purple/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-accent-purple">
+                    {t("book.uploadedBadge")}
+                  </span>
+                )}
+              </div>
+            </div>
 
-        <div className="grid gap-6 md:grid-cols-[220px_minmax(0,1fr)]">
-          <BookPageSidebar bookId={bookId} />
-          <div className="min-w-0">
-            <Outlet />
+            <PageTracker
+              docId={bookId}
+              pageCount={
+                data.source === "catalog"
+                  ? data.book.page_count ?? null
+                  : data.book.page_count ?? null
+              }
+            />
+
+            {/* Sidebar links keep the slug-suffixed segment so
+                sub-tab clicks land on canonical URLs immediately
+                rather than going through a redirect bounce. */}
+            <BookPageSidebar bookId={rawBookId ?? bookId} />
           </div>
-        </div>
+        </aside>
+
+        <main className="min-w-0 flex-1 p-4 sm:p-6 md:p-8">
+          <Outlet />
+        </main>
       </div>
     </BookPageContext.Provider>
   );

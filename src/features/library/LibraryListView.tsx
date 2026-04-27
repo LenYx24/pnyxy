@@ -20,9 +20,11 @@ import {
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Checkbox, FloatingMenu, TagBadge } from "@/components/ui";
+import { Checkbox, FloatingMenu, PromptModal, TagBadge } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { useLibraryStore } from "@/stores/library-store";
 import { useTagStore, bookKey } from "@/stores/tag-store";
+import { bookIdSegment } from "@/lib/slugify";
 import { useContextMenu } from "@/hooks/use-context-menu";
 import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { TagPickerDropdown } from "./TagPickerDropdown";
@@ -192,6 +194,7 @@ function FolderRow({
   density,
   sortableId,
 }: FolderRowProps) {
+  const { t } = useTranslation();
   const isTopLevel = depth === 0;
 
   // Top-level folders participate in the SortableContext for sibling
@@ -231,6 +234,7 @@ function FolderRow({
   const showDropTargetHighlight = nest.isOver;
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
   const selKey = `folder:${folder.id}`;
 
   const handleClick = (e: React.MouseEvent) => {
@@ -263,10 +267,7 @@ function FolderRow({
           id: "rename",
           label: "Rename",
           icon: Pencil,
-          onClick: () => {
-            const name = prompt("Rename folder:", folder.name);
-            if (name?.trim()) onRename(folder.id, name.trim());
-          },
+          onClick: () => setRenameOpen(true),
         },
       ];
       if (onCreateSubfolder) {
@@ -387,8 +388,7 @@ function FolderRow({
             label="Rename"
             onClick={() => {
               setMenuOpen(false);
-              const name = prompt("Rename folder:", folder.name);
-              if (name?.trim()) onRename(folder.id, name.trim());
+              setRenameOpen(true);
             }}
           />
           <MenuItem
@@ -458,6 +458,13 @@ function FolderRow({
           )}
         </div>
       )}
+      <PromptModal
+        open={renameOpen}
+        title={t("library.folderCard.rename")}
+        defaultValue={folder.name}
+        onClose={() => setRenameOpen(false)}
+        onSubmit={(name) => onRename(folder.id, name)}
+      />
     </div>
   );
 }
@@ -489,6 +496,13 @@ function BookRow({
 }: BookRowProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  // Same in-progress check as the grid view; library-store hydrates
+  // the set on Library mount.
+  const isInProgress = useLibraryStore((s) =>
+    s.inProgressDocIds.has(
+      entry.source === "catalog" ? entry.catalog_book_id : entry.book.id,
+    ),
+  );
 
   const isTopLevel = depth === 0;
   // Top-level: sortable (sibling reorder + drag). Nested: draggable
@@ -544,10 +558,13 @@ function BookRow({
       onToggleSelect(selKey, { ctrlKey: false, shiftKey: false });
       return;
     }
+    // Pre-bake slug — same reasoning as the grid card.
     if (entry.source === "catalog") {
-      navigate(`/books/${entry.catalog_book_id}`);
+      navigate(
+        `/books/${bookIdSegment(entry.catalog_book_id, entry.catalog_book.title)}`,
+      );
     } else {
-      navigate(`/books/${entry.book.id}`);
+      navigate(`/books/${bookIdSegment(entry.book.id, entry.book.title)}`);
     }
   };
 
@@ -561,9 +578,13 @@ function BookRow({
         icon: BookOpen,
         onClick: () => {
           if (entry.source === "catalog") {
-            navigate(`/books/${entry.catalog_book_id}`);
+            navigate(
+              `/books/${bookIdSegment(entry.catalog_book_id, entry.catalog_book.title)}`,
+            );
           } else {
-            navigate(`/books/${entry.book.id}`);
+            navigate(
+              `/books/${bookIdSegment(entry.book.id, entry.book.title)}`,
+            );
           }
         },
       },
@@ -682,6 +703,15 @@ function BookRow({
               <TagBadge key={tag} tag={tag} size="sm" />
             ))}
           </div>
+        )}
+
+        {/* Reading pill — same data source as the grid view. Sits
+            inline with the other small badges instead of overlaying
+            anything, since the row layout has natural slots. */}
+        {isInProgress && (
+          <span className="mr-2 hidden items-center gap-1 rounded bg-accent-purple/85 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white sm:inline-flex">
+            {t("library.reading")}
+          </span>
         )}
 
         {/* Uploaded badge */}

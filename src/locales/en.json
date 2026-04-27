@@ -26,6 +26,7 @@
     "home": "Home",
     "browse": "Catalog",
     "library": "Library",
+    "workspace": "Workspace",
     "reader": "Reader",
     "chat": "Chat",
     "quizzes": "Quizzes",
@@ -474,6 +475,7 @@
   "library": {
     "title": "Library",
     "yourLibrary": "Your Library",
+    "reading": "Reading",
     "bookCount_one": "{{count}} book in your collection",
     "bookCount_other": "{{count}} books in your collection",
     "dropOverlay": {
@@ -816,6 +818,24 @@
     "terms": "Terms",
     "help": "Help"
   },
+  "workspace": {
+    "title": "Workspace",
+    "subtitle": "Notes and whiteboards that aren't tied to any one book — your scratchpad for ideas, plans, and quick sketches.",
+    "notes": {
+      "heading": "Notes",
+      "emptyTitle": "No notes yet",
+      "emptyBody": "Jot down a thought, a meeting note, or a research lead — Pnyxy keeps it here even when you're between books."
+    },
+    "whiteboards": {
+      "heading": "Whiteboards",
+      "newEmpty": "New whiteboard",
+      "defaultTitle": "Untitled whiteboard",
+      "untitled": "Untitled whiteboard",
+      "updated": "Updated {{date}}",
+      "emptyTitle": "No whiteboards yet",
+      "emptyBody": "Spin up an empty canvas to brainstorm or work out a problem visually."
+    }
+  },
   "streaks": {
     "title": "Streaks",
     "currentStreak": "Current streak",
@@ -833,7 +853,28 @@
     "inProgress": "In progress",
     "minRead": "{{minutes}} min read",
     "minGoal": "{{minutes}} min goal",
-    "historyHint": "Filled squares are days you hit the 5-minute reading goal."
+    "historyHint": "Each cell is a day. Darker shades mean more time read. Click below to log time you spent reading away from the app.",
+    "heatmap": {
+      "less": "Less",
+      "more": "More",
+      "tooltip": "{{date}} — {{minutes}} min",
+      "tooltipMixed": "{{date}} — {{minutes}} min ({{manualMinutes}} logged manually)"
+    },
+    "log": {
+      "button": "Log time",
+      "title": "Log reading time",
+      "description": "Track time you spent reading off-app — physical books, ebooks on another device. You can log today or any of the last {{days}} days.",
+      "day": "Day",
+      "today": "today",
+      "minutes": "Minutes read",
+      "submit": "Log",
+      "leaderboardNote": "Manual entries count for your streak but don't affect the leaderboard.",
+      "errors": {
+        "invalidMinutes": "Enter a positive number of minutes.",
+        "tooMany": "Cap is {{max}} minutes per day.",
+        "rejected": "Couldn't log that — date is out of range or input invalid."
+      }
+    }
   },
   "roadmaps": {
     "title": "Roadmaps",
@@ -886,7 +927,9 @@
     "startBuilding": "Start building",
     "startLearning": "Start learning",
     "unenroll": "Unenroll",
+    "unenrollTitle": "Unenroll from roadmap",
     "unenrollConfirm": "Stop tracking this roadmap? Your progress will be cleared.",
+    "deleteTitle": "Delete roadmap",
     "deleteConfirm": "Delete this roadmap? This can't be undone.",
     "complete": "Complete",
     "percentComplete": "{{pct}}% complete",
@@ -1095,7 +1138,33 @@
       "learn": "Learn",
       "discuss": "Discuss",
       "notes": "Notes",
+      "bookmarks": "Bookmarks",
+      "whiteboards": "Whiteboards",
       "resources": "Resources"
+    },
+    "bookmarks": {
+      "heading": "Bookmarks",
+      "description": "Saved pages from this book — click one to jump to it in the reader.",
+      "emptyTitle": "No bookmarks yet",
+      "emptyBody": "Bookmark a page from the reader's right-side menu and it'll show up here."
+    },
+    "whiteboards": {
+      "heading": "Whiteboards",
+      "description": "Free-form sketch canvases tied to this book.",
+      "newEmpty": "New whiteboard",
+      "defaultTitle": "Whiteboard — {{book}}",
+      "untitled": "Untitled whiteboard",
+      "emptyTitle": "No whiteboards yet",
+      "emptyBody": "Create an empty canvas to brainstorm, sketch a concept map, or work out a problem.",
+      "updated": "Updated {{date}}",
+      "itemCount_one": "item",
+      "itemCount_other": "items"
+    },
+    "pageTracker": {
+      "notStarted": "Not started",
+      "currentOnly": "Page {{current}}",
+      "progress": "p. {{current}} of {{total}}",
+      "editTitle": "Set the page you're on"
     },
     "tabs": {
       "notesHeading": "Notes",
@@ -1259,6 +1328,9 @@
     "signOut": "Sign Out"
   },
   "reader": {
+    "addCommentTitle": "Add comment",
+    "addCommentPlaceholder": "Your thoughts on this passage…",
+    "addCommentSubmit": "Add",
     "epubSelection": {
       "label": "Selection actions",
       "copy": "Copy",

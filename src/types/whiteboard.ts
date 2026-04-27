@@ -92,4 +92,13 @@ export interface WhiteboardData {
   background: WhiteboardBackground;
   createdAt: number;
   updatedAt: number;
+  /** Optional book this whiteboard belongs to. Set when the user
+   *  creates the whiteboard from a book detail page so it groups
+   *  cleanly under "Whiteboards" on that book. Freestanding
+   *  whiteboards (created from the OverviewTab "Create Whiteboard"
+   *  button or the dedicated /workspace surface later) leave it
+   *  undefined. The reader's "auto-create draw whiteboard" path
+   *  also leaves it undefined — those exist per-session inside the
+   *  reader's dockview, not as book artifacts. */
+  bookId?: string;
 }

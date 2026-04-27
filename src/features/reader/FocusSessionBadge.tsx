@@ -1,5 +1,6 @@
-import { Timer, Plus, X } from "lucide-react";
+import { Plus, Sprout, TreeDeciduous, X } from "lucide-react";
 import { useFocusStore } from "@/stores/focus-store";
+import { cn } from "@/lib/cn";
 
 function formatTime(ms: number): string {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
@@ -8,27 +9,102 @@ function formatTime(ms: number): string {
   return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
 }
 
+const RING_RADIUS = 22;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
 /**
  * Pill badge shown while a focus session is active. Sticks to the
- * bottom-center of the reader viewport. Hides itself when no session
- * is running.
+ * bottom-center of the reader viewport. Hides itself when no
+ * session is running.
+ *
+ * Visual design:
+ *   - SVG ring around the countdown text fills as time elapses,
+ *     so progress is readable at a glance without doing the mental
+ *     math from "27:14 of how long?".
+ *   - A sprout icon sits at the centre; past 60% completion it
+ *     swaps for a deciduous tree — a soft "your effort is growing
+ *     into something" cue without being preachy about it.
+ *   - The whole badge has a slow accent-purple glow that breathes
+ *     in and out (custom CSS keyframes — `animate-pulse` is too
+ *     aggressive for a calm focus mode).
  */
 export function FocusSessionBadge() {
   const active = useFocusStore((s) => s.active);
+  const startedAt = useFocusStore((s) => s.startedAt);
+  const endsAt = useFocusStore((s) => s.endsAt);
   const remainingMs = useFocusStore((s) => s.remainingMs);
   const extend = useFocusStore((s) => s.extend);
   const cancel = useFocusStore((s) => s.cancel);
 
-  if (!active) return null;
+  if (!active || !startedAt || !endsAt) return null;
+
+  const totalMs = Math.max(1, endsAt - startedAt);
+  const progress = Math.min(1, Math.max(0, 1 - remainingMs / totalMs));
+  const dashOffset = RING_CIRCUMFERENCE * (1 - progress);
+  // Past the halfway-and-then-some mark we swap the sprout icon for
+  // a small tree — same colour, same position, just a fuller silhouette.
+  const Grown = progress >= 0.6;
 
   return (
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-accent-purple/40 bg-bg-secondary/95 px-3 py-1.5 text-sm shadow-lg backdrop-blur-md"
+      className={cn(
+        "fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-accent-purple/40 bg-bg-secondary/95 px-3 py-1.5 text-sm shadow-lg backdrop-blur-md",
+        // Slow ambient glow — a 4s pulse on the box-shadow rather
+        // than the pre-baked Tailwind animate-pulse, which is way
+        // too snappy for a focus mode meant to feel calm.
+        "animate-[pnyxy-focus-glow_4s_ease-in-out_infinite]",
+      )}
     >
-      <Timer size={14} className="text-accent-purple" />
-      <span className="font-mono tabular-nums text-text-primary">
+      <div className="relative flex h-12 w-12 shrink-0 items-center justify-center">
+        {/* Progress ring. Rotated -90° so 0% starts at the top
+            (12 o'clock), increasing clockwise — the universal
+            countdown convention. */}
+        <svg
+          width="48"
+          height="48"
+          viewBox="0 0 48 48"
+          className="-rotate-90"
+          aria-hidden="true"
+        >
+          <circle
+            cx="24"
+            cy="24"
+            r={RING_RADIUS}
+            className="fill-none stroke-glass-border"
+            strokeWidth="3"
+          />
+          <circle
+            cx="24"
+            cy="24"
+            r={RING_RADIUS}
+            className="fill-none stroke-accent-purple transition-[stroke-dashoffset] duration-1000 ease-linear"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={RING_CIRCUMFERENCE}
+            strokeDashoffset={dashOffset}
+          />
+        </svg>
+        {Grown ? (
+          <TreeDeciduous
+            size={18}
+            className={cn(
+              "absolute text-green-500 transition-all duration-700",
+              progress >= 0.95 && "scale-110",
+            )}
+          />
+        ) : (
+          <Sprout
+            size={16}
+            className="absolute text-green-400/80 transition-all duration-700"
+            // Scale grows from 0.7 → 1.0 as we approach the 60% swap
+            // so the sprout looks like it's actually maturing.
+            style={{ transform: `scale(${0.7 + progress * 0.5})` }}
+          />
+        )}
+      </div>
+      <span className="min-w-[3.25rem] font-mono tabular-nums text-text-primary">
         {formatTime(remainingMs)}
       </span>
       <div className="mx-1 h-4 w-px bg-glass-border" />
