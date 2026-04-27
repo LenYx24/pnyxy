@@ -27,6 +27,7 @@ import {
   Bot,
   Paperclip,
   Image as ImageIcon,
+  Copy,
 } from "lucide-react";
 import { ConfirmModal, FloatingMenu, PromptModal } from "@/components/ui";
 import {
@@ -66,7 +67,12 @@ import type { ChatMessage, ChatMessageAttachment } from "@/types/chat";
 // roughly by Anthropic's per-request payload cap. Image-only for
 // v1; PDF / text upload would need server-side extraction or
 // provider-native file uploads, both deferred.
-const MAX_ATTACHMENTS = 4;
+//
+// Two limits: Default mode (free Pnyxy quota) caps to 1 image so
+// per-message cost stays predictable on the budget side. Direct
+// keys (Anthropic / OpenAI) — the user's own billing — go up to 4.
+const MAX_ATTACHMENTS_DIRECT = 4;
+const MAX_ATTACHMENTS_DEFAULT = 1;
 const MAX_ATTACHMENT_MB = 5;
 const MAX_ATTACHMENT_BYTES = MAX_ATTACHMENT_MB * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set([
@@ -211,6 +217,30 @@ export function ChatPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Per-conversation model picker. `null` means "Default" — the
+  // app uses its full configured fallback chain (Pnyxy first, then
+  // direct keys). Any other value is a strict pick — only that
+  // provider is tried, errors surface instead of silent fallback.
+  // Declared up here because the attachment cap below depends on it.
+  const enabledProviders = useSettingsStore((s) => s.enabledProviders);
+  const configuredProviders = useMemo(
+    () => getConfiguredProviders(),
+    // configuration changes when settings change — re-evaluate.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [enabledProviders],
+  );
+  const [selectedProvider, setSelectedProvider] = useState<AiProvider | null>(
+    () => null,
+  );
+  // If the user disables the picked provider, snap back to "Default"
+  // rather than hold a stale value that would either error or be
+  // silently ignored by the strict-mode resolver.
+  useEffect(() => {
+    if (selectedProvider && !configuredProviders.includes(selectedProvider)) {
+      setSelectedProvider(null);
+    }
+  }, [configuredProviders, selectedProvider]);
+
   // Pending image attachments — shown as cards above the textarea
   // until the user sends, at which point they're persisted with the
   // user message and forwarded as multimodal content to vision-
@@ -220,13 +250,22 @@ export function ChatPage() {
   >([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
+  // Effective per-message cap depends on routing. Default mode goes
+  // through the Pnyxy free quota and is capped to 1 image so the
+  // cost-per-message stays predictable; direct keys are user-paid
+  // and go up to 4.
+  const effectiveAttachmentCap =
+    selectedProvider === null ? MAX_ATTACHMENTS_DEFAULT : MAX_ATTACHMENTS_DIRECT;
+
   const handleAddFiles = useCallback(async (files: FileList | File[]) => {
     setAttachmentError(null);
     const incoming: ChatMessageAttachment[] = [];
     for (const file of Array.from(files)) {
-      if (incoming.length + pendingAttachments.length >= MAX_ATTACHMENTS) {
+      if (incoming.length + pendingAttachments.length >= effectiveAttachmentCap) {
         setAttachmentError(
-          t("chat.composer.attachments.tooMany", { max: MAX_ATTACHMENTS }),
+          t("chat.composer.attachments.tooMany", {
+            max: effectiveAttachmentCap,
+          }),
         );
         break;
       }
@@ -255,7 +294,7 @@ export function ChatPage() {
     if (incoming.length > 0) {
       setPendingAttachments((prev) => [...prev, ...incoming]);
     }
-  }, [pendingAttachments.length, t]);
+  }, [pendingAttachments.length, effectiveAttachmentCap, t]);
 
   const removeAttachment = (idx: number) => {
     setPendingAttachments((prev) => prev.filter((_, i) => i !== idx));
@@ -305,28 +344,8 @@ export function ChatPage() {
     el.style.height = `${Math.min(el.scrollHeight, max)}px`;
   }, [input]);
 
-  // Per-conversation model picker. `null` means "Default" — the
-  // app uses its full configured fallback chain (Pnyxy first, then
-  // direct keys). Any other value is a strict pick — only that
-  // provider is tried, errors surface instead of silent fallback.
-  const enabledProviders = useSettingsStore((s) => s.enabledProviders);
-  const configuredProviders = useMemo(
-    () => getConfiguredProviders(),
-    // configuration changes when settings change — re-evaluate.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enabledProviders],
-  );
-  const [selectedProvider, setSelectedProvider] = useState<AiProvider | null>(
-    () => null,
-  );
-  // If the user disables the picked provider, snap back to "Default"
-  // rather than hold a stale value that would either error or be
-  // silently ignored by the strict-mode resolver.
-  useEffect(() => {
-    if (selectedProvider && !configuredProviders.includes(selectedProvider)) {
-      setSelectedProvider(null);
-    }
-  }, [configuredProviders, selectedProvider]);
+  // selectedProvider + the attachment cap moved up to the top of
+  // the component body — the file picker logic depends on them.
 
   // Speech-to-text — appends finalized chunks to the textarea, leaves
   // partial / interim results dropped (could surface as a ghost line
@@ -459,12 +478,16 @@ export function ChatPage() {
     if (id) await openConversation(id);
   };
 
-  // Default mode (selectedProvider === null) routes through the
-  // Pnyxy proxy, which doesn't forward multimodal content yet.
-  // Block the send so the user gets a clear "pick a vision model"
-  // nudge instead of a server-side failure mid-stream.
+  // Default mode now supports up to 1 image per message (proxy
+  // forwards multimodal content, ~1600 tokens per image counted
+  // against the free quota). Anything beyond that needs a direct
+  // key — block the send instead of letting the user discover the
+  // limit mid-stream. The cap only matters when the picked
+  // provider is null; explicit picks have their own larger cap
+  // already enforced in handleAddFiles.
   const attachmentsBlocked =
-    pendingAttachments.length > 0 && selectedProvider === null;
+    selectedProvider === null &&
+    pendingAttachments.length > MAX_ATTACHMENTS_DEFAULT;
 
   const handleSend = async () => {
     const text = input.trim();
@@ -909,7 +932,7 @@ export function ChatPage() {
                       onClick={() => fileInputRef.current?.click()}
                       disabled={
                         streamingMessageId !== null ||
-                        pendingAttachments.length >= MAX_ATTACHMENTS
+                        pendingAttachments.length >= effectiveAttachmentCap
                       }
                       title={t("chat.composer.attachments.add")}
                       aria-label={t("chat.composer.attachments.add")}
@@ -1129,6 +1152,42 @@ function AttachmentCard({
         <X size={11} />
       </button>
     </div>
+  );
+}
+
+// ── Copy-to-clipboard button ────────────────────────────────
+
+/**
+ * Tiny inline button on assistant messages that copies the raw
+ * markdown content (not the rendered HTML — markdown copy is what
+ * users actually want for pasting back into editors / chats).
+ * Shows a 1.5s "Copied" confirmation; falls back to a manual prompt
+ * if the Clipboard API rejects (rare but happens in some private
+ * / iframe contexts).
+ */
+function CopyButton({ text }: { text: string }) {
+  const { t } = useTranslation();
+  const [copied, setCopied] = useState(false);
+  const handleClick = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard API blocked — extremely rare in our deploys, but
+      // surface the failure rather than silently swallowing it.
+      window.alert(t("chat.copy.failed"));
+    }
+  };
+  return (
+    <button
+      onClick={handleClick}
+      className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+      title={copied ? t("chat.copy.copied") : t("chat.copy.action")}
+    >
+      {copied ? <Check size={10} /> : <Copy size={10} />}
+      {copied ? t("chat.copy.copied") : t("chat.copy.action")}
+    </button>
   );
 }
 
@@ -1374,6 +1433,13 @@ function MessageBubble({
             <GitBranch size={10} />
             {t("chat.branchHere")}
           </button>
+          {/* Copy: assistant messages only (the user can already
+              re-read what they typed; copying their own message is
+              a niche need we can add later). Stays disabled while
+              streaming so we don't capture a partial response. */}
+          {!isUser && !isStreaming && msg.content.trim().length > 0 && (
+            <CopyButton text={msg.content} />
+          )}
           {/* Save-as-flashcards: only on assistant messages, only
               once the stream has finished (the extractor would just
               choke on a half-written passage). */}

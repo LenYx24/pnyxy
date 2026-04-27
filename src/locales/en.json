@@ -927,6 +927,11 @@
     "branchesCount_other": "{{count}} branches",
     "branchN": "Branch {{n}}",
     "branchingFrom": "Branching from: {{snippet}}",
+    "copy": {
+      "action": "Copy",
+      "copied": "Copied",
+      "failed": "Couldn't access the clipboard."
+    },
     "sourceContext": "From {{title}} · p.{{page}}",
     "openInReader": "Open in reader",
     "editingRoadmap": "Editing roadmap: {{title}}",
@@ -949,7 +954,7 @@
         "tooLarge": "Images must be under {{mb}}MB.",
         "unsupported": "Only JPEG, PNG, GIF, and WebP images are supported.",
         "readError": "Couldn't read that file.",
-        "needVisionModel": "Pick Claude Sonnet 4.5 or GPT-4o mini to send images. Default mode doesn't support attachments yet."
+        "needVisionModel": "Default mode supports 1 image per message. Pick Claude Sonnet 4.5 or GPT-4o mini for up to 4."
       }
     },
     "folders": {

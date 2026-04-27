@@ -59,6 +59,43 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
+/** Both OpenAI and Anthropic bill an attached image as roughly
+ *  this many tokens for a typical viewport-sized image (1024×1024
+ *  ≈ 1500–1700 tokens depending on detail level). Slight over-
+ *  estimate on purpose — better to bill conservatively than let a
+ *  multi-image message slip past the quota check. */
+const IMAGE_TOKEN_COST = 1600;
+
+function estimateMessageTokens(content: string | ContentBlock[]): number {
+  if (typeof content === "string") return estimateTokens(content);
+  let total = 0;
+  for (const block of content) {
+    if (block.type === "text") {
+      total += estimateTokens(block.text ?? "");
+    } else if (block.type === "image") {
+      total += IMAGE_TOKEN_COST;
+    }
+  }
+  return total;
+}
+
+/** Convert an Anthropic-shape content block to OpenAI's chat-
+ *  completions multimodal shape. Strings pass through unchanged. */
+function toOpenAiContent(
+  content: string | ContentBlock[],
+): string | Array<Record<string, unknown>> {
+  if (typeof content === "string") return content;
+  return content.map((block) => {
+    if (block.type === "text") {
+      return { type: "text", text: block.text };
+    }
+    // Anthropic { type:"image", source:{ type:"base64", media_type, data }}
+    // → OpenAI  { type:"image_url", image_url:{ url:"data:..." }}
+    const dataUri = `data:${block.source.media_type};base64,${block.source.data}`;
+    return { type: "image_url", image_url: { url: dataUri } };
+  });
+}
+
 async function hashIp(ip: string, salt: string): Promise<string> {
   const data = new TextEncoder().encode(`${salt}:${ip}`);
   const buf = await crypto.subtle.digest("SHA-256", data);
@@ -83,8 +120,24 @@ interface QuotaResult {
   request_limit: number;
 }
 
+/**
+ * Multimodal content block. Anthropic-shape on the wire — the
+ * frontend's toAnthropicChatContent already produces this layout,
+ * so it's natural to receive. We convert to OpenAI's image_url
+ * shape inside `tryOpenAi` when the OpenAI upstream is hit.
+ */
+type ContentBlock =
+  | { type: "text"; text: string }
+  | {
+      type: "image";
+      source: { type: "base64"; media_type: string; data: string };
+    };
+
 interface ChatRequestBody {
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  messages: Array<{
+    role: "user" | "assistant";
+    content: string | ContentBlock[];
+  }>;
   documentTitle: string;
   pageContext: string;
   /** Overrides the default PDF-Q&A system prompt (quiz generation etc.). */
@@ -110,6 +163,13 @@ interface ChatRequestBody {
 }
 
 function buildSystemPrompt(documentTitle: string, pageContext: string): string {
+  // No source document → generic chat assistant. Mirrors the
+  // frontend's ai-client.ts fix: the old PDF-Q&A framing was
+  // making the model refuse anything outside the (empty) document
+  // context, including image attachments.
+  if (!documentTitle.trim()) {
+    return `You are Pnyxy's helpful AI assistant. Answer questions clearly and concisely. When the user attaches images, describe or reason about them directly — don't claim you can't see them. Use markdown for code blocks, lists, and tables when it helps readability.`;
+  }
   return `You are an AI assistant helping the user understand a PDF document titled "${documentTitle}".
 
 Here is the text from the pages the user is currently viewing:
@@ -173,7 +233,15 @@ Deno.serve(async (req) => {
       estimateTokens(JSON.stringify(body.toolMessages ?? []))
     : estimateTokens(body.pageContext ?? "") +
       estimateTokens(body.systemPromptOverride ?? "") +
-      body.messages.reduce((sum, m) => sum + estimateTokens(m.content), 0) +
+      // estimateMessageTokens handles both legacy string content
+      // (length/4 like before) and multimodal arrays (~1600 per
+      // image). Without this, an image-bearing message would skip
+      // most of its cost in the quota pre-check and let users
+      // burn through the daily cap on big payloads.
+      body.messages.reduce(
+        (sum, m) => sum + estimateMessageTokens(m.content),
+        0,
+      ) +
       estimateTokens(body.documentTitle ?? "");
   const estimatedTotal = inputTokens + maxOutputTokens;
 
@@ -301,7 +369,13 @@ async function tryOpenAi(
         stream: true,
         messages: [
           { role: "system", content: systemPrompt },
-          ...messages,
+          // Convert any image blocks from Anthropic-shape (what
+          // the frontend sends) to OpenAI's image_url shape. Plain
+          // string contents pass through untouched.
+          ...messages.map((m) => ({
+            role: m.role,
+            content: toOpenAiContent(m.content),
+          })),
         ],
       }),
     });

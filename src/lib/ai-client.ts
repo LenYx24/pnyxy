@@ -216,6 +216,16 @@ function toOpenAiChatContent(message: ChatMessage) {
 }
 
 function buildSystemPrompt(documentTitle: string, pageContext: string) {
+  // No source document attached → generic chat assistant. The old
+  // "you are helping with a PDF" framing was leaking into the
+  // free-form /chat surface and steering the model to refuse
+  // anything outside the (empty) document context — including
+  // perfectly visible image attachments. Treat the empty-context
+  // case as plain conversation.
+  const hasDoc = documentTitle.trim().length > 0;
+  if (!hasDoc) {
+    return `You are Pnyxy's helpful AI assistant. Answer questions clearly and concisely. When the user attaches images, describe or reason about them directly — don't claim you can't see them. Use markdown for code blocks, lists, and tables when it helps readability.`;
+  }
   // The "[p.N]" hint is intentional — Pnyxy's chat renderer
   // post-processes that exact token into a clickable link back to
   // the reader at /reader/<docId>?page=N. Other formats (page 42,
@@ -353,13 +363,24 @@ async function* streamPnyxy(
     headers.Authorization = `Bearer ${accessToken}`;
   }
 
+  // Convert each message to its multimodal shape before posting so
+  // image attachments survive the trip through the proxy. Messages
+  // without attachments still serialize as plain strings (the
+  // converter returns m.content unchanged in that case), so the
+  // wire format stays backwards-compatible with older proxy
+  // deployments that haven't picked up multimodal support yet.
+  const proxyMessages = messages.map((m) => ({
+    role: m.role,
+    content: toAnthropicChatContent(m),
+  }));
+
   let response: Response;
   try {
     response = await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify({
-        messages,
+        messages: proxyMessages,
         documentTitle,
         pageContext,
         systemPromptOverride: options.systemPromptOverride,
