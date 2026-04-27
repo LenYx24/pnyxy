@@ -154,6 +154,11 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   const totalPages = doc?.totalPages ?? 0;
   const zoomMode = doc?.zoomMode ?? "fit-width";
   const zoomLevel = doc?.zoomLevel ?? 100;
+  // Transient CSS-only zoom multiplier for smooth pinch / button
+  // mash. When 1, no transform is applied (the canvas is already
+  // at the right resolution). Anything else is a "preview" that
+  // gets committed into zoomLevel via commitLiveZoom on touchend.
+  const liveZoomScale = doc?.liveZoomScale ?? 1;
   const scrollToPage = doc?.scrollToPage ?? null;
   // Throttle "report current scroll fraction to the store" so user
   // scrolling doesn't fire 60 state updates / sec.
@@ -588,12 +593,14 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       onScroll={handleScroll}
       data-pdf-viewer
       data-active-viewer
-      // touch-pan-y blocks the browser's native pinch-zoom on this
-      // element so our two-finger pinch handler (in the parent
-      // viewerRef) can drive setZoomLevel instead. Without this, on
-      // mobile the browser would zoom the layout viewport and our
-      // pinch listener would never get a chance to run.
-      className="h-full w-full touch-pan-y overflow-auto bg-bg-primary"
+      // touch-action: pan-x pan-y allows native scroll on BOTH
+      // axes (so a zoomed-in PDF can be panned horizontally with
+      // one finger like a map) while still blocking the browser's
+      // native pinch-zoom — pinch is `pinch-zoom`, not part of
+      // pan-*, so it stays disabled and our two-finger handler in
+      // the parent viewerRef can drive setLiveZoomScale instead.
+      style={{ touchAction: "pan-x pan-y" }}
+      className="h-full w-full overflow-auto bg-bg-primary"
     >
       <Document
         file={meta.fileUrl}
@@ -616,6 +623,21 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
             position: "relative",
             width: zoomMode === "fit-page" ? "100%" : effectivePageWidth,
             margin: "0 auto",
+            // CSS-only "live" zoom — applied during pinch / rapid
+            // button mash. The canvas underneath stays at the
+            // already-rasterised resolution; this transform just
+            // scales the rendered pixels visually. transform-origin
+            // top center keeps the page anchored above-the-fold so
+            // the user doesn't lose their place when pinching.
+            // Once the gesture ends, commitLiveZoom() rolls the
+            // multiplier back into zoomLevel and react-pdf
+            // re-rasterises crisply for the new scale — exactly
+            // once, instead of once per touchmove event.
+            transform: liveZoomScale !== 1 ? `scale(${liveZoomScale})` : undefined,
+            transformOrigin: liveZoomScale !== 1 ? "top center" : undefined,
+            // Hint the compositor so the transform runs on the GPU
+            // and stays buttery smooth on mobile WebKit.
+            willChange: liveZoomScale !== 1 ? "transform" : undefined,
           }}
         >
           {renderedPages.map((pageNum) => (

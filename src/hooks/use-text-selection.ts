@@ -128,32 +128,36 @@ export function useTextSelection(
     };
 
     // Mobile path. Selection on touch devices completes on touchend
-    // rather than mouseup; long-press → drag-to-extend → release. The
-    // selection state may not be settled at touchend time, so peek
-    // again on the next frame.
+    // rather than mouseup; long-press → drag-to-extend → release.
+    //
+    // Was: blanket double-rAF wait so the selection state had a
+    // guaranteed two frames to settle. That added ~33ms of dead time
+    // even on platforms where the selection is already ready at
+    // touchend. Now: try synchronously first (zero delay common case),
+    // fall back to a single rAF only if nothing's there yet — covers
+    // the platforms where selectionchange lands one tick after
+    // touchend without penalising everyone else.
     const handleTouchEnd = (e: TouchEvent) => {
       const touch = e.changedTouches[0];
       if (!touch) return;
       const x = touch.clientX;
       const y = touch.clientY;
-      // selectionchange fires before touchend on some platforms, but
-      // on others the selection is finalised in the next tick. A
-      // double-rAF makes both cases work.
+
+      const tryShow = () => {
+        const data = getSelectionData();
+        const highlightId = findHighlightAtPoint(x, y);
+        if (data || highlightId) {
+          useAnnotationStore
+            .getState()
+            .showContextMenu(x, y, data?.selection ?? null, highlightId);
+          return true;
+        }
+        return false;
+      };
+
+      if (tryShow()) return;
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const data = getSelectionData();
-          const highlightId = findHighlightAtPoint(x, y);
-          if (data || highlightId) {
-            useAnnotationStore
-              .getState()
-              .showContextMenu(
-                x,
-                y,
-                data?.selection ?? null,
-                highlightId,
-              );
-          }
-        });
+        tryShow();
       });
     };
 

@@ -326,43 +326,50 @@ function MobileReaderLayout({
   const activeDoc = useReaderStore((s) => s.getActiveDoc());
   const nextPage = useReaderStore((s) => s.nextPage);
   const prevPage = useReaderStore((s) => s.prevPage);
-  const setZoomLevel = useReaderStore((s) => s.setZoomLevel);
+  const setLiveZoomScale = useReaderStore((s) => s.setLiveZoomScale);
+  const commitLiveZoom = useReaderStore((s) => s.commitLiveZoom);
   const isPaginated = activeDoc?.meta.capabilities.paginated ?? false;
+  // Once the user picks a custom zoom (pinch-in past fit-width
+  // typically), the page is wider than the viewport and they want
+  // to pan with their finger like a map. Swipe-to-turn-page would
+  // fight that, so we silence it for the custom-zoom case. At
+  // fit-width / fit-page (the default modes) horizontal swipes
+  // still flip pages — natural for at-a-glance reading.
+  const isZoomedIn = activeDoc?.zoomMode === "custom";
 
   const viewerRef = useRef<HTMLDivElement>(null);
-  const pinchBaseZoomRef = useRef(0);
 
   const { wasJustGestureRef } = useMobileReaderGestures({
     targetRef: viewerRef,
-    enableSwipe: isPaginated && mobileReaderPanel === "none",
+    enableSwipe:
+      isPaginated && mobileReaderPanel === "none" && !isZoomedIn,
     enablePinch: mobileReaderPanel === "none",
     onSwipeLeft: nextPage,
     onSwipeRight: prevPage,
+    // Pinch updates a CSS-only multiplier on every move — no
+    // canvas re-rasterisation while the fingers are still down.
+    // The actual zoomLevel is committed once on touchend below.
     onPinch: useCallback(
       (scale: number) => {
-        if (pinchBaseZoomRef.current === 0) {
-          pinchBaseZoomRef.current =
-            useReaderStore.getState().getActiveDoc()?.zoomLevel ?? 100;
-        }
-        setZoomLevel(pinchBaseZoomRef.current * scale);
+        setLiveZoomScale(scale);
       },
-      [setZoomLevel],
+      [setLiveZoomScale],
     ),
   });
 
-  // Reset the pinch baseline whenever no pinch is in progress. A
-  // fresh baseline is captured on the next onPinch call.
+  // On gesture end, roll the live CSS scale into the real
+  // zoomLevel — triggers exactly one canvas re-render at the
+  // final resolution. Without this commit step the user would
+  // see a blurry preview indefinitely.
   useEffect(() => {
-    const clear = () => {
-      pinchBaseZoomRef.current = 0;
-    };
-    window.addEventListener("touchend", clear);
-    window.addEventListener("touchcancel", clear);
+    const commit = () => commitLiveZoom();
+    window.addEventListener("touchend", commit);
+    window.addEventListener("touchcancel", commit);
     return () => {
-      window.removeEventListener("touchend", clear);
-      window.removeEventListener("touchcancel", clear);
+      window.removeEventListener("touchend", commit);
+      window.removeEventListener("touchcancel", commit);
     };
-  }, []);
+  }, [commitLiveZoom]);
 
   const handleViewerTap = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {

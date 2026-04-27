@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { createPortal } from "react-dom";
@@ -147,10 +153,11 @@ export function AnnotationContextMenu() {
   const selectedText =
     contextMenu.selection?.text ?? highlight?.selection.text ?? "";
 
-  // Clamp menu position to viewport
+  // Reset sub-states when menu opens. Plain effect — these are
+  // independent of layout measurements, so they don't need to run
+  // synchronously before paint.
   useEffect(() => {
     if (!contextMenu.visible) return;
-    // Reset sub-states when menu opens
     setShowCommentInput(false);
     setShowColorChange(false);
     setShowTranslate(false);
@@ -161,22 +168,27 @@ export function AnnotationContextMenu() {
     setDefinition(null);
     setDefineError("");
     setCapturedVocabId(null);
+  }, [contextMenu.visible, contextMenu.x, contextMenu.y]);
 
-    // Position after a tick so the ref is populated
-    requestAnimationFrame(() => {
-      const el = menuRef.current;
-      if (!el) {
-        setMenuPos({ x: contextMenu.x, y: contextMenu.y + 8 });
-        return;
-      }
-      const rect = el.getBoundingClientRect();
-      const x = Math.min(contextMenu.x, window.innerWidth - rect.width - 8);
-      const y = Math.min(
-        contextMenu.y + 8,
-        window.innerHeight - rect.height - 8,
-      );
-      setMenuPos({ x: Math.max(8, x), y: Math.max(8, y) });
-    });
+  // Position the menu before paint so it never appears at the
+  // touch-point and then jumps. useLayoutEffect runs after the
+  // ref is populated but before the browser paints — same effect
+  // as a requestAnimationFrame here, ~16ms faster on the user's
+  // perceived latency since they don't see an unflipped frame.
+  useLayoutEffect(() => {
+    if (!contextMenu.visible) return;
+    const el = menuRef.current;
+    if (!el) {
+      setMenuPos({ x: contextMenu.x, y: contextMenu.y + 8 });
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const x = Math.min(contextMenu.x, window.innerWidth - rect.width - 8);
+    const y = Math.min(
+      contextMenu.y + 8,
+      window.innerHeight - rect.height - 8,
+    );
+    setMenuPos({ x: Math.max(8, x), y: Math.max(8, y) });
   }, [contextMenu.visible, contextMenu.x, contextMenu.y]);
 
   // Re-clamp when translate panel opens/closes (menu size changes)
