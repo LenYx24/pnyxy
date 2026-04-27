@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Palette, Plus } from "lucide-react";
+import { Library as LibraryIcon, Palette, Plus } from "lucide-react";
+import { Slider } from "@/components/ui";
 import { useSettingsStore } from "@/stores/settings-store";
 import { CORE_THEMES } from "@/lib/themes";
 import type { Theme } from "@/lib/themes";
 import { ThemeCard } from "../ThemeCard";
 import { BrowseCommunityModal } from "../BrowseCommunityModal";
+import { useLibraryPrefs } from "@/features/library/useLibraryPrefs";
 
 export function AppearanceTab() {
   const { t } = useTranslation();
@@ -13,6 +15,11 @@ export function AppearanceTab() {
   const installedThemes = useSettingsStore((s) => s.installedThemes);
   const setActiveTheme = useSettingsStore((s) => s.setActiveTheme);
   const uninstallTheme = useSettingsStore((s) => s.uninstallTheme);
+
+  // Library cover size used to live in the library toolbar; moved
+  // here because users set it once and don't want it taking up
+  // header space on the actual library.
+  const { cardSize, setCardSize } = useLibraryPrefs();
 
   const [browseOpen, setBrowseOpen] = useState(false);
 
@@ -83,6 +90,28 @@ export function AppearanceTab() {
       {browseOpen && (
         <BrowseCommunityModal mode="themes" onClose={() => setBrowseOpen(false)} />
       )}
+
+      <div className="border-t border-glass-border pt-4">
+        <div className="mb-2 flex items-center gap-2">
+          <LibraryIcon size={16} className="text-accent-purple" />
+          <h3 className="text-sm font-semibold text-text-primary">
+            {t("settings.appearanceSection.library.heading")}
+          </h3>
+        </div>
+        <p className="mb-3 text-xs text-text-muted">
+          {t("settings.appearanceSection.library.coverSizeHelp")}
+        </p>
+        <Slider
+          value={cardSize}
+          onChange={setCardSize}
+          min={140}
+          max={320}
+          step={10}
+          label={t("settings.appearanceSection.library.coverSize", {
+            value: cardSize,
+          })}
+        />
+      </div>
     </section>
   );
 }

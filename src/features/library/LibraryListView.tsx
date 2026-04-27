@@ -873,6 +873,11 @@ export function LibraryListView({
         <div className="w-7 shrink-0" />
       </div>
 
+      {/* "+ New folder" row — sits at the head of the list as the
+          inline create affordance, matching the dashed tile in the
+          grid view. */}
+      {onCreateRootFolder && <CreateFolderRow onClick={onCreateRootFolder} />}
+
       {/* Folders */}
       {folders.map((folder) => {
         const childFolders = allFolders.filter(
@@ -958,5 +963,29 @@ function LibraryListContainer({
     >
       {children}
     </div>
+  );
+}
+
+/**
+ * Inline "create folder" row — the list-view counterpart to the
+ * dashed tile in the grid view. Same affordance, different layout.
+ */
+function CreateFolderRow({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={t("library.allBooks.newFolder")}
+      className={cn(
+        "group flex w-full items-center gap-2 border-b border-dashed border-glass-border px-2 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer sm:px-3",
+      )}
+    >
+      <FolderPlus
+        size={16}
+        className="text-text-muted group-hover:text-accent-purple"
+      />
+      <span>{t("library.allBooks.newFolder")}</span>
+    </button>
   );
 }

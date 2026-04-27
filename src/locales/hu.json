@@ -17,8 +17,10 @@
     "exit": "Kilépés",
     "yes": "Igen",
     "no": "Nem",
+    "ok": "OK",
     "expand": "Kibontás",
-    "collapse": "Összecsukás"
+    "collapse": "Összecsukás",
+    "requiredField": "Ez a mező nem lehet üres."
   },
   "sidebar": {
     "home": "Kezdőlap",
@@ -163,7 +165,12 @@
       "description": "Válassz egy témát. Közösségi témák is telepíthetők; a váltás azonnali és munkamenetek között is megmarad.",
       "coreThemes": "Alap témák",
       "installedThemes": "Telepített témák",
-      "browseCommunity": "Közösségi témák böngészése"
+      "browseCommunity": "Közösségi témák böngészése",
+      "library": {
+        "heading": "Könyvtár",
+        "coverSize": "Borító méret — {{value}}px",
+        "coverSizeHelp": "Mekkorák legyenek a könyvborítók a Könyvtár rács nézetében."
+      }
     },
     "aboutSection": {
       "heading": "Rólunk",
@@ -929,11 +936,21 @@
     },
     "composer": {
       "modelLabel": "Modell",
+      "modelDefault": "Alapértelmezett",
+      "modelDefaultSubtitle": "Automatikus — Pnyxy ingyenes keret elsőként",
       "listeningPlaceholder": "Figyelek… beszélj most",
       "startListening": "Diktálás (mikrofon)",
       "stopListening": "Diktálás leállítása",
       "micDenied": "A mikrofon hozzáférés le van tiltva",
-      "micError": "Nem sikerült rögzíteni a hangot"
+      "micError": "Nem sikerült rögzíteni a hangot",
+      "attachments": {
+        "add": "Kép csatolása",
+        "tooMany": "Üzenetenként legfeljebb {{max}} kép csatolható.",
+        "tooLarge": "A képek nem lehetnek nagyobbak {{mb}}MB-nál.",
+        "unsupported": "Csak JPEG, PNG, GIF és WebP képek támogatottak.",
+        "readError": "Nem sikerült beolvasni a fájlt.",
+        "needVisionModel": "Válaszd a Claude Sonnet 4.5 vagy GPT-4o mini modellt képek küldéséhez. Az Alapértelmezett mód még nem támogatja a csatolmányokat."
+      }
     },
     "folders": {
       "create": "Új mappa",

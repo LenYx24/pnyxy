@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Search, LayoutGrid, List, X, RefreshCw, SlidersHorizontal } from "lucide-react";
-import { Slider } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useIsMobile } from "@/hooks/use-media-query";
 import type { ViewMode } from "./useLibraryPrefs";
@@ -11,8 +10,6 @@ interface LibraryToolbarProps {
   onSearchChange: (query: string) => void;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
-  cardSize: number;
-  onCardSizeChange: (size: number) => void;
   onRefresh: () => void;
   isRefreshing: boolean;
   /** Mobile-only: parent-owned expand state so the toolbar toggle also
@@ -26,8 +23,6 @@ export function LibraryToolbar({
   onSearchChange,
   viewMode,
   onViewModeChange,
-  cardSize,
-  onCardSizeChange,
   onRefresh,
   isRefreshing,
   mobileControlsExpanded = false,
@@ -107,20 +102,9 @@ export function LibraryToolbar({
         </button>
       </div>
 
-      {/* Size slider — hidden on small screens */}
-      <div
-        className="hidden shrink-0 items-center sm:flex"
-        title={t("library.toolbar.coverSizeTitle")}
-      >
-        <Slider
-          value={cardSize}
-          onChange={onCardSizeChange}
-          min={140}
-          max={320}
-          step={10}
-          label={t("library.toolbar.coverSizeLabel")}
-        />
-      </div>
+      {/* The cover-size slider used to live here; it's now in
+          Settings → Appearance → Library so the toolbar isn't
+          carrying a control most users set once and forget. */}
     </>
   );
 

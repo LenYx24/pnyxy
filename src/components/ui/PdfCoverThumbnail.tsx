@@ -12,22 +12,25 @@ interface PdfCoverThumbnailProps {
   storagePath: string;
   className?: string;
   fallbackLetter?: string;
-  height?: number;
 }
 
+/**
+ * Renders the first page of a stored PDF as a cover thumbnail. The
+ * component always fills its parent (h-full w-full) so the parent
+ * controls sizing — drop it inside an `aspect-[2/3]` container and
+ * the thumbnail will sit flush at all card sizes. This is what fixes
+ * the old mobile bug where a hard-coded `height` prop left the
+ * cover stranded as a small block at the top of a tall card.
+ */
 export function PdfCoverThumbnail({
   storagePath,
   className,
   fallbackLetter = "?",
-  height,
 }: PdfCoverThumbnailProps) {
   const [url, setUrl] = useState<string | null>(
     signedUrlCache.get(storagePath) ?? null,
   );
   const [error, setError] = useState(false);
-
-  const heightStyle = height ? { height } : undefined;
-  const heightClass = height ? undefined : "h-48";
 
   useEffect(() => {
     if (url) return;
@@ -64,21 +67,16 @@ export function PdfCoverThumbnail({
     return (
       <div
         className={cn(
-          "flex items-center justify-center bg-gradient-to-br from-accent-purple/30 to-accent-blue/30",
-          heightClass,
+          "flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-purple/30 to-accent-blue/30",
           className,
         )}
-        style={heightStyle}
       >
         {error ? (
           <span className="text-4xl font-bold text-white/20">
             {fallbackLetter}
           </span>
         ) : (
-          <div
-            className={cn("w-full animate-pulse bg-glass-bg", heightClass)}
-            style={heightStyle}
-          />
+          <div className="h-full w-full animate-pulse bg-glass-bg" />
         )}
       </div>
     );
@@ -90,18 +88,18 @@ export function PdfCoverThumbnail({
       options={documentOptions}
       loading={
         <div
-          className={cn("w-full animate-pulse bg-glass-bg", heightClass, className)}
-          style={heightStyle}
+          className={cn(
+            "h-full w-full animate-pulse bg-glass-bg",
+            className,
+          )}
         />
       }
       error={
         <div
           className={cn(
-            "flex items-center justify-center bg-gradient-to-br from-accent-purple/30 to-accent-blue/30",
-            heightClass,
+            "flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-purple/30 to-accent-blue/30",
             className,
           )}
-          style={heightStyle}
         >
           <span className="text-4xl font-bold text-white/20">
             {fallbackLetter}
@@ -109,26 +107,20 @@ export function PdfCoverThumbnail({
         </div>
       }
     >
-      <div
-        className={cn(
-          "w-full overflow-hidden",
-          heightClass,
-          className,
-        )}
-        style={heightStyle}
-      >
+      {/* The Page renders at a fixed pixel width so react-pdf can
+          rasterize a sharp canvas; the wrapper then scales it down
+          via [&_canvas]:h-full and object-cover so the canvas covers
+          the whole parent (h-full w-full). 300px width is a balance
+          between sharpness on retina and not blowing up the worker
+          render time. */}
+      <div className={cn("h-full w-full overflow-hidden", className)}>
         <Page
           pageNumber={1}
           width={300}
           renderTextLayer={false}
           renderAnnotationLayer={false}
-          className="w-full [&_canvas]:w-full [&_canvas]:object-cover"
-          loading={
-            <div
-              className={cn("w-full animate-pulse bg-glass-bg", heightClass)}
-              style={heightStyle}
-            />
-          }
+          className="h-full w-full [&_canvas]:h-full [&_canvas]:w-full [&_canvas]:object-cover"
+          loading={<div className="h-full w-full animate-pulse bg-glass-bg" />}
         />
       </div>
     </Document>

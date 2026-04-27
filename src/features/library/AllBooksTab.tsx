@@ -35,11 +35,12 @@ import {
   Folder,
   Loader2,
 } from "lucide-react";
-import { Button, GlassCard, Kbd } from "@/components/ui";
+import { Button, GlassCard } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useLibraryStore } from "@/stores/library-store";
 import { useTagStore } from "@/stores/tag-store";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
+import { useIsMobile } from "@/hooks/use-media-query";
 import { formatShortcut } from "@/lib/keyboard-shortcuts";
 import { FolderCard } from "./FolderCard";
 import { LibraryBookCard } from "./LibraryBookCard";
@@ -82,6 +83,7 @@ export function AllBooksTab({
 }: AllBooksTabProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const currentFolderId = useLibraryStore((s) => s.currentFolderId);
   const folderPath = useLibraryStore((s) => s.folderPath);
   const folders = useLibraryStore((s) => s.folders);
@@ -338,7 +340,12 @@ export function AllBooksTab({
   });
 
   const isEmpty = filteredFolders.length === 0 && filteredBooks.length === 0;
-  const coverHeight = Math.round(cardSize * 0.6);
+  // On mobile the desktop cardSize default (200px) means a single
+  // column and a giant 300px-tall cover per row. Clamp the grid's
+  // floor to ~130px so two cards fit on a 375px viewport — matches
+  // how Apple Books / Readwise lay out on phones.
+  const effectiveCardSize = isMobile ? Math.min(cardSize, 130) : cardSize;
+  const coverHeight = Math.round(effectiveCardSize * 0.6);
 
   // List view is a strict vertical stack, so pin the drag transform
   // to the Y axis — eliminates horizontal drift that the user almost
@@ -377,34 +384,44 @@ export function AllBooksTab({
       >
       {/* Toolbar: Breadcrumbs + Actions */}
       <div className="mb-4 flex items-center justify-between gap-2">
-        {/* Breadcrumbs — non-current crumbs are drop targets, so the
-            user can drag a folder/book onto any ancestor level
-            (including "Library" root) to move it there. */}
-        <nav className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm">
-          <BreadcrumbDropTarget
-            dropId="breadcrumb:root"
-            onClick={() => navigateToFolder(null)}
-          >
-            {t("library.allBooks.breadcrumbRoot")}
-          </BreadcrumbDropTarget>
-          {folderPath.map((folder, i) => (
-            <span key={folder.id} className="flex items-center gap-1">
-              <ChevronRight size={14} className="text-text-muted" />
-              {i === folderPath.length - 1 ? (
-                <span className="font-medium text-text-primary">
-                  {folder.name}
-                </span>
-              ) : (
-                <BreadcrumbDropTarget
-                  dropId={`breadcrumb:${folder.id}`}
-                  onClick={() => navigateToFolder(folder.id)}
-                >
-                  {folder.name}
-                </BreadcrumbDropTarget>
-              )}
-            </span>
-          ))}
-        </nav>
+        {/* Breadcrumbs — only rendered when the user has navigated
+            into a subfolder. At the library root the page title
+            already says "Library", so a single redundant crumb just
+            adds noise. Once inside a folder, the leading "Library"
+            crumb is useful again for jumping back to root. Each
+            non-current crumb is a drop target, so the user can drag
+            a folder/book onto any ancestor level to move it there. */}
+        {folderPath.length > 0 ? (
+          <nav className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm">
+            <BreadcrumbDropTarget
+              dropId="breadcrumb:root"
+              onClick={() => navigateToFolder(null)}
+            >
+              {t("library.allBooks.breadcrumbRoot")}
+            </BreadcrumbDropTarget>
+            {folderPath.map((folder, i) => (
+              <span key={folder.id} className="flex items-center gap-1">
+                <ChevronRight size={14} className="text-text-muted" />
+                {i === folderPath.length - 1 ? (
+                  <span className="font-medium text-text-primary">
+                    {folder.name}
+                  </span>
+                ) : (
+                  <BreadcrumbDropTarget
+                    dropId={`breadcrumb:${folder.id}`}
+                    onClick={() => navigateToFolder(folder.id)}
+                  >
+                    {folder.name}
+                  </BreadcrumbDropTarget>
+                )}
+              </span>
+            ))}
+          </nav>
+        ) : (
+          // Empty spacer so the right-side actions stay right-aligned
+          // by `flex justify-between` on the parent.
+          <span />
+        )}
 
         <div className="flex shrink-0 items-center gap-2">
           {/* Go to parent */}
@@ -424,21 +441,11 @@ export function AllBooksTab({
             </Button>
           )}
 
-          <Button
-            variant="secondary"
-            className="gap-1.5 px-3 py-1.5 text-xs sm:text-sm"
-            onClick={handleCreateFolder}
-            title={t("library.allBooks.newFolderTitle", {
-              shortcut: formatShortcut({ key: "f", ctrl: true, shift: true }),
-            })}
-          >
-            <FolderPlus size={16} />
-            <span>{t("library.allBooks.newFolder")}</span>
-            <Kbd
-              shortcut={{ key: "f", ctrl: true, shift: true }}
-              className="ml-1 hidden lg:inline-flex"
-            />
-          </Button>
+          {/* The "New folder" button used to live here. It's now an
+              inline tile/row inside the grid and list views — the
+              user creates a folder where folders live, not from a
+              header button. The Ctrl+Shift+F shortcut is still
+              wired in case keyboard users want it. */}
         </div>
       </div>
 
@@ -513,9 +520,16 @@ export function AllBooksTab({
               <div
                 className="grid gap-4"
                 style={{
-                  gridTemplateColumns: `repeat(auto-fill, minmax(min(${cardSize}px, 100%), 1fr))`,
+                  gridTemplateColumns: `repeat(auto-fill, minmax(min(${effectiveCardSize}px, 100%), 1fr))`,
                 }}
               >
+                {/* Persistent "create folder" affordance — sits at
+                    the head of the grid as a dashed-border tile,
+                    same dimensions as the surrounding cards. Not
+                    part of the SortableContext: it's a stable
+                    action, not a draggable item. */}
+                <CreateFolderTile onClick={handleCreateFolder} />
+
                 {/* Render in orderedKeys order so a DnD reorder (which may
                     interleave folders and books) is reflected visually. */}
                 {orderedKeys.map((key) => {
@@ -648,6 +662,46 @@ export function AllBooksTab({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Grid-view "create folder" tile. Replaces the header button — the
+ * action lives where the user is already looking. Same 2:3 aspect
+ * + label block as the book/folder cards so it lays out cleanly in
+ * the grid; dashed border hints at "tap to create" without trying
+ * to imitate a real folder.
+ */
+function CreateFolderTile({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={t("library.allBooks.newFolder")}
+      className={cn(
+        "group flex w-full flex-col text-left transition-transform",
+        "cursor-pointer focus:outline-none",
+      )}
+    >
+      <div
+        className={cn(
+          "relative flex aspect-[2/3] w-full items-center justify-center overflow-hidden rounded-md",
+          "border-2 border-dashed border-glass-border bg-glass-bg/30",
+          "transition-colors group-hover:border-accent-purple/60 group-hover:bg-accent-purple/5",
+        )}
+      >
+        <FolderPlus
+          size={28}
+          className="text-text-muted transition-colors group-hover:text-accent-purple"
+        />
+      </div>
+      <div className="mt-2 min-w-0">
+        <h3 className="truncate text-sm font-medium text-text-secondary group-hover:text-text-primary">
+          {t("library.allBooks.newFolder")}
+        </h3>
+      </div>
+    </button>
   );
 }
 

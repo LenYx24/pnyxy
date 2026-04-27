@@ -136,10 +136,12 @@ export function LibraryBookCard({
                 className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
               />
             ) : entry.source === "uploaded" ? (
+              // Thumbnail fills the aspect-[2/3] parent — that's what
+              // makes uploaded covers actually cover the card on
+              // mobile, instead of a small block stranded at the top.
               <PdfCoverThumbnail
                 storagePath={entry.book.storage_path}
                 fallbackLetter={title.charAt(0)}
-                height={coverHeight}
               />
             ) : (
               <div className="flex h-full items-center justify-center bg-gradient-to-br from-accent-purple/25 to-accent-blue/25">

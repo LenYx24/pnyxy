@@ -57,7 +57,7 @@ export function LibraryPage() {
   const user = useAuthStore((s) => s.user);
 
   // View preferences
-  const { viewMode, cardSize, setViewMode, setCardSize, sortOrders, setSortOrder } = useLibraryPrefs();
+  const { viewMode, cardSize, setViewMode, sortOrders, setSortOrder } = useLibraryPrefs();
 
   // Search
   const [searchQuery, setSearchQuery] = useState("");
@@ -367,8 +367,12 @@ export function LibraryPage() {
   const isUploaded = removeEntry?.source === "uploaded";
 
   return (
+    // flex-col + min-h-full lets the mini-footer's `mt-auto` push
+    // it to the bottom of the available height — content stays at
+    // the top, footer pins to the bottom even when there are only
+    // a few books to show.
     <div
-      className="relative"
+      className="relative flex min-h-full flex-col"
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -457,17 +461,6 @@ export function LibraryPage() {
             </h2>
             <StreakPill />
           </div>
-          <p className="text-sm text-text-secondary">
-            {t("library.bookCount", { count: books.length })}
-          </p>
-          {storageUsage && (
-            <StorageUsageBar
-              usedBytes={storageUsage.usedBytes}
-              limitBytes={storageUsage.limitBytes}
-              tier={storageUsage.tier}
-              className="mt-2 max-w-xs"
-            />
-          )}
         </div>
         {/* Action row — primary "Upload" lives at the top level
             because that's the high-frequency action; the rest
@@ -493,14 +486,13 @@ export function LibraryPage() {
         />
       </div>
 
-      {/* Toolbar: search, view toggle, size slider */}
+      {/* Toolbar: search + view toggle. Cover size moved to
+          Settings → Appearance to keep the toolbar focused. */}
       <LibraryToolbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        cardSize={cardSize}
-        onCardSizeChange={setCardSize}
         onRefresh={handleRefresh}
         isRefreshing={isLoading}
         mobileControlsExpanded={mobileControlsExpanded}
@@ -530,6 +522,21 @@ export function LibraryPage() {
         setSortOrder={setSortOrder}
         isLoading={isLoading}
       />
+
+      {/* Bottom info row — book count + storage usage. Pinned to
+          the page bottom via `mt-auto` so nothing renders below it,
+          regardless of how few books the user has. */}
+      <div className="mt-auto flex flex-col gap-1.5 border-t border-glass-border pt-4 text-xs text-text-muted">
+        <p>{t("library.bookCount", { count: books.length })}</p>
+        {storageUsage && (
+          <StorageUsageBar
+            usedBytes={storageUsage.usedBytes}
+            limitBytes={storageUsage.limitBytes}
+            tier={storageUsage.tier}
+            className="max-w-xs"
+          />
+        )}
+      </div>
 
       {/* Selection action bar */}
       <SelectionBar

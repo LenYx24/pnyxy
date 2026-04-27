@@ -23,6 +23,7 @@ import type {
   ChatConversation,
   ChatFolder,
   ChatMessage,
+  ChatMessageAttachment,
 } from "@/types/chat";
 
 // ── Store ─────────────────────────────────────────────────
@@ -104,8 +105,14 @@ interface ChatState {
   /** Append a new user message to the current active leaf, then stream
    *  the assistant's reply. Both are persisted. The optional
    *  `preferredProvider` overrides the saved provider chain order
-   *  for this single message — used by the composer's model picker. */
-  sendMessage: (text: string, preferredProvider?: AiProvider) => Promise<void>;
+   *  for this single message — used by the composer's model picker.
+   *  `attachments` are stored alongside the user message and sent as
+   *  multimodal content to providers that support vision. */
+  sendMessage: (
+    text: string,
+    preferredProvider?: AiProvider,
+    attachments?: ChatMessageAttachment[],
+  ) => Promise<void>;
 
   /** Create a new user message whose parent is `parentMessageId` (can
    *  be any message in the conversation — that's the "branch from
@@ -114,6 +121,7 @@ interface ChatState {
     parentMessageId: string,
     text: string,
     preferredProvider?: AiProvider,
+    attachments?: ChatMessageAttachment[],
   ) => Promise<void>;
 }
 
@@ -297,7 +305,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .eq("id", activeConversationId);
   },
 
-  async sendMessage(text, preferredProvider) {
+  async sendMessage(text, preferredProvider, attachments) {
     const { activeConversationId, activeLeafId } = get();
     if (!activeConversationId) return;
     await sendOrBranch(
@@ -305,12 +313,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       activeLeafId,
       text,
       preferredProvider,
+      attachments,
       set,
       get,
     );
   },
 
-  async branchFrom(parentMessageId, text, preferredProvider) {
+  async branchFrom(parentMessageId, text, preferredProvider, attachments) {
     const { activeConversationId } = get();
     if (!activeConversationId) return;
     await sendOrBranch(
@@ -318,6 +327,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       parentMessageId,
       text,
       preferredProvider,
+      attachments,
       set,
       get,
     );
@@ -524,11 +534,16 @@ async function sendOrBranch(
   parentId: string | null,
   text: string,
   preferredProvider: AiProvider | undefined,
+  attachments: ChatMessageAttachment[] | undefined,
   set: (partial: Partial<ChatState> | ((s: ChatState) => Partial<ChatState>)) => void,
   get: () => ChatState,
 ) {
   const trimmed = text.trim();
-  if (!trimmed) return;
+  // A message is valid if it has either text OR at least one
+  // attachment — sending just an image with "describe this" worth
+  // of intent should work. Empty text + no attachments is a no-op.
+  const hasAttachments = !!attachments && attachments.length > 0;
+  if (!trimmed && !hasAttachments) return;
 
   // 1. Insert the user message.
   const { data: userRow, error: userErr } = await supabase
@@ -538,6 +553,7 @@ async function sendOrBranch(
       parent_message_id: parentId,
       role: "user",
       content: trimmed,
+      attachments: hasAttachments ? attachments : null,
     })
     .select()
     .single();
@@ -562,12 +578,15 @@ async function sendOrBranch(
   }
 
   // 2. Build the prompt path from the root up to and including the new user msg.
+  // Carry attachments through on each user turn so older messages
+  // with images still send their images on a re-stream / branch.
   const path = pathFromRoot(get().messages, userMsg.id);
   const promptMessages = path
     .filter((m) => m.role === "user" || m.role === "assistant")
     .map((m) => ({
       role: m.role as "user" | "assistant",
       content: m.content,
+      attachments: m.attachments ?? undefined,
     }));
 
   // 3. Insert an empty assistant message we'll stream into.

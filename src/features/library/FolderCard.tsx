@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Folder, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Checkbox, FloatingMenu, GlassCard } from "@/components/ui";
+import { Checkbox, FloatingMenu } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { Folder as FolderType } from "@/types/database";
 
@@ -47,9 +47,11 @@ export function FolderCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const selKey = `folder:${folder.id}`;
+  // coverHeight is now only used as a hint for icon scaling — the
+  // icon container itself is sized via aspect-[2/3] w-full to match
+  // LibraryBookCard exactly. The actual rendered height comes from
+  // the grid cell width × 1.5, same formula books use.
   const iconSize = Math.round(Math.min(Math.max(coverHeight * 0.35, 24), 48));
-  // Mirror LibraryBookCard's compact threshold so both cards share
-  // the exact same layout heights in the grid.
   const compact = coverHeight < 100;
 
   const handleClick = (e: React.MouseEvent) => {
@@ -67,46 +69,54 @@ export function FolderCard({
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <GlassCard
+      {/* Outer layout mirrors LibraryBookCard: a bordered, 2:3
+          aspect "cover" with metadata sitting below it (mt-2). This
+          way folders and books occupy identical grid cells. */}
+      <div
         className={cn(
-          "group relative cursor-pointer overflow-hidden",
-          selected && "ring-2 ring-accent-purple bg-accent-purple/5",
+          "group relative",
+          selected && "ring-2 ring-accent-purple rounded-md",
           isDragging && "opacity-50",
         )}
       >
-        <div onClick={handleClick}>
-          {/* Selection checkbox */}
-          {onToggleSelect && (
-            <div
-              className={cn(
-                "absolute left-2 top-2 z-10 transition-opacity",
-                selectionActive || selected
-                  ? "opacity-100"
-                  : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
-              )}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Checkbox
-                checked={selected}
-                onChange={() => onToggleSelect(selKey, { ctrlKey: false, shiftKey: false })}
-              />
-            </div>
-          )}
+        <div
+          onClick={handleClick}
+          title={folder.name}
+          className="cursor-pointer"
+        >
+          {/* Icon area — 2:3 aspect to match book covers. */}
+          <div className="relative flex aspect-[2/3] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
+            <Folder
+              size={iconSize}
+              className="text-accent-purple/60 transition-transform group-hover:scale-[1.02]"
+            />
 
-          {/* Icon area — same height as LibraryBookCard's cover. */}
-          <div
-            className="flex w-full items-center justify-center"
-            style={{ height: coverHeight }}
-          >
-            <Folder size={iconSize} className="text-accent-purple/60" />
+            {/* Selection checkbox — sits on the cover so it shows
+                cleanly on dark backgrounds, same as books. */}
+            {onToggleSelect && (
+              <div
+                className={cn(
+                  "absolute left-1.5 top-1.5 z-10 transition-opacity",
+                  selectionActive || selected
+                    ? "opacity-100"
+                    : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
+                )}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Checkbox
+                  checked={selected}
+                  onChange={() => onToggleSelect(selKey, { ctrlKey: false, shiftKey: false })}
+                />
+              </div>
+            )}
           </div>
 
-          {/* Info section — mirrors LibraryBookCard so folder tiles and
-              book tiles end up the same total height in the grid. */}
-          <div className={cn("p-3", compact && "p-2")}>
+          {/* Info — same mt-2 / mt-1.5 + truncate as LibraryBookCard
+              so heights line up to the pixel. */}
+          <div className={cn("mt-2 min-w-0", compact && "mt-1.5")}>
             <h3
               className={cn(
-                "mb-0.5 truncate font-semibold text-text-primary",
+                "truncate font-semibold leading-tight text-text-primary",
                 compact ? "text-xs" : "text-sm",
               )}
             >
@@ -114,7 +124,7 @@ export function FolderCard({
             </h3>
             <p
               className={cn(
-                "truncate text-text-muted",
+                "truncate leading-tight text-text-muted",
                 compact ? "text-[10px]" : "text-xs",
               )}
             >
@@ -123,9 +133,8 @@ export function FolderCard({
           </div>
         </div>
 
-        {/* 3-dot menu — portal-rendered via FloatingMenu so the
-            dropdown can't be clipped by the card's overflow-hidden. */}
-        <div className="absolute right-2 top-2">
+        {/* 3-dot menu — sits over the cover. */}
+        <div className="absolute right-1.5 top-1.5">
           <button
             ref={triggerRef}
             onClick={(e) => {
@@ -133,7 +142,8 @@ export function FolderCard({
               setMenuOpen((v) => !v);
             }}
             className={cn(
-              "rounded-lg p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer",
+              "rounded-lg p-1.5 transition-colors cursor-pointer",
+              "bg-black/40 text-white/70 hover:bg-black/60 hover:text-white",
               menuOpen
                 ? "opacity-100"
                 : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
@@ -176,7 +186,7 @@ export function FolderCard({
             </button>
           </FloatingMenu>
         </div>
-      </GlassCard>
+      </div>
     </div>
   );
 }

@@ -2,10 +2,18 @@ import { pdfjs } from "react-pdf";
 import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
 import { supabase } from "@/lib/supabase";
 import type { ToolDef } from "@/lib/roadmap-tools";
+import type { ChatMessageAttachment } from "@/types/chat";
 
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  /** Multimodal attachments (images today). Provider-side
+   *  conversion lives in this file: Anthropic gets a `{type:"image",
+   *  source:base64}` block per attachment, OpenAI gets
+   *  `{type:"image_url", image_url:{url:dataUri}}`, and the Pnyxy
+   *  proxy strips them (text-only until the edge function learns
+   *  how to forward multimodal content). */
+  attachments?: ChatMessageAttachment[];
 }
 
 // ── Tool-use types ───────────────────────────────────────────
@@ -127,6 +135,86 @@ export async function extractPdfText(
   return pages.join("\n\n");
 }
 
+// ── Multimodal converters ───────────────────────────────────
+//
+// A `ChatMessage` may carry image attachments. Anthropic and OpenAI
+// each have their own multimodal content shape; these helpers turn
+// our internal { content, attachments } into the right wire format.
+// When a message has no attachments we emit a plain string so the
+// older text-only request shape stays untouched.
+
+type AnthropicImageMediaType =
+  | "image/jpeg"
+  | "image/png"
+  | "image/gif"
+  | "image/webp";
+
+const ANTHROPIC_IMAGE_TYPES = new Set<AnthropicImageMediaType>([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+]);
+
+function toAnthropicChatContent(message: ChatMessage) {
+  const attachments = message.attachments ?? [];
+  if (attachments.length === 0) return message.content;
+  // Anthropic accepts heterogeneous content blocks. Image blocks
+  // first so the model sees the visual context before the prompt
+  // (matches Anthropic's own example ordering).
+  const blocks: Array<
+    | {
+        type: "image";
+        source: {
+          type: "base64";
+          media_type: AnthropicImageMediaType;
+          data: string;
+        };
+      }
+    | { type: "text"; text: string }
+  > = [];
+  for (const att of attachments) {
+    if (att.kind !== "image") continue;
+    if (!ANTHROPIC_IMAGE_TYPES.has(att.media_type as AnthropicImageMediaType)) {
+      continue;
+    }
+    blocks.push({
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: att.media_type as AnthropicImageMediaType,
+        data: att.data,
+      },
+    });
+  }
+  if (message.content) blocks.push({ type: "text", text: message.content });
+  return blocks;
+}
+
+function toOpenAiChatContent(message: ChatMessage) {
+  const attachments = message.attachments ?? [];
+  if (attachments.length === 0) return message.content;
+  // OpenAI's chat completions vision input is `image_url` blocks
+  // (also accepts data URIs). A single text block carries the
+  // prompt; image blocks come first so the prompt naturally reads
+  // as "given these images, …".
+  const blocks: Array<
+    | { type: "image_url"; image_url: { url: string } }
+    | { type: "text"; text: string }
+  > = [];
+  for (const att of attachments) {
+    if (att.kind !== "image") continue;
+    blocks.push({
+      type: "image_url",
+      image_url: {
+        url: `data:${att.media_type};base64,${att.data}`,
+      },
+    });
+  }
+  if (message.content) blocks.push({ type: "text", text: message.content });
+  return blocks;
+}
+
 function buildSystemPrompt(documentTitle: string, pageContext: string) {
   // The "[p.N]" hint is intentional — Pnyxy's chat renderer
   // post-processes that exact token into a clickable link back to
@@ -161,11 +249,12 @@ export interface StreamOptions {
   systemPromptOverride?: string;
   /** Raises the per-request output cap; clamped server-side for Pnyxy. */
   maxOutputTokens?: number;
-  /** When the user has explicitly picked a provider (chat composer's
-   *  model dropdown), tries this one FIRST regardless of the saved
-   *  enabledProviders order. Falls back to the rest of the chain on
-   *  failure-before-yield, so a per-message override never strands
-   *  the user with an unreachable provider. */
+  /** Strict mode: when set, ONLY this provider is tried. If it fails
+   *  (quota, auth, network), the error surfaces — no fallback to
+   *  other configured providers. The chat composer sets this when
+   *  the user explicitly picks a model from the dropdown.
+   *  When unset / null, the full configured chain is used in order
+   *  (the "Default" option in the model picker). */
   preferredProvider?: AiProvider;
 }
 
@@ -176,16 +265,14 @@ export async function* streamChatResponse(
   options: StreamOptions = {},
 ): AsyncGenerator<{ delta: string; provider: AiProvider }, void, unknown> {
   const configured = getConfiguredProviders();
-  // Honor a per-message override if the picked provider is actually
-  // configured. Otherwise behave as before — silent fallback rather
-  // than failing loudly, since the dropdown UI may briefly hold a
-  // stale value while settings are being edited in another tab.
+  // Strict mode: an explicit preferredProvider runs alone with no
+  // fallback. Without one, we run the full configured chain and
+  // fall through quota/auth/network failures to the next entry —
+  // that's the "Default" UX where the user just wants a working
+  // reply and doesn't care which provider produced it.
   const candidates =
     options.preferredProvider && configured.includes(options.preferredProvider)
-      ? [
-          options.preferredProvider,
-          ...configured.filter((p) => p !== options.preferredProvider),
-        ]
+      ? [options.preferredProvider]
       : configured;
 
   if (candidates.length === 0) {
@@ -341,7 +428,10 @@ async function* streamAnthropic(
     system:
       options.systemPromptOverride ??
       buildSystemPrompt(documentTitle, pageContext),
-    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    messages: messages.map((m) => ({
+      role: m.role,
+      content: toAnthropicChatContent(m),
+    })),
   });
 
   try {
@@ -394,7 +484,10 @@ async function* streamOpenAi(
               options.systemPromptOverride ??
               buildSystemPrompt(documentTitle, pageContext),
           },
-          ...messages.map((m) => ({ role: m.role, content: m.content })),
+          ...messages.map((m) => ({
+            role: m.role,
+            content: toOpenAiChatContent(m),
+          })),
         ],
       }),
     });
@@ -549,12 +642,12 @@ export async function* streamChatWithTools(
   options: StreamWithToolsOptions,
 ): AsyncGenerator<ToolStreamEvent, void, unknown> {
   const configured = getConfiguredProviders();
+  // Same strict-mode semantics as streamChatResponse: explicit pick
+  // = only that provider, surface errors. No pick = full fallback
+  // chain.
   const candidates =
     options.preferredProvider && configured.includes(options.preferredProvider)
-      ? [
-          options.preferredProvider,
-          ...configured.filter((p) => p !== options.preferredProvider),
-        ]
+      ? [options.preferredProvider]
       : configured;
 
   if (candidates.length === 0) {

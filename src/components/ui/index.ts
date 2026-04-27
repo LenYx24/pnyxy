@@ -1,8 +1,10 @@
 export { Button } from "./Button";
 export { Checkbox } from "./Checkbox";
+export { ConfirmModal } from "./ConfirmModal";
 export { ContextMenu } from "./ContextMenu";
 export { FloatingMenu } from "./FloatingMenu";
 export { GlassCard } from "./GlassCard";
+export { PromptModal } from "./PromptModal";
 export { NumberInput } from "./NumberInput";
 export { Reveal } from "./Reveal";
 export { Kbd } from "./Kbd";

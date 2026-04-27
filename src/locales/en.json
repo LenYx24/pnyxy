@@ -17,8 +17,10 @@
     "exit": "Exit",
     "yes": "Yes",
     "no": "No",
+    "ok": "OK",
     "expand": "Expand",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "requiredField": "This field can't be empty."
   },
   "sidebar": {
     "home": "Home",
@@ -163,7 +165,12 @@
       "description": "Pick a theme. Custom themes can be installed from the community registry; switching is instant and persists across sessions.",
       "coreThemes": "Core themes",
       "installedThemes": "Installed themes",
-      "browseCommunity": "Browse community themes"
+      "browseCommunity": "Browse community themes",
+      "library": {
+        "heading": "Library",
+        "coverSize": "Cover size — {{value}}px",
+        "coverSizeHelp": "How large book covers render in the Library grid view."
+      }
     },
     "aboutSection": {
       "heading": "About",
@@ -929,11 +936,21 @@
     },
     "composer": {
       "modelLabel": "Model",
+      "modelDefault": "Default",
+      "modelDefaultSubtitle": "Auto-pick — Pnyxy free quota first",
       "listeningPlaceholder": "Listening… speak now",
       "startListening": "Dictate (microphone)",
       "stopListening": "Stop dictating",
       "micDenied": "Microphone access blocked",
-      "micError": "Couldn't capture audio"
+      "micError": "Couldn't capture audio",
+      "attachments": {
+        "add": "Attach image",
+        "tooMany": "You can attach up to {{max}} images per message.",
+        "tooLarge": "Images must be under {{mb}}MB.",
+        "unsupported": "Only JPEG, PNG, GIF, and WebP images are supported.",
+        "readError": "Couldn't read that file.",
+        "needVisionModel": "Pick Claude Sonnet 4.5 or GPT-4o mini to send images. Default mode doesn't support attachments yet."
+      }
     },
     "folders": {
       "create": "New folder",

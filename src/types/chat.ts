@@ -40,5 +40,29 @@ export interface ChatMessage {
   parent_message_id: string | null;
   role: ChatRole;
   content: string;
+  /** Multimodal content attached to a user turn — images today,
+   *  potentially PDFs / audio later. Stored alongside the message
+   *  so refreshes don't lose them. The provider-side conversion
+   *  (Anthropic image source vs OpenAI image_url) lives in
+   *  ai-client.ts; persistence is provider-agnostic. */
+  attachments?: ChatMessageAttachment[] | null;
   created_at: string;
+}
+
+/**
+ * One attachment on a user message. v1 only handles images; the
+ * `kind` discriminator leaves room for "pdf" / "audio" / "file"
+ * variants without a schema migration since the storage column is
+ * schemaless jsonb.
+ */
+export interface ChatMessageAttachment {
+  kind: "image";
+  /** MIME type, e.g. "image/png", "image/jpeg". */
+  media_type: string;
+  /** Raw base64 (no data: prefix). Anthropic wants it stripped;
+   *  OpenAI wants the prefix prepended. ai-client handles both. */
+  data: string;
+  /** Original filename if known — surfaced as alt text and for the
+   *  attachment card label. */
+  name?: string;
 }
