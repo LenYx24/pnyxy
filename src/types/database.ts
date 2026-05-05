@@ -152,6 +152,15 @@ export interface UserBookTag {
   created_at: string;
 }
 
+export interface UserBookCustomTag {
+  id: string;
+  user_id: string;
+  catalog_book_id: string | null;
+  book_id: string | null;
+  label: string;
+  created_at: string;
+}
+
 // ── Category Junctions ──────────────────────────────────────
 
 export interface CatalogBookCategory {
@@ -282,6 +291,7 @@ export interface Database {
       folders: { Row: Folder };
       folder_items: { Row: FolderItem };
       user_book_tags: { Row: UserBookTag };
+      user_book_custom_tags: { Row: UserBookCustomTag };
       catalog_book_categories: { Row: CatalogBookCategory };
       book_categories: { Row: BookCategory };
       highlights: { Row: DbHighlight };

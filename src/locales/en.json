@@ -161,6 +161,15 @@
       "whiteboardAllFormats": "Allow whiteboard for all formats",
       "whiteboardAllFormatsHint": "Enables draw mode and whiteboard creation on non-paginated documents. Whiteboards anchor to pages, so behavior may be unpredictable on reflowable content."
     },
+    "data": {
+      "heading": "Your data",
+      "description": "Pnyxy stores your data in open formats. Download a copy at any time — your library, annotations, notes, vocab, quizzes, reading plans, chats, and stats. Uploaded book files are not included; their metadata and storage URLs are.",
+      "exportButton": "Export as JSON",
+      "exportingButton": "Exporting…",
+      "exportSuccess": "Export downloaded.",
+      "exportError": "Export failed: {{message}}",
+      "exportPartial": "Export downloaded with {{count}} section error(s) — see the file for details."
+    },
     "appearanceSection": {
       "heading": "Appearance",
       "description": "Pick a theme. Custom themes can be installed from the community registry; switching is instant and persists across sessions.",
@@ -414,7 +423,11 @@
     "signInToRate": "Sign in to rate →"
   },
   "whiteboard": {
-    "notFound": "Whiteboard not found."
+    "notFound": "Whiteboard not found.",
+    "delete": "Delete whiteboard",
+    "deleteTitle": "Delete this whiteboard?",
+    "deleteBody": "This can't be undone.",
+    "backToBook": "Back to book"
   },
   "catalogImport": {
     "title": "Import books",

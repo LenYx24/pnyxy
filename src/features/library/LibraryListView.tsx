@@ -540,6 +540,7 @@ function BookRow({
   const tagAnchorRef = useRef<HTMLDivElement>(null);
   const tagKey = bookKey(entry);
   const tags = useTagStore((s) => s.bookTags.get(tagKey)) ?? [];
+  const customTags = useTagStore((s) => s.customTagsByBook.get(tagKey)) ?? [];
   const selKey = `book:${entry.id}`;
   const title = getTitle(entry);
   const author = getAuthor(entry);
@@ -697,10 +698,19 @@ function BookRow({
         </span>
 
         {/* Tag badges */}
-        {tags.length > 0 && (
+        {(tags.length > 0 || customTags.length > 0) && (
           <div className="mr-2 hidden shrink-0 items-center gap-1 sm:flex">
             {tags.slice(0, 2).map((tag) => (
               <TagBadge key={tag} tag={tag} size="sm" />
+            ))}
+            {customTags.slice(0, 2).map((label) => (
+              <span
+                key={label}
+                className="inline-flex items-center rounded-full border border-glass-border bg-glass-bg px-1.5 py-0.5 text-[10px] text-text-secondary"
+                title={label}
+              >
+                {label}
+              </span>
             ))}
           </div>
         )}

@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Download } from "lucide-react";
 import { useSettingsStore } from "@/stores/settings-store";
 import type { FitMode, EpubFlow } from "@/stores/settings-store";
 import { Toggle, Slider } from "@/components/ui";
@@ -9,9 +11,35 @@ import {
   SUPPORTED_LANGUAGES,
   type SupportedLanguage,
 } from "@/lib/i18n";
+import { exportUserData } from "@/lib/export-user-data";
+
+type ExportStatus =
+  | { kind: "idle" }
+  | { kind: "exporting" }
+  | { kind: "success" }
+  | { kind: "partial"; count: number }
+  | { kind: "error"; message: string };
 
 export function GeneralTab() {
   const { t, i18n } = useTranslation();
+  const [exportStatus, setExportStatus] = useState<ExportStatus>({
+    kind: "idle",
+  });
+
+  const handleExport = async () => {
+    setExportStatus({ kind: "exporting" });
+    try {
+      const { payload } = await exportUserData();
+      if (payload.errors.length > 0) {
+        setExportStatus({ kind: "partial", count: payload.errors.length });
+      } else {
+        setExportStatus({ kind: "success" });
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setExportStatus({ kind: "error", message });
+    }
+  };
   const currentLang: SupportedLanguage = isSupportedLanguage(
     i18n.resolvedLanguage,
   )
@@ -279,6 +307,43 @@ export function GeneralTab() {
             onChange={setExperimentalWhiteboard}
           />
         </div>
+      </section>
+
+      <section className="space-y-3 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
+        <div>
+          <h2 className="text-lg font-semibold text-text-primary">
+            {t("settings.data.heading")}
+          </h2>
+          <p className="mt-0.5 text-xs text-text-muted">
+            {t("settings.data.description")}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={exportStatus.kind === "exporting"}
+          className="inline-flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-glass-hover hover:border-accent-purple/50 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+        >
+          <Download size={14} />
+          {exportStatus.kind === "exporting"
+            ? t("settings.data.exportingButton")
+            : t("settings.data.exportButton")}
+        </button>
+        {exportStatus.kind === "success" && (
+          <p className="text-xs text-green-500">
+            {t("settings.data.exportSuccess")}
+          </p>
+        )}
+        {exportStatus.kind === "partial" && (
+          <p className="text-xs text-amber-400">
+            {t("settings.data.exportPartial", { count: exportStatus.count })}
+          </p>
+        )}
+        {exportStatus.kind === "error" && (
+          <p className="text-xs text-red-400">
+            {t("settings.data.exportError", { message: exportStatus.message })}
+          </p>
+        )}
       </section>
     </div>
   );

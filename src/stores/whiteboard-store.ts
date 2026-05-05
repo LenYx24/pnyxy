@@ -213,6 +213,10 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       background,
       createdAt: existing?.createdAt ?? Date.now(),
       updatedAt: Date.now(),
+      // Preserve scope: dropping bookId here would orphan a
+      // book-scoped whiteboard back into the global workspace list
+      // on the very next save.
+      bookId: existing?.bookId,
     };
     dbSaveWhiteboard(wb);
     // Fire-and-forget cloud push. Quota errors can fire on the very

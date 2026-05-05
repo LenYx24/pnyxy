@@ -161,6 +161,15 @@
       "whiteboardAllFormats": "Tábla engedélyezése minden formátumra",
       "whiteboardAllFormatsHint": "Rajz mód és tábla engedélyezése nem oldalalapú dokumentumokon. A táblák oldalakhoz horgonyzódnak, így újratördelhető tartalmon kiszámíthatatlanul viselkedhetnek."
     },
+    "data": {
+      "heading": "Az adataid",
+      "description": "A Pnyxy nyílt formátumban tárolja az adataidat. Bármikor letöltheted egyben: könyvtár, kiemelések, jegyzetek, szókincs, kvízek, tanulási tervek, beszélgetések, statisztikák. A feltöltött könyvfájlok nincsenek benne, csak a metaadataik és a tároló URL-ek.",
+      "exportButton": "Exportálás JSON-ba",
+      "exportingButton": "Exportálás…",
+      "exportSuccess": "Export letöltve.",
+      "exportError": "Export sikertelen: {{message}}",
+      "exportPartial": "Export letöltve, {{count}} hibás szekcióval — a fájl tartalmazza a részleteket."
+    },
     "appearanceSection": {
       "heading": "Megjelenés",
       "description": "Válassz egy témát. Közösségi témák is telepíthetők; a váltás azonnali és munkamenetek között is megmarad.",
@@ -414,7 +423,11 @@
     "signInToRate": "Jelentkezz be az értékeléshez →"
   },
   "whiteboard": {
-    "notFound": "A tábla nem található."
+    "notFound": "A tábla nem található.",
+    "delete": "Tábla törlése",
+    "deleteTitle": "Törlöd ezt a táblát?",
+    "deleteBody": "Ez nem visszavonható.",
+    "backToBook": "Vissza a könyvhöz"
   },
   "catalogImport": {
     "title": "Könyvek importálása",

@@ -1,5 +1,6 @@
 import { Plus, Sprout, TreeDeciduous, X } from "lucide-react";
 import { useFocusStore } from "@/stores/focus-store";
+import { useReaderStore } from "@/stores/reader-store";
 import { cn } from "@/lib/cn";
 
 function formatTime(ms: number): string {
@@ -21,6 +22,8 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
  *   - SVG ring around the countdown text fills as time elapses,
  *     so progress is readable at a glance without doing the mental
  *     math from "27:14 of how long?".
+ *   - In pages-goal mode the ring tracks pages-progress instead —
+ *     the time bound is just a 4h safety cap and would barely move.
  *   - A sprout icon sits at the centre; past 60% completion it
  *     swaps for a deciduous tree — a soft "your effort is growing
  *     into something" cue without being preachy about it.
@@ -33,17 +36,35 @@ export function FocusSessionBadge() {
   const startedAt = useFocusStore((s) => s.startedAt);
   const endsAt = useFocusStore((s) => s.endsAt);
   const remainingMs = useFocusStore((s) => s.remainingMs);
+  const pagesGoal = useFocusStore((s) => s.pagesGoal);
+  const pagesAtStart = useFocusStore((s) => s.pagesAtStart);
+  const pagesDocId = useFocusStore((s) => s.pagesDocId);
   const extend = useFocusStore((s) => s.extend);
   const cancel = useFocusStore((s) => s.cancel);
+
+  // Live page progress for the bound document. Subscribing here means the
+  // badge re-renders the moment the user turns a page.
+  const pagesRead = useReaderStore((s) => {
+    if (pagesGoal == null || pagesAtStart == null || !pagesDocId) return null;
+    const doc = s.documents.get(pagesDocId);
+    if (!doc) return null;
+    return Math.max(0, doc.progressPage - pagesAtStart);
+  });
 
   if (!active || !startedAt || !endsAt) return null;
 
   const totalMs = Math.max(1, endsAt - startedAt);
-  const progress = Math.min(1, Math.max(0, 1 - remainingMs / totalMs));
-  const dashOffset = RING_CIRCUMFERENCE * (1 - progress);
-  // Past the halfway-and-then-some mark we swap the sprout icon for
-  // a small tree — same colour, same position, just a fuller silhouette.
-  const Grown = progress >= 0.6;
+  const timeProgress = Math.min(1, Math.max(0, 1 - remainingMs / totalMs));
+  const pagesMode = pagesGoal != null;
+  const pagesProgress =
+    pagesMode && pagesGoal! > 0
+      ? Math.min(1, Math.max(0, (pagesRead ?? 0) / pagesGoal!))
+      : 0;
+  // Pages mode: ring tracks pages. Time mode: ring tracks time (default).
+  const ringProgress = pagesMode ? pagesProgress : timeProgress;
+  const dashOffset = RING_CIRCUMFERENCE * (1 - ringProgress);
+  // The growing-plant cue follows whichever progress the user is steering.
+  const Grown = ringProgress >= 0.6;
 
   return (
     <div
@@ -91,7 +112,7 @@ export function FocusSessionBadge() {
             size={18}
             className={cn(
               "absolute text-green-500 transition-all duration-700",
-              progress >= 0.95 && "scale-110",
+              ringProgress >= 0.95 && "scale-110",
             )}
           />
         ) : (
@@ -100,13 +121,24 @@ export function FocusSessionBadge() {
             className="absolute text-green-400/80 transition-all duration-700"
             // Scale grows from 0.7 → 1.0 as we approach the 60% swap
             // so the sprout looks like it's actually maturing.
-            style={{ transform: `scale(${0.7 + progress * 0.5})` }}
+            style={{ transform: `scale(${0.7 + ringProgress * 0.5})` }}
           />
         )}
       </div>
-      <span className="min-w-[3.25rem] font-mono tabular-nums text-text-primary">
-        {formatTime(remainingMs)}
-      </span>
+      {pagesMode ? (
+        <div className="flex flex-col leading-tight">
+          <span className="font-mono tabular-nums text-text-primary">
+            {pagesRead ?? 0} / {pagesGoal} oldal
+          </span>
+          <span className="font-mono tabular-nums text-[10px] text-text-muted">
+            {formatTime(remainingMs)}
+          </span>
+        </div>
+      ) : (
+        <span className="min-w-[3.25rem] font-mono tabular-nums text-text-primary">
+          {formatTime(remainingMs)}
+        </span>
+      )}
       <div className="mx-1 h-4 w-px bg-glass-border" />
       <button
         onClick={() => extend(5)}

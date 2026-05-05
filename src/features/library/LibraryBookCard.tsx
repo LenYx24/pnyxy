@@ -77,6 +77,7 @@ export function LibraryBookCard({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const key = bookKey(entry);
   const tags = useTagStore((s) => s.bookTags.get(key)) ?? [];
+  const customTags = useTagStore((s) => s.customTagsByBook.get(key)) ?? [];
   const addTag = useTagStore((s) => s.addTag);
   const removeTag = useTagStore((s) => s.removeTag);
   const isFavorite = tags.includes("favorites");
@@ -268,10 +269,19 @@ export function LibraryBookCard({
             >
               {author}
             </p>
-            {tags.length > 0 && (
+            {(tags.length > 0 || customTags.length > 0) && (
               <div className="mt-1 flex flex-wrap gap-1">
                 {tags.slice(0, 3).map((tag) => (
                   <TagBadge key={tag} tag={tag} size="sm" />
+                ))}
+                {customTags.slice(0, 3).map((label) => (
+                  <span
+                    key={label}
+                    className="inline-flex items-center rounded-full border border-glass-border bg-glass-bg px-1.5 py-0.5 text-[10px] text-text-secondary"
+                    title={label}
+                  >
+                    {label}
+                  </span>
                 ))}
               </div>
             )}

@@ -1,28 +1,47 @@
 import { create } from "zustand";
 import { useStreakStore } from "./streak-store";
+import { useReaderStore } from "./reader-store";
 
 const STORAGE_KEY = "pnyxy-focus-session";
 
 interface PersistedSession {
   startedAt: number;
   endsAt: number;
+  pagesGoal?: number | null;
+  pagesAtStart?: number | null;
+  pagesDocId?: string | null;
+}
+
+export interface StartOptions {
+  /** Optional page goal — session completes early when reached. */
+  pagesGoal?: number;
+  /** progressPage of the document at session start; pages read = current - this. */
+  pagesAtStart?: number;
+  /** Document id the page goal applies to (so flipping books doesn't cheat). */
+  pagesDocId?: string;
 }
 
 interface FocusState {
   active: boolean;
   /** Epoch ms when the current session started. */
   startedAt: number | null;
-  /** Epoch ms when the current session should end. */
+  /** Epoch ms when the current session should end (always set; time is the safety bound). */
   endsAt: number | null;
   /** Milliseconds remaining. Updated every tick while active. */
   remainingMs: number;
+  /** Pages target for this session, or null if time-only. */
+  pagesGoal: number | null;
+  /** progressPage at session start, snapshot once and never moved. */
+  pagesAtStart: number | null;
+  /** Doc id the page goal is bound to. */
+  pagesDocId: string | null;
   /** Epoch ms when the current uninterrupted foreground span began.
    *  null while the tab is hidden or no session is active. */
   currentSpanStartedAt: number | null;
   /** Longest uninterrupted foreground span so far in this session, ms. */
   longestSpanMs: number;
 
-  start: (minutes: number) => void;
+  start: (minutes: number, opts?: StartOptions) => void;
   cancel: () => void;
   /** Extend the current session by `minutes`. No-op if inactive. */
   extend: (minutes: number) => void;
@@ -43,12 +62,34 @@ function loadPersisted(): PersistedSession | null {
       typeof parsed.endsAt === "number" &&
       parsed.endsAt > Date.now()
     ) {
-      return parsed as PersistedSession;
+      return {
+        startedAt: parsed.startedAt,
+        endsAt: parsed.endsAt,
+        pagesGoal:
+          typeof parsed.pagesGoal === "number" ? parsed.pagesGoal : null,
+        pagesAtStart:
+          typeof parsed.pagesAtStart === "number" ? parsed.pagesAtStart : null,
+        pagesDocId:
+          typeof parsed.pagesDocId === "string" ? parsed.pagesDocId : null,
+      };
     }
   } catch {
     // corrupted or missing; ignore
   }
   return null;
+}
+
+/** Compute pages read in the active session against the snapshot doc. Null if
+ *  no page goal set or doc unavailable. */
+function pagesReadInSession(): number | null {
+  const focus = useFocusStore.getState();
+  if (focus.pagesGoal == null || focus.pagesAtStart == null || !focus.pagesDocId) {
+    return null;
+  }
+  const reader = useReaderStore.getState();
+  const doc = reader.documents.get(focus.pagesDocId);
+  if (!doc) return null;
+  return Math.max(0, doc.progressPage - focus.pagesAtStart);
 }
 
 function persist(session: PersistedSession | null) {
@@ -107,22 +148,41 @@ export const useFocusStore = create<FocusState>((set, get) => ({
   startedAt: restored?.startedAt ?? null,
   endsAt: restored?.endsAt ?? null,
   remainingMs: restored ? Math.max(0, restored.endsAt - Date.now()) : 0,
+  pagesGoal: restored?.pagesGoal ?? null,
+  pagesAtStart: restored?.pagesAtStart ?? null,
+  pagesDocId: restored?.pagesDocId ?? null,
   currentSpanStartedAt:
     restored && typeof document !== "undefined" && !document.hidden
       ? Date.now()
       : null,
   longestSpanMs: 0,
 
-  start(minutes) {
+  start(minutes, opts) {
     const now = Date.now();
     const durationMs = Math.max(1, minutes) * 60 * 1000;
     const endsAt = now + durationMs;
-    persist({ startedAt: now, endsAt });
+    const pagesGoal =
+      opts?.pagesGoal != null && opts.pagesGoal > 0 ? opts.pagesGoal : null;
+    const pagesAtStart =
+      pagesGoal != null && opts?.pagesAtStart != null
+        ? Math.max(0, opts.pagesAtStart)
+        : null;
+    const pagesDocId = pagesGoal != null ? opts?.pagesDocId ?? null : null;
+    persist({
+      startedAt: now,
+      endsAt,
+      pagesGoal,
+      pagesAtStart,
+      pagesDocId,
+    });
     set({
       active: true,
       startedAt: now,
       endsAt,
       remainingMs: durationMs,
+      pagesGoal,
+      pagesAtStart,
+      pagesDocId,
       currentSpanStartedAt:
         typeof document === "undefined" || !document.hidden ? now : null,
       longestSpanMs: 0,
@@ -149,16 +209,32 @@ export const useFocusStore = create<FocusState>((set, get) => ({
       startedAt: null,
       endsAt: null,
       remainingMs: 0,
+      pagesGoal: null,
+      pagesAtStart: null,
+      pagesDocId: null,
       currentSpanStartedAt: null,
       longestSpanMs: 0,
     });
   },
 
   extend(minutes) {
-    const { active, endsAt, startedAt } = get();
+    const {
+      active,
+      endsAt,
+      startedAt,
+      pagesGoal,
+      pagesAtStart,
+      pagesDocId,
+    } = get();
     if (!active || !endsAt || !startedAt) return;
     const newEnd = endsAt + Math.max(1, minutes) * 60 * 1000;
-    persist({ startedAt, endsAt: newEnd });
+    persist({
+      startedAt,
+      endsAt: newEnd,
+      pagesGoal,
+      pagesAtStart,
+      pagesDocId,
+    });
     set({
       endsAt: newEnd,
       remainingMs: Math.max(0, newEnd - Date.now()),
@@ -166,13 +242,27 @@ export const useFocusStore = create<FocusState>((set, get) => ({
   },
 
   _tick() {
-    const { active, endsAt, startedAt, longestSpanMs, currentSpanStartedAt } =
-      get();
+    const {
+      active,
+      endsAt,
+      startedAt,
+      longestSpanMs,
+      currentSpanStartedAt,
+      pagesGoal,
+    } = get();
     if (!active || !endsAt || !startedAt) return;
     const remainingMs = Math.max(0, endsAt - Date.now());
     set({ remainingMs });
-    if (remainingMs === 0) {
-      // Session complete → log all elapsed minutes + attention span, then stop.
+
+    // Page goal: complete early if reached, even if time remains.
+    let pageGoalReached = false;
+    if (pagesGoal != null) {
+      const read = pagesReadInSession();
+      if (read != null && read >= pagesGoal) pageGoalReached = true;
+    }
+
+    if (remainingMs === 0 || pageGoalReached) {
+      // Session complete → log elapsed time + attention span, then stop.
       const seconds = Math.round((Date.now() - startedAt) / 1000);
       useStreakStore.getState().addReadingTime(seconds);
       const finalSpanMs = commitSpan(longestSpanMs, currentSpanStartedAt);
@@ -184,6 +274,9 @@ export const useFocusStore = create<FocusState>((set, get) => ({
         active: false,
         startedAt: null,
         endsAt: null,
+        pagesGoal: null,
+        pagesAtStart: null,
+        pagesDocId: null,
         currentSpanStartedAt: null,
         longestSpanMs: 0,
       });

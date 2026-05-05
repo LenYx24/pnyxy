@@ -323,19 +323,25 @@ function MobileReaderLayout({
   // Touch gestures: horizontal swipe → page turn (PDF only), pinch →
   // zoom. Swipe disabled on EPUB/markdown/text since they don't have
   // discrete pages in the same sense.
-  const activeDoc = useReaderStore((s) => s.getActiveDoc());
   const nextPage = useReaderStore((s) => s.nextPage);
   const prevPage = useReaderStore((s) => s.prevPage);
   const setLiveZoomScale = useReaderStore((s) => s.setLiveZoomScale);
   const commitLiveZoom = useReaderStore((s) => s.commitLiveZoom);
-  const isPaginated = activeDoc?.meta.capabilities.paginated ?? false;
+  // Subscribe to the two primitives we actually use. Subscribing to
+  // `getActiveDoc()` would re-render this component on every pinch
+  // frame because setLiveZoomScale rebuilds the documents Map.
+  const isPaginated = useReaderStore(
+    (s) => s.getActiveDoc()?.meta.capabilities.paginated ?? false,
+  );
   // Once the user picks a custom zoom (pinch-in past fit-width
   // typically), the page is wider than the viewport and they want
   // to pan with their finger like a map. Swipe-to-turn-page would
   // fight that, so we silence it for the custom-zoom case. At
   // fit-width / fit-page (the default modes) horizontal swipes
   // still flip pages — natural for at-a-glance reading.
-  const isZoomedIn = activeDoc?.zoomMode === "custom";
+  const isZoomedIn = useReaderStore(
+    (s) => s.getActiveDoc()?.zoomMode === "custom",
+  );
 
   const viewerRef = useRef<HTMLDivElement>(null);
 
@@ -593,7 +599,13 @@ export function ReaderPage() {
   const { bookId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const isMobile = useIsMobile();
-  const documents = useReaderStore((s) => s.documents);
+  // Subscribe to derived booleans, not the documents Map itself —
+  // the Map gets a new reference on every pinch frame (live-zoom)
+  // and would re-render the whole reader 60×/sec.
+  const hasDocuments = useReaderStore((s) => s.documents.size > 0);
+  const bookDocumentLoaded = useReaderStore((s) =>
+    bookId ? s.documents.has(bookId) : false,
+  );
   const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
   const addDocument = useReaderStore((s) => s.addDocument);
   const goToPage = useReaderStore((s) => s.goToPage);
@@ -609,7 +621,6 @@ export function ReaderPage() {
   const libraryPickerOpen = useUIStore((s) => s.libraryPickerOpen);
   const setLibraryPickerOpen = useUIStore((s) => s.setLibraryPickerOpen);
 
-  const hasDocuments = documents.size > 0;
 
   const dockviewApiRef = useRef<DockviewApi | null>(null);
   const layoutSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -627,14 +638,14 @@ export function ReaderPage() {
 
   // Load document from file registry if navigated directly
   useEffect(() => {
-    if (bookId && !documents.has(bookId)) {
+    if (bookId && !bookDocumentLoaded) {
       const file = getFile(bookId);
       if (file) {
         const adapter = createAdapterForFile(file);
         addDocument(adapter, file);
       }
     }
-  }, [bookId, documents, addDocument]);
+  }, [bookId, bookDocumentLoaded, addDocument]);
 
   // Load annotations + bookmarks when active document changes
   useEffect(() => {
