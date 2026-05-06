@@ -28,5 +28,21 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "file_handlers": [
+    {
+      "action": "/library",
+      "accept": {
+        "application/pdf": [".pdf"]
+      },
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ],
+      "launch_type": "single-client"
+    }
   ]
 }

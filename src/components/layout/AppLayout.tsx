@@ -6,7 +6,12 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useFocusStore } from "@/stores/focus-store";
 import { useIsDesktop } from "@/hooks/use-media-query";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
+import { useOpenDocument } from "@/hooks/use-open-document";
 import { setShortcutGate } from "@/lib/keyboard-shortcuts";
+import {
+  setLaunchedFilesListener,
+  clearLaunchedFilesListener,
+} from "@/lib/launched-files";
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
 import { Footer } from "./Footer";
@@ -74,6 +79,17 @@ export function AppLayout() {
     }
     return undefined;
   }, [focusActive]);
+
+  // Receive PDFs handed off by the OS via the PWA File Handlers API
+  // ("Open with Pnyxy") and route them straight into the reader.
+  const { openFile } = useOpenDocument();
+  useEffect(() => {
+    setLaunchedFilesListener((files) => {
+      const first = files[0];
+      if (first) void openFile(first);
+    });
+    return () => clearLaunchedFilesListener();
+  }, [openFile]);
 
   if (isBanned && banInfo) {
     return <BannedScreen />;

@@ -5,9 +5,14 @@ import "@/lib/i18n";
 import { AppProviders } from "@/app/providers";
 import { useAuthStore } from "@/stores/auth-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { initLaunchedFiles } from "@/lib/launched-files";
 
 // Initialize auth listener once at startup (Zustand stores work outside React)
 useAuthStore.getState().initialize();
+
+// Register the PWA launchQueue consumer ASAP so file handlers work
+// from a cold start (the queue buffers until React mounts a listener).
+initLaunchedFiles();
 
 // When the user transitions from signed-out to signed-in and the
 // profile is available, pull theme/plugin preferences down from
