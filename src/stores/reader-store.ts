@@ -21,6 +21,12 @@ export interface DocumentState {
   totalPages: number;
   zoomMode: ZoomMode;
   zoomLevel: number;
+  /** Rotation applied to all rendered pages, in degrees clockwise.
+   *  Stored as a normalized 0/90/180/270 so the four-way cycle is
+   *  unambiguous. PDF only — react-pdf's `<Page rotate>` prop swaps
+   *  the page bounding box automatically, which feeds straight back
+   *  into the virtualized layout's height calculation. */
+  pageRotation: 0 | 90 | 180 | 270;
   scrollToPage: number | null;
   customTitle: string | null;
   /** Last visited page — always tracks `currentPage`, persisted on close. */
@@ -57,6 +63,9 @@ interface ReaderState {
   zoomOut: (docId?: string) => void;
   setZoomMode: (mode: ZoomMode, docId?: string) => void;
   setZoomLevel: (level: number, docId?: string) => void;
+  /** Rotate the active doc's pages by 90° clockwise (`direction = 1`)
+   *  or counter-clockwise (`direction = -1`). Wraps modulo 360. */
+  rotatePage: (direction: 1 | -1, docId?: string) => void;
   /** Multiply `zoomLevel` by the given live-zoom scale (the value the
    *  pinch-zoom controller accumulated during a gesture) and clamp
    *  back into the supported range. Triggers exactly one re-rasterise
@@ -254,6 +263,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       totalPages: meta.totalPages,
       zoomMode,
       zoomLevel: 100,
+      pageRotation: 0,
       scrollToPage: lastPosition > 1 ? lastPosition : null,
       customTitle,
       lastPosition,
@@ -401,6 +411,20 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         zoomLevel: Math.min(Math.max(level, ZOOM_MIN), ZOOM_MAX),
         zoomMode: "custom",
       }),
+    });
+  },
+
+  rotatePage(direction, docId) {
+    const id = docId ?? get().activeDocumentId;
+    if (!id) return;
+    const doc = get().documents.get(id);
+    if (!doc) return;
+    // Wrap modulo 360 so the four-way cycle stays in the 0/90/180/270
+    // domain regardless of how many CW/CCW presses the user stacks.
+    const next = (((doc.pageRotation + direction * 90) % 360) + 360) %
+      360 as 0 | 90 | 180 | 270;
+    set({
+      documents: updateDoc(get().documents, id, { pageRotation: next }),
     });
   },
 

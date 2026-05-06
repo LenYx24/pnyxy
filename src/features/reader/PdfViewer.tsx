@@ -30,6 +30,11 @@ interface PageSlotProps {
   effectivePageWidth: number;
   zoomMode: ZoomMode;
   zoomLevel: number;
+  /** Rotation in degrees (0/90/180/270). Forwarded to react-pdf so
+   *  the rasterized canvas comes back already rotated; the page's
+   *  viewport width/height are swapped for 90°/270°, which the
+   *  outer layout consumes via `getPageHeight`. */
+  rotation: 0 | 90 | 180 | 270;
   containerWidth: number;
   containerHeight: number;
   onRenderSuccess: (pageNum: number) => void;
@@ -45,6 +50,7 @@ const PageSlot = memo(function PageSlot({
   effectivePageWidth,
   zoomMode,
   zoomLevel,
+  rotation,
   containerWidth,
   containerHeight,
   onRenderSuccess,
@@ -70,6 +76,7 @@ const PageSlot = memo(function PageSlot({
       <div style={{ position: "relative" }}>
         <Page
           pageNumber={pageNum}
+          rotate={rotation}
           {...pageProps}
           loading={
             <div
@@ -155,6 +162,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   const totalPages = doc?.totalPages ?? 0;
   const zoomMode = doc?.zoomMode ?? "fit-width";
   const zoomLevel = doc?.zoomLevel ?? 100;
+  const rotation = doc?.pageRotation ?? 0;
   const scrollToPage = doc?.scrollToPage ?? null;
   const invertColors = useSettingsStore((s) => s.pdfInvertColors);
   // Throttle "report current scroll fraction to the store" so user
@@ -188,6 +196,16 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   });
   const anchorRef = useRef<{ page: number; fraction: number } | null>(null);
   const programmaticScrollRef = useRef(false);
+  // Rotation snapshot — when this changes, every cached page
+  // dimension is stale (90°/270° swaps width/height; 0°/180° keeps
+  // the bounding box but the raster still has to come back). Clear
+  // the cache so handlePageRenderSuccess re-measures.
+  const prevRotationRef = useRef(rotation);
+  useLayoutEffect(() => {
+    if (prevRotationRef.current === rotation) return;
+    dimensionsRef.current.clear();
+    prevRotationRef.current = rotation;
+  }, [rotation]);
 
   // Track container size — debounced to prevent flicker during panel resize
   const resizeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -650,6 +668,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
               effectivePageWidth={effectivePageWidth}
               zoomMode={zoomMode}
               zoomLevel={zoomLevel}
+              rotation={rotation}
               containerWidth={containerWidth}
               containerHeight={containerHeight}
               onRenderSuccess={handlePageRenderSuccess}

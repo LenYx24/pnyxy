@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Sun,
   Moon,
+  RotateCw,
   ZoomIn,
   ZoomOut,
   Columns2,
@@ -159,6 +160,7 @@ export function ReaderToolbar({
   const setZoomLevel = useReaderStore((s) => s.setZoomLevel);
   const setCustomTitle = useReaderStore((s) => s.setCustomTitle);
   const getDisplayTitle = useReaderStore((s) => s.getDisplayTitle);
+  const rotatePage = useReaderStore((s) => s.rotatePage);
   const pdfInvertColors = useSettingsStore((s) => s.pdfInvertColors);
   const setPdfInvertColors = useSettingsStore((s) => s.setPdfInvertColors);
   const isPdf = activeDoc?.meta.format === "pdf";
@@ -209,10 +211,17 @@ export function ReaderToolbar({
     { label: t("reader.toolbar.zoomIn"), icon: ZoomIn, onClick: () => zoomIn() },
     { label: t("reader.toolbar.zoomOut"), icon: ZoomOut, onClick: () => zoomOut() },
     { label: t("reader.toolbar.fitMode"), icon: Columns2, onClick: () => setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width") },
-    // Night mode toggle — PDF-only since the filter is on the
-    // rasterized canvas. EPUB/markdown/text use their own theme tokens.
+    // PDF-only actions: rotation cycles through 0/90/180/270 in 90°
+    // CW steps, night mode flips invert-colors. EPUB/markdown/text
+    // use their own theme tokens and don't have a rasterized canvas
+    // to rotate.
     ...(isPdf
       ? [
+          {
+            label: t("reader.toolbar.rotate"),
+            icon: RotateCw,
+            onClick: () => rotatePage(1),
+          },
           {
             label: pdfInvertColors
               ? t("reader.toolbar.nightModeOff")

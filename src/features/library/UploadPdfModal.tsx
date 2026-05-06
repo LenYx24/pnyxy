@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { X, Upload, FileText, Check, Loader2, AlertTriangle } from "lucide-react";
+import { X, Upload, FileText, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useUploadStore } from "@/stores/upload-store";
@@ -12,21 +12,23 @@ interface UploadPdfModalProps {
   onClose: () => void;
 }
 
+/**
+ * Pick-a-PDF modal. The actual upload runs in the background — on
+ * Upload click we enqueue and close immediately, and the user
+ * watches per-file progress on a ghost card in the library grid.
+ * Only the synchronous gate (storage-limit pre-check) stays in the
+ * modal so the user gets the over-budget warning *before* the file
+ * disappears from view.
+ */
 export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
   const { t } = useTranslation();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [success, setSuccess] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isUploading = useUploadStore((s) => s.isUploading);
-  const uploadProgress = useUploadStore((s) => s.uploadProgress);
-  const error = useUploadStore((s) => s.error);
   const storageUsage = useUploadStore((s) => s.storageUsage);
-  const uploadPdf = useUploadStore((s) => s.uploadPdf);
-  const clearError = useUploadStore((s) => s.clearError);
+  const enqueueUpload = useUploadStore((s) => s.enqueueUpload);
   const fetchStorageUsage = useUploadStore((s) => s.fetchStorageUsage);
-  const fetchLibrary = useLibraryStore((s) => s.fetchLibrary);
   const currentFolderId = useLibraryStore((s) => s.currentFolderId);
 
   useEffect(() => {
@@ -34,21 +36,15 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
       fetchStorageUsage();
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset local state when the modal is opened
       setSelectedFile(null);
-      setSuccess(false);
-      clearError();
     }
-  }, [open, fetchStorageUsage, clearError]);
+  }, [open, fetchStorageUsage]);
 
-  const handleFileSelect = useCallback(
-    (file: File) => {
-      if (file.type !== "application/pdf") {
-        return;
-      }
-      clearError();
-      setSelectedFile(file);
-    },
-    [clearError],
-  );
+  const handleFileSelect = useCallback((file: File) => {
+    if (file.type !== "application/pdf") {
+      return;
+    }
+    setSelectedFile(file);
+  }, []);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,20 +65,15 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
     [handleFileSelect],
   );
 
-  const handleUpload = async () => {
+  const handleUpload = () => {
     if (!selectedFile) return;
-    const bookId = await uploadPdf(selectedFile, currentFolderId);
-    if (bookId) {
-      setSuccess(true);
-      await fetchLibrary(true);
-    }
+    enqueueUpload(selectedFile, currentFolderId);
+    setSelectedFile(null);
+    onClose();
   };
 
   const handleClose = () => {
-    if (isUploading) return;
     setSelectedFile(null);
-    setSuccess(false);
-    clearError();
     onClose();
   };
 
@@ -107,155 +98,101 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
           </h2>
           <button
             onClick={handleClose}
-            disabled={isUploading}
-            className="rounded-lg p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer disabled:opacity-50"
+            className="rounded-lg p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
           >
             <X size={20} />
           </button>
         </div>
 
         <div className="p-4">
-          {success ? (
-            <div className="flex flex-col items-center gap-3 py-8">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/20">
-                <Check size={24} className="text-green-400" />
-              </div>
-              <p className="text-center text-sm text-text-primary">
-                {t("library.uploadModal.successTitle")}
+          {/* Drop zone / file picker */}
+          {!selectedFile ? (
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              className={cn(
+                "flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed p-8 transition-colors",
+                dragOver
+                  ? "border-accent-purple bg-accent-purple/10"
+                  : "border-glass-border hover:border-accent-purple/50",
+              )}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload size={32} className="text-text-muted" />
+              <p className="text-sm text-text-primary">
+                {t("library.uploadModal.dropZone")}
               </p>
-              <p className="text-center text-xs text-text-muted">
-                {t("library.uploadModal.successBody")}
+              <p className="text-xs text-text-muted">
+                {t("library.uploadModal.pdfOnly")}
               </p>
-              <Button variant="secondary" onClick={handleClose}>
-                {t("common.close")}
-              </Button>
             </div>
           ) : (
-            <>
-              {/* Drop zone / file picker */}
-              {!selectedFile ? (
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragOver(true);
-                  }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={handleDrop}
-                  className={cn(
-                    "flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed p-8 transition-colors",
-                    dragOver
-                      ? "border-accent-purple bg-accent-purple/10"
-                      : "border-glass-border hover:border-accent-purple/50",
-                  )}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload size={32} className="text-text-muted" />
-                  <p className="text-sm text-text-primary">
-                    {t("library.uploadModal.dropZone")}
+            <div className="space-y-4">
+              {/* File info */}
+              <div className="flex items-center gap-3 rounded-lg border border-glass-border p-3">
+                <FileText size={24} className="shrink-0 text-accent-purple" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-text-primary">
+                    {selectedFile.name}
                   </p>
                   <p className="text-xs text-text-muted">
-                    {t("library.uploadModal.pdfOnly")}
+                    {formatBytes(selectedFile.size)}
                   </p>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* File info */}
-                  <div className="flex items-center gap-3 rounded-lg border border-glass-border p-3">
-                    <FileText size={24} className="shrink-0 text-accent-purple" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-text-primary">
-                        {selectedFile.name}
-                      </p>
-                      <p className="text-xs text-text-muted">
-                        {formatBytes(selectedFile.size)}
-                      </p>
-                    </div>
-                    {!isUploading && (
-                      <button
-                        onClick={() => {
-                          setSelectedFile(null);
-                          clearError();
-                        }}
-                        className="rounded-lg p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
-                      >
-                        <X size={16} />
-                      </button>
-                    )}
-                  </div>
+                <button
+                  onClick={() => setSelectedFile(null)}
+                  className="rounded-lg p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
 
-                  {/* Storage warning */}
-                  {wouldExceed && (
-                    <div className="flex items-start gap-2 rounded-lg bg-red-500/10 p-3">
-                      <AlertTriangle size={16} className="mt-0.5 shrink-0 text-red-400" />
-                      <p className="text-xs text-red-400">
-                        {t("library.uploadModal.wouldExceed")}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Storage usage bar */}
-                  {storageUsage && (
-                    <StorageUsageBar
-                      usedBytes={storageUsage.usedBytes}
-                      limitBytes={storageUsage.limitBytes}
-                      tier={storageUsage.tier}
-                    />
-                  )}
-
-                  {/* Upload progress */}
-                  {isUploading && (
-                    <div className="space-y-1">
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-glass-border">
-                        <div
-                          className="h-full rounded-full bg-accent-purple transition-all"
-                          style={{ width: `${uploadProgress}%` }}
-                        />
-                      </div>
-                      <p className="text-center text-xs text-text-muted">
-                        {t("library.uploadModal.uploading", {
-                          pct: uploadProgress,
-                        })}
-                      </p>
-                    </div>
-                  )}
+              {/* Storage warning — synchronous pre-check so the user
+                  sees this *here*, not on a doomed ghost card. */}
+              {wouldExceed && (
+                <div className="flex items-start gap-2 rounded-lg bg-red-500/10 p-3">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-red-400" />
+                  <p className="text-xs text-red-400">
+                    {t("library.uploadModal.wouldExceed")}
+                  </p>
                 </div>
               )}
 
-              {/* Error */}
-              {error && (
-                <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
-                  {error}
-                </p>
+              {/* Storage usage bar */}
+              {storageUsage && (
+                <StorageUsageBar
+                  usedBytes={storageUsage.usedBytes}
+                  limitBytes={storageUsage.limitBytes}
+                  tier={storageUsage.tier}
+                />
               )}
-
-              {/* Actions */}
-              {selectedFile && !isUploading && (
-                <div className="mt-4 flex justify-end gap-2">
-                  <Button variant="secondary" onClick={handleClose}>
-                    {t("common.cancel")}
-                  </Button>
-                  <Button onClick={handleUpload} disabled={!!wouldExceed}>
-                    {isUploading ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <>
-                        <Upload size={16} />
-                        {t("library.uploadModal.upload")}
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf"
-                className="hidden"
-                onChange={handleInputChange}
-              />
-            </>
+            </div>
           )}
+
+          {/* Actions */}
+          {selectedFile && (
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="secondary" onClick={handleClose}>
+                {t("common.cancel")}
+              </Button>
+              <Button onClick={handleUpload} disabled={!!wouldExceed}>
+                <Upload size={16} />
+                {t("library.uploadModal.upload")}
+              </Button>
+            </div>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf"
+            className="hidden"
+            onChange={handleInputChange}
+          />
         </div>
       </div>
     </div>

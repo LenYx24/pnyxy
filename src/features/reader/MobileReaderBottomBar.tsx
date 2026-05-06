@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import {
   BookmarkPlus,
   BotMessageSquare,
+  Hash,
   List,
   MessageSquare,
   Search,
@@ -17,6 +18,13 @@ interface MobileReaderBottomBarProps {
   onBookmark: () => void;
   onToggleComments: () => void;
   onToggleAiChat: () => void;
+  /** Page-jump affordance — when set, the bar gets a sixth item that
+   *  shows "current / total" and opens the parent's page-jump prompt
+   *  on tap. Mobile users otherwise have to tap to reveal the top
+   *  toolbar to access the page input there. */
+  pageCurrent?: number;
+  pageTotal?: number;
+  onJumpToPage?: () => void;
 }
 
 /**
@@ -32,6 +40,9 @@ export function MobileReaderBottomBar({
   onBookmark,
   onToggleComments,
   onToggleAiChat,
+  pageCurrent,
+  pageTotal,
+  onJumpToPage,
 }: MobileReaderBottomBarProps) {
   const { t } = useTranslation();
 
@@ -50,6 +61,20 @@ export function MobileReaderBottomBar({
       onClick: onToggleSearch,
       active: false,
     },
+    ...(onJumpToPage && pageCurrent && pageTotal
+      ? [
+          {
+            key: "page" as const,
+            icon: Hash,
+            // Label doubles as the page indicator — keeps the row at
+            // 6 items without duplicating "page" + "X / Y" in two
+            // separate slots. Truncates cleanly on narrow phones.
+            label: `${pageCurrent} / ${pageTotal}`,
+            onClick: onJumpToPage,
+            active: false,
+          },
+        ]
+      : []),
     {
       key: "bookmark" as const,
       icon: BookmarkPlus,

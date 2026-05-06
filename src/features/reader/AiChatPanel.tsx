@@ -5,11 +5,13 @@ import {
   ArrowUp,
   BotMessageSquare,
   ChevronLeft,
+  Download,
   Gauge,
   MessagesSquare,
   MoreVertical,
   Plus,
   Settings,
+  Square,
   Trash2,
   X,
 } from "lucide-react";
@@ -20,7 +22,11 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { useConfirm } from "@/hooks/use-confirm";
 import { usePageCitationDispatch } from "@/hooks/use-page-citation";
-import { renderMarkdown } from "@/lib/markdown-message";
+import { renderMarkdown, handleCodeBlockCopy } from "@/lib/markdown-message";
+import {
+  conversationToMarkdown,
+  downloadMarkdown,
+} from "@/lib/export-conversation";
 import { FloatingMenu } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { IDockviewPanelProps } from "dockview";
@@ -360,6 +366,27 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             anchorRef={overflowAnchorRef}
             onClose={() => setOverflowOpen(false)}
           >
+            {activeIsForThisDoc && activeConversation && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOverflowOpen(false);
+                  const md = conversationToMarkdown(
+                    activeConversation,
+                    messages,
+                    activeLeafId,
+                  );
+                  downloadMarkdown(
+                    activeConversation.title.trim() || t("chat.untitled"),
+                    md,
+                  );
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-secondary hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              >
+                <Download size={14} />
+                {t("chat.exportMarkdown")}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -388,7 +415,11 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       {/* Messages */}
       <div
         ref={messagesContainerRef}
-        onClick={handleCitationClick}
+        onClick={(e) => {
+          handleCodeBlockCopy(e);
+          if (e.defaultPrevented) return;
+          handleCitationClick(e);
+        }}
         className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-3"
       >
         {!activeIsForThisDoc && (
@@ -461,17 +492,28 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           />
           <button
             type="button"
-            onClick={handleSend}
-            disabled={!input.trim() || isStreaming}
+            onClick={() => {
+              if (isStreaming) {
+                useChatStore.getState().stopStreaming();
+              } else {
+                void handleSend();
+              }
+            }}
+            disabled={!isStreaming && !input.trim()}
             className={cn(
               "shrink-0 rounded-full p-2 transition-colors cursor-pointer",
-              input.trim() && !isStreaming
+              isStreaming || input.trim()
                 ? "bg-accent-purple text-white hover:bg-accent-purple/80"
                 : "bg-glass-bg text-text-muted",
             )}
-            aria-label={t("chat.send")}
+            aria-label={isStreaming ? t("chat.stop") : t("chat.send")}
+            title={isStreaming ? t("chat.stop") : t("chat.send")}
           >
-            <ArrowUp size={18} strokeWidth={2.5} />
+            {isStreaming ? (
+              <Square size={14} fill="currentColor" />
+            ) : (
+              <ArrowUp size={18} strokeWidth={2.5} />
+            )}
           </button>
         </div>
       </div>

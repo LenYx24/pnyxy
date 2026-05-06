@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { renderMarkdown } from "@/lib/markdown-message";
+import { renderMarkdown, handleCodeBlockCopy } from "@/lib/markdown-message";
 import { usePageCitationDispatch } from "@/hooks/use-page-citation";
+import { useReadAloud, markdownToSpeech } from "@/hooks/use-read-aloud";
+import {
+  conversationToMarkdown,
+  downloadMarkdown,
+} from "@/lib/export-conversation";
 import {
   MessagesSquare,
   MoreVertical,
   Gauge,
   Plus,
   ArrowUp,
+  Square,
   Loader2,
   GitBranch,
   Trash2,
@@ -30,6 +36,10 @@ import {
   Paperclip,
   Image as ImageIcon,
   Copy,
+  RefreshCw,
+  Download,
+  Volume2,
+  Search,
 } from "lucide-react";
 import { ConfirmModal, FloatingMenu, PromptModal } from "@/components/ui";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -230,6 +240,38 @@ export function ChatPage() {
   const [selectedProvider, setSelectedProvider] = useState<AiProvider | null>(
     () => null,
   );
+  // Conversation search — filters the visible sidebar list (desktop)
+  // and the mobile pre-open conversations list. Title-only,
+  // case-insensitive substring match. Full-text-across-messages is
+  // a follow-up — would need a Postgres RPC since we don't have
+  // every conversation's message bodies in memory.
+  const [conversationSearch, setConversationSearch] = useState("");
+  const filteredConversationData = useMemo(() => {
+    const q = conversationSearch.trim().toLowerCase();
+    if (!q) {
+      return { conversations, folders };
+    }
+    const folderById = new Map(folders.map((f) => [f.id, f]));
+    const matched = conversations.filter((c) =>
+      (c.title || "").toLowerCase().includes(q),
+    );
+    // Walk up each matched conversation's folder chain so every
+    // ancestor folder stays visible — otherwise a hit deep in a
+    // nested folder would render orphaned.
+    const keptFolderIds = new Set<string>();
+    for (const c of matched) {
+      let fid = c.folder_id;
+      while (fid && !keptFolderIds.has(fid)) {
+        keptFolderIds.add(fid);
+        const f = folderById.get(fid);
+        fid = f?.parent_id ?? null;
+      }
+    }
+    return {
+      conversations: matched,
+      folders: folders.filter((f) => keptFolderIds.has(f.id)),
+    };
+  }, [conversations, folders, conversationSearch]);
   // If the user disables the picked provider, snap back to "Default"
   // rather than hold a stale value that would either error or be
   // silently ignored by the strict-mode resolver.
@@ -412,6 +454,23 @@ export function ChatPage() {
     [conversations, activeId],
   );
 
+  // Export the active conversation's visible thread as Markdown.
+  // Pulled out of the overflow menu's onClick so both the mobile
+  // header menu and the desktop floating menu wire to the same
+  // handler. No-op when there's no active conversation.
+  const handleExportActive = useCallback(() => {
+    if (!activeConversation) return;
+    const md = conversationToMarkdown(
+      activeConversation,
+      messages,
+      activeLeafId,
+    );
+    downloadMarkdown(
+      activeConversation.title.trim() || t("chat.untitled"),
+      md,
+    );
+  }, [activeConversation, messages, activeLeafId, t]);
+
   // Roadmap-edit mode: when the conversation is tied to a roadmap,
   // load the roadmap store (it's IndexedDB-backed and may not be in
   // memory if the user landed on /chat directly) and resolve the
@@ -475,6 +534,13 @@ export function ChatPage() {
     () => pathFromRoot(messages, activeLeafId),
     [messages, activeLeafId],
   );
+
+  // Single TTS instance shared across all bubbles in the thread —
+  // starting a read on message B implicitly stops message A. Per-
+  // bubble hook calls would have isolated state and lose this
+  // behaviour.
+  const tts = useReadAloud();
+  const messageSuggestions = useChatStore((s) => s.messageSuggestions);
 
   const handleNew = async () => {
     const id = await createConversation();
@@ -575,6 +641,34 @@ export function ChatPage() {
           </button>
         </div>
 
+        {/* Conversation search — filters the tree as the user types.
+            Hidden when there are zero conversations to search. */}
+        {conversations.length > 0 && (
+          <div className="relative">
+            <Search
+              size={12}
+              className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-text-muted"
+            />
+            <input
+              type="text"
+              value={conversationSearch}
+              onChange={(e) => setConversationSearch(e.target.value)}
+              placeholder={t("chat.searchPlaceholder")}
+              className="w-full rounded-md border border-glass-border bg-glass-bg/50 px-2 py-1.5 pl-7 pr-7 text-xs text-text-primary outline-none focus:border-accent-purple/60 placeholder:text-text-muted"
+            />
+            {conversationSearch && (
+              <button
+                type="button"
+                onClick={() => setConversationSearch("")}
+                aria-label={t("common.cancel")}
+                className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        )}
+
         <DndContext
           sensors={dndSensors}
           collisionDetection={closestCenter}
@@ -586,12 +680,17 @@ export function ChatPage() {
               <p className="px-2 py-4 text-center text-xs text-text-muted">
                 {t("chat.sidebar.empty")}
               </p>
+            ) : filteredConversationData.conversations.length === 0 &&
+              filteredConversationData.folders.length === 0 ? (
+              <p className="px-2 py-4 text-center text-xs text-text-muted">
+                {t("chat.searchNoResults")}
+              </p>
             ) : (
               <>
                 <RootDropZone label={t("chat.folders.dropToRoot")} />
                 <ChatTree
-                  folders={folders}
-                  conversations={conversations}
+                  folders={filteredConversationData.folders}
+                  conversations={filteredConversationData.conversations}
                   activeId={activeId}
                   editingId={editingId}
                   editTitle={editTitle}
@@ -639,6 +738,19 @@ export function ChatPage() {
             anchorRef={overflowAnchorRef}
             onClose={() => setOverflowOpen(false)}
           >
+            {activeConversation && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOverflowOpen(false);
+                  handleExportActive();
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-secondary hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              >
+                <Download size={14} />
+                {t("chat.exportMarkdown")}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -682,6 +794,19 @@ export function ChatPage() {
             anchorRef={overflowAnchorMobileRef}
             onClose={() => setOverflowOpenMobile(false)}
           >
+            {activeConversation && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOverflowOpenMobile(false);
+                  handleExportActive();
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-secondary hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              >
+                <Download size={14} />
+                {t("chat.exportMarkdown")}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -705,7 +830,7 @@ export function ChatPage() {
 
         {/* Mobile: conversation list when nothing open */}
         {!activeId && (
-          <div className="flex-1 overflow-y-auto p-3 sm:hidden">
+          <div className="flex flex-1 flex-col gap-2 overflow-hidden p-3 sm:hidden">
             {conversations.length === 0 ? (
               <div className="flex h-full items-center justify-center text-center">
                 <div>
@@ -719,21 +844,52 @@ export function ChatPage() {
                 </div>
               </div>
             ) : (
-              <ul className="flex flex-col gap-1">
-                {conversations.map((c) => (
-                  <li key={c.id}>
+              <>
+                <div className="relative shrink-0">
+                  <Search
+                    size={14}
+                    className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted"
+                  />
+                  <input
+                    type="text"
+                    value={conversationSearch}
+                    onChange={(e) => setConversationSearch(e.target.value)}
+                    placeholder={t("chat.searchPlaceholder")}
+                    className="w-full rounded-md border border-glass-border bg-glass-bg/50 px-2 py-1.5 pl-8 pr-8 text-sm text-text-primary outline-none focus:border-accent-purple/60 placeholder:text-text-muted"
+                  />
+                  {conversationSearch && (
                     <button
-                      onClick={() => openConversation(c.id)}
-                      className="flex w-full items-center justify-between gap-2 rounded-lg border border-glass-border bg-glass-bg/40 px-3 py-2 text-left text-sm transition-colors hover:bg-glass-hover"
+                      type="button"
+                      onClick={() => setConversationSearch("")}
+                      aria-label={t("common.cancel")}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
                     >
-                      <span className="min-w-0 flex-1 truncate">
-                        {c.title || t("chat.untitled")}
-                      </span>
-                      <ChevronRight size={14} className="text-text-muted" />
+                      <X size={14} />
                     </button>
-                  </li>
-                ))}
-              </ul>
+                  )}
+                </div>
+                {filteredConversationData.conversations.length === 0 ? (
+                  <p className="px-2 py-6 text-center text-xs text-text-muted">
+                    {t("chat.searchNoResults")}
+                  </p>
+                ) : (
+                  <ul className="flex flex-1 flex-col gap-1 overflow-y-auto">
+                    {filteredConversationData.conversations.map((c) => (
+                      <li key={c.id}>
+                        <button
+                          onClick={() => openConversation(c.id)}
+                          className="flex w-full items-center justify-between gap-2 rounded-lg border border-glass-border bg-glass-bg/40 px-3 py-2 text-left text-sm transition-colors hover:bg-glass-hover"
+                        >
+                          <span className="min-w-0 flex-1 truncate">
+                            {c.title || t("chat.untitled")}
+                          </span>
+                          <ChevronRight size={14} className="text-text-muted" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
           </div>
         )}
@@ -788,26 +944,82 @@ export function ChatPage() {
                 </p>
               )}
 
-              {threadPath.map((msg) => (
-                <MessageBubble
-                  key={msg.id}
-                  msg={msg}
-                  messages={messages}
-                  activeLeafId={activeLeafId}
-                  streamingMessageId={streamingMessageId}
-                  sourceDocId={activeConversation?.source_doc_id ?? null}
-                  onBranchHere={() => setBranchFromId(msg.id)}
-                  onPickBranch={setActiveLeaf}
-                  onSaveAsFlashcards={() =>
-                    setFlashcardSource({
-                      text: msg.content,
-                      title:
-                        activeConversation?.title ||
-                        t("chat.flashcards.defaultTitle"),
-                    })
-                  }
-                />
-              ))}
+              {threadPath.map((msg) => {
+                const parent = msg.parent_message_id
+                  ? messages.get(msg.parent_message_id)
+                  : null;
+                // Regenerate is meaningful only when the assistant
+                // message has a user-message parent we can resend.
+                // Falls through to undefined for the first turn /
+                // detached messages — the bubble hides the button.
+                const handleRegenerate =
+                  msg.role === "assistant" && parent && parent.role === "user"
+                    ? () => {
+                        const grandparent = parent.parent_message_id;
+                        const provider = selectedProvider ?? undefined;
+                        void branchFrom(
+                          grandparent,
+                          parent.content,
+                          provider,
+                          parent.attachments ?? undefined,
+                        );
+                      }
+                    : undefined;
+                // Edit is meaningful only on user messages — it
+                // branches a sibling with the new text under the
+                // same parent. Image attachments carry through so
+                // an image+question turn keeps its image when the
+                // user just tweaks the question.
+                const handleEdit =
+                  msg.role === "user"
+                    ? (newText: string) => {
+                        const provider = selectedProvider ?? undefined;
+                        void branchFrom(
+                          msg.parent_message_id,
+                          newText,
+                          provider,
+                          msg.attachments ?? undefined,
+                        );
+                      }
+                    : undefined;
+                return (
+                  <MessageBubble
+                    key={msg.id}
+                    msg={msg}
+                    messages={messages}
+                    activeLeafId={activeLeafId}
+                    streamingMessageId={streamingMessageId}
+                    sourceDocId={activeConversation?.source_doc_id ?? null}
+                    onBranchHere={() => setBranchFromId(msg.id)}
+                    onPickBranch={setActiveLeaf}
+                    onSaveAsFlashcards={() =>
+                      setFlashcardSource({
+                        text: msg.content,
+                        title:
+                          activeConversation?.title ||
+                          t("chat.flashcards.defaultTitle"),
+                      })
+                    }
+                    onRegenerate={handleRegenerate}
+                    onEdit={handleEdit}
+                    tts={tts}
+                    suggestions={
+                      msg.role === "assistant"
+                        ? messageSuggestions.get(msg.id)
+                        : undefined
+                    }
+                    onPickSuggestion={(text) => {
+                      // Branch from this assistant message — sends a
+                      // new user turn under it. Equivalent to typing
+                      // the chip into the composer when this is the
+                      // active leaf, plus correct branching when it
+                      // isn't.
+                      const provider = selectedProvider ?? undefined;
+                      void branchFrom(msg.id, text, provider);
+                    }}
+                  />
+                );
+              })}
               <div ref={threadEndRef} />
               </div>
             </div>
@@ -1078,24 +1290,40 @@ export function ChatPage() {
                     </button>
                   )}
                   <button
-                    onClick={handleSend}
+                    onClick={() => {
+                      if (streamingMessageId !== null) {
+                        useChatStore.getState().stopStreaming();
+                      } else {
+                        void handleSend();
+                      }
+                    }}
                     disabled={
-                      (!input.trim() && pendingAttachments.length === 0) ||
-                      streamingMessageId !== null ||
-                      attachmentsBlocked
+                      streamingMessageId === null &&
+                      ((!input.trim() && pendingAttachments.length === 0) ||
+                        attachmentsBlocked)
                     }
                     className={cn(
                       "shrink-0 rounded-full p-2 transition-colors cursor-pointer",
-                      (input.trim() || pendingAttachments.length > 0) &&
-                        streamingMessageId === null &&
-                        !attachmentsBlocked
+                      streamingMessageId !== null
                         ? "bg-accent-purple text-white hover:bg-accent-purple/80"
-                        : "bg-glass-bg text-text-muted disabled:cursor-not-allowed",
+                        : (input.trim() || pendingAttachments.length > 0) &&
+                            !attachmentsBlocked
+                          ? "bg-accent-purple text-white hover:bg-accent-purple/80"
+                          : "bg-glass-bg text-text-muted disabled:cursor-not-allowed",
                     )}
-                    aria-label={t("chat.send")}
+                    aria-label={
+                      streamingMessageId !== null
+                        ? t("chat.stop")
+                        : t("chat.send")
+                    }
+                    title={
+                      streamingMessageId !== null
+                        ? t("chat.stop")
+                        : t("chat.send")
+                    }
                   >
                     {streamingMessageId !== null ? (
-                      <Loader2 size={16} className="animate-spin" />
+                      <Square size={14} fill="currentColor" />
                     ) : (
                       <ArrowUp size={18} strokeWidth={2.5} />
                     )}
@@ -1375,6 +1603,11 @@ function MessageBubble({
   onBranchHere,
   onPickBranch,
   onSaveAsFlashcards,
+  onRegenerate,
+  onEdit,
+  tts,
+  suggestions,
+  onPickSuggestion,
 }: {
   msg: ChatMessage;
   messages: Map<string, ChatMessage>;
@@ -1387,12 +1620,34 @@ function MessageBubble({
   onPickBranch: (id: string) => void;
   /** Open the flashcards extractor over this message's content. */
   onSaveAsFlashcards: () => void;
+  /** Regenerate this assistant message — re-runs its parent user
+   *  message as a sibling branch. Undefined for user messages and
+   *  while another stream is in flight. */
+  onRegenerate?: () => void;
+  /** Edit-in-place for user messages — submits a fresh sibling
+   *  branch with the new text under the same parent. Undefined for
+   *  assistant messages and while another stream is in flight. */
+  onEdit?: (newText: string) => void;
+  /** Shared TTS controller from the parent — single utterance lives
+   *  at the thread level so starting a read on one message stops
+   *  whatever was already speaking. */
+  tts: ReturnType<typeof useReadAloud>;
+  /** Optional follow-up question chips rendered below the assistant
+   *  bubble. Populated by `requestFollowupSuggestions` after the
+   *  turn settles; absent for user messages and for assistant
+   *  messages whose response was too short / errored / aborted. */
+  suggestions?: string[];
+  /** Click handler for a suggestion chip — sends it as a new user
+   *  message branched from the current assistant. */
+  onPickSuggestion?: (text: string) => void;
 }) {
   const { t } = useTranslation();
   const isUser = msg.role === "user";
   const isStreaming = msg.id === streamingMessageId;
   const branches = countBranches(messages, msg.id);
   const [showBranches, setShowBranches] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(msg.content);
   const handleCitationClick = usePageCitationDispatch();
 
   // Which child of this message is on the active path (if any)?
@@ -1422,45 +1677,118 @@ function MessageBubble({
             go through marked + DOMPurify so code blocks, tables,
             lists, headings, and inline code all render properly. */}
         {isUser ? (
-          <div className="space-y-2">
-            {msg.attachments && msg.attachments.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {msg.attachments.map((att, idx) =>
-                  att.kind === "image" ? (
-                    <a
-                      key={idx}
-                      href={`data:${att.media_type};base64,${att.data}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block"
-                      title={att.name ?? ""}
-                    >
-                      <img
-                        src={`data:${att.media_type};base64,${att.data}`}
-                        alt={att.name ?? "attachment"}
-                        className="max-h-48 max-w-full rounded-md object-cover"
-                      />
-                    </a>
-                  ) : null,
-                )}
+          isEditing ? (
+            // Edit-in-place: textarea pre-filled with the original
+            // content. Save = `onEdit` → branchFrom under the same
+            // parent → fresh sibling branch + new assistant reply.
+            // Original message stays accessible via the branch picker.
+            <div className="space-y-2">
+              <textarea
+                autoFocus
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    const trimmed = editText.trim();
+                    if (
+                      trimmed.length > 0 &&
+                      trimmed !== msg.content.trim() &&
+                      onEdit
+                    ) {
+                      onEdit(trimmed);
+                    }
+                    setIsEditing(false);
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setEditText(msg.content);
+                    setIsEditing(false);
+                  }
+                }}
+                rows={Math.min(8, Math.max(2, msg.content.split("\n").length))}
+                className="block w-full resize-none rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1.5 text-sm text-text-primary outline-none focus:border-accent-purple/60"
+              />
+              <div className="flex justify-end gap-1.5 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditText(msg.content);
+                    setIsEditing(false);
+                  }}
+                  className="rounded px-2 py-0.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                >
+                  {t("common.cancel")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const trimmed = editText.trim();
+                    if (
+                      trimmed.length > 0 &&
+                      trimmed !== msg.content.trim() &&
+                      onEdit
+                    ) {
+                      onEdit(trimmed);
+                    }
+                    setIsEditing(false);
+                  }}
+                  disabled={
+                    !editText.trim() ||
+                    editText.trim() === msg.content.trim()
+                  }
+                  className="rounded bg-accent-purple/80 px-2 py-0.5 font-medium text-white transition-colors hover:bg-accent-purple disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
+                >
+                  {t("chat.editSaveAndSend")}
+                </button>
               </div>
-            )}
-            {msg.content && (
-              <div className="whitespace-pre-wrap break-words">
-                {msg.content}
-              </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {msg.attachments && msg.attachments.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {msg.attachments.map((att, idx) =>
+                    att.kind === "image" ? (
+                      <a
+                        key={idx}
+                        href={`data:${att.media_type};base64,${att.data}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block"
+                        title={att.name ?? ""}
+                      >
+                        <img
+                          src={`data:${att.media_type};base64,${att.data}`}
+                          alt={att.name ?? "attachment"}
+                          className="max-h-48 max-w-full rounded-md object-cover"
+                        />
+                      </a>
+                    ) : null,
+                  )}
+                </div>
+              )}
+              {msg.content && (
+                <div className="whitespace-pre-wrap break-words">
+                  {msg.content}
+                </div>
+              )}
+            </div>
+          )
         ) : (
           <div
             className="ai-message break-words"
-            // `usePageCitationDispatch` upgrades the simple "use
-            // react-router for /-prefixed hrefs" behaviour: when the
-            // cited doc is the one already open in the reader, it
-            // calls goToPage in place instead of navigating — useful
-            // when the user is in /chat side-by-side with a reader
-            // tab, or in the reader's own AI panel.
-            onClick={handleCitationClick}
+            // Two delegated handlers stacked here: `handleCodeBlockCopy`
+            // runs first because it preventDefaults + stopPropagates
+            // when the click hit a copy button, so the citation
+            // dispatcher won't double-handle. Citation dispatcher is
+            // the smart upgrade of "use react-router for /-prefixed
+            // hrefs" — when the cited doc is already active in the
+            // reader, it calls goToPage in place instead of
+            // navigating.
+            onClick={(e) => {
+              handleCodeBlockCopy(e);
+              if (e.defaultPrevented) return;
+              handleCitationClick(e);
+            }}
             dangerouslySetInnerHTML={{
               __html: renderMarkdown(msg.content, sourceDocId),
             }}
@@ -1484,12 +1812,74 @@ function MessageBubble({
             <GitBranch size={10} />
             {t("chat.branchHere")}
           </button>
+          {/* Edit: user messages only. Flips the bubble into a
+              textarea; on save it branches a sibling under the same
+              parent so the original message stays accessible via
+              the branch picker. */}
+          {isUser && !isStreaming && onEdit && !isEditing && (
+            <button
+              onClick={() => {
+                setEditText(msg.content);
+                setIsEditing(true);
+              }}
+              disabled={streamingMessageId !== null}
+              className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+              title={t("chat.editAction")}
+            >
+              <Pencil size={10} />
+              {t("chat.editAction")}
+            </button>
+          )}
           {/* Copy: assistant messages only (the user can already
               re-read what they typed; copying their own message is
               a niche need we can add later). Stays disabled while
               streaming so we don't capture a partial response. */}
           {!isUser && !isStreaming && msg.content.trim().length > 0 && (
             <CopyButton text={msg.content} />
+          )}
+          {/* Regenerate: assistant messages only, parent user msg
+              must still exist in the tree (it does unless the
+              conversation was edited externally). Disabled while
+              another stream is in flight to avoid stacking turns. */}
+          {!isUser && !isStreaming && onRegenerate && (
+            <button
+              onClick={onRegenerate}
+              disabled={streamingMessageId !== null}
+              className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+              title={t("chat.regenerate")}
+            >
+              <RefreshCw size={10} />
+              {t("chat.regenerate")}
+            </button>
+          )}
+          {/* Read aloud: assistant messages only, only when the Web
+              Speech API is supported, only after streaming finishes
+              (don't read a half-complete sentence). Toggles to Stop
+              while the same message is speaking. */}
+          {!isUser && !isStreaming && tts.supported && msg.content.trim() && (
+            <button
+              onClick={() => {
+                if (tts.speakingId === msg.id) {
+                  tts.stop();
+                } else {
+                  tts.read(msg.id, markdownToSpeech(msg.content));
+                }
+              }}
+              className={cn(
+                "inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary cursor-pointer",
+                tts.speakingId === msg.id && "text-accent-purple",
+              )}
+              title={
+                tts.speakingId === msg.id
+                  ? t("chat.readAloudStop")
+                  : t("chat.readAloud")
+              }
+            >
+              <Volume2 size={10} />
+              {tts.speakingId === msg.id
+                ? t("chat.readAloudStop")
+                : t("chat.readAloud")}
+            </button>
           )}
           {/* Save-as-flashcards: only on assistant messages, only
               once the stream has finished (the extractor would just
@@ -1537,6 +1927,31 @@ function MessageBubble({
             })}
           </div>
         )}
+
+        {/* Follow-up suggestion chips. Only on assistant messages
+            once the turn has settled. Hidden once the user has
+            already replied to this assistant (countBranches > 0)
+            since the chips would be re-asking what the user has
+            already moved past. */}
+        {!isUser &&
+          !isStreaming &&
+          suggestions &&
+          suggestions.length > 0 &&
+          branches === 0 &&
+          onPickSuggestion && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {suggestions.map((q, i) => (
+                <button
+                  key={i}
+                  onClick={() => onPickSuggestion(q)}
+                  disabled={streamingMessageId !== null}
+                  className="inline-flex items-center rounded-full border border-glass-border bg-glass-bg/40 px-2.5 py-1 text-[11px] text-text-secondary transition-colors hover:border-accent-purple/50 hover:bg-accent-purple/10 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
       </div>
     </div>
   );

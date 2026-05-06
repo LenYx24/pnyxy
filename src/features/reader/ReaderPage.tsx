@@ -291,6 +291,31 @@ function MobileReaderLayout({
     useBookmarkStore.getState().addBookmark(doc.currentPage);
   }, []);
 
+  // Page-jump prompt — surfaces the desktop toolbar's "page X / Y"
+  // input on mobile, where the toolbar is hidden by default. Tapping
+  // the bottom bar's "X / Y" item opens this; the user types a page
+  // number and the prompt's onSubmit jumps the active doc. Two
+  // primitive selectors instead of one object selector — Zustand
+  // would otherwise see a fresh literal on every render and loop.
+  const [pageJumpOpen, setPageJumpOpen] = useState(false);
+  const currentPage = useReaderStore(
+    (s) => s.getActiveDoc()?.currentPage ?? 0,
+  );
+  const totalPages = useReaderStore(
+    (s) => s.getActiveDoc()?.totalPages ?? 0,
+  );
+  const handleJumpToPage = useCallback(() => {
+    setPageJumpOpen(true);
+  }, []);
+  const handleJumpToPageSubmit = useCallback((value: string) => {
+    const n = Number.parseInt(value, 10);
+    if (!Number.isFinite(n) || n < 1) return;
+    const doc = useReaderStore.getState().getActiveDoc();
+    if (!doc) return;
+    const clamped = Math.max(1, Math.min(doc.totalPages, n));
+    useReaderStore.getState().goToPage(clamped);
+  }, []);
+
   // Close panels with ESC. On mobile this matters for iPad/Android
   // users with an external keyboard; on phone it's cheap insurance.
   useEffect(() => {
@@ -507,6 +532,9 @@ function MobileReaderLayout({
         onBookmark={handleBookmark}
         onToggleComments={handleToggleComments}
         onToggleAiChat={handleToggleAiChat}
+        pageCurrent={currentPage > 0 ? currentPage : undefined}
+        pageTotal={totalPages > 0 ? totalPages : undefined}
+        onJumpToPage={totalPages > 0 ? handleJumpToPage : undefined}
       />
 
       {/* Backdrop for overlay panels — covers the full viewport
@@ -608,6 +636,17 @@ function MobileReaderLayout({
           <AiChatPanelContent onClose={() => setMobileReaderPanel("none")} />
         )}
       </div>
+
+      <PromptModal
+        open={pageJumpOpen}
+        title={t("reader.toolbar.jumpToPageTitle")}
+        body={t("reader.toolbar.jumpToPageBody", { total: totalPages })}
+        defaultValue={String(currentPage)}
+        placeholder={String(totalPages)}
+        confirmLabel={t("reader.toolbar.jumpToPageConfirm")}
+        onClose={() => setPageJumpOpen(false)}
+        onSubmit={handleJumpToPageSubmit}
+      />
     </div>
   );
 }

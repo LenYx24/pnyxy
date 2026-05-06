@@ -5,7 +5,6 @@ import {
   FolderSearch,
   Upload,
   UploadCloud,
-  Loader2,
   Link as LinkIcon,
   BookPlus,
   Plus,
@@ -52,7 +51,7 @@ export function LibraryPage() {
 
   const storageUsage = useUploadStore((s) => s.storageUsage);
   const fetchStorageUsage = useUploadStore((s) => s.fetchStorageUsage);
-  const uploadPdf = useUploadStore((s) => s.uploadPdf);
+  const enqueueUpload = useUploadStore((s) => s.enqueueUpload);
   const moveBookToFolder = useLibraryStore((s) => s.moveBookToFolder);
   const moveFolderToFolder = useLibraryStore((s) => s.moveFolderToFolder);
   const removeFromLibrary = useLibraryStore((s) => s.removeFromLibrary);
@@ -140,14 +139,15 @@ export function LibraryPage() {
     async (file: File) => {
       const isPdf = /\.pdf$/i.test(file.name);
       if (isPdf && user) {
-        await uploadPdf(file);
-        await fetchLibrary(true);
-        await fetchStorageUsage();
+        // Background upload — ghost card in the grid surfaces the
+        // progress + result. The store handles `fetchLibrary(true)`
+        // itself when the upload lands.
+        enqueueUpload(file);
       } else {
         await openFile(file);
       }
     },
-    [user, uploadPdf, openFile, fetchLibrary, fetchStorageUsage],
+    [user, enqueueUpload, openFile],
   );
 
   // Move-to-folder modal state
@@ -300,15 +300,10 @@ export function LibraryPage() {
 
   // ── Drag & drop import ───────────────────────────────────────
   // Drop one or more book files anywhere on the library page and
-  // they get added: PDFs upload to the cloud library (if signed
-  // in), other supported formats are opened locally in the reader.
+  // they get added: PDFs are enqueued for background upload (the
+  // ghost cards in the grid show per-file progress), other
+  // supported formats are opened locally in the reader.
   const [dragOver, setDragOver] = useState(false);
-  const [dropStatus, setDropStatus] = useState<{
-    total: number;
-    index: number;
-    name: string;
-    errors: number;
-  } | null>(null);
   // Track drag-enter/leave nesting — a single drag fires enter/leave
   // for every child the pointer crosses, which would otherwise flicker
   // the overlay.
@@ -350,41 +345,25 @@ export function LibraryPage() {
       const files = all.filter((f) => SUPPORTED_RE.test(f.name));
       if (files.length === 0) return;
 
-      let errors = 0;
+      // PDFs are enqueued for background upload — the user sees a
+      // ghost card per file in the grid with live progress + retry.
+      // Non-PDFs (epub/txt/md) open locally as before; we only
+      // navigate on the *last* one so multi-format drops don't yank
+      // the user off the library mid-batch.
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        setDropStatus({ total: files.length, index: i, name: file.name, errors });
-
-        try {
-          if (PDF_RE.test(file.name) && user) {
-            // Land the upload in whichever folder the user is
-            // currently viewing — drag-drop "places where you are".
-            const bookId = await uploadPdf(file, currentFolderId);
-            if (!bookId) errors += 1;
-          } else {
-            // Non-PDF, or PDF but not signed in — open locally. Only
-            // navigate on the last file so multi-drop stays on the
-            // library if possible (but single-file drops jump straight
-            // to the reader).
+        if (PDF_RE.test(file.name) && user) {
+          enqueueUpload(file, currentFolderId);
+        } else {
+          try {
             await openFile(file, i === files.length - 1);
+          } catch {
+            // openFile owns its own error UI; nothing for us to do.
           }
-        } catch {
-          errors += 1;
         }
       }
-
-      setDropStatus(null);
-      await fetchLibrary(true);
-      await fetchStorageUsage();
     },
-    [
-      user,
-      uploadPdf,
-      openFile,
-      fetchLibrary,
-      fetchStorageUsage,
-      currentFolderId,
-    ],
+    [user, enqueueUpload, openFile, currentFolderId],
   );
 
   const isUploaded = removeEntry?.source === "uploaded";
@@ -449,27 +428,6 @@ export function LibraryPage() {
         </div>
       )}
 
-      {dropStatus && (
-        <div className="fixed bottom-4 right-4 z-40 flex items-center gap-3 rounded-lg border border-glass-border bg-bg-secondary/95 px-4 py-3 shadow-lg backdrop-blur-xl">
-          <Loader2 size={16} className="animate-spin text-accent-purple" />
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-text-primary">
-              {t("library.importing", {
-                current: dropStatus.index + 1,
-                total: dropStatus.total,
-              })}
-              {dropStatus.errors > 0 && (
-                <span className="ml-2 text-xs text-amber-400">
-                  {t("library.importingFailed", { count: dropStatus.errors })}
-                </span>
-              )}
-            </p>
-            <p className="max-w-xs truncate text-xs text-text-muted">
-              {dropStatus.name}
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Header: stacks vertically below xl (1280px) because the
           button row + title + storage bar won't fit cleanly side-by-

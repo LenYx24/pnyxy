@@ -222,9 +222,16 @@ function buildSystemPrompt(documentTitle: string, pageContext: string) {
   // anything outside the (empty) document context — including
   // perfectly visible image attachments. Treat the empty-context
   // case as plain conversation.
+  // Math hint shared by both prompt variants: Pnyxy's chat renderer
+  // pipes message bodies through KaTeX, so $inline$ / $$display$$
+  // formulas render natively. Without this nudge models tend to fall
+  // back to plain-text math like "x^2" or unicode "x²" that loses the
+  // typographic clarity their textbook audience needs.
+  const mathHint =
+    "When you write mathematical expressions, wrap inline math in single-dollar delimiters ($x^2$) and display equations in double-dollar delimiters ($$\\sum_{i=1}^n i$$). The chat UI renders these as proper formulas via KaTeX.";
   const hasDoc = documentTitle.trim().length > 0;
   if (!hasDoc) {
-    return `You are Pnyxy's helpful AI assistant. Answer questions clearly and concisely. When the user attaches images, describe or reason about them directly — don't claim you can't see them. Use markdown for code blocks, lists, and tables when it helps readability.`;
+    return `You are Pnyxy's helpful AI assistant. Answer questions clearly and concisely. When the user attaches images, describe or reason about them directly — don't claim you can't see them. Use markdown for code blocks, lists, and tables when it helps readability. ${mathHint}`;
   }
   // The "[p.N]" hint is intentional — Pnyxy's chat renderer
   // post-processes that exact token into a clickable link back to
@@ -239,7 +246,7 @@ Here is the text from the pages the user is currently viewing:
 ${pageContext}
 ---
 
-Answer questions about this document. Be concise and helpful. When you reference a specific page, cite it inline using the format [p.N] where N is the page number (e.g. "the author's main argument [p.42]"). If the answer is not in the provided text, say so.`;
+Answer questions about this document. Be concise and helpful. When you reference a specific page, cite it inline using the format [p.N] where N is the page number (e.g. "the author's main argument [p.42]"). If the answer is not in the provided text, say so. ${mathHint}`;
 }
 
 // ── Top-level streaming with provider fallback ──────────────
@@ -266,6 +273,28 @@ export interface StreamOptions {
    *  When unset / null, the full configured chain is used in order
    *  (the "Default" option in the model picker). */
   preferredProvider?: AiProvider;
+  /** When set and aborted, the underlying fetch / SDK call is
+   *  cancelled and the async generator throws an AbortError that the
+   *  caller is expected to swallow as "user stopped generation."
+   *  Threaded down to fetch / Anthropic SDK / OpenAI SSE alike. */
+  signal?: AbortSignal;
+}
+
+/** True when a thrown error came from the user pressing "Stop." Used
+ *  by the chat-store to silently keep partial output instead of
+ *  treating it as a failed turn. */
+export function isAbortError(err: unknown): boolean {
+  if (!err) return false;
+  if (err instanceof DOMException && err.name === "AbortError") return true;
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "name" in err &&
+    (err as { name?: string }).name === "AbortError"
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export async function* streamChatResponse(
@@ -379,6 +408,7 @@ async function* streamPnyxy(
     response = await fetch(url, {
       method: "POST",
       headers,
+      signal: options.signal,
       body: JSON.stringify({
         messages: proxyMessages,
         documentTitle,
@@ -388,6 +418,7 @@ async function* streamPnyxy(
       }),
     });
   } catch (err) {
+    if (isAbortError(err)) throw err;
     throw new AiProviderError(
       err instanceof Error ? err.message : "Network error",
       "network",
@@ -443,17 +474,20 @@ async function* streamAnthropic(
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
 
-  const stream = client.messages.stream({
-    model: "claude-sonnet-4-5-20250929",
-    max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
-    system:
-      options.systemPromptOverride ??
-      buildSystemPrompt(documentTitle, pageContext),
-    messages: messages.map((m) => ({
-      role: m.role,
-      content: toAnthropicChatContent(m),
-    })),
-  });
+  const stream = client.messages.stream(
+    {
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
+      system:
+        options.systemPromptOverride ??
+        buildSystemPrompt(documentTitle, pageContext),
+      messages: messages.map((m) => ({
+        role: m.role,
+        content: toAnthropicChatContent(m),
+      })),
+    },
+    options.signal ? { signal: options.signal } : undefined,
+  );
 
   try {
     for await (const event of stream) {
@@ -465,6 +499,7 @@ async function* streamAnthropic(
       }
     }
   } catch (err) {
+    if (isAbortError(err)) throw err;
     throw normalizeSdkError(err, "anthropic");
   }
 }
@@ -494,6 +529,7 @@ async function* streamOpenAi(
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
+      signal: options.signal,
       body: JSON.stringify({
         model: "gpt-4o-mini",
         max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
@@ -513,6 +549,7 @@ async function* streamOpenAi(
       }),
     });
   } catch (err) {
+    if (isAbortError(err)) throw err;
     throw new AiProviderError(
       err instanceof Error ? err.message : "Network error",
       "network",
@@ -656,6 +693,10 @@ export interface StreamWithToolsOptions {
   tools: ToolDef[];
   maxOutputTokens?: number;
   preferredProvider?: AiProvider;
+  /** Same semantics as `StreamOptions.signal` — aborting cancels the
+   *  underlying transport and the generator throws AbortError that the
+   *  caller swallows as "user stopped generation." */
+  signal?: AbortSignal;
 }
 
 export async function* streamChatWithTools(
@@ -733,17 +774,20 @@ async function* streamToolsAnthropic(
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
 
-  const stream = client.messages.stream({
-    model: "claude-sonnet-4-5-20250929",
-    max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
-    system: options.systemPrompt,
-    tools: options.tools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      input_schema: t.input_schema,
-    })),
-    messages: messages.map(toAnthropicMessage),
-  });
+  const stream = client.messages.stream(
+    {
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
+      system: options.systemPrompt,
+      tools: options.tools.map((t) => ({
+        name: t.name,
+        description: t.description,
+        input_schema: t.input_schema,
+      })),
+      messages: messages.map(toAnthropicMessage),
+    },
+    options.signal ? { signal: options.signal } : undefined,
+  );
 
   // Track partial tool_use blocks across content_block_delta events
   // so we can yield a single tool_call event with the parsed input
@@ -812,6 +856,7 @@ async function* streamToolsAnthropic(
     }
     yield { kind: "stop", reason: stopReason, provider: "anthropic" };
   } catch (err) {
+    if (isAbortError(err)) throw err;
     throw normalizeSdkError(err, "anthropic");
   }
 }
@@ -839,6 +884,7 @@ async function* streamToolsPnyxy(
     response = await fetch(url, {
       method: "POST",
       headers,
+      signal: options.signal,
       body: JSON.stringify({
         // The proxy auto-detects tool-mode by the presence of `tools`
         // on the request body and switches to a richer SSE stream.
@@ -854,6 +900,7 @@ async function* streamToolsPnyxy(
       }),
     });
   } catch (err) {
+    if (isAbortError(err)) throw err;
     throw new AiProviderError(
       err instanceof Error ? err.message : "Network error",
       "network",
@@ -992,6 +1039,7 @@ async function* streamToolsOpenAi(
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
+      signal: options.signal,
       body: JSON.stringify({
         model: "gpt-4o-mini",
         max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
@@ -1011,6 +1059,7 @@ async function* streamToolsOpenAi(
       }),
     });
   } catch (err) {
+    if (isAbortError(err)) throw err;
     throw new AiProviderError(
       err instanceof Error ? err.message : "Network error",
       "network",

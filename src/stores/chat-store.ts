@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
 import {
+  isAbortError,
   streamChatResponse,
   streamChatWithTools,
   type ContentBlock,
@@ -62,6 +63,11 @@ interface ChatState {
   isLoading: boolean;
   /** Pending hand-off from the reader. ChatPage consumes & clears it. */
   pendingDraft: ChatDraft | null;
+  /** Per-assistant-message follow-up suggestion chips. Populated by
+   *  a separate, low-token model call after each successful turn;
+   *  cleared per-conversation on openConversation. Ephemeral — not
+   *  persisted to Supabase. */
+  messageSuggestions: Map<string, string[]>;
 
   fetchConversations: () => Promise<void>;
   createConversation: (
@@ -116,13 +122,22 @@ interface ChatState {
 
   /** Create a new user message whose parent is `parentMessageId` (can
    *  be any message in the conversation — that's the "branch from
-   *  here" UX). Then stream the assistant's reply. */
+   *  here" UX) or `null` for a fresh root-level branch (used by
+   *  Regenerate when the original user message had no parent).
+   *  Then stream the assistant's reply. */
   branchFrom: (
-    parentMessageId: string,
+    parentMessageId: string | null,
     text: string,
     preferredProvider?: AiProvider,
     attachments?: ChatMessageAttachment[],
   ) => Promise<void>;
+
+  /** Cancel the in-flight streaming response, if any. The partial
+   *  assistant message that was already streamed is preserved (just
+   *  what the user saw on screen); no error toast — this is a
+   *  user-initiated stop, not a failure. No-op when nothing is
+   *  streaming. */
+  stopStreaming: () => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -134,6 +149,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streamingMessageId: null,
   isLoading: false,
   pendingDraft: null,
+  messageSuggestions: new Map(),
 
   setPendingDraft(draft) {
     set({ pendingDraft: draft });
@@ -205,6 +221,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       activeConversationId: conversationId,
       messages: new Map(),
       activeLeafId: null,
+      // Drop suggestions: their keys are message ids from the
+      // previous conversation, which won't be in `messages` anymore.
+      // Holding onto them just bloats the Map indefinitely.
+      messageSuggestions: new Map(),
       isLoading: true,
     });
     try {
@@ -331,6 +351,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set,
       get,
     );
+  },
+
+  stopStreaming() {
+    // The controller lives at module scope (see below) so it survives
+    // store-state replacements. abort() triggers AbortError inside
+    // the streaming generator's underlying fetch / SDK call; sendOrBranch
+    // catches it and persists whatever was already streamed.
+    streamAbortController?.abort();
+    streamAbortController = null;
   },
 
   async moveConversationToFolder(id, folderId) {
@@ -476,6 +505,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
  * parent). That way long-running threads don't keep retitling
  * themselves on every send.
  */
+/** The currently in-flight assistant stream's AbortController, or
+ *  null when nothing is streaming. Module-scoped (not store state)
+ *  because AbortController isn't a value React or Zustand should
+ *  serialize / diff — `stopStreaming` reads it imperatively, and
+ *  `streamingMessageId` in the store is what consumers actually
+ *  watch to decide whether the Stop button should be shown. */
+let streamAbortController: AbortController | null = null;
+
 async function autoTitleConversation(
   conversationId: string,
   firstUserMessage: string,
@@ -526,6 +563,71 @@ async function autoTitleConversation(
     void get;
   } catch (err) {
     logError("chat:autoTitle:exception", err);
+  }
+}
+
+/**
+ * Ask the AI for 3 follow-up questions to display as chips below an
+ * assistant message. Best-effort: any failure is swallowed silently,
+ * the user just doesn't see chips. Costs an extra (small) model call
+ * per turn — the prompt is tight, the output is capped at 200 tokens.
+ *
+ * The list is stored in `messageSuggestions` keyed by assistant
+ * message id; it's ephemeral, not persisted. Cleared when the user
+ * opens a different conversation (the entries become inaccessible
+ * because the message ids aren't loaded anymore — keeping them
+ * around just bloats the Map).
+ */
+async function requestFollowupSuggestions(
+  assistantMessageId: string,
+  userText: string,
+  assistantText: string,
+  preferredProvider: AiProvider | undefined,
+  set: (partial: Partial<ChatState> | ((s: ChatState) => Partial<ChatState>)) => void,
+) {
+  // Skip if the response was very short / errored — short replies
+  // usually don't have meaningful follow-ups, and the leading "⚠"
+  // marker is what `sendOrBranch` writes on failure.
+  if (assistantText.trim().length < 40) return;
+  if (assistantText.startsWith("⚠")) return;
+
+  try {
+    let raw = "";
+    for await (const chunk of streamChatResponse(
+      [
+        {
+          role: "user",
+          content:
+            "Below is a snippet of a chat. Suggest 3 short follow-up questions the human might naturally ask next.\n\n" +
+            `USER: ${userText.slice(0, 600)}\n\n` +
+            `ASSISTANT: ${assistantText.slice(0, 1200)}\n\n` +
+            "Output exactly 3 questions, one per line, each starting with \"- \". Each ≤ 80 chars. Output only the questions, no headers, no commentary, no numbering.",
+        },
+      ],
+      "",
+      "",
+      { preferredProvider, maxOutputTokens: 200 },
+    )) {
+      raw += chunk.delta;
+    }
+
+    const suggestions = raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("- "))
+      .map((line) => line.slice(2).trim())
+      .filter((q) => q.length > 0 && q.length <= 120)
+      .slice(0, 3);
+
+    if (suggestions.length === 0) return;
+
+    set((s) => {
+      const next = new Map(s.messageSuggestions);
+      next.set(assistantMessageId, suggestions);
+      return { messageSuggestions: next };
+    });
+  } catch (err) {
+    logError("chat:followupSuggestions:exception", err);
   }
 }
 
@@ -633,6 +735,16 @@ async function sendOrBranch(
       return { messages: next };
     });
 
+  // Fresh controller per turn — `stopStreaming()` aborts whatever's
+  // currently in flight, then clears the slot so a follow-up
+  // sendMessage starts clean. Cleared in the `finally` below too in
+  // case the stream completed normally.
+  if (streamAbortController) {
+    streamAbortController.abort();
+  }
+  streamAbortController = new AbortController();
+  const signal = streamAbortController.signal;
+
   let acc = "";
   try {
     if (targetRoadmapId) {
@@ -641,24 +753,33 @@ async function sendOrBranch(
         promptMessages,
         preferredProvider,
         patchAssistant,
+        signal,
       );
     } else {
       for await (const chunk of streamChatResponse(
         promptMessages,
         sourceTitle,
         "",
-        { preferredProvider },
+        { preferredProvider, signal },
       )) {
         acc += chunk.delta;
         patchAssistant(acc);
       }
     }
   } catch (err) {
-    logError("chat:sendMessage:stream", err);
-    acc =
-      acc ||
-      `⚠ ${err instanceof Error ? err.message : "Failed to stream response"}`;
+    if (isAbortError(err)) {
+      // User pressed Stop — keep whatever we already streamed; no
+      // error message, no log.
+    } else {
+      logError("chat:sendMessage:stream", err);
+      acc =
+        acc ||
+        `⚠ ${err instanceof Error ? err.message : "Failed to stream response"}`;
+    }
   } finally {
+    if (streamAbortController?.signal === signal) {
+      streamAbortController = null;
+    }
     // 5. Persist the final content + mark as active leaf.
     await supabase
       .from("chat_messages")
@@ -679,6 +800,18 @@ async function sendOrBranch(
       return { messages: next, streamingMessageId: null };
     });
   }
+
+  // Fire-and-forget follow-up suggestion request — runs after the
+  // main turn settles, doesn't block the UI, doesn't await. The
+  // helper short-circuits on errors / aborted-streams / very-short
+  // responses so we don't spend tokens on degenerate cases.
+  void requestFollowupSuggestions(
+    asstMsg.id,
+    trimmed,
+    acc,
+    preferredProvider,
+    set,
+  );
 }
 
 // ── Pure tree helpers ──────────────────────────────────────
@@ -744,6 +877,7 @@ async function runRoadmapAgenticLoop(
   history: Array<{ role: "user" | "assistant"; content: string }>,
   preferredProvider: AiProvider | undefined,
   patchAssistant: (content: string) => void,
+  signal: AbortSignal,
 ): Promise<string> {
   const roadmap = useRoadmapStore.getState().roadmaps.get(roadmapId);
   if (!roadmap) {
@@ -780,6 +914,7 @@ async function runRoadmapAgenticLoop(
       tools: ROADMAP_TOOLS,
       maxOutputTokens: 4000,
       preferredProvider,
+      signal,
     })) {
       if (event.kind === "text_delta") {
         textBuf += event.text;

@@ -315,16 +315,15 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
     for (const item of selectedFiles) {
       updateFileStatus(item.id, { status: "uploading" });
       try {
-        const bookId = await uploadPdf(item.file);
+        const { bookId, error } = await uploadPdf(item.file);
         if (bookId) {
           updateFileStatus(item.id, { status: "done" });
         } else {
-          const err = useUploadStore.getState().error;
           updateFileStatus(item.id, {
-            status: err?.toLowerCase().includes("already")
+            status: error?.toLowerCase().includes("already")
               ? "skipped"
               : "error",
-            message: err ?? "Upload failed",
+            message: error ?? "Upload failed",
           });
         }
       } catch (err) {

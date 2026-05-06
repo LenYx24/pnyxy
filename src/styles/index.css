@@ -1,6 +1,16 @@
 @import "tailwindcss";
 @import "dockview/dist/styles/dockview.css";
 @import "./dockview-theme.css";
+/* Code block syntax highlighting theme. github-dark sits naturally on
+   the bg-bg-tertiary surface and renders consistently across the
+   curated language list registered in lib/markdown-message.ts. */
+@import "highlight.js/styles/github-dark.css";
+/* KaTeX's own stylesheet — required for $...$ / $$...$$ math to
+   render correctly; the marked-katex-extension only emits the
+   structure, KaTeX's CSS supplies the typography, font-loading and
+   spacing rules. Loaded once at the global level so every chat
+   surface picks it up. */
+@import "katex/dist/katex.min.css";
 
 @theme {
   /* Background colors */
@@ -229,14 +239,57 @@
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-glass-border);
   border-radius: 0.5rem;
-  padding: 0.6rem 0.75rem;
-  overflow-x: auto;
+  padding: 0;
+  overflow: hidden;
+  position: relative;
 }
 .ai-message pre code {
   background: transparent;
-  padding: 0;
+  padding: 0.6rem 0.75rem;
   font-size: 0.8rem;
   color: var(--color-text-primary);
+  display: block;
+  overflow-x: auto;
+}
+/* Code block toolbar — language badge + Copy button. Sits above the
+   <code> element inside the same <pre>; the <pre>'s own scroll is
+   on the <code> child via overflow-x: auto so the toolbar stays
+   pinned regardless of horizontal scroll position. */
+.ai-message .pnyxy-code-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--color-glass-border);
+  font-size: 0.7rem;
+}
+.ai-message .pnyxy-code-lang {
+  color: var(--color-text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-transform: lowercase;
+}
+.ai-message .pnyxy-copy-code {
+  margin-left: auto;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.25rem;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+.ai-message .pnyxy-copy-code:hover {
+  background: var(--color-glass-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-glass-border);
+}
+.ai-message .pnyxy-copy-code--copied {
+  color: var(--color-accent-purple);
+  border-color: var(--color-accent-purple);
 }
 .ai-message blockquote {
   border-left: 2px solid var(--color-glass-border);

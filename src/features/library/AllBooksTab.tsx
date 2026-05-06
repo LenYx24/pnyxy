@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -34,11 +34,17 @@ import {
   BookOpen,
   Folder,
   Loader2,
+  FileText,
+  RotateCw,
+  X,
+  Check,
+  AlertTriangle,
 } from "lucide-react";
 import { Button, GlassCard } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useLibraryStore } from "@/stores/library-store";
 import { useTagStore } from "@/stores/tag-store";
+import { useUploadStore, type UploadJob } from "@/stores/upload-store";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { formatShortcut } from "@/lib/keyboard-shortcuts";
@@ -449,6 +455,12 @@ export function AllBooksTab({
         </div>
       </div>
 
+      {/* In-flight upload strip — shows ghost rows for files the
+          user just dropped/picked, so they can leave the modal /
+          drag-drop the next batch without watching a blocking
+          progress bar. Filtered to the current folder context. */}
+      <UploadGhostStrip currentFolderId={currentFolderId} />
+
       {/* Search empty state */}
       {isEmpty && query && (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
@@ -672,6 +684,153 @@ export function AllBooksTab({
  * the grid; dashed border hints at "tap to create" without trying
  * to imitate a real folder.
  */
+/**
+ * Renders one row per in-flight (or just-finished) upload in the
+ * current folder. Filters by `currentFolderId` so a user with two
+ * folders open in two tabs only sees their own ghosts.
+ *
+ * Successful uploads auto-dismiss 1.5s after they land — by that
+ * point the real book card has rendered (the upload-store fires a
+ * forced `fetchLibrary` on success), so the ghost would just
+ * duplicate it. Errored uploads stay until the user dismisses or
+ * retries.
+ */
+function UploadGhostStrip({
+  currentFolderId,
+}: {
+  currentFolderId: string | null;
+}) {
+  const uploads = useUploadStore((s) => s.uploads);
+  const dismissUpload = useUploadStore((s) => s.dismissUpload);
+  const retryUpload = useUploadStore((s) => s.retryUpload);
+
+  const visible = useMemo(() => {
+    const out: UploadJob[] = [];
+    for (const job of uploads.values()) {
+      if ((job.folderId ?? null) === currentFolderId) out.push(job);
+    }
+    out.sort((a, b) => b.createdAt - a.createdAt);
+    return out;
+  }, [uploads, currentFolderId]);
+
+  // Auto-dismiss successful jobs after a short fade so the ghost
+  // doesn't sit next to its real book card forever. Tracks a per-id
+  // timer so re-renders don't double-schedule.
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (const job of visible) {
+      if (job.status === "success") {
+        timers.push(setTimeout(() => dismissUpload(job.id), 1500));
+      }
+    }
+    return () => {
+      for (const t of timers) clearTimeout(t);
+    };
+  }, [visible, dismissUpload]);
+
+  if (visible.length === 0) return null;
+
+  return (
+    <div className="mb-3 flex flex-col gap-1.5">
+      {visible.map((job) => (
+        <UploadGhostRow
+          key={job.id}
+          job={job}
+          onDismiss={() => dismissUpload(job.id)}
+          onRetry={() => retryUpload(job.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function UploadGhostRow({
+  job,
+  onDismiss,
+  onRetry,
+}: {
+  job: UploadJob;
+  onDismiss: () => void;
+  onRetry: () => void;
+}) {
+  const { t } = useTranslation();
+  const isError = job.status === "error";
+  const isSuccess = job.status === "success";
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-lg border bg-glass-bg/40 px-3 py-2 transition-colors",
+        isError
+          ? "border-red-500/30"
+          : isSuccess
+            ? "border-emerald-500/30"
+            : "border-glass-border",
+      )}
+    >
+      <div
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
+          isError
+            ? "bg-red-500/15 text-red-400"
+            : isSuccess
+              ? "bg-emerald-500/15 text-emerald-400"
+              : "bg-accent-purple/15 text-accent-purple",
+        )}
+      >
+        {isError ? (
+          <AlertTriangle size={14} />
+        ) : isSuccess ? (
+          <Check size={14} />
+        ) : (
+          <FileText size={14} />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm text-text-primary">{job.fileName}</p>
+        {/* Progress bar (uploading) / status text (success/error). */}
+        {job.status === "uploading" ? (
+          <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-glass-bg">
+            <div
+              className="h-full rounded-full bg-accent-purple transition-[width] duration-200"
+              style={{ width: `${job.progress}%` }}
+            />
+          </div>
+        ) : isError ? (
+          <p className="truncate text-[11px] text-red-400">
+            {job.error ?? t("library.upload.failed")}
+          </p>
+        ) : (
+          <p className="text-[11px] text-emerald-400">
+            {t("library.upload.success")}
+          </p>
+        )}
+      </div>
+      {isError && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+          title={t("library.upload.retry")}
+          aria-label={t("library.upload.retry")}
+        >
+          <RotateCw size={14} />
+        </button>
+      )}
+      {(isError || isSuccess) && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+          title={t("common.close")}
+          aria-label={t("common.close")}
+        >
+          <X size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function CreateFolderTile({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation();
   return (
