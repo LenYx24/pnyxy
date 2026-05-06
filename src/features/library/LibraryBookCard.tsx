@@ -18,6 +18,7 @@ import { Checkbox, FloatingMenu, TagBadge } from "@/components/ui";
 import { PdfCoverThumbnail } from "@/components/ui/PdfCoverThumbnail";
 import { useLibraryStore } from "@/stores/library-store";
 import { useTagStore, bookKey } from "@/stores/tag-store";
+import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
 import { bookIdSegment } from "@/lib/slugify";
 import { TagPickerDropdown } from "./TagPickerDropdown";
 import { ShareBookModal } from "./ShareBookModal";
@@ -48,6 +49,7 @@ export function LibraryBookCard({
 }: LibraryBookCardProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { openUploadedBook } = useOpenUploadedDocument();
   // Surface a small "Reading" pill on books the user has any saved
   // resume position for. Reads from the library store's set of
   // in-progress doc ids — populated once on Library mount, free to
@@ -222,7 +224,7 @@ export function LibraryBookCard({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(`/reader/${entry.book.id}`);
+                  void openUploadedBook(entry);
                 }}
                 aria-label={t("library.actions.openInReader")}
                 title={t("library.actions.openInReader")}

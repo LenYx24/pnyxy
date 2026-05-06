@@ -18,6 +18,7 @@ import { SearchHighlightLayer } from "./SearchHighlightLayer";
 import { CommentMarkers } from "./CommentMarkers";
 import { AnnotationContextMenu } from "./AnnotationContextMenu";
 import { CommentPopover } from "./CommentPopover";
+import { registerPinchTarget } from "./pinch-zoom-controller";
 import { Loader2 } from "lucide-react";
 
 type ZoomMode = "fit-width" | "fit-page" | "custom";
@@ -154,18 +155,22 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   const totalPages = doc?.totalPages ?? 0;
   const zoomMode = doc?.zoomMode ?? "fit-width";
   const zoomLevel = doc?.zoomLevel ?? 100;
-  // Transient CSS-only zoom multiplier for smooth pinch / button
-  // mash. When 1, no transform is applied (the canvas is already
-  // at the right resolution). Anything else is a "preview" that
-  // gets committed into zoomLevel via commitLiveZoom on touchend.
-  const liveZoomScale = doc?.liveZoomScale ?? 1;
   const scrollToPage = doc?.scrollToPage ?? null;
   // Throttle "report current scroll fraction to the store" so user
   // scrolling doesn't fire 60 state updates / sec.
   const offsetReportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const pinchTargetRef = useRef<HTMLDivElement>(null);
   useTextSelection(containerRef);
+
+  // Hand the inner page-tray DOM node to the pinch controller so the
+  // mobile gesture handler can drive transforms imperatively (no React
+  // re-renders during the pinch).
+  useEffect(() => {
+    registerPinchTarget(pinchTargetRef.current);
+    return () => registerPinchTarget(null);
+  }, []);
   const [containerWidth, setContainerWidth] = useState(0);
   const [containerHeight, setContainerHeight] = useState(0);
   const dimensionsRef = useRef<Map<number, PageDimensions>>(new Map());
@@ -598,7 +603,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       // one finger like a map) while still blocking the browser's
       // native pinch-zoom — pinch is `pinch-zoom`, not part of
       // pan-*, so it stays disabled and our two-finger handler in
-      // the parent viewerRef can drive setLiveZoomScale instead.
+      // the parent viewerRef can drive the pinch controller instead.
       style={{ touchAction: "pan-x pan-y" }}
       className="h-full w-full overflow-auto bg-bg-primary"
     >
@@ -618,26 +623,12 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
         options={documentOptions}
       >
         <div
+          ref={pinchTargetRef}
           style={{
             height: totalContentHeight,
             position: "relative",
             width: zoomMode === "fit-page" ? "100%" : effectivePageWidth,
             margin: "0 auto",
-            // CSS-only "live" zoom — applied during pinch / rapid
-            // button mash. The canvas underneath stays at the
-            // already-rasterised resolution; this transform just
-            // scales the rendered pixels visually. transform-origin
-            // top center keeps the page anchored above-the-fold so
-            // the user doesn't lose their place when pinching.
-            // Once the gesture ends, commitLiveZoom() rolls the
-            // multiplier back into zoomLevel and react-pdf
-            // re-rasterises crisply for the new scale — exactly
-            // once, instead of once per touchmove event.
-            transform: liveZoomScale !== 1 ? `scale(${liveZoomScale})` : undefined,
-            transformOrigin: liveZoomScale !== 1 ? "top center" : undefined,
-            // Hint the compositor so the transform runs on the GPU
-            // and stays buttery smooth on mobile WebKit.
-            willChange: liveZoomScale !== 1 ? "transform" : undefined,
           }}
         >
           {renderedPages.map((pageNum) => (

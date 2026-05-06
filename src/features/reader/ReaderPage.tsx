@@ -22,7 +22,11 @@ import { EpubViewer } from "./EpubViewer";
 import { CommentsSidebar } from "./CommentsSidebar";
 import { SearchOverlay } from "./SearchOverlay";
 import { AiChatPanel, AiChatPanelContent } from "./AiChatPanel";
-import { useMobileReaderGestures } from "./use-mobile-reader-gestures";
+import {
+  useMobileReaderGestures,
+  type PinchEvent,
+} from "./use-mobile-reader-gestures";
+import { beginPinch, updatePinch, endPinch } from "./pinch-zoom-controller";
 import {
   ScreenshotRectSelector,
   type ScreenshotRect,
@@ -325,11 +329,10 @@ function MobileReaderLayout({
   // discrete pages in the same sense.
   const nextPage = useReaderStore((s) => s.nextPage);
   const prevPage = useReaderStore((s) => s.prevPage);
-  const setLiveZoomScale = useReaderStore((s) => s.setLiveZoomScale);
   const commitLiveZoom = useReaderStore((s) => s.commitLiveZoom);
   // Subscribe to the two primitives we actually use. Subscribing to
   // `getActiveDoc()` would re-render this component on every pinch
-  // frame because setLiveZoomScale rebuilds the documents Map.
+  // frame.
   const isPaginated = useReaderStore(
     (s) => s.getActiveDoc()?.meta.capabilities.paginated ?? false,
   );
@@ -352,30 +355,27 @@ function MobileReaderLayout({
     enablePinch: mobileReaderPanel === "none",
     onSwipeLeft: nextPage,
     onSwipeRight: prevPage,
-    // Pinch updates a CSS-only multiplier on every move — no
-    // canvas re-rasterisation while the fingers are still down.
-    // The actual zoomLevel is committed once on touchend below.
+    // Pinch is driven imperatively against the DOM via the controller —
+    // no Zustand updates during the gesture, so the viewer doesn't
+    // re-render mid-pinch. On end, we commit the final scale into
+    // `zoomLevel` so react-pdf rasterises exactly once at the new
+    // resolution.
     onPinch: useCallback(
-      (scale: number) => {
-        setLiveZoomScale(scale);
+      ({ phase, scale, midX, midY }: PinchEvent) => {
+        if (phase === "start") {
+          beginPinch(midX, midY);
+        } else if (phase === "move") {
+          updatePinch(scale, midX, midY);
+        } else {
+          const final = endPinch();
+          if (Math.abs(final.scale - 1) > 0.01) {
+            commitLiveZoom(final.scale);
+          }
+        }
       },
-      [setLiveZoomScale],
+      [commitLiveZoom],
     ),
   });
-
-  // On gesture end, roll the live CSS scale into the real
-  // zoomLevel — triggers exactly one canvas re-render at the
-  // final resolution. Without this commit step the user would
-  // see a blurry preview indefinitely.
-  useEffect(() => {
-    const commit = () => commitLiveZoom();
-    window.addEventListener("touchend", commit);
-    window.addEventListener("touchcancel", commit);
-    return () => {
-      window.removeEventListener("touchend", commit);
-      window.removeEventListener("touchcancel", commit);
-    };
-  }, [commitLiveZoom]);
 
   const handleViewerTap = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {

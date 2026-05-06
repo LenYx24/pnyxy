@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { BookOpen } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useLibraryStore } from "@/stores/library-store";
+import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import { Shelf } from "@/features/browse/Shelf";
 
@@ -18,6 +19,7 @@ const RECENT_LIMIT = 12;
 export function RecentlyAddedShelf() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { openUploadedBook } = useOpenUploadedDocument();
   const books = useLibraryStore((s) => s.books);
 
   // `books` is sorted newest-first by the library store's fetch.
@@ -43,7 +45,7 @@ export function RecentlyAddedShelf() {
               // catalog entries route to the metadata page since
               // they're often "saved for later" rather than read here.
               if (entry.source === "uploaded") {
-                navigate(`/reader/${entry.book.id}`);
+                void openUploadedBook(entry);
               } else {
                 navigate(`/books/${entry.catalog_book_id}`);
               }

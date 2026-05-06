@@ -21,13 +21,6 @@ export interface DocumentState {
   totalPages: number;
   zoomMode: ZoomMode;
   zoomLevel: number;
-  /** Transient CSS-only zoom multiplier on top of `zoomLevel`. The
-   *  PDF viewer applies this as a `transform: scale(...)` so live
-   *  pinch / button-mash zoom is instant and silky — no canvas
-   *  re-rasterization until the gesture settles, at which point
-   *  `commitLiveZoom` rolls it into `zoomLevel` for one sharp
-   *  re-render. Default 1.0 = no transform. */
-  liveZoomScale: number;
   scrollToPage: number | null;
   customTitle: string | null;
   /** Last visited page — always tracks `currentPage`, persisted on close. */
@@ -64,14 +57,11 @@ interface ReaderState {
   zoomOut: (docId?: string) => void;
   setZoomMode: (mode: ZoomMode, docId?: string) => void;
   setZoomLevel: (level: number, docId?: string) => void;
-  /** Live (CSS-only) zoom multiplier — applied to the rendered
-   *  page wrapper as a transform while the user is mid-gesture.
-   *  Doesn't trigger react-pdf re-render. */
-  setLiveZoomScale: (scale: number, docId?: string) => void;
-  /** Roll the current live scale into `zoomLevel` and clear it.
-   *  Triggers exactly one canvas re-rasterization at the final
-   *  scale instead of one per touch-move event. */
-  commitLiveZoom: (docId?: string) => void;
+  /** Multiply `zoomLevel` by the given live-zoom scale (the value the
+   *  pinch-zoom controller accumulated during a gesture) and clamp
+   *  back into the supported range. Triggers exactly one re-rasterise
+   *  at the final scale, instead of one per touchmove. */
+  commitLiveZoom: (scale: number, docId?: string) => void;
   setCurrentPage: (page: number, docId?: string) => void;
   requestScrollToPage: (page: number, docId?: string) => void;
   clearScrollRequest: (docId?: string) => void;
@@ -264,7 +254,6 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       totalPages: meta.totalPages,
       zoomMode,
       zoomLevel: 100,
-      liveZoomScale: 1,
       scrollToPage: lastPosition > 1 ? lastPosition : null,
       customTitle,
       lastPosition,
@@ -415,24 +404,12 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     });
   },
 
-  setLiveZoomScale(scale, docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    // Clamp to a sane range so wild pinch flings can't produce
-    // negative or absurd transforms. The actual zoom range is
-    // re-clamped when committed against ZOOM_MIN/MAX.
-    const clamped = Math.max(0.2, Math.min(10, scale));
-    set({
-      documents: updateDoc(get().documents, id, { liveZoomScale: clamped }),
-    });
-  },
-
-  commitLiveZoom(docId) {
+  commitLiveZoom(scale, docId) {
     const id = docId ?? get().activeDocumentId;
     if (!id) return;
     const doc = get().documents.get(id);
     if (!doc) return;
-    if (doc.liveZoomScale === 1) return;
+    if (!Number.isFinite(scale) || scale === 1) return;
     // The committed level depends on which "base" we're measuring
     // against. For "custom" mode that's just zoomLevel * scale.
     // For fit-width / fit-page modes, the user has been visually
@@ -440,14 +417,13 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     // multiplier of the current zoomLevel so the post-commit state
     // matches what they were just looking at.
     const next = Math.min(
-      Math.max(doc.zoomLevel * doc.liveZoomScale, ZOOM_MIN),
+      Math.max(doc.zoomLevel * scale, ZOOM_MIN),
       ZOOM_MAX,
     );
     set({
       documents: updateDoc(get().documents, id, {
         zoomLevel: next,
         zoomMode: "custom",
-        liveZoomScale: 1,
       }),
     });
   },

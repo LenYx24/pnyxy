@@ -24,6 +24,7 @@ import { Checkbox, FloatingMenu, PromptModal, TagBadge } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useLibraryStore } from "@/stores/library-store";
 import { useTagStore, bookKey } from "@/stores/tag-store";
+import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
 import { bookIdSegment } from "@/lib/slugify";
 import { useContextMenu } from "@/hooks/use-context-menu";
 import type { ContextMenuEntry } from "@/stores/context-menu-store";
@@ -496,6 +497,7 @@ function BookRow({
 }: BookRowProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { openUploadedBook } = useOpenUploadedDocument();
   // Same in-progress check as the grid view; library-store hydrates
   // the set on Library mount.
   const isInProgress = useLibraryStore((s) =>
@@ -754,7 +756,7 @@ function BookRow({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/reader/${entry.book.id}`);
+              void openUploadedBook(entry);
             }}
             aria-label={t("library.actions.openInReader")}
             title={t("library.actions.openInReader")}

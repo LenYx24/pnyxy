@@ -1,5 +1,18 @@
 import { useEffect, useRef } from "react";
 
+export interface PinchEvent {
+  /** Lifecycle phase. The controller only needs to set up styles on
+   *  start, apply the live transform on move, and commit on end. */
+  phase: "start" | "move" | "end";
+  /** Current scale factor relative to pinch start (1.0 = no change,
+   *  <1.0 = pinch-in, >1.0 = pinch-out). */
+  scale: number;
+  /** Midpoint of the two fingers in viewport coords. Used as the
+   *  pivot/origin so the page expands from where the user pinched. */
+  midX: number;
+  midY: number;
+}
+
 interface Options {
   /** Target element to attach listeners to. */
   targetRef: React.RefObject<HTMLElement | null>;
@@ -9,9 +22,10 @@ interface Options {
   /** Called when a swipe right → should go to the previous page. */
   onSwipeRight?: () => void;
 
-  /** Called during pinch with the current scale factor relative to
-   *  pinch start (1.0 = no change, <1.0 = pinch-in, >1.0 = pinch-out). */
-  onPinch?: (scale: number) => void;
+  /** Called on every pinch lifecycle event — start, move, end — so the
+   *  consumer can drive an imperative DOM transform instead of plumbing
+   *  React state through 60 frames per second. */
+  onPinch?: (event: PinchEvent) => void;
 
   /** Master switches. When false, the corresponding gesture is
    *  ignored so non-paginated viewers (EPUB, markdown) keep native
@@ -75,20 +89,29 @@ export function useMobileReaderGestures(opts: Options): {
         state.multi = false;
       } else if (e.touches.length === 2 && enablePinch) {
         state.multi = true;
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const t0 = e.touches[0];
+        const t1 = e.touches[1];
+        const dx = t0.clientX - t1.clientX;
+        const dy = t0.clientY - t1.clientY;
         state.pinchStartDist = Math.hypot(dx, dy);
+        const midX = (t0.clientX + t1.clientX) / 2;
+        const midY = (t0.clientY + t1.clientY) / 2;
+        onPinch?.({ phase: "start", scale: 1, midX, midY });
       }
     };
 
     const handleMove = (e: TouchEvent) => {
       const state = stateRef.current;
       if (e.touches.length === 2 && state.multi && enablePinch && state.pinchStartDist > 0) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const t0 = e.touches[0];
+        const t1 = e.touches[1];
+        const dx = t0.clientX - t1.clientX;
+        const dy = t0.clientY - t1.clientY;
         const dist = Math.hypot(dx, dy);
         const scale = dist / state.pinchStartDist;
-        onPinch?.(scale);
+        const midX = (t0.clientX + t1.clientX) / 2;
+        const midY = (t0.clientY + t1.clientY) / 2;
+        onPinch?.({ phase: "move", scale, midX, midY });
         // Block native viewport pinch-zoom so our zoom is authoritative.
         e.preventDefault();
       }
@@ -97,6 +120,14 @@ export function useMobileReaderGestures(opts: Options): {
     const handleEnd = (e: TouchEvent) => {
       const state = stateRef.current;
       if (state.multi) {
+        // Use the touch that was lifted (or the last remaining one) as
+        // the reference midpoint — by the time touchend fires, fewer
+        // fingers are on screen, but the controller only needs *some*
+        // coords to trigger the end-phase teardown.
+        const ref = e.changedTouches[0] ?? e.touches[0];
+        const midX = ref?.clientX ?? 0;
+        const midY = ref?.clientY ?? 0;
+        onPinch?.({ phase: "end", scale: 1, midX, midY });
         markGesture();
         state.multi = false;
         state.start = null;
