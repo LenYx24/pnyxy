@@ -27,12 +27,12 @@ export function BrowseBookShelfCard({ book, onClick }: BrowseBookShelfCardProps)
         "cursor-pointer focus:outline-none",
       )}
     >
-      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
+      <div className="relative aspect-[5/7] w-full overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
         {book.cover_url ? (
           <img
             src={book.cover_url}
             alt={book.title}
-            className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+            className="h-full w-full object-cover object-top transition-transform group-hover:scale-[1.02]"
             loading="lazy"
           />
         ) : (

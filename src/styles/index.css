@@ -12,10 +12,12 @@
   --color-accent-purple: #0891b2;
   --color-accent-blue: #60a5fa;
 
-  /* Text colors */
+  /* Text colors. Kept in sync with `pnyxy-dark` in
+     src/lib/themes/core.ts — these are the initial @theme defaults
+     before user-selected theme tokens are applied at runtime. */
   --color-text-primary: #eaf2ff;
-  --color-text-secondary: #9aa9c9;
-  --color-text-muted: #5e6c8a;
+  --color-text-secondary: #c8d3ee;
+  --color-text-muted: #9da9c8;
 
   /* Glass/border */
   --color-glass-bg: rgba(255, 255, 255, 0.05);
@@ -382,4 +384,36 @@ input[type="number"]::-webkit-inner-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+/* ----------------------------------------------------------------- */
+/* PDF cover thumbnails: force the rasterized first-page canvas to    */
+/* fully cover the slot (no bg strip ever). react-pdf assigns inline  */
+/* width/height in pixels to the canvas based on the rasterized       */
+/* viewport AND inline `min-width: min-content; min-height: min-      */
+/* content; background-color: white` to its outer .react-pdf__Page    */
+/* wrapper. Plain Tailwind classes lose to those inline styles, so    */
+/* !important is required on both the wrapper and the canvas.         */
+/*                                                                    */
+/* Without the wrapper override, pages whose natural rendered height  */
+/* is shorter than the slot (landscape, 16:9 slides, etc.) leave a    */
+/* strip of slot bg below the canvas. The override forces the wrapper */
+/* to fill the slot and the canvas to cover it; object-position:top   */
+/* anchors the page so any vertical overflow gets clipped from the    */
+/* bottom (the cover/title area at the top always stays intact).      */
+/* ----------------------------------------------------------------- */
+.pnyxy-pdf-cover .react-pdf__Page {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  background-color: transparent !important;
+}
+.pnyxy-pdf-cover canvas {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: top !important;
 }

@@ -49,9 +49,9 @@ export function FolderCard({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const selKey = `folder:${folder.id}`;
   // coverHeight is now only used as a hint for icon scaling — the
-  // icon container itself is sized via aspect-[2/3] w-full to match
+  // icon container itself is sized via aspect-[5/7] w-full to match
   // LibraryBookCard exactly. The actual rendered height comes from
-  // the grid cell width × 1.5, same formula books use.
+  // the grid cell width × 1.4, same formula books use.
   const iconSize = Math.round(Math.min(Math.max(coverHeight * 0.35, 24), 48));
   const compact = coverHeight < 100;
 
@@ -70,7 +70,7 @@ export function FolderCard({
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      {/* Outer layout mirrors LibraryBookCard: a bordered, 2:3
+      {/* Outer layout mirrors LibraryBookCard: a bordered, 5:7
           aspect "cover" with metadata sitting below it (mt-2). This
           way folders and books occupy identical grid cells. */}
       <div
@@ -85,8 +85,8 @@ export function FolderCard({
           title={folder.name}
           className="cursor-pointer"
         >
-          {/* Icon area — 2:3 aspect to match book covers. */}
-          <div className="relative flex aspect-[2/3] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
+          {/* Icon area — 5:7 aspect to match book covers. */}
+          <div className="relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
             <Folder
               size={iconSize}
               className="text-accent-purple/60 transition-transform group-hover:scale-[1.02]"

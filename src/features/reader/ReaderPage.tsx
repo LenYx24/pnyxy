@@ -25,6 +25,7 @@ import { AiChatPanel, AiChatPanelContent } from "./AiChatPanel";
 import {
   useMobileReaderGestures,
   type PinchEvent,
+  type TapEvent,
 } from "./use-mobile-reader-gestures";
 import { beginPinch, updatePinch, endPinch } from "./pinch-zoom-controller";
 import {
@@ -348,13 +349,82 @@ function MobileReaderLayout({
 
   const viewerRef = useRef<HTMLDivElement>(null);
 
-  const { wasJustGestureRef } = useMobileReaderGestures({
+  // Single-tap toggles the chrome (toolbar / bottom bar). Skipped on
+  // taps that landed on an interactive child (buttons, links,
+  // annotation popovers, contenteditable nodes) and on taps that
+  // happen while the user has a text selection — pdf.js's selection
+  // handles can otherwise dismiss themselves before the user can
+  // interact with them.
+  const handleSingleTap = useCallback(
+    ({ target }: TapEvent) => {
+      if (mobileReaderPanel !== "none") return;
+      const el = target as HTMLElement | null;
+      if (
+        el?.closest?.(
+          "button, a, input, textarea, select, [role='button'], [contenteditable]",
+        )
+      ) {
+        return;
+      }
+      const selection = window.getSelection();
+      if (selection && selection.toString().length > 0) return;
+      if (document.querySelector("[data-annotation-context-menu]")) return;
+      toggleMobileChromeHidden();
+    },
+    [mobileReaderPanel, toggleMobileChromeHidden],
+  );
+
+  // Double-tap toggles between fit-width and a 2× zoom anchored at
+  // the tap point. We use the pinch controller for one transform
+  // frame so the page visually expands *from* the tap point before
+  // react-pdf re-rasterises at the new resolution. Disabled on
+  // non-paginated viewers (EPUB, markdown) since their zoom model is
+  // text-size, not scale.
+  const handleDoubleTap = useCallback(
+    ({ x, y, target }: TapEvent) => {
+      if (mobileReaderPanel !== "none") return;
+      const el = target as HTMLElement | null;
+      if (
+        el?.closest?.(
+          "button, a, input, textarea, select, [role='button'], [contenteditable]",
+        )
+      ) {
+        return;
+      }
+      const store = useReaderStore.getState();
+      const doc = store.getActiveDoc();
+      if (!doc?.meta.capabilities.paginated) return;
+
+      // 110% threshold (not exactly 100%) so a near-fit-width custom
+      // zoom — e.g. one that survived a sloppy pinch — still
+      // double-taps "in" instead of bouncing right back to fit. The
+      // snap-to-fit logic on pinch release covers the cleanup case.
+      const isMeaningfullyZoomedIn =
+        doc.zoomMode === "custom" && doc.zoomLevel > 110;
+      if (isMeaningfullyZoomedIn) {
+        store.setZoomMode("fit-width");
+        return;
+      }
+
+      beginPinch(x, y);
+      updatePinch(2, x, y);
+      requestAnimationFrame(() => {
+        endPinch();
+        store.commitLiveZoom(2);
+      });
+    },
+    [mobileReaderPanel],
+  );
+
+  useMobileReaderGestures({
     targetRef: viewerRef,
     enableSwipe:
       isPaginated && mobileReaderPanel === "none" && !isZoomedIn,
     enablePinch: mobileReaderPanel === "none",
     onSwipeLeft: nextPage,
     onSwipeRight: prevPage,
+    onSingleTap: handleSingleTap,
+    onDoubleTap: handleDoubleTap,
     // Pinch is driven imperatively against the DOM via the controller —
     // no Zustand updates during the gesture, so the viewer doesn't
     // re-render mid-pinch. On end, we commit the final scale into
@@ -368,34 +438,32 @@ function MobileReaderLayout({
           updatePinch(scale, midX, midY);
         } else {
           const final = endPinch();
-          if (Math.abs(final.scale - 1) > 0.01) {
-            commitLiveZoom(final.scale);
+          // Tiny pinches (≤5% scale change) are treated as no-ops so
+          // briefly resting two fingers on the screen doesn't drift
+          // zoomLevel and flip the mode to custom. Larger thresholds
+          // would lose intentional small zooms; smaller ones let
+          // accidental stationary touches keep nudging the level.
+          if (Math.abs(final.scale - 1) < 0.05) return;
+
+          // Snap-to-fit: if the resulting zoomLevel lands within ±5
+          // percentage points of fit-width's 100% baseline, prefer
+          // fit-width mode over a custom zoom that looks identical
+          // but won't re-fit on viewport resize and won't pass the
+          // swipe-zoomedIn guard for page turns. Same satisfying
+          // "lock back in" feel Google PDF has.
+          const store = useReaderStore.getState();
+          const doc = store.getActiveDoc();
+          const targetLevel = (doc?.zoomLevel ?? 100) * final.scale;
+          if (Math.abs(targetLevel - 100) < 5) {
+            store.setZoomMode("fit-width");
+            return;
           }
+          commitLiveZoom(final.scale);
         }
       },
       [commitLiveZoom],
     ),
   });
-
-  const handleViewerTap = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (mobileReaderPanel !== "none") return; // backdrop handles it
-      if (wasJustGestureRef.current) return; // swipe/pinch just ended
-      const target = e.target as HTMLElement | null;
-      if (
-        target?.closest(
-          "button, a, input, textarea, select, [role='button'], [contenteditable]",
-        )
-      ) {
-        return;
-      }
-      const selection = window.getSelection();
-      if (selection && selection.toString().length > 0) return;
-      if (document.querySelector("[data-annotation-context-menu]")) return;
-      toggleMobileChromeHidden();
-    },
-    [mobileReaderPanel, toggleMobileChromeHidden, wasJustGestureRef],
-  );
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
@@ -426,7 +494,6 @@ function MobileReaderLayout({
       <div
         ref={viewerRef}
         className="relative flex-1 overflow-hidden touch-pan-y"
-        onClick={handleViewerTap}
       >
         <ActiveViewer />
         <SearchOverlay />
@@ -659,11 +726,18 @@ export function ReaderPage() {
     };
   }, [activeDocumentId]);
 
-  // Jump to ?page= once the doc is loaded — used by bookmark and
-  // deep-links from the book page. Consumes the param on read so a
-  // refresh doesn't re-snap the user back.
+  // Jump to ?page= once the *right* doc is loaded — used by bookmarks,
+  // book-page deep-links, and chat citation "Open in reader" buttons.
+  // Consumes the param on read so a refresh doesn't re-snap the user
+  // back. Critical guard: only fire when the active doc actually
+  // matches the URL's bookId. Without this, navigating from /chat
+  // (where a previous reader visit left a different doc active) would
+  // call goToPage on the *previous* doc and then clear the param
+  // before the new one finishes loading — that's why a "Book p3" link
+  // used to land on p1.
   useEffect(() => {
     if (!activeDocumentId) return;
+    if (bookId && activeDocumentId !== bookId) return;
     const pageParam = searchParams.get("page");
     if (!pageParam) return;
     const pageNum = Number.parseInt(pageParam, 10);
@@ -677,7 +751,7 @@ export function ReaderPage() {
       },
       { replace: true },
     );
-  }, [activeDocumentId, searchParams, setSearchParams, goToPage]);
+  }, [activeDocumentId, bookId, searchParams, setSearchParams, goToPage]);
 
   // Load notes and whiteboards on mount
   useEffect(() => {

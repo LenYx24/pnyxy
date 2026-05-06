@@ -4,6 +4,7 @@ import { BookOpen } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useLibraryStore } from "@/stores/library-store";
 import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
+import { PdfCoverThumbnail } from "@/components/ui/PdfCoverThumbnail";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import { Shelf } from "@/features/browse/Shelf";
 
@@ -84,13 +85,18 @@ function RecentlyAddedCard({
         "cursor-pointer focus:outline-none",
       )}
     >
-      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
+      <div className="relative aspect-[5/7] w-full overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
         {cover ? (
           <img
             src={cover}
             alt={title}
-            className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+            className="h-full w-full object-cover object-top transition-transform group-hover:scale-[1.02]"
             loading="lazy"
+          />
+        ) : entry.source === "uploaded" ? (
+          <PdfCoverThumbnail
+            storagePath={entry.book.storage_path}
+            fallbackLetter={title.charAt(0)}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-purple/25 to-accent-blue/25">

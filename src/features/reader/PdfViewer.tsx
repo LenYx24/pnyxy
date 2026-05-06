@@ -156,6 +156,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   const zoomMode = doc?.zoomMode ?? "fit-width";
   const zoomLevel = doc?.zoomLevel ?? 100;
   const scrollToPage = doc?.scrollToPage ?? null;
+  const invertColors = useSettingsStore((s) => s.pdfInvertColors);
   // Throttle "report current scroll fraction to the store" so user
   // scrolling doesn't fire 60 state updates / sec.
   const offsetReportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -629,6 +630,15 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
             position: "relative",
             width: zoomMode === "fit-page" ? "100%" : effectivePageWidth,
             margin: "0 auto",
+            // Night mode: invert the rasterized canvas + hue-rotate so
+            // image colors are roughly preserved (the second filter
+            // cancels the inversion's hue shift). The transform on
+            // this same div lives on `style.transform` and is set
+            // imperatively by the pinch controller, so the two don't
+            // conflict.
+            filter: invertColors
+              ? "invert(1) hue-rotate(180deg)"
+              : undefined,
           }}
         >
           {renderedPages.map((pageNum) => (

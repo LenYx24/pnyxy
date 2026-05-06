@@ -23,10 +23,19 @@ interface LibraryState {
    *  fetchInProgress(). Starts empty so signed-out / pre-fetch
    *  states render no pill rather than wrong pills. */
   inProgressDocIds: Set<string>;
+  /** Timestamps of the last successful fetch per resource. Used by
+   *  fetchLibrary/fetchFolders to skip a refetch when the user is
+   *  just bouncing between pages (e.g., /home → /library → /home).
+   *  Force=true on the refresh button bypasses the check. */
+  lastFetchedAt: {
+    books: number | null;
+    folders: number | null;
+    inProgress: number | null;
+  };
 
-  fetchLibrary: () => Promise<void>;
-  fetchFolders: () => Promise<void>;
-  fetchInProgress: () => Promise<void>;
+  fetchLibrary: (force?: boolean) => Promise<void>;
+  fetchFolders: (force?: boolean) => Promise<void>;
+  fetchInProgress: (force?: boolean) => Promise<void>;
   createFolder: (name: string, parentId: string | null) => Promise<Folder | null>;
   /** Accepts a slash-separated path like "p1/p2/p3" and creates any
    * missing ancestors, returning the deepest (last) folder. */
@@ -55,6 +64,14 @@ function buildFolderPath(folders: Folder[], targetId: string | null): Folder[] {
   return path;
 }
 
+// How long a successful fetch is considered "fresh enough" that a
+// remount-triggered refetch is skipped. 60s is short enough that
+// real changes (uploads, deletes, folder edits, signing in/out) get
+// surfaced quickly, long enough that bouncing between pages doesn't
+// hit the server every time. The toolbar Refresh button always
+// passes force=true to bypass this.
+const FRESH_FETCH_MS = 60_000;
+
 export const useLibraryStore = create<LibraryState>((set, get) => ({
   books: [],
   folders: [],
@@ -62,8 +79,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   currentFolderId: null,
   folderPath: [],
   inProgressDocIds: new Set<string>(),
+  lastFetchedAt: { books: null, folders: null, inProgress: null },
 
-  fetchInProgress: async () => {
+  fetchInProgress: async (force = false) => {
+    const last = get().lastFetchedAt.inProgress;
+    if (!force && last !== null && Date.now() - last < FRESH_FETCH_MS) return;
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -82,10 +102,15 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     const ids = new Set<string>(
       (data ?? []).map((r) => r.doc_id as string),
     );
-    set({ inProgressDocIds: ids });
+    set({
+      inProgressDocIds: ids,
+      lastFetchedAt: { ...get().lastFetchedAt, inProgress: Date.now() },
+    });
   },
 
-  fetchLibrary: async () => {
+  fetchLibrary: async (force = false) => {
+    const last = get().lastFetchedAt.books;
+    if (!force && last !== null && Date.now() - last < FRESH_FETCH_MS) return;
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -169,13 +194,19 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       (a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime(),
     );
 
-    set({ books: all, isLoading: false });
+    set({
+      books: all,
+      isLoading: false,
+      lastFetchedAt: { ...get().lastFetchedAt, books: Date.now() },
+    });
 
     // Fetch user tags alongside library
     useTagStore.getState().fetchUserTags();
   },
 
-  fetchFolders: async () => {
+  fetchFolders: async (force = false) => {
+    const last = get().lastFetchedAt.folders;
+    if (!force && last !== null && Date.now() - last < FRESH_FETCH_MS) return;
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -203,10 +234,15 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     const { currentFolderId } = get();
 
     // If current folder was deleted, reset to root
+    const lastFetchedAt = { ...get().lastFetchedAt, folders: Date.now() };
     if (currentFolderId && !folders.find((f) => f.id === currentFolderId)) {
-      set({ folders, currentFolderId: null, folderPath: [] });
+      set({ folders, currentFolderId: null, folderPath: [], lastFetchedAt });
     } else {
-      set({ folders, folderPath: buildFolderPath(folders, currentFolderId) });
+      set({
+        folders,
+        folderPath: buildFolderPath(folders, currentFolderId),
+        lastFetchedAt,
+      });
     }
   },
 
@@ -244,7 +280,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       throw error;
     }
 
-    await get().fetchFolders();
+    await get().fetchFolders(true);
     return data;
   },
 
@@ -298,7 +334,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       throw error;
     }
 
-    await get().fetchFolders();
+    await get().fetchFolders(true);
   },
 
   deleteFolder: async (id) => {
@@ -310,7 +346,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     }
 
     // Refetch both — books may have moved to root
-    await Promise.all([get().fetchFolders(), get().fetchLibrary()]);
+    await Promise.all([get().fetchFolders(true), get().fetchLibrary(true)]);
   },
 
   navigateToFolder: (id) => {
@@ -376,7 +412,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       throw error;
     }
 
-    await get().fetchFolders();
+    await get().fetchFolders(true);
   },
 
   removeFromLibrary: async (entry) => {
@@ -434,14 +470,18 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 useOrgStore.subscribe((state, prev) => {
   if (state.currentOrgId === prev.currentOrgId) return;
   if (state.currentOrgId) {
-    void useLibraryStore.getState().fetchLibrary();
-    void useLibraryStore.getState().fetchFolders();
+    // Org change is a real data invalidation — bypass the freshness
+    // check; otherwise switching to a different workspace within 60s
+    // would silently keep showing the previous org's books.
+    void useLibraryStore.getState().fetchLibrary(true);
+    void useLibraryStore.getState().fetchFolders(true);
   } else {
     useLibraryStore.setState({
       books: [],
       folders: [],
       currentFolderId: null,
       folderPath: [],
+      lastFetchedAt: { books: null, folders: null, inProgress: null },
     });
   }
 });

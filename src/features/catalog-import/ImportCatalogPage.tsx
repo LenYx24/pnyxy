@@ -301,12 +301,12 @@ function ResultRow({
   const { t } = useTranslation();
   return (
     <li className="flex items-start gap-3 rounded-lg border border-glass-border bg-glass-bg/30 p-3">
-      <div className="relative aspect-[2/3] h-20 shrink-0 overflow-hidden rounded-md bg-glass-bg">
+      <div className="relative aspect-[5/7] h-20 shrink-0 overflow-hidden rounded-md bg-glass-bg">
         {result.coverUrl ? (
           <img
             src={result.coverUrl}
             alt=""
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover object-top"
             loading="lazy"
           />
         ) : (

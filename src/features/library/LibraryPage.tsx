@@ -141,7 +141,7 @@ export function LibraryPage() {
       const isPdf = /\.pdf$/i.test(file.name);
       if (isPdf && user) {
         await uploadPdf(file);
-        await fetchLibrary();
+        await fetchLibrary(true);
         await fetchStorageUsage();
       } else {
         await openFile(file);
@@ -167,11 +167,17 @@ export function LibraryPage() {
   }, [fetchLibrary, fetchFolders, fetchStorageUsage, fetchInProgress]);
 
   // Pull-to-refresh on mobile. Refetches the library + folders + usage
-  // when the user pulls past the trigger distance from the top.
+  // when the user pulls past the trigger distance from the top. Always
+  // forces — pulling is an explicit user request to invalidate the
+  // freshness window.
   const { pullDistance, isRefreshing } = usePullToRefresh({
     enabled: isMobile,
     onRefresh: useCallback(async () => {
-      await Promise.all([fetchLibrary(), fetchFolders(), fetchStorageUsage()]);
+      await Promise.all([
+        fetchLibrary(true),
+        fetchFolders(true),
+        fetchStorageUsage(),
+      ]);
     }, [fetchLibrary, fetchFolders, fetchStorageUsage]),
   });
 
@@ -286,8 +292,10 @@ export function LibraryPage() {
   };
 
   const handleRefresh = useCallback(() => {
-    fetchLibrary();
-    fetchFolders();
+    // Toolbar Refresh button is an explicit user request — bypass
+    // the library store's freshness check.
+    fetchLibrary(true);
+    fetchFolders(true);
   }, [fetchLibrary, fetchFolders]);
 
   // ── Drag & drop import ───────────────────────────────────────
@@ -366,7 +374,7 @@ export function LibraryPage() {
       }
 
       setDropStatus(null);
-      await fetchLibrary();
+      await fetchLibrary(true);
       await fetchStorageUsage();
     },
     [
@@ -537,6 +545,12 @@ export function LibraryPage() {
         setSortOrder={setSortOrder}
         isLoading={isLoading}
       />
+
+      {/* Guarantees a gap between the last row of covers and the
+          footer divider when the grid fills the viewport. `mt-auto`
+          on the footer below absorbs all flex slack on short pages,
+          so this spacer collapses harmlessly there. */}
+      <div aria-hidden className="h-8 shrink-0" />
 
       {/* Bottom info row — book count + storage usage. Pinned to
           the page bottom via `mt-auto` so nothing renders below it,

@@ -85,8 +85,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       set({ session, user: session?.user ?? null });
+      // Belt-and-braces for the password-reset flow. The inline
+      // script in index.html catches the common case (recovery tokens
+      // in the URL hash on the wrong path) before the SDK consumes
+      // them. This handles the edge case where the SDK still
+      // classifies the event as PASSWORD_RECOVERY without the
+      // characteristic hash — force the user onto the reset form
+      // regardless of where they were heading.
+      if (
+        event === "PASSWORD_RECOVERY" &&
+        typeof window !== "undefined" &&
+        window.location.pathname !== "/auth/reset-password"
+      ) {
+        window.location.replace("/auth/reset-password");
+        return;
+      }
       if (session?.user) {
         get().fetchProfile();
         get().checkBanStatus();

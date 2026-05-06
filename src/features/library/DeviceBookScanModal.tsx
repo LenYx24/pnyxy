@@ -333,7 +333,7 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
       }
     }
 
-    await fetchLibrary();
+    await fetchLibrary(true);
     await fetchStorageUsage();
     setImporting(false);
     setImportDone(true);

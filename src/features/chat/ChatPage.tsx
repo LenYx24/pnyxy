@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { marked } from "marked";
-import DOMPurify from "dompurify";
+import { renderMarkdown } from "@/lib/markdown-message";
+import { usePageCitationDispatch } from "@/hooks/use-page-citation";
 import {
   MessagesSquare,
+  MoreVertical,
+  Gauge,
   Plus,
-  Send,
+  ArrowUp,
   Loader2,
   GitBranch,
   Trash2,
@@ -119,29 +121,11 @@ const PROVIDER_INFO: Record<AiProvider, { model: string; routing: string }> = {
   openai: { model: "GPT-4o mini", routing: "Your OpenAI key" },
 };
 
-// Render assistant markdown to sanitized HTML. Same pattern as
-// `forum/CommentThread.tsx` — `marked` parses, DOMPurify strips
-// anything dangerous before it lands in `dangerouslySetInnerHTML`.
-// Tables / code blocks / headings / lists / inline code all come
-// from `marked`'s GFM defaults; the prose styling below makes them
-// look right inside a chat bubble.
-function renderMarkdown(md: string, sourceDocId: string | null): string {
-  // Citation pre-pass: when the conversation knows which document
-  // it's about, rewrite the model's `[p.42]` tokens into proper
-  // markdown links to /reader/<docId>?page=42 *before* marked sees
-  // them. marked then turns them into anchors; DOMPurify keeps the
-  // anchor element + the (relative) href but strips anything
-  // dangerous. Conversations without a source doc skip this and
-  // render the citations as plain text.
-  const withCitations = sourceDocId
-    ? md.replace(
-        /\[(p\.?\s?(\d+))\]/g,
-        (_match, label, page) =>
-          `[${label}](/reader/${sourceDocId}?page=${page})`,
-      )
-    : md;
-  return DOMPurify.sanitize(marked.parse(withCitations, { async: false }) as string);
-}
+// Markdown rendering moved to `@/lib/markdown-message`; same citation
+// pre-pass logic now lives there so the reader's AI panel renders
+// `[p.N]` clickably too. Click dispatch is the
+// `usePageCitationDispatch` hook — anchors that target the
+// already-active reader doc jump in place; everything else navigates.
 
 export function ChatPage() {
   const { t } = useTranslation();
@@ -455,6 +439,11 @@ export function ChatPage() {
   // sees — no hidden context.
   const readingContextBtnRef = useRef<HTMLButtonElement>(null);
   const [readingMenuOpen, setReadingMenuOpen] = useState(false);
+
+  const overflowAnchorRef = useRef<HTMLButtonElement>(null);
+  const overflowAnchorMobileRef = useRef<HTMLButtonElement>(null);
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const [overflowOpenMobile, setOverflowOpenMobile] = useState(false);
   const insertReadingContext = async (mode: "week" | "all") => {
     setReadingMenuOpen(false);
     const books = await fetchRecentReading(
@@ -631,7 +620,38 @@ export function ChatPage() {
       </aside>
 
       {/* Main pane */}
-      <main className="flex min-w-0 flex-1 flex-col">
+      <main className="relative flex min-w-0 flex-1 flex-col">
+        {/* Desktop overflow — mobile has its own header with the menu
+            so this is hidden below sm. Floats so it doesn't push the
+            messages area down on desktop where there's no header. */}
+        <div className="absolute right-2 top-2 z-10 hidden sm:block">
+          <button
+            ref={overflowAnchorRef}
+            onClick={() => setOverflowOpen((v) => !v)}
+            className="rounded-md border border-glass-border bg-bg-secondary/70 p-1.5 text-text-muted backdrop-blur-md transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            aria-label={t("settings.aiSection.moreActions")}
+            title={t("settings.aiSection.moreActions")}
+          >
+            <MoreVertical size={16} />
+          </button>
+          <FloatingMenu
+            open={overflowOpen}
+            anchorRef={overflowAnchorRef}
+            onClose={() => setOverflowOpen(false)}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setOverflowOpen(false);
+                navigate("/settings/ai");
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-secondary hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            >
+              <Gauge size={14} />
+              {t("settings.aiSection.openQuotas")}
+            </button>
+          </FloatingMenu>
+        </div>
         {/* Mobile: new convo button at top */}
         <div className="flex items-center gap-2 border-b border-glass-border bg-bg-primary/40 px-3 py-2 sm:hidden">
           {activeId && (
@@ -649,6 +669,31 @@ export function ChatPage() {
                 t("chat.untitled")
               : t("chat.title")}
           </span>
+          <button
+            ref={overflowAnchorMobileRef}
+            onClick={() => setOverflowOpenMobile((v) => !v)}
+            className="rounded-md p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            aria-label={t("settings.aiSection.moreActions")}
+          >
+            <MoreVertical size={16} />
+          </button>
+          <FloatingMenu
+            open={overflowOpenMobile}
+            anchorRef={overflowAnchorMobileRef}
+            onClose={() => setOverflowOpenMobile(false)}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setOverflowOpenMobile(false);
+                navigate("/settings/ai");
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-secondary hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            >
+              <Gauge size={14} />
+              {t("settings.aiSection.openQuotas")}
+            </button>
+          </FloatingMenu>
           <button
             onClick={handleNew}
             className="rounded-md p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
@@ -1009,7 +1054,7 @@ export function ChatPage() {
                       }
                       disabled={streamingMessageId !== null}
                       className={cn(
-                        "shrink-0 rounded-lg p-2 transition-colors cursor-pointer",
+                        "shrink-0 rounded-full p-2 transition-colors cursor-pointer",
                         speech.listening
                           ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
                           : "bg-glass-bg text-text-muted hover:bg-glass-hover hover:text-text-primary",
@@ -1040,7 +1085,7 @@ export function ChatPage() {
                       attachmentsBlocked
                     }
                     className={cn(
-                      "shrink-0 rounded-lg p-2 transition-colors cursor-pointer",
+                      "shrink-0 rounded-full p-2 transition-colors cursor-pointer",
                       (input.trim() || pendingAttachments.length > 0) &&
                         streamingMessageId === null &&
                         !attachmentsBlocked
@@ -1052,7 +1097,7 @@ export function ChatPage() {
                     {streamingMessageId !== null ? (
                       <Loader2 size={16} className="animate-spin" />
                     ) : (
-                      <Send size={16} />
+                      <ArrowUp size={18} strokeWidth={2.5} />
                     )}
                   </button>
                     </div>
@@ -1344,11 +1389,11 @@ function MessageBubble({
   onSaveAsFlashcards: () => void;
 }) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const isUser = msg.role === "user";
   const isStreaming = msg.id === streamingMessageId;
   const branches = countBranches(messages, msg.id);
   const [showBranches, setShowBranches] = useState(false);
+  const handleCitationClick = usePageCitationDispatch();
 
   // Which child of this message is on the active path (if any)?
   const activePath = pathFromRoot(messages, activeLeafId).map((m) => m.id);
@@ -1365,10 +1410,10 @@ function MessageBubble({
     >
       <div
         className={cn(
-          "max-w-[85%] rounded-lg px-3 py-2 text-sm",
+          "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm",
           isUser
-            ? "bg-accent-purple/20 text-text-primary"
-            : "bg-glass-bg text-text-secondary",
+            ? "bg-accent-purple/20 text-text-primary rounded-br-md"
+            : "bg-glass-bg text-text-secondary rounded-bl-md",
           isStreaming && "animate-pulse",
         )}
       >
@@ -1409,22 +1454,13 @@ function MessageBubble({
         ) : (
           <div
             className="ai-message break-words"
-            // Intercept clicks on internal links (citation tokens
-            // become <a href="/reader/..."> after the markdown
-            // pre-pass) so they use react-router instead of doing a
-            // full page reload. External and unrecognised hrefs fall
-            // through to the browser's default behaviour.
-            onClick={(e) => {
-              const target = e.target as HTMLElement;
-              const anchor = target.closest("a");
-              if (!anchor) return;
-              const href = anchor.getAttribute("href") ?? "";
-              if (href.startsWith("/")) {
-                e.preventDefault();
-                e.stopPropagation();
-                navigate(href);
-              }
-            }}
+            // `usePageCitationDispatch` upgrades the simple "use
+            // react-router for /-prefixed hrefs" behaviour: when the
+            // cited doc is the one already open in the reader, it
+            // calls goToPage in place instead of navigating — useful
+            // when the user is in /chat side-by-side with a reader
+            // tab, or in the reader's own AI panel.
+            onClick={handleCitationClick}
             dangerouslySetInnerHTML={{
               __html: renderMarkdown(msg.content, sourceDocId),
             }}

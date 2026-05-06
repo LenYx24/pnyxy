@@ -144,15 +144,15 @@ export function LibraryBookCard({
               read as an intentional card even when a thumbnail
               doesn't fill it (e.g. shorter PDF page rendered as a
               cover). */}
-          <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
+          <div className="relative aspect-[5/7] w-full overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
             {coverUrl ? (
               <img
                 src={coverUrl}
                 alt={title}
-                className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+                className="h-full w-full object-cover object-top transition-transform group-hover:scale-[1.02]"
               />
             ) : entry.source === "uploaded" ? (
-              // Thumbnail fills the aspect-[2/3] parent — that's what
+              // Thumbnail fills the aspect-[5/7] parent — that's what
               // makes uploaded covers actually cover the card on
               // mobile, instead of a small block stranded at the top.
               <PdfCoverThumbnail

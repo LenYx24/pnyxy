@@ -27,14 +27,43 @@ export const CORE_THEMES = {
       // to stay legible with white text on top (≥4.5:1 contrast).
       "--color-accent-purple": "#0891b2",
       "--color-accent-blue": "#60a5fa",
+      // Text contrast retuned 2026-05: secondary lifted from #9aa9c9
+      // to #c8d3ee (~11:1 on bg-primary, was ~7:1) and muted lifted
+      // from #5e6c8a to #9da9c8 (~6:1, was ~3:1). The previous muted
+      // was failing WCAG AA on bg-tertiary surfaces (LLM bubbles,
+      // sidebar metadata). High-contrast variant is available as a
+      // separate theme (pnyxy-dark-high-contrast) for users who want
+      // even more headroom.
       "--color-text-primary": "#eaf2ff",
-      "--color-text-secondary": "#9aa9c9",
-      "--color-text-muted": "#5e6c8a",
+      "--color-text-secondary": "#c8d3ee",
+      "--color-text-muted": "#9da9c8",
       // Glass stays neutral (no blue tint) so it sits naturally on
       // the true-black background.
       "--color-glass-bg": "rgba(255, 255, 255, 0.05)",
       "--color-glass-border": "rgba(255, 255, 255, 0.1)",
       "--color-glass-hover": "rgba(255, 255, 255, 0.08)",
+    },
+  },
+  "pnyxy-dark-high-contrast": {
+    id: "pnyxy-dark-high-contrast",
+    name: "Pnyxy Dark — High Contrast",
+    description:
+      "Pnyxy Dark with maximum text contrast (≥14:1 secondary, ≥8:1 muted) for accessibility and bright environments.",
+    author: "Pnyxy",
+    apiVersion: 1,
+    variant: "dark",
+    tokens: {
+      "--color-bg-primary": "#0a0a0f",
+      "--color-bg-secondary": "#111118",
+      "--color-bg-tertiary": "#1a1a24",
+      "--color-accent-purple": "#22d3ee",
+      "--color-accent-blue": "#93c5fd",
+      "--color-text-primary": "#ffffff",
+      "--color-text-secondary": "#e0e8f7",
+      "--color-text-muted": "#b8c2dc",
+      "--color-glass-bg": "rgba(255, 255, 255, 0.07)",
+      "--color-glass-border": "rgba(255, 255, 255, 0.18)",
+      "--color-glass-hover": "rgba(255, 255, 255, 0.11)",
     },
   },
   "pnyxy-light": {

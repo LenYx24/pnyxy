@@ -276,26 +276,63 @@ function ProviderRow({
       )}
 
       {provider === "anthropic" && (
-        <ApiKeyInput
-          value={anthropicApiKey}
-          onChange={setAnthropicApiKey}
-          show={showAnthropicKey}
-          onToggleShow={() => setShowAnthropicKey(!showAnthropicKey)}
-          placeholder="sk-ant-..."
-          helpText={t("settings.aiSection.anthropicKeyHint")}
-        />
+        <>
+          <ApiKeyInput
+            value={anthropicApiKey}
+            onChange={setAnthropicApiKey}
+            show={showAnthropicKey}
+            onToggleShow={() => setShowAnthropicKey(!showAnthropicKey)}
+            placeholder="sk-ant-..."
+            helpText={t("settings.aiSection.anthropicKeyHint")}
+          />
+          <ByokQuotaInfo
+            consoleHref="https://console.anthropic.com/settings/billing"
+            consoleLabel={t("settings.aiSection.checkUsageAnthropic")}
+          />
+        </>
       )}
 
       {provider === "openai" && (
-        <ApiKeyInput
-          value={openaiApiKey}
-          onChange={setOpenaiApiKey}
-          show={showOpenaiKey}
-          onToggleShow={() => setShowOpenaiKey(!showOpenaiKey)}
-          placeholder="sk-..."
-          helpText={t("settings.aiSection.openaiKeyHint")}
-        />
+        <>
+          <ApiKeyInput
+            value={openaiApiKey}
+            onChange={setOpenaiApiKey}
+            show={showOpenaiKey}
+            onToggleShow={() => setShowOpenaiKey(!showOpenaiKey)}
+            placeholder="sk-..."
+            helpText={t("settings.aiSection.openaiKeyHint")}
+          />
+          <ByokQuotaInfo
+            consoleHref="https://platform.openai.com/usage"
+            consoleLabel={t("settings.aiSection.checkUsageOpenAI")}
+          />
+        </>
       )}
+    </div>
+  );
+}
+
+function ByokQuotaInfo({
+  consoleHref,
+  consoleLabel,
+}: {
+  consoleHref: string;
+  consoleLabel: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-1.5 rounded-md border border-glass-border bg-bg-primary/30 p-2.5">
+      <p className="text-[11px] leading-snug text-text-muted">
+        {t("settings.aiSection.byokQuotaNote")}
+      </p>
+      <a
+        href={consoleHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex text-[11px] font-medium text-accent-blue underline-offset-2 hover:underline"
+      >
+        {consoleLabel}
+      </a>
     </div>
   );
 }

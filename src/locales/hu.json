@@ -271,7 +271,12 @@
       "requestsToday": "Ma küldött kérések",
       "resetsDaily": "Naponta 00:00 UTC-kor frissül.",
       "anthropicKeyHint": "Helyben tároljuk a böngésződben. A hívások közvetlenül az Anthropic-hoz mennek.",
-      "openaiKeyHint": "Helyben tároljuk a böngésződben. A hívások közvetlenül az OpenAI-hoz mennek."
+      "openaiKeyHint": "Helyben tároljuk a böngésződben. A hívások közvetlenül az OpenAI-hoz mennek.",
+      "byokQuotaNote": "A Pnyxy nem látja a szolgáltatónál maradt egyenlegedet — ezek a hívások közvetlenül kerülnek kiszámlázásra. Használd a lenti linket a szolgáltató konzoljában a fogyasztás ellenőrzéséhez.",
+      "checkUsageAnthropic": "Fogyasztás ellenőrzése az Anthropic konzolban ↗",
+      "checkUsageOpenAI": "Fogyasztás ellenőrzése az OpenAI panelen ↗",
+      "moreActions": "További műveletek",
+      "openQuotas": "Kvóták"
     }
   },
   "landing": {
@@ -1463,6 +1468,8 @@
       "aiChat": "AI chat",
       "aiChatTitle": "AI chat (Ctrl+I)",
       "bookmarkPage": "Oldal könyvjelzése",
+      "nightModeOn": "Éjszakai mód (színek invertálása)",
+      "nightModeOff": "Nappali mód (színek visszaállítása)",
       "zenMode": "Zen mód",
       "toggleSidebar": "Oldalsáv ki/be",
       "fullscreen": "Teljes képernyő",
@@ -1520,7 +1527,16 @@
       "thinking": "Gondolkodom…",
       "placeholder": "Kérdezz a dokumentumról…",
       "clearConfirmTitle": "Törlöd ezt a beszélgetést?",
-      "clearConfirmBody": "A szálban minden üzenet eltávolításra kerül. Ez nem visszavonható."
+      "clearConfirmBody": "A szálban minden üzenet eltávolításra kerül. Ez nem visszavonható.",
+      "conversations": "Beszélgetések",
+      "showConversations": "Beszélgetések megjelenítése",
+      "newConversationForDoc": "Új beszélgetés erről a könyvről",
+      "noConversationsForDoc": "Még nincs beszélgetés erről a könyvről.",
+      "loadingConversation": "Betöltés…",
+      "signInRequired": "Az olvasó AI chat használatához jelentkezz be.",
+      "deleteConversationTitle": "Törlöd ezt a beszélgetést?",
+      "deleteConversationBody": "Minden üzenet véglegesen törlésre kerül.",
+      "deleteConversation": "Beszélgetés törlése"
     }
   },
   "quizzes": {

@@ -671,15 +671,15 @@ function BookRow({
         {/* Spacer matching chevron in folder rows */}
         <div className="mr-1 hidden w-[26px] sm:block" />
 
-        {/* Cover thumbnail — 2:3 mini-cover. Falls back to a gradient
+        {/* Cover thumbnail — 5:7 mini-cover. Falls back to a gradient
             tile with the first letter when no cover is available. */}
-        <div className="mr-2.5 aspect-[2/3] h-8 shrink-0 overflow-hidden rounded-sm bg-glass-bg sm:h-9">
+        <div className="mr-2.5 aspect-[5/7] h-8 shrink-0 overflow-hidden rounded-sm bg-glass-bg sm:h-9">
           {coverUrl ? (
             <img
               src={coverUrl}
               alt=""
               aria-hidden="true"
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover object-top"
               loading="lazy"
             />
           ) : (

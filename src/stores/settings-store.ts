@@ -82,6 +82,16 @@ interface SettingsState {
   /** When true, the whiteboard/draw-mode button is enabled for non-PDF docs. */
   experimental_allowWhiteboardForAllFormats: boolean;
 
+  /**
+   * Night-mode for PDFs. When on, the rendered canvas is
+   * CSS-filtered with `invert(1) hue-rotate(180deg)` so light pages
+   * become dark and image colors stay roughly correct (the hue
+   * rotation cancels the inversion's color shift). Per-user
+   * preference, persisted in localStorage; not cloud-synced (matches
+   * the other reader-display prefs above).
+   */
+  pdfInvertColors: boolean;
+
   setPageScrollBehavior: (v: "smooth" | "instant") => void;
   setScrollAnimationDuration: (v: number) => void;
   setDefaultFitMode: (v: FitMode) => void;
@@ -118,6 +128,7 @@ interface SettingsState {
   // Experimental toggles
   setExperimentalAnnotations: (v: boolean) => void;
   setExperimentalWhiteboard: (v: boolean) => void;
+  setPdfInvertColors: (v: boolean) => void;
 
   // Cloud sync
   syncPreferences: () => Promise<void>;
@@ -152,6 +163,8 @@ export const useSettingsStore = create<SettingsState>()(
 
       experimental_allowAnnotationsForAllFormats: false,
       experimental_allowWhiteboardForAllFormats: false,
+
+      pdfInvertColors: false,
 
       setTranslateTargetLanguage: (v) => set({ translateTargetLanguage: v }),
       setPageScrollBehavior: (v) => set({ pageScrollBehavior: v }),
@@ -301,6 +314,7 @@ export const useSettingsStore = create<SettingsState>()(
         set({ experimental_allowAnnotationsForAllFormats: v }),
       setExperimentalWhiteboard: (v) =>
         set({ experimental_allowWhiteboardForAllFormats: v }),
+      setPdfInvertColors: (v) => set({ pdfInvertColors: v }),
 
       // ── Cloud sync ──
       syncPreferences: async () => {

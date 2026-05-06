@@ -74,7 +74,7 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
     const bookId = await uploadPdf(selectedFile, currentFolderId);
     if (bookId) {
       setSuccess(true);
-      await fetchLibrary();
+      await fetchLibrary(true);
     }
   };
 

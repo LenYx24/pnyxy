@@ -5,6 +5,8 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  Sun,
+  Moon,
   ZoomIn,
   ZoomOut,
   Columns2,
@@ -28,6 +30,7 @@ import {
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
 import { useReaderStore, useActiveDocument, type ZoomMode } from "@/stores/reader-store";
+import { useSettingsStore } from "@/stores/settings-store";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useBookmarkStore } from "@/stores/bookmark-store";
 import { useUndoStore } from "@/stores/undo-store";
@@ -156,6 +159,9 @@ export function ReaderToolbar({
   const setZoomLevel = useReaderStore((s) => s.setZoomLevel);
   const setCustomTitle = useReaderStore((s) => s.setCustomTitle);
   const getDisplayTitle = useReaderStore((s) => s.getDisplayTitle);
+  const pdfInvertColors = useSettingsStore((s) => s.pdfInvertColors);
+  const setPdfInvertColors = useSettingsStore((s) => s.setPdfInvertColors);
+  const isPdf = activeDoc?.meta.format === "pdf";
 
   const addBookmark = useBookmarkStore((s) => s.addBookmark);
   const activeHighlightColor = useAnnotationStore((s) => s.activeHighlightColor);
@@ -203,6 +209,19 @@ export function ReaderToolbar({
     { label: t("reader.toolbar.zoomIn"), icon: ZoomIn, onClick: () => zoomIn() },
     { label: t("reader.toolbar.zoomOut"), icon: ZoomOut, onClick: () => zoomOut() },
     { label: t("reader.toolbar.fitMode"), icon: Columns2, onClick: () => setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width") },
+    // Night mode toggle — PDF-only since the filter is on the
+    // rasterized canvas. EPUB/markdown/text use their own theme tokens.
+    ...(isPdf
+      ? [
+          {
+            label: pdfInvertColors
+              ? t("reader.toolbar.nightModeOff")
+              : t("reader.toolbar.nightModeOn"),
+            icon: pdfInvertColors ? Sun : Moon,
+            onClick: () => setPdfInvertColors(!pdfInvertColors),
+          },
+        ]
+      : []),
     { label: t("reader.toolbar.highlight"), icon: Highlighter, onClick: () => { setShowOverflowMenu(false); setShowColorPicker(!showColorPicker); } },
     ...(onToggleDrawMode ? [{ label: isDrawMode ? t("reader.toolbar.exitDraw") : t("reader.toolbar.draw"), icon: PenTool, onClick: onToggleDrawMode }] : []),
     { label: t("reader.toolbar.undo"), icon: Undo2, onClick: performUndo, disabled: !canUndo },

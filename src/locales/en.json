@@ -271,7 +271,12 @@
       "requestsToday": "Requests today",
       "resetsDaily": "Resets daily at 00:00 UTC.",
       "anthropicKeyHint": "Stored locally in your browser. Calls go directly to Anthropic.",
-      "openaiKeyHint": "Stored locally in your browser. Calls go directly to OpenAI."
+      "openaiKeyHint": "Stored locally in your browser. Calls go directly to OpenAI.",
+      "byokQuotaNote": "Pnyxy can't see your provider-side credit balance — these calls are billed directly. Use the link below to check usage in your provider's console.",
+      "checkUsageAnthropic": "Check usage in the Anthropic console ↗",
+      "checkUsageOpenAI": "Check usage in the OpenAI dashboard ↗",
+      "moreActions": "More actions",
+      "openQuotas": "Quotas"
     }
   },
   "landing": {
@@ -1463,6 +1468,8 @@
       "aiChat": "AI Chat",
       "aiChatTitle": "AI Chat (Ctrl+I)",
       "bookmarkPage": "Bookmark this page",
+      "nightModeOn": "Night mode (invert colors)",
+      "nightModeOff": "Day mode (restore colors)",
       "zenMode": "Zen mode",
       "toggleSidebar": "Toggle sidebar",
       "fullscreen": "Fullscreen",
@@ -1520,7 +1527,16 @@
       "thinking": "Thinking…",
       "placeholder": "Ask about this document…",
       "clearConfirmTitle": "Clear this conversation?",
-      "clearConfirmBody": "All messages in this thread will be removed. This can't be undone."
+      "clearConfirmBody": "All messages in this thread will be removed. This can't be undone.",
+      "conversations": "Conversations",
+      "showConversations": "Show conversations",
+      "newConversationForDoc": "New conversation about this book",
+      "noConversationsForDoc": "No conversations about this book yet.",
+      "loadingConversation": "Loading…",
+      "signInRequired": "Sign in to use AI chat in the reader.",
+      "deleteConversationTitle": "Delete this conversation?",
+      "deleteConversationBody": "All messages will be permanently removed.",
+      "deleteConversation": "Delete conversation"
     }
   },
   "quizzes": {

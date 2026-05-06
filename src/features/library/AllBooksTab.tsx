@@ -686,7 +686,7 @@ function CreateFolderTile({ onClick }: { onClick: () => void }) {
     >
       <div
         className={cn(
-          "relative flex aspect-[2/3] w-full items-center justify-center overflow-hidden rounded-md",
+          "relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md",
           "border-2 border-dashed border-glass-border bg-glass-bg/30",
           "transition-colors group-hover:border-accent-purple/60 group-hover:bg-accent-purple/5",
         )}

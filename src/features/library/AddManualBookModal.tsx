@@ -113,7 +113,7 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
       });
       if (insertErr) throw insertErr;
 
-      await fetchLibrary();
+      await fetchLibrary(true);
       onClose();
     } catch (err) {
       logError("AddManualBookModal", err);
