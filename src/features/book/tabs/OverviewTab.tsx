@@ -29,6 +29,7 @@ import {
   useOpenUploadedDocument,
   prefetchBookBlob,
 } from "@/hooks/use-open-uploaded-document";
+import { useConfirm } from "@/hooks/use-confirm";
 import type {
   CatalogBook,
   DownloadOption,
@@ -157,8 +158,17 @@ function CatalogOverview({
     }
   };
 
+  const { confirm, ConfirmModalElement } = useConfirm();
+
   const handleRemoveFromLibrary = async () => {
     if (!user) return;
+    const ok = await confirm({
+      title: t("book.overview.removeConfirmTitle"),
+      body: t("book.overview.removeConfirmBody"),
+      confirmLabel: t("library.confirm.removeAction"),
+      danger: true,
+    });
+    if (!ok) return;
     setLibraryLoading(true);
     try {
       await removeFromUserLibrary(book.id);
@@ -354,6 +364,7 @@ function CatalogOverview({
           </div>
         </div>
       )}
+      {ConfirmModalElement}
     </div>
   );
 }

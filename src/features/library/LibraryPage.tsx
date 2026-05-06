@@ -14,6 +14,7 @@ import { Button, FloatingMenu } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useOpenDocument } from "@/hooks/use-open-document";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
+import { useConfirm } from "@/hooks/use-confirm";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useUploadStore } from "@/stores/upload-store";
@@ -156,6 +157,8 @@ export function LibraryPage() {
   // Remove confirmation state
   const [removeEntry, setRemoveEntry] = useState<UnifiedLibraryItem | null>(null);
 
+  const { confirm, ConfirmModalElement } = useConfirm();
+
   useEffect(() => {
     fetchLibrary();
     fetchFolders();
@@ -250,6 +253,16 @@ export function LibraryPage() {
   };
 
   const handleBulkDelete = async () => {
+    const count = selectedIds.size;
+    if (count === 0) return;
+    const ok = await confirm({
+      title: t("library.confirm.bulkDeleteTitle", { count }),
+      body: t("library.confirm.bulkDeleteBody"),
+      confirmLabel: t("common.delete"),
+      danger: true,
+    });
+    if (!ok) return;
+
     const bookIds = [...selectedIds]
       .filter((s) => s.startsWith("book:"))
       .map((s) => s.slice(5));
@@ -590,6 +603,8 @@ export function LibraryPage() {
         onClose={() => setBulkMoveOpen(false)}
         onSelect={handleBulkMoveSelect}
       />
+
+      {ConfirmModalElement}
 
       {/* Remove confirmation dialog */}
       {removeEntry && (

@@ -30,6 +30,7 @@ import {
   Copy,
 } from "lucide-react";
 import { ConfirmModal, FloatingMenu, PromptModal } from "@/components/ui";
+import { useConfirm } from "@/hooks/use-confirm";
 import {
   DndContext,
   closestCenter,
@@ -157,6 +158,19 @@ export function ChatPage() {
   const createConversation = useChatStore((s) => s.createConversation);
   const openConversation = useChatStore((s) => s.openConversation);
   const deleteConversation = useChatStore((s) => s.deleteConversation);
+  const { confirm, ConfirmModalElement } = useConfirm();
+  const handleDeleteConversation = useCallback(
+    async (id: string) => {
+      const ok = await confirm({
+        title: t("chat.deleteConfirmTitle"),
+        body: t("chat.deleteConfirmBody"),
+        confirmLabel: t("common.delete"),
+        danger: true,
+      });
+      if (ok) void deleteConversation(id);
+    },
+    [confirm, deleteConversation, t],
+  );
   const renameConversation = useChatStore((s) => s.renameConversation);
   const moveConversationToFolder = useChatStore((s) => s.moveConversationToFolder);
   const clearActive = useChatStore((s) => s.clearActive);
@@ -600,7 +614,7 @@ export function ChatPage() {
                   onCancelEdit={() => setEditingId(null)}
                   onSaveTitle={handleSaveTitle}
                   onEditTitleChange={setEditTitle}
-                  onDelete={deleteConversation}
+                  onDelete={handleDeleteConversation}
                   onMove={moveConversationToFolder}
                   onRequestRenameFolder={(id, currentName) =>
                     setFolderAction({ kind: "rename", id, name: currentName })
@@ -1101,6 +1115,7 @@ export function ChatPage() {
           }
         }}
       />
+      {ConfirmModalElement}
     </div>
   );
 }

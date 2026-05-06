@@ -6,6 +6,7 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { useReaderStore } from "@/stores/reader-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
+import { useConfirm } from "@/hooks/use-confirm";
 import { renderMarkdown } from "@/lib/markdown-message";
 import { cn } from "@/lib/cn";
 import type { IDockviewPanelProps } from "dockview";
@@ -69,6 +70,17 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const error = useAiChatStore((s) => s.error);
   const sendMessage = useAiChatStore((s) => s.sendMessage);
   const clearConversation = useAiChatStore((s) => s.clearConversation);
+  const { confirm, ConfirmModalElement } = useConfirm();
+
+  const handleClearConversation = useCallback(async () => {
+    const ok = await confirm({
+      title: t("reader.aiChat.clearConfirmTitle"),
+      body: t("reader.aiChat.clearConfirmBody"),
+      confirmLabel: t("common.delete"),
+      danger: true,
+    });
+    if (ok) clearConversation();
+  }, [clearConversation, confirm, t]);
 
   const [input, setInput] = useState("");
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -191,7 +203,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         <div className="flex items-center gap-1">
           {messages.length > 0 && (
             <button
-              onClick={clearConversation}
+              onClick={handleClearConversation}
               className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:text-text-primary cursor-pointer"
               title={t("reader.aiChat.clearTitle")}
               aria-label={t("reader.aiChat.clearAria")}
@@ -295,6 +307,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           </button>
         </div>
       </div>
+      {ConfirmModalElement}
     </div>
   );
 }

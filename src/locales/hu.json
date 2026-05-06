@@ -554,7 +554,10 @@
       "deleteAction": "Törlés",
       "removeTitle": "Eltávolítás a könyvtárból",
       "removeBody": "Biztosan eltávolítod ezt a könyvet a könyvtáradból?",
-      "removeAction": "Eltávolítás"
+      "removeAction": "Eltávolítás",
+      "bulkDeleteTitle_one": "Törlöd ezt az 1 elemet?",
+      "bulkDeleteTitle_other": "Törlöd ezt a {{count}} elemet?",
+      "bulkDeleteBody": "A kiválasztott könyvek és mappák törlődnek. Ez nem visszavonható."
     },
     "createFolder": {
       "title": "Új mappa",
@@ -977,6 +980,8 @@
     "send": "Küldés",
     "rename": "Átnevezés",
     "delete": "Törlés",
+    "deleteConfirmTitle": "Törlöd ezt a beszélgetést?",
+    "deleteConfirmBody": "Minden üzenet véglegesen törlődik.",
     "backToList": "Vissza a listához",
     "branchHere": "Elágazás innen",
     "branchesCount_one": "{{count}} ág",
@@ -1070,7 +1075,9 @@
       "wholeBook": "teljes könyv",
       "bookRange": "{{start}}–{{end}}. o.",
       "markComplete": "Befejezettnek jelöl",
-      "delete": "Törlés"
+      "delete": "Törlés",
+      "deleteConfirmTitle": "Törlöd ezt az olvasási tervet?",
+      "deleteConfirmBody": "A haladás és a tételek elvesznek. Ez nem visszavonható."
     },
     "detail": {
       "newTitle": "Új olvasási terv",
@@ -1234,6 +1241,8 @@
       "inYourLibraryOpen": "A könyvtáradban — megnyitás",
       "addToLibraryAria": "Hozzáadás a könyvtárhoz",
       "removeFromLibraryAria": "Eltávolítás a könyvtárból",
+      "removeConfirmTitle": "Eltávolítod a könyvtáradból?",
+      "removeConfirmBody": "A könyv megmarad a katalógusban — bármikor visszateheted. A jegyzetek és könyvjelzők megmaradnak.",
       "openInReader": "Megnyitás az olvasóban",
       "read": "Olvasás",
       "download": "Letöltés",
@@ -1379,7 +1388,12 @@
       "deleteNote": "Jegyzet törlése",
       "deleteWhiteboard": "Tábla törlése",
       "countSelected": "{{count}} kijelölve",
-      "delete": "Törlés"
+      "delete": "Törlés",
+      "bulkDeleteNotesTitle_one": "Törlöd ezt a jegyzetet?",
+      "bulkDeleteNotesTitle_other": "Törlöd ezt a {{count}} jegyzetet?",
+      "bulkDeleteWhiteboardsTitle_one": "Törlöd ezt a táblát?",
+      "bulkDeleteWhiteboardsTitle_other": "Törlöd ezt a {{count}} táblát?",
+      "bulkDeleteBody": "Ez nem visszavonható."
     },
     "tabs": {
       "untitled": "Névtelen",
@@ -1504,7 +1518,9 @@
       "openDocument": "Nyiss meg egy dokumentumot a chat elindításához.",
       "emptyPrompt": "Tegyél fel kérdést a dokumentumról",
       "thinking": "Gondolkodom…",
-      "placeholder": "Kérdezz a dokumentumról…"
+      "placeholder": "Kérdezz a dokumentumról…",
+      "clearConfirmTitle": "Törlöd ezt a beszélgetést?",
+      "clearConfirmBody": "A szálban minden üzenet eltávolításra kerül. Ez nem visszavonható."
     }
   },
   "quizzes": {

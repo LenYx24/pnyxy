@@ -15,6 +15,7 @@ import {
   type BookTotalsLookup,
 } from "@/stores/reading-plan-store";
 import { planColorClasses } from "@/lib/plan-colors";
+import { useConfirm } from "@/hooks/use-confirm";
 import type { ReadingPlanWithItems } from "@/types/reading-plan";
 
 export function ReadingPlansSection() {
@@ -30,6 +31,17 @@ export function ReadingPlansSection() {
 
   const [progressMap, setProgressMap] = useState<BookProgressMap>(new Map());
   const [loadingProgress, setLoadingProgress] = useState(false);
+  const { confirm, ConfirmModalElement } = useConfirm();
+
+  const handleDeletePlan = async (id: string) => {
+    const ok = await confirm({
+      title: t("readingPlans.card.deleteConfirmTitle"),
+      body: t("readingPlans.card.deleteConfirmBody"),
+      confirmLabel: t("common.delete"),
+      danger: true,
+    });
+    if (ok) void deletePlan(id);
+  };
 
   useEffect(() => {
     if (user) fetchPlans();
@@ -142,12 +154,13 @@ export function ReadingPlansSection() {
               lookup={lookup}
               loadingProgress={loadingProgress}
               onOpen={() => navigate(`/plans/${p.plan.id}`)}
-              onDelete={() => deletePlan(p.plan.id)}
+              onDelete={() => handleDeletePlan(p.plan.id)}
               onComplete={() => setStatus(p.plan.id, "completed")}
             />
           ))}
         </div>
       )}
+      {ConfirmModalElement}
     </section>
   );
 }

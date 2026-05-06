@@ -9,6 +9,7 @@ import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 import { useNoteStore } from "@/stores/note-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
+import { useConfirm } from "@/hooks/use-confirm";
 import type { TocItem } from "@/types/document";
 
 const EMPTY_TOC: TocItem[] = [];
@@ -282,23 +283,43 @@ export function ReaderSidebarContent({
     lastClickedWhiteboardIndexRef.current = index;
   }, []);
 
-  const handleDeleteSelectedNotes = useCallback(() => {
+  const { confirm, ConfirmModalElement } = useConfirm();
+
+  const handleDeleteSelectedNotes = useCallback(async () => {
+    const count = selectedNoteIds.size;
+    if (count === 0) return;
+    const ok = await confirm({
+      title: t("reader.sidebar.bulkDeleteNotesTitle", { count }),
+      body: t("reader.sidebar.bulkDeleteBody"),
+      confirmLabel: t("common.delete"),
+      danger: true,
+    });
+    if (!ok) return;
     for (const id of selectedNoteIds) {
       useNoteStore.getState().deleteNote(id);
       onDeleteNote?.(id);
     }
     setSelectedNoteIds(new Set());
     lastClickedNoteIndexRef.current = null;
-  }, [selectedNoteIds, onDeleteNote]);
+  }, [selectedNoteIds, onDeleteNote, confirm, t]);
 
-  const handleDeleteSelectedWhiteboards = useCallback(() => {
+  const handleDeleteSelectedWhiteboards = useCallback(async () => {
+    const count = selectedWhiteboardIds.size;
+    if (count === 0) return;
+    const ok = await confirm({
+      title: t("reader.sidebar.bulkDeleteWhiteboardsTitle", { count }),
+      body: t("reader.sidebar.bulkDeleteBody"),
+      confirmLabel: t("common.delete"),
+      danger: true,
+    });
+    if (!ok) return;
     for (const id of selectedWhiteboardIds) {
       useWhiteboardStore.getState().deleteWhiteboard(id);
       onDeleteWhiteboard?.(id);
     }
     setSelectedWhiteboardIds(new Set());
     lastClickedWhiteboardIndexRef.current = null;
-  }, [selectedWhiteboardIds, onDeleteWhiteboard]);
+  }, [selectedWhiteboardIds, onDeleteWhiteboard, confirm, t]);
 
   const docEntries = Array.from(documents.entries());
 
@@ -674,6 +695,7 @@ export function ReaderSidebarContent({
           </button>
         </div>
       )}
+      {ConfirmModalElement}
     </div>
   );
 }

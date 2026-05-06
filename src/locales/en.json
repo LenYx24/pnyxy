@@ -554,7 +554,10 @@
       "deleteAction": "Delete",
       "removeTitle": "Remove from Library",
       "removeBody": "Are you sure you want to remove this book from your library?",
-      "removeAction": "Remove"
+      "removeAction": "Remove",
+      "bulkDeleteTitle_one": "Delete 1 item?",
+      "bulkDeleteTitle_other": "Delete {{count}} items?",
+      "bulkDeleteBody": "Selected books and folders will be removed. This can't be undone."
     },
     "createFolder": {
       "title": "New Folder",
@@ -977,6 +980,8 @@
     "send": "Send",
     "rename": "Rename",
     "delete": "Delete",
+    "deleteConfirmTitle": "Delete this conversation?",
+    "deleteConfirmBody": "All messages will be permanently removed.",
     "backToList": "Back to conversations",
     "branchHere": "Branch here",
     "branchesCount_one": "{{count}} branch",
@@ -1070,7 +1075,9 @@
       "wholeBook": "whole book",
       "bookRange": "pp. {{start}}–{{end}}",
       "markComplete": "Mark complete",
-      "delete": "Delete"
+      "delete": "Delete",
+      "deleteConfirmTitle": "Delete this reading plan?",
+      "deleteConfirmBody": "Progress and item entries will be removed. This can't be undone."
     },
     "detail": {
       "newTitle": "New reading plan",
@@ -1234,6 +1241,8 @@
       "inYourLibraryOpen": "In your library — open",
       "addToLibraryAria": "Add to library",
       "removeFromLibraryAria": "Remove from library",
+      "removeConfirmTitle": "Remove from your library?",
+      "removeConfirmBody": "The book stays in the catalog — you can always add it back. Notes and bookmarks are kept.",
       "openInReader": "Open in Reader",
       "read": "Read",
       "download": "Download",
@@ -1379,7 +1388,12 @@
       "deleteNote": "Delete note",
       "deleteWhiteboard": "Delete whiteboard",
       "countSelected": "{{count}} selected",
-      "delete": "Delete"
+      "delete": "Delete",
+      "bulkDeleteNotesTitle_one": "Delete this note?",
+      "bulkDeleteNotesTitle_other": "Delete {{count}} notes?",
+      "bulkDeleteWhiteboardsTitle_one": "Delete this whiteboard?",
+      "bulkDeleteWhiteboardsTitle_other": "Delete {{count}} whiteboards?",
+      "bulkDeleteBody": "This can't be undone."
     },
     "tabs": {
       "untitled": "Untitled",
@@ -1504,7 +1518,9 @@
       "openDocument": "Open a document to start chatting.",
       "emptyPrompt": "Ask a question about this document",
       "thinking": "Thinking…",
-      "placeholder": "Ask about this document…"
+      "placeholder": "Ask about this document…",
+      "clearConfirmTitle": "Clear this conversation?",
+      "clearConfirmBody": "All messages in this thread will be removed. This can't be undone."
     }
   },
   "quizzes": {
