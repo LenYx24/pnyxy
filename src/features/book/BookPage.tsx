@@ -91,8 +91,15 @@ export function BookPage() {
           of bookmarks / notes / whiteboards now use the screen
           properly instead of being capped at max-w-6xl. */}
       <div className="flex min-h-full flex-col md:flex-row">
-        <aside className="md:w-64 md:shrink-0 md:border-r md:border-glass-border md:bg-glass-bg/40">
-          <div className="space-y-3 p-4 md:sticky md:top-0 md:max-h-screen md:overflow-y-auto md:p-3">
+        {/* Desktop sidebar follows the reader's TOC pattern: the
+            <aside> itself is sticky + viewport-height + overflow-y
+            auto, so its right border *always* reaches the bottom of
+            the viewport, regardless of how short or tall the main
+            pane is. Previously the border ended where the aside's
+            content ended, which looked truncated when the main pane
+            was longer than the nav. */}
+        <aside className="md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:overflow-y-auto md:border-r md:border-glass-border md:bg-glass-bg/40">
+          <div className="space-y-3 p-4 md:p-3">
             <button
               onClick={() => navigate(-1)}
               className="flex items-center gap-2 text-xs text-text-muted transition-colors hover:text-text-primary cursor-pointer"

@@ -277,6 +277,17 @@
       "checkUsageOpenAI": "Fogyasztás ellenőrzése az OpenAI panelen ↗",
       "moreActions": "További műveletek",
       "openQuotas": "Kvóták"
+    },
+    "aiContext": {
+      "heading": "AI kontextus",
+      "description": "Itt állíthatod be, hogy az AI alapból milyen kontextust kapjon. Az oldalankénti kiválasztás minden könyv TOC nézetében külön elérhető.",
+      "customLabel": "Alapértelmezett felhasználói kontextus",
+      "customPlaceholder": "pl. Műszaki egyetemi hallgató vagyok, vizsgára készülök. Tömör magyarázatokat szeretek, kidolgozott példákkal.",
+      "customHint": "Minden AI-üzenethez hozzáfűződik a könyv-kontextus mellé. Hagyd üresen, ha nem akarsz ilyet küldeni.",
+      "attachTocLabel": "A könyv tartalomjegyzékének küldése",
+      "attachTocHint": "Ha be van kapcsolva, a tartalomjegyzék automatikusan minden könyves chathez csatolódik. Olcsó, de nagyon hasznos kontextus.",
+      "surroundingLabel": "„Jelenlegi oldal körüli” oldalak száma",
+      "surroundingHint": "Hány oldalt jelöljön ki a „jelenlegi körül” gomb a TOC-ban a jelenlegi oldal körül mindkét irányba."
     }
   },
   "landing": {
@@ -1412,7 +1423,15 @@
       "bulkDeleteNotesTitle_other": "Törlöd ezt a {{count}} jegyzetet?",
       "bulkDeleteWhiteboardsTitle_one": "Törlöd ezt a táblát?",
       "bulkDeleteWhiteboardsTitle_other": "Törlöd ezt a {{count}} táblát?",
-      "bulkDeleteBody": "Ez nem visszavonható."
+      "bulkDeleteBody": "Ez nem visszavonható.",
+      "aiSelectMode": "Oldalak kiválasztása az AI-nak",
+      "aiSelectModeOff": "AI-kijelölés bezárása",
+      "aiSelectAll": "Összes kijelölése",
+      "aiClearSelection": "Kijelölés törlése",
+      "aiSelectAround": "±{{n}} oldal a jelenlegi körül",
+      "aiSelectedCount_one": "{{count}} oldal megy az AI-nak",
+      "aiSelectedCount_other": "{{count}} oldal megy az AI-nak",
+      "aiSelectionEmpty": "Nincs oldal kijelölve"
     },
     "tabs": {
       "untitled": "Névtelen",
@@ -1554,7 +1573,12 @@
       "signInRequired": "Az olvasó AI chat használatához jelentkezz be.",
       "deleteConversationTitle": "Törlöd ezt a beszélgetést?",
       "deleteConversationBody": "Minden üzenet véglegesen törlésre kerül.",
-      "deleteConversation": "Beszélgetés törlése"
+      "deleteConversation": "Beszélgetés törlése",
+      "contextToc": "Tartalomjegyzék",
+      "contextPages_one": "{{count}} oldal",
+      "contextPages_other": "{{count}} oldal",
+      "contextPersona": "saját profil",
+      "contextEmpty": "Nincs csatolt kontextus"
     }
   },
   "quizzes": {

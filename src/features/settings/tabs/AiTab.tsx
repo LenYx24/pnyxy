@@ -139,7 +139,97 @@ export function AiTab() {
           </div>
         </div>
       )}
+
+      <AiContextSection />
     </section>
+  );
+}
+
+/** Settings for what context the AI receives by default in chat —
+ *  free-form persona / preferences, an "always include the TOC" flag
+ *  for book chats, and the page count for the TOC's "select around
+ *  current ±N" button. Each control persists immediately; the chat
+ *  store reads them at send time. */
+function AiContextSection() {
+  const { t } = useTranslation();
+  const aiCustomDefaultContext = useSettingsStore(
+    (s) => s.aiCustomDefaultContext,
+  );
+  const setAiCustomDefaultContext = useSettingsStore(
+    (s) => s.setAiCustomDefaultContext,
+  );
+  const aiAttachToc = useSettingsStore((s) => s.aiAttachToc);
+  const setAiAttachToc = useSettingsStore((s) => s.setAiAttachToc);
+  const aiSurroundingPagesCount = useSettingsStore(
+    (s) => s.aiSurroundingPagesCount,
+  );
+  const setAiSurroundingPagesCount = useSettingsStore(
+    (s) => s.setAiSurroundingPagesCount,
+  );
+
+  return (
+    <div className="space-y-3 rounded-lg border border-glass-border bg-bg-primary/30 p-3">
+      <div>
+        <h3 className="text-sm font-semibold text-text-primary">
+          {t("settings.aiContext.heading")}
+        </h3>
+        <p className="text-xs text-text-muted mt-0.5">
+          {t("settings.aiContext.description")}
+        </p>
+      </div>
+
+      <label className="flex flex-col gap-1">
+        <span className="text-xs font-medium text-text-secondary">
+          {t("settings.aiContext.customLabel")}
+        </span>
+        <textarea
+          value={aiCustomDefaultContext}
+          onChange={(e) => setAiCustomDefaultContext(e.target.value)}
+          rows={4}
+          placeholder={t("settings.aiContext.customPlaceholder")}
+          className="w-full rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent-purple/50 resize-y"
+        />
+        <span className="text-[10px] text-text-muted">
+          {t("settings.aiContext.customHint")}
+        </span>
+      </label>
+
+      <label className="flex items-start gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={aiAttachToc}
+          onChange={(e) => setAiAttachToc(e.target.checked)}
+          className="mt-0.5 h-4 w-4 cursor-pointer accent-accent-purple"
+        />
+        <span className="flex flex-col">
+          <span className="text-xs font-medium text-text-secondary">
+            {t("settings.aiContext.attachTocLabel")}
+          </span>
+          <span className="text-[10px] text-text-muted">
+            {t("settings.aiContext.attachTocHint")}
+          </span>
+        </span>
+      </label>
+
+      <label className="flex items-start gap-2">
+        <span className="flex flex-col">
+          <span className="text-xs font-medium text-text-secondary">
+            {t("settings.aiContext.surroundingLabel")}
+          </span>
+          <span className="text-[10px] text-text-muted">
+            {t("settings.aiContext.surroundingHint")}
+          </span>
+        </span>
+        <input
+          type="number"
+          min={0}
+          max={50}
+          value={aiSurroundingPagesCount}
+          onChange={(e) => setAiSurroundingPagesCount(Number(e.target.value))}
+          className="ml-auto w-16 rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-purple/50"
+        />
+      </label>
+    </div>
   );
 }
 

@@ -41,6 +41,18 @@ export interface DocumentState {
    *  viewer reports it on every relocate and consumes it on first
    *  render via `rendition.display(cfi)`. */
   cfi: string | null;
+  /** Pages the user has explicitly chosen to send as context to the
+   *  AI chat for this document. Read by the chat-store at send time;
+   *  the TOC selection mode in ThumbnailToc writes to it. Memory-only
+   *  (resets on full reader unmount); a session-local feature on
+   *  purpose so a stale 200-page selection from yesterday doesn't
+   *  silently leak into today's first chat turn. */
+  aiSelectedPages: Set<number>;
+  /** Anchor for shift-click range selection in the TOC. Tracks the
+   *  last individual page the user toggled so a follow-up shift+click
+   *  paints the range from anchor → target. Cleared when the user
+   *  clears the selection or leaves selection mode. */
+  aiSelectionAnchor: number | null;
 }
 
 interface ReaderState {
@@ -66,11 +78,21 @@ interface ReaderState {
   /** Rotate the active doc's pages by 90° clockwise (`direction = 1`)
    *  or counter-clockwise (`direction = -1`). Wraps modulo 360. */
   rotatePage: (direction: 1 | -1, docId?: string) => void;
-  /** Multiply `zoomLevel` by the given live-zoom scale (the value the
-   *  pinch-zoom controller accumulated during a gesture) and clamp
-   *  back into the supported range. Triggers exactly one re-rasterise
-   *  at the final scale, instead of one per touchmove. */
-  commitLiveZoom: (scale: number, docId?: string) => void;
+  /** Commit a pinch gesture's accumulated scale into a concrete
+   *  zoomLevel. `baseDisplayWidth`, when provided, is the actual
+   *  pre-pinch displayed width of the page tray (in CSS pixels) —
+   *  used to compute the post-commit zoomLevel from the visible
+   *  geometry rather than from the abstract zoomLevel number, so
+   *  pinching out from fit-width / fit-page lands at exactly what
+   *  the user just saw at end of pinch. Falls back to multiplying
+   *  zoomLevel directly when no width is supplied (keyboard /
+   *  toolbar callers, where there's no displayed-width mismatch to
+   *  reconcile). */
+  commitLiveZoom: (
+    scale: number,
+    docId?: string,
+    baseDisplayWidth?: number,
+  ) => void;
   setCurrentPage: (page: number, docId?: string) => void;
   requestScrollToPage: (page: number, docId?: string) => void;
   clearScrollRequest: (docId?: string) => void;
@@ -88,6 +110,23 @@ interface ReaderState {
   /** Update the EPUB CFI as the user navigates the spine. Persisted
    *  on a debounce so page-flip doesn't hammer the network. */
   setCfi: (cfi: string, docId?: string) => void;
+
+  // ── AI context page selection ────────────────────────────
+  /** Toggle a single page in / out of the AI context selection,
+   *  also setting it as the shift-click anchor. */
+  toggleAiPage: (page: number, docId?: string) => void;
+  /** Add every page in [from, to] (inclusive, order-independent) to
+   *  the AI selection. The shift-click range path. Anchor is moved
+   *  to `to` so a subsequent shift+click extends from there. */
+  selectAiPageRange: (from: number, to: number, docId?: string) => void;
+  /** Replace the selection with all pages 1..totalPages. */
+  selectAllAiPages: (docId?: string) => void;
+  /** Empty the selection and clear the anchor. */
+  clearAiPages: (docId?: string) => void;
+  /** Replace the selection with the N pages around currentPage —
+   *  N = settings.aiSurroundingPagesCount on each side, clamped to
+   *  [1, totalPages]. Used by the "select around current" button. */
+  selectAiPagesAround: (docId?: string) => void;
 }
 
 function updateDoc(
@@ -270,6 +309,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       progressPage,
       scrollOffset,
       cfi,
+      aiSelectedPages: new Set(),
+      aiSelectionAnchor: null,
     };
 
     const next = new Map(get().documents);
@@ -428,22 +469,33 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     });
   },
 
-  commitLiveZoom(scale, docId) {
+  commitLiveZoom(scale, docId, baseDisplayWidth) {
     const id = docId ?? get().activeDocumentId;
     if (!id) return;
     const doc = get().documents.get(id);
     if (!doc) return;
     if (!Number.isFinite(scale) || scale === 1) return;
-    // The committed level depends on which "base" we're measuring
-    // against. For "custom" mode that's just zoomLevel * scale.
-    // For fit-width / fit-page modes, the user has been visually
-    // pinching the FIT view — flip into custom at the corresponding
-    // multiplier of the current zoomLevel so the post-commit state
-    // matches what they were just looking at.
-    const next = Math.min(
-      Math.max(doc.zoomLevel * scale, ZOOM_MIN),
-      ZOOM_MAX,
-    );
+    // The post-commit zoomLevel needs to land where the user's
+    // gesture *visually* ended. PdfViewer's effectivePageWidth for
+    // custom mode is `(600 * zoomLevel) / 100` = `6 * zoomLevel`,
+    // so:
+    //   target displayed width = baseDisplayWidth * scale
+    //   next zoomLevel         = target displayed width / 6
+    // When no baseDisplayWidth is supplied (toolbar / keyboard
+    // callers, or any pinch where the controller couldn't read the
+    // tray's offsetWidth), fall back to scaling zoomLevel directly
+    // — accurate for pinches that *started* in custom mode but
+    // wrong by the fit-width-to-custom ratio when starting from a
+    // fit mode. The pinch path in ReaderPage always supplies one.
+    const targetDisplayedWidth =
+      baseDisplayWidth && baseDisplayWidth > 0
+        ? baseDisplayWidth * scale
+        : null;
+    const rawNext =
+      targetDisplayedWidth !== null
+        ? targetDisplayedWidth / 6
+        : doc.zoomLevel * scale;
+    const next = Math.min(Math.max(rawNext, ZOOM_MIN), ZOOM_MAX);
     set({
       documents: updateDoc(get().documents, id, {
         zoomLevel: next,
@@ -542,6 +594,92 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     if (!doc || doc.cfi === cfi) return;
     set({ documents: updateDoc(documents, id, { cfi }) });
     schedulePersistProgress(id);
+  },
+
+  toggleAiPage(page, docId) {
+    const id = docId ?? get().activeDocumentId;
+    if (!id) return;
+    const doc = get().documents.get(id);
+    if (!doc) return;
+    if (page < 1 || page > doc.totalPages) return;
+    const next = new Set(doc.aiSelectedPages);
+    if (next.has(page)) next.delete(page);
+    else next.add(page);
+    set({
+      documents: updateDoc(get().documents, id, {
+        aiSelectedPages: next,
+        // Anchor follows the most recent toggle so the next shift+click
+        // paints from here. The anchor remains valid even after a
+        // delete; you can shift-click *out* of pages just as well.
+        aiSelectionAnchor: page,
+      }),
+    });
+  },
+
+  selectAiPageRange(from, to, docId) {
+    const id = docId ?? get().activeDocumentId;
+    if (!id) return;
+    const doc = get().documents.get(id);
+    if (!doc) return;
+    const lo = Math.max(1, Math.min(from, to));
+    const hi = Math.min(doc.totalPages, Math.max(from, to));
+    if (hi < lo) return;
+    const next = new Set(doc.aiSelectedPages);
+    for (let p = lo; p <= hi; p++) next.add(p);
+    set({
+      documents: updateDoc(get().documents, id, {
+        aiSelectedPages: next,
+        aiSelectionAnchor: to,
+      }),
+    });
+  },
+
+  selectAllAiPages(docId) {
+    const id = docId ?? get().activeDocumentId;
+    if (!id) return;
+    const doc = get().documents.get(id);
+    if (!doc || doc.totalPages <= 0) return;
+    const next = new Set<number>();
+    for (let p = 1; p <= doc.totalPages; p++) next.add(p);
+    set({
+      documents: updateDoc(get().documents, id, {
+        aiSelectedPages: next,
+        aiSelectionAnchor: doc.totalPages,
+      }),
+    });
+  },
+
+  clearAiPages(docId) {
+    const id = docId ?? get().activeDocumentId;
+    if (!id) return;
+    const doc = get().documents.get(id);
+    if (!doc || doc.aiSelectedPages.size === 0) return;
+    set({
+      documents: updateDoc(get().documents, id, {
+        aiSelectedPages: new Set(),
+        aiSelectionAnchor: null,
+      }),
+    });
+  },
+
+  selectAiPagesAround(docId) {
+    const id = docId ?? get().activeDocumentId;
+    if (!id) return;
+    const doc = get().documents.get(id);
+    if (!doc || doc.totalPages <= 0) return;
+    const radius = useSettingsStore.getState().aiSurroundingPagesCount;
+    if (radius <= 0) return;
+    const center = doc.currentPage > 0 ? doc.currentPage : 1;
+    const lo = Math.max(1, center - radius);
+    const hi = Math.min(doc.totalPages, center + radius);
+    const next = new Set<number>();
+    for (let p = lo; p <= hi; p++) next.add(p);
+    set({
+      documents: updateDoc(get().documents, id, {
+        aiSelectedPages: next,
+        aiSelectionAnchor: center,
+      }),
+    });
   },
 }));
 

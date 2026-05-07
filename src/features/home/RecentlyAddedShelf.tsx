@@ -92,6 +92,7 @@ function RecentlyAddedCard({
             alt={title}
             className="h-full w-full object-cover object-top transition-transform group-hover:scale-[1.02]"
             loading="lazy"
+            decoding="async"
           />
         ) : entry.source === "uploaded" ? (
           <PdfCoverThumbnail

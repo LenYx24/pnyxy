@@ -11,7 +11,14 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Pnyxy" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- maximum-scale=1, user-scalable=no: iOS/Android otherwise hijack
+         two-finger pinches for browser-level page zoom even when the PDF
+         viewer's touch-action is pan-only. With this set, the JS pinch
+         handler in useMobileReaderGestures actually receives touchmove
+         events with 2 touches and can drive our own zoom. The reader's
+         pinch-to-zoom is the in-app substitute for browser zoom; the
+         rest of the app is already laid out at touch sizes. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

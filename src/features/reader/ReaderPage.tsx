@@ -27,7 +27,13 @@ import {
   type PinchEvent,
   type TapEvent,
 } from "./use-mobile-reader-gestures";
-import { beginPinch, updatePinch, endPinch } from "./pinch-zoom-controller";
+import {
+  beginPinch,
+  updatePinch,
+  endPinch,
+  clearPinchTransform,
+  commitPinchToSlots,
+} from "./pinch-zoom-controller";
 import {
   ScreenshotRectSelector,
   type ScreenshotRect,
@@ -434,8 +440,13 @@ function MobileReaderLayout({
       beginPinch(x, y);
       updatePinch(2, x, y);
       requestAnimationFrame(() => {
-        endPinch();
-        store.commitLiveZoom(2);
+        const final = endPinch();
+        // Hand the 2× transform off to per-slot scales BEFORE the
+        // store commit triggers a React re-render. Without this the
+        // tray transform would clear and we'd see a scale=1 frame
+        // before the post-commit per-slot transforms paint.
+        commitPinchToSlots(2);
+        store.commitLiveZoom(2, undefined, final.startWidth);
       });
     },
     [mobileReaderPanel],
@@ -465,25 +476,57 @@ function MobileReaderLayout({
           const final = endPinch();
           // Tiny pinches (≤5% scale change) are treated as no-ops so
           // briefly resting two fingers on the screen doesn't drift
-          // zoomLevel and flip the mode to custom. Larger thresholds
-          // would lose intentional small zooms; smaller ones let
-          // accidental stationary touches keep nudging the level.
-          if (Math.abs(final.scale - 1) < 0.05) return;
-
-          // Snap-to-fit: if the resulting zoomLevel lands within ±5
-          // percentage points of fit-width's 100% baseline, prefer
-          // fit-width mode over a custom zoom that looks identical
-          // but won't re-fit on viewport resize and won't pass the
-          // swipe-zoomedIn guard for page turns. Same satisfying
-          // "lock back in" feel Google PDF has.
-          const store = useReaderStore.getState();
-          const doc = store.getActiveDoc();
-          const targetLevel = (doc?.zoomLevel ?? 100) * final.scale;
-          if (Math.abs(targetLevel - 100) < 5) {
-            store.setZoomMode("fit-width");
+          // zoomLevel and flip the mode to custom. Drop the gesture
+          // transform without committing so the page snaps back.
+          if (Math.abs(final.scale - 1) < 0.05) {
+            clearPinchTransform();
             return;
           }
-          commitLiveZoom(final.scale);
+
+          // Snap-to-fit: if the resulting displayed width lands
+          // within ±5% of fit-width's baseline, prefer fit-width
+          // mode over a near-identical custom zoom — same satisfying
+          // "lock back in" feel Google PDF has, and it keeps the
+          // page re-fitting on resize and lets horizontal swipes
+          // turn pages again.
+          const trayWidth = final.startWidth;
+          const targetWidth = trayWidth * final.scale;
+          // The fit-width baseline isn't directly available here,
+          // but at fit-width zoomLevel is meaningless and the tray
+          // already *is* fit-width-wide. Snap when the gesture barely
+          // moved and we started at fit-width — checked indirectly
+          // via the gesture's net scale.
+          const store = useReaderStore.getState();
+          const doc = store.getActiveDoc();
+          if (
+            doc?.zoomMode === "fit-width" &&
+            Math.abs(final.scale - 1) < 0.05
+          ) {
+            // Already covered by the small-pinch early return above;
+            // belt-and-braces in case the threshold is ever loosened.
+            clearPinchTransform();
+            return;
+          }
+          if (
+            doc?.zoomMode !== "fit-width" &&
+            trayWidth > 0 &&
+            Math.abs(targetWidth - trayWidth) / trayWidth < 0.05 &&
+            // Custom-zoom-back-to-baseline is also a fit-snap.
+            doc?.zoomLevel != null &&
+            Math.abs(doc.zoomLevel * final.scale - 100) < 5
+          ) {
+            store.setZoomMode("fit-width");
+            requestAnimationFrame(clearPinchTransform);
+            return;
+          }
+          // Ordered swap: imperatively put the gesture's final scale
+          // onto each slot's inner div (and clear the tray transform)
+          // BEFORE commitLiveZoom fires, so the very next paint
+          // already has per-slot scaling matching the gesture. React's
+          // subsequent render computes the same scale (display/render)
+          // and reconciles to the same DOM value — no scale=1 flash.
+          commitPinchToSlots(final.scale);
+          commitLiveZoom(final.scale, undefined, trayWidth);
         }
       },
       [commitLiveZoom],
@@ -738,6 +781,11 @@ export function ReaderPage() {
   const [commentPromptSelection, setCommentPromptSelection] =
     useState<TextSelection | null>(null);
   const tocWidthRef = useRef<number>(256);
+  // Remembers the AI chat panel's width across close/reopen within
+  // the current ReaderPage mount. Reset to 360 on full reader unmount
+  // (i.e. closing and reopening the book) — that's the agreed scope:
+  // session-local memory, not per-doc persistence.
+  const aiChatWidthRef = useRef<number>(360);
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenDocument();
@@ -1177,6 +1225,11 @@ export function ReaderPage() {
     if (!api) return;
     const panel = api.getPanel("aiChat");
     if (panel) {
+      // Capture the panel's current width before removal so the next
+      // open restores it. dockview's `panel.api.width` is the live
+      // measured width including any user drags on the splitter.
+      const currentWidth = panel.api.width;
+      if (currentWidth > 0) aiChatWidthRef.current = currentWidth;
       api.removePanel(panel);
     } else {
       api.addPanel({
@@ -1184,7 +1237,7 @@ export function ReaderPage() {
         component: "aiChat",
         title: i18n.t("reader.page.panelAiChat"),
         position: { direction: "right" },
-        initialWidth: 360,
+        initialWidth: aiChatWidthRef.current,
       });
     }
   }, []);

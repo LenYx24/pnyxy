@@ -3,6 +3,8 @@ import { ArrowLeft, Clock } from "lucide-react";
 import { LEARN_METHODS } from "../LEARN_METHODS";
 import { BookQuizzesList } from "@/features/quizzes/QuizzesPage";
 import { useBook } from "../BookPageContext";
+import { AiCoachMethodPage } from "./AiCoachMethodPage";
+import { isAiCoachSlug } from "./learn-coach-helpers";
 
 export function LearnMethodPlaceholder() {
   const { bookId, methodSlug } = useParams<{
@@ -11,6 +13,13 @@ export function LearnMethodPlaceholder() {
   }>();
   const book = useBook();
   const method = LEARN_METHODS.find((m) => m.slug === methodSlug);
+
+  // The three AI-coaching styles (Feynman / ELI5 / Socratic) all
+  // share a single component — they only differ in the framing
+  // string used to seed the chat draft.
+  if (isAiCoachSlug(methodSlug)) {
+    return <AiCoachMethodPage />;
+  }
 
   // Quiz slug is live — render the book-scoped quiz list instead of
   // the "coming soon" placeholder.

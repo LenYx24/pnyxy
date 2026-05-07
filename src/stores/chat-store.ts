@@ -19,6 +19,7 @@ import {
   dispatchRoadmapTool,
 } from "@/lib/roadmap-tools";
 import { useRoadmapStore } from "@/stores/roadmap-store";
+import { buildAiContextPack } from "@/lib/ai-context";
 import type { AiProvider } from "@/stores/settings-store";
 import type {
   ChatConversation,
@@ -720,13 +721,28 @@ async function sendOrBranch(
   // 4. Stream the response, accumulating and patching the message.
   // Branch on conversation type:
   //   - target_roadmap_id set → agentic tool-use loop (AI edits roadmap live)
-  //   - source_doc_id set     → text stream with doc-title context for [p.N] citations
-  //   - otherwise             → plain text stream
+  //   - source_doc_id set     → text stream with doc-title context + the
+  //                             user's TOC / page selections built into
+  //                             the system prompt
+  //   - otherwise             → plain text stream (still picks up the
+  //                             custom default context if set)
   const convForStream = get().conversations.find(
     (c) => c.id === conversationId,
   );
   const targetRoadmapId = convForStream?.target_roadmap_id ?? null;
   const sourceTitle = convForStream?.source_doc_title ?? "";
+  const sourceDocId = convForStream?.source_doc_id ?? null;
+  // Build the per-turn context pack — TOC outline + selected-page
+  // text + user persona. Done at send time (not openConversation
+  // time) so toggles in the TOC selection mode take effect on the
+  // very next message without re-opening the conversation.
+  let contextPack: { customContext: string; pageContext: string };
+  try {
+    contextPack = await buildAiContextPack(sourceDocId);
+  } catch (err) {
+    logError("chat:sendMessage:contextPack", err);
+    contextPack = { customContext: "", pageContext: "" };
+  }
   const patchAssistant = (content: string) =>
     set((s) => {
       const next = new Map(s.messages);
@@ -759,8 +775,12 @@ async function sendOrBranch(
       for await (const chunk of streamChatResponse(
         promptMessages,
         sourceTitle,
-        "",
-        { preferredProvider, signal },
+        contextPack.pageContext,
+        {
+          preferredProvider,
+          signal,
+          customContext: contextPack.customContext,
+        },
       )) {
         acc += chunk.delta;
         patchAssistant(acc);

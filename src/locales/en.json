@@ -277,6 +277,17 @@
       "checkUsageOpenAI": "Check usage in the OpenAI dashboard ↗",
       "moreActions": "More actions",
       "openQuotas": "Quotas"
+    },
+    "aiContext": {
+      "heading": "Context for the AI",
+      "description": "Controls what context the AI receives by default. Per-page selection is done from each book's TOC view.",
+      "customLabel": "Default user context",
+      "customPlaceholder": "e.g. I'm a CS undergrad cramming for exams. Prefer concise answers with worked examples.",
+      "customHint": "Sent with every AI message in addition to the book context. Leave blank to skip.",
+      "attachTocLabel": "Attach the book's table of contents",
+      "attachTocHint": "When enabled, the TOC is included automatically in every chat about a book. Cheap context, very high leverage for navigation questions.",
+      "surroundingLabel": "“Select around current” page count",
+      "surroundingHint": "How many pages on each side of the current page the “select around current” button selects in the TOC."
     }
   },
   "landing": {
@@ -1412,7 +1423,15 @@
       "bulkDeleteNotesTitle_other": "Delete {{count}} notes?",
       "bulkDeleteWhiteboardsTitle_one": "Delete this whiteboard?",
       "bulkDeleteWhiteboardsTitle_other": "Delete {{count}} whiteboards?",
-      "bulkDeleteBody": "This can't be undone."
+      "bulkDeleteBody": "This can't be undone.",
+      "aiSelectMode": "Select pages for AI",
+      "aiSelectModeOff": "Exit AI selection",
+      "aiSelectAll": "Select all",
+      "aiClearSelection": "Clear",
+      "aiSelectAround": "Select ±{{n}} around current",
+      "aiSelectedCount_one": "{{count}} page sent to AI",
+      "aiSelectedCount_other": "{{count}} pages sent to AI",
+      "aiSelectionEmpty": "No pages selected"
     },
     "tabs": {
       "untitled": "Untitled",
@@ -1554,7 +1573,12 @@
       "signInRequired": "Sign in to use AI chat in the reader.",
       "deleteConversationTitle": "Delete this conversation?",
       "deleteConversationBody": "All messages will be permanently removed.",
-      "deleteConversation": "Delete conversation"
+      "deleteConversation": "Delete conversation",
+      "contextToc": "Table of contents",
+      "contextPages_one": "{{count}} page",
+      "contextPages_other": "{{count}} pages",
+      "contextPersona": "your profile",
+      "contextEmpty": "No context attached"
     }
   },
   "quizzes": {

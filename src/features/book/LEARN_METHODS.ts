@@ -52,7 +52,7 @@ export const LEARN_METHODS: LearnMethod[] = [
     tagline: "Teach to learn",
     description:
       "You explain it; the AI plays a curious student and probes the weakest part of your explanation.",
-    status: "stub",
+    status: "live",
   },
   {
     slug: "socratic",
@@ -61,7 +61,7 @@ export const LEARN_METHODS: LearnMethod[] = [
     tagline: "Guided by questions",
     description:
       "The AI responds to your question with questions, nudging you to reach the answer yourself.",
-    status: "stub",
+    status: "live",
   },
   {
     slug: "eli5",
@@ -70,6 +70,6 @@ export const LEARN_METHODS: LearnMethod[] = [
     tagline: "Explain simply",
     description:
       "An explanation calibrated for a five-year-old. A quick check on whether you truly understood.",
-    status: "stub",
+    status: "live",
   },
 ];

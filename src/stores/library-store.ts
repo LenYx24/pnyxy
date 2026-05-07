@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
 import { containsProfanity } from "@/lib/profanity-filter";
+import { prefetchImages } from "@/lib/image-prefetch";
 import { useTagStore } from "./tag-store";
 import { useOrgStore } from "./org-store";
 import type {
@@ -199,6 +200,19 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       isLoading: false,
       lastFetchedAt: { ...get().lastFetchedAt, books: Date.now() },
     });
+
+    // Warm the browser HTTP cache for the most-recently-added covers.
+    // Same data drives Library + Home's RecentlyAddedShelf, so this
+    // one prefetch covers both surfaces. Capped to 16 inside the
+    // helper so a 500-book library doesn't fire 500 parallel image
+    // requests. Fire-and-forget — Image() is a side-effect-only call.
+    prefetchImages(
+      all.map((entry) =>
+        entry.source === "catalog"
+          ? entry.catalog_book.cover_url
+          : entry.book.cover_url,
+      ),
+    );
 
     // Fetch user tags alongside library
     useTagStore.getState().fetchUserTags();

@@ -50,6 +50,22 @@ interface SettingsState {
   anthropicApiKey: string;
   openaiApiKey: string;
 
+  // ── AI context (chat-store reads these to build the system prompt) ──
+  /** Free-form notes the user always wants the AI to know about —
+   *  e.g. "I'm a CS undergrad cramming for an algorithms exam, prefer
+   *  worked examples over prose". Injected as a separate paragraph
+   *  in the system prompt for every chat turn. Empty = none. */
+  aiCustomDefaultContext: string;
+  /** When true, a chat conversation tied to a book auto-includes the
+   *  book's TOC in the system prompt. The TOC is the highest-leverage
+   *  context for "what does this book cover" without paying for full
+   *  page text. */
+  aiAttachToc: boolean;
+  /** Default neighborhood size for the "select around current page"
+   *  TOC button. The user selects pages [current − N, current + N]
+   *  with one tap. */
+  aiSurroundingPagesCount: number;
+
   // Reading tracker config
   activeTrackerId: string;
   trackerSettings: Record<string, Record<string, unknown>>;
@@ -104,6 +120,9 @@ interface SettingsState {
   moveProvider: (provider: AiProvider, direction: -1 | 1) => void;
   setAnthropicApiKey: (v: string) => void;
   setOpenaiApiKey: (v: string) => void;
+  setAiCustomDefaultContext: (v: string) => void;
+  setAiAttachToc: (v: boolean) => void;
+  setAiSurroundingPagesCount: (v: number) => void;
   setActiveTracker: (id: string) => void;
   updateTrackerSettings: (
     id: string,
@@ -148,6 +167,9 @@ export const useSettingsStore = create<SettingsState>()(
       enabledProviders: ["pnyxy"],
       anthropicApiKey: "",
       openaiApiKey: "",
+      aiCustomDefaultContext: "",
+      aiAttachToc: true,
+      aiSurroundingPagesCount: 5,
       activeTrackerId: DEFAULT_TRACKER_ID,
       trackerSettings: buildDefaultTrackerSettings(),
 
@@ -199,6 +221,14 @@ export const useSettingsStore = create<SettingsState>()(
       },
       setAnthropicApiKey: (v) => set({ anthropicApiKey: v }),
       setOpenaiApiKey: (v) => set({ openaiApiKey: v }),
+      setAiCustomDefaultContext: (v) => set({ aiCustomDefaultContext: v }),
+      setAiAttachToc: (v) => set({ aiAttachToc: v }),
+      // Clamp 0..50: 0 means "selecting around does nothing"; 50 is a
+      // pragmatic ceiling — past that the user should be in custom
+      // selection mode anyway, and we don't want one careless click
+      // to flood the prompt with hundreds of pages of context.
+      setAiSurroundingPagesCount: (v) =>
+        set({ aiSurroundingPagesCount: Math.min(Math.max(Math.round(v), 0), 50) }),
       setActiveTracker: (id) => set({ activeTrackerId: id }),
       updateTrackerSettings: (id, patch) =>
         set((state) => ({
@@ -425,7 +455,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "pnyxy-reader:settings",
-      version: 7,
+      version: 8,
       partialize: (state) => {
         // Persist everything; pluginStorage is local-only (stays in
         // localStorage) and is intentionally NOT synced to Supabase.
@@ -551,6 +581,22 @@ export const useSettingsStore = create<SettingsState>()(
             else if (next[id] === undefined) next[id] = def;
           }
           state.enabledPlugins = next;
+        }
+        // v7 → v8: seed AI-context settings (custom default context,
+        // attach-TOC, surrounding-pages). All optional / additive;
+        // pre-upgrade users land on the same defaults as new installs.
+        if (version < 8) {
+          if (typeof state.aiCustomDefaultContext !== "string") {
+            state.aiCustomDefaultContext = "";
+          }
+          if (typeof state.aiAttachToc !== "boolean") {
+            state.aiAttachToc = true;
+          }
+          const surrounding = Number(state.aiSurroundingPagesCount);
+          state.aiSurroundingPagesCount =
+            Number.isFinite(surrounding) && surrounding >= 0
+              ? Math.min(Math.round(surrounding), 50)
+              : 5;
         }
         return state as unknown as SettingsState;
       },

@@ -39,7 +39,14 @@ export function AppLayout() {
   // gap, and the thread should use the full viewport. Same p-0
   // treatment as the reader.
   const isChatRoute = location.pathname.startsWith("/chat");
-  const useFlushContent = isReaderRoute || isChatRoute;
+  // BookPage's left rail follows the same pattern: a sticky sidebar
+  // with its own right border. Adding outer p-4/p-6 around it gave
+  // the rail a top + left margin and made the right border look like
+  // a stranded line. Flush mode lets the rail reach the app's
+  // sidebar / viewport edges. The BookPage's main pane has its own
+  // internal p-4 sm:p-6 md:p-8 so content there stays comfortable.
+  const isBookRoute = location.pathname.startsWith("/books");
+  const useFlushContent = isReaderRoute || isChatRoute || isBookRoute;
 
   // Footer is only rendered on the informational / legal pages. The
   // main app surfaces (library, browse, reader, settings, profile,

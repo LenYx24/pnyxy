@@ -6,6 +6,7 @@ import {
   BotMessageSquare,
   ChevronLeft,
   Download,
+  FileText,
   Gauge,
   MessagesSquare,
   MoreVertical,
@@ -64,6 +65,10 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const enabledProviders = useSettingsStore((s) => s.enabledProviders);
   const anthropicApiKey = useSettingsStore((s) => s.anthropicApiKey);
   const openaiApiKey = useSettingsStore((s) => s.openaiApiKey);
+  const aiAttachToc = useSettingsStore((s) => s.aiAttachToc);
+  const aiCustomDefaultContext = useSettingsStore(
+    (s) => s.aiCustomDefaultContext,
+  );
   const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
   const activeDoc = useReaderStore((s) => s.getActiveDoc());
 
@@ -478,6 +483,16 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           )}
       </div>
 
+      {/* Context summary pill — surfaces what the next message will
+          carry as system-prompt context (TOC outline, manually-selected
+          pages, custom default persona). The chat-store reads the same
+          state at send time, so this matches what's actually sent. */}
+      <ContextSummaryPill
+        tocAvailable={(activeDoc?.toc.length ?? 0) > 0}
+        tocAttached={aiAttachToc}
+        selectedPages={activeDoc?.aiSelectedPages.size ?? 0}
+        hasPersona={aiCustomDefaultContext.trim().length > 0}
+      />
       {/* Composer */}
       <div className="p-3">
         <div className="flex items-end gap-2 rounded-2xl border border-glass-border bg-bg-secondary/70 p-2 shadow-sm backdrop-blur-md transition-colors focus-within:border-accent-purple/60">
@@ -632,4 +647,50 @@ function PanelShell({
 
 export function AiChatPanel(_props: IDockviewPanelProps) {
   return <AiChatPanelContent />;
+}
+
+/** Tiny line above the composer summarising what context the next
+ *  message will carry. Mirrors the chat-store's send-time logic
+ *  (Settings → AI persona, the per-book TOC toggle, the user's
+ *  manually-selected pages from the TOC selection mode), so the
+ *  user can verify what's about to ship without reading our code. */
+function ContextSummaryPill({
+  tocAvailable,
+  tocAttached,
+  selectedPages,
+  hasPersona,
+}: {
+  tocAvailable: boolean;
+  tocAttached: boolean;
+  selectedPages: number;
+  hasPersona: boolean;
+}) {
+  const { t } = useTranslation();
+  // No book + no persona = nothing to show; suppress the pill so it
+  // doesn't look like noisy chrome on the standalone /chat surface.
+  if (!tocAvailable && selectedPages === 0 && !hasPersona) return null;
+  const parts: string[] = [];
+  if (tocAttached && tocAvailable) {
+    parts.push(t("reader.aiChat.contextToc"));
+  }
+  if (selectedPages > 0) {
+    parts.push(
+      t("reader.aiChat.contextPages", { count: selectedPages }),
+    );
+  }
+  if (hasPersona) {
+    parts.push(t("reader.aiChat.contextPersona"));
+  }
+  const summary =
+    parts.length > 0
+      ? parts.join(" · ")
+      : t("reader.aiChat.contextEmpty");
+  return (
+    <div className="px-3">
+      <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
+        <FileText size={11} />
+        <span className="truncate">{summary}</span>
+      </div>
+    </div>
+  );
 }

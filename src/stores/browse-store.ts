@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
 import { containsProfanity } from "@/lib/profanity-filter";
+import { prefetchImages } from "@/lib/image-prefetch";
 import { useOrgStore } from "./org-store";
 import type { CatalogBook, CatalogBookInsert } from "@/types/catalog";
 
@@ -113,10 +114,20 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
     if (newRes.error) {
       logError("browse-store:fetchShelves:new", newRes.error.message);
     }
+    const featured = (featuredRes.data ?? []) as CatalogBook[];
+    const newThisWeek = (newRes.data ?? []) as CatalogBook[];
     set({
-      featuredBooks: (featuredRes.data ?? []) as CatalogBook[],
-      newThisWeekBooks: (newRes.data ?? []) as CatalogBook[],
+      featuredBooks: featured,
+      newThisWeekBooks: newThisWeek,
     });
+    // Warm the browser cache for shelf covers in parallel with the
+    // first React render. Featured + new shelves both render
+    // above-the-fold on /home; getting the bytes in flight before
+    // the render shaves the worst-case ~500ms cold-cover flash.
+    prefetchImages([
+      ...featured.map((b) => b.cover_url),
+      ...newThisWeek.map((b) => b.cover_url),
+    ]);
   },
 
   fetchCatalogBooks: async () => {

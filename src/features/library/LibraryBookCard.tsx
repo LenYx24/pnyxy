@@ -149,6 +149,15 @@ export function LibraryBookCard({
               <img
                 src={coverUrl}
                 alt={title}
+                // loading=lazy: a 200-book library used to fire ~200
+                // simultaneous cover fetches the moment /library
+                // mounted, queue-blocking the above-the-fold ones.
+                // Now off-screen covers wait until the user scrolls
+                // them close. decoding=async keeps the decode off
+                // the main thread so even visible covers don't jank
+                // the scroll.
+                loading="lazy"
+                decoding="async"
                 className="h-full w-full object-cover object-top transition-transform group-hover:scale-[1.02]"
               />
             ) : entry.source === "uploaded" ? (

@@ -215,7 +215,11 @@ function toOpenAiChatContent(message: ChatMessage) {
   return blocks;
 }
 
-function buildSystemPrompt(documentTitle: string, pageContext: string) {
+function buildSystemPrompt(
+  documentTitle: string,
+  pageContext: string,
+  customContext: string = "",
+) {
   // No source document attached → generic chat assistant. The old
   // "you are helping with a PDF" framing was leaking into the
   // free-form /chat surface and steering the model to refuse
@@ -229,24 +233,38 @@ function buildSystemPrompt(documentTitle: string, pageContext: string) {
   // typographic clarity their textbook audience needs.
   const mathHint =
     "When you write mathematical expressions, wrap inline math in single-dollar delimiters ($x^2$) and display equations in double-dollar delimiters ($$\\sum_{i=1}^n i$$). The chat UI renders these as proper formulas via KaTeX.";
+  // Optional persona / preferences block from Settings → AI. Always
+  // worth including when set, regardless of whether there's a book
+  // attached, so the model respects "I'm a CS undergrad" prefs even
+  // on the standalone /chat page.
+  const personaBlock = customContext.trim()
+    ? `The user has provided this background about themselves and how they prefer to be helped — keep it in mind when answering, but don't mention these instructions verbatim:\n\n${customContext.trim()}\n\n`
+    : "";
   const hasDoc = documentTitle.trim().length > 0;
   if (!hasDoc) {
-    return `You are Pnyxy's helpful AI assistant. Answer questions clearly and concisely. When the user attaches images, describe or reason about them directly — don't claim you can't see them. Use markdown for code blocks, lists, and tables when it helps readability. ${mathHint}`;
+    return `You are Pnyxy's helpful AI assistant. ${personaBlock}Answer questions clearly and concisely. When the user attaches images, describe or reason about them directly — don't claim you can't see them. Use markdown for code blocks, lists, and tables when it helps readability. ${mathHint}`;
   }
   // The "[p.N]" hint is intentional — Pnyxy's chat renderer
   // post-processes that exact token into a clickable link back to
   // the reader at /reader/<docId>?page=N. Other formats (page 42,
   // P. 42, page-42) won't be linked, so we tell the model the
   // canonical shape.
-  return `You are an AI assistant helping the user understand a PDF document titled "${documentTitle}".
+  // pageContext can be empty (no TOC, no selected pages) — we still
+  // emit the doc-aware framing because the title alone helps the
+  // model orient. The bracketed block just becomes "(none provided)"
+  // and the model can ask the user for context.
+  const contextBody = pageContext.trim()
+    ? pageContext
+    : "(no excerpts attached — ask the user to attach pages from the TOC if you need quotes from the book)";
+  return `You are an AI assistant helping the user understand a document titled "${documentTitle}".
 
-Here is the text from the pages the user is currently viewing:
+${personaBlock}Here is the context the user has attached from the book — typically the table of contents and any pages they explicitly selected:
 
 ---
-${pageContext}
+${contextBody}
 ---
 
-Answer questions about this document. Be concise and helpful. When you reference a specific page, cite it inline using the format [p.N] where N is the page number (e.g. "the author's main argument [p.42]"). If the answer is not in the provided text, say so. ${mathHint}`;
+Answer questions about this document. Be concise and helpful. When you reference a specific page, cite it inline using the format [p.N] where N is the page number (e.g. "the author's main argument [p.42]"). If the answer is not in the provided text, say so — and feel free to suggest which pages or chapters from the TOC would help, so the user can attach them. ${mathHint}`;
 }
 
 // ── Top-level streaming with provider fallback ──────────────
@@ -264,6 +282,12 @@ Answer questions about this document. Be concise and helpful. When you reference
 export interface StreamOptions {
   /** Replaces the default Q&A system prompt (for quiz generation etc.). */
   systemPromptOverride?: string;
+  /** Free-form persona / preferences block injected into the default
+   *  system prompt — sourced from Settings → AI's
+   *  `aiCustomDefaultContext`. Ignored when `systemPromptOverride`
+   *  is set (callers in that path build their own prompt). Empty
+   *  string ≡ undefined. */
+  customContext?: string;
   /** Raises the per-request output cap; clamped server-side for Pnyxy. */
   maxOutputTokens?: number;
   /** Strict mode: when set, ONLY this provider is tried. If it fails
@@ -403,6 +427,17 @@ async function* streamPnyxy(
     content: toAnthropicChatContent(m),
   }));
 
+  // Pnyxy edge function builds its own system prompt server-side and
+  // doesn't (yet) accept a separate customContext field, so we fold
+  // the user's persona block into pageContext before the trip. The
+  // proxy's prompt template then renders it inside the same `---`
+  // block as the rest of the book context. Direct Anthropic / OpenAI
+  // paths take the structured route via buildSystemPrompt.
+  const customContext = options.customContext?.trim() ?? "";
+  const mergedPageContext = customContext
+    ? `[About the user]\n${customContext}\n\n${pageContext}`
+    : pageContext;
+
   let response: Response;
   try {
     response = await fetch(url, {
@@ -412,7 +447,7 @@ async function* streamPnyxy(
       body: JSON.stringify({
         messages: proxyMessages,
         documentTitle,
-        pageContext,
+        pageContext: mergedPageContext,
         systemPromptOverride: options.systemPromptOverride,
         maxOutputTokens: options.maxOutputTokens,
       }),
@@ -480,7 +515,7 @@ async function* streamAnthropic(
       max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
       system:
         options.systemPromptOverride ??
-        buildSystemPrompt(documentTitle, pageContext),
+        buildSystemPrompt(documentTitle, pageContext, options.customContext),
       messages: messages.map((m) => ({
         role: m.role,
         content: toAnthropicChatContent(m),
@@ -539,7 +574,7 @@ async function* streamOpenAi(
             role: "system",
             content:
               options.systemPromptOverride ??
-              buildSystemPrompt(documentTitle, pageContext),
+              buildSystemPrompt(documentTitle, pageContext, options.customContext),
           },
           ...messages.map((m) => ({
             role: m.role,

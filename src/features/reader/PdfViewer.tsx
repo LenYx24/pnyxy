@@ -27,15 +27,24 @@ interface PageSlotProps {
   pageNum: number;
   offsetTop: number;
   pageHeight: number;
+  /** Visible width of the page on screen — drives layout / virtual
+   *  scroll positioning. For fit-width this is `containerWidth - 48`;
+   *  for custom zoom this scales with zoomLevel. */
   effectivePageWidth: number;
+  /** Width at which react-pdf actually rasterises the canvas. Lags
+   *  effectivePageWidth by a debounce window so user-driven zoom
+   *  changes don't immediately tear down + redraw the canvas — the
+   *  CSS transform below scales the lagged canvas to display size,
+   *  buying us a flash-free zoom change. Equal to effectivePageWidth
+   *  most of the time; only differs during the in-flight settle
+   *  window. Ignored in fit-page mode (height-driven). */
+  effectiveRenderWidth: number;
   zoomMode: ZoomMode;
-  zoomLevel: number;
   /** Rotation in degrees (0/90/180/270). Forwarded to react-pdf so
    *  the rasterized canvas comes back already rotated; the page's
    *  viewport width/height are swapped for 90°/270°, which the
    *  outer layout consumes via `getPageHeight`. */
   rotation: 0 | 90 | 180 | 270;
-  containerWidth: number;
   containerHeight: number;
   onRenderSuccess: (pageNum: number) => void;
 }
@@ -48,19 +57,39 @@ const PageSlot = memo(function PageSlot({
   offsetTop,
   pageHeight,
   effectivePageWidth,
+  effectiveRenderWidth,
   zoomMode,
-  zoomLevel,
   rotation,
-  containerWidth,
   containerHeight,
   onRenderSuccess,
 }: PageSlotProps) {
+  // fit-page is height-driven, so it bypasses the lazy-raster lag —
+  // the height prop is what determines the canvas size, and the
+  // transform-based bridge below would have to invert through aspect
+  // ratio for it. Width-based modes use `effectiveRenderWidth` so the
+  // canvas only re-rasterises when the lag settles.
   const pageProps =
-    zoomMode === "fit-width"
-      ? { width: containerWidth > 0 ? containerWidth - 48 : undefined }
-      : zoomMode === "fit-page"
-        ? { height: containerHeight > 0 ? containerHeight - 24 : undefined }
-        : { scale: zoomLevel / 100 };
+    zoomMode === "fit-page"
+      ? { height: containerHeight > 0 ? containerHeight - 24 : undefined }
+      : { width: effectiveRenderWidth > 0 ? effectiveRenderWidth : undefined };
+
+  // visualScale = displayWidth / renderWidth.
+  //   = 1 when renderWidth has caught up (steady state).
+  //   > 1 when the user just zoomed in: canvas is at the smaller (old)
+  //     resolution and CSS-scaled up to the new display size — slightly
+  //     blurry until the debounce fires and re-rasterises crisply.
+  //   < 1 when the user just zoomed out: canvas oversampled, sharp.
+  // transform-origin "top center" so the slot's top edge stays anchored
+  // at offsetTop and horizontal centering is preserved (the slot's
+  // outer flex container centers the inner box pre-transform; without
+  // this origin the visual would drift right of center after scale).
+  const useTransform =
+    zoomMode !== "fit-page" &&
+    effectiveRenderWidth > 0 &&
+    Math.abs(effectivePageWidth - effectiveRenderWidth) > 0.5;
+  const visualScale = useTransform
+    ? effectivePageWidth / effectiveRenderWidth
+    : 1;
 
   return (
     <div
@@ -73,7 +102,16 @@ const PageSlot = memo(function PageSlot({
         justifyContent: "center",
       }}
     >
-      <div style={{ position: "relative" }}>
+      <div
+        style={{
+          position: "relative",
+          transform: useTransform ? `scale(${visualScale})` : undefined,
+          transformOrigin: useTransform ? "top center" : undefined,
+          // Hint the compositor so the in-flight CSS scale runs on
+          // the GPU layer and stays smooth.
+          willChange: useTransform ? "transform" : undefined,
+        }}
+      >
         <Page
           pageNumber={pageNum}
           rotate={rotation}
@@ -248,6 +286,48 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
         return (600 * zoomLevel) / 100;
     }
   }, [zoomMode, zoomLevel, containerWidth, containerHeight]);
+
+  // Lazy rasterisation: react-pdf only re-rasterises when this value
+  // changes, but the layout / virtual-scroll math always uses the
+  // up-to-date `effectivePageWidth`. The gap between the two is
+  // bridged by a CSS transform on each PageSlot — so when the user
+  // zooms (or pinches and commits) the canvas stays at its current
+  // resolution and is visually scaled up/down in the same frame,
+  // *no* re-raster flash. After the user has settled for ~250ms we
+  // catch `effectiveRenderWidth` up to `effectivePageWidth` and
+  // react-pdf rerenders crisply at the new size — exactly once per
+  // zoom event instead of once per frame of the gesture.
+  //
+  // Bypass entirely in fit-page mode: fit-page is height-driven and
+  // pinch-to-zoom in that mode commits to custom mode anyway, so the
+  // lag would only delay the re-fit on container resize.
+  const [effectiveRenderWidth, setEffectiveRenderWidth] = useState(0);
+  useEffect(() => {
+    if (effectivePageWidth <= 0) return;
+    if (zoomMode === "fit-page") {
+      // No lag in fit-page; keep the value in sync so a subsequent
+      // mode switch back into a width-driven mode has a baseline.
+      if (effectiveRenderWidth !== effectivePageWidth) {
+        setEffectiveRenderWidth(effectivePageWidth);
+      }
+      return;
+    }
+    // First valid value: sync immediately so the very first paint
+    // doesn't apply a spurious transform.
+    if (effectiveRenderWidth === 0) {
+      setEffectiveRenderWidth(effectivePageWidth);
+      return;
+    }
+    if (effectiveRenderWidth === effectivePageWidth) return;
+    // Container-resize path: jump renderWidth to displayWidth in
+    // one frame so a window resize doesn't sit at a stale
+    // resolution. Pinch / zoom-button paths come through the same
+    // hook but are debounced via the timer below.
+    const t = setTimeout(() => {
+      setEffectiveRenderWidth(effectivePageWidth);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [effectivePageWidth, effectiveRenderWidth, zoomMode]);
 
   // Estimate page height from cached dimensions or A4 ratio
   const getPageHeight = useCallback(
@@ -666,10 +746,9 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
               offsetTop={pageOffsets[pageNum - 1]}
               pageHeight={getPageHeight(pageNum)}
               effectivePageWidth={effectivePageWidth}
+              effectiveRenderWidth={effectiveRenderWidth}
               zoomMode={zoomMode}
-              zoomLevel={zoomLevel}
               rotation={rotation}
-              containerWidth={containerWidth}
               containerHeight={containerHeight}
               onRenderSuccess={handlePageRenderSuccess}
             />
