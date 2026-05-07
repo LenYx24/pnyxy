@@ -23,7 +23,7 @@ import { StreakCelebrationModal } from "@/features/library/StreakCelebrationModa
 const STATIC_PAGE_PATHS = ["/about", "/privacy", "/terms", "/help", "/tutorial"];
 
 export function AppLayout() {
-  const { sidebarCollapsed, toggleSidebar } = useUIStore();
+  const { sidebarCollapsed, toggleSidebar, setSidebarCollapsed } = useUIStore();
   const { isBanned, banInfo } = useAuthStore();
   const focusActive = useFocusStore((s) => s.active);
   const isDesktop = useIsDesktop();
@@ -47,6 +47,18 @@ export function AppLayout() {
   // internal p-4 sm:p-6 md:p-8 so content there stays comfortable.
   const isBookRoute = location.pathname.startsWith("/books");
   const useFlushContent = isReaderRoute || isChatRoute || isBookRoute;
+
+  // Collapse the global sidebar by default when the user enters the
+  // reader. Reading wants every horizontal pixel; the reader's own
+  // toolbar still has a hamburger that brings the sidebar back when
+  // the user wants to navigate away. Triggers on every entry into
+  // the reader route — if the user manually expanded mid-session
+  // and then exited and re-entered a book, we collapse again,
+  // because that's the explicit user request ("by default collapse"
+  // on every book open).
+  useEffect(() => {
+    if (isReaderRoute) setSidebarCollapsed(true);
+  }, [isReaderRoute, setSidebarCollapsed]);
 
   // Footer is only rendered on the informational / legal pages. The
   // main app surfaces (library, browse, reader, settings, profile,

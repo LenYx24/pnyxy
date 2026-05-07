@@ -119,35 +119,12 @@ export function clearPinchTransform() {
   target.style.willChange = "";
 }
 
-/** Hand the gesture's scale off to per-slot CSS transforms in one
- *  synchronous step, then drop the tray transform.
- *
- *  The PdfViewer renders each PageSlot with `transform: scale(W_d/W_r)`
- *  on the inner relative div, where `W_d` is the new display width
- *  and `W_r` is the (lagged) render width. Right after commitLiveZoom
- *  fires, React's next render will compute that ratio = `scale` and
- *  set the same transform string on each slot's inner div.
- *
- *  We pre-apply that exact transform here, in the same synchronous
- *  tick, so the browser's *next* paint already shows per-slot scaling
- *  without a "scale=1" intermediate frame. When React reconciles a
- *  beat later it overwrites with the same string — visually a no-op.
- *
- *  The structural match (target's children = PageSlot wrappers,
- *  firstElementChild = the relative inner div that React transforms)
- *  has to stay in lockstep with PdfViewer's JSX. */
-export function commitPinchToSlots(scale: number) {
-  if (!target) return;
-  const slots = target.children;
-  for (let i = 0; i < slots.length; i++) {
-    const slot = slots[i] as HTMLElement;
-    const inner = slot.firstElementChild as HTMLElement | null;
-    if (!inner) continue;
-    inner.style.transform = `scale(${scale})`;
-    inner.style.transformOrigin = "top center";
-    inner.style.willChange = "transform";
-  }
-  target.style.transform = "";
-  target.style.transformOrigin = "";
-  target.style.willChange = "";
-}
+// Note: an earlier version exposed `commitPinchToSlots` to bridge
+// the "tray transform during gesture → per-slot transform after
+// commit" handoff, when render-width lagged display-width by a
+// debounce. With render-width now constant (1.5× the fit-width
+// baseline), the per-slot transform is *always* present and React
+// reconciliation produces it naturally on commit, in the same
+// paint frame as PdfViewer's zoom-change useLayoutEffect calls
+// clearPinchTransform(). The handoff is implicit; no imperative
+// pre-apply needed.

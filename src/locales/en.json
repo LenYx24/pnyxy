@@ -1467,7 +1467,8 @@
       "closeContents": "Close contents",
       "closeComments": "Close comments",
       "exitZen": "Exit zen mode",
-      "exitZenTitle": "Exit zen mode (Esc)"
+      "exitZenTitle": "Exit zen mode (Esc)",
+      "loadingDocumentMessage": "Loading book…"
     },
     "toolbar": {
       "backToLibrary": "Back to library",

@@ -93,18 +93,26 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
     [conversations, activeDocumentId],
   );
 
-  const activeConversation = useMemo(
-    () =>
-      conversations.find((c) => c.id === activeConversationId) ?? null,
-    [conversations, activeConversationId],
-  );
+  // Strict book scoping: a conversation is only "active" in this
+  // panel when its source_doc_id matches the doc the reader is
+  // currently showing. Without this guard, the brief moment between
+  // (a) the user switching docs and (b) the auto-snap effect below
+  // running could leak the previous doc's title / messages into the
+  // new doc's panel — and any other code path that ends up with an
+  // activeConversationId pointing at a foreign book would too. The
+  // standalone /chat page deliberately doesn't have this guard;
+  // there the user wants to see all conversations regardless of
+  // source. (Side-panel = book-scoped, /chat = global — that
+  // distinction is the user's explicit ask.)
+  const activeConversation = useMemo(() => {
+    const conv =
+      conversations.find((c) => c.id === activeConversationId) ?? null;
+    if (!conv) return null;
+    if (conv.source_doc_id !== activeDocumentId) return null;
+    return conv;
+  }, [conversations, activeConversationId, activeDocumentId]);
 
-  // Only show the active thread if it actually belongs to the doc the
-  // reader is currently showing. Otherwise the user could see stale
-  // messages from another book they had open earlier — confusing.
-  const activeIsForThisDoc =
-    !!activeConversation &&
-    activeConversation.source_doc_id === activeDocumentId;
+  const activeIsForThisDoc = activeConversation !== null;
 
   const path = useMemo(
     () =>

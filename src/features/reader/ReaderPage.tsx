@@ -32,7 +32,6 @@ import {
   updatePinch,
   endPinch,
   clearPinchTransform,
-  commitPinchToSlots,
 } from "./pinch-zoom-controller";
 import {
   ScreenshotRectSelector,
@@ -51,7 +50,9 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { useNoteStore } from "@/stores/note-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import { useStreakStore } from "@/stores/streak-store";
-import { getFile } from "@/lib/file-store";
+import { getFile, registerFile } from "@/lib/file-store";
+import { supabase } from "@/lib/supabase";
+import { logError } from "@/lib/logger";
 import { createAdapterForFile } from "./adapters";
 import { useOpenDocument } from "@/hooks/use-open-document";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
@@ -441,11 +442,12 @@ function MobileReaderLayout({
       updatePinch(2, x, y);
       requestAnimationFrame(() => {
         const final = endPinch();
-        // Hand the 2× transform off to per-slot scales BEFORE the
-        // store commit triggers a React re-render. Without this the
-        // tray transform would clear and we'd see a scale=1 frame
-        // before the post-commit per-slot transforms paint.
-        commitPinchToSlots(2);
+        // commitLiveZoom updates zoomLevel; React re-renders with
+        // the new per-slot CSS scale; PdfViewer's zoom-change
+        // useLayoutEffect calls clearPinchTransform() — all in the
+        // same paint frame, so the visual swap from "tray transform
+        // around tap point" to "per-slot transform around top
+        // center" never shows an in-between frame.
         store.commitLiveZoom(2, undefined, final.startWidth);
       });
     },
@@ -519,13 +521,15 @@ function MobileReaderLayout({
             requestAnimationFrame(clearPinchTransform);
             return;
           }
-          // Ordered swap: imperatively put the gesture's final scale
-          // onto each slot's inner div (and clear the tray transform)
-          // BEFORE commitLiveZoom fires, so the very next paint
-          // already has per-slot scaling matching the gesture. React's
-          // subsequent render computes the same scale (display/render)
-          // and reconciles to the same DOM value — no scale=1 flash.
-          commitPinchToSlots(final.scale);
+          // commitLiveZoom triggers a React re-render that updates
+          // every PageSlot's per-slot transform to scale(newDisplay /
+          // renderWidth). PdfViewer's zoom-change useLayoutEffect
+          // then clears the tray-level pinch transform — synchronously,
+          // before the browser paints — so the swap from "tray
+          // transform around focal point" to "per-slot transform
+          // around each slot's top-center" produces no in-between
+          // frame. The render-width is constant, so no
+          // re-rasterisation happens at any point in this swap.
           commitLiveZoom(final.scale, undefined, trayWidth);
         }
       },
@@ -743,6 +747,116 @@ function computeTocWidth(toc: TocItem[]): number {
   return Math.round(Math.min(Math.max(width, 180), 400));
 }
 
+/** Re-fetch a book's binary after the user refreshes /reader/<id> —
+ *  the in-memory file-store Map is wiped on refresh, but the URL still
+ *  identifies which book to open. Tries two paths:
+ *
+ *  1. Uploaded library: addDocument keys docs by `meta.id` (file
+ *     hash for PDFs), and the books table stores that as `file_hash`.
+ *     So `WHERE file_hash = bookId` returns the row whose
+ *     `book_files.storage_path` we then download from.
+ *  2. Catalog: catalog books are routed at `/reader/<catalog_book.id>`
+ *     directly (no addDocument-derived hash). Look up by id, fetch
+ *     the public download_url, fall back to the catalog-fetch edge
+ *     function on CORS failure (same logic as use-open-catalog-book).
+ *
+ *  Returns the File on success, null on every failure path. The
+ *  caller renders the existing "no document open" state on null —
+ *  the user lands on the same UX they had before this recovery
+ *  existed, so failure modes regress gracefully. */
+async function recoverBookFile(bookId: string): Promise<File | null> {
+  // 1. Uploaded books — by file_hash. Joining `book_files` gets us
+  // the storage path + filename in one round-trip; LIMIT 1 because
+  // file_hash is supposed to be unique per (user, file).
+  try {
+    const { data: uploaded, error } = await supabase
+      .from("books")
+      .select("title, file_hash, book_files(storage_path, file_name)")
+      .eq("file_hash", bookId)
+      .limit(1)
+      .maybeSingle();
+    if (!error && uploaded) {
+      const fileMeta = (
+        uploaded.book_files as
+          | { storage_path: string; file_name: string }[]
+          | { storage_path: string; file_name: string }
+          | null
+      );
+      const first = Array.isArray(fileMeta) ? fileMeta[0] : fileMeta;
+      if (first?.storage_path) {
+        const { data: blob, error: dlErr } = await supabase.storage
+          .from("book-files")
+          .download(first.storage_path);
+        if (!dlErr && blob) {
+          return new File([blob], first.file_name ?? "document");
+        }
+      }
+    }
+  } catch (err) {
+    logError("reader:recover:uploaded", err);
+  }
+
+  // 2. Catalog books — by id. download_url is a public link; try
+  // direct fetch first (works for hosts with permissive CORS) and
+  // fall back to the catalog-fetch edge function (auth-gated server
+  // proxy) for hosts that block the browser request. Same two-step
+  // strategy use-open-catalog-book uses on first open.
+  try {
+    const { data: catalog, error } = await supabase
+      .from("catalog_books")
+      .select("title, download_url")
+      .eq("id", bookId)
+      .limit(1)
+      .maybeSingle();
+    if (error || !catalog?.download_url) return null;
+    const url = catalog.download_url as string;
+    let res: Response;
+    try {
+      res = await fetch(url, { mode: "cors" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (directErr) {
+      logError("reader:recover:catalog:direct", directErr);
+      // Server-side proxy fallback for hosts that block CORS.
+      const session = await supabase.auth.getSession();
+      const accessToken = session.data.session?.access_token;
+      if (!accessToken) return null;
+      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/catalog-fetch?url=${encodeURIComponent(url)}`;
+      try {
+        res = await fetch(fnUrl, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        });
+        if (!res.ok) return null;
+      } catch (proxyErr) {
+        logError("reader:recover:catalog:proxy", proxyErr);
+        return null;
+      }
+    }
+    const blob = await res.blob();
+    // Re-derive a filename from the URL — the catalog row doesn't
+    // store one and the user never sees this string anyway, the
+    // adapter cares about the bytes + extension. Strip any query
+    // string and fall back to the book title if the URL is opaque.
+    const urlPath = url.toLowerCase().split("?")[0];
+    const ext = urlPath.endsWith(".epub")
+      ? ".epub"
+      : urlPath.endsWith(".pdf")
+        ? ".pdf"
+        : urlPath.endsWith(".txt")
+          ? ".txt"
+          : "";
+    const filename =
+      ((catalog.title as string | null) ?? "document").replace(/[^\w.-]+/g, "_") +
+      ext;
+    return new File([blob], filename, { type: blob.type });
+  } catch (err) {
+    logError("reader:recover:catalog", err);
+    return null;
+  }
+}
+
 export function ReaderPage() {
   const { t } = useTranslation();
   const { bookId } = useParams();
@@ -786,20 +900,62 @@ export function ReaderPage() {
   // (i.e. closing and reopening the book) — that's the agreed scope:
   // session-local memory, not per-doc persistence.
   const aiChatWidthRef = useRef<number>(360);
+  // Monotonically-increasing token bumped at the start of every
+  // cold-path recovery. The async finally only clears the global
+  // spinner when the token still matches — that way a successful
+  // load (which flips bookDocumentLoaded → effect cleanup → cancelled
+  // = true) still clears the spinner, while a cross-book navigation
+  // mid-recovery (new effect already setLoading(true) for the new
+  // book) keeps the new effect's spinner state. Replaces the
+  // cancelled-gated clear, which had the side-effect of leaving the
+  // spinner spinning forever after a normal post-refresh recovery.
+  const loadingTokenRef = useRef(0);
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenDocument();
 
-  // Load document from file registry if navigated directly
+  // Load document from file registry if navigated directly. The
+  // registry is an in-memory Map so a hard refresh wipes it — in
+  // that case the bookId in the URL still tells us *which* book the
+  // user wanted, and we can re-fetch it from Supabase. Try the
+  // uploaded library first (books.file_hash = bookId, since
+  // addDocument's docId is the file hash), then fall back to the
+  // catalog (catalog_books.id = bookId, the catalog UUID).
   useEffect(() => {
-    if (bookId && !bookDocumentLoaded) {
-      const file = getFile(bookId);
-      if (file) {
-        const adapter = createAdapterForFile(file);
-        addDocument(adapter, file);
-      }
+    if (!bookId || bookDocumentLoaded) return;
+    let cancelled = false;
+    const file = getFile(bookId);
+    if (file) {
+      // Hot-path: navigated from elsewhere in the app; file is
+      // already in memory.
+      const adapter = createAdapterForFile(file);
+      void addDocument(adapter, file);
+      return;
     }
-  }, [bookId, bookDocumentLoaded, addDocument]);
+    // Cold-path: post-refresh recovery. Run async; `cancelled` gates
+    // applying the loaded document so a fast bookId change doesn't
+    // race two opens to completion. Spinner clearing uses a separate
+    // token gate (loadingTokenRef): a newer cold-path bumps the token
+    // and "owns" the spinner; older paths skip the clear so they
+    // can't wipe a fresh load's spinner.
+    const setLoading = useUIStore.getState().setLoading;
+    const token = ++loadingTokenRef.current;
+    setLoading(true, t("reader.page.loadingDocumentMessage"));
+    void (async () => {
+      try {
+        const recovered = await recoverBookFile(bookId);
+        if (cancelled || !recovered) return;
+        registerFile(bookId, recovered);
+        const adapter = createAdapterForFile(recovered);
+        await addDocument(adapter, recovered);
+      } finally {
+        if (loadingTokenRef.current === token) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [bookId, bookDocumentLoaded, addDocument, t]);
 
   // Load annotations + bookmarks when active document changes
   useEffect(() => {

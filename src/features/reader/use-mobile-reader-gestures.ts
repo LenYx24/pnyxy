@@ -284,6 +284,25 @@ export function useMobileReaderGestures(opts: Options): {
     el.addEventListener("touchmove", handleMove, { passive: false });
     el.addEventListener("touchend", handleEnd, { passive: true });
     el.addEventListener("touchcancel", handleEnd, { passive: true });
+
+    // iOS Safari fires legacy `gesturestart`/`gesturechange`/`gestureend`
+    // events for any 2-finger contact, *parallel* to the standard
+    // touch events. Even with `user-scalable=no` and
+    // `touch-action: pan-y` set, those legacy events can preempt
+    // `touchmove` delivery for the second finger if we don't claim
+    // them first — this was the smoking gun for "pinch on iPhone
+    // does literally nothing." Calling preventDefault() on
+    // gesturestart asserts our ownership of the multi-touch path
+    // and lets the touchmove handler above receive its 2-touch
+    // events as expected. No-op on Android / desktop (those don't
+    // fire `GestureEvent`s; the listener silently never triggers).
+    const handleGesture = (e: Event) => {
+      if (enablePinch) e.preventDefault();
+    };
+    el.addEventListener("gesturestart", handleGesture, { passive: false });
+    el.addEventListener("gesturechange", handleGesture, { passive: false });
+    el.addEventListener("gestureend", handleGesture, { passive: false });
+
     // Capture the state object at setup time so the cleanup uses the
     // exact same instance the handlers wrote to. `useRef` returns a
     // stable object across renders so this is purely to satisfy the
@@ -294,6 +313,9 @@ export function useMobileReaderGestures(opts: Options): {
       el.removeEventListener("touchmove", handleMove);
       el.removeEventListener("touchend", handleEnd);
       el.removeEventListener("touchcancel", handleEnd);
+      el.removeEventListener("gesturestart", handleGesture);
+      el.removeEventListener("gesturechange", handleGesture);
+      el.removeEventListener("gestureend", handleGesture);
       // Drop any pending tap timer so it can't fire after unmount.
       if (stateForCleanup.singleTapTimer !== null) {
         clearTimeout(stateForCleanup.singleTapTimer);

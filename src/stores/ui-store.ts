@@ -29,6 +29,7 @@ interface UIState {
   libraryPickerOpen: boolean;
   setLibraryPickerOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
   toggleReaderSidebar: () => void;
   setLoading: (loading: boolean, message?: string) => void;
   setMobileSidebarOpen: (open: boolean) => void;
@@ -52,6 +53,7 @@ export const useUIStore = create<UIState>((set) => ({
   setLibraryPickerOpen: (open) => set({ libraryPickerOpen: open }),
   toggleSidebar: () =>
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+  setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   toggleReaderSidebar: () =>
     set((state) => ({ readerSidebarCollapsed: !state.readerSidebarCollapsed })),
   setLoading: (loading, message = "") =>

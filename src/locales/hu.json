@@ -1467,7 +1467,8 @@
       "closeContents": "Tartalom bezárása",
       "closeComments": "Kommentek bezárása",
       "exitZen": "Zen mód bezárása",
-      "exitZenTitle": "Zen mód bezárása (Esc)"
+      "exitZenTitle": "Zen mód bezárása (Esc)",
+      "loadingDocumentMessage": "Könyv betöltése…"
     },
     "toolbar": {
       "backToLibrary": "Vissza a könyvtárba",
