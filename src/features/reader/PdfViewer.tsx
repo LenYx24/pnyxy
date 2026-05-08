@@ -19,81 +19,54 @@ import { CommentMarkers } from "./CommentMarkers";
 import { AnnotationContextMenu } from "./AnnotationContextMenu";
 import { CommentPopover } from "./CommentPopover";
 import {
-  registerPinchTarget,
-  clearPinchTransform,
-  beginPinch,
-  updatePinch,
-  endPinch,
+  registerZoomControls,
+  type ZoomGestureControls,
 } from "./pinch-zoom-controller";
 import { Loader2 } from "lucide-react";
 
 interface PageSlotProps {
   pageNum: number;
   offsetTop: number;
+  pageWidth: number;
   pageHeight: number;
-  /** Visible width of the page on screen — drives layout / virtual
-   *  scroll positioning. For fit-width this is `containerWidth - 48`;
-   *  for custom zoom this scales with zoomLevel. */
-  effectivePageWidth: number;
-  /** Width at which react-pdf actually rasterises the canvas.
-   *  *Constant* for a given container size — set to ~1.5× the
-   *  fit-width baseline so every zoom level can be reached by CSS
-   *  transform on the slot below, never by re-rasterisation. The
-   *  page is rasterised once when it first scrolls into view and
-   *  re-rasterised only when the container itself resizes. This is
-   *  the trick that makes zoom flash-free and pinch-instant
-   *  (Google Maps / Chrome built-in PDF viewer style): displayed
-   *  scale is purely a CSS multiplier on the rasterised canvas. */
-  effectiveRenderWidth: number;
-  /** Rotation in degrees (0/90/180/270). Forwarded to react-pdf so
-   *  the rasterized canvas comes back already rotated; the page's
-   *  viewport width/height are swapped for 90°/270°, which the
-   *  outer layout consumes via `getPageHeight`. */
+  /** Width at which react-pdf actually rasterizes the canvas. Constant
+   *  for a session (grow-only) — set wide enough to cover any plausible
+   *  display width so that container resize / panel resize change only
+   *  the per-slot CSS scale, never re-trigger react-pdf's rasterizer.
+   *  This is what eliminates the resize-blink: the canvas DOM stays
+   *  identical, only its visual scale changes. */
+  renderWidth: number;
   rotation: 0 | 90 | 180 | 270;
   onRenderSuccess: (pageNum: number) => void;
 }
 
-// Renders one virtualized page + its overlay layers. Memoized so a scroll-
-// driven parent re-render doesn't redraw every visible page; only pages
-// whose primitive props actually change re-render.
+// Renders one virtualized page + its overlay layers. The Page is
+// rasterized at `renderWidth` (constant) and the slot's inner div
+// applies a CSS `transform: scale(pageWidth / renderWidth)` so the
+// visual size matches `pageWidth`. Container resize → pageWidth
+// changes → per-slot scale recomputes → react-pdf does NOT re-render
+// the canvas (its `width` prop didn't change). Same trick as our
+// tray-level transform for zoom, applied one level deeper to also
+// kill resize-blink.
 const PageSlot = memo(function PageSlot({
   pageNum,
   offsetTop,
+  pageWidth,
   pageHeight,
-  effectivePageWidth,
-  effectiveRenderWidth,
+  renderWidth,
   rotation,
   onRenderSuccess,
 }: PageSlotProps) {
-  // Always pass `width` to react-pdf — the render width is constant
-  // for a given container, so a height-driven fit-page mode just
-  // means the slot's display width is smaller than the rendered
-  // width, which the CSS transform below handles uniformly. We don't
-  // use the height prop anywhere now: every mode boils down to "page
-  // is rasterised at renderWidth, then CSS-scaled to displayWidth".
-  const pageProps =
-    effectiveRenderWidth > 0
-      ? { width: effectiveRenderWidth }
-      : { width: undefined };
-
-  // visualScale = displayWidth / renderWidth.
-  //   = 1 only by coincidence (when zoomLevel happens to land at the
-  //     constant render baseline).
-  //   > 1 when the user has zoomed in past the render baseline
-  //     — text gets soft when this exceeds ~1.4 and we should bump
-  //     the render baseline; out of scope here, the v2 lever.
-  //   < 1 most of the time at fit-width — the canvas is rasterised
-  //     larger than displayed, so text stays crisp.
-  // transform-origin "top center" so the slot's top edge stays anchored
-  // at offsetTop and horizontal centering is preserved (the slot's
-  // outer flex container centers the inner box pre-transform; without
-  // this origin the visual would drift right of center after scale).
-  const useTransform =
-    effectiveRenderWidth > 0 &&
-    Math.abs(effectivePageWidth - effectiveRenderWidth) > 0.5;
-  const visualScale = useTransform
-    ? effectivePageWidth / effectiveRenderWidth
-    : 1;
+  // Effective render width — fall back to display width on the very
+  // first frame before the parent has computed the session's render
+  // baseline. Once renderWidth > 0 it stays that way and only ever
+  // grows.
+  const effectiveRenderW = renderWidth > 0 ? renderWidth : pageWidth;
+  const slotScale =
+    effectiveRenderW > 0 ? pageWidth / effectiveRenderW : 1;
+  // Skip a needless transform when the scale would be 1 (within FP
+  // noise) so the layout effects pass straight through to the page.
+  const useSlotTransform = Math.abs(slotScale - 1) > 0.001;
 
   return (
     <div
@@ -106,33 +79,35 @@ const PageSlot = memo(function PageSlot({
         justifyContent: "center",
       }}
     >
-      <div
-        style={{
-          position: "relative",
-          transform: useTransform ? `scale(${visualScale})` : undefined,
-          transformOrigin: useTransform ? "top center" : undefined,
-          // Hint the compositor so the in-flight CSS scale runs on
-          // the GPU layer and stays smooth.
-          willChange: useTransform ? "transform" : undefined,
-        }}
-      >
-        <Page
-          pageNumber={pageNum}
-          rotate={rotation}
-          {...pageProps}
-          loading={
-            <div
-              className="flex items-center justify-center gap-2 text-text-secondary"
-              style={{ height: pageHeight, width: effectivePageWidth }}
-            >
-              <Loader2 size={16} className="animate-spin" />
-            </div>
-          }
-          onRenderSuccess={() => onRenderSuccess(pageNum)}
-        />
-        <HighlightLayer pageNum={pageNum} />
-        <SearchHighlightLayer pageNum={pageNum} />
-        <CommentMarkers pageNum={pageNum} />
+      {/* Outer keeps `pageWidth × pageHeight` of layout space. The
+          inner has the actual rasterized canvas at `renderWidth` and
+          is CSS-scaled down to fit. transform-origin: 0 0 keeps the
+          inner's visual top-left aligned with the outer's. */}
+      <div style={{ width: pageWidth, height: pageHeight, position: "relative" }}>
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            transform: useSlotTransform
+              ? `scale(${slotScale})`
+              : undefined,
+            transformOrigin: useSlotTransform ? "0 0" : undefined,
+          }}
+        >
+          <Page
+            pageNumber={pageNum}
+            rotate={rotation}
+            width={effectiveRenderW}
+            loading={
+              <div style={{ height: pageHeight, width: effectiveRenderW }} />
+            }
+            onRenderSuccess={() => onRenderSuccess(pageNum)}
+          />
+          <HighlightLayer pageNum={pageNum} />
+          <SearchHighlightLayer pageNum={pageNum} />
+          <CommentMarkers pageNum={pageNum} />
+        </div>
       </div>
     </div>
   );
@@ -141,10 +116,13 @@ const PageSlot = memo(function PageSlot({
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf-assets/pdf.worker.min.mjs";
 
 const PAGE_GAP = 12;
-const A4_RATIO = 1.4142; // height/width for A4
+const A4_RATIO = 1.4142;
+const STORE_COMMIT_DEBOUNCE_MS = 250;
+// Min/max liveScale, matches the store's ZOOM_MIN/MAX (25 / 1000) so
+// store-driven and gesture-driven zoom share the same envelope.
+const MIN_SCALE = 0.25;
+const MAX_SCALE = 10;
 
-// First index `i` in a sorted ascending array where arr[i] > target.
-// Returns arr.length if no such element exists.
 function upperBound(arr: number[], target: number): number {
   let lo = 0;
   let hi = arr.length;
@@ -156,13 +134,9 @@ function upperBound(arr: number[], target: number): number {
   return lo;
 }
 
-// Removed `smoothScrollTo` helper. Programmatic scrolls (resume,
-// TOC nav, page input, citation jumps) now snap instantly — the
-// 300 ms ease was just a delay, and on initial doc-open it could
-// land on the wrong scroll position when virtualized pages rendered
-// at different heights than the A4 estimates the animation was
-// targeting. The resume-target re-snap loop in PdfViewer handles
-// the layout-settle case directly.
+function clamp(v: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, v));
+}
 
 interface PageDimensions {
   width: number;
@@ -174,7 +148,6 @@ interface PdfViewerProps {
 }
 
 export function PdfViewer({ documentId }: PdfViewerProps) {
-  // If no documentId passed, use active document
   const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
   const docId = documentId ?? activeDocumentId;
   const doc = useDocumentState(docId ?? "");
@@ -182,7 +155,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   const setCurrentPage = useReaderStore((s) => s.setCurrentPage);
   const setScrollOffset = useReaderStore((s) => s.setScrollOffset);
   const clearScrollRequest = useReaderStore((s) => s.clearScrollRequest);
-  const commitLiveZoom = useReaderStore((s) => s.commitLiveZoom);
+  const setZoomLevel = useReaderStore((s) => s.setZoomLevel);
 
   const meta = doc?.meta ?? null;
   const totalPages = doc?.totalPages ?? 0;
@@ -191,96 +164,68 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   const rotation = doc?.pageRotation ?? 0;
   const scrollToPage = doc?.scrollToPage ?? null;
   const invertColors = useSettingsStore((s) => s.pdfInvertColors);
-  // Throttle "report current scroll fraction to the store" so user
-  // scrolling doesn't fire 60 state updates / sec.
+
   const offsetReportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const pinchTargetRef = useRef<HTMLDivElement>(null);
+  const sizerRef = useRef<HTMLDivElement>(null);
+  const trayRef = useRef<HTMLDivElement>(null);
   useTextSelection(containerRef);
 
-  // Hand the inner page-tray DOM node to the pinch controller so the
-  // mobile gesture handler can drive transforms imperatively (no React
-  // re-renders during the pinch).
-  useEffect(() => {
-    registerPinchTarget(pinchTargetRef.current);
-    return () => registerPinchTarget(null);
-  }, []);
   const [containerWidth, setContainerWidth] = useState(0);
   const [containerHeight, setContainerHeight] = useState(0);
-  const dimensionsRef = useRef<Map<number, PageDimensions>>(new Map());
-  // dimensionsRef is a *ref* (writes don't trigger re-render) so a
-  // bare write in handlePageRenderSuccess doesn't cause pageOffsets
-  // to recompute — the layout stays at A4 estimates forever. This
-  // counter is bumped whenever a render lands new dims, and is
-  // included in getPageHeight's deps so the layout pipeline picks
-  // up the correction. Without it, scrollToPage on doc open lands
-  // at an estimated offset and stays there even after the target
-  // page renders with its real height.
-  const [dimsVersion, setDimsVersion] = useState(0);
+  // Real measured page dimensions, keyed by page number. Stored as
+  // state (not a ref) so getPageHeight reads it cleanly during render
+  // and the layout pipeline picks up new measurements naturally.
+  // handlePageRenderSuccess merges via functional setState to avoid
+  // closure staleness when multiple pages render in the same tick.
+  const [dimensions, setDimensions] = useState<Map<number, PageDimensions>>(
+    () => new Map(),
+  );
   const rafRef = useRef<number>(0);
-  // Tracks the previous zoom snapshot. We also stash the prior
-  // `effectivePageWidth` so that on a zoom step we can scale cached
-  // page dimensions proportionally instead of clearing them — which
-  // is the cure for the "blink" where pages briefly collapsed to
-  // 0 height while react-pdf re-rasterised at the new scale.
-  const prevZoomRef = useRef({
-    zoomMode,
-    zoomLevel,
-    effectivePageWidth: 0,
-  });
-  const anchorRef = useRef<{ page: number; fraction: number } | null>(null);
-  // When the user zooms via Ctrl+wheel / trackpad pinch on desktop,
-  // we want the same tray-content point under the cursor to stay
-  // under the cursor after the zoom — Google PDF / Maps behavior.
-  // We can't anchor by raw tray-relative pixels: PAGE_GAP (12 px) is
-  // a fixed constant that *doesn't* scale with zoom, so cumulative
-  // tray-Y coordinates don't scale uniformly — by page N the math
-  // is off by ≈ N × 12 px. Anchor by (page index, fraction inside
-  // the page) instead — that goes through the same getPageHeight +
-  // pageOffsets pipeline that drives layout, so it's correct even
-  // with PAGE_GAP, tray centering, or any other layout quirk.
-  const cursorAnchorRef = useRef<{
-    pageIdx: number;
-    pageFraction: number;
-    xFraction: number;
-    viewportX: number;
-    viewportY: number;
-  } | null>(null);
-  // Resume target tracker. Set on a scrollToPage event; consumed by
-  // the resume-restore useLayoutEffect, which re-snaps scrollTop as
-  // virtualized pages render and their real heights replace the
-  // initial A4 estimates. Cleared by user scroll input or watchdog
-  // expiry, so we don't fight a manual scroll mid-window.
+
+  // The single source of truth for visual zoom. Lives in a ref +
+  // directly on the DOM (tray transform, sizer dimensions); only
+  // mirrored to the store after STORE_COMMIT_DEBOUNCE_MS of idle, so
+  // gesture frames don't churn React. Read with `getLiveScale`,
+  // written via `applyScale` / the store-sync useLayoutEffect.
+  const liveScaleRef = useRef(1);
+  const storeCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // React-visible mirror of liveScaleRef. Driven by applyScale via a
+  // functional setter that returns prev when sub-threshold (0.5 % of
+  // scale), so React only re-renders when the visible-pages math
+  // actually needs to. Declared before applyScale because that
+  // callback closes over the dispatcher.
+  const [liveScaleTrigger, setLiveScaleTrigger] = useState(1);
+  // True while the user is mid-zoom (any wheel/pinch event in the last
+  // ~250 ms). When true, visiblePages expands its render window so
+  // pages that *might* enter view as the user keeps zooming are
+  // already mounted — no "loading" placeholder flash mid-gesture.
+  // Ref + state pair: the ref dedups so we don't dispatch setState on
+  // every wheel event, the state drives the visiblePages re-memo.
+  const [zoomBoostActive, setZoomBoostActive] = useState(false);
+  const zoomBoostRef = useRef(false);
+  const setZoomBoost = useCallback((active: boolean) => {
+    if (zoomBoostRef.current === active) return;
+    zoomBoostRef.current = active;
+    setZoomBoostActive(active);
+  }, []);
+
+  const programmaticScrollRef = useRef(false);
   const resumeTargetRef = useRef<{
     page: number;
     offset: number;
     expiresAt: number;
   } | null>(null);
-  // Debug visualization of the cursor-pivot anchor. Each wheel-zoom
-  // pulse paints a tiny red dot at the captured cursor position; the
-  // user can compare it to where they actually wheel-zoomed and tell
-  // us if the anchor's drifting. The `seq` field forces a re-render
-  // even when the user repeatedly zooms at the *same* coords — the
-  // dot key changes, the fade animation restarts. Remove the dot
-  // (`debugDotSeqRef`, `setDebugZoomDot`, the JSX) once the offset
-  // is understood.
-  const [debugZoomDot, setDebugZoomDot] = useState<{
-    x: number;
-    y: number;
-    seq: number;
-  } | null>(null);
-  const debugDotSeqRef = useRef(0);
-  const programmaticScrollRef = useRef(false);
-  // Rotation snapshot — when this changes, every cached page
-  // dimension is stale (90°/270° swaps width/height; 0°/180° keeps
-  // the bounding box but the raster still has to come back). Clear
-  // the cache so handlePageRenderSuccess re-measures.
+
   const prevRotationRef = useRef(rotation);
   useLayoutEffect(() => {
     if (prevRotationRef.current === rotation) return;
-    dimensionsRef.current.clear();
     prevRotationRef.current = rotation;
+    // Rotation invalidates every cached page dimension (90°/270° swaps
+    // width/height). Resetting forces handlePageRenderSuccess to
+    // re-measure as new renders land.
+    setDimensions(new Map());
   }, [rotation]);
 
   // Track container size — debounced to prevent flicker during panel resize
@@ -295,7 +240,6 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;
-      // Debounce: only commit new dimensions after resize settles
       clearTimeout(resizeTimerRef.current);
       resizeTimerRef.current = setTimeout(() => {
         setContainerWidth(entry.contentRect.width);
@@ -310,273 +254,50 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     };
   }, []);
 
-  // Ctrl+wheel cursor-pivot zoom — Google PDF / Maps style.
-  // ctrlKey also fires on trackpad pinch (macOS / Windows report
-  // pinch as a synthetic ctrl+wheel), so the same path handles mouse
-  // wheel + Ctrl and trackpad pinch. Attached as a native listener
-  // with passive:false so preventDefault actually stops browser-level
-  // page zoom — React's onWheel is passive by default.
+  // baselineWidth = the tray-local width of every page (1× scale).
+  // The TRAY's CSS transform handles visual zoom; the PER-SLOT
+  // transform handles the gap between baselineWidth (display) and
+  // renderWidth (rasterization). With containerWidth - 48 padding,
+  // fit-width === 1× zoom.
+  const baselineWidth = containerWidth > 0 ? containerWidth - 48 : 600;
+
+  // renderWidth = the width at which react-pdf actually rasterizes.
+  // Grow-only: shrinking the panel keeps the larger canvas + lets a
+  // per-slot CSS down-scale handle the smaller display, so resize-down
+  // never re-rasterizes. Resize-up beyond the largest size we've seen
+  // does re-rasterize (one blink), then the new larger size sticks.
   //
-  // **Imperative-during-gesture, commit-on-settle.** This is the
-  // "Option A" architecture from the snappiness writeup. Each wheel
-  // event accumulates `accumScale` and applies a CSS transform
-  // directly to the page tray DOM via the pinch-zoom-controller —
-  // *no React state change, no re-render*. After 150 ms of no wheel
-  // events, the gesture commits via commitLiveZoom: React renders
-  // the new zoomLevel once, the existing zoom-change useLayoutEffect
-  // clears the imperative transform, and the cursor-pivot scroll
-  // adjusts so the same content stays under the cursor. Total React
-  // work per gesture: one render, regardless of how many wheel
-  // events fired. Should be at-or-near native PDF viewer feel.
-  //
-  // The pinch controller already has the begin/update/end DOM
-  // surface for this — desktop wheel just drives it from a different
-  // event source than the mobile touch handler.
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
+  // Why we DON'T pin to window-width × 1.5: react-pdf's canvas backing
+  // store is `W × devicePixelRatio` pixels. On a Retina laptop (DPR=2)
+  // a 2880-px logical render becomes ~5760 px backing, ~187 MB / page.
+  // That tanked scrolling and doc-open. Pinning to display width keeps
+  // memory proportional to what's actually visible. See react-pdf
+  // issues #1760, #1705, #875 for the underlying constraint.
+  const RENDER_GROWTH_HEADROOM = 1.1;
+  const RENDER_WIDTH_CAP = 1800;
+  const [renderWidth, setRenderWidth] = useState(0);
+  useLayoutEffect(() => {
+    if (baselineWidth <= 0) return;
+    const target = Math.min(baselineWidth * RENDER_GROWTH_HEADROOM, RENDER_WIDTH_CAP);
+    setRenderWidth((prev) => (target > prev ? target : prev));
+  }, [baselineWidth]);
 
-    // Per-gesture state. Lives across wheel events while the gesture
-    // is active; reset on settle commit.
-    let active = false;
-    let accumScale = 1;
-    let focalX = 0;
-    let focalY = 0;
-    let anchor: {
-      pageIdx: number;
-      pageFraction: number;
-      xFraction: number;
-    } | null = null;
-    let settleTimer: ReturnType<typeof setTimeout> | null = null;
-    let baseDisplayWidth = 0;
-    // rAF-coalesce updatePinch so fast trackpad pinches (which can
-    // fire 60+ wheel events / sec) don't slam the compositor with
-    // multiple style writes per frame. Each event accumulates the
-    // scale; one rAF callback flushes the latest value to the DOM.
-    let updatePending = false;
-    const flushUpdate = () => {
-      updatePending = false;
-      if (!active) return;
-      updatePinch(accumScale, focalX, focalY);
-    };
-    const scheduleUpdate = () => {
-      if (updatePending) return;
-      updatePending = true;
-      requestAnimationFrame(flushUpdate);
-    };
-
-    const settle = () => {
-      settleTimer = null;
-      if (!active) return;
-      const final = endPinch();
-      active = false;
-      if (!anchor) return;
-      // Hand the captured cursor anchor to the zoom-change
-      // useLayoutEffect, which will use it for the post-commit scroll
-      // pivot. Without this, the existing useLayoutEffect would fall
-      // back to the page-fraction anchor (viewport-center based).
-      cursorAnchorRef.current = {
-        pageIdx: anchor.pageIdx,
-        pageFraction: anchor.pageFraction,
-        xFraction: anchor.xFraction,
-        viewportX: focalX,
-        viewportY: focalY,
-      };
-      anchor = null;
-      // Debug pulse on commit (one per gesture instead of one per
-      // wheel event — easier to read at fast pinch speeds).
-      setDebugZoomDot({ x: focalX, y: focalY, seq: debugDotSeqRef.current++ });
-      // commitLiveZoom multiplies current zoomLevel by the gesture
-      // scale, and accepts the pre-gesture displayed width so it can
-      // compute the post-commit zoomLevel correctly even when the
-      // gesture started in fit-width / fit-page mode.
-      commitLiveZoom(
-        final.scale,
-        docId ?? undefined,
-        final.startWidth || baseDisplayWidth,
-      );
-      accumScale = 1;
-    };
-
-    const handleWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) {
-        // Non-zoom wheel = regular scroll. Mouse wheels fire large
-        // stepped deltas (typically ±100 px per detent on Linux/Win,
-        // ±120 on Windows, ±~166 with line-mode); trackpads fire
-        // many small smooth deltas (often <30) and feel right with
-        // browser-default speed. Boost the mouse-wheel case so a
-        // single detent moves further down the page — matches the
-        // user's "make my wheel scroll more" ask without making
-        // trackpad scrolling overly twitchy.
-        if (Math.abs(e.deltaY) >= 40) {
-          e.preventDefault();
-          el.scrollBy({
-            top: e.deltaY * 2.5,
-            left: e.deltaX * 2.5,
-            behavior: "auto",
-          });
-        }
-        return;
-      }
-      e.preventDefault();
-      const tray = pinchTargetRef.current;
-      if (!tray) return;
-
-      if (!active) {
-        // First event of a gesture: capture anchor + start the
-        // imperative pinch. The pinch controller sets transform-
-        // origin at (focalX, focalY) on the tray; subsequent
-        // updatePinch calls scale around that point.
-        const trayRect = tray.getBoundingClientRect();
-        const cursorTrayX = e.clientX - trayRect.left;
-        const cursorTrayY = e.clientY - trayRect.top;
-        const offsets = pageOffsetsRef.current;
-        const heightFor = pageHeightRef.current;
-        const pageIdx =
-          offsets.length > 0
-            ? Math.max(
-                0,
-                Math.min(
-                  offsets.length - 1,
-                  upperBound(offsets, cursorTrayY) - 1,
-                ),
-              )
-            : 0;
-        const pageStart = offsets[pageIdx] ?? 0;
-        const pageHeight = heightFor(pageIdx + 1) || 1;
-        // Clamp the captured fractions to [0, 1]. When the tray is
-        // narrower than the container (margin: 0 auto centering),
-        // the cursor can land in the empty gutter outside the tray
-        // — raw cursorTrayX would be negative or > trayWidth, making
-        // the post-zoom anchor a "ghost" point outside the actual
-        // content. After the zoom commit (especially crossing the
-        // fit-width threshold where the tray flips from centered to
-        // left-aligned), that ghost anchor used to snap the page to
-        // the left edge. Clamping to [0, 1] anchors to the nearest
-        // real edge of the tray instead — degraded but visually
-        // consistent: zoom-near-left-gutter still pivots from the
-        // tray's left edge rather than from empty space.
-        anchor = {
-          pageIdx,
-          pageFraction: Math.max(
-            0,
-            Math.min(1, (cursorTrayY - pageStart) / pageHeight),
-          ),
-          xFraction:
-            trayRect.width > 0
-              ? Math.max(0, Math.min(1, cursorTrayX / trayRect.width))
-              : 0.5,
-        };
-        focalX = e.clientX;
-        focalY = e.clientY;
-        baseDisplayWidth = trayRect.width;
-        accumScale = 1;
-        active = true;
-        beginPinch(focalX, focalY);
-      }
-
-      // Multiplicative step per event. Range 0.85–1.15 per event
-      // keeps a single mouse-wheel detent at about ±15 % visible
-      // change; trackpad pinches accumulate smoothly because each
-      // tiny event adds a tiny multiplier.
-      const stepFactor = Math.exp(-e.deltaY * 0.005);
-      const clampedStep = Math.max(0.85, Math.min(1.15, stepFactor));
-      accumScale *= clampedStep;
-      // Clamp the cumulative scale so we can't slingshot to 0.05× or
-      // 50× over a long gesture.
-      accumScale = Math.max(0.1, Math.min(10, accumScale));
-      // Schedule one rAF-coalesced DOM write per frame, regardless
-      // of how many wheel events arrived since the last frame.
-      scheduleUpdate();
-
-      // Reset the settle timer on every event. The gesture commits
-      // 150 ms after the last wheel event — long enough that fast
-      // continuous scrolling doesn't commit mid-gesture, short enough
-      // that the user feels the crispness land promptly when they
-      // stop.
-      if (settleTimer) clearTimeout(settleTimer);
-      settleTimer = setTimeout(settle, 150);
-    };
-
-    el.addEventListener("wheel", handleWheel, { passive: false });
-    return () => {
-      el.removeEventListener("wheel", handleWheel);
-      if (settleTimer) clearTimeout(settleTimer);
-      // If a gesture was mid-flight at unmount, drop the imperative
-      // transform so the next mount doesn't inherit a stale style.
-      if (active) {
-        endPinch();
-        clearPinchTransform();
-      }
-    };
-  }, [docId, commitLiveZoom]);
-
-  // Compute effective page width based on zoom mode
-  const effectivePageWidth = useMemo(() => {
-    switch (zoomMode) {
-      case "fit-width":
-        return containerWidth > 0 ? containerWidth - 48 : 600;
-      case "fit-page": {
-        // Estimate width from target height; actual width depends on page aspect ratio
-        const fitHeight = containerHeight > 0 ? containerHeight - 24 : 800;
-        return fitHeight / A4_RATIO;
-      }
-      case "custom":
-        return (600 * zoomLevel) / 100;
-    }
-  }, [zoomMode, zoomLevel, containerWidth, containerHeight]);
-
-  // Constant rasterisation width: ~1.5× the fit-width baseline.
-  // react-pdf rasterises each page to this width *once* (per
-  // container size); every zoom level after that is reached by CSS
-  // transform on the slot below, no re-rasterisation. This is the
-  // trick that makes zoom and pinch flash-free — a previous version
-  // tried debounced lazy-raster, which only delayed the flash from
-  // mid-gesture to 250 ms post-gesture. The new approach simply
-  // never re-rasterises during user zoom.
-  //
-  // The 1.5× multiplier is the quality / memory trade: at fit-width
-  // the canvas is downscaled by CSS (crisp), and we have headroom to
-  // ~150 % zoom before CSS upscaling starts visibly blurring text.
-  // Above that the user can ask for a "render at current zoom"
-  // refresh (future v2). Memory: a 1.5× page at A4 ≈ 7 MB; with
-  // ~5 visible pages, ~35 MB peak — fine on every device we target.
-  const RENDER_QUALITY_MULTIPLIER = 1.5;
-  const effectiveRenderWidth = useMemo(() => {
-    if (containerWidth <= 0) return 0;
-    // The fit-width baseline (containerWidth - 48) is the smallest
-    // sensible target and a stable anchor — it doesn't depend on
-    // zoomLevel, so the rasterised canvas survives every zoom
-    // change. Capped at 2400 px so an extra-wide window doesn't
-    // pin a 3× canvas in memory; pages render plenty crisp at
-    // 2400 even on a 4K screen.
-    return Math.min(
-      (containerWidth - 48) * RENDER_QUALITY_MULTIPLIER,
-      2400,
-    );
-  }, [containerWidth]);
-
-  // Estimate page height from cached dimensions or A4 ratio
+  // Estimate page height from cached dimensions or A4 ratio.
   const getPageHeight = useCallback(
     (pageNum: number): number => {
-      // In fit-page mode, height is fixed to the container
-      if (zoomMode === "fit-page") {
-        return containerHeight > 0 ? containerHeight - 24 : 800;
-      }
-      const cached = dimensionsRef.current.get(pageNum);
+      const cached = dimensions.get(pageNum);
       if (cached) {
-        const scale = effectivePageWidth / cached.width;
+        const scale = baselineWidth / cached.width;
         return cached.height * scale;
       }
-      return effectivePageWidth * A4_RATIO;
+      return baselineWidth * A4_RATIO;
     },
-    // dimsVersion is read implicitly via dimensionsRef — keeping it
-    // in deps is what cascades a render-success → fresh getPageHeight
-    // → fresh pageOffsets → re-snap of the resume scroll target.
-    [effectivePageWidth, zoomMode, containerHeight, dimsVersion],
+    [baselineWidth, dimensions],
   );
 
-  // Compute cumulative page offsets
+  // pageOffsets and totalContentHeight are in **tray-local** (pre-CSS-
+  // scale) coordinates. Multiply by liveScale to get container-scroll
+  // coords.
   const pageOffsets = useMemo(() => {
     if (totalPages === 0) return [];
     const offsets: number[] = [0];
@@ -586,69 +307,551 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     return offsets;
   }, [totalPages, getPageHeight]);
 
-  // "useLatest" pattern: the wheel handler is attached once on
-  // mount, but it needs to call into pageOffsets / getPageHeight
-  // which are recomputed on every zoom. A ref tracks the current
-  // render's values and the effect closure reads `current` at
-  // gesture time. Updating `current` directly each render is the
-  // standard pattern for this; react-hooks/immutability flags the
-  // mutation, suppress with an explanatory comment.
-  const pageOffsetsRef = useRef(pageOffsets);
-  // eslint-disable-next-line react-hooks/immutability -- useLatest pattern; see above.
-  pageOffsetsRef.current = pageOffsets;
-  const pageHeightRef = useRef(getPageHeight);
-  // eslint-disable-next-line react-hooks/immutability -- useLatest pattern; see above.
-  pageHeightRef.current = getPageHeight;
-
-  // Total content height
   const totalContentHeight = useMemo(() => {
     if (totalPages === 0 || pageOffsets.length === 0) return 0;
     return pageOffsets[totalPages - 1] + getPageHeight(totalPages) + PAGE_GAP;
   }, [totalPages, pageOffsets, getPageHeight]);
 
-  // Determine visible pages based on scroll position (virtualization)
+  // Refs mirror the latest derived values for use inside event-time
+  // closures (the wheel handler is set up once and reads these on
+  // every gesture frame). Updated in a layout effect so the writes
+  // don't happen during render.
+  const baselineWidthRef = useRef(baselineWidth);
+  const totalContentHeightRef = useRef(totalContentHeight);
+  useLayoutEffect(() => {
+    baselineWidthRef.current = baselineWidth;
+    totalContentHeightRef.current = totalContentHeight;
+  }, [baselineWidth, totalContentHeight]);
+
+  // Imperatively size the sizer to `baselineWidth × liveScale`,
+  // `totalContentHeight × liveScale`. This runs synchronously after
+  // every render (no deps), so any time React commits — gesture
+  // trigger, store update, dimensions update — the sizer dimensions
+  // get reasserted from the imperative source of truth before the
+  // browser paints. Cheap (two style writes), but kills the snap bug
+  // dead: there's no longer a window where the DOM has the JSX-
+  // declared unscaled values.
+  useLayoutEffect(() => {
+    const sizerEl = sizerRef.current;
+    if (!sizerEl) return;
+    const scale = liveScaleRef.current;
+    sizerEl.style.width = `${baselineWidth * scale}px`;
+    sizerEl.style.height = `${totalContentHeight * scale}px`;
+  });
+
+  // Apply the scale + scroll math imperatively. Runs 60×/sec during a
+  // gesture, so it touches only DOM and refs (no React state writes;
+  // setLiveScaleTrigger uses a functional updater that returns prev
+  // when the change is sub-threshold, so React only re-renders when
+  // the visible-pages math actually needs to update).
+  //
+  // Math: after the scale change, we want the tray-local point
+  // (logicalX, logicalY) to land at viewport (focalX, focalY). The
+  // sizer's viewport rect after the style write tells us where the
+  // tray's origin is; solving for scrollLeft/Top so the focal stays
+  // pinned is one subtraction. Using getBoundingClientRect rather than
+  // offsetLeft/Top sidesteps any "which ancestor is the offsetParent"
+  // surprises from the flex centering wrapper.
+  const applyScale = useCallback(
+    (
+      newScale: number,
+      logicalX: number,
+      logicalY: number,
+      focalViewportX: number,
+      focalViewportY: number,
+    ) => {
+      const containerEl = containerRef.current;
+      const sizerEl = sizerRef.current;
+      const trayEl = trayRef.current;
+      if (!containerEl || !sizerEl || !trayEl) return;
+
+      const clampedScale = clamp(newScale, MIN_SCALE, MAX_SCALE);
+      liveScaleRef.current = clampedScale;
+
+      const baseW = baselineWidthRef.current;
+      const baseH = totalContentHeightRef.current;
+      sizerEl.style.width = `${baseW * clampedScale}px`;
+      sizerEl.style.height = `${baseH * clampedScale}px`;
+      trayEl.style.transform = `scale(${clampedScale})`;
+
+      // getBoundingClientRect forces synchronous layout, so the rect
+      // reflects the just-written sizer dimensions.
+      const sizerRect = sizerEl.getBoundingClientRect();
+      const oldScrollLeft = containerEl.scrollLeft;
+      const oldScrollTop = containerEl.scrollTop;
+
+      // After applying scrollLeft = sL, sizer's viewport-left becomes
+      //   sizerRect.left - (sL - oldScrollLeft).
+      // We want sizer's viewport-left + logicalX * scale === focalX:
+      //   sizerRect.left - sL + oldScrollLeft + logicalX * scale = focalX
+      //   sL = sizerRect.left + oldScrollLeft + logicalX * scale - focalX
+      const newScrollLeft =
+        sizerRect.left + oldScrollLeft + logicalX * clampedScale - focalViewportX;
+      const newScrollTop =
+        sizerRect.top + oldScrollTop + logicalY * clampedScale - focalViewportY;
+
+      const maxScrollLeft = Math.max(
+        0,
+        containerEl.scrollWidth - containerEl.clientWidth,
+      );
+      const maxScrollTop = Math.max(
+        0,
+        containerEl.scrollHeight - containerEl.clientHeight,
+      );
+      // Mark this scroll as programmatic so the async scroll event
+      // we're about to fire doesn't get mis-attributed to user input
+      // (which would clear `resumeTargetRef` and break URL-deep-link
+      // / TOC-jump scroll restoration). Cleared shortly after; user
+      // scrolls during a gesture would re-set it via the next applyScale
+      // anyway, and outside a gesture this is a no-op.
+      programmaticScrollRef.current = true;
+      containerEl.scrollLeft = clamp(newScrollLeft, 0, maxScrollLeft);
+      containerEl.scrollTop = clamp(newScrollTop, 0, maxScrollTop);
+      setTimeout(() => {
+        programmaticScrollRef.current = false;
+      }, 100);
+
+      // Bump the React trigger when the scale moved enough to matter
+      // for visible-pages virtualization. Functional updater returning
+      // `prev` skips the re-render when sub-threshold — same throttle
+      // as the old idle-rAF tick, with no battery cost when idle.
+      setLiveScaleTrigger((prev) =>
+        Math.abs(prev - clampedScale) > 0.005 ? clampedScale : prev,
+      );
+    },
+    [],
+  );
+
+  // Mirror the live scale into the store as `zoomLevel` (mode = custom)
+  // after the user stops zooming. Debounced so a gesture only triggers
+  // one React render, and that render arrives *after* the gesture
+  // settles — visually the user sees no transition flash.
+  const scheduleStoreCommit = useCallback(() => {
+    if (storeCommitTimerRef.current) clearTimeout(storeCommitTimerRef.current);
+    storeCommitTimerRef.current = setTimeout(() => {
+      storeCommitTimerRef.current = null;
+      const scale = liveScaleRef.current;
+      // Skip if the store already matches — avoids ping-pong between
+      // this commit and the store-sync useLayoutEffect. Stored as a
+      // float (no rounding) so the round-trip is exact.
+      const currentLevel = useReaderStore.getState().documents.get(docId ?? "")
+        ?.zoomLevel;
+      const desiredLevel = scale * 100;
+      if (currentLevel != null && Math.abs(currentLevel - desiredLevel) < 0.5) {
+        return;
+      }
+      setZoomLevel(desiredLevel, docId ?? undefined);
+    }, STORE_COMMIT_DEBOUNCE_MS);
+  }, [docId, setZoomLevel]);
+
+  // Per-gesture state. The controller's begin/update/end mutate this
+  // and call applyScale; nothing here goes through React.
+  const gestureRef = useRef<{
+    active: boolean;
+    startScale: number;
+    logicalX: number;
+    logicalY: number;
+    focalX: number;
+    focalY: number;
+  }>({
+    active: false,
+    startScale: 1,
+    logicalX: 0,
+    logicalY: 0,
+    focalX: 0,
+    focalY: 0,
+  });
+
+  const beginGesture = useCallback(
+    (focalViewportX: number, focalViewportY: number) => {
+      const sizerEl = sizerRef.current;
+      if (!sizerEl) return;
+      const sizerRect = sizerEl.getBoundingClientRect();
+      const scale = liveScaleRef.current;
+      // tray-local (logical) coords of the focal point. The cursor's
+      // visual offset from the sizer's left edge is just
+      // (focalX - sizerRect.left); divide by scale to get tray-local.
+      const logicalX = (focalViewportX - sizerRect.left) / scale;
+      const logicalY = (focalViewportY - sizerRect.top) / scale;
+      gestureRef.current = {
+        active: true,
+        startScale: scale,
+        logicalX,
+        logicalY,
+        focalX: focalViewportX,
+        focalY: focalViewportY,
+      };
+      // GPU-promote the tray for the gesture. Cleared on end so we
+      // don't pin a layer forever.
+      const trayEl = trayRef.current;
+      if (trayEl) trayEl.style.willChange = "transform";
+      setZoomBoost(true);
+    },
+    [setZoomBoost],
+  );
+
+  const updateGesture = useCallback(
+    (scaleSinceBegin: number) => {
+      const g = gestureRef.current;
+      if (!g.active) return;
+      applyScale(
+        g.startScale * scaleSinceBegin,
+        g.logicalX,
+        g.logicalY,
+        g.focalX,
+        g.focalY,
+      );
+    },
+    [applyScale],
+  );
+
+  const endGesture = useCallback(() => {
+    const g = gestureRef.current;
+    if (!g.active) return;
+    g.active = false;
+    const trayEl = trayRef.current;
+    if (trayEl) trayEl.style.willChange = "";
+    setZoomBoost(false);
+    scheduleStoreCommit();
+  }, [scheduleStoreCommit, setZoomBoost]);
+
+  const setAbsolute = useCallback<ZoomGestureControls["setAbsolute"]>(
+    (scale, options) => {
+      const containerEl = containerRef.current;
+      const sizerEl = sizerRef.current;
+      if (!containerEl || !sizerEl) return;
+      // Default pivot: viewport center.
+      const containerRect = containerEl.getBoundingClientRect();
+      const focalX = options?.pivotX ?? containerRect.left + containerRect.width / 2;
+      const focalY = options?.pivotY ?? containerRect.top + containerRect.height / 2;
+      const sizerRect = sizerEl.getBoundingClientRect();
+      const oldScale = liveScaleRef.current;
+      const logicalX = (focalX - sizerRect.left) / oldScale;
+      const logicalY = (focalY - sizerRect.top) / oldScale;
+      applyScale(scale, logicalX, logicalY, focalX, focalY);
+      scheduleStoreCommit();
+    },
+    [applyScale, scheduleStoreCommit],
+  );
+
+  // Register the imperative entry points so ReaderPage's mobile
+  // pinch handler and double-tap handler can drive the tray without
+  // reaching into PdfViewer's internals.
+  useEffect(() => {
+    const controls: ZoomGestureControls = {
+      begin: beginGesture,
+      update: updateGesture,
+      end: endGesture,
+      setAbsolute,
+      getScale: () => liveScaleRef.current,
+    };
+    registerZoomControls(controls);
+    return () => registerZoomControls(null);
+  }, [beginGesture, updateGesture, endGesture, setAbsolute]);
+
+  // Ctrl+wheel cursor-pivot zoom — Google PDF / Maps style. ctrlKey
+  // also fires on trackpad pinch (macOS / Windows synthesise pinch
+  // as ctrl+wheel).
+  //
+  // Each wheel event re-anchors the pivot to the *current* cursor
+  // position — there's no per-gesture lock, so moving the cursor
+  // mid-zoom always pivots around where the cursor IS RIGHT NOW. The
+  // rAF flush computes logical coords from the live sizerRect at flush
+  // time, so the math sees the latest scale even if multiple events
+  // batched into one frame.
+  //
+  // Zoom acceleration: rapid consecutive events grow `burstMul` (cap
+  // 3×) which scales the per-event delta. A gap >200 ms decays back
+  // to 1×. This is the "the more you scroll, the bigger each step
+  // gets" behavior of Google PDF / Photoshop. Calm one-detent-at-a-
+  // time zoom keeps its 15 % step; flicking the wheel gets you across
+  // the document fast.
+  //
+  // Plain wheel scrolling scales by `1 / sqrt(liveScale)` so that at
+  // 4× zoom each detent scrolls half the visual distance — matches
+  // Google Maps' "zoomed in = finer pan" intuition.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    let pendingDeltaY = 0;
+    let pendingFocalX = 0;
+    let pendingFocalY = 0;
+    let pending = false;
+    let lastEventTime = 0;
+    // Acceleration latch: count consecutive *fast* events. The boost
+    // only starts growing once we've seen FAST_RAMP_THRESHOLD of them
+    // back-to-back, so a short flurry of casual zooming feels exactly
+    // like single-detent zoom — only sustained rapid wheeling triggers
+    // the burst multiplier.
+    let fastCount = 0;
+    let burstMul = 1;
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    let trayPromoted = false;
+
+    // Smooth-scroll target tracking. We animate the container's
+    // scrollTop/Left toward a target with rAF-driven exponential
+    // easing — accumulating deltas across rapid wheel events so a
+    // burst feels like one continuous glide rather than N back-to-
+    // back jumps. Replaces the old `behavior: "auto"` instant scroll.
+    let scrollTargetY = 0;
+    let scrollTargetX = 0;
+    let scrollAnimating = false;
+    let scrollAnimRaf = 0;
+    // Same acceleration shape as the zoom burst: only kicks in after
+    // sustained rapid scrolling, so single detents stay calm.
+    let lastScrollEventTime = 0;
+    let scrollFastCount = 0;
+    let scrollBurstMul = 1;
+    const SCROLL_LERP = 0.25;
+    const SCROLL_FAST_DT_MS = 60;
+    const SCROLL_FAST_THRESHOLD = 5;
+
+    const animateScrollFrame = () => {
+      scrollAnimRaf = 0;
+      const curY = el.scrollTop;
+      const curX = el.scrollLeft;
+      const dy = scrollTargetY - curY;
+      const dx = scrollTargetX - curX;
+      if (Math.abs(dy) < 0.5 && Math.abs(dx) < 0.5) {
+        el.scrollTop = scrollTargetY;
+        el.scrollLeft = scrollTargetX;
+        scrollAnimating = false;
+        return;
+      }
+      el.scrollTop = curY + dy * SCROLL_LERP;
+      el.scrollLeft = curX + dx * SCROLL_LERP;
+      scrollAnimRaf = requestAnimationFrame(animateScrollFrame);
+    };
+
+    const smoothScrollBy = (dy: number, dx: number) => {
+      if (!scrollAnimating) {
+        // Re-anchor target to current position so we don't lerp from
+        // a stale target after the user manually scrolled (scrollbar
+        // drag, programmatic jump, etc.).
+        scrollTargetY = el.scrollTop;
+        scrollTargetX = el.scrollLeft;
+        scrollAnimating = true;
+      }
+      const maxY = Math.max(0, el.scrollHeight - el.clientHeight);
+      const maxX = Math.max(0, el.scrollWidth - el.clientWidth);
+      scrollTargetY = clamp(scrollTargetY + dy, 0, maxY);
+      scrollTargetX = clamp(scrollTargetX + dx, 0, maxX);
+      if (!scrollAnimRaf) {
+        scrollAnimRaf = requestAnimationFrame(animateScrollFrame);
+      }
+    };
+
+    // Abort any in-flight smooth-scroll animation. Called when the
+    // user's intent shifts away from scrolling — e.g., they start
+    // Ctrl+wheel-zooming, in which case our lerp toward the stale
+    // scroll target would fight applyScale's cursor-pivot scroll
+    // writes and produce a visible up/down jitter during zoom.
+    const cancelScrollAnimation = () => {
+      if (scrollAnimRaf) {
+        cancelAnimationFrame(scrollAnimRaf);
+        scrollAnimRaf = 0;
+      }
+      scrollAnimating = false;
+      scrollTargetY = el.scrollTop;
+      scrollTargetX = el.scrollLeft;
+    };
+
+    const flush = () => {
+      pending = false;
+      if (pendingDeltaY === 0) return;
+      const sizerEl = sizerRef.current;
+      if (!sizerEl) {
+        pendingDeltaY = 0;
+        return;
+      }
+      const oldScale = liveScaleRef.current;
+      const sizerRect = sizerEl.getBoundingClientRect();
+      const logicalX = (pendingFocalX - sizerRect.left) / oldScale;
+      const logicalY = (pendingFocalY - sizerRect.top) / oldScale;
+      // 0.0015 coefficient: a single mouse-wheel detent (deltaY≈100)
+      // gives exp(±0.15) ≈ ±16 % per click — comfortable click-by-
+      // click control, especially in the low-zoom range where smaller
+      // absolute steps prevent overshoot. Burst multiplier above only
+      // kicks in for sustained rapid zoom, so calm zoom stays at this
+      // rate.
+      // The per-flush clamp bounds the change applied in one rAF
+      // frame even when several wheel events accumulate into a single
+      // flush — without it, a fast spin compounds (5 detents in 16 ms
+      // → exp(0.75) ≈ +112 %) and feels jumpy. Across multiple frames
+      // accumulated input still flows through, just at a bounded rate.
+      // Tuning dials: the 0.0015 coefficient (per-event), and the
+      // 0.78 / 1.28 clamps (per-flush ceiling/floor).
+      const rawStep = Math.exp(-pendingDeltaY * 0.0015);
+      const stepFactor = clamp(rawStep, 0.78, 1.28);
+      applyScale(
+        oldScale * stepFactor,
+        logicalX,
+        logicalY,
+        pendingFocalX,
+        pendingFocalY,
+      );
+      pendingDeltaY = 0;
+    };
+
+    const schedule = () => {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(flush);
+    };
+
+    const handleWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) {
+        // Scroll dampens with zoom-in (less detent → less travel) but
+        // is capped at 1× when zoomed out — without the cap, at 50 %
+        // zoom each detent moved 2× the visual distance, which felt
+        // way too floaty.
+        // Tuning dial: drop to e.g. 0.8 here for slower scrolling at
+        // every zoom level, or remove the Math.min for the old
+        // "scroll more when zoomed out" behavior.
+        const scale = liveScaleRef.current || 1;
+        const mul = Math.min(1.0, 1.0 / scale);
+
+        // Scroll acceleration latch: same shape as the zoom burst.
+        // Only after FAST_THRESHOLD consecutive fast events does
+        // scrollBurstMul start growing; calm single-detent scroll
+        // stays at 1×. Reset when events space out.
+        const now = performance.now();
+        const dt = now - lastScrollEventTime;
+        if (dt < SCROLL_FAST_DT_MS) {
+          scrollFastCount++;
+          if (scrollFastCount > SCROLL_FAST_THRESHOLD) {
+            scrollBurstMul = Math.min(3, scrollBurstMul * 1.1);
+          }
+        } else {
+          scrollFastCount = 0;
+          if (dt > 200) scrollBurstMul = 1;
+        }
+        lastScrollEventTime = now;
+        const accelMul = mul * scrollBurstMul;
+
+        if (e.shiftKey) {
+          // Shift+wheel = horizontal scroll. Some platforms map this
+          // to deltaX automatically; others leave deltaY and we have
+          // to redirect. Use whichever axis carries the magnitude.
+          const horizDelta = Math.abs(e.deltaX) > Math.abs(e.deltaY)
+            ? e.deltaX
+            : e.deltaY;
+          if (Math.abs(horizDelta) >= 40) {
+            e.preventDefault();
+            smoothScrollBy(0, horizDelta * accelMul);
+          }
+          return;
+        }
+        if (Math.abs(e.deltaY) >= 40) {
+          e.preventDefault();
+          smoothScrollBy(e.deltaY * accelMul, e.deltaX * accelMul);
+        }
+        return;
+      }
+      e.preventDefault();
+      // User has switched from scrolling to zooming — kill any tail
+      // scroll animation so it doesn't fight applyScale's cursor-pivot
+      // scroll writes and produce up/down jitter during the zoom.
+      cancelScrollAnimation();
+
+      const now = performance.now();
+      const dt = now - lastEventTime;
+      const FAST_DT_MS = 60;
+      const FAST_RAMP_THRESHOLD = 5;
+      if (dt < FAST_DT_MS) {
+        fastCount++;
+        if (fastCount > FAST_RAMP_THRESHOLD) {
+          // Past the ramp gate — sustained rapid zoom, start
+          // accelerating. 1.10 per event, capped at 2.5×.
+          burstMul = Math.min(2.5, burstMul * 1.1);
+        }
+      } else {
+        // Any pause resets the counter so the next burst has to ramp
+        // up again. burstMul itself only decays after a longer gap so
+        // a tiny stutter inside a burst doesn't drop us back to 1×.
+        fastCount = 0;
+        if (dt > 200) burstMul = 1;
+      }
+      lastEventTime = now;
+
+      pendingDeltaY += e.deltaY * burstMul;
+      pendingFocalX = e.clientX;
+      pendingFocalY = e.clientY;
+      if (!trayPromoted) {
+        const trayEl = trayRef.current;
+        if (trayEl) trayEl.style.willChange = "transform";
+        trayPromoted = true;
+      }
+      setZoomBoost(true);
+      schedule();
+
+      if (settleTimer) clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => {
+        settleTimer = null;
+        burstMul = 1;
+        fastCount = 0;
+        lastEventTime = 0;
+        if (trayPromoted) {
+          const trayEl = trayRef.current;
+          if (trayEl) trayEl.style.willChange = "";
+          trayPromoted = false;
+        }
+        setZoomBoost(false);
+        scheduleStoreCommit();
+      }, 200);
+    };
+
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    // Snapshot the tray node for cleanup so the listener tear-down
+    // doesn't depend on the ref still pointing to a live element.
+    const trayElForCleanup = trayRef.current;
+    return () => {
+      el.removeEventListener("wheel", handleWheel);
+      if (settleTimer) clearTimeout(settleTimer);
+      if (scrollAnimRaf) cancelAnimationFrame(scrollAnimRaf);
+      if (trayPromoted && trayElForCleanup) {
+        trayElForCleanup.style.willChange = "";
+      }
+    };
+  }, [applyScale, scheduleStoreCommit, setZoomBoost]);
+
+  // Determine visible pages — virtualization happens in tray-local
+  // coords. Container scrollTop / scale = tray-local viewport top.
   const [scrollTop, setScrollTop] = useState(0);
 
-  // Track scroll velocity (px/ms) so we can dynamically widen the
-  // render window during a fast fling / middle-click drag. Without
-  // this the user sees blank pages for a brief moment because the
-  // static 1+2 overscan can't keep up with a 5000+ px/sec scroll.
-  // The velocity peaks while the user is dragging and decays back
-  // to zero a few hundred ms after they stop — at which point the
-  // overscan returns to its calm-reading default.
   const [scrollVelocity, setScrollVelocity] = useState(0);
   const lastScrollSampleRef = useRef<{ y: number; t: number } | null>(null);
   const velocityDecayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
 
+
   const visiblePages = useMemo(() => {
     if (totalPages === 0 || pageOffsets.length === 0) return [];
+    const scale = liveScaleTrigger;
+    const trayViewportTop = scrollTop / scale;
+    const trayViewportH = containerHeight / scale;
 
-    // Calm reading (default): 1 viewport above, 2 below. Reading
-    // goes downward, so the static prefetch is biased that way.
-    // Fast scroll: when velocity exceeds ~1.5 px/ms (a fling, a
-    // middle-click drag, a Page-Down spam) we expand to 4 viewports
-    // in the scroll direction. Pages enter the render queue ahead
-    // of the scroll instead of having to catch up.
     const fastScroll = scrollVelocity > 1.5;
     const aheadFactor = fastScroll
-      ? Math.min(6, 2 + scrollVelocity * 0.8) // grows with velocity, capped
+      ? Math.min(6, 2 + scrollVelocity * 0.8)
       : 2;
-    // Direction: +scrollVelocity = scrolling down, -scrollVelocity = up.
-    // We expand on the side the user is heading toward.
     const goingDown = scrollVelocity >= 0;
-    const aboveFactor = goingDown ? 1 : aheadFactor;
-    const belowFactor = goingDown ? aheadFactor : 1;
-    const viewportTop = scrollTop - containerHeight * aboveFactor;
-    const viewportBottom = scrollTop + containerHeight * (1 + belowFactor);
+    let aboveFactor = goingDown ? 1 : aheadFactor;
+    let belowFactor = goingDown ? aheadFactor : 1;
+    if (zoomBoostActive) {
+      // Pre-mount enough pages above/below that a fast zoom-out (which
+      // triples the visible-page count) doesn't reveal blanks.
+      aboveFactor = Math.max(aboveFactor, 3);
+      belowFactor = Math.max(belowFactor, 4);
+    }
+    const viewportTop = trayViewportTop - trayViewportH * aboveFactor;
+    const viewportBottom =
+      trayViewportTop + trayViewportH * (1 + belowFactor);
 
-    // Binary search for the first page that could overlap the viewport.
-    // pageOffsets is sorted ascending; first page with top > viewportTop
-    // is the upper bound, so the candidate first visible page is one before.
     const ub = upperBound(pageOffsets, viewportTop);
     let startIdx = Math.max(0, ub - 1);
-    // The page just before may not actually overlap (if its bottom < viewportTop).
     if (
       startIdx < pageOffsets.length - 1 &&
       pageOffsets[startIdx] + getPageHeight(startIdx + 1) < viewportTop
@@ -669,16 +872,10 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     pageOffsets,
     getPageHeight,
     scrollVelocity,
+    liveScaleTrigger,
+    zoomBoostActive,
   ]);
 
-  // Pages to keep rendered specifically because the user just asked
-  // to *jump* there (TOC click, page input, bookmark, search hit).
-  // Without this, the target page only enters `visiblePages` AFTER
-  // the scroll animation lands — the user sees blank space mid-jump
-  // while pdf.js catches up. Adding the target ± 1 to the render
-  // tree the moment `scrollToPage` is set kicks the render off in
-  // parallel with the smooth-scroll animation, so the page is ready
-  // (or nearly so) when the scroll arrives.
   const jumpPrefetchPages = useMemo(() => {
     if (scrollToPage === null) return new Set<number>();
     const set = new Set<number>();
@@ -688,8 +885,6 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     return set;
   }, [scrollToPage, totalPages]);
 
-  // Final render list: visible pages ∪ jump prefetch. Sorted so the
-  // DOM order stays stable as visibility changes (prevents flicker).
   const renderedPages = useMemo(() => {
     if (jumpPrefetchPages.size === 0) return visiblePages;
     const set = new Set(visiblePages);
@@ -697,7 +892,6 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     return Array.from(set).sort((a, b) => a - b);
   }, [visiblePages, jumpPrefetchPages]);
 
-  // Scroll handler — RAF-throttled, updates current page
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -707,26 +901,16 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       const st = el.scrollTop;
       setScrollTop(st);
 
-      // User-initiated scroll mid-resume cancels the resume target —
-      // the user has overridden where they want to be, and we
-      // shouldn't keep re-snapping them back to the saved position.
       if (!programmaticScrollRef.current) {
         resumeTargetRef.current = null;
       }
 
-      // Sample velocity from the last position+timestamp pair. Sign
-      // is preserved (+ = scrolling down, − = up) so the overscan
-      // can extend on the side the user is heading toward. Decay
-      // back to zero 250ms after the last scroll event so the
-      // prefetch window relaxes when the user stops.
       const now = performance.now();
       const prev = lastScrollSampleRef.current;
       if (prev) {
         const dt = now - prev.t;
         if (dt > 0) {
           const dy = st - prev.y;
-          // Dampen with the previous reading so a single jittery
-          // sample doesn't flap the overscan.
           setScrollVelocity((v) => v * 0.4 + (dy / dt) * 0.6);
         }
       }
@@ -739,15 +923,12 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
         lastScrollSampleRef.current = null;
       }, 250);
 
-      // Skip page detection during programmatic scrolls to avoid feedback loops
       if (programmaticScrollRef.current) return;
-
-      // Find page whose center is closest to viewport center.
-      // Binary-search the page that contains the viewport center, then
-      // also check its neighbour above for the actual closest center.
       if (pageOffsets.length === 0) return;
-      const viewportCenter = st + containerHeight / 2;
-      const ub = upperBound(pageOffsets, viewportCenter);
+
+      const scale = liveScaleRef.current;
+      const viewportCenterTrayY = (st + containerHeight / 2) / scale;
+      const ub = upperBound(pageOffsets, viewportCenterTrayY);
       const containingIdx = Math.max(0, ub - 1);
       const candidates =
         containingIdx + 1 < pageOffsets.length
@@ -758,7 +939,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       let closestDist = Infinity;
       for (const idx of candidates) {
         const pageCenter = pageOffsets[idx] + getPageHeight(idx + 1) / 2;
-        const dist = Math.abs(pageCenter - viewportCenter);
+        const dist = Math.abs(pageCenter - viewportCenterTrayY);
         if (dist < closestDist) {
           closestDist = dist;
           closestPage = idx + 1;
@@ -769,64 +950,51 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     });
   }, [containerHeight, pageOffsets, getPageHeight, setCurrentPage, docId]);
 
-  // Read scroll settings
-  // Scroll-to-page effect — fires for both initial doc-open resume
-  // and explicit navigation (TOC / page input / search hit / chat
-  // citation). Always instant: the user's mental model is "I'm
-  // continuing from where I was" or "take me to page X" — a 300 ms
-  // smooth animation is just delay either way, and on initial open
-  // it can land at the wrong scrollTop because virtualized pages
-  // haven't rendered yet, so pageOffsets is built from A4 estimates.
-  // The resume-target tracker below catches that case: pages render,
-  // their real heights replace the estimates, the layout shifts, we
-  // re-snap to keep the user on the page they asked for.
+  // Scroll-to-page (resume on doc open, TOC click, page input, search
+  // hit, citation jump). Container scrollTop = pageOffsets[N] * liveScale.
+  //
+  // `resumeTargetRef` is set FIRST — even before pageOffsets has the
+  // entry we need — so the re-snap useLayoutEffect below catches every
+  // subsequent dim/totalPages update and pulls the scroll toward the
+  // target as the layout fills in. Without this, a slow doc-load can
+  // leave `scrollToPage=N` cleared but the actual scroll never
+  // arriving (the symptom: URL says page N, view stays at page 1).
   useEffect(() => {
-    if (scrollToPage === null || pageOffsets.length === 0) return;
+    if (scrollToPage === null) return;
     const el = containerRef.current;
     if (!el) return;
 
+    const offset =
+      useReaderStore.getState().documents.get(docId ?? "")?.scrollOffset ?? 0;
+    resumeTargetRef.current = {
+      page: scrollToPage,
+      offset,
+      expiresAt: Date.now() + 5000,
+    };
+
+    if (pageOffsets.length === 0) return;
     const pageTop = pageOffsets[scrollToPage - 1];
-    if (pageTop !== undefined) {
-      // Pixel-precise resume: add `scrollOffset * pageHeight` so we
-      // land exactly where the user left off, not just the page top.
-      // Read the offset imperatively at fire time — having it as a
-      // reactive dep would re-trigger this scroll effect every time
-      // the user scrolls. The store resets scrollOffset to 0 on
-      // imperative navigation (TOC click / next / prev / goToPage)
-      // so this only adjusts on the very first scroll after open.
-      const pageHeight = getPageHeight(scrollToPage);
-      const offset =
-        useReaderStore.getState().documents.get(docId ?? "")?.scrollOffset ?? 0;
-      const targetOffset = pageTop + offset * pageHeight;
+    if (pageTop === undefined) return;
 
-      programmaticScrollRef.current = true;
-      el.scrollTop = targetOffset;
-      setScrollTop(targetOffset);
-      // Release programmatic flag promptly — instant scroll settles
-      // in the same paint frame.
-      setTimeout(() => {
-        programmaticScrollRef.current = false;
-      }, 50);
+    const pageHeight = getPageHeight(scrollToPage);
+    const scale = liveScaleRef.current;
+    const targetOffset = (pageTop + offset * pageHeight) * scale;
 
-      // Track this as a resume target. The re-snap useLayoutEffect
-      // below picks up every pageOffsets change within the watchdog
-      // window and corrects scrollTop to keep the user on the
-      // intended page. Cleared by user scroll input (so a manual
-      // scroll mid-window wins) or by watchdog expiry.
-      resumeTargetRef.current = {
-        page: scrollToPage,
-        offset,
-        expiresAt: Date.now() + 2000,
-      };
-    }
+    programmaticScrollRef.current = true;
+    el.scrollTop = targetOffset;
+    setScrollTop(targetOffset);
+    setTimeout(() => {
+      programmaticScrollRef.current = false;
+    }, 100);
+
     clearScrollRequest(docId ?? undefined);
   }, [scrollToPage, pageOffsets, clearScrollRequest, docId, getPageHeight]);
 
-  // Re-snap on layout settle. As virtualized pages render and their
-  // real heights replace the A4 estimates, pageOffsets recomputes and
-  // this fires; we move scrollTop so the resume target page stays at
-  // the same fractional position. Watchdog-bounded so we don't
-  // overpower the user's intent later in the session.
+  // Re-snap on layout settle. Fires on every dim/getPageHeight change
+  // within the resume window, so as virtualized pages render and
+  // their real heights replace A4 estimates the scroll stays anchored
+  // to the requested page. Watchdog window above (5 s) is the
+  // back-stop.
   useLayoutEffect(() => {
     const target = resumeTargetRef.current;
     if (!target) return;
@@ -839,33 +1007,26 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     const pageTop = pageOffsets[target.page - 1];
     if (pageTop === undefined) return;
     const pageHeight = getPageHeight(target.page);
-    const desired = pageTop + target.offset * pageHeight;
+    const desired = (pageTop + target.offset * pageHeight) * liveScaleRef.current;
     if (Math.abs(el.scrollTop - desired) <= 1) return;
     programmaticScrollRef.current = true;
     el.scrollTop = desired;
     setScrollTop(desired);
     setTimeout(() => {
       programmaticScrollRef.current = false;
-    }, 50);
+    }, 100);
   }, [pageOffsets, getPageHeight]);
 
-  // Save anchor before zoom changes (on every scroll update). Same
-  // (page, fraction) pair feeds the resume-state cloud sync via a
-  // throttled report — we re-use the anchor math instead of computing
-  // it twice.
+  // Save scroll fraction to store for resume sync.
   useEffect(() => {
     if (pageOffsets.length === 0 || containerHeight === 0) return;
-    const viewportCenter = scrollTop + containerHeight / 2;
+    const scale = liveScaleRef.current;
+    const viewportCenter = (scrollTop + containerHeight / 2) / scale;
     const idx = Math.max(0, upperBound(pageOffsets, viewportCenter) - 1);
     const pageTop = pageOffsets[idx];
     const pageHeight = getPageHeight(idx + 1);
     if (viewportCenter >= pageTop && viewportCenter <= pageTop + pageHeight) {
       const fraction = (viewportCenter - pageTop) / pageHeight;
-      anchorRef.current = { page: idx + 1, fraction };
-      // Skip during programmatic scrolls (initial resume / TOC jump
-      // / smooth-scroll-to-page) so we don't overwrite the just-
-      // restored offset with whatever transient value the smooth
-      // animation passes through.
       if (!programmaticScrollRef.current) {
         if (offsetReportTimerRef.current) clearTimeout(offsetReportTimerRef.current);
         offsetReportTimerRef.current = setTimeout(() => {
@@ -875,132 +1036,105 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     }
   }, [scrollTop, pageOffsets, getPageHeight, containerHeight, setScrollOffset, docId]);
 
-  // On zoom change, instead of *clearing* cached page dimensions
-  // (which collapses every page slot to 0 height for the frame between
-  // "user clicked zoom" and "react-pdf finished re-rasterising"), we
-  // SCALE the cached dims by the size ratio. Layout stays consistent;
-  // pages render at the new resolution under the same scaffolding,
-  // and the user sees a smooth transition instead of the blank flash.
-  // `handlePageRenderSuccess` overwrites each entry with the real
-  // measured size as the new render lands, correcting any sub-pixel
-  // drift from the proportional scale.
+  // Sync the live tray scale to the store-driven zoom mode/level. The
+  // store holds the user's persisted intent (fit-width, fit-page, or a
+  // custom level); this useLayoutEffect computes the matching liveScale
+  // and applies it imperatively. Runs on:
+  //   - doc open (zoomLevel/Mode loaded from disk)
+  //   - container resize (fit modes recompute)
+  //   - explicit user action via toolbar (zoom in/out, fit buttons)
+  //
+  // `lastAppliedRef` records what we last actually drove. Without it,
+  // a `getPageHeight` identity change (which fires every time a page
+  // reports new dimensions) would re-run this effect mid-gesture and
+  // snap liveScale back to the store's mode-derived target — the
+  // "near 100% zoom snaps back to 1.0" bug, since fit-width is still
+  // the persisted mode until scheduleStoreCommit fires. We re-apply
+  // only when the *intent* (mode + level) actually changes, plus
+  // dependent layout values for fit-page (which legitimately needs
+  // re-evaluation when page-1 dims become known or container resizes).
+  const lastAppliedRef = useRef<{
+    mode: typeof zoomMode;
+    level: number;
+    baselineWidth: number;
+    containerHeight: number;
+  } | null>(null);
   useLayoutEffect(() => {
-    const prev = prevZoomRef.current;
-    const zoomChanged =
-      prev.zoomMode !== zoomMode || prev.zoomLevel !== zoomLevel;
+    const containerEl = containerRef.current;
+    const sizerEl = sizerRef.current;
+    const trayEl = trayRef.current;
+    if (!containerEl || !sizerEl || !trayEl) return;
+    if (containerWidth === 0 || baselineWidth <= 0) return;
 
-    if (zoomChanged) {
-      // User-driven zoom overrides the post-open resume window —
-      // without clearing this, the resume re-snap useLayoutEffect
-      // fires on the same pageOffsets recompute and yanks the user
-      // back to the saved page, fighting the cursor-pivot scroll.
-      // Symptom: every other zoom tick "snaps to page 1" before the
-      // next tick zooms again. The user's zoom intent wins.
-      resumeTargetRef.current = null;
-      const ratio =
-        prev.effectivePageWidth > 0 && effectivePageWidth > 0
-          ? effectivePageWidth / prev.effectivePageWidth
-          : 0;
-      if (ratio > 0 && Math.abs(ratio - 1) > 0.001) {
-        const next = new Map<number, PageDimensions>();
-        for (const [page, dim] of dimensionsRef.current) {
-          next.set(page, {
-            width: dim.width * ratio,
-            height: dim.height * ratio,
-          });
-        }
-        dimensionsRef.current = next;
-      } else if (ratio === 0) {
-        // No prior baseline (component just mounted) — clearing is
-        // safer than keeping stale dims.
-        dimensionsRef.current.clear();
-      }
-
-      // Cursor-pivot scroll: takes precedence over the page-fraction
-      // anchor when this zoom step came from Ctrl+wheel / trackpad
-      // pinch. We captured (pageIdx, pageFraction, xFraction, viewportX,
-      // viewportY) before commit. After React's commit, pageOffsets
-      // and getPageHeight reflect the new zoom. Rebuild the cursor's
-      // tray-Y from those (correct even with the constant-pixel
-      // PAGE_GAP, which a raw-pixel tray-Y × ratio would mis-handle),
-      // measure the tray's new viewport rect, and adjust scroll so
-      // the same content point lands back where the cursor is.
-      const cursorAnchor = cursorAnchorRef.current;
-      if (
-        cursorAnchor &&
-        containerRef.current &&
-        pinchTargetRef.current &&
-        pageOffsets.length > 0
-      ) {
-        cursorAnchorRef.current = null;
-        const trayRectAfter = pinchTargetRef.current.getBoundingClientRect();
-        const newPageStart =
-          pageOffsets[Math.min(cursorAnchor.pageIdx, pageOffsets.length - 1)] ??
-          0;
-        const newPageHeight = getPageHeight(cursorAnchor.pageIdx + 1);
-        const newTrayY = newPageStart + cursorAnchor.pageFraction * newPageHeight;
-        const newTrayX = cursorAnchor.xFraction * trayRectAfter.width;
-        const newCursorViewportX = trayRectAfter.left + newTrayX;
-        const newCursorViewportY = trayRectAfter.top + newTrayY;
-        const dx = newCursorViewportX - cursorAnchor.viewportX;
-        const dy = newCursorViewportY - cursorAnchor.viewportY;
-        containerRef.current.scrollLeft += dx;
-        containerRef.current.scrollTop += dy;
-        setScrollTop(containerRef.current.scrollTop);
-      } else if (
-        anchorRef.current &&
-        containerRef.current &&
-        pageOffsets.length > 0
-      ) {
-        const { page, fraction } = anchorRef.current;
-        const pageIdx = page - 1;
-        if (pageIdx >= 0 && pageIdx < pageOffsets.length) {
-          const newPageHeight = getPageHeight(page);
-          const targetScroll =
-            pageOffsets[pageIdx] +
-            fraction * newPageHeight -
-            containerHeight / 2;
-          containerRef.current.scrollTop = Math.max(0, targetScroll);
-          setScrollTop(containerRef.current.scrollTop);
-        }
-      }
-      // The pinch controller may have left a tray-level transform on
-      // the DOM if the zoom change came from a touch gesture. Now
-      // that React has committed the new per-slot transforms (which
-      // produce the same visual scale via a different anchor), drop
-      // the gesture transform in the same paint frame — that's what
-      // makes the swap from gesture-time to settled-state continuous
-      // without a "no-scale" flash. Safe no-op when no pinch was
-      // active (toolbar / keyboard zooms).
-      clearPinchTransform();
-      prevZoomRef.current = { zoomMode, zoomLevel, effectivePageWidth };
-    } else if (
-      prev.effectivePageWidth !== effectivePageWidth &&
-      effectivePageWidth > 0
-    ) {
-      // Zoom didn't change, but the effective page width did (most
-      // commonly: the very first valid containerWidth measurement, or
-      // a panel resize). Keep the baseline up to date so the *next*
-      // zoom change has a ratio to work with — without this, the
-      // first-ever zoom click after open would always fall through
-      // to the clear-and-rerender path.
-      prevZoomRef.current = { zoomMode, zoomLevel, effectivePageWidth };
+    const last = lastAppliedRef.current;
+    // For fit-width: targetScale = 1 always — depends on nothing.
+    // For custom: targetScale = level/100 — depends only on zoomLevel.
+    // For fit-page: depends on baselineWidth, containerHeight, page-1 dims.
+    //
+    // The bug we're squashing: when the user wheel-zooms slightly past
+    // fit-width (say to scale=1.003), scheduleStoreCommit's 0.5%
+    // threshold suppresses the store update, so the store still says
+    // `fit-width / level=100`. A horizontal scrollbar then appears
+    // (because the sizer is now wider than the viewport), shrinking
+    // the container by ~17px. The ResizeObserver fires, containerHeight
+    // changes, store-sync re-runs, and — if our sameIntent check was
+    // gated on containerHeight — would snap liveScale from 1.003 back
+    // to 1.0. So we ignore baselineWidth/containerHeight changes for
+    // modes whose target scale doesn't actually depend on them.
+    let sameIntent =
+      last !== null && last.mode === zoomMode && last.level === zoomLevel;
+    if (sameIntent && last !== null && zoomMode === "fit-page") {
+      sameIntent =
+        last.baselineWidth === baselineWidth &&
+        last.containerHeight === containerHeight;
     }
+    if (sameIntent) return;
+
+    let targetScale: number;
+    if (zoomMode === "fit-width") {
+      targetScale = 1;
+    } else if (zoomMode === "fit-page") {
+      const pageH = getPageHeight(1);
+      const usableH = containerHeight - 24;
+      targetScale = pageH > 0 ? usableH / pageH : 1;
+    } else {
+      targetScale = zoomLevel / 100;
+    }
+    targetScale = clamp(targetScale, MIN_SCALE, MAX_SCALE);
+
+    lastAppliedRef.current = {
+      mode: zoomMode,
+      level: zoomLevel,
+      baselineWidth,
+      containerHeight,
+    };
+
+    if (Math.abs(targetScale - liveScaleRef.current) < 0.005) {
+      // Mode+level changed but resolved to the same scale (e.g.,
+      // user pressed "fit-width" while already at scale=1). Skip the
+      // DOM write but keep lastAppliedRef updated above.
+      return;
+    }
+
+    // Pivot at the viewport center for toolbar-driven zooms.
+    const rect = containerEl.getBoundingClientRect();
+    const focalX = rect.left + rect.width / 2;
+    const focalY = rect.top + rect.height / 2;
+    const sizerRect = sizerEl.getBoundingClientRect();
+    const oldScale = liveScaleRef.current;
+    const logicalX = (focalX - sizerRect.left) / oldScale;
+    const logicalY = (focalY - sizerRect.top) / oldScale;
+    applyScale(targetScale, logicalX, logicalY, focalX, focalY);
   }, [
     zoomMode,
     zoomLevel,
-    effectivePageWidth,
-    pageOffsets,
-    getPageHeight,
+    baselineWidth,
     containerHeight,
+    containerWidth,
+    applyScale,
+    getPageHeight,
   ]);
 
-  // Handle page render success — cache dimensions and bump
-  // dimsVersion so the layout pipeline picks up the real heights.
-  // Skip the bump when the new dims are within 0.5 px of the old
-  // ones; saves a redundant pageOffsets recompute on jitter / sub-
-  // pixel rounding from re-renders that don't actually change the
-  // rasterised size.
   const handlePageRenderSuccess = useCallback((pageNum: number) => {
     const el = containerRef.current;
     if (!el) return;
@@ -1009,17 +1143,25 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     ) as HTMLElement | null;
     if (!pageEl) return;
     const rect = pageEl.getBoundingClientRect();
-    const cached = dimensionsRef.current.get(pageNum);
-    const changed =
-      !cached ||
-      Math.abs(cached.width - rect.width) > 0.5 ||
-      Math.abs(cached.height - rect.height) > 0.5;
-    if (!changed) return;
-    dimensionsRef.current.set(pageNum, {
-      width: rect.width,
-      height: rect.height,
+    // The page lives inside the scaled tray, so its bounding rect is in
+    // viewport pixels (post-scale). Divide by liveScale to get the
+    // tray-local intrinsic size we want to cache.
+    const scale = liveScaleRef.current || 1;
+    const intrinsicW = rect.width / scale;
+    const intrinsicH = rect.height / scale;
+    setDimensions((prev) => {
+      const cached = prev.get(pageNum);
+      if (
+        cached &&
+        Math.abs(cached.width - intrinsicW) < 0.5 &&
+        Math.abs(cached.height - intrinsicH) < 0.5
+      ) {
+        return prev;
+      }
+      const next = new Map(prev);
+      next.set(pageNum, { width: intrinsicW, height: intrinsicH });
+      return next;
     });
-    setDimsVersion((v) => v + 1);
   }, []);
 
   const documentOptions = useMemo(
@@ -1029,18 +1171,18 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
 
   if (!meta) return null;
 
+  // Initial inline styles render at scale(1) / baseline width. The
+  // store-sync useLayoutEffect runs synchronously after mount (before
+  // paint) and pushes the correct scale via applyScale, which mutates
+  // the DOM imperatively. From then on every imperative write keeps
+  // the DOM ahead of React's view; JSX style writes don't run again
+  // because React reconciles to the same inline-style hash on re-render.
   return (
     <div
       ref={containerRef}
       onScroll={handleScroll}
       data-pdf-viewer
       data-active-viewer
-      // touch-action: pan-x pan-y allows native scroll on BOTH
-      // axes (so a zoomed-in PDF can be panned horizontally with
-      // one finger like a map) while still blocking the browser's
-      // native pinch-zoom — pinch is `pinch-zoom`, not part of
-      // pan-*, so it stays disabled and our two-finger handler in
-      // the parent viewerRef can drive the pinch controller instead.
       style={{ touchAction: "pan-x pan-y" }}
       className="h-full w-full overflow-auto bg-bg-primary"
     >
@@ -1059,96 +1201,62 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
         }
         options={documentOptions}
       >
+        {/* Wrapper centers the sizer when narrower than the container,
+            grows when wider so the container scrolls horizontally. */}
         <div
-          ref={pinchTargetRef}
           style={{
-            height: totalContentHeight,
-            position: "relative",
-            width: zoomMode === "fit-page" ? "100%" : effectivePageWidth,
-            margin: "0 auto",
-            // Night mode: invert the rasterized canvas + hue-rotate so
-            // image colors are roughly preserved (the second filter
-            // cancels the inversion's hue shift). The transform on
-            // this same div lives on `style.transform` and is set
-            // imperatively by the pinch controller, so the two don't
-            // conflict.
-            filter: invertColors
-              ? "invert(1) hue-rotate(180deg)"
-              : undefined,
+            display: "flex",
+            justifyContent: "center",
+            minWidth: "100%",
+            minHeight: "100%",
           }}
         >
-          {renderedPages.map((pageNum) => (
-            <PageSlot
-              key={pageNum}
-              pageNum={pageNum}
-              offsetTop={pageOffsets[pageNum - 1]}
-              pageHeight={getPageHeight(pageNum)}
-              effectivePageWidth={effectivePageWidth}
-              effectiveRenderWidth={effectiveRenderWidth}
-              rotation={rotation}
-              onRenderSuccess={handlePageRenderSuccess}
-            />
-          ))}
+          {/* Sizer dimensions are set imperatively (in syncSizerDims
+              effect + applyScale) — *not* via JSX style — so React
+              re-renders during gestures don't overwrite our scaled
+              width/height with the unscaled JSX values, which would
+              snap the visual back to 1.0× bounds and break the next
+              gesture's cursor-pivot math. */}
+          <div
+            ref={sizerRef}
+            style={{
+              flexShrink: 0,
+              position: "relative",
+            }}
+          >
+            <div
+              ref={trayRef}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: baselineWidth,
+                height: totalContentHeight,
+                transformOrigin: "0 0",
+                transform: "scale(1)",
+                filter: invertColors
+                  ? "invert(1) hue-rotate(180deg)"
+                  : undefined,
+              }}
+            >
+              {renderedPages.map((pageNum) => (
+                <PageSlot
+                  key={pageNum}
+                  pageNum={pageNum}
+                  offsetTop={pageOffsets[pageNum - 1]}
+                  pageWidth={baselineWidth}
+                  pageHeight={getPageHeight(pageNum)}
+                  renderWidth={renderWidth}
+                  rotation={rotation}
+                  onRenderSuccess={handlePageRenderSuccess}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </Document>
       <AnnotationContextMenu />
       <CommentPopover />
-      {debugZoomDot && (
-        <DebugZoomDot
-          key={debugZoomDot.seq}
-          x={debugZoomDot.x}
-          y={debugZoomDot.y}
-          onExpire={() => setDebugZoomDot(null)}
-        />
-      )}
     </div>
-  );
-}
-
-/** Temporary visualization for the cursor-pivot anchor. The dot
- *  appears at the captured viewport coords for 800 ms, then unmounts
- *  itself. `position: fixed` means the PdfViewer's overflow and any
- *  transforms can't clip it. Remove once the cursor-zoom alignment
- *  is confirmed. */
-function DebugZoomDot({
-  x,
-  y,
-  onExpire,
-}: {
-  x: number;
-  y: number;
-  onExpire: () => void;
-}) {
-  useEffect(() => {
-    const t = setTimeout(onExpire, 800);
-    return () => clearTimeout(t);
-  }, [onExpire]);
-  return (
-    <div
-      aria-hidden
-      style={{
-        position: "fixed",
-        left: x - 8,
-        top: y - 8,
-        width: 16,
-        height: 16,
-        borderRadius: "50%",
-        background: "rgba(239, 68, 68, 0.85)",
-        boxShadow: "0 0 0 2px rgba(255,255,255,0.9)",
-        pointerEvents: "none",
-        zIndex: 9999,
-        // Tiny CSS-only fade-out using opacity transition. Fired the
-        // instant the element mounts; no keyframes needed.
-        opacity: 1,
-        transition: "opacity 800ms ease-out",
-      }}
-      ref={(el) => {
-        if (!el) return;
-        // One frame after mount, drop opacity to 0 — fade visible.
-        requestAnimationFrame(() => {
-          el.style.opacity = "0";
-        });
-      }}
-    />
   );
 }

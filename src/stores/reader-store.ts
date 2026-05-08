@@ -78,21 +78,6 @@ interface ReaderState {
   /** Rotate the active doc's pages by 90° clockwise (`direction = 1`)
    *  or counter-clockwise (`direction = -1`). Wraps modulo 360. */
   rotatePage: (direction: 1 | -1, docId?: string) => void;
-  /** Commit a pinch gesture's accumulated scale into a concrete
-   *  zoomLevel. `baseDisplayWidth`, when provided, is the actual
-   *  pre-pinch displayed width of the page tray (in CSS pixels) —
-   *  used to compute the post-commit zoomLevel from the visible
-   *  geometry rather than from the abstract zoomLevel number, so
-   *  pinching out from fit-width / fit-page lands at exactly what
-   *  the user just saw at end of pinch. Falls back to multiplying
-   *  zoomLevel directly when no width is supplied (keyboard /
-   *  toolbar callers, where there's no displayed-width mismatch to
-   *  reconcile). */
-  commitLiveZoom: (
-    scale: number,
-    docId?: string,
-    baseDisplayWidth?: number,
-  ) => void;
   setCurrentPage: (page: number, docId?: string) => void;
   requestScrollToPage: (page: number, docId?: string) => void;
   clearScrollRequest: (docId?: string) => void;
@@ -466,41 +451,6 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       360 as 0 | 90 | 180 | 270;
     set({
       documents: updateDoc(get().documents, id, { pageRotation: next }),
-    });
-  },
-
-  commitLiveZoom(scale, docId, baseDisplayWidth) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const doc = get().documents.get(id);
-    if (!doc) return;
-    if (!Number.isFinite(scale) || scale === 1) return;
-    // The post-commit zoomLevel needs to land where the user's
-    // gesture *visually* ended. PdfViewer's effectivePageWidth for
-    // custom mode is `(600 * zoomLevel) / 100` = `6 * zoomLevel`,
-    // so:
-    //   target displayed width = baseDisplayWidth * scale
-    //   next zoomLevel         = target displayed width / 6
-    // When no baseDisplayWidth is supplied (toolbar / keyboard
-    // callers, or any pinch where the controller couldn't read the
-    // tray's offsetWidth), fall back to scaling zoomLevel directly
-    // — accurate for pinches that *started* in custom mode but
-    // wrong by the fit-width-to-custom ratio when starting from a
-    // fit mode. The pinch path in ReaderPage always supplies one.
-    const targetDisplayedWidth =
-      baseDisplayWidth && baseDisplayWidth > 0
-        ? baseDisplayWidth * scale
-        : null;
-    const rawNext =
-      targetDisplayedWidth !== null
-        ? targetDisplayedWidth / 6
-        : doc.zoomLevel * scale;
-    const next = Math.min(Math.max(rawNext, ZOOM_MIN), ZOOM_MAX);
-    set({
-      documents: updateDoc(get().documents, id, {
-        zoomLevel: next,
-        zoomMode: "custom",
-      }),
     });
   },
 

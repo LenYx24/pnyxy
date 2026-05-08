@@ -65,15 +65,18 @@ function ZoomInput({
   const [inputValue, setInputValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Round for display only — the store keeps zoomLevel as a float so
+  // gesture commits round-trip exactly, but the toolbar shows whole
+  // percentages.
   const displayText =
     zoomMode === "custom"
-      ? `${zoomLevel}%`
+      ? `${Math.round(zoomLevel)}%`
       : zoomMode === "fit-width"
         ? t("reader.toolbar.fitWidth")
         : t("reader.toolbar.fitPage");
 
   const handleStartEdit = useCallback(() => {
-    setInputValue(String(zoomLevel));
+    setInputValue(String(Math.round(zoomLevel)));
     setEditing(true);
     requestAnimationFrame(() => inputRef.current?.select());
   }, [zoomLevel]);

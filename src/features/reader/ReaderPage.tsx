@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import i18n from "@/lib/i18n";
-import { BookOpen, FilePlus, Loader2, X } from "lucide-react";
+import { BookOpen, FilePlus, Loader2, PanelLeft, X } from "lucide-react";
 import {
   DockviewReact,
   type DockviewReadyEvent,
@@ -27,12 +27,7 @@ import {
   type PinchEvent,
   type TapEvent,
 } from "./use-mobile-reader-gestures";
-import {
-  beginPinch,
-  updatePinch,
-  endPinch,
-  clearPinchTransform,
-} from "./pinch-zoom-controller";
+import { getZoomControls } from "./pinch-zoom-controller";
 import {
   ScreenshotRectSelector,
   type ScreenshotRect,
@@ -362,21 +357,21 @@ function MobileReaderLayout({
   // discrete pages in the same sense.
   const nextPage = useReaderStore((s) => s.nextPage);
   const prevPage = useReaderStore((s) => s.prevPage);
-  const commitLiveZoom = useReaderStore((s) => s.commitLiveZoom);
   // Subscribe to the two primitives we actually use. Subscribing to
   // `getActiveDoc()` would re-render this component on every pinch
   // frame.
   const isPaginated = useReaderStore(
     (s) => s.getActiveDoc()?.meta.capabilities.paginated ?? false,
   );
-  // Once the user picks a custom zoom (pinch-in past fit-width
-  // typically), the page is wider than the viewport and they want
-  // to pan with their finger like a map. Swipe-to-turn-page would
-  // fight that, so we silence it for the custom-zoom case. At
-  // fit-width / fit-page (the default modes) horizontal swipes
-  // still flip pages — natural for at-a-glance reading.
+  // Once the user has zoomed in past ~110%, they want to pan
+  // horizontally like a map; swipe-to-turn-page would fight that.
+  // Read it from the persisted zoomLevel + mode (live tray scale isn't
+  // mirrored to the store mid-gesture, but we only need this signal
+  // for swipe-vs-pan arbitration which is fine on stable scale).
   const isZoomedIn = useReaderStore(
-    (s) => s.getActiveDoc()?.zoomMode === "custom",
+    (s) => (s.getActiveDoc()?.zoomMode === "custom" &&
+      (s.getActiveDoc()?.zoomLevel ?? 100) > 110) ||
+      s.getActiveDoc()?.zoomMode === "fit-page",
   );
 
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -406,12 +401,9 @@ function MobileReaderLayout({
     [mobileReaderPanel, toggleMobileChromeHidden],
   );
 
-  // Double-tap toggles between fit-width and a 2× zoom anchored at
-  // the tap point. We use the pinch controller for one transform
-  // frame so the page visually expands *from* the tap point before
-  // react-pdf re-rasterises at the new resolution. Disabled on
-  // non-paginated viewers (EPUB, markdown) since their zoom model is
-  // text-size, not scale.
+  // Double-tap toggles between 1× (fit-width) and 2× zoom anchored at
+  // the tap point. Drives the live tray controller directly — no
+  // intermediate React state, the visual lands in one paint frame.
   const handleDoubleTap = useCallback(
     ({ x, y, target }: TapEvent) => {
       if (mobileReaderPanel !== "none") return;
@@ -423,33 +415,11 @@ function MobileReaderLayout({
       ) {
         return;
       }
-      const store = useReaderStore.getState();
-      const doc = store.getActiveDoc();
-      if (!doc?.meta.capabilities.paginated) return;
-
-      // 110% threshold (not exactly 100%) so a near-fit-width custom
-      // zoom — e.g. one that survived a sloppy pinch — still
-      // double-taps "in" instead of bouncing right back to fit. The
-      // snap-to-fit logic on pinch release covers the cleanup case.
-      const isMeaningfullyZoomedIn =
-        doc.zoomMode === "custom" && doc.zoomLevel > 110;
-      if (isMeaningfullyZoomedIn) {
-        store.setZoomMode("fit-width");
-        return;
-      }
-
-      beginPinch(x, y);
-      updatePinch(2, x, y);
-      requestAnimationFrame(() => {
-        const final = endPinch();
-        // commitLiveZoom updates zoomLevel; React re-renders with
-        // the new per-slot CSS scale; PdfViewer's zoom-change
-        // useLayoutEffect calls clearPinchTransform() — all in the
-        // same paint frame, so the visual swap from "tray transform
-        // around tap point" to "per-slot transform around top
-        // center" never shows an in-between frame.
-        store.commitLiveZoom(2, undefined, final.startWidth);
-      });
+      const controls = getZoomControls();
+      if (!controls) return;
+      const current = controls.getScale();
+      const target2x = current > 1.1 ? 1 : 2;
+      controls.setAbsolute(target2x, { pivotX: x, pivotY: y });
     },
     [mobileReaderPanel],
   );
@@ -463,78 +433,18 @@ function MobileReaderLayout({
     onSwipeRight: prevPage,
     onSingleTap: handleSingleTap,
     onDoubleTap: handleDoubleTap,
-    // Pinch is driven imperatively against the DOM via the controller —
-    // no Zustand updates during the gesture, so the viewer doesn't
-    // re-render mid-pinch. On end, we commit the final scale into
-    // `zoomLevel` so react-pdf rasterises exactly once at the new
-    // resolution.
-    onPinch: useCallback(
-      ({ phase, scale, midX, midY }: PinchEvent) => {
-        if (phase === "start") {
-          beginPinch(midX, midY);
-        } else if (phase === "move") {
-          updatePinch(scale, midX, midY);
-        } else {
-          const final = endPinch();
-          // Tiny pinches (≤5% scale change) are treated as no-ops so
-          // briefly resting two fingers on the screen doesn't drift
-          // zoomLevel and flip the mode to custom. Drop the gesture
-          // transform without committing so the page snaps back.
-          if (Math.abs(final.scale - 1) < 0.05) {
-            clearPinchTransform();
-            return;
-          }
-
-          // Snap-to-fit: if the resulting displayed width lands
-          // within ±5% of fit-width's baseline, prefer fit-width
-          // mode over a near-identical custom zoom — same satisfying
-          // "lock back in" feel Google PDF has, and it keeps the
-          // page re-fitting on resize and lets horizontal swipes
-          // turn pages again.
-          const trayWidth = final.startWidth;
-          const targetWidth = trayWidth * final.scale;
-          // The fit-width baseline isn't directly available here,
-          // but at fit-width zoomLevel is meaningless and the tray
-          // already *is* fit-width-wide. Snap when the gesture barely
-          // moved and we started at fit-width — checked indirectly
-          // via the gesture's net scale.
-          const store = useReaderStore.getState();
-          const doc = store.getActiveDoc();
-          if (
-            doc?.zoomMode === "fit-width" &&
-            Math.abs(final.scale - 1) < 0.05
-          ) {
-            // Already covered by the small-pinch early return above;
-            // belt-and-braces in case the threshold is ever loosened.
-            clearPinchTransform();
-            return;
-          }
-          if (
-            doc?.zoomMode !== "fit-width" &&
-            trayWidth > 0 &&
-            Math.abs(targetWidth - trayWidth) / trayWidth < 0.05 &&
-            // Custom-zoom-back-to-baseline is also a fit-snap.
-            doc?.zoomLevel != null &&
-            Math.abs(doc.zoomLevel * final.scale - 100) < 5
-          ) {
-            store.setZoomMode("fit-width");
-            requestAnimationFrame(clearPinchTransform);
-            return;
-          }
-          // commitLiveZoom triggers a React re-render that updates
-          // every PageSlot's per-slot transform to scale(newDisplay /
-          // renderWidth). PdfViewer's zoom-change useLayoutEffect
-          // then clears the tray-level pinch transform — synchronously,
-          // before the browser paints — so the swap from "tray
-          // transform around focal point" to "per-slot transform
-          // around each slot's top-center" produces no in-between
-          // frame. The render-width is constant, so no
-          // re-rasterisation happens at any point in this swap.
-          commitLiveZoom(final.scale, undefined, trayWidth);
-        }
-      },
-      [commitLiveZoom],
-    ),
+    // Pinch passes through to the live tray controller. Each phase is
+    // a thin call: PdfViewer mutates DOM, no React renders during the
+    // gesture, and the final scale gets debounced into the store ~250
+    // ms after the user lifts their fingers — so React renders exactly
+    // once per gesture and only after the visual has already settled.
+    onPinch: useCallback(({ phase, scale, midX, midY }: PinchEvent) => {
+      const controls = getZoomControls();
+      if (!controls) return;
+      if (phase === "start") controls.begin(midX, midY);
+      else if (phase === "move") controls.update(scale);
+      else controls.end();
+    }, []),
   });
 
   return (
@@ -1101,21 +1011,99 @@ export function ReaderPage() {
     preventDefault: false,
   });
 
+  // Arrow up/down scroll the active PDF viewer by one line (~60 px).
+  // Page navigation stays on Left/Right arrows. Native smooth-scroll
+  // is good enough here — no need to plumb through smoothScrollBy.
+  // Tuning dial: change LINE_SCROLL_PX below.
+  const LINE_SCROLL_PX = 60;
+  const lineScroll = useCallback((dy: number) => {
+    const el = document.querySelector<HTMLElement>(
+      "[data-pdf-viewer][data-active-viewer]",
+    );
+    if (!el) return;
+    el.scrollBy({ top: dy, behavior: "smooth" });
+  }, []);
+  const horizScroll = useCallback((dx: number) => {
+    const el = document.querySelector<HTMLElement>(
+      "[data-pdf-viewer][data-active-viewer]",
+    );
+    if (!el) return;
+    el.scrollBy({ left: dx, behavior: "smooth" });
+  }, []);
+
   useKeyboardShortcut({
-    id: "reader:prev-page-up",
+    id: "reader:line-up",
     key: "ArrowUp",
-    description: "Previous page",
-    handler: prevPageHandler,
+    description: "Scroll up one line",
+    handler: useCallback(() => lineScroll(-LINE_SCROLL_PX), [lineScroll]),
     preventDefault: false,
   });
 
   useKeyboardShortcut({
-    id: "reader:next-page-down",
+    id: "reader:line-down",
     key: "ArrowDown",
-    description: "Next page",
-    handler: nextPageHandler,
+    description: "Scroll down one line",
+    handler: useCallback(() => lineScroll(LINE_SCROLL_PX), [lineScroll]),
     preventDefault: false,
   });
+
+  // vim-style hjkl mirrors the arrow keys: h=prev page, l=next page,
+  // j=line down, k=line up. Skip when an editable element is focused
+  // so typing into inputs / contenteditable doesn't trigger nav.
+  const isEditableFocused = () => {
+    const el = document.activeElement as HTMLElement | null;
+    if (!el) return false;
+    const tag = el.tagName;
+    return (
+      tag === "INPUT" ||
+      tag === "TEXTAREA" ||
+      tag === "SELECT" ||
+      el.isContentEditable
+    );
+  };
+  useKeyboardShortcut({
+    id: "reader:vim-h",
+    key: "h",
+    description: "Previous page (vim)",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      prevPageHandler();
+    }, [prevPageHandler]),
+    preventDefault: false,
+  });
+  useKeyboardShortcut({
+    id: "reader:vim-l",
+    key: "l",
+    description: "Next page (vim)",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      nextPageHandler();
+    }, [nextPageHandler]),
+    preventDefault: false,
+  });
+  useKeyboardShortcut({
+    id: "reader:vim-j",
+    key: "j",
+    description: "Scroll down one line (vim)",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      lineScroll(LINE_SCROLL_PX);
+    }, [lineScroll]),
+    preventDefault: false,
+  });
+  useKeyboardShortcut({
+    id: "reader:vim-k",
+    key: "k",
+    description: "Scroll up one line (vim)",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      lineScroll(-LINE_SCROLL_PX);
+    }, [lineScroll]),
+    preventDefault: false,
+  });
+  // Suppress unused-var warning when only horizontal vim keys aren't
+  // wired yet — keeps the helper available for future tuning.
+  void horizScroll;
 
   const toggleSidebar = useCallback(() => {
     const api = dockviewApiRef.current;
@@ -1550,22 +1538,20 @@ export function ReaderPage() {
         }
       }
 
-      // Default layout: TOC left, PDF viewer center
+      // Default layout: viewer only. The TOC submenu lives behind the
+      // floating-circle button at top-left of the reader area; users
+      // who want it always-on can pin it via that toggle and the
+      // saved layout persists across sessions.
       api.addPanel({
         id: "pdfViewer",
         component: "pdfViewer",
         title: i18n.t("reader.page.panelDocument"),
       });
 
-      api.addPanel({
-        id: "toc",
-        component: "toc",
-        title: i18n.t("reader.page.panelToc"),
-        position: { direction: "left", referencePanel: "pdfViewer" },
-        initialWidth: resolvedWidth,
-        minimumWidth: 180,
-        maximumWidth: 400,
-      });
+      // Keep `resolvedWidth` referenced so the lint gate doesn't trip;
+      // it's still used by `toggleSidebar` via `tocWidthRef` when the
+      // user opens the TOC for the first time in this session.
+      void resolvedWidth;
 
       setupLayoutPersistence();
     };
@@ -1723,6 +1709,21 @@ export function ReaderPage() {
                 onReady={handleDockviewReady}
                 components={dockviewComponents}
               />
+              {/* Floating-circle button for the reader's own submenu
+                  (TOC / bookmarks / comments / AI chat). Sits below
+                  the toolbar's hamburger so the two are visually
+                  distinct: top-bar hamburger = global app sidebar,
+                  this circle = reading-context panel. Toggles the
+                  same Dockview "toc" panel that Ctrl+\\ binds. */}
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                aria-label={t("reader.toolbar.toggleSidebar")}
+                title={t("reader.toolbar.toggleSidebar")}
+                className="absolute left-3 top-3 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-glass-border bg-bg-secondary/80 text-text-secondary shadow-md backdrop-blur-md transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              >
+                <PanelLeft size={16} />
+              </button>
               <SearchOverlay />
             </div>
           </>
