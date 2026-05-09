@@ -5,6 +5,7 @@ import { useLibraryStore } from "@/stores/library-store";
 import { useReaderStore } from "@/stores/reader-store";
 import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
 import { useOpenCatalogBook } from "@/hooks/use-open-catalog-book";
+import { useBackToClose } from "@/hooks/use-back-to-close";
 import { cn } from "@/lib/cn";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 
@@ -45,6 +46,10 @@ export function LibraryPickerModal({ onClose }: LibraryPickerModalProps) {
   useEffect(() => {
     void fetchLibrary();
   }, [fetchLibrary]);
+
+  // Android back button / system back gesture closes the picker
+  // instead of navigating away from the reader.
+  useBackToClose(true, onClose);
 
   const rows: PickerRow[] = useMemo(() => {
     const out: PickerRow[] = [];

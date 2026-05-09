@@ -51,6 +51,7 @@ import { logError } from "@/lib/logger";
 import { createAdapterForFile } from "./adapters";
 import { useOpenDocument } from "@/hooks/use-open-document";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
+import { useBackToClose } from "@/hooks/use-back-to-close";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui";
@@ -330,6 +331,16 @@ function MobileReaderLayout({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [mobileReaderPanel, setMobileReaderPanel]);
+
+  // Android hardware back / system back gesture closes the active
+  // mobile sliding panel (TOC / comments / AI chat) before falling
+  // through to the browser's default. Without this, pressing back
+  // while a panel is open would navigate the user out of the reader
+  // entirely.
+  useBackToClose(
+    mobileReaderPanel !== "none",
+    useCallback(() => setMobileReaderPanel("none"), [setMobileReaderPanel]),
+  );
 
   // Tap-to-toggle chrome (ReadEra pattern). A click on the viewer
   // area that isn't on an interactive element, isn't the tail of a

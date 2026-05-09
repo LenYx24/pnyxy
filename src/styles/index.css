@@ -108,6 +108,10 @@
      * and Library has a bespoke pull-to-refresh. Without this, a
      * downward drag at the top of any page fires Chrome's refresh. */
     overscroll-behavior: none;
+    /* Momentum scrolling on iOS Safari. Modern iOS (>= 13) does this
+     * by default, but older versions and some webview wrappers (e.g.,
+     * Tauri / Capacitor) regress without an explicit declaration. */
+    -webkit-overflow-scrolling: touch;
   }
 
   body {

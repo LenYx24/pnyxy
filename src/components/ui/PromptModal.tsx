@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Button } from "./Button";
+import { useBackToClose } from "@/hooks/use-back-to-close";
 
 interface PromptModalProps {
   open: boolean;
@@ -77,6 +78,9 @@ export function PromptModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  // Android hardware back / system back gesture closes the prompt.
+  useBackToClose(open, onClose);
 
   if (!open || typeof document === "undefined") return null;
 

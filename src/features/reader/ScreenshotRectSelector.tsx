@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useBackToClose } from "@/hooks/use-back-to-close";
 
 export interface ScreenshotRect {
   left: number;
@@ -41,6 +42,9 @@ export function ScreenshotRectSelector({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onCancel]);
+
+  // Android back / system back gesture cancels the screenshot selection.
+  useBackToClose(true, onCancel);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     setStart({ x: e.clientX, y: e.clientY });
