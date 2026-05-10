@@ -18,6 +18,7 @@ import {
   MessageSquare,
   Undo2,
   PenTool,
+  Pencil,
   Camera,
   Crop,
   Printer,
@@ -30,6 +31,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
+import { useInlineDrawStore } from "@/stores/inline-draw-store";
 import { useReaderStore, useActiveDocument, type ZoomMode } from "@/stores/reader-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useAnnotationStore } from "@/stores/annotation-store";
@@ -154,6 +156,8 @@ export function ReaderToolbar({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const activeDoc = useActiveDocument();
+  const inlineDrawActive = useInlineDrawStore((s) => s.active);
+  const toggleInlineDraw = useInlineDrawStore((s) => s.toggleActive);
   const goToPage = useReaderStore((s) => s.goToPage);
   const nextPage = useReaderStore((s) => s.nextPage);
   const prevPage = useReaderStore((s) => s.prevPage);
@@ -235,6 +239,18 @@ export function ReaderToolbar({
         ]
       : []),
     { label: t("reader.toolbar.highlight"), icon: Highlighter, onClick: () => { setShowOverflowMenu(false); setShowColorPicker(!showColorPicker); } },
+    {
+      label: inlineDrawActive
+        ? t("reader.toolbar.inlineDrawOff", { defaultValue: "Stop drawing" })
+        : t("reader.toolbar.inlineDrawOn", {
+            defaultValue: "Quick draw on page",
+          }),
+      icon: Pencil,
+      onClick: () => {
+        setShowOverflowMenu(false);
+        toggleInlineDraw();
+      },
+    },
     ...(onToggleDrawMode ? [{ label: isDrawMode ? t("reader.toolbar.exitDraw") : t("reader.toolbar.draw"), icon: PenTool, onClick: onToggleDrawMode }] : []),
     { label: t("reader.toolbar.undo"), icon: Undo2, onClick: performUndo, disabled: !canUndo },
     { label: t("reader.toolbar.screenshot"), icon: Camera, onClick: onScreenshot },

@@ -37,6 +37,9 @@ import type {
 } from "@/types/catalog";
 import type { Book, Category } from "@/types/database";
 import { useBook } from "../BookPageContext";
+import { BookStatusPicker } from "../BookStatusPicker";
+import { BookCategoryEditor } from "../BookCategoryEditor";
+import { AttachFileButton } from "../AttachFileButton";
 
 /**
  * Button that creates a standalone whiteboard and navigates to it.
@@ -268,6 +271,14 @@ function CatalogOverview({
 
       {!hasReadable && <NoFileBanner />}
 
+      {/* Status picker is the lightest "make this book yours"
+          control — useful even before / without opening the book. */}
+      {user && (
+        <div className="rounded-lg border border-glass-border bg-glass-bg p-4">
+          <BookStatusPicker />
+        </div>
+      )}
+
       {readError === "cors-fallback" && (
         <p className="rounded-lg bg-yellow-500/10 px-3 py-2 text-xs text-yellow-400">
           {t("book.overview.readCorsFallback")}
@@ -445,7 +456,20 @@ function UploadedOverview({
         <CreateWhiteboardButton />
       </div>
 
-      {!storagePath && <NoFileBanner />}
+      {!storagePath && (
+        <div className="space-y-2">
+          <NoFileBanner />
+          <AttachFileButton bookId={book.id} />
+        </div>
+      )}
+
+      <div className="rounded-lg border border-glass-border bg-glass-bg p-4 space-y-4">
+        <BookStatusPicker />
+        <BookCategoryEditor
+          bookId={book.id}
+          initialCategories={categories}
+        />
+      </div>
 
       {storagePath && (
         <div className="rounded-lg border border-glass-border bg-glass-bg/50 p-4 text-sm">
@@ -481,18 +505,6 @@ function UploadedOverview({
         ]}
       />
 
-      {categories.length > 0 && (
-        <div>
-          <span className="text-sm text-text-muted">
-            {t("book.overview.categories")}
-          </span>
-          <div className="mt-1 flex flex-wrap gap-2">
-            {categories.map((cat) => (
-              <CategoryChip key={cat.id} category={cat} />
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

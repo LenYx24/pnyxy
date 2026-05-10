@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Bookmark as BookmarkIcon,
   Pencil,
+  ScrollText,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-media-query";
@@ -26,7 +27,8 @@ interface NavItem {
     | "notes"
     | "bookmarks"
     | "whiteboards"
-    | "resources";
+    | "resources"
+    | "exams";
   icon: LucideIcon;
   end?: boolean;
 }
@@ -49,6 +51,7 @@ function useNavItems(bookId: string): NavItem[] {
         icon: Pencil,
       },
       { to: `/books/${bookId}/resources`, labelKey: "resources", icon: LinkIcon },
+      { to: `/books/${bookId}/exams`, labelKey: "exams", icon: ScrollText },
     ],
     [bookId],
   );

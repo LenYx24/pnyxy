@@ -306,9 +306,37 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
         }
 
         const hit = hitTest(elements, world, zoom);
-        if (hit) {
+
+        // Obsidian-canvas behaviour: when there's already a selection
+        // and the user clicks INSIDE the selected element's visual
+        // rectangle (the same bbox-with-padding that
+        // `drawSelectionHandles` paints), treat it as a drag for the
+        // selection — even though `hitTest` returned no element
+        // because the click was on a transparent fill or in the gap
+        // between selected items. Without this, users have to aim at
+        // the actual stroke, which is fiddly for thin shapes.
+        // Skips when Ctrl/Cmd/Shift is held (those mean "extend
+        // selection" → marquee should still win).
+        const modKey = e.ctrlKey || e.metaKey || e.shiftKey;
+        const HANDLE_PAD = 4 / zoom;
+        const insideSelectionRect =
+          !hit &&
+          !modKey &&
+          selectedElementIds.size > 0 &&
+          elements.some((el) => {
+            if (!selectedElementIds.has(el.id)) return false;
+            const b = getElementBounds(el);
+            return (
+              world.x >= b.minX - HANDLE_PAD &&
+              world.x <= b.maxX + HANDLE_PAD &&
+              world.y >= b.minY - HANDLE_PAD &&
+              world.y <= b.maxY + HANDLE_PAD
+            );
+          });
+
+        if (hit || insideSelectionRect) {
           const isMultiSelect = e.ctrlKey || e.metaKey;
-          if (isMultiSelect) {
+          if (hit && isMultiSelect) {
             // Toggle element in/out of selection
             const next = new Set(selectedElementIds);
             if (next.has(hit.id)) {
@@ -317,9 +345,11 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
               next.add(hit.id);
             }
             store.getState().setSelection(next);
-          } else if (!selectedElementIds.has(hit.id)) {
+          } else if (hit && !selectedElementIds.has(hit.id)) {
             store.getState().setSelection(new Set([hit.id]));
           }
+          // For `insideSelectionRect`-only (no hit), the existing
+          // selection is preserved as-is — that's the whole point.
           // Start drag — snapshot all selected elements
           const sel = store.getState().selectedElementIds;
           if (sel.size > 0) {
@@ -696,6 +726,24 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
 
         if (shouldAdd) {
           store.getState().addElement(ip);
+          // Obsidian-canvas behaviour: after dropping a discrete
+          // shape (rectangle / ellipse / line / arrow), auto-select
+          // it and switch to the select tool. The user almost always
+          // wants to nudge or resize the shape they just placed; the
+          // current behaviour of staying in the shape tool meant
+          // they had to press `V` first, which felt clunky. Pen and
+          // text are excluded — pen is fluid sketching where the
+          // tool should stay sticky, and text drops straight into
+          // edit mode anyway.
+          if (
+            ip.type === "rectangle" ||
+            ip.type === "ellipse" ||
+            ip.type === "line" ||
+            ip.type === "arrow"
+          ) {
+            store.getState().setSelection(new Set([ip.id]));
+            store.getState().setActiveTool("select");
+          }
         }
       }
 

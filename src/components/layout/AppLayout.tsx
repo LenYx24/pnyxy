@@ -20,6 +20,7 @@ import { ContextMenu } from "@/components/ui";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { BannedScreen } from "@/features/admin/BannedScreen";
 import { StreakCelebrationModal } from "@/features/library/StreakCelebrationModal";
+import { FeedbackPrompt } from "@/features/feedback/FeedbackPrompt";
 
 const STATIC_PAGE_PATHS = ["/about", "/privacy", "/terms", "/help", "/tutorial"];
 
@@ -172,6 +173,7 @@ export function AppLayout() {
       </main>
       {showBottomNav && <BottomNav />}
       <StreakCelebrationModal />
+      <FeedbackPrompt />
       <ContextMenu />
       <CommandPalette />
     </div>

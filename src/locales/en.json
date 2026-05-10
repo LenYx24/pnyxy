@@ -1190,7 +1190,8 @@
       "notes": "Notes",
       "bookmarks": "Bookmarks",
       "whiteboards": "Whiteboards",
-      "resources": "Resources"
+      "resources": "Resources",
+      "exams": "Exams"
     },
     "bookmarks": {
       "heading": "Bookmarks",

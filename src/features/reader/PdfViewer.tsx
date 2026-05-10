@@ -16,6 +16,7 @@ import { useTextSelection } from "@/hooks/use-text-selection";
 import { HighlightLayer } from "./HighlightLayer";
 import { SearchHighlightLayer } from "./SearchHighlightLayer";
 import { CommentMarkers } from "./CommentMarkers";
+import { InlineDrawLayer } from "./InlineDrawLayer";
 import { AnnotationContextMenu } from "./AnnotationContextMenu";
 import { CommentPopover } from "./CommentPopover";
 import {
@@ -107,6 +108,7 @@ const PageSlot = memo(function PageSlot({
           <HighlightLayer pageNum={pageNum} />
           <SearchHighlightLayer pageNum={pageNum} />
           <CommentMarkers pageNum={pageNum} />
+          <InlineDrawLayer pageNum={pageNum} />
         </div>
       </div>
     </div>

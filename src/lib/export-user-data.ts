@@ -48,7 +48,10 @@ const SECTIONS: SectionSpec[] = [
   { key: "quizReviews", table: "quiz_reviews", userScoped: true },
   { key: "readingPlans", table: "reading_plans", userScoped: true },
   { key: "readingPlanItems", table: "reading_plan_items", userScoped: false },
-  { key: "chatFolders", table: "chat_folders", userScoped: true },
+  // chat_folders was unified into the library `folders` table in
+  // migration 00036; chat conversations now point at folder rows
+  // exported alongside the library books, so no separate export
+  // entry is needed.
   { key: "chatConversations", table: "chat_conversations", userScoped: true },
   { key: "chatMessages", table: "chat_messages", userScoped: false },
   { key: "bookRatings", table: "book_ratings", userScoped: true },

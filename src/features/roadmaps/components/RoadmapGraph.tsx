@@ -1,5 +1,6 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  applyNodeChanges,
   Background,
   Controls,
   MarkerType,
@@ -82,7 +83,14 @@ function RoadmapGraphInner({
     [roadmap.nodes, roadmap.edges],
   );
 
-  const flowNodes: RoadmapXyNode[] = useMemo(
+  // Source-of-truth nodes derived from the roadmap + enrollment props.
+  // We DON'T feed this directly into ReactFlow — it would clobber the
+  // live drag position on every render, so the node visually snapped
+  // back to the original spot mid-drag instead of following the cursor.
+  // Instead, we mirror it into local state below and apply xyflow's
+  // change events ourselves; the parent only hears about position
+  // changes once the drag ends.
+  const sourceNodes: RoadmapXyNode[] = useMemo(
     () =>
       positionedNodes.map((n) => {
         const sched = schedule?.get(n.id);
@@ -108,6 +116,25 @@ function RoadmapGraphInner({
       }),
     [positionedNodes, completedSet, lockedSet, goalIds, schedule, mode, selectedNodeId],
   );
+
+  // Local mirror that ReactFlow controls. `applyNodeChanges` updates
+  // it from xyflow's drag/select/etc. events, so the node visually
+  // tracks the cursor without waiting for the parent to round-trip
+  // a position update.
+  const [nodes, setNodes] = useState<RoadmapXyNode[]>(sourceNodes);
+
+  // Re-seed when the upstream source changes (new node added,
+  // enrollment progress changed, switched view↔edit mode, …).
+  // Deliberately not deduping by deep-equality — `sourceNodes` is
+  // already memoised on its real inputs, so identity changes only
+  // when something we actually want to reflect changed. During a
+  // drag, none of those inputs change, so this effect doesn't fire
+  // and the live drag state survives.
+  useEffect(() => {
+    setNodes(sourceNodes);
+  }, [sourceNodes]);
+
+  const flowNodes = nodes;
 
   const flowEdges: Edge[] = useMemo(
     () =>
@@ -153,10 +180,27 @@ function RoadmapGraphInner({
 
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
+      // Even in view mode we let xyflow apply *non-position* changes
+      // (selection, dimensions) so the graph stays internally
+      // consistent — but we drop position changes since the node
+      // isn't draggable there.
+      const filtered =
+        mode === "edit"
+          ? changes
+          : changes.filter((c) => c.type !== "position" && c.type !== "remove");
+      // Apply EVERY change to local state — including in-flight
+      // position changes (`dragging: true`). That's the bit that
+      // makes the node track the cursor; without it the prop stayed
+      // pinned to the source position and the node visually snapped.
+      setNodes((prev) => applyNodeChanges(filtered, prev) as RoadmapXyNode[]);
+
       if (mode !== "edit") return;
       const removed: string[] = [];
       for (const c of changes) {
         if (c.type === "remove") removed.push(c.id);
+        // Only commit to the parent (and through it, to the DB) on
+        // drag end. Live mid-drag positions stay in local state to
+        // avoid spamming `setNodePosition` 60× per second.
         if (c.type === "position" && c.dragging === false && c.position) {
           onNodeDrag?.(c.id, c.position);
         }

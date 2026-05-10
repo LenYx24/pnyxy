@@ -43,7 +43,10 @@ import {
   Search,
   HelpCircle,
 } from "lucide-react";
-import { ConfirmModal, FloatingMenu, PromptModal } from "@/components/ui";
+import { ConfirmModal, FloatingMenu, PromptModal, TypingIndicator } from "@/components/ui";
+import { extractRecommendations } from "@/lib/extract-recommendations";
+import { RecommendationCards } from "./RecommendationsRenderer";
+import { buildRecommendationSystemPrompt, type RecommendationMode } from "@/lib/recommendation-prompts";
 import { ModelInfoModal } from "./ModelInfoModal";
 import { useConfirm } from "@/hooks/use-confirm";
 import {
@@ -240,6 +243,10 @@ export function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [enabledProviders],
   );
+  // Per-turn topic-first mode. Resets after each send so the user
+  // doesn't accidentally keep recommending books on every follow-up.
+  const [recommendationMode, setRecommendationMode] =
+    useState<RecommendationMode>("default");
   const [selectedProvider, setSelectedProvider] = useState<AiProvider | null>(
     () => null,
   );
@@ -582,17 +589,32 @@ export function ChatPage() {
     // null = Default → pass undefined (full fallback chain).
     // Any other value = strict pick (only that provider).
     const provider = selectedProvider ?? undefined;
+    // Topic-first modes swap the system prompt for this single turn.
+    // We deliberately don't store the mode on the conversation —
+    // the user can mix recommendation turns with normal questions
+    // freely. Mode is reset to default after each send so a follow-up
+    // is a regular chat unless the user re-picks recommendations.
+    const sendOptions = recommendationMode !== "default"
+      ? {
+          systemPromptOverride: buildRecommendationSystemPrompt(
+            recommendationMode,
+          ),
+        }
+      : undefined;
+    if (recommendationMode !== "default") {
+      setRecommendationMode("default");
+    }
     if (branchFromId) {
       const parentId = branchFromId;
       setBranchFromId(null);
-      await branchFrom(parentId, text, provider, attachments);
+      await branchFrom(parentId, text, provider, attachments, sendOptions);
     } else {
       if (!activeId) {
         const id = await createConversation();
         if (!id) return;
         await openConversation(id);
       }
-      await sendMessage(text, provider, attachments);
+      await sendMessage(text, provider, attachments, sendOptions);
     }
   };
 
@@ -1196,11 +1218,15 @@ export function ChatPage() {
                       e.target.value = "";
                     }}
                   />
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
                     <ModelPicker
                       value={selectedProvider}
                       options={configuredProviders}
                       onChange={setSelectedProvider}
+                    />
+                    <ModePicker
+                      value={recommendationMode}
+                      onChange={setRecommendationMode}
                     />
                     <button
                       type="button"
@@ -1457,6 +1483,145 @@ function AttachmentCard({
  * if the Clipboard API rejects (rare but happens in some private
  * / iframe contexts).
  */
+/**
+ * Topic-first mode picker. Sits next to the model picker in the
+ * composer toolbar and toggles between three system prompts for
+ * the next message:
+ *   - Default → regular chat (system prompt built from doc context).
+ *   - Books   → AI returns 4–6 book recs as cards.
+ *   - Videos  → AI returns 4–6 video / course recs as cards.
+ *
+ * The mode is **per-turn** — it resets after `handleSend` so a
+ * follow-up question is treated as a normal chat unless the user
+ * deliberately re-picks a recommendation mode. That keeps a single
+ * conversation usable for "find me books" → "actually, also some
+ * videos" → "explain this concept" without the user fighting a
+ * sticky toggle.
+ */
+function ModePicker({
+  value,
+  onChange,
+}: {
+  value: RecommendationMode;
+  onChange: (next: RecommendationMode) => void;
+}) {
+  const { t } = useTranslation();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+
+  const labels: Record<RecommendationMode, string> = {
+    default: t("chat.composer.modeDefault", { defaultValue: "Chat" }),
+    books: t("chat.composer.modeBooks", { defaultValue: "Recommend books" }),
+    videos: t("chat.composer.modeVideos", { defaultValue: "Recommend videos" }),
+  };
+  const subtitles: Record<RecommendationMode, string> = {
+    default: t("chat.composer.modeDefaultSubtitle", {
+      defaultValue: "Regular chat with the AI",
+    }),
+    books: t("chat.composer.modeBooksSubtitle", {
+      defaultValue: "AI suggests books on a topic — add them as placeholders",
+    }),
+    videos: t("chat.composer.modeVideosSubtitle", {
+      defaultValue: "AI suggests videos, courses, and guides on a topic",
+    }),
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
+      <button
+        ref={triggerRef}
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors cursor-pointer",
+          value === "default"
+            ? "border-glass-border bg-bg-primary/50 text-text-secondary hover:bg-glass-hover hover:text-text-primary"
+            : "border-accent-purple/40 bg-accent-purple/15 text-accent-purple hover:bg-accent-purple/20",
+        )}
+      >
+        <Sparkles size={12} />
+        {labels[value]}
+        <ChevronDown size={11} />
+      </button>
+      <FloatingMenu
+        open={open}
+        anchorRef={triggerRef}
+        onClose={() => setOpen(false)}
+        className="w-72"
+      >
+        {(["default", "books", "videos"] as const).map((m) => (
+          <ModelOption
+            key={m}
+            active={value === m}
+            label={labels[m]}
+            subtitle={subtitles[m]}
+            onClick={() => {
+              onChange(m);
+              setOpen(false);
+            }}
+          />
+        ))}
+      </FloatingMenu>
+    </div>
+  );
+}
+
+/**
+ * Assistant message body. Pulls any `pnyxy-books` / `pnyxy-videos`
+ * fenced JSON blocks out of the model's reply and renders the
+ * remaining prose as markdown, then drops the parsed recommendations
+ * underneath as React cards. Behaviour for plain answers (the vast
+ * majority): identical to the previous inline markdown render.
+ */
+function AssistantContent({
+  content,
+  sourceDocId,
+  confirm,
+  handleCitationClick,
+}: {
+  content: string;
+  sourceDocId: string | null;
+  confirm: (opts: {
+    title: string;
+    body?: React.ReactNode;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    danger?: boolean;
+  }) => Promise<boolean>;
+  handleCitationClick: (e: React.MouseEvent<HTMLElement>) => void;
+}) {
+  // Using the hook directly here keeps `t` as the strongly-typed
+  // `TFunction` that `promptOpenAiLink` expects, instead of a
+  // hand-rolled signature that loses the i18next brand type.
+  const { t } = useTranslation();
+  const { cleaned, books, videos } = useMemo(
+    () => extractRecommendations(content),
+    [content],
+  );
+  return (
+    <>
+      <div
+        className="ai-message break-words"
+        onClick={(e) => {
+          handleCodeBlockCopy(e);
+          if (e.defaultPrevented) return;
+          const aiLink = detectAiLinkClick(e);
+          if (aiLink) {
+            void promptOpenAiLink(aiLink, confirm, t);
+            return;
+          }
+          handleCitationClick(e);
+        }}
+        dangerouslySetInnerHTML={{
+          __html: renderMarkdown(cleaned, sourceDocId),
+        }}
+      />
+      {(books || videos) && (
+        <RecommendationCards books={books} videos={videos} />
+      )}
+    </>
+  );
+}
+
 function CopyButton({ text }: { text: string }) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
@@ -1698,7 +1863,10 @@ function MessageBubble({
           isUser
             ? "bg-accent-purple/20 text-text-primary rounded-br-md"
             : "bg-glass-bg text-text-secondary rounded-bl-md",
-          isStreaming && "animate-pulse",
+          // Slightly taller while still empty so the typing indicator
+          // sits comfortably; collapses back to py-2 once content is
+          // streaming.
+          isStreaming && msg.content.trim().length === 0 && "py-3",
         )}
       >
         {/* User messages render as preformatted text (the user typed
@@ -1802,30 +1970,21 @@ function MessageBubble({
               )}
             </div>
           )
+        ) : isStreaming && msg.content.trim().length === 0 ? (
+          // Empty assistant placeholder while waiting for the first
+          // delta. Showing the typing indicator inside the bubble
+          // beats pulsing an empty rectangle — that read as
+          // "something's broken" on mobile where the bubble is
+          // otherwise just a thin sliver.
+          <div className="text-text-muted">
+            <TypingIndicator label={t("chat.thinking", { defaultValue: "Thinking…" })} />
+          </div>
         ) : (
-          <div
-            className="ai-message break-words"
-            // Two delegated handlers stacked here: `handleCodeBlockCopy`
-            // runs first because it preventDefaults + stopPropagates
-            // when the click hit a copy button, so the citation
-            // dispatcher won't double-handle. Citation dispatcher is
-            // the smart upgrade of "use react-router for /-prefixed
-            // hrefs" — when the cited doc is already active in the
-            // reader, it calls goToPage in place instead of
-            // navigating.
-            onClick={(e) => {
-              handleCodeBlockCopy(e);
-              if (e.defaultPrevented) return;
-              const aiLink = detectAiLinkClick(e);
-              if (aiLink) {
-                void promptOpenAiLink(aiLink, confirm, t);
-                return;
-              }
-              handleCitationClick(e);
-            }}
-            dangerouslySetInnerHTML={{
-              __html: renderMarkdown(msg.content, sourceDocId),
-            }}
+          <AssistantContent
+            content={msg.content}
+            sourceDocId={sourceDocId}
+            confirm={confirm}
+            handleCitationClick={handleCitationClick}
           />
         )}
 

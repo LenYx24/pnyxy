@@ -50,6 +50,16 @@ export interface ChatSourceContext {
   page: number | null;
 }
 
+/** Options the composer can pass with a single send to override
+ *  prompt-time behaviour for that turn. Used by the topic-first
+ *  recommendation modes — `systemPromptOverride` swaps the entire
+ *  system prompt for a mode-specific one (book-recs / video-recs).
+ *  When unset, the regular per-conversation system prompt is built
+ *  from doc context + persona as before. */
+export interface ChatSendOptions {
+  systemPromptOverride?: string;
+}
+
 interface ChatState {
   conversations: ChatConversation[];
   folders: ChatFolder[];
@@ -119,6 +129,7 @@ interface ChatState {
     text: string,
     preferredProvider?: AiProvider,
     attachments?: ChatMessageAttachment[],
+    options?: ChatSendOptions,
   ) => Promise<void>;
 
   /** Create a new user message whose parent is `parentMessageId` (can
@@ -131,6 +142,7 @@ interface ChatState {
     text: string,
     preferredProvider?: AiProvider,
     attachments?: ChatMessageAttachment[],
+    options?: ChatSendOptions,
   ) => Promise<void>;
 
   /** Cancel the in-flight streaming response, if any. The partial
@@ -326,7 +338,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .eq("id", activeConversationId);
   },
 
-  async sendMessage(text, preferredProvider, attachments) {
+  async sendMessage(text, preferredProvider, attachments, options) {
     const { activeConversationId, activeLeafId } = get();
     if (!activeConversationId) return;
     await sendOrBranch(
@@ -337,10 +349,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       attachments,
       set,
       get,
+      options,
     );
   },
 
-  async branchFrom(parentMessageId, text, preferredProvider, attachments) {
+  async branchFrom(parentMessageId, text, preferredProvider, attachments, options) {
     const { activeConversationId } = get();
     if (!activeConversationId) return;
     await sendOrBranch(
@@ -351,6 +364,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       attachments,
       set,
       get,
+      options,
     );
   },
 
@@ -390,22 +404,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return;
     }
     const { data, error } = await supabase
-      .from("chat_folders")
+      .from("folders")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: true });
     if (error) {
-      // Migration 00029 not applied yet — PostgREST returns 42P01
-      // ("relation does not exist") which surfaces as a 404 here.
-      // Treat that as "feature not available yet" instead of an
-      // error: the rest of the chat keeps working until the user
-      // runs `supabase db push`.
-      const code = (error as { code?: string }).code;
-      const msg = error.message ?? "";
-      if (code === "42P01" || /does not exist|chat_folders/i.test(msg)) {
-        set({ folders: [] });
-        return;
-      }
+      // The unified `folders` table has existed since the initial
+      // schema, so a relation-missing error here would mean the
+      // database is in an unexpectedly broken state — log it
+      // instead of swallowing.
       logError("chat:fetchFolders", error);
       return;
     }
@@ -420,7 +427,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } = await supabase.auth.getUser();
     if (!user) return null;
     const { data, error } = await supabase
-      .from("chat_folders")
+      .from("folders")
       .insert({ user_id: user.id, name: trimmed, parent_id: parentId })
       .select()
       .single();
@@ -436,7 +443,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const trimmed = name.trim();
     if (!trimmed) return;
     const { error } = await supabase
-      .from("chat_folders")
+      .from("folders")
       .update({ name: trimmed })
       .eq("id", id);
     if (error) {
@@ -450,7 +457,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   async deleteFolder(id) {
     const { error } = await supabase
-      .from("chat_folders")
+      .from("folders")
       .delete()
       .eq("id", id);
     if (error) {
@@ -478,7 +485,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     }
     const { error } = await supabase
-      .from("chat_folders")
+      .from("folders")
       .update({ parent_id: parentId })
       .eq("id", id);
     if (error) {
@@ -640,6 +647,7 @@ async function sendOrBranch(
   attachments: ChatMessageAttachment[] | undefined,
   set: (partial: Partial<ChatState> | ((s: ChatState) => Partial<ChatState>)) => void,
   get: () => ChatState,
+  options?: ChatSendOptions,
 ) {
   const trimmed = text.trim();
   // A message is valid if it has either text OR at least one
@@ -780,6 +788,13 @@ async function sendOrBranch(
           preferredProvider,
           signal,
           customContext: contextPack.customContext,
+          // Per-turn override from the composer's mode picker
+          // (e.g. book / video recommendation modes). Skips the
+          // standard doc-context system prompt entirely for that
+          // turn — `customContext` is still threaded through for
+          // any vision / non-streaming code path that ignores the
+          // override.
+          systemPromptOverride: options?.systemPromptOverride,
         },
       )) {
         acc += chunk.delta;

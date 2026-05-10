@@ -76,7 +76,9 @@ export function ThumbnailToc() {
       }
       error={null}
     >
-      <div className="sticky top-0 z-10 flex flex-col gap-1 border-b border-glass-border bg-bg-secondary/95 backdrop-blur-md px-2 py-2">
+      {/* z-20 so the per-thumbnail selection checkbox (z-10) scrolls
+          BENEATH this sticky bar instead of poking through it. */}
+      <div className="sticky top-0 z-20 flex flex-col gap-1 border-b border-glass-border bg-bg-secondary/95 backdrop-blur-md px-2 py-2">
         <div className="flex items-center justify-between gap-2">
           <button
             type="button"

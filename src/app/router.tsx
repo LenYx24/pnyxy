@@ -14,6 +14,7 @@ import { NotesTab } from "@/features/book/tabs/NotesTab";
 import { BookmarksTab } from "@/features/book/tabs/BookmarksTab";
 import { WhiteboardsTab } from "@/features/book/tabs/WhiteboardsTab";
 import { ResourcesTab } from "@/features/book/tabs/ResourcesTab";
+import { ExamsTab } from "@/features/book/tabs/ExamsTab";
 import { LibraryPage } from "@/features/library/LibraryPage";
 import { WorkspacePage } from "@/features/workspace/WorkspacePage";
 import { ReaderPage } from "@/features/reader/ReaderPage";
@@ -129,6 +130,7 @@ export const router = createBrowserRouter([
           { path: "bookmarks", element: <BookmarksTab /> },
           { path: "whiteboards", element: <WhiteboardsTab /> },
           { path: "resources", element: <ResourcesTab /> },
+          { path: "exams", element: <ExamsTab /> },
         ],
       },
       { path: "library", element: <LibraryPage /> },

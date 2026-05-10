@@ -29,7 +29,7 @@ import {
   conversationToMarkdown,
   downloadMarkdown,
 } from "@/lib/export-conversation";
-import { FloatingMenu } from "@/components/ui";
+import { FloatingMenu, TypingIndicator } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { IDockviewPanelProps } from "dockview";
 import type { ChatConversation, ChatMessage } from "@/types/chat";
@@ -540,15 +540,26 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             >
               {msg.content}
             </div>
-          ) : (
+          ) : msg.id === streamingMessageId && msg.content.length === 0 ? (
+            // Empty assistant placeholder while waiting for the first
+            // delta. We render the typing indicator INSIDE the bubble
+            // (no innerHTML) so the bubble has visible content + a
+            // sane height instead of being a pulsing 28px sliver.
             <div
               key={msg.id}
-              className={cn(
-                "ai-message mr-auto max-w-[85%] rounded-2xl rounded-bl-md bg-glass-bg px-3.5 py-2 text-sm text-text-secondary",
-                msg.id === streamingMessageId &&
-                  msg.content.length === 0 &&
-                  "animate-pulse",
-              )}
+              className="mr-auto max-w-[85%] rounded-2xl rounded-bl-md bg-glass-bg px-3.5 py-3 text-sm text-text-muted"
+            >
+              <TypingIndicator label={t("reader.aiChat.thinking")} />
+            </div>
+          ) : (
+            // Content has started arriving — drop any pulse, render
+            // the markdown as it streams. The cursor / streaming
+            // visual is implicit in characters appearing one chunk
+            // at a time; pulsing the bubble on top of that just
+            // makes the page feel laggy.
+            <div
+              key={msg.id}
+              className="ai-message mr-auto max-w-[85%] rounded-2xl rounded-bl-md bg-glass-bg px-3.5 py-2 text-sm text-text-secondary"
               dangerouslySetInnerHTML={{
                 __html: renderMarkdown(msg.content, sourceDocId),
               }}
@@ -556,25 +567,16 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           ),
         )}
 
+        {/* Pre-placeholder thinking pill — covers the brief gap
+            between "user message sent" and "assistant placeholder
+            inserted into the path" so the user sees feedback
+            immediately. Once the placeholder lands, the empty
+            bubble above takes over. */}
         {isStreaming &&
           path[path.length - 1]?.id === streamingMessageId &&
           path[path.length - 1]?.role !== "assistant" && (
-            <div className="mr-auto flex items-center gap-2 rounded-2xl rounded-bl-md bg-glass-bg px-3.5 py-2 text-sm text-text-muted">
-              <div className="flex gap-1">
-                <div
-                  className="h-1.5 w-1.5 rounded-full bg-text-muted animate-bounce"
-                  style={{ animationDelay: "0ms" }}
-                />
-                <div
-                  className="h-1.5 w-1.5 rounded-full bg-text-muted animate-bounce"
-                  style={{ animationDelay: "150ms" }}
-                />
-                <div
-                  className="h-1.5 w-1.5 rounded-full bg-text-muted animate-bounce"
-                  style={{ animationDelay: "300ms" }}
-                />
-              </div>
-              {t("reader.aiChat.thinking")}
+            <div className="mr-auto rounded-2xl rounded-bl-md bg-glass-bg px-3.5 py-3 text-sm text-text-muted">
+              <TypingIndicator label={t("reader.aiChat.thinking")} />
             </div>
           )}
       </div>

@@ -16,6 +16,8 @@ import { ReaderToolbar } from "./ReaderToolbar";
 import { DocumentTabs } from "./DocumentTabs";
 import { LibraryPickerModal } from "./LibraryPickerModal";
 import { MobileReaderBottomBar } from "./MobileReaderBottomBar";
+import { InlineDrawToolbar } from "./InlineDrawToolbar";
+import { useInlineDrawStore } from "@/stores/inline-draw-store";
 import { PdfViewer } from "./PdfViewer";
 import { TextViewer } from "./TextViewer";
 import { EpubViewer } from "./EpubViewer";
@@ -793,6 +795,16 @@ export function ReaderPage() {
   const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
   const addDocument = useReaderStore((s) => s.addDocument);
   const goToPage = useReaderStore((s) => s.goToPage);
+  // Bind the inline-draw store to the active doc so its localStorage
+  // strokes load on book-open and unload on close. Auto-deactivate
+  // when switching books to avoid the previous book's draw mode
+  // sticking around for the next one.
+  const setInlineDrawBook = useInlineDrawStore((s) => s.setBook);
+  const setInlineDrawActive = useInlineDrawStore((s) => s.setActive);
+  useEffect(() => {
+    setInlineDrawBook(activeDocumentId ?? null);
+    if (!activeDocumentId) setInlineDrawActive(false);
+  }, [activeDocumentId, setInlineDrawBook, setInlineDrawActive]);
   const zoomIn = useReaderStore((s) => s.zoomIn);
   const zoomOut = useReaderStore((s) => s.zoomOut);
   const setZoomMode = useReaderStore((s) => s.setZoomMode);
@@ -1811,6 +1823,7 @@ export function ReaderPage() {
           }
         }}
       />
+      <InlineDrawToolbar />
     </div>
   );
 }
