@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { renderMarkdown, handleCodeBlockCopy } from "@/lib/markdown-message";
+import { renderMarkdown, handleCodeBlockCopy, detectAiLinkClick } from "@/lib/markdown-message";
+import { promptOpenAiLink } from "@/lib/ai-link-prompt";
 import { usePageCitationDispatch } from "@/hooks/use-page-citation";
 import { useReadAloud, markdownToSpeech } from "@/hooks/use-read-aloud";
 import {
@@ -40,8 +41,10 @@ import {
   Download,
   Volume2,
   Search,
+  HelpCircle,
 } from "lucide-react";
 import { ConfirmModal, FloatingMenu, PromptModal } from "@/components/ui";
+import { ModelInfoModal } from "./ModelInfoModal";
 import { useConfirm } from "@/hooks/use-confirm";
 import {
   DndContext,
@@ -990,6 +993,7 @@ export function ChatPage() {
                     activeLeafId={activeLeafId}
                     streamingMessageId={streamingMessageId}
                     sourceDocId={activeConversation?.source_doc_id ?? null}
+                    confirm={confirm}
                     onBranchHere={() => setBranchFromId(msg.id)}
                     onPickBranch={setActiveLeaf}
                     onSaveAsFlashcards={() =>
@@ -1499,6 +1503,7 @@ function ModelPicker({
   const { t } = useTranslation();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   // Display name for the trigger: model name when an explicit
   // provider is picked, "Default" when on auto-fallback.
@@ -1520,6 +1525,20 @@ function ModelPicker({
         {triggerLabel}
         <ChevronDown size={11} />
       </button>
+      <button
+        type="button"
+        onClick={() => setInfoOpen(true)}
+        className="rounded-md p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+        title={t("chat.composer.modelHelp", {
+          defaultValue: "Modellek leírása",
+        })}
+        aria-label={t("chat.composer.modelHelp", {
+          defaultValue: "Modellek leírása",
+        })}
+      >
+        <HelpCircle size={14} />
+      </button>
+      <ModelInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
       <FloatingMenu
         open={open}
         anchorRef={triggerRef}
@@ -1600,6 +1619,7 @@ function MessageBubble({
   activeLeafId,
   streamingMessageId,
   sourceDocId,
+  confirm,
   onBranchHere,
   onPickBranch,
   onSaveAsFlashcards,
@@ -1616,6 +1636,15 @@ function MessageBubble({
   /** Set when the conversation has a source doc — citation tokens
    *  in assistant messages get post-processed into clickable links. */
   sourceDocId: string | null;
+  /** Parent's `useConfirm` handle, threaded down so the AI-link
+   *  warning modal can reuse the page-level confirm dialog. */
+  confirm: (opts: {
+    title: string;
+    body?: React.ReactNode;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    danger?: boolean;
+  }) => Promise<boolean>;
   onBranchHere: () => void;
   onPickBranch: (id: string) => void;
   /** Open the flashcards extractor over this message's content. */
@@ -1787,6 +1816,11 @@ function MessageBubble({
             onClick={(e) => {
               handleCodeBlockCopy(e);
               if (e.defaultPrevented) return;
+              const aiLink = detectAiLinkClick(e);
+              if (aiLink) {
+                void promptOpenAiLink(aiLink, confirm, t);
+                return;
+              }
               handleCitationClick(e);
             }}
             dangerouslySetInnerHTML={{

@@ -1397,6 +1397,37 @@ export function ReaderPage() {
     }
   }, []);
 
+  // Expose an OPEN-ONLY (never-toggle) entry point in the UI store so
+  // the annotation menu's "Send to AI" can ensure the panel is on
+  // screen without accidentally closing it if the user already had
+  // it open. Mobile and desktop have different chat surfaces, so the
+  // function picks the right one at call time. Lifecycle: register
+  // on mount, clear on unmount so callers outside the reader fall
+  // back to navigating to /chat. Re-runs on `isMobile` change so a
+  // mid-session resize swaps the implementation.
+  useEffect(() => {
+    const open = () => {
+      if (isMobile) {
+        useUIStore.getState().setMobileReaderPanel("aiChat");
+        return;
+      }
+      const api = dockviewApiRef.current;
+      if (!api) return;
+      if (api.getPanel("aiChat")) return; // already open — no-op
+      api.addPanel({
+        id: "aiChat",
+        component: "aiChat",
+        title: i18n.t("reader.page.panelAiChat"),
+        position: { direction: "right" },
+        initialWidth: aiChatWidthRef.current,
+      });
+    };
+    useUIStore.getState().setOpenReaderAiChat(open);
+    return () => {
+      useUIStore.getState().setOpenReaderAiChat(null);
+    };
+  }, [isMobile]);
+
   useKeyboardShortcut({
     id: "reader:print",
     key: "p",

@@ -99,8 +99,8 @@ export function OpenFromUrlModal({ open, onClose, onFile }: OpenFromUrlModalProp
         <form onSubmit={handleSubmit} className="space-y-4 p-4">
           <p className="text-xs text-text-muted">
             Paste a direct link to a PDF, EPUB, TXT, or Markdown file.
-            Some sites block cross-origin requests — if loading fails,
-            download the file in your browser and use Upload instead.
+            Local files (<code className="rounded bg-glass-bg px-1 py-0.5 text-[10px]">file://</code>) can't be opened by URL —
+            drag them onto the library or use Upload instead.
           </p>
 
           <div>

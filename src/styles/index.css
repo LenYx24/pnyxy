@@ -132,11 +132,18 @@
     border-radius: 3px;
   }
 
-  /* PDF text layer: keep text invisible for selection, fix font jumps.
-     The explicit user-select + touch-callout on mobile is needed
+  /* PDF text layer: keep text invisible for selection.
+     Mobile note: the explicit user-select + touch-callout is needed
      because parent containers set touch-action: pan-y, which on some
      mobile WebViews suppresses long-press selection unless the
-     selectable element itself opts back in. */
+     selectable element itself opts back in.
+     We deliberately do NOT override font-family on the per-span
+     elements here — pdfjs sets a calibrated font on each span and
+     uses `transform: scaleX(N)` to align the invisible selection
+     boxes with the visible canvas glyphs. Forcing `font-family:
+     inherit` made the browser measure with a different font, so
+     spans drifted further from the canvas the deeper into a line
+     you selected. */
   .react-pdf__Page__textContent {
     color: transparent !important;
     user-select: text !important;
@@ -144,8 +151,6 @@
     -webkit-touch-callout: default !important;
   }
   .react-pdf__Page__textContent span {
-    font-family: inherit !important;
-    color: transparent !important;
     user-select: text !important;
     -webkit-user-select: text !important;
   }

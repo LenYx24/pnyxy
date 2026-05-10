@@ -1202,11 +1202,17 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
         options={documentOptions}
       >
         {/* Wrapper centers the sizer when narrower than the container,
-            grows when wider so the container scrolls horizontally. */}
+            grows when wider so the container scrolls horizontally.
+            `safe center` is critical: with plain `center`, an overflowing
+            sizer (zoomed in beyond viewport width) bleeds equally on
+            both sides, but the browser's overflow-auto only exposes
+            rightward scroll — the leftward overflow becomes
+            unreachable. `safe center` falls back to `start` when the
+            child overflows, keeping both edges scrollable. */}
         <div
           style={{
             display: "flex",
-            justifyContent: "center",
+            justifyContent: "safe center",
             minWidth: "100%",
             minHeight: "100%",
           }}

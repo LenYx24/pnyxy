@@ -24,6 +24,7 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { useVocabStore } from "@/stores/vocab-store";
 import { useReaderStore } from "@/stores/reader-store";
 import { useChatStore } from "@/stores/chat-store";
+import { useUIStore } from "@/stores/ui-store";
 import type { HighlightColor } from "@/types/annotation";
 
 const COLORS: { color: HighlightColor; hex: string }[] = [
@@ -233,10 +234,9 @@ export function AnnotationContextMenu() {
     if (!text) return;
     const doc = useReaderStore.getState().getActiveDoc();
     if (!doc) return;
-    // Stash a draft for ChatPage to drain on mount: it'll create a
-    // new conversation tagged with this doc + page, prefill the
-    // composer with a quote-formatted version of the selection, and
-    // show a context pill above the composer.
+    // Stash a draft. Either the reader's in-panel AiChatPanel or
+    // ChatPage will pick it up — both subscribe to pendingDraft and
+    // drain it into a fresh conversation prefilled with the quote.
     useChatStore.getState().setPendingDraft({
       text: `> ${text.replace(/\n/g, "\n> ")}\n\n`,
       source: {
@@ -247,7 +247,15 @@ export function AnnotationContextMenu() {
     });
     hideContextMenu();
     window.getSelection()?.removeAllRanges();
-    navigate("/chat");
+    // Prefer the reader's side panel — keeps the user in their
+    // reading context. Fall back to /chat only if no reader is
+    // mounted (defensive; this menu only renders inside the reader).
+    const openInReader = useUIStore.getState().openReaderAiChat;
+    if (openInReader) {
+      openInReader();
+    } else {
+      navigate("/chat");
+    }
   }, [contextMenu.selection, highlight, hideContextMenu, navigate]);
 
   const handleShare = useCallback(async () => {

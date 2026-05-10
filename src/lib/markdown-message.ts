@@ -187,6 +187,38 @@ export function renderMarkdown(
 }
 
 /**
+ * Detects clicks on external (http / https) links emitted by the
+ * markdown renderer — i.e. URLs the LLM put in its response. When
+ * one's hit, prevents default + propagation and returns the href so
+ * the caller can show a "verify before opening" confirmation modal.
+ *
+ * Returns null for:
+ *  - clicks not on an <a>
+ *  - relative / internal links (citation links handled by
+ *    `use-page-citation.ts`, mailto/tel handled by the browser)
+ *  - already-prevented events (lets earlier handlers like
+ *    `handleCodeBlockCopy` short-circuit cleanly)
+ *
+ * Why we gate AI-emitted URLs: the model can confidently emit URLs
+ * that don't exist, point at the wrong place, or even at malicious
+ * domains. Surfacing the actual href in a confirm dialog before any
+ * navigation lets the user notice obvious issues (typosquats,
+ * unrelated domains, weird paths).
+ */
+export function detectAiLinkClick(
+  e: React.MouseEvent<HTMLElement>,
+): string | null {
+  if (e.defaultPrevented) return null;
+  const a = (e.target as HTMLElement)?.closest?.("a");
+  if (!(a instanceof HTMLAnchorElement)) return null;
+  const href = a.getAttribute("href") ?? "";
+  if (!/^https?:\/\//i.test(href)) return null;
+  e.preventDefault();
+  e.stopPropagation();
+  return href;
+}
+
+/**
  * Companion click handler for the message container — call this from
  * the `onClick` on whichever element wraps `dangerouslySetInnerHTML`.
  * Intercepts clicks on copy-code buttons, decodes the base64 source,

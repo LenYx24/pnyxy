@@ -14,6 +14,8 @@ import type { AiProvider } from "@/stores/settings-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/cn";
+import { AI_MODEL_CATALOG } from "@/lib/ai-models";
+import { ModelCard } from "@/features/chat/ModelInfoModal";
 
 interface AiUsage {
   tokens_used: number;
@@ -141,7 +143,39 @@ export function AiTab() {
       )}
 
       <AiContextSection />
+      <ModelCatalogSection />
     </section>
+  );
+}
+
+/** "Modellek és felhasználásuk" inline reference list. Same content
+ *  as the chat ModelInfoModal but rendered directly into Settings →
+ *  AI for users who like to read about it before turning anything
+ *  on. Reuses `ModelCard` so the two surfaces stay consistent.
+ */
+function ModelCatalogSection() {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-3 rounded-lg border border-glass-border bg-bg-primary/30 p-3">
+      <div>
+        <h3 className="text-sm font-semibold text-text-primary">
+          {t("settings.aiModels.heading", {
+            defaultValue: "Modellek és felhasználásuk",
+          })}
+        </h3>
+        <p className="mt-0.5 text-xs text-text-muted">
+          {t("settings.aiModels.description", {
+            defaultValue:
+              "A három elérhető modell: mit ad, mire jó, és mennyi tokent fogyaszt egy átlagos chat-forduló.",
+          })}
+        </p>
+      </div>
+      <div className="space-y-3">
+        {AI_MODEL_CATALOG.map((m) => (
+          <ModelCard key={m.provider} model={m} />
+        ))}
+      </div>
+    </div>
   );
 }
 

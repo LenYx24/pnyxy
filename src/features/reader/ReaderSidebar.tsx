@@ -332,9 +332,12 @@ export function ReaderSidebarContent({
 
   return (
     <div className="h-full flex flex-col bg-bg-secondary/50">
-      {/* Header */}
+      {/* Header. Extra left padding on the heading clears the toolbar's
+          sidebar-toggle hamburger that sits directly above this row when
+          the global app sidebar is collapsed — without it the two
+          stacked vertically and looked glued together. */}
       <div className="p-4 border-b border-glass-border flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
+        <h3 className="pl-10 text-sm font-semibold text-text-muted uppercase tracking-wider">
           {t("reader.sidebar.readerHeading")}
         </h3>
         <div className="flex items-center gap-1">

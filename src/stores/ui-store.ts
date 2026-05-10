@@ -28,6 +28,16 @@ interface UIState {
   /** Reader's "open from library" picker modal. */
   libraryPickerOpen: boolean;
   setLibraryPickerOpen: (open: boolean) => void;
+  /**
+   * Function the reader registers on mount so other components
+   * (currently the annotation context menu's "Send to AI") can open
+   * the in-reader AI chat side panel without coupling to the reader's
+   * internals (Dockview API on desktop, mobile slide-over state on
+   * mobile). Null when no reader is mounted, in which case callers
+   * should fall back to navigating to /chat.
+   */
+  openReaderAiChat: (() => void) | null;
+  setOpenReaderAiChat: (open: (() => void) | null) => void;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleReaderSidebar: () => void;
@@ -51,6 +61,8 @@ export const useUIStore = create<UIState>((set) => ({
   mobileChromeHidden: false,
   libraryPickerOpen: false,
   setLibraryPickerOpen: (open) => set({ libraryPickerOpen: open }),
+  openReaderAiChat: null,
+  setOpenReaderAiChat: (open) => set({ openReaderAiChat: open }),
   toggleSidebar: () =>
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),

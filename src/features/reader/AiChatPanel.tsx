@@ -23,7 +23,8 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { useConfirm } from "@/hooks/use-confirm";
 import { usePageCitationDispatch } from "@/hooks/use-page-citation";
-import { renderMarkdown, handleCodeBlockCopy } from "@/lib/markdown-message";
+import { renderMarkdown, handleCodeBlockCopy, detectAiLinkClick } from "@/lib/markdown-message";
+import { promptOpenAiLink } from "@/lib/ai-link-prompt";
 import {
   conversationToMarkdown,
   downloadMarkdown,
@@ -81,8 +82,13 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const createConversation = useChatStore((s) => s.createConversation);
   const openConversation = useChatStore((s) => s.openConversation);
   const deleteConversation = useChatStore((s) => s.deleteConversation);
+  const renameConversation = useChatStore((s) => s.renameConversation);
   const sendMessage = useChatStore((s) => s.sendMessage);
   const clearActive = useChatStore((s) => s.clearActive);
+  // Subscribe to pendingDraft so we can drain reader-handoff drafts
+  // even when this panel is already mounted (the user clicks "Send
+  // to AI" with the panel open).
+  const pendingDraft = useChatStore((s) => s.pendingDraft);
 
   const { confirm, ConfirmModalElement } = useConfirm();
   const isStreaming = streamingMessageId !== null;
@@ -132,12 +138,43 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const keyboardInset = useKeyboardInset();
 
+  // Inline rename for the active conversation's title (header).
+  // Click the title → input mode; Enter / blur saves; Escape cancels.
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleInput, setTitleInput] = useState("");
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
   // Pull the user's conversation list once per signed-in mount. The
   // store handles dedupe / caching beyond that.
   useEffect(() => {
     if (!user) return;
     void fetchConversations();
   }, [user, fetchConversations]);
+
+  // Reader → AI hand-off. When the user picks "Send to AI chat" from
+  // the annotation menu, the menu stashes a draft and asks the UI
+  // store to open this panel. We drain the draft into a fresh
+  // book-scoped conversation, prefill the composer with the quoted
+  // selection, and focus the textarea. Subscribed to `pendingDraft`
+  // so this works whether the panel was just opened or was already
+  // mounted at the moment the user fired the action.
+  useEffect(() => {
+    if (!user || !pendingDraft) return;
+    const draft = useChatStore.getState().consumePendingDraft();
+    if (!draft) return;
+    void (async () => {
+      await createConversation(
+        "",
+        null,
+        draft.source ?? null,
+        draft.target ?? null,
+      );
+      setInput(draft.text);
+      // The textarea may not be mounted yet on the same tick if the
+      // panel was just opened; rAF defers until after layout.
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    })();
+  }, [pendingDraft, user, createConversation]);
 
   // Snap to the most recent conversation for the doc when the user
   // switches docs (reader tabs). Falls back to clearActive() so the
@@ -346,11 +383,57 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           >
             <MessagesSquare size={16} />
           </button>
-          <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">
-            {activeIsForThisDoc
-              ? activeConversation?.title || t("chat.untitled")
-              : t("reader.aiChat.title")}
-          </span>
+          {isEditingTitle && activeIsForThisDoc && activeConversation ? (
+            <input
+              ref={titleInputRef}
+              type="text"
+              value={titleInput}
+              onChange={(e) => setTitleInput(e.target.value)}
+              onBlur={async () => {
+                const trimmed = titleInput.trim();
+                if (
+                  trimmed &&
+                  trimmed !== (activeConversation.title || "")
+                ) {
+                  await renameConversation(activeConversation.id, trimmed);
+                }
+                setIsEditingTitle(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                } else if (e.key === "Escape") {
+                  setIsEditingTitle(false);
+                }
+              }}
+              className="min-w-0 flex-1 rounded border border-glass-border bg-glass-bg px-2 py-0.5 text-sm font-medium text-text-primary outline-none focus:border-accent-purple"
+              autoFocus
+            />
+          ) : (
+            <span
+              className={cn(
+                "min-w-0 flex-1 truncate text-sm font-medium text-text-primary",
+                activeIsForThisDoc &&
+                  activeConversation &&
+                  "cursor-text hover:text-accent-purple",
+              )}
+              title={
+                activeIsForThisDoc
+                  ? t("chat.rename", { defaultValue: "Rename" })
+                  : undefined
+              }
+              onClick={() => {
+                if (!activeIsForThisDoc || !activeConversation) return;
+                setTitleInput(activeConversation.title || "");
+                setIsEditingTitle(true);
+              }}
+            >
+              {activeIsForThisDoc
+                ? activeConversation?.title || t("chat.untitled")
+                : t("reader.aiChat.title")}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
           {activeIsForThisDoc && (
@@ -431,6 +514,11 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         onClick={(e) => {
           handleCodeBlockCopy(e);
           if (e.defaultPrevented) return;
+          const aiLink = detectAiLinkClick(e);
+          if (aiLink) {
+            void promptOpenAiLink(aiLink, confirm, t);
+            return;
+          }
           handleCitationClick(e);
         }}
         className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-3"
