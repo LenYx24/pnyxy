@@ -17,6 +17,7 @@ import { HighlightLayer } from "./HighlightLayer";
 import { SearchHighlightLayer } from "./SearchHighlightLayer";
 import { CommentMarkers } from "./CommentMarkers";
 import { InlineDrawLayer } from "./InlineDrawLayer";
+import { ReadProgressStrip } from "./ReadProgressStrip";
 import { AnnotationContextMenu } from "./AnnotationContextMenu";
 import { CommentPopover } from "./CommentPopover";
 import {
@@ -1180,6 +1181,11 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   // the DOM ahead of React's view; JSX style writes don't run again
   // because React reconciles to the same inline-style hash on re-render.
   return (
+    // Wrapper exists so the ReadProgressStrip below can position
+    // absolutely against the visible viewport. Without it, the
+    // strip would have to live inside the scroll container and
+    // would scroll away with the content.
+    <div className="relative h-full w-full">
     <div
       ref={containerRef}
       onScroll={handleScroll}
@@ -1265,6 +1271,8 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       </Document>
       <AnnotationContextMenu />
       <CommentPopover />
+    </div>
+      <ReadProgressStrip />
     </div>
   );
 }

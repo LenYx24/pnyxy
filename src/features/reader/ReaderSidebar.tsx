@@ -28,21 +28,100 @@ function flattenTocPages(items: TocItem[]): number[] {
   return pages;
 }
 
+type TocReadState = "read" | "in-progress" | "unread";
+
+/**
+ * Map each TOC entry → read state, given the watermark `progressPage`
+ * (furthest page the user has reached, tracker-maintained).
+ *
+ * A chapter's "end page" is the page of the next item in flattened
+ * depth-first order minus 1; the last item ends at `totalPages`.
+ * From there:
+ *   read         — end page ≤ watermark   (chapter fully behind)
+ *   in-progress  — chapter contains the watermark
+ *   unread       — chapter starts past the watermark
+ */
+function buildTocReadState(
+  items: TocItem[],
+  progressPage: number,
+  totalPages: number,
+): Map<TocItem, TocReadState> {
+  const flat: TocItem[] = [];
+  const walk = (list: TocItem[]) => {
+    for (const it of list) {
+      flat.push(it);
+      walk(it.children);
+    }
+  };
+  walk(items);
+
+  const result = new Map<TocItem, TocReadState>();
+  for (let i = 0; i < flat.length; i++) {
+    const item = flat[i];
+    const startPage = item.pageIndex + 1;
+    const next = flat[i + 1];
+    const endPage = next ? next.pageIndex : totalPages - 1; // 0-indexed inclusive
+    // Convert to 1-indexed inclusive for comparison with progressPage.
+    const endPage1 = endPage + 1;
+
+    if (progressPage <= 0 || startPage > progressPage) {
+      result.set(item, "unread");
+    } else if (endPage1 <= progressPage) {
+      result.set(item, "read");
+    } else {
+      result.set(item, "in-progress");
+    }
+  }
+  return result;
+}
+
+/** Tiny visual cue beside each TOC entry. Filled circle for read,
+ *  hollow ring for in-progress, empty placeholder (preserves
+ *  alignment) for unread. Color matches the global active-accent
+ *  so the indicator reads as the same family as the active-row
+ *  highlight without competing with it. */
+function TocReadDot({ state }: { state: TocReadState }) {
+  if (state === "read") {
+    return (
+      <span
+        aria-hidden="true"
+        className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-purple"
+      />
+    );
+  }
+  if (state === "in-progress") {
+    return (
+      <span
+        aria-hidden="true"
+        className="h-1.5 w-1.5 shrink-0 rounded-full border border-accent-purple"
+      />
+    );
+  }
+  // Unread: take the same 1.5 × 1.5 footprint so the title text
+  // doesn't shift when a chapter transitions states.
+  return <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0" />;
+}
+
 function TocEntry({
   item,
   depth,
   currentPage,
   activePage,
+  readState,
   onNavigate,
 }: {
   item: TocItem;
   depth: number;
   currentPage: number;
   activePage: number | null;
+  /** Map from TOC item → reading watermark state, computed at the
+   *  top of the TOC render so every TocEntry can look itself up. */
+  readState: Map<TocItem, TocReadState>;
   onNavigate: (page: number) => void;
 }) {
   const page = item.pageIndex + 1;
   const isActive = activePage === page;
+  const state = readState.get(item) ?? "unread";
   const hasChildren = item.children.length > 0;
   // Default-expand the top level so the user sees the table of
   // contents at a glance; deeper levels collapse by default to keep
@@ -90,12 +169,17 @@ function TocEntry({
         <button
           onClick={() => onNavigate(page)}
           className={cn(
-            "min-w-0 flex-1 truncate rounded-md py-1.5 pr-3 text-left transition-colors cursor-pointer",
+            "flex min-w-0 flex-1 items-center gap-1.5 rounded-md py-1.5 pr-3 text-left transition-colors cursor-pointer",
             depth === 0 ? "text-sm" : "text-xs",
+            // Subtle fade for chapters fully behind the watermark —
+            // keeps them readable but visually "done" so the eye is
+            // drawn to the in-progress / unread entries ahead.
+            state === "read" && !isActive && "opacity-60",
           )}
           title={item.title}
         >
-          {item.title}
+          <TocReadDot state={state} />
+          <span className="min-w-0 flex-1 truncate">{item.title}</span>
         </button>
       </div>
       {hasChildren && expanded && (
@@ -107,6 +191,7 @@ function TocEntry({
               depth={depth + 1}
               currentPage={currentPage}
               activePage={activePage}
+              readState={readState}
               onNavigate={onNavigate}
             />
           ))}
@@ -161,6 +246,15 @@ export function ReaderSidebarContent({
   const toc = activeDoc?.toc ?? EMPTY_TOC;
   const currentPage = activeDoc?.currentPage ?? 1;
   const totalPages = activeDoc?.totalPages ?? 0;
+  const progressPage = activeDoc?.progressPage ?? 0;
+
+  // Re-compute only when the TOC shape OR the watermark changes —
+  // both are cheap enough to redo even on every page change, but a
+  // big TOC + a steadily-incrementing watermark gets called a lot.
+  const tocReadState = useMemo(
+    () => buildTocReadState(toc, progressPage, totalPages),
+    [toc, progressPage, totalPages],
+  );
 
   // Range-based active TOC entry
   const activeTocPage = useMemo(() => {
@@ -503,6 +597,7 @@ export function ReaderSidebarContent({
                   depth={0}
                   currentPage={currentPage}
                   activePage={activeTocPage}
+                  readState={tocReadState}
                   onNavigate={goToPage}
                 />
               ))}

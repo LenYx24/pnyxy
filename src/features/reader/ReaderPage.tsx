@@ -207,7 +207,20 @@ function ActiveViewer({ documentId }: { documentId?: string }) {
 }
 
 function ViewerPanel(props: IDockviewPanelProps<{ documentId?: string }>) {
-  return <ActiveViewer documentId={props.params?.documentId} />;
+  // Wrap the viewer in a `relative` container and mount the floating
+  // search overlay HERE — inside the Dockview panel that holds the
+  // PDF. Previously the desktop SearchOverlay sat at the outer
+  // Dockview container, so its `absolute right-4` pinned to the right
+  // edge of the WHOLE dockview area (viewer + AI chat + TOC), which
+  // made the overlay visually cover the AI chat panel when that was
+  // open. Scoping it to ViewerPanel keeps the right edge aligned with
+  // the viewer itself regardless of which other panels are open.
+  return (
+    <div className="relative h-full w-full">
+      <ActiveViewer documentId={props.params?.documentId} />
+      <SearchOverlay />
+    </div>
+  );
 }
 
 function CommentsPanel(_props: IDockviewPanelProps) {
@@ -1783,7 +1796,12 @@ export function ReaderPage() {
               >
                 <PanelLeft size={16} />
               </button>
-              <SearchOverlay />
+              {/* SearchOverlay used to live here, at the Dockview
+                  outer container — but its `right-4` pinned to the
+                  whole-dockview right edge, overlapping the AI chat
+                  panel when open. It now lives inside ViewerPanel so
+                  the right edge stays aligned with the PDF viewer
+                  panel itself. */}
             </div>
           </>
         )

@@ -155,11 +155,27 @@ export function createPdfAdapter(): DocumentAdapter {
             const ty = t[5];
             // pdfjs uses bottom-left origin; flip to top-left for CSS coords
             const yTop = viewport.height - ty - r.item.height;
+            // pdfjs returns text items as RUNS — a single item can hold
+            // many characters ("The cat sat on the mat"). A whole-item
+            // rect would paint that entire run for a match on just
+            // "cat". Slice the rect down to the matched substring's
+            // proportional offsets within the item; for monospaced and
+            // most proportional fonts this lands within a pixel of the
+            // visible glyphs.
+            const itemLen = r.end - r.start;
+            const overlapStart = Math.max(r.start, matchStart);
+            const overlapEnd = Math.min(r.end, matchEnd);
+            const relStart =
+              itemLen > 0 ? (overlapStart - r.start) / itemLen : 0;
+            const relEnd =
+              itemLen > 0 ? (overlapEnd - r.start) / itemLen : 1;
+            const subX = tx + r.item.width * relStart;
+            const subWidth = r.item.width * (relEnd - relStart);
             rects.push({
               pageNum,
-              x: tx / viewport.width,
+              x: subX / viewport.width,
               y: yTop / viewport.height,
-              width: r.item.width / viewport.width,
+              width: subWidth / viewport.width,
               height: r.item.height / viewport.height,
             });
           }
