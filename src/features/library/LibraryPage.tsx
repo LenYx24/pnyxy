@@ -665,12 +665,35 @@ function LibraryAddMenu({
   // a wrapping span keeps the ref typing simple (the underlying
   // Button component doesn't forward refs).
   const triggerRef = useRef<HTMLSpanElement>(null);
+  // Hover-open with a small grace period so the cursor can travel
+  // from trigger → portaled menu without dropping out. Touch devices
+  // (no hover capability) fall back to the click toggle below.
+  const closeTimerRef = useRef<number | null>(null);
 
   const close = () => setOpen(false);
   const wrap = (fn: () => void) => () => {
     fn();
     close();
   };
+
+  const cancelClose = () => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimerRef.current = window.setTimeout(() => setOpen(false), 150);
+  };
+
+  // Skip hover-open on touch-only devices — fingers don't hover, and
+  // a touch on the trigger would otherwise both open *and* immediately
+  // dispatch a click, causing the menu to flicker.
+  const hoverEnabled =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(hover: hover)").matches;
 
   return (
     <div className="flex flex-wrap gap-2">
@@ -683,7 +706,12 @@ function LibraryAddMenu({
         <Upload size={18} />
         <span className="hidden sm:inline">{t("library.actions.upload")}</span>
       </Button>
-      <span ref={triggerRef} className="inline-flex">
+      <span
+        ref={triggerRef}
+        className="inline-flex"
+        onMouseEnter={hoverEnabled ? () => { cancelClose(); setOpen(true); } : undefined}
+        onMouseLeave={hoverEnabled ? scheduleClose : undefined}
+      >
         <Button
           variant="secondary"
           onClick={() => setOpen((v) => !v)}
@@ -694,7 +722,13 @@ function LibraryAddMenu({
           <Plus size={18} />
         </Button>
       </span>
-      <FloatingMenu open={open} anchorRef={triggerRef} onClose={close}>
+      <FloatingMenu
+        open={open}
+        anchorRef={triggerRef}
+        onClose={close}
+        onMouseEnter={hoverEnabled ? cancelClose : undefined}
+        onMouseLeave={hoverEnabled ? scheduleClose : undefined}
+      >
         <AddMenuItem
           icon={FilePlus}
           label={t("library.actions.open")}

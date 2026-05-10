@@ -14,6 +14,7 @@ import {
 } from "@/lib/launched-files";
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
+import { MobileTopBar } from "./MobileTopBar";
 import { Footer } from "./Footer";
 import { ContextMenu } from "@/components/ui";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
@@ -118,18 +119,25 @@ export function AppLayout() {
   // reader we *fully* hide it when collapsed instead of leaving the
   // narrow rail visible. Reading benefits from every horizontal pixel,
   // and the reader's own toolbar grows a hamburger that expands the
-  // sidebar back when the user wants to navigate away. On mobile the
-  // reader has its own permanent bottom bar (MobileReaderBottomBar),
-  // so we still hide the global BottomNav there to avoid stacking two
-  // bottom rails on a phone.
+  // sidebar back when the user wants to navigate away.
   const hideSidebarForReader = isReaderRoute && sidebarCollapsed;
   const showSidebar = !focusActive && !hideSidebarForReader;
-  const showBottomNav = !isReaderRoute && !focusActive;
+  // Bottom nav now stays visible on the reader too — the user
+  // explicitly asked for persistent app navigation while reading.
+  // The reader's own MobileReaderBottomBar slides above the global
+  // nav (see its `bottom` offset) so the two stack without overlap.
+  const showBottomNav = !focusActive;
+  // Mobile-only top bar carries the brand + the avatar/profile menu
+  // (Profile, Settings, Sign-out). Hidden on the reader since
+  // ReaderToolbar already occupies that space, and during a focus
+  // session for an uninterrupted reading surface.
+  const showMobileTopBar = !isReaderRoute && !focusActive && !showFooter;
   const sidebarMargin = showSidebar && isDesktop;
 
   return (
     <div className="min-h-screen bg-bg-primary">
       {showSidebar && <Sidebar />}
+      {showMobileTopBar && <MobileTopBar />}
       {/* main is flex-col + min-h-screen so a flex-1 content wrapper
           stretches to fill the viewport on short pages — that's what
           pins the footer (and the bottom-nav spacer) to the visual
@@ -138,6 +146,10 @@ export function AppLayout() {
         className={cn(
           "flex min-h-screen flex-col transition-[margin] duration-200 ease-out",
           sidebarMargin && (sidebarCollapsed ? "ml-sidebar-collapsed" : "ml-sidebar-expanded"),
+          // Push content below the mobile top bar so it doesn't sit
+          // behind the fixed header. Reader is excluded above so it
+          // gets to use the full vertical space.
+          showMobileTopBar && "pt-12 md:pt-0",
         )}
       >
         <div
@@ -151,8 +163,10 @@ export function AppLayout() {
         {showFooter && <Footer />}
         {/* Spacer so app routes' content + bottom-nav don't overlap
             on mobile. Footer routes already render their own block
-            and we accept it sitting partly behind the nav there. */}
-        {showBottomNav && !showFooter && (
+            and we accept it sitting partly behind the nav there.
+            The reader has its own internal padding handling, so
+            skip the spacer there. */}
+        {showBottomNav && !showFooter && !isReaderRoute && (
           <div aria-hidden className="h-16 md:h-0" />
         )}
       </main>

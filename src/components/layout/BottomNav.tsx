@@ -1,35 +1,26 @@
 import { NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
+  BookOpen,
+  BotMessageSquare,
   Compass,
   Library,
-  BookOpen,
-  User,
-  LogIn,
-  Users,
-  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useAuthStore } from "@/stores/auth-store";
 
-const baseNavItems = [
-  { to: "/browse", icon: Compass, key: "browse" as const },
+// Mobile bottom nav: the four core surfaces a user moves between
+// during normal use. Auth / profile / settings live in the mobile
+// top bar (avatar menu) so the bottom rail stays focused on
+// "where am I going next?" instead of identity / config.
+const navItems = [
   { to: "/library", icon: Library, key: "library" as const },
+  { to: "/chat", icon: BotMessageSquare, key: "chat" as const },
   { to: "/reader", icon: BookOpen, key: "reader" as const },
-  { to: "/forum", icon: Users, key: "forum" as const },
-  { to: "/settings", icon: Settings, key: "settings" as const },
+  { to: "/browse", icon: Compass, key: "browse" as const },
 ];
 
 export function BottomNav() {
   const { t } = useTranslation();
-  const { user } = useAuthStore();
-
-  const navItems = [
-    ...baseNavItems,
-    user
-      ? { to: "/profile", icon: User, key: "profile" as const }
-      : { to: "/auth", icon: LogIn, key: "signIn" as const },
-  ];
 
   return (
     <nav

@@ -14,6 +14,11 @@ interface FloatingMenuProps {
   onClose: () => void;
   className?: string;
   children: ReactNode;
+  /** Hover handlers forwarded to the menu container. Lets a
+   *  hover-triggered parent track when the cursor enters/leaves the
+   *  portaled menu (since it's not a DOM child of the anchor). */
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 /**
@@ -33,6 +38,8 @@ export function FloatingMenu({
   onClose,
   className,
   children,
+  onMouseEnter,
+  onMouseLeave,
 }: FloatingMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -104,6 +111,8 @@ export function FloatingMenu({
       ref={menuRef}
       role="menu"
       onContextMenu={(e) => e.preventDefault()}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       className={cn(
         "fixed z-[100] min-w-[11rem] overflow-hidden rounded-lg border border-glass-border bg-bg-secondary/95 py-1 shadow-xl backdrop-blur-xl",
         className,
