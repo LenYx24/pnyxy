@@ -1,3 +1,11 @@
+// This file is the route table — it exports `router`, a non-
+// component object, alongside many `const PageName = lazy(...)`
+// declarations the lint sees as components. react-refresh's
+// "only-export-components" rule then complains about mixed exports.
+// Fast refresh wouldn't be useful here anyway: HMR boundaries
+// belong on the lazy-loaded page components themselves, not on
+// the router config. Disable the rule file-wide.
+/* eslint-disable react-refresh/only-export-components */
 import { lazy } from "react";
 import { Navigate, createBrowserRouter, redirect } from "react-router";
 import { AppLayout } from "@/components/layout/AppLayout";
