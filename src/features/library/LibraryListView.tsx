@@ -294,7 +294,19 @@ function FolderRow({
   );
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
+    // Row-level content-visibility: cheap when there are hundreds
+    // of rows — the browser skips paint/layout for offscreen ones.
+    // 48px is an over-estimate for the densest layout so the
+    // scrollbar is steady regardless of which density is active.
+    <div
+      ref={setNodeRef}
+      style={{
+        ...style,
+        contentVisibility: "auto",
+        containIntrinsicSize: "auto 48px",
+      }}
+      {...attributes}
+    >
       <div
         {...contextHandlers}
         {...listeners}
@@ -630,7 +642,17 @@ function BookRow({
   });
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
+    // Mirrors FolderRow's content-visibility wrapper — see the
+    // comment there for the why.
+    <div
+      ref={setNodeRef}
+      style={{
+        ...style,
+        contentVisibility: "auto",
+        containIntrinsicSize: "auto 48px",
+      }}
+      {...attributes}
+    >
       <div
         {...contextHandlers}
         {...listeners}

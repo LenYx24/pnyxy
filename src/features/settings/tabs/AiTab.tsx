@@ -29,6 +29,7 @@ const PROVIDER_LABELS: Record<AiProvider, string> = {
   pnyxy: "Pnyxy",
   anthropic: "Anthropic",
   openai: "OpenAI",
+  local: "Local model",
 };
 
 export function AiTab() {
@@ -38,13 +39,20 @@ export function AiTab() {
   const moveProvider = useSettingsStore((s) => s.moveProvider);
   const anthropicApiKey = useSettingsStore((s) => s.anthropicApiKey);
   const openaiApiKey = useSettingsStore((s) => s.openaiApiKey);
+  const localBaseUrl = useSettingsStore((s) => s.localBaseUrl);
+  const localModel = useSettingsStore((s) => s.localModel);
+  const localApiKey = useSettingsStore((s) => s.localApiKey);
   const setAnthropicApiKey = useSettingsStore((s) => s.setAnthropicApiKey);
   const setOpenaiApiKey = useSettingsStore((s) => s.setOpenaiApiKey);
+  const setLocalBaseUrl = useSettingsStore((s) => s.setLocalBaseUrl);
+  const setLocalModel = useSettingsStore((s) => s.setLocalModel);
+  const setLocalApiKey = useSettingsStore((s) => s.setLocalApiKey);
 
   const user = useAuthStore((s) => s.user);
 
   const [showAnthropicKey, setShowAnthropicKey] = useState(false);
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
+  const [showLocalKey, setShowLocalKey] = useState(false);
 
   const [usageState, setUsageState] = useState<{
     forUserId: string | null;
@@ -77,7 +85,12 @@ export function AiTab() {
   );
 
   return (
-    <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
+    // Outer card frame only kicks in at sm:+ — on mobile the section
+    // sits flush with the page padding so we don't lose 32px of
+    // horizontal space to nested borders+padding before the first
+    // input. The ProviderRow / subsection cards inside still group
+    // content visually even without the outer card.
+    <section className="space-y-4 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
       <div className="flex items-center gap-2">
         <BotMessageSquare size={18} className="text-accent-purple" />
         <h2 className="text-lg font-semibold text-text-primary">
@@ -111,12 +124,20 @@ export function AiTab() {
               usageLoading={usageLoading}
               anthropicApiKey={anthropicApiKey}
               openaiApiKey={openaiApiKey}
+              localBaseUrl={localBaseUrl}
+              localModel={localModel}
+              localApiKey={localApiKey}
               setAnthropicApiKey={setAnthropicApiKey}
               setOpenaiApiKey={setOpenaiApiKey}
+              setLocalBaseUrl={setLocalBaseUrl}
+              setLocalModel={setLocalModel}
+              setLocalApiKey={setLocalApiKey}
               showAnthropicKey={showAnthropicKey}
               showOpenaiKey={showOpenaiKey}
+              showLocalKey={showLocalKey}
               setShowAnthropicKey={setShowAnthropicKey}
               setShowOpenaiKey={setShowOpenaiKey}
+              setShowLocalKey={setShowLocalKey}
             />
           ))}
         </div>
@@ -156,7 +177,7 @@ export function AiTab() {
 function ModelCatalogSection() {
   const { t } = useTranslation();
   return (
-    <div className="space-y-3 rounded-lg border border-glass-border bg-bg-primary/30 p-3">
+    <div className="space-y-3 sm:rounded-lg sm:border sm:border-glass-border sm:bg-bg-primary/30 sm:p-3">
       <div>
         <h3 className="text-sm font-semibold text-text-primary">
           {t("settings.aiModels.heading", {
@@ -202,7 +223,7 @@ function AiContextSection() {
   );
 
   return (
-    <div className="space-y-3 rounded-lg border border-glass-border bg-bg-primary/30 p-3">
+    <div className="space-y-3 sm:rounded-lg sm:border sm:border-glass-border sm:bg-bg-primary/30 sm:p-3">
       <div>
         <h3 className="text-sm font-semibold text-text-primary">
           {t("settings.aiContext.heading")}
@@ -280,12 +301,20 @@ interface ProviderRowProps {
   usageLoading: boolean;
   anthropicApiKey: string;
   openaiApiKey: string;
+  localBaseUrl: string;
+  localModel: string;
+  localApiKey: string;
   setAnthropicApiKey: (v: string) => void;
   setOpenaiApiKey: (v: string) => void;
+  setLocalBaseUrl: (v: string) => void;
+  setLocalModel: (v: string) => void;
+  setLocalApiKey: (v: string) => void;
   showAnthropicKey: boolean;
   showOpenaiKey: boolean;
+  showLocalKey: boolean;
   setShowAnthropicKey: (v: boolean) => void;
   setShowOpenaiKey: (v: boolean) => void;
+  setShowLocalKey: (v: boolean) => void;
 }
 
 function ProviderRow({
@@ -301,27 +330,39 @@ function ProviderRow({
   usageLoading,
   anthropicApiKey,
   openaiApiKey,
+  localBaseUrl,
+  localModel,
+  localApiKey,
   setAnthropicApiKey,
   setOpenaiApiKey,
+  setLocalBaseUrl,
+  setLocalModel,
+  setLocalApiKey,
   showAnthropicKey,
   showOpenaiKey,
+  showLocalKey,
   setShowAnthropicKey,
   setShowOpenaiKey,
+  setShowLocalKey,
 }: ProviderRowProps) {
   const { t } = useTranslation();
   const needsKey =
     (provider === "anthropic" && !anthropicApiKey.trim()) ||
-    (provider === "openai" && !openaiApiKey.trim());
+    (provider === "openai" && !openaiApiKey.trim()) ||
+    (provider === "local" &&
+      (!localBaseUrl.trim() || !localModel.trim()));
 
   const hint =
     provider === "pnyxy"
       ? t("settings.aiSection.pnyxyHint")
       : provider === "anthropic"
         ? t("settings.aiSection.anthropicHint")
-        : t("settings.aiSection.openaiHint");
+        : provider === "openai"
+          ? t("settings.aiSection.openaiHint")
+          : t("settings.aiSection.localHint");
 
   return (
-    <div className="rounded-lg border border-glass-border bg-bg-primary/40 p-3 space-y-2">
+    <div className="rounded-lg border border-glass-border bg-bg-primary/40 p-2.5 space-y-2 sm:p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-purple/20 text-[10px] font-mono font-medium text-accent-purple">
@@ -431,6 +472,57 @@ function ProviderRow({
             consoleLabel={t("settings.aiSection.checkUsageOpenAI")}
           />
         </>
+      )}
+
+      {provider === "local" && (
+        <div className="space-y-2">
+          <label className="block space-y-1">
+            <span className="text-[11px] font-medium text-text-secondary">
+              {t("settings.aiSection.localBaseUrlLabel")}
+            </span>
+            <input
+              type="text"
+              value={localBaseUrl}
+              onChange={(e) => setLocalBaseUrl(e.target.value)}
+              placeholder="http://localhost:11434/v1"
+              spellCheck={false}
+              autoCapitalize="off"
+              autoComplete="off"
+              className="w-full rounded-md border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-primary outline-none focus:border-accent-purple placeholder:text-text-muted"
+            />
+            <span className="block text-[10px] text-text-muted">
+              {t("settings.aiSection.localBaseUrlHint")}
+            </span>
+          </label>
+          <label className="block space-y-1">
+            <span className="text-[11px] font-medium text-text-secondary">
+              {t("settings.aiSection.localModelLabel")}
+            </span>
+            <input
+              type="text"
+              value={localModel}
+              onChange={(e) => setLocalModel(e.target.value)}
+              placeholder="llama3.2"
+              spellCheck={false}
+              autoCapitalize="off"
+              autoComplete="off"
+              className="w-full rounded-md border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-primary outline-none focus:border-accent-purple placeholder:text-text-muted"
+            />
+            <span className="block text-[10px] text-text-muted">
+              {t("settings.aiSection.localModelHint")}
+            </span>
+          </label>
+          {/* Optional bearer for endpoints behind auth — most users
+              on plain localhost Ollama can leave this blank. */}
+          <ApiKeyInput
+            value={localApiKey}
+            onChange={setLocalApiKey}
+            show={showLocalKey}
+            onToggleShow={() => setShowLocalKey(!showLocalKey)}
+            placeholder={t("settings.aiSection.localApiKeyPlaceholder")}
+            helpText={t("settings.aiSection.localApiKeyHint")}
+          />
+        </div>
       )}
     </div>
   );

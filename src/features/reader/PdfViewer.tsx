@@ -101,6 +101,14 @@ const PageSlot = memo(function PageSlot({
             pageNumber={pageNum}
             rotate={rotation}
             width={effectiveRenderW}
+            // Explicit `renderTextLayer` is the default in react-pdf
+            // 10, but stating it kills the class of bugs where a
+            // future codepath flips it off silently — text selection
+            // would just stop working for one breakpoint or one
+            // upload type. Same reasoning for renderAnnotationLayer,
+            // which carries links + form fields out of the box.
+            renderTextLayer={true}
+            renderAnnotationLayer={true}
             loading={
               <div style={{ height: pageHeight, width: effectiveRenderW }} />
             }
@@ -331,15 +339,48 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   // every render (no deps), so any time React commits — gesture
   // trigger, store update, dimensions update — the sizer dimensions
   // get reasserted from the imperative source of truth before the
-  // browser paints. Cheap (two style writes), but kills the snap bug
-  // dead: there's no longer a window where the DOM has the JSX-
-  // declared unscaled values.
+  // browser paints. Kills the snap bug: there's no longer a window
+  // where the DOM has the JSX-declared unscaled values.
+  //
+  // Critical: skip the write when dimensions match what's already on
+  // the element. `handleScroll` fires a `setScrollTop` on every
+  // scroll event (vertical and horizontal alike), and a re-write
+  // here — even of identical values — can trigger the browser's
+  // scroll-position clamping pass mid-drag. That manifested as the
+  // horizontal scrollbar "moving a bit, then snapping back to 0"
+  // when the user dragged it on a zoomed-in page. The string
+  // comparison is cheap; the layout side-effect of an unneeded write
+  // is not.
   useLayoutEffect(() => {
     const sizerEl = sizerRef.current;
     if (!sizerEl) return;
     const scale = liveScaleRef.current;
-    sizerEl.style.width = `${baselineWidth * scale}px`;
-    sizerEl.style.height = `${totalContentHeight * scale}px`;
+    const nextWidth = `${baselineWidth * scale}px`;
+    const nextHeight = `${totalContentHeight * scale}px`;
+    if (
+      sizerEl.style.width === nextWidth &&
+      sizerEl.style.height === nextHeight
+    ) {
+      return;
+    }
+    // Save scroll across the write. When the sizer's box actually
+    // does change size — e.g. a freshly-measured page replaced an
+    // A4-estimated height with a smaller real height — the browser
+    // clamps both axes to the new bounds. Restore them so an
+    // in-progress horizontal scrollbar drag isn't yanked back to 0.
+    const containerEl = containerRef.current;
+    const prevLeft = containerEl?.scrollLeft ?? 0;
+    const prevTop = containerEl?.scrollTop ?? 0;
+    sizerEl.style.width = nextWidth;
+    sizerEl.style.height = nextHeight;
+    if (containerEl) {
+      if (containerEl.scrollLeft !== prevLeft) {
+        containerEl.scrollLeft = prevLeft;
+      }
+      if (containerEl.scrollTop !== prevTop) {
+        containerEl.scrollTop = prevTop;
+      }
+    }
   });
 
   // Apply the scale + scroll math imperatively. Runs 60×/sec during a
@@ -1168,7 +1209,27 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   }, []);
 
   const documentOptions = useMemo(
-    () => ({ cMapUrl: "/pdf-assets/cmaps/", cMapPacked: true }),
+    () => ({
+      // CJK character maps for PDFs that reference them.
+      cMapUrl: "/pdf-assets/cmaps/",
+      cMapPacked: true,
+      // Standard PDF fonts (Helvetica, Times, Courier, …). Without
+      // these, PDFs that don't embed the base 14 fonts fall back
+      // to a generic substitute and rendered text shifts noticeably.
+      standardFontDataUrl: "/pdf-assets/standard_fonts/",
+      // XFA forms — niche IRS/government forms feature. Disabling
+      // skips parsing/rendering for the 99% of textbooks/novels
+      // that don't use it and saves a bit of CPU on first parse.
+      enableXfa: false,
+      // CSP-friendly. Marginal perf cost on font subsetting paths
+      // that historically used eval; modern pdf.js codepaths don't
+      // require it for the bulk of rendering work.
+      isEvalSupported: false,
+      // Use the OS-installed Helvetica/Times/Courier when present
+      // instead of downloading the bundled substitutes. Skipped
+      // automatically when the requested font isn't on the system.
+      useSystemFonts: true,
+    }),
     [],
   );
 

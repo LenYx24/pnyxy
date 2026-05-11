@@ -15,7 +15,17 @@
  * extraction path by accident.
  */
 
-export type RecommendationMode = "default" | "books" | "videos";
+export type RecommendationMode =
+  | "default"
+  | "books"
+  | "videos"
+  // "image" routes the next message through OpenAI's Images API
+  // instead of a chat completion. The composer surfaces this in
+  // the mode picker the same way as "books" / "videos"; the parent
+  // checks `mode === "image"` in its onSubmit handler and dispatches
+  // to chat-store.sendImageMessage rather than sendMessage. Reset
+  // back to "default" after each send is composer-side already.
+  | "image";
 
 const BOOKS_PROMPT = `You are a recommender that suggests BOOKS for someone who wants to learn about a topic.
 

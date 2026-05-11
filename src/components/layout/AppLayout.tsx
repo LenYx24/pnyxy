@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
 import { useAuthStore } from "@/stores/auth-store";
@@ -16,6 +17,7 @@ import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
 import { MobileTopBar } from "./MobileTopBar";
 import { Footer } from "./Footer";
+import { OfflineBanner } from "./OfflineBanner";
 import { ContextMenu } from "@/components/ui";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { BannedScreen } from "@/features/admin/BannedScreen";
@@ -137,6 +139,10 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen bg-bg-primary">
+      {/* Slim offline status bar pinned to the very top. Renders
+          nothing when online; when offline it sits above the
+          MobileTopBar so it's always visible. */}
+      <OfflineBanner />
       {showSidebar && <Sidebar />}
       {showMobileTopBar && <MobileTopBar />}
       {/* main is flex-col + min-h-screen so a flex-1 content wrapper
@@ -159,7 +165,26 @@ export function AppLayout() {
             useFlushContent ? "p-0" : "p-4 md:p-6",
           )}
         >
-          <Outlet />
+          {/* Suspense fallback for lazy-loaded route chunks. Most
+              non-eager routes (reader, chat, book tabs, settings,
+              quizzes, …) live in their own chunks and fall through
+              here while their JS downloads on the first visit. The
+              spinner is intentionally minimal — same dark bg as the
+              page so the transition reads as "still loading" not
+              "different screen." */}
+          <Suspense
+            fallback={
+              <div className="flex h-full min-h-[40vh] items-center justify-center">
+                <Loader2
+                  size={24}
+                  className="animate-spin text-accent-purple/70"
+                  aria-label="Loading"
+                />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </div>
         {showFooter && <Footer />}
         {/* Spacer so app routes' content + bottom-nav don't overlap

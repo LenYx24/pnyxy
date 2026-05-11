@@ -40,6 +40,7 @@ import { useBook } from "../BookPageContext";
 import { BookStatusPicker } from "../BookStatusPicker";
 import { BookCategoryEditor } from "../BookCategoryEditor";
 import { AttachFileButton } from "../AttachFileButton";
+import { ReadingSessionCard } from "../ReadingSessionCard";
 
 /**
  * Button that creates a standalone whiteboard and navigates to it.
@@ -279,6 +280,14 @@ function CatalogOverview({
         </div>
       )}
 
+      {/* Reading session + per-book stats. Only shown once the book
+          is in the user's library — sessions live on a per-doc
+          basis and a not-yet-added catalog book has no stats to
+          accumulate against. */}
+      {user && inLibrary && (
+        <ReadingSessionCard docId={book.id} pageCount={book.page_count ?? null} />
+      )}
+
       {readError === "cors-fallback" && (
         <p className="rounded-lg bg-yellow-500/10 px-3 py-2 text-xs text-yellow-400">
           {t("book.overview.readCorsFallback")}
@@ -470,6 +479,10 @@ function UploadedOverview({
           initialCategories={categories}
         />
       </div>
+
+      {/* Per-book reading session timer + derived stats (streak,
+          pace, finish-date). docId mirrors what PageTracker uses. */}
+      <ReadingSessionCard docId={book.id} pageCount={book.page_count ?? null} />
 
       {storagePath && (
         <div className="rounded-lg border border-glass-border bg-glass-bg/50 p-4 text-sm">

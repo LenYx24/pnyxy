@@ -1,65 +1,267 @@
+import { lazy } from "react";
 import { Navigate, createBrowserRouter, redirect } from "react-router";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RouteErrorBoundary } from "@/components/ErrorBoundary";
+
+// ── Eager routes ─────────────────────────────────────────────
+// These are kept in the main bundle because they're on the first-
+// paint path: landing for new visitors, auth for sign-in, home for
+// returning users. Together they're under 600 LOC; lazy-loading
+// them would just trade bundle size for a Suspense fallback flash
+// on the most common entry points.
 import { LandingPage } from "@/features/landing/LandingPage";
 import { HomePage } from "@/features/home/HomePage";
-import { BrowsePage } from "@/features/browse/BrowsePage";
-import { ImportCatalogPage } from "@/features/catalog-import/ImportCatalogPage";
-import { BookPage } from "@/features/book/BookPage";
-import { OverviewTab } from "@/features/book/tabs/OverviewTab";
-import { LearnHubTab } from "@/features/book/tabs/LearnHubTab";
-import { LearnMethodPlaceholder } from "@/features/book/tabs/LearnMethodPlaceholder";
-import { DiscussTab } from "@/features/book/tabs/DiscussTab";
-import { NotesTab } from "@/features/book/tabs/NotesTab";
-import { BookmarksTab } from "@/features/book/tabs/BookmarksTab";
-import { WhiteboardsTab } from "@/features/book/tabs/WhiteboardsTab";
-import { ResourcesTab } from "@/features/book/tabs/ResourcesTab";
-import { ExamsTab } from "@/features/book/tabs/ExamsTab";
-import { LibraryPage } from "@/features/library/LibraryPage";
-import { WorkspacePage } from "@/features/workspace/WorkspacePage";
-import { ReaderPage } from "@/features/reader/ReaderPage";
-import { SettingsPage } from "@/features/settings/SettingsPage";
-import { GeneralTab } from "@/features/settings/tabs/GeneralTab";
-import { AppearanceTab } from "@/features/settings/tabs/AppearanceTab";
-import { AiTab } from "@/features/settings/tabs/AiTab";
-import { OrganizationsTab } from "@/features/settings/tabs/OrganizationsTab";
-import { TagsTab } from "@/features/settings/tabs/TagsTab";
-import { PluginsTab } from "@/features/settings/tabs/PluginsTab";
-import { ShortcutsTab } from "@/features/settings/tabs/ShortcutsTab";
-import { FeedbackTab } from "@/features/settings/tabs/FeedbackTab";
-import { AboutTab } from "@/features/settings/tabs/AboutTab";
-import { QuizzesPage } from "@/features/quizzes/QuizzesPage";
-import { WhiteboardPage } from "@/features/whiteboard/WhiteboardPage";
-import { VocabularyPage } from "@/features/vocabulary/VocabularyPage";
-import { QuizEditorPage } from "@/features/quizzes/QuizEditorPage";
-import { QuizAttemptReviewPage } from "@/features/quizzes/QuizAttemptReviewPage";
-import { QuizReviewPage } from "@/features/quizzes/QuizReviewPage";
-import { QuizDetailPage } from "@/features/quizzes/QuizDetailPage";
-import { QuizTakePage } from "@/features/quizzes/QuizTakePage";
 import { AuthPage } from "@/features/auth/AuthPage";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
 import { WelcomePage } from "@/features/auth/WelcomePage";
-import { ProfilePage } from "@/features/profile/ProfilePage";
-import { AdminPage } from "@/features/admin/AdminPage";
-import { StreaksPage } from "@/features/streaks/StreaksPage";
-import { LeaderboardsPage } from "@/features/streaks/LeaderboardsPage";
-import { PlanDetailPage } from "@/features/streaks/PlanDetailPage";
-import { RoadmapsPage } from "@/features/roadmaps/RoadmapsPage";
-import { RoadmapDetailPage } from "@/features/roadmaps/RoadmapDetailPage";
-import { RoadmapEditorPage } from "@/features/roadmaps/RoadmapEditorPage";
-import { ChatPage } from "@/features/chat/ChatPage";
-import { ForumPage } from "@/features/forum/ForumPage";
-import { ForumExplorePage } from "@/features/forum/ForumExplorePage";
-import { CommunityPage } from "@/features/forum/CommunityPage";
-import { PostPage } from "@/features/forum/PostPage";
-import { PostComposer } from "@/features/forum/PostComposer";
-import { AboutPage } from "@/features/static/AboutPage";
-import { PrivacyPage } from "@/features/static/PrivacyPage";
-import { TermsPage } from "@/features/static/TermsPage";
-import { HelpPage } from "@/features/static/HelpPage";
-import { TutorialPage } from "@/features/static/TutorialPage";
-import { DownloadPage } from "@/features/static/DownloadPage";
+
+// ── Lazy routes ──────────────────────────────────────────────
+// Everything below splits into its own chunk via Vite's default
+// dynamic-import code-splitting. The Suspense fallback lives on
+// AppLayout's <Outlet />, so all child routes share one loading
+// state. Named exports are unwrapped via `.then(m => ({default: ...}))`
+// because React.lazy only accepts modules with a `default` export.
+
+const BrowsePage = lazy(() =>
+  import("@/features/browse/BrowsePage").then((m) => ({ default: m.BrowsePage })),
+);
+const ImportCatalogPage = lazy(() =>
+  import("@/features/catalog-import/ImportCatalogPage").then((m) => ({
+    default: m.ImportCatalogPage,
+  })),
+);
+const BookPage = lazy(() =>
+  import("@/features/book/BookPage").then((m) => ({ default: m.BookPage })),
+);
+const OverviewTab = lazy(() =>
+  import("@/features/book/tabs/OverviewTab").then((m) => ({
+    default: m.OverviewTab,
+  })),
+);
+const LearnHubTab = lazy(() =>
+  import("@/features/book/tabs/LearnHubTab").then((m) => ({
+    default: m.LearnHubTab,
+  })),
+);
+const LearnMethodPlaceholder = lazy(() =>
+  import("@/features/book/tabs/LearnMethodPlaceholder").then((m) => ({
+    default: m.LearnMethodPlaceholder,
+  })),
+);
+const DiscussTab = lazy(() =>
+  import("@/features/book/tabs/DiscussTab").then((m) => ({
+    default: m.DiscussTab,
+  })),
+);
+const NotesTab = lazy(() =>
+  import("@/features/book/tabs/NotesTab").then((m) => ({ default: m.NotesTab })),
+);
+const BookmarksTab = lazy(() =>
+  import("@/features/book/tabs/BookmarksTab").then((m) => ({
+    default: m.BookmarksTab,
+  })),
+);
+const WhiteboardsTab = lazy(() =>
+  import("@/features/book/tabs/WhiteboardsTab").then((m) => ({
+    default: m.WhiteboardsTab,
+  })),
+);
+const ResourcesTab = lazy(() =>
+  import("@/features/book/tabs/ResourcesTab").then((m) => ({
+    default: m.ResourcesTab,
+  })),
+);
+const ExamsTab = lazy(() =>
+  import("@/features/book/tabs/ExamsTab").then((m) => ({ default: m.ExamsTab })),
+);
+const LibraryPage = lazy(() =>
+  import("@/features/library/LibraryPage").then((m) => ({
+    default: m.LibraryPage,
+  })),
+);
+const WorkspacePage = lazy(() =>
+  import("@/features/workspace/WorkspacePage").then((m) => ({
+    default: m.WorkspacePage,
+  })),
+);
+const ReaderPage = lazy(() =>
+  import("@/features/reader/ReaderPage").then((m) => ({
+    default: m.ReaderPage,
+  })),
+);
+const SettingsPage = lazy(() =>
+  import("@/features/settings/SettingsPage").then((m) => ({
+    default: m.SettingsPage,
+  })),
+);
+const GeneralTab = lazy(() =>
+  import("@/features/settings/tabs/GeneralTab").then((m) => ({
+    default: m.GeneralTab,
+  })),
+);
+const AppearanceTab = lazy(() =>
+  import("@/features/settings/tabs/AppearanceTab").then((m) => ({
+    default: m.AppearanceTab,
+  })),
+);
+const AiTab = lazy(() =>
+  import("@/features/settings/tabs/AiTab").then((m) => ({ default: m.AiTab })),
+);
+const OrganizationsTab = lazy(() =>
+  import("@/features/settings/tabs/OrganizationsTab").then((m) => ({
+    default: m.OrganizationsTab,
+  })),
+);
+const TagsTab = lazy(() =>
+  import("@/features/settings/tabs/TagsTab").then((m) => ({ default: m.TagsTab })),
+);
+const PluginsTab = lazy(() =>
+  import("@/features/settings/tabs/PluginsTab").then((m) => ({
+    default: m.PluginsTab,
+  })),
+);
+const ShortcutsTab = lazy(() =>
+  import("@/features/settings/tabs/ShortcutsTab").then((m) => ({
+    default: m.ShortcutsTab,
+  })),
+);
+const FeedbackTab = lazy(() =>
+  import("@/features/settings/tabs/FeedbackTab").then((m) => ({
+    default: m.FeedbackTab,
+  })),
+);
+const AboutTab = lazy(() =>
+  import("@/features/settings/tabs/AboutTab").then((m) => ({
+    default: m.AboutTab,
+  })),
+);
+const QuizzesPage = lazy(() =>
+  import("@/features/quizzes/QuizzesPage").then((m) => ({
+    default: m.QuizzesPage,
+  })),
+);
+const WhiteboardPage = lazy(() =>
+  import("@/features/whiteboard/WhiteboardPage").then((m) => ({
+    default: m.WhiteboardPage,
+  })),
+);
+const VocabularyPage = lazy(() =>
+  import("@/features/vocabulary/VocabularyPage").then((m) => ({
+    default: m.VocabularyPage,
+  })),
+);
+const QuizEditorPage = lazy(() =>
+  import("@/features/quizzes/QuizEditorPage").then((m) => ({
+    default: m.QuizEditorPage,
+  })),
+);
+const QuizAttemptReviewPage = lazy(() =>
+  import("@/features/quizzes/QuizAttemptReviewPage").then((m) => ({
+    default: m.QuizAttemptReviewPage,
+  })),
+);
+const QuizReviewPage = lazy(() =>
+  import("@/features/quizzes/QuizReviewPage").then((m) => ({
+    default: m.QuizReviewPage,
+  })),
+);
+const QuizDetailPage = lazy(() =>
+  import("@/features/quizzes/QuizDetailPage").then((m) => ({
+    default: m.QuizDetailPage,
+  })),
+);
+const QuizTakePage = lazy(() =>
+  import("@/features/quizzes/QuizTakePage").then((m) => ({
+    default: m.QuizTakePage,
+  })),
+);
+const ProfilePage = lazy(() =>
+  import("@/features/profile/ProfilePage").then((m) => ({
+    default: m.ProfilePage,
+  })),
+);
+const AdminPage = lazy(() =>
+  import("@/features/admin/AdminPage").then((m) => ({ default: m.AdminPage })),
+);
+const StreaksPage = lazy(() =>
+  import("@/features/streaks/StreaksPage").then((m) => ({
+    default: m.StreaksPage,
+  })),
+);
+const LeaderboardsPage = lazy(() =>
+  import("@/features/streaks/LeaderboardsPage").then((m) => ({
+    default: m.LeaderboardsPage,
+  })),
+);
+const PlanDetailPage = lazy(() =>
+  import("@/features/streaks/PlanDetailPage").then((m) => ({
+    default: m.PlanDetailPage,
+  })),
+);
+const RoadmapsPage = lazy(() =>
+  import("@/features/roadmaps/RoadmapsPage").then((m) => ({
+    default: m.RoadmapsPage,
+  })),
+);
+const RoadmapDetailPage = lazy(() =>
+  import("@/features/roadmaps/RoadmapDetailPage").then((m) => ({
+    default: m.RoadmapDetailPage,
+  })),
+);
+const RoadmapEditorPage = lazy(() =>
+  import("@/features/roadmaps/RoadmapEditorPage").then((m) => ({
+    default: m.RoadmapEditorPage,
+  })),
+);
+const ChatPage = lazy(() =>
+  import("@/features/chat/ChatPage").then((m) => ({ default: m.ChatPage })),
+);
+const ForumPage = lazy(() =>
+  import("@/features/forum/ForumPage").then((m) => ({ default: m.ForumPage })),
+);
+const ForumExplorePage = lazy(() =>
+  import("@/features/forum/ForumExplorePage").then((m) => ({
+    default: m.ForumExplorePage,
+  })),
+);
+const CommunityPage = lazy(() =>
+  import("@/features/forum/CommunityPage").then((m) => ({
+    default: m.CommunityPage,
+  })),
+);
+const PostPage = lazy(() =>
+  import("@/features/forum/PostPage").then((m) => ({ default: m.PostPage })),
+);
+const PostComposer = lazy(() =>
+  import("@/features/forum/PostComposer").then((m) => ({
+    default: m.PostComposer,
+  })),
+);
+const AboutPage = lazy(() =>
+  import("@/features/static/AboutPage").then((m) => ({ default: m.AboutPage })),
+);
+const PrivacyPage = lazy(() =>
+  import("@/features/static/PrivacyPage").then((m) => ({
+    default: m.PrivacyPage,
+  })),
+);
+const TermsPage = lazy(() =>
+  import("@/features/static/TermsPage").then((m) => ({ default: m.TermsPage })),
+);
+const HelpPage = lazy(() =>
+  import("@/features/static/HelpPage").then((m) => ({ default: m.HelpPage })),
+);
+const TutorialPage = lazy(() =>
+  import("@/features/static/TutorialPage").then((m) => ({
+    default: m.TutorialPage,
+  })),
+);
+const DownloadPage = lazy(() =>
+  import("@/features/static/DownloadPage").then((m) => ({
+    default: m.DownloadPage,
+  })),
+);
 
 export const router = createBrowserRouter([
   {

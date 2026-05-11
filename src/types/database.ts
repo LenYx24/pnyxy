@@ -253,6 +253,31 @@ export interface BookResumeState {
   updated_at: string;
 }
 
+// ── Reading Sessions (per-book session timer) ──────────────
+
+export interface ReadingSession {
+  id: string;
+  user_id: string;
+  doc_id: string;
+  started_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  start_page: number | null;
+  end_page: number | null;
+  created_at: string;
+}
+
+export interface ReadingSessionInsert {
+  id?: string;
+  user_id: string;
+  doc_id: string;
+  started_at: string;
+  ended_at?: string | null;
+  duration_seconds?: number | null;
+  start_page?: number | null;
+  end_page?: number | null;
+}
+
 // ── User Reports ───────────────────────────────────────────
 
 export interface UserReport {
@@ -300,6 +325,11 @@ export interface Database {
       whiteboards: { Row: DbWhiteboard };
       reading_progress: { Row: ReadingProgress };
       book_resume_state: { Row: BookResumeState };
+      reading_sessions: {
+        Row: ReadingSession;
+        Insert: ReadingSessionInsert;
+        Update: Partial<ReadingSession>;
+      };
       catalog_books: { Row: CatalogBook; Insert: CatalogBookInsert };
       user_library: { Row: UserLibraryEntry };
       user_reports: { Row: UserReport };

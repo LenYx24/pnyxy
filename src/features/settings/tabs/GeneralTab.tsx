@@ -92,7 +92,7 @@ export function GeneralTab() {
 
   return (
     <div className="space-y-6">
-      <section className="space-y-3 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
+      <section className="space-y-3 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
         <div>
           <h2 className="text-lg font-semibold text-text-primary">
             {t("settings.language.label")}
@@ -119,7 +119,7 @@ export function GeneralTab() {
         </div>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
+      <section className="space-y-4 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
         <h2 className="text-lg font-semibold text-text-primary">
           {t("settings.navigation.heading")}
         </h2>
@@ -158,7 +158,7 @@ export function GeneralTab() {
         )}
       </section>
 
-      <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
+      <section className="space-y-4 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
         <h2 className="text-lg font-semibold text-text-primary">
           {t("settings.reader.heading")}
         </h2>
@@ -268,7 +268,7 @@ export function GeneralTab() {
         </div>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
+      <section className="space-y-4 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
         <div>
           <h2 className="text-lg font-semibold text-text-primary">
             {t("settings.experimental.heading")}
@@ -309,7 +309,7 @@ export function GeneralTab() {
         </div>
       </section>
 
-      <section className="space-y-3 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
+      <section className="space-y-3 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
         <div>
           <h2 className="text-lg font-semibold text-text-primary">
             {t("settings.data.heading")}

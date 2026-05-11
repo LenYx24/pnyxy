@@ -92,6 +92,13 @@ export function isProviderConfigured(provider: AiProvider): boolean {
       return !!settings.anthropicApiKey.trim();
     case "openai":
       return !!settings.openaiApiKey.trim();
+    case "local":
+      // Local needs both: an endpoint to hit AND a model name to
+      // request. The base URL has a sensible default (Ollama on
+      // localhost) but the model is user-specific so it's mandatory.
+      return (
+        !!settings.localBaseUrl.trim() && !!settings.localModel.trim()
+      );
   }
 }
 
@@ -391,6 +398,8 @@ function streamForProvider(
       return streamAnthropic(messages, documentTitle, pageContext, options);
     case "openai":
       return streamOpenAi(messages, documentTitle, pageContext, options);
+    case "local":
+      return streamLocal(messages, documentTitle, pageContext, options);
   }
 }
 
@@ -620,6 +629,124 @@ async function* streamOpenAi(
   yield* parseOpenAiSse(response.body);
 }
 
+// ── Local LLM provider (Ollama / LM Studio / vLLM / etc.) ────
+
+/**
+ * Stream chat completions from a user-run, OpenAI-compatible local
+ * LLM. The wire format is identical to `streamOpenAi` — Ollama, LM
+ * Studio, vLLM, and llama.cpp's HTTP server all expose
+ * `/v1/chat/completions` with the same request/response shape. The
+ * only differences are the base URL, the model name (which Ollama
+ * derives from the user's local model registry, not OpenAI's), and
+ * an optional bearer token for setups that gate access.
+ */
+async function* streamLocal(
+  messages: ChatMessage[],
+  documentTitle: string,
+  pageContext: string,
+  options: StreamOptions,
+): AsyncGenerator<string, void, unknown> {
+  const settings = useSettingsStore.getState();
+  const baseUrl = settings.localBaseUrl.trim();
+  const model = settings.localModel.trim();
+  const apiKey = settings.localApiKey.trim();
+
+  if (!baseUrl) {
+    throw new AiProviderError(
+      "Local LLM base URL is not set.",
+      "config",
+      "local",
+    );
+  }
+  if (!model) {
+    throw new AiProviderError(
+      "Local LLM model name is not set.",
+      "config",
+      "local",
+    );
+  }
+
+  // Tolerate users typing the base URL with or without a trailing
+  // slash. Ollama's docs sometimes show `:11434` and sometimes
+  // `:11434/v1`, so normalize to "drop trailing slash, append the
+  // chat-completions path."
+  const endpoint = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      signal: options.signal,
+      body: JSON.stringify({
+        model,
+        max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
+        stream: true,
+        messages: [
+          {
+            role: "system",
+            content:
+              options.systemPromptOverride ??
+              buildSystemPrompt(documentTitle, pageContext, options.customContext),
+          },
+          ...messages.map((m) => ({
+            role: m.role,
+            // Reuse the OpenAI multimodal converter — most local
+            // models ignore image_url blocks gracefully, and the
+            // few that support vision (LLaVA, Llama 3.2 Vision via
+            // Ollama) understand the OpenAI shape.
+            content: toOpenAiChatContent(m),
+          })),
+        ],
+      }),
+    });
+  } catch (err) {
+    if (isAbortError(err)) throw err;
+    // Most common cause: the local server isn't running, or it's
+    // behind a firewall / wrong port. Classify as network so the
+    // chat composer's offline messaging surfaces sensibly.
+    throw new AiProviderError(
+      err instanceof Error
+        ? `Couldn't reach local LLM at ${baseUrl} — is it running?`
+        : "Network error",
+      "network",
+      "local",
+    );
+  }
+
+  if (!response.ok) {
+    let errMsg = `Local LLM error (${response.status})`;
+    try {
+      const body = await response.json();
+      if (body?.error?.message) errMsg = body.error.message;
+    } catch {
+      const text = await response.text().catch(() => "");
+      if (text) errMsg = `Local LLM error (${response.status}): ${text}`;
+    }
+    throw new AiProviderError(
+      errMsg,
+      classifyStatus(response.status),
+      "local",
+      response.status,
+    );
+  }
+
+  if (!response.body) {
+    throw new AiProviderError(
+      "Local LLM returned an empty response",
+      "other",
+      "local",
+    );
+  }
+
+  // Same SSE parser as OpenAI — Ollama, LM Studio, and vLLM all
+  // emit `data: {…}\n\n` chunks with the standard OpenAI schema
+  // (`choices[0].delta.content`).
+  yield* parseOpenAiSse(response.body);
+}
+
 // ── Error classification helpers ─────────────────────────────
 
 function classifyStatus(status: number): AiErrorCode {
@@ -788,7 +915,26 @@ function streamToolsForProvider(
       return streamToolsAnthropic(messages, options);
     case "openai":
       return streamToolsOpenAi(messages, options);
+    case "local":
+      // Tool use across OSS local models is inconsistent — Llama
+      // 3.1+ supports it, most older quants don't, and the wire
+      // formats diverge from OpenAI's strict schema. Surfacing a
+      // clear "use a cloud provider for tool-using features"
+      // error beats silent breakage in roadmap/quiz generation.
+      return streamToolsNotSupported(provider);
   }
+}
+
+async function* streamToolsNotSupported(
+  provider: AiProvider,
+): AsyncGenerator<ToolStreamEvent, void, unknown> {
+  throw new AiProviderError(
+    "Tool use isn't supported for the local provider yet — switch to Anthropic or OpenAI for this feature.",
+    "config",
+    provider,
+  );
+  // Unreachable, but the function needs to be a generator for TS.
+  yield { kind: "stop", reason: "other", provider };
 }
 
 // ── Anthropic tool use (browser-direct) ──────────────────────

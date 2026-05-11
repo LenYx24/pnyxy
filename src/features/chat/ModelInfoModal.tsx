@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Bot, X, Zap, Brain, Coins } from "lucide-react";
 import { AI_MODEL_CATALOG, type ModelInfo } from "@/lib/ai-models";
@@ -14,9 +15,10 @@ interface ModelInfoModalProps {
  * model the user can choose, with what it's good for, average token
  * cost per turn, and routing notes (free Pnyxy quota vs. own key).
  *
- * Renders inline rather than via portal: the chat composer's parent
- * container is already full-viewport on the chat page and reasonably
- * sized in the reader's side panel, so positioning isn't an issue.
+ * Portaled to document.body so the fixed positioning is truly
+ * viewport-relative — an earlier inline render was being scoped by
+ * a transformed ancestor of the composer, which on mobile pushed
+ * the bottom of the modal off-screen.
  */
 export function ModelInfoModal({ open, onClose }: ModelInfoModalProps) {
   const { t } = useTranslation();
@@ -30,15 +32,15 @@ export function ModelInfoModal({ open, onClose }: ModelInfoModalProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative z-10 max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-xl border border-glass-border bg-bg-secondary/95 backdrop-blur-xl flex flex-col">
+      <div className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-glass-border bg-bg-secondary/95 backdrop-blur-xl sm:max-h-[85vh]">
         <div className="flex items-center justify-between border-b border-glass-border p-4">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-purple/15">
@@ -73,7 +75,8 @@ export function ModelInfoModal({ open, onClose }: ModelInfoModalProps) {
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -86,7 +89,7 @@ export function ModelCard({ model }: { model: ModelInfo }) {
   const { t } = useTranslation();
 
   return (
-    <article className="rounded-lg border border-glass-border bg-glass-bg/40 p-4">
+    <article className="rounded-lg border border-glass-border bg-glass-bg/40 p-3 sm:p-4">
       <header className="mb-2 flex items-baseline justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-text-primary">

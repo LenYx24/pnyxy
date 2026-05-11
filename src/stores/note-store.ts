@@ -4,6 +4,8 @@ import {
   saveNote as dbSaveNote,
   deleteNote as dbDeleteNote,
 } from "@/lib/annotation-storage";
+import { enqueueMutation } from "@/lib/sync-queue";
+import type { NoteSyncPayload } from "@/lib/sync-entity-handlers";
 
 export interface Note {
   id: string;
@@ -48,6 +50,17 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     };
     set((s) => ({ notes: [note, ...s.notes] }));
     dbSaveNote(note);
+    // Push to Supabase via the queue. If offline, the queue holds
+    // it; if signed out, the orchestrator's auth gate skips drain
+    // until sign-in. Either way the local write is the source of
+    // truth and the user sees no latency.
+    void enqueueMutation<NoteSyncPayload>("note", "insert", {
+      id: note.id,
+      title: note.title,
+      content: note.content,
+      createdAt: note.createdAt,
+      updatedAt: note.updatedAt,
+    });
     return note.id;
   },
 
@@ -64,11 +77,19 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     next[idx] = updated;
     set({ notes: next });
     dbSaveNote(updated);
+    void enqueueMutation<NoteSyncPayload>("note", "update", {
+      id: updated.id,
+      title: updated.title,
+      content: updated.content,
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+    });
   },
 
   deleteNote(id) {
     set((s) => ({ notes: s.notes.filter((n) => n.id !== id) }));
     dbDeleteNote(id);
+    void enqueueMutation<NoteSyncPayload>("note", "delete", { id });
   },
 
   getNote(id) {

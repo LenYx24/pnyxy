@@ -14,6 +14,15 @@ const pdfjsDir = dirname(localRequire.resolve("pdfjs-dist/package.json"));
 const dest = join(__dirname, "..", "public", "pdf-assets");
 
 mkdirSync(join(dest, "cmaps"), { recursive: true });
+mkdirSync(join(dest, "standard_fonts"), { recursive: true });
 cpSync(join(pdfjsDir, "build", "pdf.worker.min.mjs"), join(dest, "pdf.worker.min.mjs"));
 cpSync(join(pdfjsDir, "cmaps"), join(dest, "cmaps"), { recursive: true });
+// standard_fonts is needed when a PDF references one of the 14
+// base PDF fonts (Helvetica, Times, Courier, …) without embedding
+// the glyphs. Without these, pdf.js falls back to a generic
+// substitute and the rendered text shifts visibly. Cheap to ship
+// (~1MB of TTF), so always include them.
+cpSync(join(pdfjsDir, "standard_fonts"), join(dest, "standard_fonts"), {
+  recursive: true,
+});
 console.log("Copied pdf.js assets to public/pdf-assets");

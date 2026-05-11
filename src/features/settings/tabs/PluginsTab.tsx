@@ -32,7 +32,7 @@ export function PluginsTab() {
   );
 
   return (
-    <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
+    <section className="space-y-4 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
       <div className="flex items-center gap-2">
         <Puzzle size={18} className="text-accent-purple" />
         <h2 className="text-lg font-semibold text-text-primary">

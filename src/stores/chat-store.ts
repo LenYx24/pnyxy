@@ -19,6 +19,10 @@ import {
   dispatchRoadmapTool,
 } from "@/lib/roadmap-tools";
 import { useRoadmapStore } from "@/stores/roadmap-store";
+import {
+  generateImage,
+  ImageGenUnavailableError,
+} from "@/lib/image-generation";
 import { buildAiContextPack } from "@/lib/ai-context";
 import type { AiProvider } from "@/stores/settings-store";
 import type {
@@ -151,6 +155,12 @@ interface ChatState {
    *  user-initiated stop, not a failure. No-op when nothing is
    *  streaming. */
   stopStreaming: () => void;
+
+  /** Image-generation submit. Mirrors `sendMessage` but routes the
+   *  prompt through the Images API (OpenAI direct) instead of a
+   *  chat completion. The assistant reply is a single message
+   *  carrying the generated PNG as a base64 attachment. */
+  sendImageMessage: (prompt: string) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -375,6 +385,117 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // catches it and persists whatever was already streamed.
     streamAbortController?.abort();
     streamAbortController = null;
+  },
+
+  async sendImageMessage(prompt) {
+    const { activeConversationId, activeLeafId } = get();
+    if (!activeConversationId) return;
+    const trimmed = prompt.trim();
+    if (!trimmed) return;
+
+    // 1. Insert the user message — same shape as sendOrBranch so the
+    //    thread history looks consistent (it's still a user turn, even
+    //    though the response will be an image not text).
+    const { data: userRow, error: userErr } = await supabase
+      .from("chat_messages")
+      .insert({
+        conversation_id: activeConversationId,
+        parent_message_id: activeLeafId,
+        role: "user",
+        content: trimmed,
+        attachments: null,
+      })
+      .select()
+      .single();
+    if (userErr || !userRow) {
+      logError("chat:sendImageMessage:userInsert", userErr);
+      return;
+    }
+    const userMsg = userRow as ChatMessage;
+    set((s) => {
+      const next = new Map(s.messages);
+      next.set(userMsg.id, userMsg);
+      return { messages: next, activeLeafId: userMsg.id };
+    });
+
+    // 2. Insert placeholder assistant message — UX equivalent of the
+    //    streaming spinner, but the body is "Generating image…" until
+    //    we get the PNG bytes. Setting `streamingMessageId` keeps
+    //    the typing indicator + stop button consistent.
+    const { data: asstRow, error: asstErr } = await supabase
+      .from("chat_messages")
+      .insert({
+        conversation_id: activeConversationId,
+        parent_message_id: userMsg.id,
+        role: "assistant",
+        content: "Generating image…",
+      })
+      .select()
+      .single();
+    if (asstErr || !asstRow) {
+      logError("chat:sendImageMessage:asstInsert", asstErr);
+      return;
+    }
+    const asstMsg = asstRow as ChatMessage;
+    set((s) => {
+      const next = new Map(s.messages);
+      next.set(asstMsg.id, asstMsg);
+      return {
+        messages: next,
+        streamingMessageId: asstMsg.id,
+        activeLeafId: asstMsg.id,
+      };
+    });
+
+    // 3. Hit the Images API.
+    let attachment: ChatMessageAttachment | null = null;
+    let errorText: string | null = null;
+    try {
+      const img = await generateImage(trimmed);
+      attachment = {
+        kind: "image",
+        media_type: img.media_type,
+        data: img.data,
+        name: "generated.png",
+      };
+    } catch (err) {
+      if (err instanceof ImageGenUnavailableError) {
+        errorText =
+          "Image generation needs an OpenAI key — set one in Settings → AI.";
+      } else if (err instanceof Error) {
+        errorText = `Image generation failed: ${err.message}`;
+      } else {
+        errorText = "Image generation failed.";
+      }
+      logError("chat:sendImageMessage:generate", err);
+    }
+
+    // 4. Patch the assistant message with either the image (on
+    //    success) or a one-line error (on failure). Either way we
+    //    clear `streamingMessageId` so the composer comes back.
+    const patch = attachment
+      ? { content: "", attachments: [attachment] }
+      : { content: errorText ?? "Image generation failed." };
+
+    const { error: updateErr } = await supabase
+      .from("chat_messages")
+      .update(patch)
+      .eq("id", asstMsg.id);
+    if (updateErr) {
+      logError("chat:sendImageMessage:asstUpdate", updateErr);
+    }
+    set((s) => {
+      const next = new Map(s.messages);
+      const current = next.get(asstMsg.id);
+      if (current) {
+        next.set(asstMsg.id, {
+          ...current,
+          ...patch,
+          attachments: attachment ? [attachment] : null,
+        } as ChatMessage);
+      }
+      return { messages: next, streamingMessageId: null };
+    });
   },
 
   async moveConversationToFolder(id, folderId) {

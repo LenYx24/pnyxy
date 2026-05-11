@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -10,11 +10,14 @@ import {
   Trash2,
   X,
   Check,
+  Camera,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useBook } from "../BookPageContext";
 import { useNoteStore } from "@/stores/note-store";
 import { loadHighlights, loadComments } from "@/lib/annotation-storage";
+import { ocrImage, OcrUnavailableError } from "@/lib/ocr";
 import type { Highlight, Comment } from "@/types/annotation";
 import { cn } from "@/lib/cn";
 
@@ -155,12 +158,19 @@ export function NotesTab() {
   const notes = useNoteStore((s) => s.notes);
   const loadNotes = useNoteStore((s) => s.loadNotes);
   const createNote = useNoteStore((s) => s.createNote);
+  const updateNote = useNoteStore((s) => s.updateNote);
   const deleteNote = useNoteStore((s) => s.deleteNote);
 
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // OCR capture state — single file input, single in-flight OCR
+  // run. Errors render as a dismissable banner under the action row.
+  const ocrInputRef = useRef<HTMLInputElement>(null);
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const [ocrError, setOcrError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -190,6 +200,52 @@ export function NotesTab() {
     if (editingId === id) setEditingId(null);
   };
 
+  /** Open the camera (or file picker on desktop) so the user can
+   *  snap a page from a physical book. Result is OCR'd by the
+   *  vision-capable AI provider and dropped into a new note,
+   *  pre-opened in the editor for trimming. */
+  const handleCapture = () => {
+    setOcrError(null);
+    ocrInputRef.current?.click();
+  };
+
+  const handleCaptureFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset the value so picking the same image twice still
+    // fires onChange the second time.
+    e.target.value = "";
+    if (!file) return;
+    setOcrError(null);
+    setOcrBusy(true);
+    try {
+      const text = await ocrImage(file);
+      if (!text) {
+        setOcrError(t("book.overview.ocr.emptyResult"));
+        return;
+      }
+      // Date-stamped title so multiple captures don't collide on a
+      // generic "Captured passage" label in the notes list.
+      const today = new Date().toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
+      const id = createNote();
+      updateNote(id, {
+        title: `${t("book.overview.ocr.noteTitlePrefix")} · ${today}`,
+        content: text,
+      });
+      setEditingId(id);
+    } catch (err) {
+      if (err instanceof OcrUnavailableError) {
+        setOcrError(t("book.overview.ocr.noVisionProvider"));
+      } else {
+        setOcrError(t("book.overview.ocr.failed"));
+      }
+    } finally {
+      setOcrBusy(false);
+    }
+  };
+
   const isEmpty =
     highlights.length === 0 &&
     comments.length === 0 &&
@@ -206,15 +262,68 @@ export function NotesTab() {
             {t("book.notes.description")}
           </p>
         </div>
-        <Button
-          variant="primary"
-          onClick={handleCreateNote}
-          className="px-3 py-1.5 text-xs sm:text-sm"
-        >
-          <Plus size={14} />
-          {t("book.notes.newNote")}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={handleCapture}
+            disabled={ocrBusy}
+            className="px-3 py-1.5 text-xs sm:text-sm"
+          >
+            {ocrBusy ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Camera size={14} />
+            )}
+            <span className="hidden sm:inline">
+              {t("book.overview.ocr.button")}
+            </span>
+            <span className="sm:hidden">
+              {t("book.overview.ocr.buttonShort")}
+            </span>
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleCreateNote}
+            className="px-3 py-1.5 text-xs sm:text-sm"
+          >
+            <Plus size={14} />
+            {t("book.notes.newNote")}
+          </Button>
+        </div>
       </div>
+      {/* `capture="environment"` opens the back camera on phones; on
+          desktop it falls back to the file picker. accept=image/*
+          plus the picker means any phone-saved screenshot works
+          too. */}
+      <input
+        ref={ocrInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleCaptureFile}
+      />
+      {ocrBusy && (
+        <p
+          className="rounded-lg border border-accent-purple/30 bg-accent-purple/10 px-3 py-2 text-xs text-accent-purple"
+          role="status"
+        >
+          {t("book.overview.ocr.processing")}
+        </p>
+      )}
+      {ocrError && (
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+          <span>{ocrError}</span>
+          <button
+            type="button"
+            onClick={() => setOcrError(null)}
+            aria-label={t("common.close")}
+            className="shrink-0 rounded p-0.5 text-amber-300/80 transition-colors hover:bg-amber-500/15 hover:text-amber-200 cursor-pointer"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
 
       {loading && (
         <p className="text-sm text-text-muted">{t("book.notes.loading")}</p>

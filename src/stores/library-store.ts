@@ -3,8 +3,17 @@ import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
 import { containsProfanity } from "@/lib/profanity-filter";
 import { prefetchImages } from "@/lib/image-prefetch";
+import {
+  loadAllFolders,
+  saveFolderLocal,
+  deleteFolderLocal,
+  replaceAllFoldersLocal,
+} from "@/lib/annotation-storage";
+import { enqueueMutation } from "@/lib/sync-queue";
+import type { FolderSyncPayload } from "@/lib/sync-entity-handlers";
 import { useTagStore } from "./tag-store";
 import { useOrgStore } from "./org-store";
+import { useNetworkStore } from "./network-store";
 import type {
   UnifiedLibraryItem,
   CatalogLibraryItem,
@@ -221,14 +230,43 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   fetchFolders: async (force = false) => {
     const last = get().lastFetchedAt.folders;
     if (!force && last !== null && Date.now() - last < FRESH_FETCH_MS) return;
+
+    // Cold-start hydration from IDB — populates the tree
+    // immediately even before (or instead of) the network round-
+    // trip resolves. Offline-first: the user sees their last-
+    // known library structure on app open with zero latency.
+    if (get().folders.length === 0) {
+      try {
+        const local = await loadAllFolders<Folder>();
+        if (local.length > 0) {
+          const { currentFolderId } = get();
+          set({
+            folders: local,
+            folderPath: buildFolderPath(local, currentFolderId),
+          });
+        }
+      } catch (err) {
+        // IDB unavailable (private mode, quota, …) — fall through
+        // to the network. Don't break library load over a cache miss.
+        logError("library-store:fetchFolders:hydrate", err);
+      }
+    }
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Offline: trust whatever's in state / just hydrated from IDB.
+    // The sync orchestrator will drain pending folder mutations
+    // when we're back online, and the next fetchFolders call will
+    // refresh against the canonical Supabase view.
+    if (!useNetworkStore.getState().online()) return;
+
     const orgId = useOrgStore.getState().currentOrgId;
     if (!orgId) {
       set({ folders: [], currentFolderId: null, folderPath: [] });
+      void replaceAllFoldersLocal<Folder>([]);
       return;
     }
 
@@ -246,6 +284,10 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
     const folders = (data ?? []) as Folder[];
     const { currentFolderId } = get();
+
+    // Refresh the IDB mirror so the next cold start shows the
+    // canonical Supabase view, not stale optimistic edits.
+    void replaceAllFoldersLocal(folders);
 
     // If current folder was deleted, reset to root
     const lastFetchedAt = { ...get().lastFetchedAt, folders: Date.now() };
@@ -277,25 +319,41 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       throw new Error("No active organization. Pick one from the sidebar.");
     }
 
-    const { data, error } = await supabase
-      .from("folders")
-      .insert({
-        user_id: user.id,
-        org_id: orgId,
-        name,
-        parent_id: parentId,
-        sort_order: 0,
-      })
-      .select()
-      .single<Folder>();
+    // Optimistic local insert. The UUID is generated client-side so
+    // the same id can round-trip through the sync queue's INSERT
+    // and any subsequent rename/move/delete the user does while
+    // offline. Server enforces uniqueness — if a collision ever
+    // happens the queue dead-letters and the UI can show the
+    // dropped row.
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const folder: Folder = {
+      id,
+      user_id: user.id,
+      parent_id: parentId,
+      name,
+      color: null,
+      sort_order: 0,
+      created_at: now,
+      updated_at: now,
+    };
 
-    if (error) {
-      logError("library-store:createFolder", error.message);
-      throw error;
-    }
-
-    await get().fetchFolders(true);
-    return data;
+    set((s) => ({
+      folders: [...s.folders, folder],
+      folderPath: buildFolderPath(
+        [...s.folders, folder],
+        s.currentFolderId,
+      ),
+    }));
+    void saveFolderLocal(folder);
+    void enqueueMutation<FolderSyncPayload>("folder", "insert", {
+      id,
+      name,
+      parent_id: parentId,
+      org_id: orgId,
+      sort_order: 0,
+    });
+    return folder;
   },
 
   createFolderPath: async (path, parentId) => {
@@ -337,30 +395,46 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         "Folder name contains disallowed language. Please choose another.",
       );
     }
-
-    const { error } = await supabase
-      .from("folders")
-      .update({ name })
-      .eq("id", id);
-
-    if (error) {
-      logError("library-store:renameFolder", error.message);
-      throw error;
-    }
-
-    await get().fetchFolders(true);
+    // Optimistic — update state + IDB mirror, queue the Supabase
+    // patch. The user sees the rename land instantly; if it
+    // dead-letters server-side, the queue's dead-letter UI will
+    // surface it (TODO once that UI lands).
+    const updatedAt = new Date().toISOString();
+    const nextFolders = get().folders.map((f) =>
+      f.id === id ? { ...f, name, updated_at: updatedAt } : f,
+    );
+    set({
+      folders: nextFolders,
+      folderPath: buildFolderPath(nextFolders, get().currentFolderId),
+    });
+    const updated = nextFolders.find((f) => f.id === id);
+    if (updated) void saveFolderLocal(updated);
+    void enqueueMutation<FolderSyncPayload>("folder", "update", { id, name });
   },
 
   deleteFolder: async (id) => {
-    const { error } = await supabase.from("folders").delete().eq("id", id);
-
-    if (error) {
-      logError("library-store:deleteFolder", error.message);
-      throw error;
+    // Optimistic delete from local state + IDB. Books that lived
+    // in this folder need their `folder_id` cleared on the
+    // Supabase side too — the existing flow relied on a server
+    // CASCADE / re-fetch to handle this; here we still refetch
+    // the library once online (best-effort), but the user-visible
+    // folder is gone immediately.
+    const nextFolders = get().folders.filter((f) => f.id !== id);
+    const currentFolderId =
+      get().currentFolderId === id ? null : get().currentFolderId;
+    set({
+      folders: nextFolders,
+      currentFolderId,
+      folderPath: buildFolderPath(nextFolders, currentFolderId),
+    });
+    void deleteFolderLocal(id);
+    void enqueueMutation<FolderSyncPayload>("folder", "delete", { id });
+    // Fire-and-forget refresh in case books moved to root. Gated
+    // on online so it doesn't error-log when offline; the next
+    // online fetch picks up the canonical state anyway.
+    if (useNetworkStore.getState().online()) {
+      void get().fetchLibrary(true);
     }
-
-    // Refetch both — books may have moved to root
-    await Promise.all([get().fetchFolders(true), get().fetchLibrary(true)]);
   },
 
   navigateToFolder: (id) => {
@@ -416,17 +490,24 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       return;
     }
 
-    const { error } = await supabase
-      .from("folders")
-      .update({ parent_id: newParentId })
-      .eq("id", folderId);
-
-    if (error) {
-      logError("library-store:moveFolderToFolder", error.message);
-      throw error;
-    }
-
-    await get().fetchFolders(true);
+    // Optimistic — same shape as rename: patch local state + IDB,
+    // queue the parent_id update for sync.
+    const updatedAt = new Date().toISOString();
+    const nextFolders = get().folders.map((f) =>
+      f.id === folderId
+        ? { ...f, parent_id: newParentId, updated_at: updatedAt }
+        : f,
+    );
+    set({
+      folders: nextFolders,
+      folderPath: buildFolderPath(nextFolders, get().currentFolderId),
+    });
+    const moved = nextFolders.find((f) => f.id === folderId);
+    if (moved) void saveFolderLocal(moved);
+    void enqueueMutation<FolderSyncPayload>("folder", "update", {
+      id: folderId,
+      parent_id: newParentId,
+    });
   },
 
   removeFromLibrary: async (entry) => {

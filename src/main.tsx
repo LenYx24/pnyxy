@@ -5,10 +5,30 @@ import "@/lib/i18n";
 import { AppProviders } from "@/app/providers";
 import { useAuthStore } from "@/stores/auth-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useReadingSessionStore } from "@/stores/reading-session-store";
 import { initLaunchedFiles } from "@/lib/launched-files";
+import { startSyncOrchestrator } from "@/lib/sync-orchestrator";
+import { startServerHeartbeat } from "@/lib/server-heartbeat";
+import { registerSyncEntityHandlers } from "@/lib/sync-entity-handlers";
 
 // Initialize auth listener once at startup (Zustand stores work outside React)
 useAuthStore.getState().initialize();
+
+// Register entity handlers BEFORE the orchestrator starts —
+// otherwise a queued mutation drained on boot would dead-letter
+// for "no handler registered."
+registerSyncEntityHandlers();
+
+// Sync orchestrator — subscribes to network + auth + queue changes
+// and drains pending local mutations to Supabase whenever we're
+// online and signed in. Idempotent; safe to call early because it
+// gates internally on having a user id.
+startSyncOrchestrator();
+
+// Probe the Supabase API on boot + on focus + every 60s so the
+// offline banner reflects real reachability, not just the OS's
+// best guess of `navigator.onLine`.
+startServerHeartbeat();
 
 // Register the PWA launchQueue consumer ASAP so file handlers work
 // from a cold start (the queue buffers until React mounts a listener).
@@ -34,6 +54,10 @@ useAuthStore.subscribe((state) => {
   if (state.profile && hydratedForUser !== id) {
     hydratedForUser = id;
     useSettingsStore.getState().hydrateFromRemote(state.profile.preferences);
+    // Rehydrate any reading session that was active in another tab
+    // / before the last crash. Cheap query (filtered by user_id +
+    // ended_at IS NULL, both indexed) so we fire-and-forget it.
+    void useReadingSessionStore.getState().hydrate();
   }
 });
 
@@ -42,3 +66,18 @@ createRoot(document.getElementById("root")!).render(
     <AppProviders />
   </StrictMode>,
 );
+
+// Fade the boot splash out once React has painted its first frame. Two
+// rAFs: the first lets React commit, the second runs after the browser
+// has painted. setTimeout fallback removes the node even if the
+// transitionend event is dropped (some mobile browsers do that under
+// load).
+const splash = document.getElementById("boot-splash");
+if (splash) {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      splash.classList.add("is-hidden");
+      setTimeout(() => splash.remove(), 320);
+    });
+  });
+}

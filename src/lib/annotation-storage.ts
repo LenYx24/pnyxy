@@ -2,7 +2,7 @@ import { openDB, type IDBPDatabase } from "idb";
 import type { Highlight, Comment } from "@/types/annotation";
 
 const DB_NAME = "pnyxy-annotations";
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -46,6 +46,12 @@ export function getDB(): Promise<IDBPDatabase> {
             keyPath: "id",
           });
           es.createIndex("roadmapId", "roadmapId");
+        }
+        // v8: folders mirrored locally so the library tree renders
+        // offline and folder ops are optimistic (write IDB +
+        // enqueue Supabase mutation via the sync queue).
+        if (!db.objectStoreNames.contains("folders")) {
+          db.createObjectStore("folders", { keyPath: "id" });
         }
       },
     });
@@ -247,4 +253,38 @@ export async function findVocabEntryByWord(
   const all = await db.getAll("vocab");
   const norm = word.trim().toLowerCase();
   return all.find((e) => e.word === norm && e.lang === lang);
+}
+
+// --- Folders (local mirror of the Supabase `folders` table) ---
+//
+// Stored shape exactly matches `Folder` from types/database.ts so
+// the library store can write/read it without conversion.
+
+export async function loadAllFolders<T = unknown>(): Promise<T[]> {
+  const db = await getDB();
+  return db.getAll("folders") as Promise<T[]>;
+}
+
+export async function saveFolderLocal<T = unknown>(folder: T): Promise<void> {
+  const db = await getDB();
+  await db.put("folders", folder);
+}
+
+export async function deleteFolderLocal(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete("folders", id);
+}
+
+/** Replace the local folders mirror in one transaction. Used after
+ *  a successful `fetchFolders` to keep the IDB cache up to date. */
+export async function replaceAllFoldersLocal<T extends { id: string }>(
+  folders: T[],
+): Promise<void> {
+  const db = await getDB();
+  const tx = db.transaction("folders", "readwrite");
+  await tx.objectStore("folders").clear();
+  for (const f of folders) {
+    await tx.objectStore("folders").put(f);
+  }
+  await tx.done;
 }

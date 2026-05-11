@@ -140,6 +140,32 @@ export const AI_MODEL_CATALOG: ModelInfo[] = [
     contextWindow: "128k token",
     routingNote: "Saját OpenAI kulcs",
   },
+  {
+    provider: "local",
+    // Display name is generic — the actual model is whatever the
+    // user configured locally (llama3.2, qwen2.5-coder:14b, …). The
+    // help modal shows their picked model id from settings.
+    displayName: "Helyi modell (Ollama / LM Studio)",
+    modelId: "(user-configured)",
+    description:
+      "A felhasználó saját gépén futó, OpenAI-kompatibilis modell — Ollama, LM Studio, vLLM, llama.cpp HTTP. Offline is működik, az adat sosem hagyja el a gépet, a futtatás ingyenes. Sebessége és minősége a hardvertől és a választott modelltől függ; jellemzően a Claude/GPT alatt van, de privát kérdésekhez és offline tanuláshoz ideális.",
+    bestFor: [
+      "Internet nélküli olvasás-támogatás",
+      "Privát/érzékeny szöveg, amit nem akarsz felhőbe küldeni",
+      "Tanulás közbeni gyors kérdések saját hardveren",
+    ],
+    speed: "medium",
+    power: "balanced",
+    estimatedTokensPerTurn: {
+      input: TYPICAL_INPUT,
+      output: TYPICAL_OUTPUT,
+      total: TYPICAL_INPUT + TYPICAL_OUTPUT,
+    },
+    costNotes:
+      "Ingyenes — a futtatás a saját gépen történik. Telepítsd az Ollama-t (ollama.com) vagy az LM Studio-t, válassz egy modellt (llama3.2, qwen2.5, gpt-oss…), majd add meg a Beállítások → AI fülön az URL-t és a modell nevét.",
+    contextWindow: "modelltől függ",
+    routingNote: "Saját gép",
+  },
 ];
 
 /** Lookup by provider key. Fast path for the dropdown + modal. */

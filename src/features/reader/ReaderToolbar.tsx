@@ -1,4 +1,6 @@
 import { useRef, useState, useCallback } from "react";
+import { FloatingMenu } from "@/components/ui/FloatingMenu";
+import { getZoomControls } from "./pinch-zoom-controller";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -165,6 +167,35 @@ export function ReaderToolbar({
   const zoomOut = useReaderStore((s) => s.zoomOut);
   const setZoomMode = useReaderStore((s) => s.setZoomMode);
   const setZoomLevel = useReaderStore((s) => s.setZoomLevel);
+
+  // Zoom buttons base their step off the LIVE visual scale rather
+  // than `doc.zoomLevel` from the store. Reason: when a page first
+  // mounts at fit-to-width the actual rendered scale can be e.g.
+  // 150% while the store still reads its initial 100%, so the
+  // first tap on zoom-in would jump back to 115%. Reading from the
+  // pinch-zoom-controller (which the PdfViewer mutates synchronously
+  // on every gesture / fit change) is the only source that's
+  // always in lockstep with what's on screen. Falls back to the
+  // store value when no viewer is mounted (e.g. EPUB/text reader).
+  const handleZoomIn = useCallback(() => {
+    const controls = getZoomControls();
+    if (controls) {
+      const current = controls.getScale() * 100;
+      setZoomLevel(current + 15);
+    } else {
+      zoomIn();
+    }
+  }, [setZoomLevel, zoomIn]);
+
+  const handleZoomOut = useCallback(() => {
+    const controls = getZoomControls();
+    if (controls) {
+      const current = controls.getScale() * 100;
+      setZoomLevel(current - 15);
+    } else {
+      zoomOut();
+    }
+  }, [setZoomLevel, zoomOut]);
   const setCustomTitle = useReaderStore((s) => s.setCustomTitle);
   const getDisplayTitle = useReaderStore((s) => s.getDisplayTitle);
   const rotatePage = useReaderStore((s) => s.rotatePage);
@@ -184,6 +215,16 @@ export function ReaderToolbar({
   const [titleInput, setTitleInput] = useState("");
   const titleInputRef = useRef<HTMLInputElement>(null);
   const overflowRef = useRef<HTMLDivElement>(null);
+  // Shared anchor for the highlight-color picker across all three
+  // breakpoint variants. The toolbar's outer wrapper is `z-20` and
+  // creates its own stacking context, so an `absolute` popover
+  // inside it can't beat anything the dockview area puts above z-20.
+  // Portaling via FloatingMenu (z-[100] at the body level) bypasses
+  // that trap. Only one of the three highlight-color buttons is
+  // mounted per breakpoint, so a single shared ref is enough — the
+  // last button to render wins, which matches what's actually
+  // visible on screen.
+  const highlightAnchorRef = useRef<HTMLButtonElement>(null);
 
   const isMobile = useIsMobile();
   const isDesktop = useIsDesktop();
@@ -215,8 +256,8 @@ export function ReaderToolbar({
 
   const overflowActions = [
     { label: t("reader.toolbar.bookmarkPage"), icon: BookmarkPlus, onClick: handleBookmarkPage },
-    { label: t("reader.toolbar.zoomIn"), icon: ZoomIn, onClick: () => zoomIn() },
-    { label: t("reader.toolbar.zoomOut"), icon: ZoomOut, onClick: () => zoomOut() },
+    { label: t("reader.toolbar.zoomIn"), icon: ZoomIn, onClick: handleZoomIn },
+    { label: t("reader.toolbar.zoomOut"), icon: ZoomOut, onClick: handleZoomOut },
     { label: t("reader.toolbar.fitMode"), icon: Columns2, onClick: () => setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width") },
     // PDF-only actions: rotation cycles through 0/90/180/270 in 90°
     // CW steps, night mode flips invert-colors. EPUB/markdown/text
@@ -441,7 +482,7 @@ export function ReaderToolbar({
         {!isMobile && !isDesktop && (
           <>
             <button
-              onClick={() => zoomOut()}
+              onClick={handleZoomOut}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
             >
               <ZoomOut size={16} />
@@ -453,7 +494,7 @@ export function ReaderToolbar({
               onCycleMode={() => setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width")}
             />
             <button
-              onClick={() => zoomIn()}
+              onClick={handleZoomIn}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
             >
               <ZoomIn size={16} />
@@ -484,40 +525,21 @@ export function ReaderToolbar({
               <Undo2 size={16} />
             </button>
             <div className="mx-1 h-4 w-px bg-glass-border" />
-            {/* Highlight color */}
-            <div className="relative">
-              <button
-                onClick={() => setShowColorPicker(!showColorPicker)}
-                className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer flex items-center gap-1"
-                title={t("reader.toolbar.highlightColor")}
-              >
-                <Highlighter size={16} />
-                <div
-                  className="w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: COLOR_HEX[activeHighlightColor] }}
-                />
-              </button>
-              {showColorPicker && (
-                <div className="absolute top-full right-0 mt-1 flex gap-1 rounded-lg border border-glass-border bg-bg-secondary/95 backdrop-blur-md p-2 shadow-xl z-50">
-                  {HIGHLIGHT_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      className={cn(
-                        "h-5 w-5 rounded-full border-2 transition-colors cursor-pointer hover:scale-110",
-                        activeHighlightColor === color
-                          ? "border-white/60"
-                          : "border-transparent",
-                      )}
-                      style={{ backgroundColor: COLOR_HEX[color] }}
-                      onClick={() => {
-                        setActiveHighlightColor(color);
-                        setShowColorPicker(false);
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* Highlight color trigger (tablet). The picker itself
+                is portaled at the bottom of the file — see
+                FloatingMenu mount below. */}
+            <button
+              ref={highlightAnchorRef}
+              onClick={() => setShowColorPicker((v) => !v)}
+              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer flex items-center gap-1"
+              title={t("reader.toolbar.highlightColor")}
+            >
+              <Highlighter size={16} />
+              <div
+                className="w-2.5 h-2.5 rounded-full"
+                style={{ backgroundColor: COLOR_HEX[activeHighlightColor] }}
+              />
+            </button>
             {onToggleDrawMode && (
               <button
                 onClick={onToggleDrawMode}
@@ -593,7 +615,7 @@ export function ReaderToolbar({
         {isDesktop && (
           <>
             <button
-              onClick={() => zoomOut()}
+              onClick={handleZoomOut}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
             >
               <ZoomOut size={16} />
@@ -605,7 +627,7 @@ export function ReaderToolbar({
               onCycleMode={() => setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width")}
             />
             <button
-              onClick={() => zoomIn()}
+              onClick={handleZoomIn}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
             >
               <ZoomIn size={16} />
@@ -639,40 +661,20 @@ export function ReaderToolbar({
               <Undo2 size={16} />
             </button>
             <div className="mx-1 h-4 w-px bg-glass-border" />
-            {/* Highlight color button */}
-            <div className="relative">
-              <button
-                onClick={() => setShowColorPicker(!showColorPicker)}
-                className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer flex items-center gap-1"
-                title={t("reader.toolbar.highlightColor")}
-              >
-                <Highlighter size={16} />
-                <div
-                  className="w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: COLOR_HEX[activeHighlightColor] }}
-                />
-              </button>
-              {showColorPicker && (
-                <div className="absolute top-full right-0 mt-1 flex gap-1 rounded-lg border border-glass-border bg-bg-secondary/95 backdrop-blur-md p-2 shadow-xl z-50">
-                  {HIGHLIGHT_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      className={cn(
-                        "h-5 w-5 rounded-full border-2 transition-colors cursor-pointer hover:scale-110",
-                        activeHighlightColor === color
-                          ? "border-white/60"
-                          : "border-transparent",
-                      )}
-                      style={{ backgroundColor: COLOR_HEX[color] }}
-                      onClick={() => {
-                        setActiveHighlightColor(color);
-                        setShowColorPicker(false);
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* Highlight color trigger (desktop). Picker portaled
+                via FloatingMenu at the end of the toolbar. */}
+            <button
+              ref={highlightAnchorRef}
+              onClick={() => setShowColorPicker((v) => !v)}
+              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer flex items-center gap-1"
+              title={t("reader.toolbar.highlightColor")}
+            >
+              <Highlighter size={16} />
+              <div
+                className="w-2.5 h-2.5 rounded-full"
+                style={{ backgroundColor: COLOR_HEX[activeHighlightColor] }}
+              />
+            </button>
             {/* Toggle draw mode on PDF */}
             {onToggleDrawMode && (
               <button
@@ -742,30 +744,37 @@ export function ReaderToolbar({
         )}
       </div>
 
-      {/* Color picker (for mobile, shown separately when triggered from overflow) */}
-      {isMobile && showColorPicker && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setShowColorPicker(false)} />
-          <div className="absolute right-2 top-full z-50 mt-1 flex gap-2 rounded-lg border border-glass-border bg-bg-secondary/95 backdrop-blur-md p-3 shadow-xl">
-            {HIGHLIGHT_COLORS.map((color) => (
-              <button
-                key={color}
-                className={cn(
-                  "h-7 w-7 rounded-full border-2 transition-colors cursor-pointer hover:scale-110 touch-target",
-                  activeHighlightColor === color
-                    ? "border-white/60"
-                    : "border-transparent",
-                )}
-                style={{ backgroundColor: COLOR_HEX[color] }}
-                onClick={() => {
-                  setActiveHighlightColor(color);
-                  setShowColorPicker(false);
-                }}
-              />
-            ))}
-          </div>
-        </>
-      )}
+      {/* Highlight-color picker — portaled to the body via
+          FloatingMenu so it escapes the toolbar wrapper's z-20
+          stacking context (the PDF viewer in the dockview area
+          was painting over the inline popover otherwise). One
+          mount serves all three breakpoints; the anchor switches
+          to the mobile overflow button when on phones since
+          that's where the picker is triggered from. */}
+      <FloatingMenu
+        open={showColorPicker}
+        anchorRef={isMobile ? overflowRef : highlightAnchorRef}
+        onClose={() => setShowColorPicker(false)}
+        className="!min-w-0 flex gap-1 p-2"
+      >
+        {HIGHLIGHT_COLORS.map((color) => (
+          <button
+            key={color}
+            className={cn(
+              "rounded-full border-2 transition-colors cursor-pointer hover:scale-110",
+              isMobile ? "h-7 w-7 touch-target" : "h-5 w-5",
+              activeHighlightColor === color
+                ? "border-white/60"
+                : "border-transparent",
+            )}
+            style={{ backgroundColor: COLOR_HEX[color] }}
+            onClick={() => {
+              setActiveHighlightColor(color);
+              setShowColorPicker(false);
+            }}
+          />
+        ))}
+      </FloatingMenu>
     </div>
     </div>
   );

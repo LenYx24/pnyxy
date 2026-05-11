@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
-  ArrowUp,
   BotMessageSquare,
   ChevronLeft,
   Download,
@@ -12,13 +11,17 @@ import {
   MoreVertical,
   Plus,
   Settings,
-  Square,
   Trash2,
   X,
 } from "lucide-react";
 import { useChatStore, pathFromRoot } from "@/stores/chat-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import {
+  ChatComposer,
+  type ChatComposerSubmitPayload,
+} from "@/features/chat/ChatComposer";
 import { useReaderStore } from "@/stores/reader-store";
+import { useUIStore } from "@/stores/ui-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -135,7 +138,6 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const overflowAnchorRef = useRef<HTMLButtonElement>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const keyboardInset = useKeyboardInset();
 
   // Inline rename for the active conversation's title (header).
@@ -170,9 +172,11 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         draft.target ?? null,
       );
       setInput(draft.text);
-      // The textarea may not be mounted yet on the same tick if the
-      // panel was just opened; rAF defers until after layout.
-      requestAnimationFrame(() => textareaRef.current?.focus());
+      // The composer owns its own textarea ref now; auto-focusing on
+      // draft handoff would require an imperative handle on the
+      // composer. Skipping for now — the user landed in the chat
+      // panel deliberately, the input already has their text in it,
+      // and tapping it to type more works.
     })();
   }, [pendingDraft, user, createConversation]);
 
@@ -210,60 +214,58 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
     el.scrollTop = el.scrollHeight;
   }, [path.length, lastMessageContent]);
 
-  // Auto-resize textarea up to a reasonable cap so a long question
-  // doesn't push the messages area off-screen on phones.
-  useEffect(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    ta.style.height = "auto";
-    ta.style.height = `${Math.min(ta.scrollHeight, 120)}px`;
-  }, [input]);
+  const sendImageMessage = useChatStore((s) => s.sendImageMessage);
+  // Composer submit. Composer owns its own state (attachments,
+  // model pick, mode); this surface just turns the payload into a
+  // chat-store call and creates a doc-scoped conversation lazily
+  // on first send.
+  const handleSubmit = useCallback(
+    async (payload: ChatComposerSubmitPayload) => {
+      const trimmed = payload.text.trim();
+      if (!trimmed && payload.attachments.length === 0) return;
+      if (isStreaming) return;
+      if (!user || !activeDocumentId || !activeDoc) return;
+      setInput("");
 
-  const handleSend = useCallback(async () => {
-    const trimmed = input.trim();
-    if (!trimmed || isStreaming) return;
-    if (!user || !activeDocumentId || !activeDoc) return;
-    setInput("");
-
-    if (!activeIsForThisDoc) {
-      try {
-        await createConversation(
-          trimmed.slice(0, 60),
-          null,
-          {
-            docId: activeDocumentId,
-            docTitle:
-              activeDoc.customTitle ||
-              activeDoc.meta.title ||
-              "Untitled",
-            page: activeDoc.currentPage,
-          },
-          null,
-        );
-      } catch {
+      if (!activeIsForThisDoc) {
+        try {
+          await createConversation(
+            trimmed.slice(0, 60),
+            null,
+            {
+              docId: activeDocumentId,
+              docTitle:
+                activeDoc.customTitle ||
+                activeDoc.meta.title ||
+                "Untitled",
+              page: activeDoc.currentPage,
+            },
+            null,
+          );
+        } catch {
+          return;
+        }
+      }
+      if (payload.mode === "image") {
+        await sendImageMessage(trimmed);
         return;
       }
-    }
-    await sendMessage(trimmed);
-  }, [
-    input,
-    isStreaming,
-    user,
-    activeDocumentId,
-    activeDoc,
-    activeIsForThisDoc,
-    createConversation,
-    sendMessage,
-  ]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        void handleSend();
-      }
+      await sendMessage(
+        trimmed,
+        payload.provider ?? undefined,
+        payload.attachments.length > 0 ? payload.attachments : undefined,
+      );
     },
-    [handleSend],
+    [
+      isStreaming,
+      user,
+      activeDocumentId,
+      activeDoc,
+      activeIsForThisDoc,
+      createConversation,
+      sendMessage,
+      sendImageMessage,
+    ],
   );
 
   const handleNewConversation = useCallback(async () => {
@@ -283,7 +285,6 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         null,
       );
       setListOpen(false);
-      textareaRef.current?.focus();
     } catch {
       // surface via store error / network UI later; silent for now
     }
@@ -559,11 +560,41 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             // makes the page feel laggy.
             <div
               key={msg.id}
-              className="ai-message mr-auto max-w-[85%] rounded-2xl rounded-bl-md bg-glass-bg px-3.5 py-2 text-sm text-text-secondary"
-              dangerouslySetInnerHTML={{
-                __html: renderMarkdown(msg.content, sourceDocId),
-              }}
-            />
+              className="mr-auto max-w-[85%] rounded-2xl rounded-bl-md bg-glass-bg px-3.5 py-2 text-sm text-text-secondary space-y-2"
+            >
+              {/* Assistant attachments — currently just generated
+                  images from the "Generate image" composer mode. */}
+              {msg.attachments && msg.attachments.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {msg.attachments.map((att, idx) =>
+                    att.kind === "image" ? (
+                      <a
+                        key={idx}
+                        href={`data:${att.media_type};base64,${att.data}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block"
+                        title={att.name ?? ""}
+                      >
+                        <img
+                          src={`data:${att.media_type};base64,${att.data}`}
+                          alt={att.name ?? "generated image"}
+                          className="max-h-72 max-w-full rounded-md object-contain"
+                        />
+                      </a>
+                    ) : null,
+                  )}
+                </div>
+              )}
+              {msg.content && (
+                <div
+                  className="ai-message"
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdown(msg.content, sourceDocId),
+                  }}
+                />
+              )}
+            </div>
           ),
         )}
 
@@ -591,44 +622,21 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         selectedPages={activeDoc?.aiSelectedPages.size ?? 0}
         hasPersona={aiCustomDefaultContext.trim().length > 0}
       />
-      {/* Composer */}
+      {/* Shared ChatComposer — same component as the standalone
+          chat page, so the reader panel automatically gets every
+          composer feature: attachments, mode picker, mic, model
+          selection, send/stop. Reading-context is intentionally
+          omitted (the current book IS the context here); the
+          History button hides when onLoadReadingContext is unset. */}
       <div className="p-3">
-        <div className="flex items-end gap-2 rounded-2xl border border-glass-border bg-bg-secondary/70 p-2 shadow-sm backdrop-blur-md transition-colors focus-within:border-accent-purple/60">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={t("reader.aiChat.placeholder")}
-            rows={1}
-            className="flex-1 resize-none border-0 bg-transparent px-2 py-1.5 text-sm text-text-primary outline-none placeholder:text-text-muted"
-          />
-          <button
-            type="button"
-            onClick={() => {
-              if (isStreaming) {
-                useChatStore.getState().stopStreaming();
-              } else {
-                void handleSend();
-              }
-            }}
-            disabled={!isStreaming && !input.trim()}
-            className={cn(
-              "shrink-0 rounded-full p-2 transition-colors cursor-pointer",
-              isStreaming || input.trim()
-                ? "bg-accent-purple text-white hover:bg-accent-purple/80"
-                : "bg-glass-bg text-text-muted",
-            )}
-            aria-label={isStreaming ? t("chat.stop") : t("chat.send")}
-            title={isStreaming ? t("chat.stop") : t("chat.send")}
-          >
-            {isStreaming ? (
-              <Square size={14} fill="currentColor" />
-            ) : (
-              <ArrowUp size={18} strokeWidth={2.5} />
-            )}
-          </button>
-        </div>
+        <ChatComposer
+          value={input}
+          onChange={setInput}
+          onSubmit={handleSubmit}
+          isStreaming={isStreaming}
+          onStop={() => useChatStore.getState().stopStreaming()}
+          placeholderKey="reader.aiChat.placeholder"
+        />
       </div>
 
       {/* Conversation list overlay — slides in from the left over the
@@ -743,15 +751,27 @@ function PanelShell({
   );
 }
 
-export function AiChatPanel(_props: IDockviewPanelProps) {
-  return <AiChatPanelContent />;
+export function AiChatPanel(props: IDockviewPanelProps) {
+  // Pass an explicit onClose so the X in the panel header dismisses
+  // the dockview panel — same effect as the AI-chat toggle button
+  // in the reader toolbar. Without this the X only showed up for
+  // the mobile slide-over, and desktop users had to use dockview's
+  // own tab close (which lives in a different visual spot than
+  // their mouse instinct goes).
+  return <AiChatPanelContent onClose={() => props.api.close()} />;
 }
 
 /** Tiny line above the composer summarising what context the next
  *  message will carry. Mirrors the chat-store's send-time logic
  *  (Settings → AI persona, the per-book TOC toggle, the user's
  *  manually-selected pages from the TOC selection mode), so the
- *  user can verify what's about to ship without reading our code. */
+ *  user can verify what's about to ship without reading our code.
+ *
+ *  Doubles as a "Customize context" entry point — clicking it (or
+ *  the trailing pencil) opens the sidebar's thumbnail TOC in page-
+ *  selection mode. The opener function is registered by
+ *  `ReaderSidebar`; on surfaces where it's null (e.g. the
+ *  standalone `/chat` page) the pill stays as a passive label. */
 function ContextSummaryPill({
   tocAvailable,
   tocAttached,
@@ -764,9 +784,16 @@ function ContextSummaryPill({
   hasPersona: boolean;
 }) {
   const { t } = useTranslation();
-  // No book + no persona = nothing to show; suppress the pill so it
-  // doesn't look like noisy chrome on the standalone /chat surface.
-  if (!tocAvailable && selectedPages === 0 && !hasPersona) return null;
+  const openAiContextEditor = useUIStore((s) => s.openAiContextEditor);
+  // Only show the customize entry point when there's a book in
+  // scope (the page selection only makes sense then) AND the
+  // reader actually registered an opener. /chat without a doc → no
+  // pill at all.
+  const showEditor = tocAvailable && !!openAiContextEditor;
+
+  if (!tocAvailable && selectedPages === 0 && !hasPersona && !showEditor) {
+    return null;
+  }
   const parts: string[] = [];
   if (tocAttached && tocAvailable) {
     parts.push(t("reader.aiChat.contextToc"));
@@ -783,12 +810,36 @@ function ContextSummaryPill({
     parts.length > 0
       ? parts.join(" · ")
       : t("reader.aiChat.contextEmpty");
+
+  if (!showEditor) {
+    return (
+      <div className="px-3">
+        <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
+          <FileText size={11} />
+          <span className="truncate">{summary}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="px-3">
-      <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
-        <FileText size={11} />
-        <span className="truncate">{summary}</span>
-      </div>
+      <button
+        type="button"
+        onClick={() => openAiContextEditor?.()}
+        className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px] text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+        title={t("reader.aiChat.customizeContext", {
+          defaultValue: "Customize what pages get sent to the AI",
+        })}
+      >
+        <FileText size={11} className="shrink-0" />
+        <span className="min-w-0 flex-1 truncate text-left">{summary}</span>
+        <span className="shrink-0 text-[10px] text-accent-purple/80">
+          {t("reader.aiChat.customizeContextAction", {
+            defaultValue: "Customize",
+          })}
+        </span>
+      </button>
     </div>
   );
 }

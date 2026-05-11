@@ -68,8 +68,22 @@ export function FolderCard({
     onNavigate(folder.id);
   };
 
+  // Matches LibraryBookCard's content-visibility setup so the
+  // grid skips layout/paint for offscreen folder tiles. Same
+  // intrinsic-height math (coverHeight + ~80px title/label) so the
+  // scrollbar stays steady regardless of folder vs book order.
+  const intrinsicHeight = coverHeight + 80;
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div
+      ref={setNodeRef}
+      style={{
+        ...style,
+        contentVisibility: "auto",
+        containIntrinsicSize: `auto ${intrinsicHeight}px`,
+      }}
+      {...attributes}
+      {...listeners}
+    >
       {/* Outer layout mirrors LibraryBookCard: a bordered, 5:7
           aspect "cover" with metadata sitting below it (mt-2). This
           way folders and books occupy identical grid cells. */}

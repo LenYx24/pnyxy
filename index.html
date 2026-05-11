@@ -56,6 +56,36 @@
         }
       })();
     </script>
+    <style>
+      /* Boot splash — paints with the HTML so the transition from the
+         system/PWA splash into the in-app loader is seamless. The
+         #0a0a0f background matches manifest.background_color and the
+         home-screen icon, so the user sees one continuous dark frame
+         from icon-tap until React mounts and we fade this out. */
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0a0a0f;
+        transition: opacity 280ms ease;
+      }
+      #boot-splash.is-hidden { opacity: 0; pointer-events: none; }
+      #boot-splash .pnyxy-mark {
+        width: clamp(72px, 18vw, 120px);
+        height: auto;
+        animation: pnyxy-pulse 1.4s ease-in-out infinite;
+      }
+      @keyframes pnyxy-pulse {
+        0%, 100% { transform: scale(1);    opacity: 0.85; }
+        50%      { transform: scale(1.08); opacity: 1; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #boot-splash .pnyxy-mark { animation: none; }
+      }
+    </style>
     <title>Pnyxy — Read Smarter</title>
     <meta
       name="description"
@@ -115,6 +145,18 @@
   </head>
   <body>
     <div id="root"></div>
+    <div id="boot-splash" aria-hidden="true">
+      <svg class="pnyxy-mark" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="pnyxy-boot-grad" x1="205" y1="127" x2="800" y2="898" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#64FFDA"/>
+            <stop offset="100%" stop-color="#64FFF7"/>
+          </linearGradient>
+        </defs>
+        <path d="M205 898V307V127H576.917C910.573 127 888.629 646 576.917 646H398.554V898H205Z" fill="url(#pnyxy-boot-grad)"/>
+        <path d="M564 402H205V574L564 402Z" fill="#0a0a0f"/>
+      </svg>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

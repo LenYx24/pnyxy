@@ -7,7 +7,7 @@ import {
   defaultDropAnimationSideEffects,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   useDroppable,
   useSensor,
@@ -184,12 +184,19 @@ export function AllBooksTab({
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    // Desktop only — MouseSensor (not PointerSensor) so touch events
+    // are handled exclusively by TouchSensor below. PointerSensor's
+    // unified pointer-events listener was catching touch too, and
+    // its `distance: 8` constraint beat the TouchSensor's 200ms
+    // delay → on mobile, a regular scroll-swipe would start a drag
+    // as soon as the finger moved 8px. MouseSensor scopes the
+    // distance-based activation to mouse input where it belongs.
+    useSensor(MouseSensor, {
       activationConstraint: { distance: 8 },
     }),
     // Mobile: long-press kicks off the drag so a regular tap on a
-    // row still navigates / opens the context menu instead of
-    // dragging away on the first finger move.
+    // row still navigates / opens the context menu and a scroll-
+    // swipe still scrolls.
     useSensor(TouchSensor, {
       activationConstraint: { delay: 200, tolerance: 5 },
     }),

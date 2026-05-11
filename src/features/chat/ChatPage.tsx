@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { renderMarkdown, handleCodeBlockCopy, detectAiLinkClick } from "@/lib/markdown-message";
@@ -14,8 +14,6 @@ import {
   MoreVertical,
   Gauge,
   Plus,
-  ArrowUp,
-  Square,
   Loader2,
   GitBranch,
   Trash2,
@@ -24,36 +22,30 @@ import {
   Check,
   ChevronRight,
   ChevronDown,
-  Mic,
-  MicOff,
+  Menu,
   FolderPlus,
   Folder as FolderIcon,
   FolderInput,
   BookOpen,
   Sparkles,
-  History,
   Map as MapIcon,
-  Bot,
-  Paperclip,
-  Image as ImageIcon,
   Copy,
   RefreshCw,
   Download,
   Volume2,
   Search,
-  HelpCircle,
 } from "lucide-react";
 import { ConfirmModal, FloatingMenu, PromptModal, TypingIndicator } from "@/components/ui";
 import { extractRecommendations } from "@/lib/extract-recommendations";
 import { RecommendationCards } from "./RecommendationsRenderer";
-import { buildRecommendationSystemPrompt, type RecommendationMode } from "@/lib/recommendation-prompts";
-import { ModelInfoModal } from "./ModelInfoModal";
+import { buildRecommendationSystemPrompt } from "@/lib/recommendation-prompts";
+import { ChatComposer, type ChatComposerSubmitPayload } from "./ChatComposer";
 import { useConfirm } from "@/hooks/use-confirm";
 import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   useDraggable,
   useDroppable,
@@ -74,68 +66,17 @@ import {
 import { useRoadmap, useRoadmapStore } from "@/stores/roadmap-store";
 import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
 import { getConfiguredProviders } from "@/lib/ai-client";
-import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import {
   fetchRecentReading,
   formatReadingContextPrompt,
 } from "@/lib/reading-context";
 import { SaveAsFlashcardsModal } from "./SaveAsFlashcardsModal";
-import type { ChatMessage, ChatMessageAttachment } from "@/types/chat";
+import type { ChatMessage } from "@/types/chat";
 
 // Composer attachment limits — enforced client-side, mirrored
 // roughly by Anthropic's per-request payload cap. Image-only for
 // v1; PDF / text upload would need server-side extraction or
 // provider-native file uploads, both deferred.
-//
-// Two limits: Default mode (free Pnyxy quota) caps to 1 image so
-// per-message cost stays predictable on the budget side. Direct
-// keys (Anthropic / OpenAI) — the user's own billing — go up to 4.
-const MAX_ATTACHMENTS_DIRECT = 4;
-const MAX_ATTACHMENTS_DEFAULT = 1;
-const MAX_ATTACHMENT_MB = 5;
-const MAX_ATTACHMENT_BYTES = MAX_ATTACHMENT_MB * 1024 * 1024;
-const ALLOWED_IMAGE_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-]);
-
-/**
- * Read a File as a base64 string (no data: prefix). FileReader is
- * the safe path — building base64 from `Uint8Array` + btoa breaks
- * for files larger than the JS argument-count limit.
- */
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result !== "string") {
-        reject(new Error("FileReader returned non-string"));
-        return;
-      }
-      // result is "data:image/png;base64,..." — strip the prefix.
-      const idx = result.indexOf(",");
-      resolve(idx === -1 ? result : result.slice(idx + 1));
-    };
-    reader.onerror = () => reject(reader.error ?? new Error("read failed"));
-    reader.readAsDataURL(file);
-  });
-}
-
-/**
- * UI labels for each routing destination. The model name is the
- * primary line; the subtitle says how it's billed (Pnyxy free
- * quota vs the user's own API key) so it's clear what's happening
- * underneath. Models are hard-coded here today and synced manually
- * with the upstream calls in ai-client.ts / ai-chat-proxy/index.ts.
- */
-const PROVIDER_INFO: Record<AiProvider, { model: string; routing: string }> = {
-  pnyxy: { model: "Claude Haiku 4.5", routing: "Pnyxy free quota" },
-  anthropic: { model: "Claude Sonnet 4.5", routing: "Your Anthropic key" },
-  openai: { model: "GPT-4o mini", routing: "Your OpenAI key" },
-};
 
 // Markdown rendering moved to `@/lib/markdown-message`; same citation
 // pre-pass logic now lives there so the reader's AI panel renders
@@ -173,7 +114,6 @@ export function ChatPage() {
   );
   const renameConversation = useChatStore((s) => s.renameConversation);
   const moveConversationToFolder = useChatStore((s) => s.moveConversationToFolder);
-  const clearActive = useChatStore((s) => s.clearActive);
   const sendMessage = useChatStore((s) => s.sendMessage);
   const branchFrom = useChatStore((s) => s.branchFrom);
   const setActiveLeaf = useChatStore((s) => s.setActiveLeaf);
@@ -184,11 +124,13 @@ export function ChatPage() {
   const deleteFolder = useChatStore((s) => s.deleteFolder);
   const moveFolderToParent = useChatStore((s) => s.moveFolderToParent);
 
-  // Drag-and-drop sensors. Pointer for mouse, Touch with a delay so
-  // a regular tap on a conversation still opens it instead of
-  // dragging on the first finger move, Keyboard for accessibility.
+  // Drag-and-drop sensors. MouseSensor (not PointerSensor) so touch
+  // events are exclusively handled by TouchSensor below — otherwise
+  // PointerSensor's `distance: 8` activation beat TouchSensor's
+  // 200ms delay on phones and a regular scroll-swipe over a
+  // conversation row would start a drag.
   const dndSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: 200, tolerance: 5 },
     }),
@@ -224,12 +166,19 @@ export function ChatPage() {
   };
 
   const [input, setInput] = useState("");
+  // Mobile-only: controls the slide-in conversation rail drawer.
+  // Desktop renders the same aside as a static column and ignores
+  // this state.
+  const [mobileListOpen, setMobileListOpen] = useState(false);
   const [branchFromId, setBranchFromId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const threadEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Kept so reader→chat handoff can refocus the input post-prefill.
+  // Composer owns the actual textarea ref internally, so this is
+  // unused for now — leaving it commented as a placeholder once we
+  // expose a focus() imperative handle on ChatComposer.
+  // const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Per-conversation model picker. `null` means "Default" — the
   // app uses its full configured fallback chain (Pnyxy first, then
@@ -243,10 +192,9 @@ export function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [enabledProviders],
   );
-  // Per-turn topic-first mode. Resets after each send so the user
-  // doesn't accidentally keep recommending books on every follow-up.
-  const [recommendationMode, setRecommendationMode] =
-    useState<RecommendationMode>("default");
+  // selectedProvider is kept around for the onPickSuggestion quick-
+  // reply path which branches off existing assistant messages. The
+  // composer manages its own copy too — they don't have to agree.
   const [selectedProvider, setSelectedProvider] = useState<AiProvider | null>(
     () => null,
   );
@@ -291,86 +239,6 @@ export function ChatPage() {
     }
   }, [configuredProviders, selectedProvider]);
 
-  // Pending image attachments — shown as cards above the textarea
-  // until the user sends, at which point they're persisted with the
-  // user message and forwarded as multimodal content to vision-
-  // capable providers.
-  const [pendingAttachments, setPendingAttachments] = useState<
-    ChatMessageAttachment[]
-  >([]);
-  const [attachmentError, setAttachmentError] = useState<string | null>(null);
-
-  // Effective per-message cap depends on routing. Default mode goes
-  // through the Pnyxy free quota and is capped to 1 image so the
-  // cost-per-message stays predictable; direct keys are user-paid
-  // and go up to 4.
-  const effectiveAttachmentCap =
-    selectedProvider === null ? MAX_ATTACHMENTS_DEFAULT : MAX_ATTACHMENTS_DIRECT;
-
-  const handleAddFiles = useCallback(async (files: FileList | File[]) => {
-    setAttachmentError(null);
-    const incoming: ChatMessageAttachment[] = [];
-    for (const file of Array.from(files)) {
-      if (incoming.length + pendingAttachments.length >= effectiveAttachmentCap) {
-        setAttachmentError(
-          t("chat.composer.attachments.tooMany", {
-            max: effectiveAttachmentCap,
-          }),
-        );
-        break;
-      }
-      if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-        setAttachmentError(t("chat.composer.attachments.unsupported"));
-        continue;
-      }
-      if (file.size > MAX_ATTACHMENT_BYTES) {
-        setAttachmentError(
-          t("chat.composer.attachments.tooLarge", { mb: MAX_ATTACHMENT_MB }),
-        );
-        continue;
-      }
-      try {
-        const data = await fileToBase64(file);
-        incoming.push({
-          kind: "image",
-          media_type: file.type,
-          data,
-          name: file.name,
-        });
-      } catch {
-        setAttachmentError(t("chat.composer.attachments.readError"));
-      }
-    }
-    if (incoming.length > 0) {
-      setPendingAttachments((prev) => [...prev, ...incoming]);
-    }
-  }, [pendingAttachments.length, effectiveAttachmentCap, t]);
-
-  const removeAttachment = (idx: number) => {
-    setPendingAttachments((prev) => prev.filter((_, i) => i !== idx));
-    setAttachmentError(null);
-  };
-
-  // Paste handler — pull image items from the clipboard payload and
-  // route them through the same validation/encoding path as the
-  // file picker. Does NOT preventDefault when there are no images,
-  // so plain text pastes still flow into the textarea normally.
-  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    const files: File[] = [];
-    for (const item of Array.from(items)) {
-      if (item.kind === "file") {
-        const f = item.getAsFile();
-        if (f && f.type.startsWith("image/")) files.push(f);
-      }
-    }
-    if (files.length > 0) {
-      e.preventDefault();
-      void handleAddFiles(files);
-    }
-  };
-
   // One folder-action modal at a time, dispatched by `kind`. Keeps
   // a single render branch in JSX instead of three near-identical
   // copies, and means there's never two folder dialogs open at once.
@@ -379,36 +247,6 @@ export function ChatPage() {
     | { kind: "rename"; id: string; name: string }
     | { kind: "delete"; id: string; name: string };
   const [folderAction, setFolderAction] = useState<FolderAction | null>(null);
-
-  // Textarea auto-resize. After every input change we reset height
-  // to 0 (so `scrollHeight` reports the natural intrinsic height,
-  // not the previous larger value) then snap to scrollHeight, capped
-  // at ~12rem. Both grow on multi-line paste and shrink when the
-  // user deletes lines. useLayoutEffect runs before paint so the
-  // user never sees the height jitter.
-  useLayoutEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "0px";
-    const max = 12 * 16; // 12rem
-    el.style.height = `${Math.min(el.scrollHeight, max)}px`;
-  }, [input]);
-
-  // selectedProvider + the attachment cap moved up to the top of
-  // the component body — the file picker logic depends on them.
-
-  // Speech-to-text — appends finalized chunks to the textarea, leaves
-  // partial / interim results dropped (could surface as a ghost line
-  // later if it reads as choppy).
-  const speech = useSpeechRecognition({
-    onResult: (text) => {
-      setInput((prev) =>
-        prev
-          ? prev + (prev.endsWith(" ") ? "" : " ") + text.trim()
-          : text.trim(),
-      );
-    },
-  });
 
   useEffect(() => {
     if (user) {
@@ -502,38 +340,12 @@ export function ChatPage() {
     title: string;
   } | null>(null);
 
-  // Reading-context injector. Loads the user's recent reading from
-  // book_resume_state, formats it as a plain-text bullet list, and
-  // appends to the composer textarea. The user sees what the AI
-  // sees — no hidden context.
-  const readingContextBtnRef = useRef<HTMLButtonElement>(null);
-  const [readingMenuOpen, setReadingMenuOpen] = useState(false);
-
+  // Overflow menus — desktop top-right and mobile header. Distinct
+  // refs/state so opening one doesn't auto-close the other.
   const overflowAnchorRef = useRef<HTMLButtonElement>(null);
   const overflowAnchorMobileRef = useRef<HTMLButtonElement>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [overflowOpenMobile, setOverflowOpenMobile] = useState(false);
-  const insertReadingContext = async (mode: "week" | "all") => {
-    setReadingMenuOpen(false);
-    const books = await fetchRecentReading(
-      mode === "week" ? { days: 7, limit: 10 } : { limit: 10 },
-    );
-    const intro =
-      mode === "week"
-        ? t("chat.readingContext.weekIntro")
-        : t("chat.readingContext.recentIntro");
-    const prompt = formatReadingContextPrompt(books, intro);
-    setInput((prev) => (prev ? `${prev}\n\n${prompt}` : prompt));
-    // Bring focus back to the textarea so the user can keep typing
-    // their actual question right after the inserted context.
-    requestAnimationFrame(() => {
-      const el = textareaRef.current;
-      if (!el) return;
-      el.focus();
-      const end = el.value.length;
-      el.setSelectionRange(end, end);
-    });
-  };
 
   // Auto-scroll to the latest message as stream tokens arrive.
   useEffect(() => {
@@ -553,70 +365,103 @@ export function ChatPage() {
   const messageSuggestions = useChatStore((s) => s.messageSuggestions);
 
   const handleNew = async () => {
+    setMobileListOpen(false);
     const id = await createConversation();
     if (id) await openConversation(id);
   };
 
-  // Default mode now supports up to 1 image per message (proxy
-  // forwards multimodal content, ~1600 tokens per image counted
-  // against the free quota). Anything beyond that needs a direct
-  // key — block the send instead of letting the user discover the
-  // limit mid-stream. The cap only matters when the picked
-  // provider is null; explicit picks have their own larger cap
-  // already enforced in handleAddFiles.
-  const attachmentsBlocked =
-    selectedProvider === null &&
-    pendingAttachments.length > MAX_ATTACHMENTS_DEFAULT;
+  // Wraps openConversation so picking a thread from the mobile
+  // drawer also closes the drawer. On desktop the setState is a
+  // no-op because the drawer is never open.
+  const handleOpenFromDrawer = useCallback(
+    (id: string) => {
+      setMobileListOpen(false);
+      void openConversation(id);
+    },
+    [openConversation],
+  );
 
-  const handleSend = async () => {
-    const text = input.trim();
-    const attachments =
-      pendingAttachments.length > 0 ? pendingAttachments : undefined;
-    // Allow sending with attachments only (e.g. "describe this" worth
-    // of intent in the image alone). Empty text + no attachments = no-op.
-    if (!text && !attachments) return;
-    if (attachmentsBlocked) {
-      setAttachmentError(t("chat.composer.attachments.needVisionModel"));
-      return;
-    }
-    setInput("");
-    setPendingAttachments([]);
-    setAttachmentError(null);
-    // Stop dictation when the user submits — otherwise the next
-    // utterance lands on the now-empty textarea and looks like a
-    // ghost transcript.
-    if (speech.listening) speech.stop();
-    // null = Default → pass undefined (full fallback chain).
-    // Any other value = strict pick (only that provider).
-    const provider = selectedProvider ?? undefined;
-    // Topic-first modes swap the system prompt for this single turn.
-    // We deliberately don't store the mode on the conversation —
-    // the user can mix recommendation turns with normal questions
-    // freely. Mode is reset to default after each send so a follow-up
-    // is a regular chat unless the user re-picks recommendations.
-    const sendOptions = recommendationMode !== "default"
-      ? {
-          systemPromptOverride: buildRecommendationSystemPrompt(
-            recommendationMode,
-          ),
+  // Composer-shape submit. Composer owns attachments, mode, mic,
+  // and provider pick; this surface translates the payload into a
+  // chat-store call and handles the surface-specific branch /
+  // lazy-create-conversation flows.
+  const sendImageMessage = useChatStore((s) => s.sendImageMessage);
+  const handleSubmit = useCallback(
+    async (payload: ChatComposerSubmitPayload) => {
+      const text = payload.text.trim();
+      const attachments =
+        payload.attachments.length > 0 ? payload.attachments : undefined;
+      // Allow sending with attachments only (e.g. "describe this"
+      // worth of intent in the image alone).
+      if (!text && !attachments) return;
+      // Parent clears its controlled input — composer cleared its
+      // own attachment + mode state before invoking us.
+      setInput("");
+      // Image mode: skip the chat-completion path entirely and
+      // route to the Images API. Needs an active conversation, so
+      // create one lazily like the regular send flow does.
+      if (payload.mode === "image") {
+        if (!activeId) {
+          const id = await createConversation();
+          if (!id) return;
+          await openConversation(id);
         }
-      : undefined;
-    if (recommendationMode !== "default") {
-      setRecommendationMode("default");
-    }
-    if (branchFromId) {
-      const parentId = branchFromId;
-      setBranchFromId(null);
-      await branchFrom(parentId, text, provider, attachments, sendOptions);
-    } else {
-      if (!activeId) {
-        const id = await createConversation();
-        if (!id) return;
-        await openConversation(id);
+        await sendImageMessage(text);
+        return;
       }
-      await sendMessage(text, provider, attachments, sendOptions);
-    }
-  };
+      const provider = payload.provider ?? undefined;
+      // Topic-first modes swap the system prompt for a single turn.
+      // Composer already resets `mode` to "default" after submit so
+      // the next turn is a regular chat unless re-picked.
+      const sendOptions =
+        payload.mode !== "default"
+          ? {
+              systemPromptOverride: buildRecommendationSystemPrompt(
+                payload.mode,
+              ),
+            }
+          : undefined;
+      if (branchFromId) {
+        const parentId = branchFromId;
+        setBranchFromId(null);
+        await branchFrom(parentId, text, provider, attachments, sendOptions);
+      } else {
+        if (!activeId) {
+          const id = await createConversation();
+          if (!id) return;
+          await openConversation(id);
+        }
+        await sendMessage(text, provider, attachments, sendOptions);
+      }
+    },
+    [
+      branchFromId,
+      activeId,
+      branchFrom,
+      createConversation,
+      openConversation,
+      sendMessage,
+      sendImageMessage,
+    ],
+  );
+
+  // Reading-context loader for the composer's History dropdown.
+  // Wrapped here so the composer doesn't need to know about
+  // Supabase fetching — it just gets a callback that returns the
+  // formatted prompt to prepend.
+  const handleLoadReadingContext = useCallback(
+    async (mode: "week" | "all") => {
+      const books = await fetchRecentReading(
+        mode === "week" ? { days: 7, limit: 10 } : { limit: 10 },
+      );
+      const intro =
+        mode === "week"
+          ? t("chat.readingContext.weekIntro")
+          : t("chat.readingContext.recentIntro");
+      return formatReadingContextPrompt(books, intro);
+    },
+    [t],
+  );
 
   const handleSaveTitle = async (id: string) => {
     await renameConversation(id, editTitle.trim() || t("chat.untitled"));
@@ -642,12 +487,28 @@ export function ChatPage() {
   const branchParent = branchFromId ? messages.get(branchFromId) : null;
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] w-full p-0 sm:h-screen">
-      {/* Sidebar: folder tree + conversations. Pinned flush to the
-          left + top edge per the Gemini-style layout — no card
-          rounding, no outer page padding. The right border doubles
-          as the divider against the main pane. */}
-      <aside className="hidden w-64 shrink-0 flex-col gap-3 border-r border-glass-border bg-glass-bg/40 p-3 sm:flex">
+    <div className="relative flex h-[calc(100vh-3.5rem)] w-full p-0 sm:h-screen">
+      {/* Mobile-only backdrop. Tapping it closes the drawer. Hidden
+          on desktop where the aside is a permanent column. */}
+      {mobileListOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-black/40 backdrop-blur-sm sm:hidden"
+          onClick={() => setMobileListOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      {/* Sidebar: folder tree + conversations. Static column on
+          desktop, slide-in drawer on mobile. The translate-x-0 /
+          -translate-x-full toggle drives the slide; sm:translate-x-0
+          locks it visible on desktop so the same element serves
+          both. */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-30 flex w-72 max-w-[80vw] shrink-0 flex-col gap-3 border-r border-glass-border bg-bg-secondary p-3 transition-transform duration-200",
+          "sm:static sm:w-64 sm:translate-x-0 sm:bg-glass-bg/40",
+          mobileListOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
         <div className="flex items-center gap-1.5">
           <button
             onClick={handleNew}
@@ -719,7 +580,7 @@ export function ChatPage() {
                   activeId={activeId}
                   editingId={editingId}
                   editTitle={editTitle}
-                  onOpen={openConversation}
+                  onOpen={handleOpenFromDrawer}
                   onStartEdit={(id, title) => {
                     setEditingId(id);
                     setEditTitle(title);
@@ -789,17 +650,18 @@ export function ChatPage() {
             </button>
           </FloatingMenu>
         </div>
-        {/* Mobile: new convo button at top */}
+        {/* Mobile header — hamburger opens the conversation rail
+            drawer so the user can switch chats without losing their
+            place. The old "back to list" pattern is gone now that
+            the rail is always one tap away. */}
         <div className="flex items-center gap-2 border-b border-glass-border bg-bg-primary/40 px-3 py-2 sm:hidden">
-          {activeId && (
-            <button
-              onClick={clearActive}
-              className="rounded-md p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              aria-label={t("chat.backToList")}
-            >
-              <ChevronRight size={16} className="rotate-180" />
-            </button>
-          )}
+          <button
+            onClick={() => setMobileListOpen(true)}
+            className="rounded-md p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            aria-label={t("chat.title")}
+          >
+            <Menu size={16} />
+          </button>
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">
             {activeId
               ? conversations.find((c) => c.id === activeId)?.title ||
@@ -853,75 +715,12 @@ export function ChatPage() {
           </button>
         </div>
 
-        {/* Mobile: conversation list when nothing open */}
+        {/* Empty state — shows on both mobile and desktop when no
+            conversation is active. On mobile the conversation list
+            is one hamburger-tap away via the slide-in drawer, so we
+            no longer need a separate mobile list page here. */}
         {!activeId && (
-          <div className="flex flex-1 flex-col gap-2 overflow-hidden p-3 sm:hidden">
-            {conversations.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-center">
-                <div>
-                  <MessagesSquare size={36} className="mx-auto mb-3 text-text-muted/50" />
-                  <p className="text-sm font-medium text-text-primary">
-                    {t("chat.emptyTitle")}
-                  </p>
-                  <p className="mt-1 text-xs text-text-muted">
-                    {t("chat.emptyBody")}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="relative shrink-0">
-                  <Search
-                    size={14}
-                    className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted"
-                  />
-                  <input
-                    type="text"
-                    value={conversationSearch}
-                    onChange={(e) => setConversationSearch(e.target.value)}
-                    placeholder={t("chat.searchPlaceholder")}
-                    className="w-full rounded-md border border-glass-border bg-glass-bg/50 px-2 py-1.5 pl-8 pr-8 text-sm text-text-primary outline-none focus:border-accent-purple/60 placeholder:text-text-muted"
-                  />
-                  {conversationSearch && (
-                    <button
-                      type="button"
-                      onClick={() => setConversationSearch("")}
-                      aria-label={t("common.cancel")}
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-                    >
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-                {filteredConversationData.conversations.length === 0 ? (
-                  <p className="px-2 py-6 text-center text-xs text-text-muted">
-                    {t("chat.searchNoResults")}
-                  </p>
-                ) : (
-                  <ul className="flex flex-1 flex-col gap-1 overflow-y-auto">
-                    {filteredConversationData.conversations.map((c) => (
-                      <li key={c.id}>
-                        <button
-                          onClick={() => openConversation(c.id)}
-                          className="flex w-full items-center justify-between gap-2 rounded-lg border border-glass-border bg-glass-bg/40 px-3 py-2 text-left text-sm transition-colors hover:bg-glass-hover"
-                        >
-                          <span className="min-w-0 flex-1 truncate">
-                            {c.title || t("chat.untitled")}
-                          </span>
-                          <ChevronRight size={14} className="text-text-muted" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Desktop empty state */}
-        {!activeId && (
-          <div className="hidden flex-1 items-center justify-center sm:flex">
+          <div className="flex flex-1 items-center justify-center p-6">
             <div className="text-center">
               <MessagesSquare
                 size={40}
@@ -1140,227 +939,14 @@ export function ChatPage() {
                   point of the screen rather than an afterthought
                   glued to the bottom edge. */}
               <div className="mx-auto w-full max-w-3xl">
-                <div
-                  className={cn(
-                    "rounded-2xl border bg-bg-secondary/70 p-3 shadow-md backdrop-blur-md transition-colors",
-                    speech.listening
-                      ? "border-accent-purple ring-2 ring-accent-purple/30"
-                      : "border-glass-border focus-within:border-accent-purple/60",
-                  )}
-                >
-                  {/* Pending attachment cards — Gemini-style row of
-                      thumbnails with an X to remove. Sits above the
-                      textarea so the user can see what they're about
-                      to send while still typing the prompt. */}
-                  {pendingAttachments.length > 0 && (
-                    <div className="mb-2 flex flex-wrap gap-2">
-                      {pendingAttachments.map((att, idx) => (
-                        <AttachmentCard
-                          key={idx}
-                          attachment={att}
-                          onRemove={() => removeAttachment(idx)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  {attachmentError && (
-                    <p
-                      role="alert"
-                      className="mb-2 text-[11px] text-red-400"
-                    >
-                      {attachmentError}
-                    </p>
-                  )}
-                  {/* Persistent hint when the user has staged images
-                      but is on Default — separate from the transient
-                      `attachmentError` so it doesn't disappear after
-                      the next state change. */}
-                  {attachmentsBlocked && !attachmentError && (
-                    <p className="mb-2 text-[11px] text-amber-400">
-                      {t("chat.composer.attachments.needVisionModel")}
-                    </p>
-                  )}
-                  <textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onPaste={handlePaste}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSend();
-                      }
-                    }}
-                    placeholder={
-                      speech.listening
-                        ? t("chat.composer.listeningPlaceholder")
-                        : t("chat.composerPlaceholder")
-                    }
-                    rows={2}
-                    // Hide the scrollbar entirely — the auto-resize
-                    // grows the textarea up to 12rem so a real
-                    // overflow only happens past that, where a tiny
-                    // hidden bar is preferable to a chunky default
-                    // browser scrollbar floating in the input.
-                    className="block min-h-[3rem] w-full resize-none bg-transparent px-1 text-sm text-text-primary placeholder:text-text-muted outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                    disabled={streamingMessageId !== null}
-                  />
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/gif,image/webp"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files) void handleAddFiles(e.target.files);
-                      // Reset value so the same file picked twice in a
-                      // row still fires onChange the second time.
-                      e.target.value = "";
-                    }}
-                  />
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <ModelPicker
-                      value={selectedProvider}
-                      options={configuredProviders}
-                      onChange={setSelectedProvider}
-                    />
-                    <ModePicker
-                      value={recommendationMode}
-                      onChange={setRecommendationMode}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={
-                        streamingMessageId !== null ||
-                        pendingAttachments.length >= effectiveAttachmentCap
-                      }
-                      title={t("chat.composer.attachments.add")}
-                      aria-label={t("chat.composer.attachments.add")}
-                      className="inline-flex items-center gap-1 rounded-md border border-glass-border bg-bg-primary/50 px-2 py-1 text-[11px] text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <Paperclip size={11} />
-                    </button>
-                    <button
-                      ref={readingContextBtnRef}
-                      onClick={() => setReadingMenuOpen((v) => !v)}
-                      className="inline-flex items-center gap-1 rounded-md border border-glass-border bg-bg-primary/50 px-2 py-1 text-[11px] text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-                      title={t("chat.readingContext.title")}
-                    >
-                      <History size={11} />
-                      <span className="hidden sm:inline">
-                        {t("chat.readingContext.button")}
-                      </span>
-                    </button>
-                    <FloatingMenu
-                      open={readingMenuOpen}
-                      anchorRef={readingContextBtnRef}
-                      onClose={() => setReadingMenuOpen(false)}
-                      className="w-56"
-                    >
-                      <button
-                        onClick={() => insertReadingContext("week")}
-                        className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-                      >
-                        <span className="font-medium">
-                          {t("chat.readingContext.weekTitle")}
-                        </span>
-                        <span className="text-[11px] text-text-muted">
-                          {t("chat.readingContext.weekHint")}
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => insertReadingContext("all")}
-                        className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-                      >
-                        <span className="font-medium">
-                          {t("chat.readingContext.recentTitle")}
-                        </span>
-                        <span className="text-[11px] text-text-muted">
-                          {t("chat.readingContext.recentHint")}
-                        </span>
-                      </button>
-                    </FloatingMenu>
-                    {speech.error && (
-                      <span className="ml-auto text-[11px] text-red-400">
-                        {speech.error === "not-allowed"
-                          ? t("chat.composer.micDenied")
-                          : t("chat.composer.micError")}
-                      </span>
-                    )}
-                    <div className={cn("flex items-center gap-2", !speech.error && "ml-auto")}>
-                  {speech.supported && (
-                    <button
-                      onClick={() =>
-                        speech.listening ? speech.stop() : speech.start()
-                      }
-                      disabled={streamingMessageId !== null}
-                      className={cn(
-                        "shrink-0 rounded-full p-2 transition-colors cursor-pointer",
-                        speech.listening
-                          ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                          : "bg-glass-bg text-text-muted hover:bg-glass-hover hover:text-text-primary",
-                      )}
-                      aria-label={
-                        speech.listening
-                          ? t("chat.composer.stopListening")
-                          : t("chat.composer.startListening")
-                      }
-                      title={
-                        speech.listening
-                          ? t("chat.composer.stopListening")
-                          : t("chat.composer.startListening")
-                      }
-                    >
-                      {speech.listening ? (
-                        <MicOff size={16} />
-                      ) : (
-                        <Mic size={16} />
-                      )}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      if (streamingMessageId !== null) {
-                        useChatStore.getState().stopStreaming();
-                      } else {
-                        void handleSend();
-                      }
-                    }}
-                    disabled={
-                      streamingMessageId === null &&
-                      ((!input.trim() && pendingAttachments.length === 0) ||
-                        attachmentsBlocked)
-                    }
-                    className={cn(
-                      "shrink-0 rounded-full p-2 transition-colors cursor-pointer",
-                      streamingMessageId !== null
-                        ? "bg-accent-purple text-white hover:bg-accent-purple/80"
-                        : (input.trim() || pendingAttachments.length > 0) &&
-                            !attachmentsBlocked
-                          ? "bg-accent-purple text-white hover:bg-accent-purple/80"
-                          : "bg-glass-bg text-text-muted disabled:cursor-not-allowed",
-                    )}
-                    aria-label={
-                      streamingMessageId !== null
-                        ? t("chat.stop")
-                        : t("chat.send")
-                    }
-                    title={
-                      streamingMessageId !== null
-                        ? t("chat.stop")
-                        : t("chat.send")
-                    }
-                  >
-                    {streamingMessageId !== null ? (
-                      <Square size={14} fill="currentColor" />
-                    ) : (
-                      <ArrowUp size={18} strokeWidth={2.5} />
-                    )}
-                  </button>
-                    </div>
-                  </div>
-                </div>
+                <ChatComposer
+                  value={input}
+                  onChange={setInput}
+                  onSubmit={handleSubmit}
+                  isStreaming={streamingMessageId !== null}
+                  onStop={() => useChatStore.getState().stopStreaming()}
+                  onLoadReadingContext={handleLoadReadingContext}
+                />
               </div>
             </div>
           </div>
@@ -1423,148 +1009,6 @@ export function ChatPage() {
   );
 }
 
-// ── Attachment card (Gemini-style) ──────────────────────────
-
-/**
- * Small rectangle showing one pending attachment — a 12×12 image
- * thumbnail (or a generic icon for non-image attachments) with a
- * close button on the top-right corner. Clicking the card itself
- * opens the original at full size in a new tab; clicking the X
- * removes the attachment from the pending list before send.
- */
-function AttachmentCard({
-  attachment,
-  onRemove,
-}: {
-  attachment: ChatMessageAttachment;
-  onRemove: () => void;
-}) {
-  const dataUri = `data:${attachment.media_type};base64,${attachment.data}`;
-  return (
-    <div
-      className="group relative flex h-12 items-center gap-2 rounded-md border border-glass-border bg-glass-bg/60 pl-1.5 pr-7"
-      title={attachment.name ?? attachment.kind}
-    >
-      {attachment.kind === "image" ? (
-        <img
-          src={dataUri}
-          alt={attachment.name ?? "attachment"}
-          className="h-9 w-9 shrink-0 rounded object-cover"
-        />
-      ) : (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-bg-primary text-text-muted">
-          <ImageIcon size={14} />
-        </div>
-      )}
-      {attachment.name && (
-        <span className="max-w-[10rem] truncate text-[11px] text-text-secondary">
-          {attachment.name}
-        </span>
-      )}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label="Remove attachment"
-        className="absolute right-1 top-1 rounded-full bg-bg-primary/80 p-0.5 text-text-muted transition-colors hover:bg-bg-primary hover:text-text-primary cursor-pointer"
-      >
-        <X size={11} />
-      </button>
-    </div>
-  );
-}
-
-// ── Copy-to-clipboard button ────────────────────────────────
-
-/**
- * Tiny inline button on assistant messages that copies the raw
- * markdown content (not the rendered HTML — markdown copy is what
- * users actually want for pasting back into editors / chats).
- * Shows a 1.5s "Copied" confirmation; falls back to a manual prompt
- * if the Clipboard API rejects (rare but happens in some private
- * / iframe contexts).
- */
-/**
- * Topic-first mode picker. Sits next to the model picker in the
- * composer toolbar and toggles between three system prompts for
- * the next message:
- *   - Default → regular chat (system prompt built from doc context).
- *   - Books   → AI returns 4–6 book recs as cards.
- *   - Videos  → AI returns 4–6 video / course recs as cards.
- *
- * The mode is **per-turn** — it resets after `handleSend` so a
- * follow-up question is treated as a normal chat unless the user
- * deliberately re-picks a recommendation mode. That keeps a single
- * conversation usable for "find me books" → "actually, also some
- * videos" → "explain this concept" without the user fighting a
- * sticky toggle.
- */
-function ModePicker({
-  value,
-  onChange,
-}: {
-  value: RecommendationMode;
-  onChange: (next: RecommendationMode) => void;
-}) {
-  const { t } = useTranslation();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const [open, setOpen] = useState(false);
-
-  const labels: Record<RecommendationMode, string> = {
-    default: t("chat.composer.modeDefault", { defaultValue: "Chat" }),
-    books: t("chat.composer.modeBooks", { defaultValue: "Recommend books" }),
-    videos: t("chat.composer.modeVideos", { defaultValue: "Recommend videos" }),
-  };
-  const subtitles: Record<RecommendationMode, string> = {
-    default: t("chat.composer.modeDefaultSubtitle", {
-      defaultValue: "Regular chat with the AI",
-    }),
-    books: t("chat.composer.modeBooksSubtitle", {
-      defaultValue: "AI suggests books on a topic — add them as placeholders",
-    }),
-    videos: t("chat.composer.modeVideosSubtitle", {
-      defaultValue: "AI suggests videos, courses, and guides on a topic",
-    }),
-  };
-
-  return (
-    <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
-      <button
-        ref={triggerRef}
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          "flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors cursor-pointer",
-          value === "default"
-            ? "border-glass-border bg-bg-primary/50 text-text-secondary hover:bg-glass-hover hover:text-text-primary"
-            : "border-accent-purple/40 bg-accent-purple/15 text-accent-purple hover:bg-accent-purple/20",
-        )}
-      >
-        <Sparkles size={12} />
-        {labels[value]}
-        <ChevronDown size={11} />
-      </button>
-      <FloatingMenu
-        open={open}
-        anchorRef={triggerRef}
-        onClose={() => setOpen(false)}
-        className="w-72"
-      >
-        {(["default", "books", "videos"] as const).map((m) => (
-          <ModelOption
-            key={m}
-            active={value === m}
-            label={labels[m]}
-            subtitle={subtitles[m]}
-            onClick={() => {
-              onChange(m);
-              setOpen(false);
-            }}
-          />
-        ))}
-      </FloatingMenu>
-    </div>
-  );
-}
-
 /**
  * Assistant message body. Pulls any `pnyxy-books` / `pnyxy-videos`
  * fenced JSON blocks out of the model's reply and renders the
@@ -1589,9 +1033,6 @@ function AssistantContent({
   }) => Promise<boolean>;
   handleCitationClick: (e: React.MouseEvent<HTMLElement>) => void;
 }) {
-  // Using the hook directly here keeps `t` as the strongly-typed
-  // `TFunction` that `promptOpenAiLink` expects, instead of a
-  // hand-rolled signature that loses the i18next brand type.
   const { t } = useTranslation();
   const { cleaned, books, videos } = useMemo(
     () => extractRecommendations(content),
@@ -1644,136 +1085,6 @@ function CopyButton({ text }: { text: string }) {
     >
       {copied ? <Check size={10} /> : <Copy size={10} />}
       {copied ? t("chat.copy.copied") : t("chat.copy.action")}
-    </button>
-  );
-}
-
-// ── Model dropdown ──────────────────────────────────────────
-
-function ModelPicker({
-  value,
-  options,
-  onChange,
-  label,
-}: {
-  /** null = "Default" (full fallback chain). A specific provider =
-   *  strict pick — only that provider is tried, no fallback. */
-  value: AiProvider | null;
-  options: AiProvider[];
-  onChange: (next: AiProvider | null) => void;
-  /** Optional small-caps prefix ("MODEL: …"). Omitted in the new
-   *  panel-island composer so the dropdown stands on its own. */
-  label?: string;
-}) {
-  const { t } = useTranslation();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const [open, setOpen] = useState(false);
-  const [infoOpen, setInfoOpen] = useState(false);
-
-  // Display name for the trigger: model name when an explicit
-  // provider is picked, "Default" when on auto-fallback.
-  const triggerLabel = value
-    ? PROVIDER_INFO[value].model
-    : t("chat.composer.modelDefault");
-
-  return (
-    <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
-      {label && (
-        <span className="font-medium uppercase tracking-wider">{label}</span>
-      )}
-      <button
-        ref={triggerRef}
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-md border border-glass-border bg-bg-primary/50 px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-      >
-        <Bot size={12} className="text-accent-purple/80" />
-        {triggerLabel}
-        <ChevronDown size={11} />
-      </button>
-      <button
-        type="button"
-        onClick={() => setInfoOpen(true)}
-        className="rounded-md p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-        title={t("chat.composer.modelHelp", {
-          defaultValue: "Modellek leírása",
-        })}
-        aria-label={t("chat.composer.modelHelp", {
-          defaultValue: "Modellek leírása",
-        })}
-      >
-        <HelpCircle size={14} />
-      </button>
-      <ModelInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
-      <FloatingMenu
-        open={open}
-        anchorRef={triggerRef}
-        onClose={() => setOpen(false)}
-        className="w-64"
-      >
-        {/* "Default" entry — picks the first available in the
-            configured chain, falls through on quota/auth/network
-            errors. The user's safety net when they don't care
-            which model answers. */}
-        <ModelOption
-          active={value === null}
-          label={t("chat.composer.modelDefault")}
-          subtitle={t("chat.composer.modelDefaultSubtitle")}
-          onClick={() => {
-            onChange(null);
-            setOpen(false);
-          }}
-        />
-        {options.length > 0 && (
-          <div className="my-0.5 h-px bg-glass-border" />
-        )}
-        {options.map((p) => (
-          <ModelOption
-            key={p}
-            active={value === p}
-            label={PROVIDER_INFO[p].model}
-            subtitle={PROVIDER_INFO[p].routing}
-            onClick={() => {
-              onChange(p);
-              setOpen(false);
-            }}
-          />
-        ))}
-      </FloatingMenu>
-    </div>
-  );
-}
-
-function ModelOption({
-  active,
-  label,
-  subtitle,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  subtitle: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-start justify-between gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-glass-hover cursor-pointer",
-        active ? "text-accent-purple" : "text-text-secondary hover:text-text-primary",
-      )}
-    >
-      <span className="flex flex-col gap-0.5">
-        <span className="font-medium">{label}</span>
-        <span
-          className={cn(
-            "text-[10px]",
-            active ? "text-accent-purple/70" : "text-text-muted",
-          )}
-        >
-          {subtitle}
-        </span>
-      </span>
-      {active && <Check size={12} className="mt-0.5" />}
     </button>
   );
 }
@@ -1980,12 +1291,42 @@ function MessageBubble({
             <TypingIndicator label={t("chat.thinking", { defaultValue: "Thinking…" })} />
           </div>
         ) : (
-          <AssistantContent
-            content={msg.content}
-            sourceDocId={sourceDocId}
-            confirm={confirm}
-            handleCitationClick={handleCitationClick}
-          />
+          <div className="space-y-2">
+            {/* Generated image (or any other attachment a future
+                tool might emit) on an assistant turn. Rendered
+                above the markdown so the image is the visual focal
+                point and any caption/explanation reads below it. */}
+            {msg.attachments && msg.attachments.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {msg.attachments.map((att, idx) =>
+                  att.kind === "image" ? (
+                    <a
+                      key={idx}
+                      href={`data:${att.media_type};base64,${att.data}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block"
+                      title={att.name ?? ""}
+                    >
+                      <img
+                        src={`data:${att.media_type};base64,${att.data}`}
+                        alt={att.name ?? "generated image"}
+                        className="max-h-96 max-w-full rounded-md object-contain"
+                      />
+                    </a>
+                  ) : null,
+                )}
+              </div>
+            )}
+            {msg.content && (
+              <AssistantContent
+                content={msg.content}
+                sourceDocId={sourceDocId}
+                confirm={confirm}
+                handleCitationClick={handleCitationClick}
+              />
+            )}
+          </div>
         )}
 
         {/* Actions: visible on hover or when there are branches */}

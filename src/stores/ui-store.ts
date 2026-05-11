@@ -38,9 +38,29 @@ interface UIState {
    */
   openReaderAiChat: (() => void) | null;
   setOpenReaderAiChat: (open: (() => void) | null) => void;
+  /**
+   * Sibling of `openReaderAiChat` for the inverse direction — the AI
+   * chat panel registers nothing here; the reader's sidebar mounts
+   * an opener that navigates to the thumbnail-TOC view with page-
+   * selection mode pre-enabled. Lets the AI chat panel surface a
+   * "Customize context" button without depending on dockview /
+   * mobile-panel state directly.
+   */
+  openAiContextEditor: (() => void) | null;
+  setOpenAiContextEditor: (open: (() => void) | null) => void;
+  /**
+   * Whether the ThumbnailToc is in page-selection mode. Lifted out
+   * of ThumbnailToc's local state so the "Customize context" button
+   * in the AI chat panel can flip it on remotely, and so a future
+   * "edit context from here" link from any surface can land the
+   * user in the right place without prop-drilling.
+   */
+  aiContextSelectionMode: boolean;
+  setAiContextSelectionMode: (on: boolean) => void;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleReaderSidebar: () => void;
+  setReaderSidebarCollapsed: (collapsed: boolean) => void;
   setLoading: (loading: boolean, message?: string) => void;
   setMobileSidebarOpen: (open: boolean) => void;
   setMobileReaderPanel: (panel: MobileReaderPanel) => void;
@@ -63,11 +83,17 @@ export const useUIStore = create<UIState>((set) => ({
   setLibraryPickerOpen: (open) => set({ libraryPickerOpen: open }),
   openReaderAiChat: null,
   setOpenReaderAiChat: (open) => set({ openReaderAiChat: open }),
+  openAiContextEditor: null,
+  setOpenAiContextEditor: (open) => set({ openAiContextEditor: open }),
+  aiContextSelectionMode: false,
+  setAiContextSelectionMode: (on) => set({ aiContextSelectionMode: on }),
   toggleSidebar: () =>
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   toggleReaderSidebar: () =>
     set((state) => ({ readerSidebarCollapsed: !state.readerSidebarCollapsed })),
+  setReaderSidebarCollapsed: (collapsed) =>
+    set({ readerSidebarCollapsed: collapsed }),
   setLoading: (loading, message = "") =>
     set({ isLoadingDocument: loading, loadingMessage: message }),
   setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),

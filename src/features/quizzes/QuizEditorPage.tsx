@@ -9,7 +9,7 @@ import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   useSensor,
   useSensors,
@@ -108,12 +108,14 @@ export function QuizEditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [loadingInitial, setLoadingInitial] = useState(!!quizId);
 
-  // Pointer for desktop, Touch with a delay so a tap on the drag
-  // handle doesn't conflict with normal scrolling on mobile, plus
-  // Keyboard for a11y (Tab to a question, Space to pick up, arrow
-  // keys to move, Space to drop).
+  // MouseSensor (not PointerSensor) so touch events go to
+  // TouchSensor only — otherwise PointerSensor's `distance: 8`
+  // activation beat TouchSensor's 200ms delay on phones and a
+  // scroll-swipe over a question row would start a drag. Keyboard
+  // for a11y: Tab to a question, Space to pick up, arrows to move,
+  // Space to drop.
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: { distance: 8 },
     }),
     useSensor(TouchSensor, {

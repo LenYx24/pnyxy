@@ -18,12 +18,13 @@ import { supabase } from "@/lib/supabase";
 
 export type FitMode = "fit-width" | "fit-page";
 export type EpubFlow = "scrolled" | "paginated";
-export type AiProvider = "pnyxy" | "anthropic" | "openai";
+export type AiProvider = "pnyxy" | "anthropic" | "openai" | "local";
 
 export const ALL_AI_PROVIDERS: readonly AiProvider[] = [
   "pnyxy",
   "anthropic",
   "openai",
+  "local",
 ] as const;
 
 export interface InstalledPluginPackage {
@@ -49,6 +50,20 @@ interface SettingsState {
   enabledProviders: AiProvider[];
   anthropicApiKey: string;
   openaiApiKey: string;
+  /** Base URL for a user-run OpenAI-compatible local LLM. Default is
+   *  Ollama (http://localhost:11434/v1); LM Studio uses :1234/v1. The
+   *  field accepts any OpenAI-compatible endpoint so power users can
+   *  point at vLLM, llama.cpp's HTTP server, or a tailscale-tunneled
+   *  remote rig. */
+  localBaseUrl: string;
+  /** Model name to send in the request body (e.g. "llama3.2",
+   *  "qwen2.5-coder:14b"). Required because local model registries
+   *  are user-managed — there's no sensible default. */
+  localModel: string;
+  /** Optional bearer for endpoints that gate access (LM Studio, vLLM
+   *  with --api-key, tailnet auth proxies). Ollama default is open
+   *  on localhost, so empty is fine for the default config. */
+  localApiKey: string;
 
   // ── AI context (chat-store reads these to build the system prompt) ──
   /** Free-form notes the user always wants the AI to know about —
@@ -120,6 +135,9 @@ interface SettingsState {
   moveProvider: (provider: AiProvider, direction: -1 | 1) => void;
   setAnthropicApiKey: (v: string) => void;
   setOpenaiApiKey: (v: string) => void;
+  setLocalBaseUrl: (v: string) => void;
+  setLocalModel: (v: string) => void;
+  setLocalApiKey: (v: string) => void;
   setAiCustomDefaultContext: (v: string) => void;
   setAiAttachToc: (v: boolean) => void;
   setAiSurroundingPagesCount: (v: number) => void;
@@ -167,6 +185,9 @@ export const useSettingsStore = create<SettingsState>()(
       enabledProviders: ["pnyxy"],
       anthropicApiKey: "",
       openaiApiKey: "",
+      localBaseUrl: "http://localhost:11434/v1",
+      localModel: "",
+      localApiKey: "",
       aiCustomDefaultContext: "",
       aiAttachToc: true,
       aiSurroundingPagesCount: 5,
@@ -221,6 +242,9 @@ export const useSettingsStore = create<SettingsState>()(
       },
       setAnthropicApiKey: (v) => set({ anthropicApiKey: v }),
       setOpenaiApiKey: (v) => set({ openaiApiKey: v }),
+      setLocalBaseUrl: (v) => set({ localBaseUrl: v }),
+      setLocalModel: (v) => set({ localModel: v }),
+      setLocalApiKey: (v) => set({ localApiKey: v }),
       setAiCustomDefaultContext: (v) => set({ aiCustomDefaultContext: v }),
       setAiAttachToc: (v) => set({ aiAttachToc: v }),
       // Clamp 0..50: 0 means "selecting around does nothing"; 50 is a

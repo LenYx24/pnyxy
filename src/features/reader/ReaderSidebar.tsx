@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, FilePlus, FileText, Library, StickyNote, PenTool, List, LayoutGrid, Trash2, Bookmark } from "lucide-react";
 import { useUIStore } from "@/stores/ui-store";
@@ -275,6 +275,26 @@ export function ReaderSidebarContent({
 
   const [tocViewMode, setTocViewMode] = useState<"outline" | "thumbnail">("outline");
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("contents");
+
+  // Register the cross-component opener so the AI chat panel can
+  // surface a "Customize context" button without coupling to the
+  // sidebar's internal tab/view state. The opener flips this
+  // sidebar to the thumbnail TOC and enables page-selection mode;
+  // ThumbnailToc itself auto-fills the surrounding-pages default
+  // when selection mode is entered with nothing selected.
+  useEffect(() => {
+    const open = () => {
+      useUIStore.getState().setReaderSidebarCollapsed(false);
+      useUIStore.getState().setMobileReaderPanel("toc");
+      setSidebarTab("contents");
+      setTocViewMode("thumbnail");
+      useUIStore.getState().setAiContextSelectionMode(true);
+    };
+    useUIStore.getState().setOpenAiContextEditor(open);
+    return () => {
+      useUIStore.getState().setOpenAiContextEditor(null);
+    };
+  }, []);
 
   // Selection state for notes and whiteboards
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());

@@ -124,8 +124,26 @@ export function LibraryBookCard({
     }
   };
 
+  // content-visibility: auto lets the browser skip layout/paint
+  // for offscreen cards entirely — same DOM, but rendering only
+  // happens once the card scrolls near the viewport. contain-
+  // intrinsic-size gives the browser a placeholder dimension so the
+  // scrollbar doesn't jump as cards materialize. The numbers come
+  // from coverHeight (aspect 5/7 → coverHeight × 7/5 wide) plus
+  // ~80px for the title/author block underneath. Cheap polyfill
+  // for true virtualization that keeps DnD + grid layout working.
+  const intrinsicHeight = coverHeight + 80;
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div
+      ref={setNodeRef}
+      style={{
+        ...style,
+        contentVisibility: "auto",
+        containIntrinsicSize: `auto ${intrinsicHeight}px`,
+      }}
+      {...attributes}
+      {...listeners}
+    >
       <div
         className={cn(
           "group relative",

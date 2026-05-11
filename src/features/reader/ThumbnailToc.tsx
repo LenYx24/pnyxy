@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useUIStore } from "@/stores/ui-store";
 
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf-assets/pdf.worker.min.mjs";
 
@@ -34,10 +35,37 @@ export function ThumbnailToc() {
   const selectedPages = activeDoc?.aiSelectedPages ?? EMPTY_SET;
   const selectionAnchor = activeDoc?.aiSelectionAnchor ?? null;
 
-  // Selection mode is local to this view — no need to persist across
-  // mounts. Coming back into the TOC always lands you in the
-  // navigation-only mode unless the user opts in again.
-  const [selectionMode, setSelectionMode] = useState(false);
+  // Selection mode is lifted to the UI store so the "Customize
+  // context" button in the AI chat panel can flip it on remotely.
+  // Still session-scoped — not persisted across reloads — because
+  // landing in selection mode on every reader open would feel like
+  // a mode the user didn't ask for.
+  const selectionMode = useUIStore((s) => s.aiContextSelectionMode);
+  const setSelectionMode = useUIStore((s) => s.setAiContextSelectionMode);
+
+  // First-entry into selection mode for this view: if no pages are
+  // selected yet, pre-fill with "current page ± aiSurroundingPagesCount".
+  // That's the user's stored default for the surrounding-window
+  // size; auto-applying it means the AI gets sensible context out
+  // of the box, and the user can still expand/contract from there.
+  // Guard with a per-mount ref so toggling selection mode off and
+  // back on within the same session doesn't blow away an empty
+  // selection the user deliberately cleared.
+  const autoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (!selectionMode) {
+      autoSelectedRef.current = false;
+      return;
+    }
+    if (autoSelectedRef.current) return;
+    if ((activeDoc?.aiSelectedPages.size ?? 0) > 0) {
+      autoSelectedRef.current = true;
+      return;
+    }
+    if (!activeDoc || totalPages <= 0) return;
+    selectAiPagesAround();
+    autoSelectedRef.current = true;
+  }, [selectionMode, activeDoc, totalPages, selectAiPagesAround]);
 
   const documentOptions = useMemo(
     () => ({ cMapUrl: "/pdf-assets/cmaps/", cMapPacked: true }),
@@ -82,7 +110,7 @@ export function ThumbnailToc() {
         <div className="flex items-center justify-between gap-2">
           <button
             type="button"
-            onClick={() => setSelectionMode((v) => !v)}
+            onClick={() => setSelectionMode(!selectionMode)}
             className={cn(
               "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors cursor-pointer",
               selectionMode
