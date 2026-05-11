@@ -311,7 +311,12 @@ function FolderRow({
         {...contextHandlers}
         {...listeners}
         className={cn(
-          "group relative flex select-none items-center border-b border-glass-border/30 px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
+          // Subtle purple tint on folder rows so they read as
+          // distinct containers in the mixed file/folder list
+          // (Nextcloud-style — folders pop out without needing a
+          // separate section). Selected/drop highlights override
+          // the tint via Tailwind's later-wins rule.
+          "group relative flex select-none items-center border-b border-glass-border/30 bg-accent-purple/[0.04] px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
           density.py,
           selected && "bg-accent-purple/10",
           isDragging && "opacity-50",
@@ -376,8 +381,24 @@ function FolderRow({
           />
         </button>
 
-        {/* Folder icon */}
-        <Folder size={density.icon} className="mr-2 shrink-0 text-accent-purple/60" />
+        {/* Folder icon — wrapped in a chunky tinted square so the
+            "this is a folder" affordance is unmistakable in a
+            list of book rows. Box sizes off the density's icon
+            metric so the row's overall height stays consistent
+            across the three density variants. */}
+        <div
+          className="mr-2 flex shrink-0 items-center justify-center rounded-md bg-accent-purple/15"
+          style={{
+            width: density.icon + 12,
+            height: density.icon + 12,
+          }}
+        >
+          <Folder
+            size={density.icon}
+            className="text-accent-purple"
+            strokeWidth={1.5}
+          />
+        </div>
 
         {/* Name */}
         <span className={cn("min-w-0 flex-1 truncate font-medium text-text-primary", density.text)}>

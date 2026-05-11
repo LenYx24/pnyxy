@@ -134,6 +134,10 @@ interface ReaderToolbarProps {
   onToggleDrawMode?: () => void;
   onScreenshot?: () => void;
   onScreenshotRect?: () => void;
+  /** "Crop a region from the page and send it to the AI chat as
+   *  an image attachment" — the rect equivalent of the OCR /
+   *  send-to-chat flow for when text selection isn't viable. */
+  onRectToAi?: () => void;
   onPrint?: () => void;
   onToggleSearch?: () => void;
   onToggleAiChat?: () => void;
@@ -149,6 +153,7 @@ export function ReaderToolbar({
   onToggleDrawMode,
   onScreenshot,
   onScreenshotRect,
+  onRectToAi,
   onPrint,
   onToggleSearch,
   onToggleAiChat,
@@ -296,6 +301,9 @@ export function ReaderToolbar({
     { label: t("reader.toolbar.undo"), icon: Undo2, onClick: performUndo, disabled: !canUndo },
     { label: t("reader.toolbar.screenshot"), icon: Camera, onClick: onScreenshot },
     { label: t("reader.toolbar.screenshotArea"), icon: Crop, onClick: onScreenshotRect },
+    ...(onRectToAi
+      ? [{ label: t("reader.toolbar.rectToAi", { defaultValue: "Crop to AI" }), icon: BotMessageSquare, onClick: onRectToAi }]
+      : []),
     { label: t("reader.toolbar.print"), icon: Printer, onClick: onPrint },
     { label: t("reader.toolbar.search"), icon: Search, onClick: onToggleSearch },
     { label: t("reader.toolbar.comments"), icon: MessageSquare, onClick: onToggleComments },
@@ -308,6 +316,9 @@ export function ReaderToolbar({
   const tabletOverflowActions = [
     { label: t("reader.toolbar.screenshot"), icon: Camera, onClick: onScreenshot },
     { label: t("reader.toolbar.screenshotArea"), icon: Crop, onClick: onScreenshotRect },
+    ...(onRectToAi
+      ? [{ label: t("reader.toolbar.rectToAi", { defaultValue: "Crop to AI" }), icon: BotMessageSquare, onClick: onRectToAi }]
+      : []),
     { label: t("reader.toolbar.print"), icon: Printer, onClick: onPrint },
   ];
 
@@ -707,6 +718,23 @@ export function ReaderToolbar({
             >
               <Crop size={16} />
             </button>
+            {/* Crop a region and send it to the AI chat as an
+                image attachment — useful when text selection isn't
+                viable (scanned PDFs, math, image-only pages). */}
+            {onRectToAi && (
+              <button
+                onClick={onRectToAi}
+                className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                title={t("reader.toolbar.rectToAiTitle", {
+                  defaultValue: "Crop region and send to AI chat",
+                })}
+                aria-label={t("reader.toolbar.rectToAiTitle", {
+                  defaultValue: "Crop region and send to AI chat",
+                })}
+              >
+                <BotMessageSquare size={16} />
+              </button>
+            )}
             {/* Print */}
             <button
               onClick={onPrint}

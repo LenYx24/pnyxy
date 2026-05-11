@@ -18,6 +18,7 @@ import { useChatStore, pathFromRoot } from "@/stores/chat-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import {
   ChatComposer,
+  type ChatComposerHandle,
   type ChatComposerSubmitPayload,
 } from "@/features/chat/ChatComposer";
 import { useReaderStore } from "@/stores/reader-store";
@@ -138,7 +139,22 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const overflowAnchorRef = useRef<HTMLButtonElement>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<ChatComposerHandle>(null);
   const keyboardInset = useKeyboardInset();
+
+  // Drain the cross-component "pending chat attachments" queue.
+  // ReaderPage's rect-to-AI flow pushes into the UI store; we
+  // forward them into the composer's imperative addAttachments.
+  // Subscribing to the array reference triggers this exactly when
+  // a new push has happened — the consume action clears the queue
+  // so the same items aren't injected twice.
+  const pendingChatAttachments = useUIStore((s) => s.pendingChatAttachments);
+  useEffect(() => {
+    if (pendingChatAttachments.length === 0) return;
+    const items = useUIStore.getState().consumePendingChatAttachments();
+    if (items.length === 0) return;
+    composerRef.current?.addAttachments(items);
+  }, [pendingChatAttachments]);
 
   // Inline rename for the active conversation's title (header).
   // Click the title → input mode; Enter / blur saves; Escape cancels.
@@ -630,6 +646,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           History button hides when onLoadReadingContext is unset. */}
       <div className="p-3">
         <ChatComposer
+          ref={composerRef}
           value={input}
           onChange={setInput}
           onSubmit={handleSubmit}

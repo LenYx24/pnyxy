@@ -1,6 +1,8 @@
 import {
+  forwardRef,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -344,6 +346,16 @@ export interface ChatComposerSubmitPayload {
   attachments: ChatMessageAttachment[];
 }
 
+/**
+ * Imperative handle exposed via `forwardRef` so external surfaces
+ * (e.g. ReaderPage's rect-to-AI flow) can drop attachments into
+ * the composer without lifting state. Use `useRef<ChatComposerHandle>`
+ * on the parent + pass as `ref`.
+ */
+export interface ChatComposerHandle {
+  addAttachments: (atts: ChatMessageAttachment[]) => void;
+}
+
 interface ChatComposerProps {
   /** Controlled input value. Parent owns it so it can pre-fill
    *  (reader→chat handoff) or clear externally. */
@@ -367,15 +379,21 @@ interface ChatComposerProps {
   placeholderKey?: string;
 }
 
-export function ChatComposer({
-  value,
-  onChange,
-  onSubmit,
-  isStreaming,
-  onStop,
-  onLoadReadingContext,
-  placeholderKey = "chat.composerPlaceholder",
-}: ChatComposerProps) {
+export const ChatComposer = forwardRef<
+  ChatComposerHandle,
+  ChatComposerProps
+>(function ChatComposer(
+  {
+    value,
+    onChange,
+    onSubmit,
+    isStreaming,
+    onStop,
+    onLoadReadingContext,
+    placeholderKey = "chat.composerPlaceholder",
+  },
+  ref,
+) {
   const { t } = useTranslation();
 
   const enabledProviders = useSettingsStore((s) => s.enabledProviders);
@@ -473,6 +491,23 @@ export function ChatComposer({
     setPendingAttachments((prev) => prev.filter((_, i) => i !== idx));
     setAttachmentError(null);
   }, []);
+
+  // Imperative addAttachments — used by ReaderPage's rect-to-AI
+  // flow to inject a captured page region into the chat composer.
+  // Bypasses the size/type validation in `handleAddFiles` because
+  // the caller has already produced a well-formed in-memory PNG;
+  // no user file picked, no risk of an unsupported MIME.
+  useImperativeHandle(
+    ref,
+    () => ({
+      addAttachments: (atts) => {
+        if (atts.length === 0) return;
+        setPendingAttachments((prev) => [...prev, ...atts]);
+        setAttachmentError(null);
+      },
+    }),
+    [],
+  );
 
   // Paste handler — pull image items from clipboard and route them
   // through the same validation/encoding path as the file picker.
@@ -762,4 +797,4 @@ export function ChatComposer({
       </div>
     </div>
   );
-}
+});

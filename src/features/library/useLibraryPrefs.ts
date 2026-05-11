@@ -26,6 +26,18 @@ function loadPrefs(): LibraryPrefs {
   } catch {
     // ignore
   }
+  // First-time visitors land on the platform-appropriate default —
+  // mobile gets list (less visually noisy, matches the Nextcloud-
+  // style files UI we're modeling after); desktop keeps grid which
+  // shows book covers well at desktop widths. Once the user picks
+  // explicitly via the toolbar toggle, that choice is persisted
+  // and this default no longer applies.
+  if (
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 640px)").matches
+  ) {
+    return { ...DEFAULT_PREFS, viewMode: "list" };
+  }
   return DEFAULT_PREFS;
 }
 

@@ -48,11 +48,12 @@ export function FolderCard({
   const [renameOpen, setRenameOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const selKey = `folder:${folder.id}`;
-  // coverHeight is now only used as a hint for icon scaling — the
-  // icon container itself is sized via aspect-[5/7] w-full to match
-  // LibraryBookCard exactly. The actual rendered height comes from
-  // the grid cell width × 1.4, same formula books use.
-  const iconSize = Math.round(Math.min(Math.max(coverHeight * 0.35, 24), 48));
+  // Folder cards visually break from the book-cover ratio: a
+  // square icon container (aspect-square, not 5:7) reads as a
+  // proper "folder" rather than a placeholder for a missing book
+  // cover. The icon scales to roughly half the square's width so
+  // it has comfortable padding on all sides and centers cleanly.
+  const iconSize = Math.round(Math.min(Math.max(coverHeight * 0.55, 40), 72));
   const compact = coverHeight < 100;
 
   const handleClick = (e: React.MouseEvent) => {
@@ -69,10 +70,14 @@ export function FolderCard({
   };
 
   // Matches LibraryBookCard's content-visibility setup so the
-  // grid skips layout/paint for offscreen folder tiles. Same
-  // intrinsic-height math (coverHeight + ~80px title/label) so the
-  // scrollbar stays steady regardless of folder vs book order.
-  const intrinsicHeight = coverHeight + 80;
+  // grid skips layout/paint for offscreen folder tiles. Folder
+  // cards are SQUARE now (icon area = card width), so the
+  // intrinsic height is one card-width plus the ~56px label
+  // block underneath. Books still use the 5:7 height; CSS Grid
+  // rows align to whichever cell is tallest, so a mixed row
+  // leaves a small gap under each folder — visually fine since
+  // folders read as distinct items anyway.
+  const intrinsicHeight = coverHeight + 56;
   return (
     <div
       ref={setNodeRef}
@@ -84,9 +89,12 @@ export function FolderCard({
       {...attributes}
       {...listeners}
     >
-      {/* Outer layout mirrors LibraryBookCard: a bordered, 5:7
-          aspect "cover" with metadata sitting below it (mt-2). This
-          way folders and books occupy identical grid cells. */}
+      {/* Outer layout: a square icon container (not 5:7 like book
+          covers — folders look weird stretched into book shape) +
+          a label block underneath. Grid rows that mix folders and
+          books will have folders sitting taller-than-content, with
+          a small gap below the label; visually fine since the
+          shape difference makes folders read as distinct items.  */}
       <div
         className={cn(
           "group relative",
@@ -99,11 +107,13 @@ export function FolderCard({
           title={folder.name}
           className="cursor-pointer"
         >
-          {/* Icon area — 5:7 aspect to match book covers. */}
-          <div className="relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
+          {/* Square icon area, vertically centering the Folder SVG.
+              Padding-y inside the square gives the icon breathing
+              room so it never visually crowds the border. */}
+          <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
             <Folder
               size={iconSize}
-              className="text-accent-purple/60 transition-transform group-hover:scale-[1.02]"
+              className="text-accent-purple/70 transition-transform group-hover:scale-[1.02]"
             />
 
             {/* Selection checkbox — sits on the cover so it shows

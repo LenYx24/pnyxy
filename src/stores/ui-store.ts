@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ChatMessageAttachment } from "@/types/chat";
 
 // Bumped key suffix when the dockview swap semantics changed (the
 // "draw mode" toggle bug fix). Old saved layouts could have the TOC
@@ -57,6 +58,28 @@ interface UIState {
    */
   aiContextSelectionMode: boolean;
   setAiContextSelectionMode: (on: boolean) => void;
+  /**
+   * "Capture a rectangle from the page and send it to the AI."
+   * The reader watches this flag and mounts the rect selector when
+   * true; on a successful capture the bitmap goes into
+   * `pendingChatAttachments` and the flag flips back to false. The
+   * existing download-style rect screenshot stays on its own flag —
+   * the same selector overlay would be confusing if both modes
+   * shared one trigger.
+   */
+  aiRectCaptureActive: boolean;
+  setAiRectCaptureActive: (on: boolean) => void;
+  /**
+   * Cross-component drop point for "an image is ready, please
+   * attach it to the chat composer." ReaderPage's rect-to-AI flow
+   * pushes here; AiChatPanel reads this and forwards into the
+   * composer's imperative `addAttachments` handle. Acts as a queue —
+   * `consumePendingChatAttachments` drains and returns the list so
+   * the same attachment never gets injected twice.
+   */
+  pendingChatAttachments: ChatMessageAttachment[];
+  pushChatAttachment: (att: ChatMessageAttachment) => void;
+  consumePendingChatAttachments: () => ChatMessageAttachment[];
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleReaderSidebar: () => void;
@@ -70,7 +93,7 @@ interface UIState {
   setMobileChromeHidden: (hidden: boolean) => void;
 }
 
-export const useUIStore = create<UIState>((set) => ({
+export const useUIStore = create<UIState>((set, get) => ({
   sidebarCollapsed: false,
   readerSidebarCollapsed: false,
   isLoadingDocument: false,
@@ -87,6 +110,17 @@ export const useUIStore = create<UIState>((set) => ({
   setOpenAiContextEditor: (open) => set({ openAiContextEditor: open }),
   aiContextSelectionMode: false,
   setAiContextSelectionMode: (on) => set({ aiContextSelectionMode: on }),
+  aiRectCaptureActive: false,
+  setAiRectCaptureActive: (on) => set({ aiRectCaptureActive: on }),
+  pendingChatAttachments: [],
+  pushChatAttachment: (att) =>
+    set((s) => ({ pendingChatAttachments: [...s.pendingChatAttachments, att] })),
+  consumePendingChatAttachments: () => {
+    const queue = get().pendingChatAttachments;
+    if (queue.length === 0) return [];
+    set({ pendingChatAttachments: [] });
+    return queue;
+  },
   toggleSidebar: () =>
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),

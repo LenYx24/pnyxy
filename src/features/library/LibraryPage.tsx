@@ -512,10 +512,14 @@ export function LibraryPage() {
 
       {/* Bottom info row — book count + storage usage. Pinned to
           the page bottom via `mt-auto` so nothing renders below it,
-          regardless of how few books the user has. */}
+          regardless of how few books the user has. On mobile the
+          storage bar is gated behind `mobileControlsExpanded` so a
+          first-time phone user isn't greeted with extra chrome;
+          the bar is informational rather than actionable, and the
+          one tap to expand keeps it discoverable. */}
       <div className="mt-auto flex flex-col gap-1.5 border-t border-glass-border pt-4 text-xs text-text-muted">
         <p>{t("library.bookCount", { count: books.length })}</p>
-        {storageUsage && (
+        {storageUsage && (!isMobile || mobileControlsExpanded) && (
           <StorageUsageBar
             usedBytes={storageUsage.usedBytes}
             limitBytes={storageUsage.limitBytes}

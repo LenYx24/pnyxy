@@ -62,50 +62,51 @@ export function LibraryToolbar({
     return () => window.removeEventListener("keydown", handler);
   }, [searchActive, onSearchChange]);
 
-  const controls = (
-    <>
-      {/* Refresh */}
+  // View-mode toggle stays visible on every viewport — it's a
+  // primary affordance for users who want to switch between
+  // covers-focused (grid) and high-density (list) browsing.
+  const viewToggle = (
+    <div className="flex shrink-0 rounded-lg border border-glass-border bg-glass-bg p-0.5">
       <button
-        onClick={onRefresh}
-        disabled={isRefreshing}
-        className="shrink-0 rounded-lg border border-glass-border bg-glass-bg p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary disabled:opacity-50 cursor-pointer"
-        title={t("library.toolbar.refresh")}
+        onClick={() => onViewModeChange("grid")}
+        className={cn(
+          "rounded-md p-1.5 transition-colors cursor-pointer",
+          viewMode === "grid"
+            ? "bg-accent-purple/15 text-accent-purple"
+            : "text-text-muted hover:text-text-primary",
+        )}
+        title={t("library.toolbar.gridView")}
       >
-        <RefreshCw size={16} className={cn(isRefreshing && "animate-spin")} />
+        <LayoutGrid size={16} />
       </button>
+      <button
+        onClick={() => onViewModeChange("list")}
+        className={cn(
+          "rounded-md p-1.5 transition-colors cursor-pointer",
+          viewMode === "list"
+            ? "bg-accent-purple/15 text-accent-purple"
+            : "text-text-muted hover:text-text-primary",
+        )}
+        title={t("library.toolbar.listView")}
+      >
+        <List size={16} />
+      </button>
+    </div>
+  );
 
-      {/* View mode toggle */}
-      <div className="flex shrink-0 rounded-lg border border-glass-border bg-glass-bg p-0.5">
-        <button
-          onClick={() => onViewModeChange("grid")}
-          className={cn(
-            "rounded-md p-1.5 transition-colors cursor-pointer",
-            viewMode === "grid"
-              ? "bg-accent-purple/15 text-accent-purple"
-              : "text-text-muted hover:text-text-primary",
-          )}
-          title={t("library.toolbar.gridView")}
-        >
-          <LayoutGrid size={16} />
-        </button>
-        <button
-          onClick={() => onViewModeChange("list")}
-          className={cn(
-            "rounded-md p-1.5 transition-colors cursor-pointer",
-            viewMode === "list"
-              ? "bg-accent-purple/15 text-accent-purple"
-              : "text-text-muted hover:text-text-primary",
-          )}
-          title={t("library.toolbar.listView")}
-        >
-          <List size={16} />
-        </button>
-      </div>
-
-      {/* The cover-size slider used to live here; it's now in
-          Settings → Appearance → Library so the toolbar isn't
-          carrying a control most users set once and forget. */}
-    </>
+  // Refresh tucks into the mobile expander — pull-to-refresh already
+  // exists at the page level on phones, so the explicit button is
+  // redundant chrome there. Still useful on desktop where there's
+  // no PTR gesture.
+  const refreshButton = (
+    <button
+      onClick={onRefresh}
+      disabled={isRefreshing}
+      className="shrink-0 rounded-lg border border-glass-border bg-glass-bg p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary disabled:opacity-50 cursor-pointer"
+      title={t("library.toolbar.refresh")}
+    >
+      <RefreshCw size={16} className={cn(isRefreshing && "animate-spin")} />
+    </button>
   );
 
   return (
@@ -168,29 +169,38 @@ export function LibraryToolbar({
         {!searchActive && <div className="flex-1" />}
 
         {isMobile ? (
-          <button
-            onClick={onToggleMobileControls}
-            aria-expanded={mobileControlsExpanded}
-            aria-label={t("library.toolbar.toggleControls")}
-            title={t("library.toolbar.toggleControls")}
-            className={cn(
-              "shrink-0 rounded-lg border p-1.5 transition-colors cursor-pointer",
-              mobileControlsExpanded
-                ? "border-accent-purple/40 bg-accent-purple/10 text-accent-purple"
-                : "border-glass-border bg-glass-bg text-text-muted hover:bg-glass-hover hover:text-text-primary",
-            )}
-          >
-            <SlidersHorizontal size={16} />
-          </button>
+          <>
+            {viewToggle}
+            <button
+              onClick={onToggleMobileControls}
+              aria-expanded={mobileControlsExpanded}
+              aria-label={t("library.toolbar.toggleControls")}
+              title={t("library.toolbar.toggleControls")}
+              className={cn(
+                "shrink-0 rounded-lg border p-1.5 transition-colors cursor-pointer",
+                mobileControlsExpanded
+                  ? "border-accent-purple/40 bg-accent-purple/10 text-accent-purple"
+                  : "border-glass-border bg-glass-bg text-text-muted hover:bg-glass-hover hover:text-text-primary",
+              )}
+            >
+              <SlidersHorizontal size={16} />
+            </button>
+          </>
         ) : (
-          controls
+          <>
+            {refreshButton}
+            {viewToggle}
+          </>
         )}
       </div>
 
-      {/* Collapsible controls drawer on mobile */}
+      {/* Collapsible controls drawer on mobile. Holds the
+          rarely-used Refresh button (PTR covers the common case)
+          plus the parent renders the Tag filter + Storage bar
+          here too via the same `mobileControlsExpanded` flag. */}
       {isMobile && mobileControlsExpanded && (
         <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-glass-border bg-glass-bg/60 p-2">
-          {controls}
+          {refreshButton}
         </div>
       )}
     </div>

@@ -249,6 +249,7 @@ interface MobileReaderLayoutProps {
   onToggleDrawMode: () => void;
   onScreenshot: () => void;
   onScreenshotRect: () => void;
+  onRectToAi: () => void;
   onPrint: () => void;
   onToggleZenMode: () => void;
 }
@@ -260,6 +261,7 @@ function MobileReaderLayout({
   onToggleDrawMode,
   onScreenshot,
   onScreenshotRect,
+  onRectToAi,
   onPrint,
   onToggleZenMode,
 }: MobileReaderLayoutProps) {
@@ -493,6 +495,7 @@ function MobileReaderLayout({
           onToggleDrawMode={onToggleDrawMode}
           onScreenshot={onScreenshot}
           onScreenshotRect={onScreenshotRect}
+          onRectToAi={onRectToAi}
           onPrint={onPrint}
           onToggleSearch={handleToggleSearch}
           onToggleAiChat={handleToggleAiChat}
@@ -1031,25 +1034,11 @@ export function ReaderPage() {
     if (activeDoc && activeDoc.currentPage < activeDoc.totalPages) goToPage(activeDoc.currentPage + 1);
   }, [goToPage]);
 
-  useKeyboardShortcut({
-    id: "reader:prev-page",
-    key: "ArrowLeft",
-    description: "Previous page",
-    handler: prevPageHandler,
-    preventDefault: false,
-  });
-
-  useKeyboardShortcut({
-    id: "reader:next-page",
-    key: "ArrowRight",
-    description: "Next page",
-    handler: nextPageHandler,
-    preventDefault: false,
-  });
-
   // Arrow up/down scroll the active PDF viewer by one line (~60 px).
-  // Page navigation stays on Left/Right arrows. Native smooth-scroll
-  // is good enough here — no need to plumb through smoothScrollBy.
+  // Left/Right binding moved below (depends on arrowLeftHandler /
+  // arrowRightHandler which read LINE_SCROLL_PX + horizScroll
+  // declared in this block). Native smooth-scroll is good enough
+  // here — no need to plumb through smoothScrollBy.
   // Tuning dial: change LINE_SCROLL_PX below.
   const LINE_SCROLL_PX = 60;
   const lineScroll = useCallback((dy: number) => {
@@ -1066,6 +1055,54 @@ export function ReaderPage() {
     if (!el) return;
     el.scrollBy({ left: dx, behavior: "smooth" });
   }, []);
+
+  // When the page is zoomed enough that the viewer has a horizontal
+  // scrollbar, repurpose Left/Right arrows to pan the viewer
+  // horizontally instead of paging. Otherwise the user's natural
+  // "look at the rest of this page" gesture (tap right arrow)
+  // jumps them to the next page mid-paragraph. We probe the active
+  // viewer's scrollWidth/clientWidth at the moment of the key press
+  // — cheap and always in sync with current zoom — and only fall
+  // back to page navigation when there's no horizontal overflow.
+  const hasHorizontalOverflow = useCallback(() => {
+    const el = document.querySelector<HTMLElement>(
+      "[data-pdf-viewer][data-active-viewer]",
+    );
+    if (!el) return false;
+    return el.scrollWidth > el.clientWidth + 1;
+  }, []);
+
+  const arrowLeftHandler = useCallback(() => {
+    if (hasHorizontalOverflow()) {
+      horizScroll(-LINE_SCROLL_PX);
+      return;
+    }
+    prevPageHandler();
+  }, [hasHorizontalOverflow, horizScroll, prevPageHandler]);
+
+  const arrowRightHandler = useCallback(() => {
+    if (hasHorizontalOverflow()) {
+      horizScroll(LINE_SCROLL_PX);
+      return;
+    }
+    nextPageHandler();
+  }, [hasHorizontalOverflow, horizScroll, nextPageHandler]);
+
+  useKeyboardShortcut({
+    id: "reader:prev-page",
+    key: "ArrowLeft",
+    description: "Previous page (pan when zoomed in)",
+    handler: arrowLeftHandler,
+    preventDefault: false,
+  });
+
+  useKeyboardShortcut({
+    id: "reader:next-page",
+    key: "ArrowRight",
+    description: "Next page (pan when zoomed in)",
+    handler: arrowRightHandler,
+    preventDefault: false,
+  });
 
   useKeyboardShortcut({
     id: "reader:line-up",
@@ -1144,6 +1181,19 @@ export function ReaderPage() {
   const toggleSidebar = useCallback(() => {
     const api = dockviewApiRef.current;
     if (!api) return;
+    // Snapshot the viewer ↔ AI-chat ratio BEFORE the toggle.
+    // Dockview's add/removePanel redistributes the freed/required
+    // space proportionally across remaining siblings, but in some
+    // configurations the redistribution lands on a 50/50 split
+    // instead of preserving the prior ratio — that was the bug: a
+    // 60/40 reader-to-chat layout collapsed to 50/50 every time the
+    // user toggled the submenu. We capture the widths up front and
+    // restore the ratio in an rAF after the dockview commit.
+    const viewerBefore = api.getPanel("viewer");
+    const aiChatBefore = api.getPanel("aiChat");
+    const viewerW = viewerBefore?.api.width ?? null;
+    const aiChatW = aiChatBefore?.api.width ?? null;
+
     const tocPanel = api.getPanel("toc");
     if (tocPanel) {
       api.removePanel(tocPanel);
@@ -1156,6 +1206,25 @@ export function ReaderPage() {
         initialWidth: tocWidthRef.current,
         minimumWidth: 180,
         maximumWidth: 400,
+      });
+    }
+
+    // Restore the viewer/aiChat ratio after dockview has settled.
+    // Only proceed if both panels existed before and after — when
+    // the user has the chat closed, there's nothing to balance.
+    if (viewerW != null && aiChatW != null && viewerW + aiChatW > 0) {
+      const prevRatio = viewerW / (viewerW + aiChatW);
+      requestAnimationFrame(() => {
+        const v = api.getPanel("viewer");
+        const c = api.getPanel("aiChat");
+        if (!v || !c) return;
+        const available = v.api.width + c.api.width;
+        if (available <= 0) return;
+        const targetViewer = Math.round(available * prevRatio);
+        // setSize on the viewer panel — dockview pulls the
+        // complementary delta from its splitview sibling (the
+        // AI chat), which is exactly what we want.
+        v.api.setSize({ width: targetViewer });
       });
     }
   }, []);
@@ -1319,6 +1388,11 @@ export function ReaderPage() {
 
   // Screenshot handlers — full viewer + interactive rectangle.
   const [rectScreenshotActive, setRectScreenshotActive] = useState(false);
+  // Same overlay UX but the captured PNG flows into the AI chat
+  // composer as an attachment instead of downloading + clipboard.
+  // Kept on its own flag (vs the download rect) so the two modes
+  // don't accidentally cross-wire when one is cancelled mid-drag.
+  const [rectToAiActive, setRectToAiActive] = useState(false);
 
   const saveCanvas = useCallback((canvas: HTMLCanvasElement) => {
     // Trigger the file download as before…
@@ -1384,6 +1458,49 @@ export function ReaderPage() {
     },
     [saveCanvas],
   );
+
+  // "Crop area for AI" flow. Same overlay + same html2canvas, but
+  // the resulting PNG goes into the chat composer's pending
+  // attachments instead of the file system + clipboard. Used when
+  // text selection isn't viable (scanned PDFs, math-heavy figures,
+  // image-only pages) and the user wants to ask the AI about
+  // something they're looking at right now.
+  const handleRectToAiStart = useCallback(() => {
+    setRectToAiActive(true);
+  }, []);
+
+  const handleRectToAiCapture = useCallback(async (rect: ScreenshotRect) => {
+    setRectToAiActive(false);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const { default: html2canvas } = await import("html2canvas-pro");
+    const canvas = await html2canvas(document.body, {
+      useCORS: true,
+      allowTaint: true,
+      scale: window.devicePixelRatio,
+      backgroundColor: null,
+      x: rect.left + window.scrollX,
+      y: rect.top + window.scrollY,
+      width: rect.width,
+      height: rect.height,
+    });
+    // Encode as a base64 PNG — same shape as the user-uploaded
+    // image attachments, so the chat composer + provider-side
+    // multimodal converters render and ship it without any
+    // special-casing.
+    const dataUrl = canvas.toDataURL("image/png");
+    const idx = dataUrl.indexOf(",");
+    const data = idx === -1 ? dataUrl : dataUrl.slice(idx + 1);
+    useUIStore.getState().pushChatAttachment({
+      kind: "image",
+      media_type: "image/png",
+      data,
+      name: `page-${Date.now()}.png`,
+    });
+    // Open the AI chat panel so the user sees the attachment land.
+    // openReaderAiChat is null on the standalone /chat page where
+    // there's no reader to capture from, so this is harmless.
+    useUIStore.getState().openReaderAiChat?.();
+  }, []);
 
   // Search overlay toggle (VSCode-style find).
   const toggleSearch = useCallback(() => {
@@ -1755,6 +1872,7 @@ export function ReaderPage() {
             onToggleDrawMode={toggleDrawMode}
             onScreenshot={handleScreenshot}
             onScreenshotRect={handleRectScreenshotStart}
+            onRectToAi={handleRectToAiStart}
             onPrint={handlePrint}
             onToggleZenMode={toggleZenMode}
           />
@@ -1768,6 +1886,7 @@ export function ReaderPage() {
               onToggleDrawMode={toggleDrawMode}
               onScreenshot={handleScreenshot}
               onScreenshotRect={handleRectScreenshotStart}
+              onRectToAi={handleRectToAiStart}
               onPrint={handlePrint}
               onToggleSearch={toggleSearch}
               onToggleAiChat={toggleAiChat}
@@ -1819,6 +1938,12 @@ export function ReaderPage() {
         <ScreenshotRectSelector
           onCapture={handleRectScreenshotCapture}
           onCancel={() => setRectScreenshotActive(false)}
+        />
+      )}
+      {rectToAiActive && (
+        <ScreenshotRectSelector
+          onCapture={handleRectToAiCapture}
+          onCancel={() => setRectToAiActive(false)}
         />
       )}
       {libraryPickerOpen && (
