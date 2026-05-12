@@ -21,19 +21,19 @@ import {
   type ChatComposerHandle,
   type ChatComposerSubmitPayload,
 } from "@/features/chat/ChatComposer";
+import { MessageBubble } from "@/features/chat/MessageBubble";
 import { useReaderStore } from "@/stores/reader-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { useConfirm } from "@/hooks/use-confirm";
-import { usePageCitationDispatch } from "@/hooks/use-page-citation";
-import { renderMarkdown, handleCodeBlockCopy, detectAiLinkClick } from "@/lib/markdown-message";
-import { promptOpenAiLink } from "@/lib/ai-link-prompt";
+import { useReadAloud } from "@/hooks/use-read-aloud";
 import {
   conversationToMarkdown,
   downloadMarkdown,
 } from "@/lib/export-conversation";
 import { FloatingMenu, TypingIndicator } from "@/components/ui";
+import { GitBranch } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { IDockviewPanelProps } from "dockview";
 import type { ChatConversation, ChatMessage } from "@/types/chat";
@@ -64,7 +64,6 @@ interface AiChatPanelContentProps {
 export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const handleCitationClick = usePageCitationDispatch();
 
   const user = useAuthStore((s) => s.user);
   const enabledProviders = useSettingsStore((s) => s.enabledProviders);
@@ -88,6 +87,8 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const deleteConversation = useChatStore((s) => s.deleteConversation);
   const renameConversation = useChatStore((s) => s.renameConversation);
   const sendMessage = useChatStore((s) => s.sendMessage);
+  const branchFrom = useChatStore((s) => s.branchFrom);
+  const setActiveLeaf = useChatStore((s) => s.setActiveLeaf);
   const clearActive = useChatStore((s) => s.clearActive);
   // Subscribe to pendingDraft so we can drain reader-handoff drafts
   // even when this panel is already mounted (the user clicks "Send
@@ -136,11 +137,16 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
 
   const [input, setInput] = useState("");
   const [listOpen, setListOpen] = useState(false);
+  const [branchFromId, setBranchFromId] = useState<string | null>(null);
   const overflowAnchorRef = useRef<HTMLButtonElement>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<ChatComposerHandle>(null);
   const keyboardInset = useKeyboardInset();
+  // Same shared TTS instance pattern as ChatPage — single utterance
+  // at the panel level so reading a different message stops the
+  // previous one.
+  const tts = useReadAloud();
 
   // Drain the cross-component "pending chat attachments" queue.
   // ReaderPage's rect-to-AI flow pushes into the UI store; we
@@ -273,6 +279,22 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       const sendOptions = payload.reasoning
         ? { reasoning: true }
         : undefined;
+      // Branching: when the user clicked "Branch here" on a bubble,
+      // branchFromId is set. We send under that parent instead of
+      // appending to the active leaf. Clears the branch state on
+      // success so the next message follows the new branch tip.
+      if (branchFromId) {
+        const parentId = branchFromId;
+        setBranchFromId(null);
+        await branchFrom(
+          parentId,
+          trimmed,
+          payload.provider ?? undefined,
+          payload.attachments.length > 0 ? payload.attachments : undefined,
+          sendOptions,
+        );
+        return;
+      }
       await sendMessage(
         trimmed,
         payload.provider ?? undefined,
@@ -289,6 +311,8 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       createConversation,
       sendMessage,
       sendImageMessage,
+      branchFrom,
+      branchFromId,
     ],
   );
 
@@ -536,16 +560,6 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       {/* Messages */}
       <div
         ref={messagesContainerRef}
-        onClick={(e) => {
-          handleCodeBlockCopy(e);
-          if (e.defaultPrevented) return;
-          const aiLink = detectAiLinkClick(e);
-          if (aiLink) {
-            void promptOpenAiLink(aiLink, confirm, t);
-            return;
-          }
-          handleCitationClick(e);
-        }}
         className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-3"
       >
         {!activeIsForThisDoc && (
@@ -557,70 +571,74 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           </div>
         )}
 
-        {path.map((msg) =>
-          msg.role === "user" ? (
-            <div
+        {path.map((msg) => {
+          // Reuse the shared MessageBubble that powers /chat. Same
+          // delete / duplicate / edit / regenerate / branching
+          // actions; same markdown + citation rendering. The
+          // reader-specific click handlers (handleCodeBlockCopy,
+          // detectAiLinkClick, citation dispatch) all live inside
+          // the bubble's AssistantContent already.
+          const handleRegenerate =
+            msg.role === "assistant" && msg.parent_message_id
+              ? () => {
+                  const parent = messages.get(msg.parent_message_id ?? "");
+                  if (!parent || parent.role !== "user") return;
+                  void branchFrom(
+                    parent.parent_message_id,
+                    parent.content,
+                    undefined,
+                    parent.attachments ?? undefined,
+                  );
+                }
+              : undefined;
+          const handleEdit =
+            msg.role === "user"
+              ? (newText: string) => {
+                  void branchFrom(
+                    msg.parent_message_id,
+                    newText,
+                    undefined,
+                    msg.attachments ?? undefined,
+                  );
+                }
+              : undefined;
+          return (
+            <MessageBubble
               key={msg.id}
-              className="ml-auto max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent-purple/20 px-3.5 py-2 text-sm text-text-primary"
-            >
-              {msg.content}
-            </div>
-          ) : msg.id === streamingMessageId && msg.content.length === 0 ? (
-            // Empty assistant placeholder while waiting for the first
-            // delta. We render the typing indicator INSIDE the bubble
-            // (no innerHTML) so the bubble has visible content + a
-            // sane height instead of being a pulsing 28px sliver.
-            <div
-              key={msg.id}
-              className="mr-auto max-w-[85%] rounded-2xl rounded-bl-md bg-glass-bg px-3.5 py-3 text-sm text-text-muted"
-            >
-              <TypingIndicator label={t("reader.aiChat.thinking")} />
-            </div>
-          ) : (
-            // Content has started arriving — drop any pulse, render
-            // the markdown as it streams. The cursor / streaming
-            // visual is implicit in characters appearing one chunk
-            // at a time; pulsing the bubble on top of that just
-            // makes the page feel laggy.
-            <div
-              key={msg.id}
-              className="mr-auto max-w-[85%] rounded-2xl rounded-bl-md bg-glass-bg px-3.5 py-2 text-sm text-text-secondary space-y-2"
-            >
-              {/* Assistant attachments — currently just generated
-                  images from the "Generate image" composer mode. */}
-              {msg.attachments && msg.attachments.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {msg.attachments.map((att, idx) =>
-                    att.kind === "image" ? (
-                      <a
-                        key={idx}
-                        href={`data:${att.media_type};base64,${att.data}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block"
-                        title={att.name ?? ""}
-                      >
-                        <img
-                          src={`data:${att.media_type};base64,${att.data}`}
-                          alt={att.name ?? "generated image"}
-                          className="max-h-72 max-w-full rounded-md object-contain"
-                        />
-                      </a>
-                    ) : null,
-                  )}
-                </div>
-              )}
-              {msg.content && (
-                <div
-                  className="ai-message"
-                  dangerouslySetInnerHTML={{
-                    __html: renderMarkdown(msg.content, sourceDocId),
-                  }}
-                />
-              )}
-            </div>
-          ),
-        )}
+              msg={msg}
+              messages={messages}
+              activeLeafId={activeLeafId}
+              streamingMessageId={streamingMessageId}
+              sourceDocId={sourceDocId}
+              confirm={confirm}
+              tts={tts}
+              onBranchHere={() => setBranchFromId(msg.id)}
+              onPickBranch={setActiveLeaf}
+              onRegenerate={handleRegenerate}
+              onEdit={handleEdit}
+              onDelete={async () => {
+                const ok = await confirm({
+                  title: t("chat.confirmDeleteMessageTitle", {
+                    defaultValue: "Delete this message?",
+                  }),
+                  body: t("chat.confirmDeleteMessageBody", {
+                    defaultValue:
+                      "Every reply and follow-up underneath this message will also be removed. The deletion is permanent.",
+                  }),
+                  confirmLabel: t("common.delete"),
+                  danger: true,
+                });
+                if (!ok) return;
+                await useChatStore.getState().deleteMessage(msg.id);
+              }}
+              onDuplicate={async () => {
+                await useChatStore
+                  .getState()
+                  .duplicateFromMessage(msg.id);
+              }}
+            />
+          );
+        })}
 
         {/* Pre-placeholder thinking pill — covers the brief gap
             between "user message sent" and "assistant placeholder
@@ -652,7 +670,34 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           selection, send/stop. Reading-context is intentionally
           omitted (the current book IS the context here); the
           History button hides when onLoadReadingContext is unset. */}
-      <div className="p-3">
+      <div className="p-3 space-y-2">
+        {/* Branching banner — shows when the user clicked "Branch
+            here" on a bubble. Next submit branches from that point
+            instead of appending to the leaf. X dismisses the
+            pending branch. Same UX as /chat. */}
+        {branchFromId && messages.get(branchFromId) && (
+          <div className="flex items-center justify-between gap-2 rounded-md border border-accent-purple/30 bg-accent-purple/10 px-2 py-1.5 text-xs text-accent-purple">
+            <span className="flex items-center gap-1.5 min-w-0">
+              <GitBranch size={12} className="shrink-0" />
+              <span className="truncate">
+                {t("chat.branchingFrom", {
+                  snippet:
+                    messages.get(branchFromId)!.content.slice(0, 48) +
+                    (messages.get(branchFromId)!.content.length > 48
+                      ? "…"
+                      : ""),
+                })}
+              </span>
+            </span>
+            <button
+              onClick={() => setBranchFromId(null)}
+              className="shrink-0 rounded p-0.5 hover:bg-accent-purple/20 cursor-pointer"
+              aria-label={t("common.cancel")}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
         <ChatComposer
           ref={composerRef}
           value={input}

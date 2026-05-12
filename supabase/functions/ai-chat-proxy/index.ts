@@ -182,6 +182,11 @@ interface ChatRequestBody {
   systemPromptOverride?: string;
   /** Clamped to HARD_MAX_OUTPUT_TOKENS server-side; billed worst-case. */
   maxOutputTokens?: number;
+  /** Pin the response to a single Pnyxy model. When set, the proxy
+   *  skips the auto-routing chain and only tries this model — the
+   *  user's pick from the chat composer's ModelPicker. Unknown
+   *  values fall back to the full chain. Null/undefined = auto. */
+  preferredModel?: string | null;
   /**
    * Tool-use mode. When `tools` is non-empty we route exclusively to
    * Anthropic (the only upstream we wire tool-use through), pass the
@@ -439,8 +444,35 @@ Deno.serve(async (req) => {
   //    complexity of a refund path). If everything in the compat
   //    chain failed for either reason, try Anthropic as the final
   //    fallback before giving up. ──
+  //
+  // `preferredModel` (from the client's ModelPicker) narrows the
+  // chain to a single model when the user picked one explicitly.
+  // An unknown value falls back to the full chain so a stale client
+  // can't break itself by sending a model id the server doesn't
+  // recognize yet.
+  const preferredModel = body.preferredModel ?? null;
+  const knownCompatModels = new Set(
+    OPENAI_COMPATIBLE_PROVIDERS.map((p) => p.model),
+  );
+  const filteredCompatChain =
+    preferredModel && knownCompatModels.has(preferredModel)
+      ? openAiCompatChain.filter((p) => p.model === preferredModel)
+      : openAiCompatChain;
+  // When the user pinned Claude Haiku 4.5 (the Anthropic model) we
+  // skip the OpenAI-compat chain entirely — Anthropic handles it
+  // below. For any other preferred model we still try Anthropic as
+  // a last-resort fallback so a single quota cap doesn't 502 the
+  // user out.
+  const skipCompatChain =
+    preferredModel === ANTHROPIC_MODEL ||
+    (preferredModel !== null && knownCompatModels.has(preferredModel) && filteredCompatChain.length === 0);
+  const skipAnthropicFallback =
+    preferredModel !== null &&
+    preferredModel !== ANTHROPIC_MODEL &&
+    knownCompatModels.has(preferredModel);
+
   let lastQuotaFailure: QuotaResult | null = null;
-  for (const provider of openAiCompatChain) {
+  for (const provider of skipCompatChain ? [] : filteredCompatChain) {
     const billed = await checkAndRecord(provider.model);
     if ("rpcError" in billed && billed.rpcError) {
       return jsonError(500, "quota_check_failed", billed.rpcError);
@@ -467,7 +499,7 @@ Deno.serve(async (req) => {
     // Upstream failed (after quota was billed) — fall through to next.
   }
 
-  if (anthropicKey) {
+  if (anthropicKey && !skipAnthropicFallback) {
     const billed = await checkAndRecord(ANTHROPIC_MODEL);
     if ("rpcError" in billed && billed.rpcError) {
       return jsonError(500, "quota_check_failed", billed.rpcError);

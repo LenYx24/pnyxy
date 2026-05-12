@@ -201,7 +201,10 @@ export async function renderPdfPagesToImages(
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    // pdfjs 5.x requires `canvas` alongside `canvasContext` and
+    // `viewport`. Older typings accepted just the latter two; the
+    // current RenderParameters type fails the build without it.
+    await page.render({ canvas, canvasContext: ctx, viewport }).promise;
     const dataUrl = canvas.toDataURL("image/jpeg", quality);
     const base64 = dataUrl.replace(/^data:image\/jpeg;base64,/, "");
     results.push({ page: pageNum, base64, mediaType: "image/jpeg" });
@@ -523,6 +526,13 @@ async function* streamPnyxy(
     ? `[About the user]\n${customContext}\n\n${pageContext}`
     : pageContext;
 
+  // Pnyxy free-tier model override. When the user has explicitly
+  // picked a model in the ModelPicker (anything other than the
+  // "Default (auto-routed)" option) the proxy pins that single
+  // model instead of walking the full chain. Null = auto, server
+  // walks Gemini → GPT-4o-mini → Haiku 4.5 as before.
+  const preferredModel = useSettingsStore.getState().pnyxyModel;
+
   let response: Response;
   try {
     response = await fetch(url, {
@@ -535,6 +545,7 @@ async function* streamPnyxy(
         pageContext: mergedPageContext,
         systemPromptOverride: options.systemPromptOverride,
         maxOutputTokens: options.maxOutputTokens,
+        preferredModel,
       }),
     });
   } catch (err) {

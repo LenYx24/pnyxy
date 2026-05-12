@@ -30,6 +30,8 @@ import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
+import { useAuthStore } from "@/stores/auth-store";
+import { supabase } from "@/lib/supabase";
 import { getConfiguredProviders } from "@/lib/ai-client";
 import type { RecommendationMode } from "@/lib/recommendation-prompts";
 import type { ChatMessageAttachment } from "@/types/chat";
@@ -94,6 +96,48 @@ function fileToBase64(file: File): Promise<string> {
 
 // ── ModelPicker ─────────────────────────────────────────────────
 
+interface PnyxyQuotaRow {
+  model: string;
+  tokens_used: number;
+  request_count: number;
+  tokens_limit: number;
+  request_limit: number;
+}
+
+/**
+ * Free-tier models the proxy can route to. Selecting one pins the
+ * proxy to that single model instead of walking the auto-routing
+ * chain — same shape `_ai_usage_limits_for_model` expects on the
+ * SQL side. Kept inline here (not from AI_MODEL_CATALOG) because
+ * the picker wants short labels + cost tiers, and the catalog is
+ * Hungarian-prose-heavy.
+ */
+const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
+  id: string;
+  label: string;
+  costTier: "cheap" | "mid" | "premium";
+  tagline: string;
+}> = [
+  {
+    id: "gemini-2.5-flash",
+    label: "Gemini 2.5 Flash",
+    costTier: "cheap",
+    tagline: "Cheapest · best for casual chat",
+  },
+  {
+    id: "gpt-4o-mini",
+    label: "GPT-4o mini",
+    costTier: "mid",
+    tagline: "General-purpose fallback",
+  },
+  {
+    id: "claude-haiku-4-5",
+    label: "Claude Haiku 4.5",
+    costTier: "premium",
+    tagline: "Higher quality · used for quiz/roadmap",
+  },
+];
+
 export function ModelPicker({
   value,
   options,
@@ -113,10 +157,66 @@ export function ModelPicker({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  // Free-tier model selection lives in the global settings store so
+  // it survives reloads, but the picker reads/writes it directly —
+  // it's UI state in a structural sense. When the user picks a
+  // specific Pnyxy model the proxy pins that model instead of
+  // walking its auto-routing chain.
+  const pnyxyModel = useSettingsStore((s) => s.pnyxyModel);
+  const setPnyxyModel = useSettingsStore((s) => s.setPnyxyModel);
+  const pnyxyConfigured = useSettingsStore((s) =>
+    s.enabledProviders.includes("pnyxy"),
+  );
 
+  // Per-model usage for the Default (Pnyxy free) option. Fetched
+  // lazily on first dropdown open so we don't pay the RPC on every
+  // composer mount. The user must be signed in — anon traffic uses
+  // an IP-bucketed quota the client can't read.
+  const user = useAuthStore((s) => s.user);
+  const [quotaRows, setQuotaRows] = useState<PnyxyQuotaRow[]>([]);
+  const [quotaLoaded, setQuotaLoaded] = useState(false);
+  useEffect(() => {
+    if (!open || quotaLoaded || !user) return;
+    let cancelled = false;
+    supabase.rpc("get_my_ai_usage_today").then(({ data, error }) => {
+      if (cancelled) return;
+      if (!error && Array.isArray(data)) {
+        setQuotaRows(data as PnyxyQuotaRow[]);
+      }
+      setQuotaLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, quotaLoaded, user]);
+  // Worst-case (most-constrained) model becomes the headline number
+  // in the Default option's subtitle — that's the one the user is
+  // about to hit if they keep chatting at the current rate. We
+  // compute it from the higher of (tokens_used/tokens_limit) and
+  // (request_count/request_limit) for each model.
+  const quotaHeadline =
+    quotaRows.length === 0
+      ? null
+      : quotaRows
+          .map((r) => {
+            const tokensRatio = r.tokens_limit
+              ? r.tokens_used / r.tokens_limit
+              : 0;
+            const requestsRatio = r.request_limit
+              ? r.request_count / r.request_limit
+              : 0;
+            return { row: r, ratio: Math.max(tokensRatio, requestsRatio) };
+          })
+          .reduce((a, b) => (a.ratio > b.ratio ? a : b));
+
+  // Trigger label reflects whichever leaf the user is currently
+  // pointing at: BYOK provider name → free-tier pinned model name →
+  // generic "Default" if neither is in effect.
   const triggerLabel = value
     ? PROVIDER_INFO[value].model
-    : t("chat.composer.modelDefault");
+    : pnyxyModel
+      ? `Pnyxy: ${PNYXY_MODEL_OPTIONS.find((m) => m.id === pnyxyModel)?.label ?? pnyxyModel}`
+      : t("chat.composer.modelDefault");
 
   return (
     <div className="flex min-w-0 items-center gap-1 text-[11px] text-text-muted">
@@ -155,14 +255,55 @@ export function ModelPicker({
         className="w-64"
       >
         <ModelOption
-          active={value === null}
+          active={value === null && pnyxyModel === null}
           label={t("chat.composer.modelDefault")}
           subtitle={t("chat.composer.modelDefaultSubtitle")}
+          quotaHeadline={quotaHeadline}
           onClick={() => {
+            setPnyxyModel(null);
             onChange(null);
             setOpen(false);
           }}
         />
+        {pnyxyConfigured && (
+          <>
+            <div className="my-0.5 h-px bg-glass-border" />
+            {PNYXY_MODEL_OPTIONS.map((m) => {
+              // Match the per-model row to its usage bucket from the
+              // RPC we already fetch. Surfaces the same "tokens
+              // used today" headline as Default, scoped to that
+              // model so the user sees its specific quota.
+              const row = quotaRows.find((q) => q.model === m.id);
+              const headline = row
+                ? {
+                    row,
+                    ratio: Math.max(
+                      row.tokens_limit
+                        ? row.tokens_used / row.tokens_limit
+                        : 0,
+                      row.request_limit
+                        ? row.request_count / row.request_limit
+                        : 0,
+                    ),
+                  }
+                : null;
+              return (
+                <ModelOption
+                  key={m.id}
+                  active={value === null && pnyxyModel === m.id}
+                  label={`Pnyxy: ${m.label}`}
+                  subtitle={m.tagline}
+                  quotaHeadline={headline}
+                  onClick={() => {
+                    setPnyxyModel(m.id);
+                    onChange(null);
+                    setOpen(false);
+                  }}
+                />
+              );
+            })}
+          </>
+        )}
         {options.length > 0 && (
           <div className="my-0.5 h-px bg-glass-border" />
         )}
@@ -187,13 +328,30 @@ function ModelOption({
   active,
   label,
   subtitle,
+  quotaHeadline,
   onClick,
 }: {
   active: boolean;
   label: string;
   subtitle: string;
+  /** Optional small "model X/Y today" line for the Pnyxy free
+   *  option. Color escalates from default → amber (>50% used) →
+   *  red (>80% used) so the user has a glanceable warning before
+   *  they smack into the hard cap mid-sentence. */
+  quotaHeadline?: {
+    row: PnyxyQuotaRow;
+    ratio: number;
+  } | null;
   onClick: () => void;
 }) {
+  const quotaColor =
+    quotaHeadline == null
+      ? "text-text-muted"
+      : quotaHeadline.ratio > 0.8
+        ? "text-red-400"
+        : quotaHeadline.ratio > 0.5
+          ? "text-amber-400"
+          : "text-text-muted";
   return (
     <button
       onClick={onClick}
@@ -204,7 +362,7 @@ function ModelOption({
           : "text-text-secondary hover:text-text-primary",
       )}
     >
-      <span className="flex flex-col gap-0.5">
+      <span className="flex flex-col gap-0.5 min-w-0">
         <span className="font-medium">{label}</span>
         <span
           className={cn(
@@ -214,8 +372,16 @@ function ModelOption({
         >
           {subtitle}
         </span>
+        {quotaHeadline && (
+          <span className={cn("text-[10px] font-mono", quotaColor)}>
+            {quotaHeadline.row.tokens_used.toLocaleString()}/
+            {quotaHeadline.row.tokens_limit.toLocaleString()} tok ·{" "}
+            {quotaHeadline.row.request_count}/
+            {quotaHeadline.row.request_limit} req
+          </span>
+        )}
       </span>
-      {active && <Check size={12} className="mt-0.5" />}
+      {active && <Check size={12} className="mt-0.5 shrink-0" />}
     </button>
   );
 }

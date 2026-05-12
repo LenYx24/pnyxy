@@ -50,6 +50,12 @@ interface SettingsState {
   enabledProviders: AiProvider[];
   anthropicApiKey: string;
   openaiApiKey: string;
+  /** When set, the Pnyxy proxy uses this specific model instead of
+   *  walking the full auto-routing chain. null = auto (default).
+   *  Surfaced via the chat composer's ModelPicker so users can
+   *  bias toward a particular cost / quality point — e.g. force
+   *  Gemini Flash for cheap-fast or Haiku 4.5 for higher quality. */
+  pnyxyModel: string | null;
   /** Base URL for a user-run OpenAI-compatible local LLM. Default is
    *  Ollama (http://localhost:11434/v1); LM Studio uses :1234/v1. The
    *  field accepts any OpenAI-compatible endpoint so power users can
@@ -135,6 +141,7 @@ interface SettingsState {
   moveProvider: (provider: AiProvider, direction: -1 | 1) => void;
   setAnthropicApiKey: (v: string) => void;
   setOpenaiApiKey: (v: string) => void;
+  setPnyxyModel: (v: string | null) => void;
   setLocalBaseUrl: (v: string) => void;
   setLocalModel: (v: string) => void;
   setLocalApiKey: (v: string) => void;
@@ -185,6 +192,7 @@ export const useSettingsStore = create<SettingsState>()(
       enabledProviders: ["pnyxy"],
       anthropicApiKey: "",
       openaiApiKey: "",
+      pnyxyModel: null,
       localBaseUrl: "http://localhost:11434/v1",
       localModel: "",
       localApiKey: "",
@@ -242,6 +250,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
       setAnthropicApiKey: (v) => set({ anthropicApiKey: v }),
       setOpenaiApiKey: (v) => set({ openaiApiKey: v }),
+      setPnyxyModel: (v: string | null) => set({ pnyxyModel: v }),
       setLocalBaseUrl: (v) => set({ localBaseUrl: v }),
       setLocalModel: (v) => set({ localModel: v }),
       setLocalApiKey: (v) => set({ localApiKey: v }),

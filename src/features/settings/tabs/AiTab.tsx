@@ -58,32 +58,39 @@ interface ComparisonRow {
 
 const COMPARISON_ROWS: ComparisonRow[] = [
   {
-    model: "Claude Haiku 4.5",
-    provider: "Pnyxy (free)",
+    model: "Gemini 2.5 Flash",
+    provider: "Pnyxy free · primary",
     cost: "Free (daily quota)",
-    bestFor: "Quick chat, vocab, summaries",
+    bestFor: "Default chat, summaries, vocab",
     status: "active",
   },
   {
+    model: "GPT-4o mini",
+    provider: "Pnyxy free · fallback / BYOK",
+    cost: "Free or $0.15 / $0.60",
+    bestFor: "General chat, OpenAI fallback",
+    status: "active",
+  },
+  {
+    model: "Claude Haiku 4.5",
+    provider: "Pnyxy free · tool-use / BYOK",
+    cost: "Free or $1 / $5",
+    bestFor: "Quiz / roadmap generation (tool-use)",
+    status: "active",
+  },
+  {
+    model: "o3-mini (reasoning)",
+    provider: "OpenAI BYOK",
+    cost: "$1.10 / $4.40",
+    bestFor: "Math, logic, step-by-step problems",
+    status: "byok",
+  },
+  {
     model: "Claude Sonnet 4.5",
-    provider: "Anthropic",
+    provider: "Anthropic BYOK",
     cost: "$3 / $15",
     bestFor: "Hardest reasoning, long tasks",
     status: "byok",
-  },
-  {
-    model: "GPT-4o mini",
-    provider: "OpenAI",
-    cost: "$0.15 / $0.60",
-    bestFor: "General chat, fallback",
-    status: "byok",
-  },
-  {
-    model: "Gemini 2.5 Flash",
-    provider: "Google",
-    cost: "$0.075 / $0.30",
-    bestFor: "Cheapest default, fast",
-    status: "soon",
   },
   {
     model: "Mistral Small",
@@ -604,10 +611,10 @@ function ProviderRow({
               {t("settings.aiSection.usageLoading")}
             </p>
           ) : usageRows.length > 0 ? (
-            <div className="space-y-2">
+            <div className="divide-y divide-glass-border/50">
               {usageRows.map((row) => (
-                <div key={row.model} className="space-y-1">
-                  <p className="text-[11px] font-medium text-text-secondary">
+                <div key={row.model} className="space-y-1 py-2.5 first:pt-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
                     {MODEL_DISPLAY_NAMES[row.model] ?? row.model}
                   </p>
                   <UsageBar

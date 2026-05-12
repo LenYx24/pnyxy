@@ -107,6 +107,18 @@ interface ChatState {
   openConversation: (conversationId: string) => Promise<void>;
   renameConversation: (id: string, title: string) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
+  /** Delete a single message and every descendant of it from the
+   *  conversation tree. Used by the message-bubble Delete action so
+   *  users can trim context they don't want re-sent on the next
+   *  turn. The active leaf is auto-rewound to the deleted node's
+   *  parent if it was inside the removed subtree. */
+  deleteMessage: (messageId: string) => Promise<void>;
+  /** Fork the conversation from the given message (inclusive) into
+   *  a brand new conversation. Copies the message path from root
+   *  down to `fromMessageId`, opens the new conversation, and leaves
+   *  the original untouched. Matches the "branching = duplicate"
+   *  mental model some users expect. */
+  duplicateFromMessage: (fromMessageId: string) => Promise<string | null>;
   /** Move a conversation into the given folder, or null to send it
    *  back to the root. */
   moveConversationToFolder: (id: string, folderId: string | null) => Promise<void>;
@@ -334,6 +346,146 @@ export const useChatStore = create<ChatState>((set, get) => ({
           : {}),
       };
     });
+  },
+
+  async deleteMessage(messageId) {
+    const messages = get().messages;
+    const target = messages.get(messageId);
+    if (!target) return;
+
+    // BFS through the local message map to collect every descendant
+    // of the target (plus the target itself). The chat_messages
+    // table doesn't have ON DELETE CASCADE on its self-FK, so we
+    // delete the whole subtree explicitly in a single round-trip.
+    const toDelete = new Set<string>([messageId]);
+    const queue: string[] = [messageId];
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      for (const m of messages.values()) {
+        if (m.parent_message_id === id && !toDelete.has(m.id)) {
+          toDelete.add(m.id);
+          queue.push(m.id);
+        }
+      }
+    }
+
+    const ids = [...toDelete];
+    const { error } = await supabase
+      .from("chat_messages")
+      .delete()
+      .in("id", ids);
+    if (error) {
+      logError("chat:deleteMessage", error);
+      throw error;
+    }
+
+    set((s) => {
+      const next = new Map(s.messages);
+      for (const id of ids) next.delete(id);
+      // If the user was looking at a leaf inside the deleted
+      // subtree, rewind to the deleted node's parent (or null when
+      // they nuked the whole conversation root). Without this they
+      // get stuck on a dangling activeLeafId.
+      const leafGone =
+        s.activeLeafId !== null && toDelete.has(s.activeLeafId);
+      const nextLeaf = leafGone ? target.parent_message_id ?? null : s.activeLeafId;
+      return { messages: next, activeLeafId: nextLeaf };
+    });
+
+    // Persist the new active leaf on the conversation row so a
+    // reload doesn't reset us to the old (now-deleted) tip.
+    const { activeConversationId, activeLeafId } = get();
+    if (activeConversationId) {
+      await supabase
+        .from("chat_conversations")
+        .update({ active_leaf_id: activeLeafId })
+        .eq("id", activeConversationId);
+    }
+  },
+
+  async duplicateFromMessage(fromMessageId) {
+    const state = get();
+    const target = state.messages.get(fromMessageId);
+    if (!target) return null;
+
+    // Walk from root down to and including the target message. This
+    // becomes the prefix of the new conversation.
+    const path = pathFromRoot(state.messages, fromMessageId);
+    const source = state.conversations.find(
+      (c) => c.id === state.activeConversationId,
+    );
+    if (!source) return null;
+
+    // Create a new conversation, mirroring the source's
+    // folder placement + doc context. Title prefixed so the user
+    // can tell duplicates apart at a glance.
+    const newTitle = source.title
+      ? `${source.title} (copy)`
+      : "(copy)";
+    const newId = await get().createConversation(
+      newTitle,
+      source.folder_id,
+      source.source_doc_id
+        ? {
+            docId: source.source_doc_id,
+            docTitle: source.source_doc_title ?? "",
+            page: source.source_page ?? null,
+          }
+        : null,
+      source.target_roadmap_id || source.target_quiz_id
+        ? {
+            roadmapId: source.target_roadmap_id,
+            quizId: source.target_quiz_id,
+          }
+        : null,
+    );
+    if (!newId) return null;
+
+    // Insert the prefix path under the new conversation. Each
+    // message keeps its content/role/attachments but gets a fresh
+    // id from Supabase, with parent_message_id rewired to the new
+    // copy of its parent.
+    const idMap = new Map<string, string>();
+    for (const m of path) {
+      const newParentId = m.parent_message_id
+        ? idMap.get(m.parent_message_id) ?? null
+        : null;
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .insert({
+          conversation_id: newId,
+          parent_message_id: newParentId,
+          role: m.role,
+          content: m.content,
+          attachments: m.attachments ?? null,
+        })
+        .select("id")
+        .single();
+      if (error || !data) {
+        logError("chat:duplicateFromMessage:insert", error);
+        // Best-effort: try to clean up the half-built duplicate so
+        // the user doesn't have an empty stub conversation hanging
+        // around. Failures here aren't critical — the conversation
+        // still loads.
+        await supabase.from("chat_conversations").delete().eq("id", newId);
+        throw error;
+      }
+      idMap.set(m.id, data.id);
+    }
+
+    // Active leaf = the duplicated copy of the target message so
+    // when the user opens the new conversation, it lands on the
+    // same point they forked from.
+    const newLeaf = idMap.get(fromMessageId) ?? null;
+    if (newLeaf) {
+      await supabase
+        .from("chat_conversations")
+        .update({ active_leaf_id: newLeaf })
+        .eq("id", newId);
+    }
+
+    await get().openConversation(newId);
+    return newId;
   },
 
   clearActive() {

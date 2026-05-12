@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { renderMarkdown, handleCodeBlockCopy, detectAiLinkClick } from "@/lib/markdown-message";
-import { promptOpenAiLink } from "@/lib/ai-link-prompt";
-import { usePageCitationDispatch } from "@/hooks/use-page-citation";
-import { useReadAloud, markdownToSpeech } from "@/hooks/use-read-aloud";
+import { useReadAloud } from "@/hooks/use-read-aloud";
 import {
   conversationToMarkdown,
   downloadMarkdown,
@@ -22,27 +26,28 @@ import {
   Check,
   ChevronRight,
   ChevronDown,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  MoreHorizontal,
   Menu,
   FolderPlus,
   Folder as FolderIcon,
   FolderInput,
+  FilePlus2,
   BookOpen,
-  Sparkles,
   Map as MapIcon,
-  Copy,
-  RefreshCw,
   Download,
-  Volume2,
   Search,
 } from "lucide-react";
-import { ConfirmModal, FloatingMenu, PromptModal, TypingIndicator } from "@/components/ui";
-import { extractRecommendations } from "@/lib/extract-recommendations";
-import { RecommendationCards } from "./RecommendationsRenderer";
+import { ConfirmModal, FloatingMenu, PromptModal } from "@/components/ui";
+import { useIsMobile } from "@/hooks/use-media-query";
 import { buildRecommendationSystemPrompt } from "@/lib/recommendation-prompts";
 import { ChatComposer, type ChatComposerSubmitPayload } from "./ChatComposer";
+import { MessageBubble } from "./MessageBubble";
 import { useConfirm } from "@/hooks/use-confirm";
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   KeyboardSensor,
   MouseSensor,
@@ -52,6 +57,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { restrictToWindowEdges } from "@/lib/dnd-modifiers";
@@ -60,8 +66,6 @@ import { useAuthStore } from "@/stores/auth-store";
 import {
   useChatStore,
   pathFromRoot,
-  countBranches,
-  childrenOf,
 } from "@/stores/chat-store";
 import { useRoadmap, useRoadmapStore } from "@/stores/roadmap-store";
 import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
@@ -71,7 +75,6 @@ import {
   formatReadingContextPrompt,
 } from "@/lib/reading-context";
 import { SaveAsFlashcardsModal } from "./SaveAsFlashcardsModal";
-import type { ChatMessage } from "@/types/chat";
 
 // Composer attachment limits — enforced client-side, mirrored
 // roughly by Anthropic's per-request payload cap. Image-only for
@@ -137,7 +140,29 @@ export function ChatPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  // Active drag preview state. Library uses the same pattern: track
+  // what's being dragged so a DragOverlay can render a ghost that
+  // follows the cursor 1:1, instead of relying on the implicit
+  // dnd-kit transform on the in-place row (which feels laggy on
+  // the chat sidebar's tighter row heights).
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const activeDragConv = useMemo(() => {
+    if (!activeDragId?.startsWith("conv:")) return null;
+    const id = activeDragId.slice("conv:".length);
+    return conversations.find((c) => c.id === id) ?? null;
+  }, [activeDragId, conversations]);
+  const activeDragFolder = useMemo(() => {
+    if (!activeDragId?.startsWith("folder:")) return null;
+    const id = activeDragId.slice("folder:".length);
+    return folders.find((f) => f.id === id) ?? null;
+  }, [activeDragId, folders]);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as string);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragId(null);
     const { active, over } = event;
     if (!over) return;
     const activeId = active.id as string;
@@ -173,6 +198,111 @@ export function ChatPage() {
   const [branchFromId, setBranchFromId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  // Sidebar folder collapse state. Lifted from individual FolderRow
+  // useState into the page so the "Collapse all / Expand all"
+  // toolbar button can write to every folder at once. A Set of
+  // collapsed folder ids — absence means expanded. New folders the
+  // user creates start expanded by default (not in the set).
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(
+    () => new Set(),
+  );
+  // Session-scoped set of conversation ids whose source-page chip
+  // the user has dismissed. Not persisted: re-opening the
+  // conversation in a new session brings the chip back, which is
+  // forgiving for users who didn't mean to hide it permanently.
+  const [hiddenSourceChips, setHiddenSourceChips] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const handleHideSourceChip = useCallback((conversationId: string) => {
+    setHiddenSourceChips((prev) => {
+      const next = new Set(prev);
+      next.add(conversationId);
+      return next;
+    });
+  }, []);
+
+  // Resizable sidebar (desktop only). Width persists per-device via
+  // localStorage so reopening the chat lands on the user's preferred
+  // size. Same UX as the reader's panel — drag a 4px-wide handle on
+  // the right edge between 200px (min, still readable) and 480px
+  // (max, before it starts eating the conversation column).
+  const SIDEBAR_MIN = 200;
+  const SIDEBAR_MAX = 480;
+  const SIDEBAR_STORAGE_KEY = "pnyxy-chat-sidebar-width";
+  const isMobile = useIsMobile();
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    try {
+      const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+      const n = stored ? parseInt(stored, 10) : 256;
+      if (Number.isFinite(n)) {
+        return Math.min(Math.max(n, SIDEBAR_MIN), SIDEBAR_MAX);
+      }
+    } catch {
+      // localStorage may be blocked in private mode — fall through.
+    }
+    return 256;
+  });
+  const handleSidebarResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      // preventDefault keeps the drag from also selecting text
+      // inside the sidebar/main pane as the cursor moves.
+      e.preventDefault();
+      const startX = e.clientX;
+      const startWidth = sidebarWidth;
+      let lastWidth = startWidth;
+      const onMove = (mv: MouseEvent) => {
+        const next = Math.min(
+          Math.max(startWidth + (mv.clientX - startX), SIDEBAR_MIN),
+          SIDEBAR_MAX,
+        );
+        lastWidth = next;
+        setSidebarWidth(next);
+      };
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        try {
+          localStorage.setItem(SIDEBAR_STORAGE_KEY, String(lastWidth));
+        } catch {
+          // Persistence is best-effort; the in-memory width stays.
+        }
+      };
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    },
+    [sidebarWidth],
+  );
+  const handleToggleFolder = useCallback((id: string) => {
+    setCollapsedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // Stable handler refs for ChatTree props — without these, every
+  // ChatPage re-render (each composer keystroke) feeds fresh
+  // function identities into the tree, defeating the memo wrappers
+  // on FolderRow / ConversationRow. With useCallback they fire
+  // exactly once per state change instead of once per render.
+  const handleStartEdit = useCallback((id: string, title: string) => {
+    setEditingId(id);
+    setEditTitle(title);
+  }, []);
+  const handleCancelEdit = useCallback(() => setEditingId(null), []);
+  const handleRequestRenameFolder = useCallback(
+    (id: string, currentName: string) => {
+      setFolderAction({ kind: "rename", id, name: currentName });
+    },
+    [],
+  );
+  const handleRequestDeleteFolder = useCallback(
+    (id: string, currentName: string) => {
+      setFolderAction({ kind: "delete", id, name: currentName });
+    },
+    [],
+  );
   const threadEndRef = useRef<HTMLDivElement>(null);
   // Kept so reader→chat handoff can refocus the input post-prefill.
   // Composer owns the actual textarea ref internally, so this is
@@ -347,10 +477,22 @@ export function ChatPage() {
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [overflowOpenMobile, setOverflowOpenMobile] = useState(false);
 
-  // Auto-scroll to the latest message as stream tokens arrive.
+  // Auto-scroll to the latest message. We split the behavior in two:
+  //   - On a fresh conversation open (active conversation changed)
+  //     we jump instantly. Smooth scrolling for the whole history
+  //     felt sluggish on long threads — the user just wants to be at
+  //     the bottom, not animated there.
+  //   - During an in-place update (new tokens, new turn within the
+  //     same conversation) we keep the smooth behavior so the
+  //     reading flow stays natural.
+  const lastScrollConvIdRef = useRef<string | null>(null);
   useEffect(() => {
-    threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeLeafId, messages, streamingMessageId]);
+    const isConvSwitch = lastScrollConvIdRef.current !== activeId;
+    lastScrollConvIdRef.current = activeId;
+    threadEndRef.current?.scrollIntoView({
+      behavior: isConvSwitch ? "auto" : "smooth",
+    });
+  }, [activeId, activeLeafId, messages, streamingMessageId]);
 
   const threadPath = useMemo(
     () => pathFromRoot(messages, activeLeafId),
@@ -369,6 +511,28 @@ export function ChatPage() {
     const id = await createConversation();
     if (id) await openConversation(id);
   };
+
+  const handleNewInFolder = useCallback(
+    async (folderId: string) => {
+      setMobileListOpen(false);
+      const id = await createConversation("", folderId);
+      if (id) await openConversation(id);
+    },
+    [createConversation, openConversation],
+  );
+
+  // "Collapse all" flips every existing folder into the collapsed
+  // set; "Expand all" clears the set so every folder is open.
+  const handleCollapseAll = useCallback(() => {
+    setCollapsedFolders(new Set(folders.map((f) => f.id)));
+  }, [folders]);
+  const handleExpandAll = useCallback(() => {
+    setCollapsedFolders(new Set());
+  }, []);
+  // True when every existing folder is in the collapsed set — drives
+  // the toolbar button's icon flip (collapse-all vs expand-all).
+  const allFoldersCollapsed =
+    folders.length > 0 && folders.every((f) => collapsedFolders.has(f.id));
 
   // Wraps openConversation so picking a thread from the mobile
   // drawer also closes the drawer. On desktop the setState is a
@@ -510,28 +674,77 @@ export function ChatPage() {
           locks it visible on desktop so the same element serves
           both. */}
       <aside
+        // Width is class-driven on mobile (the slide-in drawer is a
+        // fixed `w-72`) and inline-style-driven on desktop (the
+        // user-resizable static column). The conditional inline style
+        // makes the desktop width win without bleeding into the
+        // mobile drawer.
+        style={!isMobile ? { width: sidebarWidth } : undefined}
         className={cn(
-          "fixed inset-y-0 left-0 z-30 flex w-72 max-w-[80vw] shrink-0 flex-col gap-3 border-r border-glass-border bg-bg-secondary p-3 transition-transform duration-200",
-          "sm:static sm:w-64 sm:translate-x-0 sm:bg-glass-bg/40",
+          "relative fixed inset-y-0 left-0 z-30 flex w-72 max-w-[80vw] shrink-0 flex-col gap-3 border-r border-glass-border bg-bg-secondary p-3 transition-transform duration-200",
+          "sm:static sm:translate-x-0 sm:bg-glass-bg/40",
           mobileListOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex items-center gap-1.5">
+        {/* Top action row. Obsidian-style: primary "New conversation"
+            button is full-width and filled (no dashed border) — it's
+            the highest-frequency action in this sidebar, so it should
+            look like one. Secondary actions sit in a smaller row of
+            icon-only buttons below: New folder + Collapse/Expand all.
+            The collapse toggle's icon flips based on whether every
+            existing folder is already collapsed. */}
+        <div className="flex flex-col gap-1.5">
           <button
             onClick={handleNew}
-            className="flex flex-1 items-center justify-center gap-2 rounded-md border border-dashed border-glass-border bg-glass-bg/30 px-3 py-2 text-xs text-text-muted transition-colors hover:border-accent-purple/40 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            className="flex items-center justify-center gap-2 rounded-md bg-accent-purple/15 px-3 py-2 text-xs font-medium text-accent-purple transition-colors hover:bg-accent-purple/25 cursor-pointer"
           >
-            <Plus size={14} />
+            <Plus size={14} strokeWidth={2.5} />
             {t("chat.newConversation")}
           </button>
-          <button
-            onClick={() => setFolderAction({ kind: "create" })}
-            title={t("chat.folders.create")}
-            aria-label={t("chat.folders.create")}
-            className="rounded-md border border-dashed border-glass-border bg-glass-bg/30 p-2 text-text-muted transition-colors hover:border-accent-purple/40 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-          >
-            <FolderPlus size={14} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setFolderAction({ kind: "create" })}
+              title={t("chat.folders.create")}
+              aria-label={t("chat.folders.create")}
+              className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            >
+              <FolderPlus size={14} />
+            </button>
+            {folders.length > 0 && (
+              <button
+                onClick={
+                  allFoldersCollapsed
+                    ? handleExpandAll
+                    : handleCollapseAll
+                }
+                title={
+                  allFoldersCollapsed
+                    ? t("chat.sidebar.expandAll", {
+                        defaultValue: "Expand all folders",
+                      })
+                    : t("chat.sidebar.collapseAll", {
+                        defaultValue: "Collapse all folders",
+                      })
+                }
+                aria-label={
+                  allFoldersCollapsed
+                    ? t("chat.sidebar.expandAll", {
+                        defaultValue: "Expand all folders",
+                      })
+                    : t("chat.sidebar.collapseAll", {
+                        defaultValue: "Collapse all folders",
+                      })
+                }
+                className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              >
+                {allFoldersCollapsed ? (
+                  <ChevronsUpDown size={14} />
+                ) : (
+                  <ChevronsDownUp size={14} />
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Conversation search — filters the tree as the user types.
@@ -566,7 +779,9 @@ export function ChatPage() {
           sensors={dndSensors}
           collisionDetection={closestCenter}
           modifiers={[restrictToWindowEdges]}
+          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
+          onDragCancel={() => setActiveDragId(null)}
         >
           <div className="flex-1 space-y-0.5 overflow-y-auto">
             {conversations.length === 0 && folders.length === 0 ? (
@@ -587,28 +802,68 @@ export function ChatPage() {
                   activeId={activeId}
                   editingId={editingId}
                   editTitle={editTitle}
+                  collapsedFolders={collapsedFolders}
+                  onToggleFolder={handleToggleFolder}
+                  onNewInFolder={handleNewInFolder}
                   onOpen={handleOpenFromDrawer}
-                  onStartEdit={(id, title) => {
-                    setEditingId(id);
-                    setEditTitle(title);
-                  }}
-                  onCancelEdit={() => setEditingId(null)}
+                  onStartEdit={handleStartEdit}
+                  onCancelEdit={handleCancelEdit}
                   onSaveTitle={handleSaveTitle}
                   onEditTitleChange={setEditTitle}
                   onDelete={handleDeleteConversation}
                   onMove={moveConversationToFolder}
-                  onRequestRenameFolder={(id, currentName) =>
-                    setFolderAction({ kind: "rename", id, name: currentName })
-                  }
-                  onRequestDeleteFolder={(id, currentName) =>
-                    setFolderAction({ kind: "delete", id, name: currentName })
-                  }
+                  onRequestRenameFolder={handleRequestRenameFolder}
+                  onRequestDeleteFolder={handleRequestDeleteFolder}
                   t={t}
                 />
               </>
             )}
           </div>
+          {/* Drag preview that follows the cursor 1:1 — matches the
+              Library page's DnD pattern. The in-place row still
+              animates via dnd-kit's transform; this overlay just
+              adds a clearer "what you're dragging" hint. Empty
+              when nothing is being dragged. */}
+          <DragOverlay dropAnimation={null}>
+            {activeDragConv && (
+              <div className="pointer-events-none flex items-center gap-2 rounded-md border border-accent-purple/60 bg-bg-secondary/95 px-3 py-1.5 text-xs text-text-primary shadow-lg backdrop-blur-md">
+                <MessagesSquare
+                  size={12}
+                  className="shrink-0 text-accent-purple"
+                />
+                <span className="truncate max-w-[200px]">
+                  {activeDragConv.title || t("chat.untitled")}
+                </span>
+              </div>
+            )}
+            {activeDragFolder && (
+              <div className="pointer-events-none flex items-center gap-2 rounded-md border border-accent-purple/60 bg-bg-secondary/95 px-3 py-1.5 text-xs text-text-primary shadow-lg backdrop-blur-md">
+                <FolderIcon
+                  size={12}
+                  className="shrink-0 text-accent-purple"
+                />
+                <span className="truncate max-w-[200px]">
+                  {activeDragFolder.name}
+                </span>
+              </div>
+            )}
+          </DragOverlay>
         </DndContext>
+        {/* Resize handle — desktop only. 4px wide ribbon on the
+            right edge; the hover-only purple tint hints that the
+            edge is draggable without taking visual weight when
+            idle. Mobile gets a fixed-width drawer so no handle. */}
+        {!isMobile && (
+          <div
+            onMouseDown={handleSidebarResizeStart}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={t("chat.sidebar.resize", {
+              defaultValue: "Resize sidebar",
+            })}
+            className="absolute inset-y-0 right-0 z-10 hidden w-1 cursor-col-resize bg-transparent transition-colors hover:bg-accent-purple/40 sm:block"
+          />
+        )}
       </aside>
 
       {/* Main pane */}
@@ -834,6 +1089,26 @@ export function ChatPage() {
                     }
                     onRegenerate={handleRegenerate}
                     onEdit={handleEdit}
+                    onDelete={async () => {
+                      const ok = await confirm({
+                        title: t("chat.confirmDeleteMessageTitle", {
+                          defaultValue: "Delete this message?",
+                        }),
+                        body: t("chat.confirmDeleteMessageBody", {
+                          defaultValue:
+                            "Every reply and follow-up underneath this message will also be removed. The deletion is permanent.",
+                        }),
+                        confirmLabel: t("common.delete"),
+                        danger: true,
+                      });
+                      if (!ok) return;
+                      await useChatStore.getState().deleteMessage(msg.id);
+                    }}
+                    onDuplicate={async () => {
+                      await useChatStore
+                        .getState()
+                        .duplicateFromMessage(msg.id);
+                    }}
                     tts={tts}
                     suggestions={
                       msg.role === "assistant"
@@ -889,40 +1164,58 @@ export function ChatPage() {
               {/* Source-document context pill — present when this
                   conversation was started from the reader. Click it
                   to jump back to the page the user was on when they
-                  sent the selection. */}
-              {activeConversation?.source_doc_id && (
-                <div className="mx-auto mb-2 flex w-full max-w-3xl items-center gap-2 rounded-md border border-accent-blue/30 bg-accent-blue/10 px-2 py-1.5 text-xs text-accent-blue">
-                  <BookOpen size={12} />
-                  <span className="min-w-0 flex-1 truncate">
-                    {t("chat.sourceContext", {
-                      title: activeConversation.source_doc_title ?? "—",
-                      page: activeConversation.source_page ?? "—",
-                    })}
-                  </span>
-                  <a
-                    href={`/reader/${activeConversation.source_doc_id}${
-                      activeConversation.source_page
-                        ? `?page=${activeConversation.source_page}`
-                        : ""
-                    }`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate(
-                        `/reader/${activeConversation.source_doc_id}${
-                          activeConversation.source_page
-                            ? `?page=${activeConversation.source_page}`
-                            : ""
-                        }`,
-                      );
-                    }}
-                    className="rounded px-1.5 py-0.5 text-[11px] underline-offset-2 hover:bg-accent-blue/20 hover:underline cursor-pointer"
-                  >
-                    {t("chat.openInReader")}
-                  </a>
-                </div>
-              )}
+                  sent the selection. The X hides the chip for this
+                  session — the user can still navigate via the chat
+                  list, and the chip returns next session in case the
+                  dismiss was accidental. */}
+              {activeConversation?.source_doc_id &&
+                !hiddenSourceChips.has(activeConversation.id) && (
+                  <div className="mx-auto mb-2 flex w-full max-w-3xl items-center gap-2 rounded-md border border-accent-blue/30 bg-accent-blue/10 px-2 py-1.5 text-xs text-accent-blue">
+                    <BookOpen size={12} />
+                    <span className="min-w-0 flex-1 truncate">
+                      {t("chat.sourceContext", {
+                        title: activeConversation.source_doc_title ?? "—",
+                        page: activeConversation.source_page ?? "—",
+                      })}
+                    </span>
+                    <a
+                      href={`/reader/${activeConversation.source_doc_id}${
+                        activeConversation.source_page
+                          ? `?page=${activeConversation.source_page}`
+                          : ""
+                      }`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        navigate(
+                          `/reader/${activeConversation.source_doc_id}${
+                            activeConversation.source_page
+                              ? `?page=${activeConversation.source_page}`
+                              : ""
+                          }`,
+                        );
+                      }}
+                      className="rounded px-1.5 py-0.5 text-[11px] underline-offset-2 hover:bg-accent-blue/20 hover:underline cursor-pointer"
+                    >
+                      {t("chat.openInReader")}
+                    </a>
+                    <button
+                      onClick={() =>
+                        handleHideSourceChip(activeConversation.id)
+                      }
+                      title={t("chat.hideSourceChip", {
+                        defaultValue: "Hide for this session",
+                      })}
+                      aria-label={t("chat.hideSourceChip", {
+                        defaultValue: "Hide for this session",
+                      })}
+                      className="rounded p-0.5 text-accent-blue/70 transition-colors hover:bg-accent-blue/20 hover:text-accent-blue cursor-pointer"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                )}
               {branchParent && (
-                <div className="mb-2 flex items-center justify-between gap-2 rounded-md border border-accent-purple/30 bg-accent-purple/10 px-2 py-1.5 text-xs text-accent-purple">
+                <div className="mx-auto mb-2 flex w-full max-w-3xl items-center justify-between gap-2 rounded-md border border-accent-purple/30 bg-accent-purple/10 px-2 py-1.5 text-xs text-accent-purple">
                   <span className="flex items-center gap-1.5">
                     <GitBranch size={12} />
                     {t("chat.branchingFrom", {
@@ -1016,487 +1309,6 @@ export function ChatPage() {
   );
 }
 
-/**
- * Assistant message body. Pulls any `pnyxy-books` / `pnyxy-videos`
- * fenced JSON blocks out of the model's reply and renders the
- * remaining prose as markdown, then drops the parsed recommendations
- * underneath as React cards. Behaviour for plain answers (the vast
- * majority): identical to the previous inline markdown render.
- */
-function AssistantContent({
-  content,
-  sourceDocId,
-  confirm,
-  handleCitationClick,
-}: {
-  content: string;
-  sourceDocId: string | null;
-  confirm: (opts: {
-    title: string;
-    body?: React.ReactNode;
-    confirmLabel?: string;
-    cancelLabel?: string;
-    danger?: boolean;
-  }) => Promise<boolean>;
-  handleCitationClick: (e: React.MouseEvent<HTMLElement>) => void;
-}) {
-  const { t } = useTranslation();
-  const { cleaned, books, videos } = useMemo(
-    () => extractRecommendations(content),
-    [content],
-  );
-  return (
-    <>
-      <div
-        className="ai-message break-words"
-        onClick={(e) => {
-          handleCodeBlockCopy(e);
-          if (e.defaultPrevented) return;
-          const aiLink = detectAiLinkClick(e);
-          if (aiLink) {
-            void promptOpenAiLink(aiLink, confirm, t);
-            return;
-          }
-          handleCitationClick(e);
-        }}
-        dangerouslySetInnerHTML={{
-          __html: renderMarkdown(cleaned, sourceDocId),
-        }}
-      />
-      {(books || videos) && (
-        <RecommendationCards books={books} videos={videos} />
-      )}
-    </>
-  );
-}
-
-function CopyButton({ text }: { text: string }) {
-  const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
-  const handleClick = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard API blocked — extremely rare in our deploys, but
-      // surface the failure rather than silently swallowing it.
-      window.alert(t("chat.copy.failed"));
-    }
-  };
-  return (
-    <button
-      onClick={handleClick}
-      className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-      title={copied ? t("chat.copy.copied") : t("chat.copy.action")}
-    >
-      {copied ? <Check size={10} /> : <Copy size={10} />}
-      {copied ? t("chat.copy.copied") : t("chat.copy.action")}
-    </button>
-  );
-}
-
-function MessageBubble({
-  msg,
-  messages,
-  activeLeafId,
-  streamingMessageId,
-  sourceDocId,
-  confirm,
-  onBranchHere,
-  onPickBranch,
-  onSaveAsFlashcards,
-  onRegenerate,
-  onEdit,
-  tts,
-  suggestions,
-  onPickSuggestion,
-}: {
-  msg: ChatMessage;
-  messages: Map<string, ChatMessage>;
-  activeLeafId: string | null;
-  streamingMessageId: string | null;
-  /** Set when the conversation has a source doc — citation tokens
-   *  in assistant messages get post-processed into clickable links. */
-  sourceDocId: string | null;
-  /** Parent's `useConfirm` handle, threaded down so the AI-link
-   *  warning modal can reuse the page-level confirm dialog. */
-  confirm: (opts: {
-    title: string;
-    body?: React.ReactNode;
-    confirmLabel?: string;
-    cancelLabel?: string;
-    danger?: boolean;
-  }) => Promise<boolean>;
-  onBranchHere: () => void;
-  onPickBranch: (id: string) => void;
-  /** Open the flashcards extractor over this message's content. */
-  onSaveAsFlashcards: () => void;
-  /** Regenerate this assistant message — re-runs its parent user
-   *  message as a sibling branch. Undefined for user messages and
-   *  while another stream is in flight. */
-  onRegenerate?: () => void;
-  /** Edit-in-place for user messages — submits a fresh sibling
-   *  branch with the new text under the same parent. Undefined for
-   *  assistant messages and while another stream is in flight. */
-  onEdit?: (newText: string) => void;
-  /** Shared TTS controller from the parent — single utterance lives
-   *  at the thread level so starting a read on one message stops
-   *  whatever was already speaking. */
-  tts: ReturnType<typeof useReadAloud>;
-  /** Optional follow-up question chips rendered below the assistant
-   *  bubble. Populated by `requestFollowupSuggestions` after the
-   *  turn settles; absent for user messages and for assistant
-   *  messages whose response was too short / errored / aborted. */
-  suggestions?: string[];
-  /** Click handler for a suggestion chip — sends it as a new user
-   *  message branched from the current assistant. */
-  onPickSuggestion?: (text: string) => void;
-}) {
-  const { t } = useTranslation();
-  const isUser = msg.role === "user";
-  const isStreaming = msg.id === streamingMessageId;
-  const branches = countBranches(messages, msg.id);
-  const [showBranches, setShowBranches] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState(msg.content);
-  const handleCitationClick = usePageCitationDispatch();
-
-  // Which child of this message is on the active path (if any)?
-  const activePath = pathFromRoot(messages, activeLeafId).map((m) => m.id);
-  const activeChildId = childrenOf(messages, msg.id).find((c) =>
-    activePath.includes(c.id),
-  )?.id;
-
-  return (
-    <div
-      className={cn(
-        "group flex",
-        isUser ? "justify-end" : "justify-start",
-      )}
-    >
-      <div
-        className={cn(
-          "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm",
-          isUser
-            ? "bg-accent-purple/20 text-text-primary rounded-br-md"
-            : "bg-glass-bg text-text-secondary rounded-bl-md",
-          // Slightly taller while still empty so the typing indicator
-          // sits comfortably; collapses back to py-2 once content is
-          // streaming.
-          isStreaming && msg.content.trim().length === 0 && "py-3",
-        )}
-      >
-        {/* User messages render as preformatted text (the user typed
-            them — no need to interpret markdown). Assistant messages
-            go through marked + DOMPurify so code blocks, tables,
-            lists, headings, and inline code all render properly. */}
-        {isUser ? (
-          isEditing ? (
-            // Edit-in-place: textarea pre-filled with the original
-            // content. Save = `onEdit` → branchFrom under the same
-            // parent → fresh sibling branch + new assistant reply.
-            // Original message stays accessible via the branch picker.
-            <div className="space-y-2">
-              <textarea
-                autoFocus
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    const trimmed = editText.trim();
-                    if (
-                      trimmed.length > 0 &&
-                      trimmed !== msg.content.trim() &&
-                      onEdit
-                    ) {
-                      onEdit(trimmed);
-                    }
-                    setIsEditing(false);
-                  } else if (e.key === "Escape") {
-                    e.preventDefault();
-                    setEditText(msg.content);
-                    setIsEditing(false);
-                  }
-                }}
-                rows={Math.min(8, Math.max(2, msg.content.split("\n").length))}
-                className="block w-full resize-none rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1.5 text-sm text-text-primary outline-none focus:border-accent-purple/60"
-              />
-              <div className="flex justify-end gap-1.5 text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditText(msg.content);
-                    setIsEditing(false);
-                  }}
-                  className="rounded px-2 py-0.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-                >
-                  {t("common.cancel")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const trimmed = editText.trim();
-                    if (
-                      trimmed.length > 0 &&
-                      trimmed !== msg.content.trim() &&
-                      onEdit
-                    ) {
-                      onEdit(trimmed);
-                    }
-                    setIsEditing(false);
-                  }}
-                  disabled={
-                    !editText.trim() ||
-                    editText.trim() === msg.content.trim()
-                  }
-                  className="rounded bg-accent-purple/80 px-2 py-0.5 font-medium text-white transition-colors hover:bg-accent-purple disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
-                >
-                  {t("chat.editSaveAndSend")}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {msg.attachments && msg.attachments.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {msg.attachments.map((att, idx) =>
-                    att.kind === "image" ? (
-                      <a
-                        key={idx}
-                        href={`data:${att.media_type};base64,${att.data}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block"
-                        title={att.name ?? ""}
-                      >
-                        <img
-                          src={`data:${att.media_type};base64,${att.data}`}
-                          alt={att.name ?? "attachment"}
-                          className="max-h-48 max-w-full rounded-md object-cover"
-                        />
-                      </a>
-                    ) : null,
-                  )}
-                </div>
-              )}
-              {msg.content && (
-                <div className="whitespace-pre-wrap break-words">
-                  {msg.content}
-                </div>
-              )}
-            </div>
-          )
-        ) : isStreaming && msg.content.trim().length === 0 ? (
-          // Empty assistant placeholder while waiting for the first
-          // delta. Showing the typing indicator inside the bubble
-          // beats pulsing an empty rectangle — that read as
-          // "something's broken" on mobile where the bubble is
-          // otherwise just a thin sliver.
-          <div className="text-text-muted">
-            <TypingIndicator label={t("chat.thinking", { defaultValue: "Thinking…" })} />
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {/* Generated image (or any other attachment a future
-                tool might emit) on an assistant turn. Rendered
-                above the markdown so the image is the visual focal
-                point and any caption/explanation reads below it. */}
-            {msg.attachments && msg.attachments.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {msg.attachments.map((att, idx) =>
-                  att.kind === "image" ? (
-                    <a
-                      key={idx}
-                      href={`data:${att.media_type};base64,${att.data}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block"
-                      title={att.name ?? ""}
-                    >
-                      <img
-                        src={`data:${att.media_type};base64,${att.data}`}
-                        alt={att.name ?? "generated image"}
-                        className="max-h-96 max-w-full rounded-md object-contain"
-                      />
-                    </a>
-                  ) : null,
-                )}
-              </div>
-            )}
-            {msg.content && (
-              <AssistantContent
-                content={msg.content}
-                sourceDocId={sourceDocId}
-                confirm={confirm}
-                handleCitationClick={handleCitationClick}
-              />
-            )}
-          </div>
-        )}
-
-        {/* Actions: visible on hover or when there are branches */}
-        <div
-          className={cn(
-            "mt-1.5 flex items-center gap-2 text-[10px] text-text-muted transition-opacity",
-            branches > 1 || showBranches
-              ? "opacity-100"
-              : "opacity-0 group-hover:opacity-100",
-          )}
-        >
-          <button
-            onClick={onBranchHere}
-            className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-            title={t("chat.branchHere")}
-          >
-            <GitBranch size={10} />
-            {t("chat.branchHere")}
-          </button>
-          {/* Edit: user messages only. Flips the bubble into a
-              textarea; on save it branches a sibling under the same
-              parent so the original message stays accessible via
-              the branch picker. */}
-          {isUser && !isStreaming && onEdit && !isEditing && (
-            <button
-              onClick={() => {
-                setEditText(msg.content);
-                setIsEditing(true);
-              }}
-              disabled={streamingMessageId !== null}
-              className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-              title={t("chat.editAction")}
-            >
-              <Pencil size={10} />
-              {t("chat.editAction")}
-            </button>
-          )}
-          {/* Copy: assistant messages only (the user can already
-              re-read what they typed; copying their own message is
-              a niche need we can add later). Stays disabled while
-              streaming so we don't capture a partial response. */}
-          {!isUser && !isStreaming && msg.content.trim().length > 0 && (
-            <CopyButton text={msg.content} />
-          )}
-          {/* Regenerate: assistant messages only, parent user msg
-              must still exist in the tree (it does unless the
-              conversation was edited externally). Disabled while
-              another stream is in flight to avoid stacking turns. */}
-          {!isUser && !isStreaming && onRegenerate && (
-            <button
-              onClick={onRegenerate}
-              disabled={streamingMessageId !== null}
-              className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-              title={t("chat.regenerate")}
-            >
-              <RefreshCw size={10} />
-              {t("chat.regenerate")}
-            </button>
-          )}
-          {/* Read aloud: assistant messages only, only when the Web
-              Speech API is supported, only after streaming finishes
-              (don't read a half-complete sentence). Toggles to Stop
-              while the same message is speaking. */}
-          {!isUser && !isStreaming && tts.supported && msg.content.trim() && (
-            <button
-              onClick={() => {
-                if (tts.speakingId === msg.id) {
-                  tts.stop();
-                } else {
-                  tts.read(msg.id, markdownToSpeech(msg.content));
-                }
-              }}
-              className={cn(
-                "inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary cursor-pointer",
-                tts.speakingId === msg.id && "text-accent-purple",
-              )}
-              title={
-                tts.speakingId === msg.id
-                  ? t("chat.readAloudStop")
-                  : t("chat.readAloud")
-              }
-            >
-              <Volume2 size={10} />
-              {tts.speakingId === msg.id
-                ? t("chat.readAloudStop")
-                : t("chat.readAloud")}
-            </button>
-          )}
-          {/* Save-as-flashcards: only on assistant messages, only
-              once the stream has finished (the extractor would just
-              choke on a half-written passage). */}
-          {!isUser && !isStreaming && msg.content.trim().length > 40 && (
-            <button
-              onClick={onSaveAsFlashcards}
-              className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title={t("chat.flashcards.saveAction")}
-            >
-              <Sparkles size={10} />
-              {t("chat.flashcards.saveAction")}
-            </button>
-          )}
-          {branches > 1 && (
-            <button
-              onClick={() => setShowBranches((v) => !v)}
-              className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-            >
-              {t("chat.branchesCount", { count: branches })}
-            </button>
-          )}
-        </div>
-
-        {/* Branch switcher */}
-        {showBranches && branches > 1 && (
-          <div className="mt-1 flex flex-wrap gap-1">
-            {childrenOf(messages, msg.id).map((child, i) => {
-              const isActiveChild = child.id === activeChildId;
-              return (
-                <button
-                  key={child.id}
-                  onClick={() => onPickBranch(child.id)}
-                  className={cn(
-                    "rounded border px-2 py-0.5 text-[10px] transition-colors cursor-pointer",
-                    isActiveChild
-                      ? "border-accent-purple bg-accent-purple/15 text-accent-purple"
-                      : "border-glass-border text-text-muted hover:border-accent-purple/40 hover:text-text-primary",
-                  )}
-                  title={child.content.slice(0, 80)}
-                >
-                  {t("chat.branchN", { n: i + 1 })}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Follow-up suggestion chips. Only on assistant messages
-            once the turn has settled. Hidden once the user has
-            already replied to this assistant (countBranches > 0)
-            since the chips would be re-asking what the user has
-            already moved past. */}
-        {!isUser &&
-          !isStreaming &&
-          suggestions &&
-          suggestions.length > 0 &&
-          branches === 0 &&
-          onPickSuggestion && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {suggestions.map((q, i) => (
-                <button
-                  key={i}
-                  onClick={() => onPickSuggestion(q)}
-                  disabled={streamingMessageId !== null}
-                  className="inline-flex items-center rounded-full border border-glass-border bg-glass-bg/40 px-2.5 py-1 text-[11px] text-text-secondary transition-colors hover:border-accent-purple/50 hover:bg-accent-purple/10 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          )}
-      </div>
-    </div>
-  );
-}
 
 // ── Sidebar tree ────────────────────────────────────────────
 
@@ -1506,6 +1318,14 @@ interface ChatTreeProps {
   activeId: string | null;
   editingId: string | null;
   editTitle: string;
+  /** Folder ids that are currently collapsed. Absence = expanded.
+   *  Lifted to ChatPage so the toolbar's Collapse-all / Expand-all
+   *  button can mutate every folder in one click. */
+  collapsedFolders: Set<string>;
+  onToggleFolder: (id: string) => void;
+  /** Create a new conversation directly inside this folder. Skips
+   *  the old "create at root, then drag-drop" two-step. */
+  onNewInFolder: (folderId: string) => void;
   onOpen: (id: string) => void;
   onStartEdit: (id: string, title: string) => void;
   onCancelEdit: () => void;
@@ -1521,8 +1341,34 @@ interface ChatTreeProps {
   t: (key: string, opts?: Record<string, unknown>) => string;
 }
 
+/**
+ * Per-depth left indent for sidebar rows. Renders one fixed-width
+ * span per depth level (8px base gutter + 12px per step), each step
+ * carrying a thin left border so the user sees a vertical guide line
+ * from a folder header down to its children — same trick Obsidian's
+ * file explorer uses. The wrapper relies on the parent row being
+ * `items-stretch` so the spans take the row's full height.
+ */
+function IndentGuides({ depth }: { depth: number }) {
+  return (
+    <div className="flex shrink-0 self-stretch" aria-hidden="true">
+      <span className="w-2" />
+      {Array.from({ length: depth }).map((_, i) => (
+        <span key={i} className="w-3 border-l border-glass-border/40" />
+      ))}
+    </div>
+  );
+}
+
+// Cap on root-level conversations rendered inside Quick chats
+// before the user has to click "show more". Tuned for the median
+// case: most people accumulate dozens of loose chats; surfacing
+// the latest 8 keeps the sidebar legible while still putting the
+// recently-touched ones in view.
+const QUICK_CHATS_VISIBLE_LIMIT = 8;
+
 function ChatTree(props: ChatTreeProps) {
-  const { folders, conversations } = props;
+  const { folders, conversations, t } = props;
   // Index conversations and child folders by parent for cheap lookup.
   // Folder tree is flat-with-parent_id; we render recursively from
   // the roots (parent_id === null) downward.
@@ -1545,12 +1391,110 @@ function ChatTree(props: ChatTreeProps) {
     return m;
   }, [conversations]);
 
-  // Root: loose conversations first, then top-level folders.
+  const rootConvs = folderConversations.get(null) ?? [];
+  // Synthetic folder id used for the Quick chats section in the
+  // collapsedFolders set + the show-all toggle. Kept consistent
+  // between renders so the user's collapse state survives across
+  // reorderings.
+  const QUICK_CHATS_KEY = "__quick_chats__";
+  const quickChatsCollapsed = props.collapsedFolders.has(QUICK_CHATS_KEY);
+  const [quickChatsShowAll, setQuickChatsShowAll] = useState(false);
+  const visibleRootConvs = quickChatsShowAll
+    ? rootConvs
+    : rootConvs.slice(0, QUICK_CHATS_VISIBLE_LIMIT);
+  const hiddenRootCount = rootConvs.length - visibleRootConvs.length;
+
   return (
     <div className="flex flex-col gap-0.5">
-      {(folderConversations.get(null) ?? []).map((c) => (
-        <ConversationRow key={c.id} conversation={c} depth={0} {...props} />
-      ))}
+      {/* Quick chats — a virtual top-level folder grouping every
+          loose (folder_id = null) conversation. Always pinned at
+          the top and visually tinted with the accent color so
+          it stays distinct from the user's organized folders.
+          Collapses like a real folder via the same
+          collapsedFolders set the toolbar's expand-all writes to. */}
+      <div className="rounded-md bg-accent-purple/[0.06]">
+        <div className="group flex items-stretch">
+          <IndentGuides depth={0} />
+          <div className="flex flex-1 items-center gap-1.5 py-1.5 pr-2 min-w-0">
+            <button
+              onClick={() => props.onToggleFolder(QUICK_CHATS_KEY)}
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-accent-purple/80 transition-colors hover:text-accent-purple cursor-pointer"
+              aria-label={
+                quickChatsCollapsed
+                  ? t("common.expand")
+                  : t("common.collapse")
+              }
+            >
+              {quickChatsCollapsed ? (
+                <ChevronRight size={12} />
+              ) : (
+                <ChevronDown size={12} />
+              )}
+            </button>
+            <MessagesSquare
+              size={12}
+              className="shrink-0 text-accent-purple/80"
+            />
+            <button
+              onClick={() => props.onToggleFolder(QUICK_CHATS_KEY)}
+              className="min-w-0 flex-1 truncate text-left text-xs font-semibold text-accent-purple/90 cursor-pointer"
+            >
+              {t("chat.sidebar.quickChats", { defaultValue: "Quick chats" })}
+              {rootConvs.length > 0 && (
+                <span className="ml-1.5 text-[10px] font-normal text-accent-purple/60">
+                  {rootConvs.length}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+        {!quickChatsCollapsed && (
+          <>
+            {visibleRootConvs.map((c) => (
+              <ConversationRow
+                key={c.id}
+                conversation={c}
+                depth={1}
+                {...props}
+              />
+            ))}
+            {hiddenRootCount > 0 && (
+              <button
+                onClick={() => setQuickChatsShowAll((v) => !v)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-md py-1.5 text-[11px] text-accent-purple/70 transition-colors hover:bg-accent-purple/10 hover:text-accent-purple cursor-pointer"
+                style={{ paddingLeft: 8 + 1 * 12 }}
+              >
+                <MoreHorizontal size={12} />
+                {t("chat.sidebar.showAllQuickChats", {
+                  defaultValue: "Show {{count}} more",
+                  count: hiddenRootCount,
+                })}
+              </button>
+            )}
+            {quickChatsShowAll && rootConvs.length > QUICK_CHATS_VISIBLE_LIMIT && (
+              <button
+                onClick={() => setQuickChatsShowAll(false)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-md py-1.5 text-[11px] text-accent-purple/70 transition-colors hover:bg-accent-purple/10 hover:text-accent-purple cursor-pointer"
+                style={{ paddingLeft: 8 + 1 * 12 }}
+              >
+                <ChevronDown size={12} className="rotate-180" />
+                {t("chat.sidebar.showFewerQuickChats", {
+                  defaultValue: "Show fewer",
+                })}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Visual separator between Quick chats and the user's
+          organized folder tree. Renders only when there's at
+          least one folder, otherwise the gap looks like a stray
+          line under an empty section. */}
+      {(childFolders.get(null) ?? []).length > 0 && (
+        <div className="my-1 h-px bg-glass-border" />
+      )}
+
       {(childFolders.get(null) ?? []).map((f) => (
         <FolderRow
           key={f.id}
@@ -1572,14 +1516,24 @@ interface FolderRowProps extends ChatTreeProps {
   folderConversations: Map<string | null, import("@/types/chat").ChatConversation[]>;
 }
 
-function FolderRow({
+// React.memo so the entire sidebar tree doesn't re-render every
+// time the user types a character into the composer below. The
+// handlers passed from ChatPage aren't all useCallback'd yet — once
+// they are, memo will skip 99% of re-renders in steady state. Even
+// without that, memo gives at least a partial win because most
+// individual prop identities are stable (folder/conversation maps,
+// activeId, editingId).
+const FolderRow = memo(function FolderRow({
   folder,
   depth,
   childFolders,
   folderConversations,
   ...rest
 }: FolderRowProps) {
-  const [expanded, setExpanded] = useState(true);
+  // Expanded state lifted to ChatPage so "Collapse all / Expand all"
+  // can write to every folder at once. Absence in collapsedFolders
+  // means expanded — that's the default for newly created folders.
+  const expanded = !rest.collapsedFolders.has(folder.id);
   const subFolders = childFolders.get(folder.id) ?? [];
   const subConversations = folderConversations.get(folder.id) ?? [];
   const t = rest.t;
@@ -1600,43 +1554,60 @@ function FolderRow({
         {...draggable.attributes}
         {...draggable.listeners}
         className={cn(
-          "group flex items-center gap-1.5 rounded-md px-2 py-1.5 text-text-secondary transition-colors cursor-grab active:cursor-grabbing",
+          "group flex items-stretch rounded-md text-text-secondary transition-colors cursor-grab active:cursor-grabbing",
           droppable.isOver
             ? "bg-accent-purple/20 ring-1 ring-accent-purple/60"
             : "hover:bg-glass-hover hover:text-text-primary",
           draggable.isDragging && "opacity-40",
         )}
-        style={{ paddingLeft: 8 + depth * 12 }}
       >
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:text-text-primary cursor-pointer"
-          aria-label={expanded ? t("common.collapse") : t("common.expand")}
-        >
-          {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-        </button>
-        <FolderIcon size={12} className="shrink-0 text-text-muted" />
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="min-w-0 flex-1 truncate text-left text-xs font-medium cursor-pointer"
-          title={folder.name}
-        >
-          {folder.name}
-        </button>
-        <button
-          onClick={() => rest.onRequestRenameFolder(folder.id, folder.name)}
-          className="rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-text-primary group-hover:opacity-100 cursor-pointer"
-          aria-label={t("chat.folders.rename")}
-        >
-          <Pencil size={10} />
-        </button>
-        <button
-          onClick={() => rest.onRequestDeleteFolder(folder.id, folder.name)}
-          className="rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-red-400 group-hover:opacity-100 cursor-pointer"
-          aria-label={t("chat.folders.delete")}
-        >
-          <Trash2 size={10} />
-        </button>
+        <IndentGuides depth={depth} />
+        <div className="flex flex-1 items-center gap-1.5 py-1.5 pr-2 min-w-0">
+          <button
+            onClick={() => rest.onToggleFolder(folder.id)}
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+            aria-label={expanded ? t("common.collapse") : t("common.expand")}
+          >
+            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          </button>
+          <FolderIcon size={12} className="shrink-0 text-text-muted" />
+          <button
+            onClick={() => rest.onToggleFolder(folder.id)}
+            className="min-w-0 flex-1 truncate text-left text-xs font-medium cursor-pointer"
+            title={folder.name}
+          >
+            {folder.name}
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              void rest.onNewInFolder(folder.id);
+            }}
+            className="rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-accent-purple group-hover:opacity-100 cursor-pointer"
+            aria-label={t("chat.sidebar.newInFolder", {
+              defaultValue: "New conversation here",
+            })}
+            title={t("chat.sidebar.newInFolder", {
+              defaultValue: "New conversation here",
+            })}
+          >
+            <FilePlus2 size={11} />
+          </button>
+          <button
+            onClick={() => rest.onRequestRenameFolder(folder.id, folder.name)}
+            className="rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-text-primary group-hover:opacity-100 cursor-pointer"
+            aria-label={t("chat.folders.rename")}
+          >
+            <Pencil size={10} />
+          </button>
+          <button
+            onClick={() => rest.onRequestDeleteFolder(folder.id, folder.name)}
+            className="rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-red-400 group-hover:opacity-100 cursor-pointer"
+            aria-label={t("chat.folders.delete")}
+          >
+            <Trash2 size={10} />
+          </button>
+        </div>
       </div>
       {expanded && (
         <>
@@ -1662,14 +1633,14 @@ function FolderRow({
       )}
     </>
   );
-}
+});
 
 interface ConversationRowProps extends ChatTreeProps {
   conversation: import("@/types/chat").ChatConversation;
   depth: number;
 }
 
-function ConversationRow({
+const ConversationRow = memo(function ConversationRow({
   conversation,
   depth,
   folders,
@@ -1703,7 +1674,7 @@ function ConversationRow({
       {...(isEditing ? {} : draggable.attributes)}
       {...(isEditing ? {} : draggable.listeners)}
       className={cn(
-        "group relative flex items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors",
+        "group relative flex items-stretch rounded-md transition-colors",
         !isEditing && "cursor-grab active:cursor-grabbing",
         draggable.isDragging && "opacity-40",
         // Active gets a stronger fill + a left accent bar so the
@@ -1714,8 +1685,9 @@ function ConversationRow({
           ? "bg-accent-purple/20 text-accent-purple before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent-purple"
           : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
       )}
-      style={{ paddingLeft: 8 + depth * 12 }}
     >
+      <IndentGuides depth={depth} />
+      <div className="flex flex-1 items-center gap-1.5 py-1.5 pr-2 min-w-0">
       {isEditing ? (
         <>
           <input
@@ -1808,9 +1780,10 @@ function ConversationRow({
           </button>
         </>
       )}
+      </div>
     </div>
   );
-}
+});
 
 // Slim drop strip pinned to the top of the conversation list. Drop
 // a conversation or folder onto it to send it back to the root
