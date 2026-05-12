@@ -180,6 +180,12 @@
         "heading": "Library",
         "coverSize": "Cover size — {{value}}px",
         "coverSizeHelp": "How large book covers render in the Library grid view."
+      },
+      "customCss": {
+        "heading": "Custom CSS",
+        "help": "Paste CSS rules to override the app's styles. Tailwind utility classes (e.g. .bg-accent-purple, .text-text-muted) and the theme variables on :root (--accent-purple, --bg-primary, …) are the stable selectors to target. Changes apply live and persist on this device.",
+        "placeholder": ":root { --accent-purple: #ff7eb6; }\n\n/* Hide the streak pill */\n.streak-pill { display: none; }",
+        "reset": "Reset"
       }
     },
     "aboutSection": {
@@ -1479,7 +1485,9 @@
       "aiSelectAround": "Select ±{{n}} around current",
       "aiSelectedCount_one": "{{count}} page sent to AI",
       "aiSelectedCount_other": "{{count}} pages sent to AI",
-      "aiSelectionEmpty": "No pages selected"
+      "aiSelectionEmpty": "No pages selected",
+      "aiSendAsImage": "Send as images",
+      "aiSendAsImageHint": "Render the selected pages as images so the AI sees figures and diagrams. Costs more tokens per page than text. Auto-enabled for scanned PDFs."
     },
     "tabs": {
       "untitled": "Untitled",

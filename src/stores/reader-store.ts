@@ -53,6 +53,14 @@ export interface DocumentState {
    *  paints the range from anchor → target. Cleared when the user
    *  clears the selection or leaves selection mode. */
   aiSelectionAnchor: number | null;
+  /** When true, the selected pages are rendered as JPEG images and
+   *  attached to the next chat turn instead of being extracted as
+   *  text. Used for two cases: (a) scanned/image PDFs where text
+   *  extraction returns nothing, auto-flipped on by the chat-store
+   *  when needed; (b) figure/diagram-heavy pages where the user
+   *  wants the model to actually see the pictures. Memory-only —
+   *  same lifecycle as aiSelectedPages. */
+  aiSendPagesAsImage: boolean;
 }
 
 interface ReaderState {
@@ -112,6 +120,8 @@ interface ReaderState {
    *  N = settings.aiSurroundingPagesCount on each side, clamped to
    *  [1, totalPages]. Used by the "select around current" button. */
   selectAiPagesAround: (docId?: string) => void;
+  /** Toggle the "send selected pages as images" mode for the doc. */
+  setAiSendPagesAsImage: (value: boolean, docId?: string) => void;
 }
 
 function updateDoc(
@@ -296,6 +306,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       cfi,
       aiSelectedPages: new Set(),
       aiSelectionAnchor: null,
+      aiSendPagesAsImage: false,
     };
 
     const next = new Map(get().documents);
@@ -628,6 +639,18 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       documents: updateDoc(get().documents, id, {
         aiSelectedPages: next,
         aiSelectionAnchor: center,
+      }),
+    });
+  },
+
+  setAiSendPagesAsImage(value, docId) {
+    const id = docId ?? get().activeDocumentId;
+    if (!id) return;
+    const doc = get().documents.get(id);
+    if (!doc || doc.aiSendPagesAsImage === value) return;
+    set({
+      documents: updateDoc(get().documents, id, {
+        aiSendPagesAsImage: value,
       }),
     });
   },

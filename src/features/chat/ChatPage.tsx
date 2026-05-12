@@ -412,13 +412,20 @@ export function ChatPage() {
       const provider = payload.provider ?? undefined;
       // Topic-first modes swap the system prompt for a single turn.
       // Composer already resets `mode` to "default" after submit so
-      // the next turn is a regular chat unless re-picked.
+      // the next turn is a regular chat unless re-picked. Reasoning
+      // is the only sticky flag — the composer keeps it on across
+      // turns until the user toggles it off.
       const sendOptions =
-        payload.mode !== "default"
+        payload.mode !== "default" || payload.reasoning
           ? {
-              systemPromptOverride: buildRecommendationSystemPrompt(
-                payload.mode,
-              ),
+              ...(payload.mode !== "default"
+                ? {
+                    systemPromptOverride: buildRecommendationSystemPrompt(
+                      payload.mode,
+                    ),
+                  }
+                : {}),
+              ...(payload.reasoning ? { reasoning: true } : {}),
             }
           : undefined;
       if (branchFromId) {

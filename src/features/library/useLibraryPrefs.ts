@@ -8,6 +8,11 @@ const SORT_ORDERS_KEY = "pnyxy-library-sort-orders";
 interface LibraryPrefs {
   viewMode: ViewMode;
   cardSize: number; // 140–320, grid minWidth in px
+  // Whether the search box + tag filter row are visible. Toolbar
+  // exposes a chevron toggle. Default is platform-aware (mobile
+  // collapsed, desktop expanded) but the user's explicit pick is
+  // persisted from then on.
+  controlsExpanded: boolean;
 }
 
 // Map of folder context → ordered item keys
@@ -17,12 +22,24 @@ type SortOrdersMap = Record<string, string[]>;
 const DEFAULT_PREFS: LibraryPrefs = {
   viewMode: "grid",
   cardSize: 200,
+  controlsExpanded: true,
 };
 
 function loadPrefs(): LibraryPrefs {
+  const isMobile =
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 640px)").matches;
+
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<LibraryPrefs>;
+      // If `controlsExpanded` was never written (older clients), fall
+      // back to the platform default rather than the object default.
+      const controlsExpanded =
+        parsed.controlsExpanded ?? (isMobile ? false : true);
+      return { ...DEFAULT_PREFS, ...parsed, controlsExpanded };
+    }
   } catch {
     // ignore
   }
@@ -32,11 +49,8 @@ function loadPrefs(): LibraryPrefs {
   // shows book covers well at desktop widths. Once the user picks
   // explicitly via the toolbar toggle, that choice is persisted
   // and this default no longer applies.
-  if (
-    typeof window !== "undefined" &&
-    window.matchMedia("(max-width: 640px)").matches
-  ) {
-    return { ...DEFAULT_PREFS, viewMode: "list" };
+  if (isMobile) {
+    return { ...DEFAULT_PREFS, viewMode: "list", controlsExpanded: false };
   }
   return DEFAULT_PREFS;
 }
@@ -97,6 +111,14 @@ export function useLibraryPrefs() {
     });
   }, []);
 
+  const setControlsExpanded = useCallback((controlsExpanded: boolean) => {
+    setPrefs((p) => {
+      const next = { ...p, controlsExpanded };
+      savePrefs(next);
+      return next;
+    });
+  }, []);
+
   const setSortOrder = useCallback((contextId: string, orderedKeys: string[]) => {
     setSortOrdersState((prev) => {
       const next = { ...prev, [contextId]: orderedKeys };
@@ -105,5 +127,12 @@ export function useLibraryPrefs() {
     });
   }, []);
 
-  return { ...prefs, setViewMode, setCardSize, sortOrders, setSortOrder };
+  return {
+    ...prefs,
+    setViewMode,
+    setCardSize,
+    setControlsExpanded,
+    sortOrders,
+    setSortOrder,
+  };
 }

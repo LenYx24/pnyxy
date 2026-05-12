@@ -3,20 +3,25 @@
 // Streams an LLM response back to the browser via SSE while
 // enforcing per-user (or per-IP) daily quotas tracked in Postgres.
 //
-// Provider strategy: OpenAI is tried first; on any failure (network
-// error or non-2xx response) we fall back to Anthropic. Both
-// providers are converted to Anthropic-style SSE events so the
-// browser only needs one parser.
+// Provider strategy: every configured OpenAI-compatible upstream is
+// tried in priority order (Gemini cheapest → OpenAI), and Anthropic
+// is the last fallback. Tool-use mode is Anthropic-only because
+// that's the only branch wired through Anthropic's structured tool
+// SSE events today. All upstreams are normalized to Anthropic-style
+// SSE events on the way out, so the browser parses one shape.
 //
 // Env vars (set via `supabase secrets set`):
-//   OPENAI_API_KEY          — primary provider key (optional, but
-//                             recommended)
-//   ANTHROPIC_API_KEY       — fallback provider key (optional)
+//   GEMINI_API_KEY          — Google AI Studio key. OpenAI-compatible
+//                             endpoint, cheapest option. Tried first.
+//   OPENAI_API_KEY          — OpenAI key. Second OpenAI-compat fallback.
+//   ANTHROPIC_API_KEY       — Anthropic key. Final fallback for plain
+//                             chat; required for tool-use mode.
 //   SUPABASE_URL            — auto-populated
 //   SUPABASE_ANON_KEY       — auto-populated
 //   SUPABASE_SERVICE_ROLE_KEY — auto-populated
 //
-// At least one of OPENAI_API_KEY / ANTHROPIC_API_KEY must be set.
+// At least one of GEMINI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY
+// must be set.
 
 // @ts-expect-error Deno-only import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -31,7 +36,39 @@ declare const Deno: {
 
 const OPENAI_MODEL = "gpt-4o-mini";
 const ANTHROPIC_MODEL = "claude-haiku-4-5";
+const GEMINI_MODEL = "gemini-2.5-flash";
 const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
+
+/**
+ * OpenAI-compatible upstreams the proxy can call. Listed in priority
+ * order — the handler tries each whose env key is set, falls through
+ * on failure, and only hits Anthropic as the last resort. New
+ * providers (Mistral, OpenRouter, …) drop in here as one more row
+ * without touching the request-handling logic.
+ *
+ * `envKey` is read with Deno.env.get inside the request handler so
+ * we always pick up current secret values, not whatever was set at
+ * cold-start.
+ */
+const OPENAI_COMPATIBLE_PROVIDERS: ReadonlyArray<{
+  name: string;
+  envKey: string;
+  url: string;
+  model: string;
+}> = [
+  {
+    name: "gemini",
+    envKey: "GEMINI_API_KEY",
+    url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    model: GEMINI_MODEL,
+  },
+  {
+    name: "openai",
+    envKey: "OPENAI_API_KEY",
+    url: "https://api.openai.com/v1/chat/completions",
+    model: OPENAI_MODEL,
+  },
+];
 // Hard ceiling for any single request. Quiz generation needs room for
 // ~10 MCQ questions with explanations (~3k tokens). Clients that ask for
 // more are clamped to this.
@@ -124,7 +161,8 @@ interface QuotaResult {
  * Multimodal content block. Anthropic-shape on the wire — the
  * frontend's toAnthropicChatContent already produces this layout,
  * so it's natural to receive. We convert to OpenAI's image_url
- * shape inside `tryOpenAi` when the OpenAI upstream is hit.
+ * shape inside `tryOpenAiCompatible` when any OpenAI-compat upstream
+ * (OpenAI, Gemini, future Mistral/OpenRouter) is hit.
  */
 type ContentBlock =
   | { type: "text"; text: string }
@@ -162,7 +200,11 @@ interface ChatRequestBody {
   }>;
 }
 
-function buildSystemPrompt(documentTitle: string, pageContext: string): string {
+function buildSystemPrompt(
+  documentTitle: string,
+  pageContext: string,
+  hasImages: boolean,
+): string {
   // No source document → generic chat assistant. Mirrors the
   // frontend's ai-client.ts fix: the old PDF-Q&A framing was
   // making the model refuse anything outside the (empty) document
@@ -170,7 +212,24 @@ function buildSystemPrompt(documentTitle: string, pageContext: string): string {
   if (!documentTitle.trim()) {
     return `You are Pnyxy's helpful AI assistant. Answer questions clearly and concisely. When the user attaches images, describe or reason about them directly — don't claim you can't see them. Use markdown for code blocks, lists, and tables when it helps readability.`;
   }
-  return `You are an AI assistant helping the user understand a PDF document titled "${documentTitle}".
+
+  const hasText = pageContext.trim().length > 0;
+
+  // Image PDF (or user forced image mode): page content arrives as
+  // image blocks on the user message, not as text in the prompt.
+  // Telling the model to "read the text" when there isn't any was
+  // the old failure mode that left scanned-PDF users with empty
+  // replies. Frame this case explicitly so the model knows to look
+  // at the images.
+  if (!hasText && hasImages) {
+    return `You are an AI assistant helping the user understand a PDF document titled "${documentTitle}".
+
+The user has attached the relevant pages of the document as images. Read those images carefully and answer questions about their content. Reference specific page numbers (visible in the image labels) when relevant.`;
+  }
+
+  // Plain text-extracted context: the original path.
+  if (hasText) {
+    return `You are an AI assistant helping the user understand a PDF document titled "${documentTitle}".
 
 Here is the text from the pages the user is currently viewing:
 
@@ -179,6 +238,12 @@ ${pageContext}
 ---
 
 Answer questions about this document. Be concise and helpful. Reference specific page numbers when relevant. If the answer is not in the provided text, say so.`;
+  }
+
+  // Doc set but nothing selected and nothing attached — generic doc
+  // helper. Avoids the previous "Here is the text:\n---\n---" frame
+  // that made the model think it had context it didn't.
+  return `You are an AI assistant helping the user with a PDF document titled "${documentTitle}". The user hasn't selected any pages or attached images yet; answer general questions about the document or ask the user to point you at a specific section.`;
 }
 
 // ── handler ──────────────────────────────────────────────────
@@ -192,9 +257,17 @@ Deno.serve(async (req) => {
     return jsonError(405, "method_not_allowed", "POST only");
   }
 
-  const openaiKey = Deno.env.get("OPENAI_API_KEY");
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!openaiKey && !anthropicKey) {
+  // Snapshot the OpenAI-compat keys once per request so the priority
+  // chain reads consistent values even if a secret were rotated mid-
+  // request. `?.trim()` filters out the empty-string case (Supabase
+  // sometimes stores blank values when a secret was unset and re-set).
+  const openAiCompatChain = OPENAI_COMPATIBLE_PROVIDERS.map((p) => ({
+    ...p,
+    apiKey: Deno.env.get(p.envKey)?.trim() ?? "",
+  })).filter((p) => p.apiKey.length > 0);
+
+  if (openAiCompatChain.length === 0 && !anthropicKey) {
     return jsonError(
       500,
       "misconfigured",
@@ -245,56 +318,84 @@ Deno.serve(async (req) => {
       estimateTokens(body.documentTitle ?? "");
   const estimatedTotal = inputTokens + maxOutputTokens;
 
-  // ── Quota check (auth user OR anon by IP) ──
+  // ── Per-model quota helper ────────────────────────────────
+  //
+  // The RPC charges the estimated worst-case token cost against the
+  // bucket for the specific model the proxy is about to call. If the
+  // RPC reports `allowed = false` we return the QuotaResult so the
+  // caller can decide whether to fall through to a cheaper model or
+  // bounce 429 to the client.
+  //
+  // Captured-once Supabase context. We deliberately build clients
+  // outside the per-call helper so each provider attempt reuses the
+  // same client instance (cheap, but no point recreating it).
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
   const authHeader = req.headers.get("Authorization") ?? "";
-  let quota: QuotaResult;
-
-  if (authHeader.startsWith("Bearer ") && authHeader.length > "Bearer ".length) {
-    // Authenticated path: the user's JWT lets the RPC use auth.uid().
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data, error } = await userClient.rpc(
-      "check_and_record_ai_usage_user",
-      { p_tokens: estimatedTotal },
-    );
-    if (error) {
-      return jsonError(500, "quota_check_failed", error.message);
-    }
-    quota = data?.[0] as QuotaResult;
-  } else {
-    // Anonymous path: hash the IP and bill against ai_usage_anon.
+  const isAuthed =
+    authHeader.startsWith("Bearer ") &&
+    authHeader.length > "Bearer ".length;
+  const userClient = isAuthed
+    ? createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      })
+    : null;
+  let anonIpHash: string | null = null;
+  if (!isAuthed) {
     const ip = getClientIp(req);
     if (!ip) {
       return jsonError(400, "no_ip", "Could not determine client IP");
     }
-    const ipHash = await hashIp(ip, serviceKey);
-    const adminClient = createClient(supabaseUrl, serviceKey);
-    const { data, error } = await adminClient.rpc(
-      "check_and_record_ai_usage_anon",
-      { p_ip_hash: ipHash, p_tokens: estimatedTotal },
-    );
-    if (error) {
-      return jsonError(500, "quota_check_failed", error.message);
+    anonIpHash = await hashIp(ip, serviceKey);
+  }
+  const adminClient = !isAuthed ? createClient(supabaseUrl, serviceKey) : null;
+
+  /** Attempt to bill `estimatedTotal` tokens against `model`'s daily
+   *  bucket. Returns the QuotaResult on success / quota_exceeded, or
+   *  `null` if the RPC itself errored (caller should 500). */
+  async function checkAndRecord(
+    model: string,
+  ): Promise<{ ok: true; quota: QuotaResult } | { ok: false; rpcError: string } | { ok: false; quota: QuotaResult }> {
+    if (isAuthed && userClient) {
+      const { data, error } = await userClient.rpc(
+        "check_and_record_ai_usage_user",
+        { p_tokens: estimatedTotal, p_model: model },
+      );
+      if (error) return { ok: false, rpcError: error.message };
+      const quota = data?.[0] as QuotaResult;
+      return quota?.allowed
+        ? { ok: true, quota }
+        : { ok: false, quota };
     }
-    quota = data?.[0] as QuotaResult;
+    if (adminClient && anonIpHash) {
+      const { data, error } = await adminClient.rpc(
+        "check_and_record_ai_usage_anon",
+        { p_ip_hash: anonIpHash, p_tokens: estimatedTotal, p_model: model },
+      );
+      if (error) return { ok: false, rpcError: error.message };
+      const quota = data?.[0] as QuotaResult;
+      return quota?.allowed
+        ? { ok: true, quota }
+        : { ok: false, quota };
+    }
+    // Should never reach here — we've already returned 400 above
+    // if no IP was derivable on the anon path.
+    return { ok: false, rpcError: "no_quota_path" };
   }
 
-  if (!quota?.allowed) {
-    return jsonError(
-      429,
-      quota?.reason ?? "quota_exceeded",
-      `Daily AI quota reached (${quota?.tokens_used}/${quota?.tokens_limit} tokens, ${quota?.request_count}/${quota?.request_limit} requests).`,
+  // Scan the user-side messages for image blocks so the system
+  // prompt can adapt to the "pages were sent as images" path.
+  const hasImages =
+    !toolMode &&
+    body.messages.some(
+      (m) =>
+        Array.isArray(m.content) &&
+        m.content.some((block) => block.type === "image"),
     );
-  }
-
   const systemPrompt =
     body.systemPromptOverride ??
-    buildSystemPrompt(body.documentTitle, body.pageContext);
+    buildSystemPrompt(body.documentTitle, body.pageContext, hasImages);
 
   // ── Tool mode: Anthropic only (passes through all SSE events) ──
   if (toolMode) {
@@ -303,6 +404,18 @@ Deno.serve(async (req) => {
         501,
         "tool_mode_unavailable",
         "Tool-use requires an Anthropic upstream key.",
+      );
+    }
+    const billed = await checkAndRecord(ANTHROPIC_MODEL);
+    if ("rpcError" in billed && billed.rpcError) {
+      return jsonError(500, "quota_check_failed", billed.rpcError);
+    }
+    if (!billed.ok) {
+      const q = billed.quota;
+      return jsonError(
+        429,
+        q?.reason ?? "quota_exceeded",
+        `Daily AI quota reached for ${ANTHROPIC_MODEL} (${q?.tokens_used}/${q?.tokens_limit} tokens, ${q?.request_count}/${q?.request_limit} requests).`,
       );
     }
     const stream = await tryAnthropicWithTools(
@@ -318,60 +431,114 @@ Deno.serve(async (req) => {
     return jsonError(502, "upstream_error", "Anthropic upstream failed");
   }
 
-  // ── Plain text mode: OpenAI first, fall back to Anthropic ──
-  if (openaiKey) {
-    const stream = await tryOpenAi(
-      openaiKey,
+  // ── Plain text mode: walk the OpenAI-compat chain in priority
+  //    order, billing each provider's own bucket before its upstream
+  //    attempt. A quota-exceeded model is skipped to the next one;
+  //    an upstream failure also falls through (the failed bucket
+  //    keeps its charge — acceptable as resilience-deterrent vs the
+  //    complexity of a refund path). If everything in the compat
+  //    chain failed for either reason, try Anthropic as the final
+  //    fallback before giving up. ──
+  let lastQuotaFailure: QuotaResult | null = null;
+  for (const provider of openAiCompatChain) {
+    const billed = await checkAndRecord(provider.model);
+    if ("rpcError" in billed && billed.rpcError) {
+      return jsonError(500, "quota_check_failed", billed.rpcError);
+    }
+    if (!billed.ok) {
+      // Out of quota for this specific model — try the next cheaper
+      // / fallback provider. Track the latest reason so we can
+      // surface something useful if the whole chain runs dry.
+      lastQuotaFailure = billed.quota;
+      continue;
+    }
+    const stream = await tryOpenAiCompatible(
+      provider.url,
+      provider.apiKey,
+      provider.model,
       systemPrompt,
       body.messages,
       maxOutputTokens,
+      provider.name,
     );
     if (stream) {
       return new Response(stream, { headers: sseHeaders });
     }
-    // OpenAI failed — fall through to Anthropic if available.
+    // Upstream failed (after quota was billed) — fall through to next.
   }
 
   if (anthropicKey) {
-    const stream = await tryAnthropic(
-      anthropicKey,
-      systemPrompt,
-      body.messages,
-      maxOutputTokens,
-    );
-    if (stream) {
-      return new Response(stream, { headers: sseHeaders });
+    const billed = await checkAndRecord(ANTHROPIC_MODEL);
+    if ("rpcError" in billed && billed.rpcError) {
+      return jsonError(500, "quota_check_failed", billed.rpcError);
+    }
+    if (billed.ok) {
+      const stream = await tryAnthropic(
+        anthropicKey,
+        systemPrompt,
+        body.messages,
+        maxOutputTokens,
+      );
+      if (stream) {
+        return new Response(stream, { headers: sseHeaders });
+      }
+    } else {
+      lastQuotaFailure = billed.quota;
     }
   }
 
+  // If we got here only because every model hit its quota, surface
+  // the most-recent quota result so the client renders a useful
+  // banner. Otherwise it's a genuine upstream outage.
+  if (lastQuotaFailure) {
+    return jsonError(
+      429,
+      lastQuotaFailure.reason ?? "quota_exceeded",
+      `Daily AI quota reached on every available model (${lastQuotaFailure.tokens_used}/${lastQuotaFailure.tokens_limit} tokens, ${lastQuotaFailure.request_count}/${lastQuotaFailure.request_limit} requests on last model).`,
+    );
+  }
   return jsonError(502, "upstream_error", "All upstream providers failed");
 });
 
-// ── OpenAI branch ────────────────────────────────────────────
+// ── OpenAI-compatible branch (OpenAI, Gemini, future Mistral/OR) ─
 
-async function tryOpenAi(
+/**
+ * Generic OpenAI chat-completions caller. The wire shape (model,
+ * messages, stream, max_tokens) and the SSE event format are
+ * identical across OpenAI, Gemini's OpenAI-compatible endpoint,
+ * Mistral, and OpenRouter — so adding a new provider is a row in
+ * OPENAI_COMPATIBLE_PROVIDERS and nothing here changes.
+ *
+ * The `providerName` parameter is purely for logs so a 4xx from
+ * Gemini doesn't look identical to a 4xx from OpenAI when debugging.
+ */
+async function tryOpenAiCompatible(
+  url: string,
   apiKey: string,
+  model: string,
   systemPrompt: string,
   messages: ChatRequestBody["messages"],
   maxOutputTokens: number,
+  providerName: string,
 ): Promise<ReadableStream<Uint8Array> | null> {
   let upstream: Response;
   try {
-    upstream = await fetch("https://api.openai.com/v1/chat/completions", {
+    upstream = await fetch(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: OPENAI_MODEL,
+        model,
         max_tokens: maxOutputTokens,
         stream: true,
         messages: [
           { role: "system", content: systemPrompt },
           // Convert any image blocks from Anthropic-shape (what
           // the frontend sends) to OpenAI's image_url shape. Plain
-          // string contents pass through untouched.
+          // string contents pass through untouched. All providers
+          // in this branch accept the OpenAI multimodal schema.
           ...messages.map((m) => ({
             role: m.role,
             content: toOpenAiContent(m.content),
@@ -380,13 +547,13 @@ async function tryOpenAi(
       }),
     });
   } catch (err) {
-    console.error("OpenAI request failed:", err);
+    console.error(`${providerName} request failed:`, err);
     return null;
   }
 
   if (!upstream.ok || !upstream.body) {
     const text = await upstream.text().catch(() => "");
-    console.error(`OpenAI returned ${upstream.status}: ${text}`);
+    console.error(`${providerName} returned ${upstream.status}: ${text}`);
     return null;
   }
 

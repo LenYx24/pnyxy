@@ -21,17 +21,32 @@
 
 import { useReaderStore } from "@/stores/reader-store";
 import { useSettingsStore } from "@/stores/settings-store";
-import { extractPdfText } from "@/lib/ai-client";
+import { extractPdfText, renderPdfPagesToImages } from "@/lib/ai-client";
 import type { TocItem } from "@/types/document";
+import type { ChatMessageAttachment } from "@/types/chat";
 
 export interface AiContextPack {
   /** Free-form user persona / preferences. May be empty. */
   customContext: string;
   /** Book-side context: TOC outline + selected-page text. May be empty. */
   pageContext: string;
+  /** Pages rendered as image attachments. Two ways this gets
+   *  populated:
+   *    1. The doc's `aiSendPagesAsImage` toggle is on (user
+   *       explicitly wants the model to see figures).
+   *    2. Auto-fallback: text extraction returned empty for an
+   *       image PDF — we render the selected pages so the model
+   *       isn't left guessing on a blank context.
+   *  Caller (chat-store) folds these into the outgoing user
+   *  message's `attachments` field before inserting the row. */
+  imageAttachments: ChatMessageAttachment[];
 }
 
-const EMPTY_PACK: AiContextPack = { customContext: "", pageContext: "" };
+const EMPTY_PACK: AiContextPack = {
+  customContext: "",
+  pageContext: "",
+  imageAttachments: [],
+};
 
 /** Render the TOC tree as an indented outline. Skips entries with
  *  invalid pageIndex (some PDFs have phantom outline nodes pointing
@@ -99,13 +114,15 @@ export async function buildAiContextPack(
   if (!docId) {
     // Plain chat — no source doc. We still surface the user persona
     // so even an unattached chat respects "I'm a CS student" prefs.
-    return { customContext, pageContext: "" };
+    return { customContext, pageContext: "", imageAttachments: [] };
   }
 
   const doc = useReaderStore.getState().documents.get(docId);
-  if (!doc) return { customContext, pageContext: "" };
+  if (!doc)
+    return { customContext, pageContext: "", imageAttachments: [] };
 
   const sections: string[] = [];
+  let imageAttachments: ChatMessageAttachment[] = [];
 
   // TOC: cheap to include, often the highest-leverage context for
   // "what's this book about" / "where do I find X" questions.
@@ -125,19 +142,45 @@ export async function buildAiContextPack(
     doc.meta.fileUrl
   ) {
     const pages = Array.from(doc.aiSelectedPages);
-    try {
-      const pagesText = await extractSelectedPages(doc.meta.fileUrl, pages);
-      if (pagesText.trim()) {
-        sections.push(pagesText);
+    const forceImage = doc.aiSendPagesAsImage;
+
+    // Skip text extraction entirely when the user opted into image
+    // mode — saves a pdfjs pass on big selections.
+    let pagesText = "";
+    if (!forceImage) {
+      try {
+        pagesText = await extractSelectedPages(doc.meta.fileUrl, pages);
+      } catch (err) {
+        console.warn("[ai-context] page extraction failed:", err);
       }
-    } catch (err) {
-      console.warn("[ai-context] page extraction failed:", err);
+    }
+
+    const textIsEmpty = !pagesText.trim();
+    const shouldRender = forceImage || textIsEmpty;
+
+    if (shouldRender) {
+      try {
+        const rendered = await renderPdfPagesToImages(doc.meta.fileUrl, pages);
+        imageAttachments = rendered.map((r) => ({
+          kind: "image",
+          media_type: r.mediaType,
+          data: r.base64,
+          name: `Page ${r.page}`,
+        }));
+      } catch (err) {
+        console.warn("[ai-context] page render failed:", err);
+      }
+    }
+
+    if (!shouldRender && pagesText.trim()) {
+      sections.push(pagesText);
     }
   }
 
   return {
     customContext,
     pageContext: sections.join("\n\n---\n\n"),
+    imageAttachments,
   };
 }
 

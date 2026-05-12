@@ -17,12 +17,22 @@ import { cn } from "@/lib/cn";
 import { AI_MODEL_CATALOG } from "@/lib/ai-models";
 import { ModelCard } from "@/features/chat/ModelInfoModal";
 
-interface AiUsage {
+interface AiUsageRow {
+  model: string;
   tokens_used: number;
   request_count: number;
   tokens_limit: number;
   request_limit: number;
 }
+
+// Display labels for the per-model bars. Falls back to the raw
+// model id if we don't have a friendlier name yet (so newly added
+// models still render usefully without a client redeploy).
+const MODEL_DISPLAY_NAMES: Record<string, string> = {
+  "gemini-2.5-flash": "Gemini 2.5 Flash",
+  "gpt-4o-mini": "GPT-4o mini",
+  "claude-haiku-4-5": "Claude Haiku 4.5",
+};
 
 // Provider names themselves stay unlocalised (brand names).
 const PROVIDER_LABELS: Record<AiProvider, string> = {
@@ -31,6 +41,65 @@ const PROVIDER_LABELS: Record<AiProvider, string> = {
   openai: "OpenAI",
   local: "Local model",
 };
+
+// Compact comparison data. Kept inline (not from AI_MODEL_CATALOG)
+// because the table view wants short labels and price strings, while
+// the catalog stores rich Hungarian prose used by the chat
+// ModelInfoModal. The catalog is still the source of truth for the
+// "Learn more" details at the bottom of this tab.
+type ModelRowStatus = "active" | "byok" | "local" | "soon";
+interface ComparisonRow {
+  model: string;
+  provider: string;
+  cost: string;
+  bestFor: string;
+  status: ModelRowStatus;
+}
+
+const COMPARISON_ROWS: ComparisonRow[] = [
+  {
+    model: "Claude Haiku 4.5",
+    provider: "Pnyxy (free)",
+    cost: "Free (daily quota)",
+    bestFor: "Quick chat, vocab, summaries",
+    status: "active",
+  },
+  {
+    model: "Claude Sonnet 4.5",
+    provider: "Anthropic",
+    cost: "$3 / $15",
+    bestFor: "Hardest reasoning, long tasks",
+    status: "byok",
+  },
+  {
+    model: "GPT-4o mini",
+    provider: "OpenAI",
+    cost: "$0.15 / $0.60",
+    bestFor: "General chat, fallback",
+    status: "byok",
+  },
+  {
+    model: "Gemini 2.5 Flash",
+    provider: "Google",
+    cost: "$0.075 / $0.30",
+    bestFor: "Cheapest default, fast",
+    status: "soon",
+  },
+  {
+    model: "Mistral Small",
+    provider: "Mistral (EU)",
+    cost: "$0.20 / $0.60",
+    bestFor: "EU-sovereign default",
+    status: "soon",
+  },
+  {
+    model: "Local (Ollama / LM Studio)",
+    provider: "Your machine",
+    cost: "Free",
+    bestFor: "Offline, private",
+    status: "local",
+  },
+];
 
 export function AiTab() {
   const { t } = useTranslation();
@@ -56,11 +125,11 @@ export function AiTab() {
 
   const [usageState, setUsageState] = useState<{
     forUserId: string | null;
-    data: AiUsage | null;
-  }>({ forUserId: null, data: null });
+    data: AiUsageRow[];
+  }>({ forUserId: null, data: [] });
 
   const pnyxyEnabled = enabledProviders.includes("pnyxy");
-  const usage = usageState.data;
+  const usageRows = usageState.data;
   const usageLoading =
     pnyxyEnabled && !!user && usageState.forUserId !== user.id;
 
@@ -69,11 +138,9 @@ export function AiTab() {
     let cancelled = false;
     supabase.rpc("get_my_ai_usage_today").then(({ data, error }) => {
       if (cancelled) return;
-      const row =
-        !error && Array.isArray(data) && data.length > 0
-          ? (data[0] as AiUsage)
-          : null;
-      setUsageState({ forUserId: user.id, data: row });
+      const rows =
+        !error && Array.isArray(data) ? (data as AiUsageRow[]) : [];
+      setUsageState({ forUserId: user.id, data: rows });
     });
     return () => {
       cancelled = true;
@@ -84,119 +151,269 @@ export function AiTab() {
     (p) => !enabledProviders.includes(p),
   );
 
+  // No outer card chrome here on purpose. SettingsPage already gives
+  // us padding and a max-width; the previous nested
+  // section→ProviderRow→ByokQuotaInfo stack created the "card inside
+  // card inside card" stack the user pushed back on. Each major
+  // group below is a labeled block separated by spacing only.
   return (
-    // Outer card frame only kicks in at sm:+ — on mobile the section
-    // sits flush with the page padding so we don't lose 32px of
-    // horizontal space to nested borders+padding before the first
-    // input. The ProviderRow / subsection cards inside still group
-    // content visually even without the outer card.
-    <section className="space-y-4 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
-      <div className="flex items-center gap-2">
-        <BotMessageSquare size={18} className="text-accent-purple" />
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t("settings.aiSection.heading")}
-        </h2>
-      </div>
-      <p className="text-xs text-text-muted">
-        {t("settings.aiSection.description")}
-      </p>
+    <div className="space-y-8">
+      <header className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <BotMessageSquare size={18} className="text-accent-purple" />
+          <h2 className="text-lg font-semibold text-text-primary">
+            {t("settings.aiSection.heading")}
+          </h2>
+        </div>
+        <p className="text-xs text-text-muted">
+          {t("settings.aiSection.description")}
+        </p>
+      </header>
 
-      {enabledProviders.length === 0 ? (
-        <div className="rounded-lg border border-glass-border bg-bg-primary/40 p-4 text-center">
+      <ModelComparisonTable />
+
+      <section className="space-y-3">
+        <SectionHeading
+          title={t("settings.aiSection.providersHeading", {
+            defaultValue: "Providers",
+          })}
+          subtitle={t("settings.aiSection.providersSubtitle", {
+            defaultValue:
+              "Order = priority. First enabled provider with a valid key handles each chat. Drag-free reorder via the arrow buttons.",
+          })}
+        />
+
+        {enabledProviders.length === 0 ? (
           <p className="text-sm text-text-secondary">
             {t("settings.aiSection.empty")}
           </p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {enabledProviders.map((provider, idx) => (
-            <ProviderRow
-              key={provider}
-              provider={provider}
-              position={idx + 1}
-              isFirst={idx === 0}
-              isLast={idx === enabledProviders.length - 1}
-              onMoveUp={() => moveProvider(provider, -1)}
-              onMoveDown={() => moveProvider(provider, 1)}
-              onRemove={() => toggleProvider(provider)}
-              user={user}
-              usage={usage}
-              usageLoading={usageLoading}
-              anthropicApiKey={anthropicApiKey}
-              openaiApiKey={openaiApiKey}
-              localBaseUrl={localBaseUrl}
-              localModel={localModel}
-              localApiKey={localApiKey}
-              setAnthropicApiKey={setAnthropicApiKey}
-              setOpenaiApiKey={setOpenaiApiKey}
-              setLocalBaseUrl={setLocalBaseUrl}
-              setLocalModel={setLocalModel}
-              setLocalApiKey={setLocalApiKey}
-              showAnthropicKey={showAnthropicKey}
-              showOpenaiKey={showOpenaiKey}
-              showLocalKey={showLocalKey}
-              setShowAnthropicKey={setShowAnthropicKey}
-              setShowOpenaiKey={setShowOpenaiKey}
-              setShowLocalKey={setShowLocalKey}
-            />
-          ))}
-        </div>
-      )}
+        ) : (
+          <div className="space-y-2">
+            {enabledProviders.map((provider, idx) => (
+              <ProviderRow
+                key={provider}
+                provider={provider}
+                position={idx + 1}
+                isFirst={idx === 0}
+                isLast={idx === enabledProviders.length - 1}
+                onMoveUp={() => moveProvider(provider, -1)}
+                onMoveDown={() => moveProvider(provider, 1)}
+                onRemove={() => toggleProvider(provider)}
+                user={user}
+                usageRows={usageRows}
+                usageLoading={usageLoading}
+                anthropicApiKey={anthropicApiKey}
+                openaiApiKey={openaiApiKey}
+                localBaseUrl={localBaseUrl}
+                localModel={localModel}
+                localApiKey={localApiKey}
+                setAnthropicApiKey={setAnthropicApiKey}
+                setOpenaiApiKey={setOpenaiApiKey}
+                setLocalBaseUrl={setLocalBaseUrl}
+                setLocalModel={setLocalModel}
+                setLocalApiKey={setLocalApiKey}
+                showAnthropicKey={showAnthropicKey}
+                showOpenaiKey={showOpenaiKey}
+                showLocalKey={showLocalKey}
+                setShowAnthropicKey={setShowAnthropicKey}
+                setShowOpenaiKey={setShowOpenaiKey}
+                setShowLocalKey={setShowLocalKey}
+              />
+            ))}
+          </div>
+        )}
 
-      {disabled.length > 0 && (
-        <div>
-          <p className="text-xs text-text-muted mb-2">
-            {t("settings.aiSection.addPrompt")}
-          </p>
-          <div className="flex flex-wrap gap-2">
+        {disabled.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 pt-1">
             {disabled.map((p) => (
               <button
                 key={p}
                 onClick={() => toggleProvider(p)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-glass-border bg-glass-bg px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                className="inline-flex items-center gap-1 rounded-md border border-dashed border-glass-border bg-transparent px-2 py-1 text-[11px] font-medium text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
               >
-                <Plus size={12} />
+                <Plus size={11} />
                 {PROVIDER_LABELS[p]}
               </button>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </section>
 
       <AiContextSection />
-      <ModelCatalogSection />
+
+      <details className="group rounded-md border border-glass-border bg-transparent">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary">
+          <span>
+            {t("settings.aiModels.heading", {
+              defaultValue: "Detailed model info",
+            })}
+          </span>
+          <ChevronDown
+            size={14}
+            className="transition-transform group-open:rotate-180"
+          />
+        </summary>
+        <div className="space-y-3 border-t border-glass-border px-3 py-3">
+          {AI_MODEL_CATALOG.map((m) => (
+            <ModelCard key={m.provider} model={m} />
+          ))}
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function SectionHeading({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <div className="space-y-0.5">
+      <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
+      {subtitle && <p className="text-[11px] text-text-muted">{subtitle}</p>}
+    </div>
+  );
+}
+
+/**
+ * Compact at-a-glance comparison of every model the user could pick.
+ * Replaces the long text-heavy ModelCatalogSection at the top of the
+ * tab. Detailed prose lives in the collapsible at the bottom for
+ * users who want to read more.
+ *
+ * Table on sm+, stacked rows on mobile — a true `<table>` at 375px
+ * wraps awkwardly even with overflow-x-auto. The mobile stack keeps
+ * the same column ordering and label/value pairing.
+ */
+function ModelComparisonTable() {
+  const { t } = useTranslation();
+  return (
+    <section className="space-y-2">
+      <SectionHeading
+        title={t("settings.aiSection.modelsHeading", {
+          defaultValue: "Available models",
+        })}
+        subtitle={t("settings.aiSection.modelsSubtitle", {
+          defaultValue: "Prices are per 1M tokens (input / output).",
+        })}
+      />
+
+      {/* Desktop: real table */}
+      <div className="hidden overflow-x-auto sm:block">
+        <table className="w-full border-collapse text-xs">
+          <thead>
+            <tr className="text-left text-[10px] uppercase tracking-wide text-text-muted">
+              <th className="py-1.5 pr-3 font-medium">
+                {t("settings.aiSection.colModel", { defaultValue: "Model" })}
+              </th>
+              <th className="py-1.5 pr-3 font-medium">
+                {t("settings.aiSection.colProvider", {
+                  defaultValue: "Provider",
+                })}
+              </th>
+              <th className="py-1.5 pr-3 font-medium">
+                {t("settings.aiSection.colCost", {
+                  defaultValue: "Cost / 1M tok",
+                })}
+              </th>
+              <th className="py-1.5 pr-3 font-medium">
+                {t("settings.aiSection.colBestFor", {
+                  defaultValue: "Best for",
+                })}
+              </th>
+              <th className="py-1.5 font-medium" />
+            </tr>
+          </thead>
+          <tbody>
+            {COMPARISON_ROWS.map((row) => (
+              <tr
+                key={row.model}
+                className="border-t border-glass-border/60 align-top"
+              >
+                <td className="py-2 pr-3 font-medium text-text-primary">
+                  {row.model}
+                </td>
+                <td className="py-2 pr-3 text-text-secondary">
+                  {row.provider}
+                </td>
+                <td className="py-2 pr-3 font-mono text-[11px] text-text-secondary">
+                  {row.cost}
+                </td>
+                <td className="py-2 pr-3 text-text-secondary">{row.bestFor}</td>
+                <td className="py-2">
+                  <StatusBadge status={row.status} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile: stacked rows. Same data, different presentation. */}
+      <div className="space-y-1.5 sm:hidden">
+        {COMPARISON_ROWS.map((row) => (
+          <div
+            key={row.model}
+            className="rounded-md border border-glass-border bg-bg-primary/30 px-3 py-2"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-text-primary">
+                  {row.model}
+                </p>
+                <p className="truncate text-[11px] text-text-muted">
+                  {row.provider}
+                </p>
+              </div>
+              <StatusBadge status={row.status} />
+            </div>
+            <div className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-2 text-[11px]">
+              <span className="text-text-muted">
+                {t("settings.aiSection.colCost", {
+                  defaultValue: "Cost",
+                })}
+              </span>
+              <span className="font-mono text-text-secondary">{row.cost}</span>
+              <span className="text-text-muted">
+                {t("settings.aiSection.colBestFor", {
+                  defaultValue: "Best for",
+                })}
+              </span>
+              <span className="text-text-secondary">{row.bestFor}</span>
+            </div>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
 
-/** "Modellek és felhasználásuk" inline reference list. Same content
- *  as the chat ModelInfoModal but rendered directly into Settings →
- *  AI for users who like to read about it before turning anything
- *  on. Reuses `ModelCard` so the two surfaces stay consistent.
- */
-function ModelCatalogSection() {
+function StatusBadge({ status }: { status: ModelRowStatus }) {
   const { t } = useTranslation();
+  const styles: Record<ModelRowStatus, string> = {
+    active: "bg-emerald-500/15 text-emerald-300",
+    byok: "bg-accent-purple/15 text-accent-purple",
+    local: "bg-accent-blue/15 text-accent-blue",
+    soon: "bg-amber-500/10 text-amber-400/85",
+  };
+  const labels: Record<ModelRowStatus, string> = {
+    active: t("settings.aiSection.statusActive", { defaultValue: "Active" }),
+    byok: t("settings.aiSection.statusByok", { defaultValue: "BYOK" }),
+    local: t("settings.aiSection.statusLocal", { defaultValue: "Local" }),
+    soon: t("settings.aiSection.statusSoon", { defaultValue: "Soon" }),
+  };
   return (
-    <div className="space-y-3 sm:rounded-lg sm:border sm:border-glass-border sm:bg-bg-primary/30 sm:p-3">
-      <div>
-        <h3 className="text-sm font-semibold text-text-primary">
-          {t("settings.aiModels.heading", {
-            defaultValue: "Modellek és felhasználásuk",
-          })}
-        </h3>
-        <p className="mt-0.5 text-xs text-text-muted">
-          {t("settings.aiModels.description", {
-            defaultValue:
-              "A három elérhető modell: mit ad, mire jó, és mennyi tokent fogyaszt egy átlagos chat-forduló.",
-          })}
-        </p>
-      </div>
-      <div className="space-y-3">
-        {AI_MODEL_CATALOG.map((m) => (
-          <ModelCard key={m.provider} model={m} />
-        ))}
-      </div>
-    </div>
+    <span
+      className={cn(
+        "inline-block whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+        styles[status],
+      )}
+    >
+      {labels[status]}
+    </span>
   );
 }
 
@@ -223,15 +440,11 @@ function AiContextSection() {
   );
 
   return (
-    <div className="space-y-3 sm:rounded-lg sm:border sm:border-glass-border sm:bg-bg-primary/30 sm:p-3">
-      <div>
-        <h3 className="text-sm font-semibold text-text-primary">
-          {t("settings.aiContext.heading")}
-        </h3>
-        <p className="text-xs text-text-muted mt-0.5">
-          {t("settings.aiContext.description")}
-        </p>
-      </div>
+    <section className="space-y-3">
+      <SectionHeading
+        title={t("settings.aiContext.heading")}
+        subtitle={t("settings.aiContext.description")}
+      />
 
       <label className="flex flex-col gap-1">
         <span className="text-xs font-medium text-text-secondary">
@@ -240,40 +453,27 @@ function AiContextSection() {
         <textarea
           value={aiCustomDefaultContext}
           onChange={(e) => setAiCustomDefaultContext(e.target.value)}
-          rows={4}
+          rows={3}
           placeholder={t("settings.aiContext.customPlaceholder")}
-          className="w-full rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent-purple/50 resize-y"
+          className="w-full resize-y rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent-purple/50"
         />
-        <span className="text-[10px] text-text-muted">
-          {t("settings.aiContext.customHint")}
-        </span>
       </label>
 
-      <label className="flex items-start gap-2 cursor-pointer">
+      <label className="flex items-center gap-2 cursor-pointer">
         <input
           type="checkbox"
           checked={aiAttachToc}
           onChange={(e) => setAiAttachToc(e.target.checked)}
-          className="mt-0.5 h-4 w-4 cursor-pointer accent-accent-purple"
+          className="h-4 w-4 cursor-pointer accent-accent-purple"
         />
-        <span className="flex flex-col">
-          <span className="text-xs font-medium text-text-secondary">
-            {t("settings.aiContext.attachTocLabel")}
-          </span>
-          <span className="text-[10px] text-text-muted">
-            {t("settings.aiContext.attachTocHint")}
-          </span>
+        <span className="text-xs font-medium text-text-secondary">
+          {t("settings.aiContext.attachTocLabel")}
         </span>
       </label>
 
-      <label className="flex items-start gap-2">
-        <span className="flex flex-col">
-          <span className="text-xs font-medium text-text-secondary">
-            {t("settings.aiContext.surroundingLabel")}
-          </span>
-          <span className="text-[10px] text-text-muted">
-            {t("settings.aiContext.surroundingHint")}
-          </span>
+      <label className="flex items-center gap-2">
+        <span className="text-xs font-medium text-text-secondary">
+          {t("settings.aiContext.surroundingLabel")}
         </span>
         <input
           type="number"
@@ -284,7 +484,7 @@ function AiContextSection() {
           className="ml-auto w-16 rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-purple/50"
         />
       </label>
-    </div>
+    </section>
   );
 }
 
@@ -297,7 +497,7 @@ interface ProviderRowProps {
   onMoveDown: () => void;
   onRemove: () => void;
   user: ReturnType<typeof useAuthStore.getState>["user"];
-  usage: AiUsage | null;
+  usageRows: AiUsageRow[];
   usageLoading: boolean;
   anthropicApiKey: string;
   openaiApiKey: string;
@@ -326,7 +526,7 @@ function ProviderRow({
   onMoveDown,
   onRemove,
   user,
-  usage,
+  usageRows,
   usageLoading,
   anthropicApiKey,
   openaiApiKey,
@@ -349,41 +549,28 @@ function ProviderRow({
   const needsKey =
     (provider === "anthropic" && !anthropicApiKey.trim()) ||
     (provider === "openai" && !openaiApiKey.trim()) ||
-    (provider === "local" &&
-      (!localBaseUrl.trim() || !localModel.trim()));
-
-  const hint =
-    provider === "pnyxy"
-      ? t("settings.aiSection.pnyxyHint")
-      : provider === "anthropic"
-        ? t("settings.aiSection.anthropicHint")
-        : provider === "openai"
-          ? t("settings.aiSection.openaiHint")
-          : t("settings.aiSection.localHint");
+    (provider === "local" && (!localBaseUrl.trim() || !localModel.trim()));
 
   return (
-    <div className="rounded-lg border border-glass-border bg-bg-primary/40 p-2.5 space-y-2 sm:p-3">
+    <div className="rounded-md border border-glass-border bg-bg-primary/30 p-2.5 space-y-2 sm:p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-purple/20 text-[10px] font-mono font-medium text-accent-purple">
             {position}
           </span>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-text-primary truncate">
-              {PROVIDER_LABELS[provider]}
-              {isFirst && (
-                <span className="ml-2 text-[10px] uppercase tracking-wide text-accent-purple">
-                  {t("settings.aiSection.primary")}
-                </span>
-              )}
-              {needsKey && (
-                <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-400">
-                  {t("settings.aiSection.needsKey")}
-                </span>
-              )}
-            </p>
-            <p className="text-[11px] text-text-muted">{hint}</p>
-          </div>
+          <p className="text-sm font-medium text-text-primary truncate">
+            {PROVIDER_LABELS[provider]}
+            {isFirst && (
+              <span className="ml-2 text-[10px] uppercase tracking-wide text-accent-purple">
+                {t("settings.aiSection.primary")}
+              </span>
+            )}
+            {needsKey && (
+              <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-400">
+                {t("settings.aiSection.needsKey")}
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
           <IconButton
@@ -407,7 +594,7 @@ function ProviderRow({
       </div>
 
       {provider === "pnyxy" && (
-        <div className="pt-1">
+        <div>
           {!user ? (
             <p className="text-[11px] text-text-muted">
               {t("settings.aiSection.pnyxyAnon")}
@@ -416,22 +603,26 @@ function ProviderRow({
             <p className="text-[11px] text-text-muted">
               {t("settings.aiSection.usageLoading")}
             </p>
-          ) : usage ? (
-            <>
-              <UsageBar
-                label={t("settings.aiSection.tokensToday")}
-                used={usage.tokens_used}
-                max={usage.tokens_limit}
-              />
-              <UsageBar
-                label={t("settings.aiSection.requestsToday")}
-                used={usage.request_count}
-                max={usage.request_limit}
-              />
-              <p className="text-[10px] text-text-muted pt-1">
-                {t("settings.aiSection.resetsDaily")}
-              </p>
-            </>
+          ) : usageRows.length > 0 ? (
+            <div className="space-y-2">
+              {usageRows.map((row) => (
+                <div key={row.model} className="space-y-1">
+                  <p className="text-[11px] font-medium text-text-secondary">
+                    {MODEL_DISPLAY_NAMES[row.model] ?? row.model}
+                  </p>
+                  <UsageBar
+                    label={t("settings.aiSection.tokensToday")}
+                    used={row.tokens_used}
+                    max={row.tokens_limit}
+                  />
+                  <UsageBar
+                    label={t("settings.aiSection.requestsToday")}
+                    used={row.request_count}
+                    max={row.request_limit}
+                  />
+                </div>
+              ))}
+            </div>
           ) : (
             <p className="text-[11px] text-text-muted">
               {t("settings.aiSection.usageUnavailable")}
@@ -441,42 +632,32 @@ function ProviderRow({
       )}
 
       {provider === "anthropic" && (
-        <>
-          <ApiKeyInput
-            value={anthropicApiKey}
-            onChange={setAnthropicApiKey}
-            show={showAnthropicKey}
-            onToggleShow={() => setShowAnthropicKey(!showAnthropicKey)}
-            placeholder="sk-ant-..."
-            helpText={t("settings.aiSection.anthropicKeyHint")}
-          />
-          <ByokQuotaInfo
-            consoleHref="https://console.anthropic.com/settings/billing"
-            consoleLabel={t("settings.aiSection.checkUsageAnthropic")}
-          />
-        </>
+        <ApiKeyInput
+          value={anthropicApiKey}
+          onChange={setAnthropicApiKey}
+          show={showAnthropicKey}
+          onToggleShow={() => setShowAnthropicKey(!showAnthropicKey)}
+          placeholder="sk-ant-..."
+          consoleHref="https://console.anthropic.com/settings/billing"
+          consoleLabel={t("settings.aiSection.checkUsageAnthropic")}
+        />
       )}
 
       {provider === "openai" && (
-        <>
-          <ApiKeyInput
-            value={openaiApiKey}
-            onChange={setOpenaiApiKey}
-            show={showOpenaiKey}
-            onToggleShow={() => setShowOpenaiKey(!showOpenaiKey)}
-            placeholder="sk-..."
-            helpText={t("settings.aiSection.openaiKeyHint")}
-          />
-          <ByokQuotaInfo
-            consoleHref="https://platform.openai.com/usage"
-            consoleLabel={t("settings.aiSection.checkUsageOpenAI")}
-          />
-        </>
+        <ApiKeyInput
+          value={openaiApiKey}
+          onChange={setOpenaiApiKey}
+          show={showOpenaiKey}
+          onToggleShow={() => setShowOpenaiKey(!showOpenaiKey)}
+          placeholder="sk-..."
+          consoleHref="https://platform.openai.com/usage"
+          consoleLabel={t("settings.aiSection.checkUsageOpenAI")}
+        />
       )}
 
       {provider === "local" && (
         <div className="space-y-2">
-          <label className="block space-y-1">
+          <label className="block">
             <span className="text-[11px] font-medium text-text-secondary">
               {t("settings.aiSection.localBaseUrlLabel")}
             </span>
@@ -488,13 +669,10 @@ function ProviderRow({
               spellCheck={false}
               autoCapitalize="off"
               autoComplete="off"
-              className="w-full rounded-md border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-primary outline-none focus:border-accent-purple placeholder:text-text-muted"
+              className="mt-0.5 w-full rounded-md border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-primary outline-none focus:border-accent-purple placeholder:text-text-muted"
             />
-            <span className="block text-[10px] text-text-muted">
-              {t("settings.aiSection.localBaseUrlHint")}
-            </span>
           </label>
-          <label className="block space-y-1">
+          <label className="block">
             <span className="text-[11px] font-medium text-text-secondary">
               {t("settings.aiSection.localModelLabel")}
             </span>
@@ -506,49 +684,18 @@ function ProviderRow({
               spellCheck={false}
               autoCapitalize="off"
               autoComplete="off"
-              className="w-full rounded-md border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-primary outline-none focus:border-accent-purple placeholder:text-text-muted"
+              className="mt-0.5 w-full rounded-md border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-primary outline-none focus:border-accent-purple placeholder:text-text-muted"
             />
-            <span className="block text-[10px] text-text-muted">
-              {t("settings.aiSection.localModelHint")}
-            </span>
           </label>
-          {/* Optional bearer for endpoints behind auth — most users
-              on plain localhost Ollama can leave this blank. */}
           <ApiKeyInput
             value={localApiKey}
             onChange={setLocalApiKey}
             show={showLocalKey}
             onToggleShow={() => setShowLocalKey(!showLocalKey)}
             placeholder={t("settings.aiSection.localApiKeyPlaceholder")}
-            helpText={t("settings.aiSection.localApiKeyHint")}
           />
         </div>
       )}
-    </div>
-  );
-}
-
-function ByokQuotaInfo({
-  consoleHref,
-  consoleLabel,
-}: {
-  consoleHref: string;
-  consoleLabel: string;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div className="space-y-1.5 rounded-md border border-glass-border bg-bg-primary/30 p-2.5">
-      <p className="text-[11px] leading-snug text-text-muted">
-        {t("settings.aiSection.byokQuotaNote")}
-      </p>
-      <a
-        href={consoleHref}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex text-[11px] font-medium text-accent-blue underline-offset-2 hover:underline"
-      >
-        {consoleLabel}
-      </a>
     </div>
   );
 }
@@ -588,14 +735,20 @@ function ApiKeyInput({
   show,
   onToggleShow,
   placeholder,
-  helpText,
+  consoleHref,
+  consoleLabel,
 }: {
   value: string;
   onChange: (v: string) => void;
   show: boolean;
   onToggleShow: () => void;
   placeholder: string;
-  helpText: string;
+  /** Optional "check usage at provider" deep link. Renders as a
+   *  small caption under the input — used to live inside its own
+   *  nested card, but that was the third level of card nesting on
+   *  the page. */
+  consoleHref?: string;
+  consoleLabel?: string;
 }) {
   return (
     <div>
@@ -615,12 +768,29 @@ function ApiKeyInput({
           {show ? <EyeOff size={14} /> : <Eye size={14} />}
         </button>
       </div>
-      <p className="text-[10px] text-text-muted mt-1">{helpText}</p>
+      {consoleHref && consoleLabel && (
+        <a
+          href={consoleHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1 inline-block text-[10px] font-medium text-accent-blue underline-offset-2 hover:underline"
+        >
+          {consoleLabel} →
+        </a>
+      )}
     </div>
   );
 }
 
-function UsageBar({ label, used, max }: { label: string; used: number; max: number }) {
+function UsageBar({
+  label,
+  used,
+  max,
+}: {
+  label: string;
+  used: number;
+  max: number;
+}) {
   const pct = Math.min(100, Math.round((used / max) * 100));
   const nearLimit = pct >= 80;
   return (

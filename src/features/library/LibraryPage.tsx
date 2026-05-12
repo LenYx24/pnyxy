@@ -58,16 +58,21 @@ export function LibraryPage() {
   const user = useAuthStore((s) => s.user);
 
   // View preferences
-  const { viewMode, cardSize, setViewMode, sortOrders, setSortOrder } = useLibraryPrefs();
+  const {
+    viewMode,
+    cardSize,
+    setViewMode,
+    controlsExpanded,
+    setControlsExpanded,
+    sortOrders,
+    setSortOrder,
+  } = useLibraryPrefs();
 
   // Search
   const [searchQuery, setSearchQuery] = useState("");
 
   // Tag filter
   const [activeTag, setActiveTag] = useState<BookStatusTag | null>(null);
-
-  // Mobile-only: whether the view/filter controls + tag filter bar are expanded
-  const [mobileControlsExpanded, setMobileControlsExpanded] = useState(false);
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -476,12 +481,13 @@ export function LibraryPage() {
         onViewModeChange={setViewMode}
         onRefresh={handleRefresh}
         isRefreshing={isLoading}
-        mobileControlsExpanded={mobileControlsExpanded}
-        onToggleMobileControls={() => setMobileControlsExpanded((v) => !v)}
+        controlsExpanded={controlsExpanded}
+        onToggleControls={() => setControlsExpanded(!controlsExpanded)}
       />
 
-      {/* Tag filter bar — hidden on mobile until controls are expanded */}
-      {(!isMobile || mobileControlsExpanded) && (
+      {/* Tag filter bar — collapses with the rest of the search /
+          filter panel via the persisted `controlsExpanded` flag. */}
+      {controlsExpanded && (
         <TagFilterBar activeTag={activeTag} onTagChange={setActiveTag} />
       )}
 
@@ -511,15 +517,17 @@ export function LibraryPage() {
       <div aria-hidden className="h-8 shrink-0" />
 
       {/* Bottom info row — book count + storage usage. Pinned to
-          the page bottom via `mt-auto` so nothing renders below it,
-          regardless of how few books the user has. On mobile the
-          storage bar is gated behind `mobileControlsExpanded` so a
-          first-time phone user isn't greeted with extra chrome;
-          the bar is informational rather than actionable, and the
-          one tap to expand keeps it discoverable. */}
-      <div className="mt-auto flex flex-col gap-1.5 border-t border-glass-border pt-4 text-xs text-text-muted">
+          the bottom of the viewport on desktop via `sm:sticky` so
+          the storage gauge is always glanceable while scrolling
+          long libraries. Mobile keeps the in-flow `mt-auto`
+          placement (sticky chrome competes with the bottom nav
+          there) and gates the storage bar behind `controlsExpanded`
+          so a first-time phone user isn't greeted with extra
+          chrome. Background + blur lets content scroll
+          underneath without a hard cut. */}
+      <div className="sm:sticky sm:bottom-0 sm:bg-bg-primary/85 sm:backdrop-blur-md sm:px-1 sm:pb-2 sm:z-10 mt-auto flex flex-col gap-1.5 border-t border-glass-border pt-3 text-xs text-text-muted">
         <p>{t("library.bookCount", { count: books.length })}</p>
-        {storageUsage && (!isMobile || mobileControlsExpanded) && (
+        {storageUsage && (!isMobile || controlsExpanded) && (
           <StorageUsageBar
             usedBytes={storageUsage.usedBytes}
             limitBytes={storageUsage.limitBytes}

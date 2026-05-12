@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
-import { Loader2, Check, CheckSquare, Square, Crosshair } from "lucide-react";
+import {
+  Loader2,
+  Check,
+  CheckSquare,
+  Square,
+  Crosshair,
+  Image as ImageIcon,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
@@ -25,6 +32,9 @@ export function ThumbnailToc() {
   const selectAllAiPages = useReaderStore((s) => s.selectAllAiPages);
   const clearAiPages = useReaderStore((s) => s.clearAiPages);
   const selectAiPagesAround = useReaderStore((s) => s.selectAiPagesAround);
+  const setAiSendPagesAsImage = useReaderStore(
+    (s) => s.setAiSendPagesAsImage,
+  );
   const surroundingCount = useSettingsStore(
     (s) => s.aiSurroundingPagesCount,
   );
@@ -34,6 +44,7 @@ export function ThumbnailToc() {
   const currentPage = activeDoc?.currentPage ?? 1;
   const selectedPages = activeDoc?.aiSelectedPages ?? EMPTY_SET;
   const selectionAnchor = activeDoc?.aiSelectionAnchor ?? null;
+  const sendAsImage = activeDoc?.aiSendPagesAsImage ?? false;
 
   // Selection mode is lifted to the UI store so the "Customize
   // context" button in the AI chat panel can flip it on remotely.
@@ -162,6 +173,31 @@ export function ThumbnailToc() {
             >
               <Crosshair size={12} />
               {t("reader.sidebar.aiSelectAround", { n: surroundingCount })}
+            </button>
+            {/* "Send as images" — when ON the selected pages render
+                to JPEG and ride along as attachments instead of going
+                through text extraction. Useful for figure-heavy
+                pages where the words alone miss the diagrams. Also
+                what we silently fall back to for scanned PDFs. */}
+            <button
+              type="button"
+              onClick={() => setAiSendPagesAsImage(!sendAsImage)}
+              aria-pressed={sendAsImage}
+              className={cn(
+                "flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] cursor-pointer transition-colors",
+                sendAsImage
+                  ? "bg-accent-purple/20 text-accent-purple"
+                  : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
+              )}
+              title={t("reader.sidebar.aiSendAsImageHint", {
+                defaultValue:
+                  "Render the selected pages as images so the AI sees figures and diagrams. Costs more tokens per page.",
+              })}
+            >
+              <ImageIcon size={12} />
+              {t("reader.sidebar.aiSendAsImage", {
+                defaultValue: "Send as images",
+              })}
             </button>
           </div>
         )}

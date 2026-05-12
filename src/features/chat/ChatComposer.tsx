@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import {
   ArrowUp,
   Bot,
+  BookOpenCheck,
   Check,
   ChevronDown,
   HelpCircle,
@@ -26,7 +27,9 @@ import {
 } from "lucide-react";
 import { FloatingMenu } from "@/components/ui";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
+import { useConfirm } from "@/hooks/use-confirm";
 import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
+import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 import { getConfiguredProviders } from "@/lib/ai-client";
 import type { RecommendationMode } from "@/lib/recommendation-prompts";
 import type { ChatMessageAttachment } from "@/types/chat";
@@ -344,6 +347,12 @@ export interface ChatComposerSubmitPayload {
   provider: AiProvider | null;
   mode: RecommendationMode;
   attachments: ChatMessageAttachment[];
+  /** Reasoning mode — when true the parent passes this to
+   *  sendMessage's options.reasoning, which forwards to ai-client's
+   *  StreamOptions. Today only the OpenAI BYOK path honors it
+   *  (swaps gpt-4o-mini → o3-mini). Composer's toggle is hidden
+   *  unless OpenAI is among the user's configured providers. */
+  reasoning: boolean;
 }
 
 /**
@@ -395,6 +404,7 @@ export const ChatComposer = forwardRef<
   ref,
 ) {
   const { t } = useTranslation();
+  const { confirm, ConfirmModalElement } = useConfirm();
 
   const enabledProviders = useSettingsStore((s) => s.enabledProviders);
   const configuredProviders = useMemo(
@@ -403,6 +413,39 @@ export const ChatComposer = forwardRef<
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [enabledProviders],
   );
+
+  // "Use whole book" shortcut. Only surfaces when a reader doc is
+  // currently active — i.e. the composer is rendered from the reader
+  // AI panel or from a chat conversation that already opened the
+  // book. The standalone /chat page without an active doc never sees
+  // the button. The flow is: click → confirm modal (warns about
+  // token cost) → on accept, the doc's full page set goes into
+  // aiSelectedPages so the next send picks them up via the existing
+  // context-pack pipeline.
+  const activeDoc = useActiveDocument();
+  const selectAllAiPages = useReaderStore((s) => s.selectAllAiPages);
+  const allPagesAlreadySelected =
+    !!activeDoc &&
+    activeDoc.totalPages > 0 &&
+    activeDoc.aiSelectedPages.size === activeDoc.totalPages;
+  const handleSelectWholeBook = useCallback(async () => {
+    if (!activeDoc || activeDoc.totalPages <= 0) return;
+    const ok = await confirm({
+      title: t("chat.composer.wholeBook.confirmTitle", {
+        defaultValue: "Send the whole book?",
+      }),
+      body: t("chat.composer.wholeBook.confirmBody", {
+        defaultValue:
+          "All {{count}} pages of this document will be attached to the next message. Large books eat through your daily AI quota fast — review the selection in the TOC if unsure.",
+        count: activeDoc.totalPages,
+      }),
+      confirmLabel: t("chat.composer.wholeBook.confirmLabel", {
+        defaultValue: "Select all pages",
+      }),
+    });
+    if (!ok) return;
+    selectAllAiPages();
+  }, [activeDoc, confirm, selectAllAiPages, t]);
 
   const [selectedProvider, setSelectedProvider] = useState<AiProvider | null>(
     null,
@@ -416,6 +459,22 @@ export const ChatComposer = forwardRef<
   }, [configuredProviders, selectedProvider]);
 
   const [mode, setMode] = useState<RecommendationMode>("default");
+
+  // Reasoning toggle. Persistent within the composer's lifetime
+  // (not auto-reset after send, unlike `mode`) so multi-turn
+  // problem-solving stays in o3-mini mode without the user
+  // re-clicking each turn. Only meaningful when OpenAI is one of
+  // the configured providers — otherwise the toggle would have
+  // nowhere to route. The toggle's visibility is gated on that
+  // check below.
+  const [reasoning, setReasoning] = useState(false);
+  const openAiConfigured = configuredProviders.includes("openai");
+  // If the user disables OpenAI in Settings while reasoning is on,
+  // drop the flag silently — otherwise the next send would force
+  // an unconfigured provider and bounce.
+  useEffect(() => {
+    if (!openAiConfigured && reasoning) setReasoning(false);
+  }, [openAiConfigured, reasoning]);
 
   // Effective cap depends on routing. Default mode = Pnyxy free
   // quota = 1 image (cost predictability). Direct keys = 4.
@@ -580,11 +639,18 @@ export const ChatComposer = forwardRef<
     const text = value.trim();
     if (!text && pendingAttachments.length === 0) return;
     if (attachmentsBlocked) return;
+    // When reasoning is on, force-route through OpenAI BYOK — other
+    // providers don't have a step-by-step reasoning model on tap and
+    // would silently ignore the flag. Falling back to the user's
+    // own preference when reasoning is off keeps the model picker's
+    // normal behavior.
+    const effectiveProvider = reasoning ? "openai" : selectedProvider;
     const payload: ChatComposerSubmitPayload = {
       text,
-      provider: selectedProvider,
+      provider: effectiveProvider,
       mode,
       attachments: pendingAttachments,
+      reasoning,
     };
     // Clear staged attachments + reset per-turn mode before the
     // await so a slow send doesn't leave them visually stuck. The
@@ -599,6 +665,7 @@ export const ChatComposer = forwardRef<
     attachmentsBlocked,
     selectedProvider,
     mode,
+    reasoning,
     onSubmit,
   ]);
 
@@ -688,6 +755,51 @@ export const ChatComposer = forwardRef<
         >
           <Paperclip size={14} />
         </button>
+        {activeDoc && activeDoc.totalPages > 0 && (
+          <button
+            type="button"
+            onClick={() => void handleSelectWholeBook()}
+            disabled={isStreaming}
+            title={t("chat.composer.wholeBook.button", {
+              defaultValue: "Use the whole book as context",
+            })}
+            aria-label={t("chat.composer.wholeBook.button", {
+              defaultValue: "Use the whole book as context",
+            })}
+            aria-pressed={allPagesAlreadySelected}
+            className={cn(
+              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40",
+              allPagesAlreadySelected
+                ? "border-accent-purple/50 bg-accent-purple/15 text-accent-purple"
+                : "border-glass-border bg-bg-primary/50 text-text-muted hover:bg-glass-hover hover:text-text-primary",
+            )}
+          >
+            <BookOpenCheck size={14} />
+          </button>
+        )}
+        {openAiConfigured && (
+          <button
+            type="button"
+            onClick={() => setReasoning((r) => !r)}
+            disabled={isStreaming}
+            aria-pressed={reasoning}
+            title={t("chat.composer.reasoning.button", {
+              defaultValue:
+                "Reasoning mode — routes through OpenAI o3-mini for step-by-step math and logic. Slower and ~7× the per-token cost of GPT-4o-mini.",
+            })}
+            aria-label={t("chat.composer.reasoning.button", {
+              defaultValue: "Reasoning mode",
+            })}
+            className={cn(
+              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40",
+              reasoning
+                ? "border-accent-purple/50 bg-accent-purple/15 text-accent-purple"
+                : "border-glass-border bg-bg-primary/50 text-text-muted hover:bg-glass-hover hover:text-text-primary",
+            )}
+          >
+            <Sparkles size={14} />
+          </button>
+        )}
         {onLoadReadingContext && (
           <>
             <button
@@ -795,6 +907,7 @@ export const ChatComposer = forwardRef<
           </button>
         </div>
       </div>
+      {ConfirmModalElement}
     </div>
   );
 });

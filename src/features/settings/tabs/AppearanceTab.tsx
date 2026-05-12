@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Library as LibraryIcon, Palette, Plus } from "lucide-react";
+import { Library as LibraryIcon, Palette, Plus, Code2 } from "lucide-react";
 import { Slider } from "@/components/ui";
 import { useSettingsStore } from "@/stores/settings-store";
 import { CORE_THEMES } from "@/lib/themes";
@@ -8,6 +8,7 @@ import type { Theme } from "@/lib/themes";
 import { ThemeCard } from "../ThemeCard";
 import { BrowseCommunityModal } from "../BrowseCommunityModal";
 import { useLibraryPrefs } from "@/features/library/useLibraryPrefs";
+import { getUserCss, setUserCss } from "@/lib/user-css";
 
 export function AppearanceTab() {
   const { t } = useTranslation();
@@ -22,6 +23,20 @@ export function AppearanceTab() {
   const { cardSize, setCardSize } = useLibraryPrefs();
 
   const [browseOpen, setBrowseOpen] = useState(false);
+
+  // User-supplied CSS. Live-apply on every keystroke so the user
+  // sees changes immediately — broken CSS rules are silently
+  // ignored by the browser, so there's no "syntax error" state to
+  // guard against.
+  const [customCss, setCustomCss] = useState<string>(() => getUserCss());
+  const handleCssChange = (value: string) => {
+    setCustomCss(value);
+    setUserCss(value);
+  };
+  const handleCssReset = () => {
+    setCustomCss("");
+    setUserCss("");
+  };
 
   // Core themes always shown first; community themes after.
   const coreList = Object.values(CORE_THEMES) as Theme[];
@@ -111,6 +126,41 @@ export function AppearanceTab() {
             value: cardSize,
           })}
         />
+      </div>
+
+      {/* Custom CSS — power-user escape hatch. Rules go into a
+          single <style> tag in <head> on every page load. Tailwind
+          utility classes are stable selectors; the CSS variables
+          on :root (--accent-purple, --bg-primary, …) are the
+          friendlier surface to override. Stored to localStorage
+          per-device. */}
+      <div className="border-t border-glass-border pt-4">
+        <div className="mb-2 flex items-center gap-2">
+          <Code2 size={16} className="text-accent-purple" />
+          <h3 className="text-sm font-semibold text-text-primary">
+            {t("settings.appearanceSection.customCss.heading")}
+          </h3>
+        </div>
+        <p className="mb-2 text-xs text-text-muted">
+          {t("settings.appearanceSection.customCss.help")}
+        </p>
+        <textarea
+          value={customCss}
+          onChange={(e) => handleCssChange(e.target.value)}
+          placeholder={t("settings.appearanceSection.customCss.placeholder")}
+          spellCheck={false}
+          className="block min-h-[140px] w-full rounded-lg border border-glass-border bg-bg-secondary p-3 font-mono text-xs text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-accent-purple/50"
+        />
+        <div className="mt-2 flex justify-end">
+          <button
+            type="button"
+            onClick={handleCssReset}
+            disabled={customCss.length === 0}
+            className="rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+          >
+            {t("settings.appearanceSection.customCss.reset")}
+          </button>
+        </div>
       </div>
     </section>
   );

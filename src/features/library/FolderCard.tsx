@@ -51,9 +51,11 @@ export function FolderCard({
   // Folder cards visually break from the book-cover ratio: a
   // square icon container (aspect-square, not 5:7) reads as a
   // proper "folder" rather than a placeholder for a missing book
-  // cover. The icon scales to roughly half the square's width so
-  // it has comfortable padding on all sides and centers cleanly.
-  const iconSize = Math.round(Math.min(Math.max(coverHeight * 0.55, 40), 72));
+  // cover. Icon size sits at ~65% of the square so the filled
+  // glyph has real visual weight without crowding the border —
+  // the earlier sizing was too small and let the card read as an
+  // empty placeholder.
+  const iconSize = Math.round(Math.min(Math.max(coverHeight * 0.65, 56), 96));
   const compact = coverHeight < 100;
 
   const handleClick = (e: React.MouseEvent) => {
@@ -107,13 +109,17 @@ export function FolderCard({
           title={folder.name}
           className="cursor-pointer"
         >
-          {/* Square icon area, vertically centering the Folder SVG.
-              Padding-y inside the square gives the icon breathing
-              room so it never visually crowds the border. */}
-          <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
+          {/* Square icon area: a solid purple-tinted fill gives the
+              card real visual mass so it doesn't blend into the
+              background. No outer border — the fill itself defines
+              the shape, and adding a border on top of the tint felt
+              busy. Hover bumps the tint up one notch + adds shadow
+              for the same lift the book covers get. */}
+          <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-accent-purple/[0.12] shadow-sm transition-all group-hover:bg-accent-purple/[0.18] group-hover:shadow-md">
             <Folder
               size={iconSize}
-              className="text-accent-purple/70 transition-transform group-hover:scale-[1.02]"
+              fill="currentColor"
+              className="text-accent-purple/85 transition-transform group-hover:scale-[1.02]"
             />
 
             {/* Selection checkbox — sits on the cover so it shows

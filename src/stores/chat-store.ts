@@ -62,6 +62,12 @@ export interface ChatSourceContext {
  *  from doc context + persona as before. */
 export interface ChatSendOptions {
   systemPromptOverride?: string;
+  /** When true, the chat is routed through OpenAI's o3-mini for
+   *  step-by-step reasoning. Forwarded as a StreamOptions flag to
+   *  ai-client; only the OpenAI BYOK path honors it (other
+   *  providers ignore the flag). Composer surfaces this as a
+   *  "Reasoning" toggle next to the model picker. */
+  reasoning?: boolean;
 }
 
 interface ChatState {
@@ -771,10 +777,39 @@ async function sendOrBranch(
   options?: ChatSendOptions,
 ) {
   const trimmed = text.trim();
+
+  // Build the per-turn context pack BEFORE inserting the user row so
+  // any page-as-image attachments produced by buildAiContextPack
+  // (auto-fallback on image PDFs, or the user's explicit toggle) get
+  // saved on the message itself — re-streams and branches then pull
+  // them right back from the DB without re-rendering. Pre-locate the
+  // conversation so we know the source doc id to build for.
+  const convForBuild = get().conversations.find(
+    (c) => c.id === conversationId,
+  );
+  const sourceDocId = convForBuild?.source_doc_id ?? null;
+  let contextPack: Awaited<ReturnType<typeof buildAiContextPack>>;
+  try {
+    contextPack = await buildAiContextPack(sourceDocId);
+  } catch (err) {
+    logError("chat:sendMessage:contextPack", err);
+    contextPack = { customContext: "", pageContext: "", imageAttachments: [] };
+  }
+
+  // Merge composer attachments + page-render attachments. Page
+  // images go first so the model sees the source pages before the
+  // user's own uploaded artwork — and so a single screenshot the
+  // user picked stays visually adjacent to their question.
+  const composerAttachments = attachments ?? [];
+  const mergedAttachments = [
+    ...contextPack.imageAttachments,
+    ...composerAttachments,
+  ];
+
   // A message is valid if it has either text OR at least one
   // attachment — sending just an image with "describe this" worth
   // of intent should work. Empty text + no attachments is a no-op.
-  const hasAttachments = !!attachments && attachments.length > 0;
+  const hasAttachments = mergedAttachments.length > 0;
   if (!trimmed && !hasAttachments) return;
 
   // 1. Insert the user message.
@@ -785,7 +820,7 @@ async function sendOrBranch(
       parent_message_id: parentId,
       role: "user",
       content: trimmed,
-      attachments: hasAttachments ? attachments : null,
+      attachments: hasAttachments ? mergedAttachments : null,
     })
     .select()
     .single();
@@ -855,23 +890,14 @@ async function sendOrBranch(
   //                             the system prompt
   //   - otherwise             → plain text stream (still picks up the
   //                             custom default context if set)
+  // `contextPack` was built at the top of this function (before user
+  // msg insert) so image attachments could be saved on the row. The
+  // pageContext text + customContext we use here are the same values.
   const convForStream = get().conversations.find(
     (c) => c.id === conversationId,
   );
   const targetRoadmapId = convForStream?.target_roadmap_id ?? null;
   const sourceTitle = convForStream?.source_doc_title ?? "";
-  const sourceDocId = convForStream?.source_doc_id ?? null;
-  // Build the per-turn context pack — TOC outline + selected-page
-  // text + user persona. Done at send time (not openConversation
-  // time) so toggles in the TOC selection mode take effect on the
-  // very next message without re-opening the conversation.
-  let contextPack: { customContext: string; pageContext: string };
-  try {
-    contextPack = await buildAiContextPack(sourceDocId);
-  } catch (err) {
-    logError("chat:sendMessage:contextPack", err);
-    contextPack = { customContext: "", pageContext: "" };
-  }
   const patchAssistant = (content: string) =>
     set((s) => {
       const next = new Map(s.messages);
@@ -916,6 +942,10 @@ async function sendOrBranch(
           // any vision / non-streaming code path that ignores the
           // override.
           systemPromptOverride: options?.systemPromptOverride,
+          // Reasoning-mode flip: ai-client's OpenAI branch reads
+          // this and swaps model to o3-mini. Other branches ignore
+          // it so it's safe to forward unconditionally.
+          reasoning: options?.reasoning,
         },
       )) {
         acc += chunk.delta;

@@ -72,10 +72,10 @@ const TYPICAL_OUTPUT = 350;
 export const AI_MODEL_CATALOG: ModelInfo[] = [
   {
     provider: "pnyxy",
-    displayName: "Claude Haiku 4.5",
-    modelId: "claude-haiku-4-5",
+    displayName: "Pnyxy Free (auto-routed)",
+    modelId: "auto",
     description:
-      "Anthropic gyors, hatékony modellje. A Pnyxy ingyenes proxyján keresztül elérhető — nem kell saját API-kulcs, viszont napi kvóta korlátozza. Idézet-alapú olvasói chathez, gyors kérdés-válaszhoz, flashcard-kinyeréshez bőven elég.",
+      "Pnyxy ingyenes szerveres útvonala. Sima chat-kérésekhez a legolcsóbb működő szolgáltatóhoz fut át (Gemini 2.5 Flash → GPT-4o-mini → Claude Haiku 4.5 fallback sorrendben), tool-use műveleteknél (kvíz/roadmap-generálás) Claude Haiku 4.5-öt hív. Nem kell saját API-kulcs, viszont napi kvóta korlátozza.",
     bestFor: [
       "Olvasás közbeni gyors kérdések",
       "Fogalom-magyarázat egy kijelölt szakaszra",
@@ -90,9 +90,9 @@ export const AI_MODEL_CATALOG: ModelInfo[] = [
     },
     costNotes: `Ingyenes a Pnyxy szerverén keresztül. Napi limit: ${PNYXY_DAILY_TOKEN_QUOTA.toLocaleString()} token / ${PNYXY_DAILY_REQUEST_QUOTA} kérés (≈ ${Math.floor(
       PNYXY_DAILY_TOKEN_QUOTA / (TYPICAL_INPUT + TYPICAL_OUTPUT),
-    )} átlagos chat-fordulóra elég naponta).`,
-    contextWindow: "200k token",
-    routingNote: "Pnyxy ingyenes kvóta",
+    )} átlagos chat-fordulóra elég naponta). Modellválasztó a per-modell kvótákkal együtt érkezik egy következő körben.`,
+    contextWindow: "200k–1M token (modelltől függ)",
+    routingNote: "Pnyxy ingyenes kvóta · auto-routed",
   },
   {
     provider: "anthropic",

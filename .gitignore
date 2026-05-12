@@ -33,6 +33,17 @@ src-tauri/target/
 src-tauri/gen/
 src-tauri/Cargo.lock
 
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+# Test credentials (Playwright authed projects)
+.env.test
+.env.test.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

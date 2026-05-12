@@ -180,6 +180,12 @@
         "heading": "Könyvtár",
         "coverSize": "Borító méret — {{value}}px",
         "coverSizeHelp": "Mekkorák legyenek a könyvborítók a Könyvtár rács nézetében."
+      },
+      "customCss": {
+        "heading": "Egyéni CSS",
+        "help": "Illessz be CSS szabályokat az alkalmazás stílusainak felülírásához. A Tailwind utility osztályok (pl. .bg-accent-purple, .text-text-muted) és a :root-on lévő téma változók (--accent-purple, --bg-primary, …) stabil szelektorok, ezekre érdemes hivatkozni. A változások azonnal érvényesülnek, és csak ezen az eszközön maradnak meg.",
+        "placeholder": ":root { --accent-purple: #ff7eb6; }\n\n/* Streak pille elrejtése */\n.streak-pill { display: none; }",
+        "reset": "Visszaállítás"
       }
     },
     "aboutSection": {
@@ -1479,7 +1485,9 @@
       "aiSelectAround": "±{{n}} oldal a jelenlegi körül",
       "aiSelectedCount_one": "{{count}} oldal megy az AI-nak",
       "aiSelectedCount_other": "{{count}} oldal megy az AI-nak",
-      "aiSelectionEmpty": "Nincs oldal kijelölve"
+      "aiSelectionEmpty": "Nincs oldal kijelölve",
+      "aiSendAsImage": "Képként küldés",
+      "aiSendAsImageHint": "Az AI a kijelölt oldalakat képként látja — ábrákhoz, diagramokhoz hasznos. Több tokenbe kerül oldalanként, mint a szöveges küldés. Szkennelt PDF-eknél automatikusan bekapcsol."
     },
     "tabs": {
       "untitled": "Névtelen",

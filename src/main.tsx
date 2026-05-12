@@ -10,6 +10,7 @@ import { initLaunchedFiles } from "@/lib/launched-files";
 import { startSyncOrchestrator } from "@/lib/sync-orchestrator";
 import { startServerHeartbeat } from "@/lib/server-heartbeat";
 import { registerSyncEntityHandlers } from "@/lib/sync-entity-handlers";
+import { loadUserCss } from "@/lib/user-css";
 
 // Initialize auth listener once at startup (Zustand stores work outside React)
 useAuthStore.getState().initialize();
@@ -33,6 +34,11 @@ startServerHeartbeat();
 // Register the PWA launchQueue consumer ASAP so file handlers work
 // from a cold start (the queue buffers until React mounts a listener).
 initLaunchedFiles();
+
+// Apply user-supplied CSS overrides as early as possible so the
+// first React paint already reflects the user's customizations
+// — otherwise there's a visible flash from default → custom.
+loadUserCss();
 
 // When the user transitions from signed-out to signed-in and the
 // profile is available, pull theme/plugin preferences down from

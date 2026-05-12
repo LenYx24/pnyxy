@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Search, LayoutGrid, List, X, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { Search, LayoutGrid, List, X, RefreshCw, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useIsMobile } from "@/hooks/use-media-query";
 import type { ViewMode } from "./useLibraryPrefs";
@@ -12,10 +12,11 @@ interface LibraryToolbarProps {
   onViewModeChange: (mode: ViewMode) => void;
   onRefresh: () => void;
   isRefreshing: boolean;
-  /** Mobile-only: parent-owned expand state so the toolbar toggle also
-   *  reveals/hides the tag filter bar rendered as a sibling. */
-  mobileControlsExpanded?: boolean;
-  onToggleMobileControls?: () => void;
+  /** Whether the collapsible panel (search + tag filter, plus the
+   *  storage bar on mobile) is currently open. Persisted via
+   *  useLibraryPrefs, so the user's pick survives reloads. */
+  controlsExpanded?: boolean;
+  onToggleControls?: () => void;
 }
 
 export function LibraryToolbar({
@@ -25,8 +26,8 @@ export function LibraryToolbar({
   onViewModeChange,
   onRefresh,
   isRefreshing,
-  mobileControlsExpanded = false,
-  onToggleMobileControls,
+  controlsExpanded = true,
+  onToggleControls,
 }: LibraryToolbarProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -94,10 +95,9 @@ export function LibraryToolbar({
     </div>
   );
 
-  // Refresh tucks into the mobile expander — pull-to-refresh already
-  // exists at the page level on phones, so the explicit button is
-  // redundant chrome there. Still useful on desktop where there's
-  // no PTR gesture.
+  // Refresh: desktop puts it in the main row (no PTR gesture there);
+  // mobile tucks it inside the expander since pull-to-refresh covers
+  // the common case at the page level.
   const refreshButton = (
     <button
       onClick={onRefresh}
@@ -109,83 +109,108 @@ export function LibraryToolbar({
     </button>
   );
 
+  // Disclosure toggle for the collapsible panel. A single chevron
+  // that rotates 180° between states — same pattern as the settings
+  // TabDropdown elsewhere in the app. When expanded the search input
+  // + tag filter bar are visible; when collapsed the toolbar shrinks
+  // to just this toggle + view/refresh controls.
+  const toggleControlsButton = onToggleControls ? (
+    <button
+      onClick={onToggleControls}
+      aria-expanded={controlsExpanded}
+      aria-label={t("library.toolbar.toggleControls")}
+      title={t("library.toolbar.toggleControls")}
+      className={cn(
+        "shrink-0 rounded-lg border p-1.5 transition-colors cursor-pointer",
+        controlsExpanded
+          ? "border-accent-purple/40 bg-accent-purple/10 text-accent-purple"
+          : "border-glass-border bg-glass-bg text-text-muted hover:bg-glass-hover hover:text-text-primary",
+      )}
+    >
+      <ChevronDown
+        size={16}
+        className={cn(
+          "transition-transform",
+          controlsExpanded && "rotate-180",
+        )}
+      />
+    </button>
+  ) : null;
+
   return (
     <div className="mb-4">
       <div className="flex flex-wrap items-center gap-2">
-        {/* Search */}
-        <div
-          className={cn(
-            "relative flex items-center transition-all duration-200",
-            searchActive ? "w-full sm:flex-1 sm:w-auto" : "w-auto",
-          )}
-        >
-          {searchActive ? (
-            <div className="flex w-full items-center gap-2 rounded-lg border border-accent-purple/40 bg-bg-secondary px-3 py-1.5 shadow-sm shadow-accent-purple/10">
-              <Search size={14} className="shrink-0 text-accent-purple" />
-              <input
-                ref={inputRef}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => {
-                  if (!searchQuery) setSearchFocused(false);
-                }}
-                placeholder={t("library.toolbar.searchPlaceholder")}
-                className="min-w-0 flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
-                autoFocus
-              />
-              {searchQuery && (
-                <span className="shrink-0 text-xs text-text-muted">
-                  {/* result count injected by parent if needed */}
-                </span>
-              )}
-              <button
-                onClick={() => {
-                  onSearchChange("");
-                  setSearchFocused(false);
-                  inputRef.current?.blur();
-                }}
-                className="shrink-0 cursor-pointer text-text-muted transition-colors hover:text-text-primary"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={focusSearch}
-              title={t("library.toolbar.search")}
-              className="flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-            >
-              <Search size={14} />
-              <span className="hidden sm:inline">
-                {t("library.toolbar.search")}
-              </span>
-            </button>
-          )}
-        </div>
+        {/* Disclosure toggle leads the row so it's the first
+            interactive element the eye lands on — clicking it shows
+            the search/filter chrome below. */}
+        {toggleControlsButton}
 
-        {/* Spacer */}
-        {!searchActive && <div className="flex-1" />}
+        {/* Search — only rendered when the panel is expanded.
+            Collapsed users get the search button back the moment
+            they tap the chevron. */}
+        {controlsExpanded && (
+          <div
+            className={cn(
+              "relative flex items-center transition-all duration-200",
+              searchActive ? "w-full sm:flex-1 sm:w-auto" : "w-auto",
+            )}
+          >
+            {searchActive ? (
+              <div className="flex w-full items-center gap-2 rounded-lg border border-accent-purple/40 bg-bg-secondary px-3 py-1.5 shadow-sm shadow-accent-purple/10">
+                <Search size={14} className="shrink-0 text-accent-purple" />
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => {
+                    if (!searchQuery) setSearchFocused(false);
+                  }}
+                  placeholder={t("library.toolbar.searchPlaceholder")}
+                  className="min-w-0 flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
+                  autoFocus
+                />
+                {searchQuery && (
+                  <span className="shrink-0 text-xs text-text-muted">
+                    {/* result count injected by parent if needed */}
+                  </span>
+                )}
+                <button
+                  onClick={() => {
+                    onSearchChange("");
+                    setSearchFocused(false);
+                    inputRef.current?.blur();
+                  }}
+                  className="shrink-0 cursor-pointer text-text-muted transition-colors hover:text-text-primary"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={focusSearch}
+                title={t("library.toolbar.search")}
+                className="flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              >
+                <Search size={14} />
+                <span className="hidden sm:inline">
+                  {t("library.toolbar.search")}
+                </span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Spacer pushes view/refresh controls to the far right
+            whenever the search field isn't already stretching to
+            fill (i.e. either collapsed, or search-input collapsed). */}
+        {(!controlsExpanded || !searchActive) && (
+          <div className="flex-1" />
+        )}
 
         {isMobile ? (
-          <>
-            {viewToggle}
-            <button
-              onClick={onToggleMobileControls}
-              aria-expanded={mobileControlsExpanded}
-              aria-label={t("library.toolbar.toggleControls")}
-              title={t("library.toolbar.toggleControls")}
-              className={cn(
-                "shrink-0 rounded-lg border p-1.5 transition-colors cursor-pointer",
-                mobileControlsExpanded
-                  ? "border-accent-purple/40 bg-accent-purple/10 text-accent-purple"
-                  : "border-glass-border bg-glass-bg text-text-muted hover:bg-glass-hover hover:text-text-primary",
-              )}
-            >
-              <SlidersHorizontal size={16} />
-            </button>
-          </>
+          viewToggle
         ) : (
           <>
             {refreshButton}
@@ -194,11 +219,12 @@ export function LibraryToolbar({
         )}
       </div>
 
-      {/* Collapsible controls drawer on mobile. Holds the
-          rarely-used Refresh button (PTR covers the common case)
-          plus the parent renders the Tag filter + Storage bar
-          here too via the same `mobileControlsExpanded` flag. */}
-      {isMobile && mobileControlsExpanded && (
+      {/* Mobile-only secondary row inside the expander. The parent
+          renders the Tag filter + Storage bar via the same
+          `controlsExpanded` flag, so this stays focused on the bits
+          unique to the toolbar (Refresh — PTR covers the common case
+          on phones but the explicit button is still useful). */}
+      {isMobile && controlsExpanded && (
         <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-glass-border bg-glass-bg/60 p-2">
           {refreshButton}
         </div>

@@ -266,10 +266,18 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         await sendImageMessage(trimmed);
         return;
       }
+      // Reasoning is the only ChatSendOption surfaced from the
+      // reader panel today (mode-picker recommendation modes aren't
+      // wired here because the reader panel always carries a doc
+      // context that fights the recommendation system prompt).
+      const sendOptions = payload.reasoning
+        ? { reasoning: true }
+        : undefined;
       await sendMessage(
         trimmed,
         payload.provider ?? undefined,
         payload.attachments.length > 0 ? payload.attachments : undefined,
+        sendOptions,
       );
     },
     [

@@ -142,6 +142,74 @@ export async function extractPdfText(
   return pages.join("\n\n");
 }
 
+export interface RenderedPdfPage {
+  /** 1-based page number, matches what the user sees in the reader. */
+  page: number;
+  /** Raw base64 (no `data:` prefix). Same shape the proxy expects on
+   *  Anthropic-style image blocks. */
+  base64: string;
+  /** MIME type — always `image/jpeg` today (JPEG keeps payloads small
+   *  and Claude/GPT/Gemini all accept it). */
+  mediaType: "image/jpeg";
+}
+
+/**
+ * Render a sparse set of PDF pages to JPEG and return the base64
+ * payloads. Used for two paths:
+ *  - Auto-fallback when extractPdfText returns empty (image PDF with
+ *    no text layer).
+ *  - Explicit user toggle in TOC selection mode for figure-heavy
+ *    pages where text alone misses the picture.
+ *
+ * Sizing tradeoff: `maxWidth` defaults to 1280 px. Higher than that
+ * mostly adds bytes without helping the model (vision encoders down-
+ * sample anyway). At JPEG q=0.85 that lands around 100–200 KB / page
+ * — fine for ~5 pages on a single turn before the request body gets
+ * heavy.
+ */
+export async function renderPdfPagesToImages(
+  fileUrl: string,
+  pages: readonly number[],
+  options?: { maxWidth?: number; quality?: number },
+): Promise<RenderedPdfPage[]> {
+  if (pages.length === 0) return [];
+  const maxWidth = options?.maxWidth ?? 1280;
+  const quality = options?.quality ?? 0.85;
+
+  const pdf = await pdfjs.getDocument(fileUrl).promise;
+  const results: RenderedPdfPage[] = [];
+
+  // Dedupe + sort so we render each page once in natural order.
+  const unique = Array.from(new Set(pages)).sort((a, b) => a - b);
+
+  for (const pageNum of unique) {
+    if (pageNum < 1 || pageNum > pdf.numPages) continue;
+    const page = await pdf.getPage(pageNum);
+    const baseViewport = page.getViewport({ scale: 1 });
+    const scale = Math.min(maxWidth / baseViewport.width, 2);
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) continue;
+
+    // White background — some PDFs render with transparent canvas,
+    // which JPEG (no alpha) flattens to black and confuses the
+    // model on text it expected to see on white paper.
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const dataUrl = canvas.toDataURL("image/jpeg", quality);
+    const base64 = dataUrl.replace(/^data:image\/jpeg;base64,/, "");
+    results.push({ page: pageNum, base64, mediaType: "image/jpeg" });
+  }
+
+  return results;
+}
+
 // ── Multimodal converters ───────────────────────────────────
 //
 // A `ChatMessage` may carry image attachments. Anthropic and OpenAI
@@ -304,6 +372,14 @@ export interface StreamOptions {
    *  When unset / null, the full configured chain is used in order
    *  (the "Default" option in the model picker). */
   preferredProvider?: AiProvider;
+  /** Reasoning-mode escape hatch. When true, the OpenAI provider
+   *  swaps `gpt-4o-mini` for `o3-mini` — same wire shape (chat
+   *  completions, OpenAI-compatible SSE) but step-by-step reasoning
+   *  for math/logic problems. Routes to OpenAI BYOK only today; the
+   *  Pnyxy proxy ignores this flag because reasoning models aren't
+   *  on the free tier (yet). UI surfaces this as a "Reasoning"
+   *  toggle next to the model picker. */
+  reasoning?: boolean;
   /** When set and aborted, the underlying fetch / SDK call is
    *  cancelled and the async generator throws an AbortError that the
    *  caller is expected to swallow as "user stopped generation."
@@ -575,7 +651,11 @@ async function* streamOpenAi(
       },
       signal: options.signal,
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        // o3-mini for reasoning-mode chats (math, logic, multi-step
+        // problems where the model benefits from chain-of-thought).
+        // ~7× the per-token cost of gpt-4o-mini, so we only switch
+        // when the user opts in via the composer's reasoning toggle.
+        model: options.reasoning ? "o3-mini" : "gpt-4o-mini",
         max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
         stream: true,
         messages: [

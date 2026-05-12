@@ -144,7 +144,35 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Static fallback content. React's createRoot().render() replaces
+           the contents of #root on mount, so real users never see this;
+           the boot splash below (z-index 9999) overlays it visually
+           for the brief window before React paints. But the DOM is
+           present in the initial HTML response — which is what
+           non-JS crawlers, OAuth verification scrapers (Google's brand
+           review checker doesn't execute JS), and link-preview bots
+           actually read. Without this, our /landing page looks like
+           an empty page to anything that doesn't run JS, which is why
+           Google OAuth verification kept rejecting us for "no purpose
+           explanation" and "no privacy policy link". -->
+      <main style="padding: 2rem; max-width: 720px; margin: 0 auto; color: #e5e5e5; font-family: system-ui, -apple-system, sans-serif;">
+        <h1>Pnyxy — AI-assisted reading and learning</h1>
+        <p>
+          Pnyxy is a web app for reading PDFs and EPUBs with AI assistance.
+          Annotate as you read, ask an AI tutor questions about the text,
+          build vocabulary flashcards with FSRS spaced repetition, take
+          structured notes, and discuss readings with the community.
+          Available on web, desktop, and mobile.
+        </p>
+        <p>
+          <a href="/landing" style="color: #64FFDA;">About</a> &middot;
+          <a href="/privacy" style="color: #64FFDA;">Privacy Policy</a> &middot;
+          <a href="/terms" style="color: #64FFDA;">Terms of Service</a> &middot;
+          <a href="/help" style="color: #64FFDA;">Help</a>
+        </p>
+      </main>
+    </div>
     <div id="boot-splash" aria-hidden="true">
       <svg class="pnyxy-mark" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
         <defs>
