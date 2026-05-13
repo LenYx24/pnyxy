@@ -30,6 +30,7 @@ interface AiUsageRow {
 // models still render usefully without a client redeploy).
 const MODEL_DISPLAY_NAMES: Record<string, string> = {
   "gemini-2.5-flash": "Gemini 2.5 Flash",
+  "gemini-3-flash-preview": "Gemini 3 Flash (preview)",
   "gpt-4o-mini": "GPT-4o mini",
   "claude-haiku-4-5": "Claude Haiku 4.5",
 };
@@ -62,6 +63,13 @@ const COMPARISON_ROWS: ComparisonRow[] = [
     provider: "Pnyxy free · primary",
     cost: "Free (daily quota)",
     bestFor: "Default chat, summaries, vocab",
+    status: "active",
+  },
+  {
+    model: "Gemini 3 Flash (preview)",
+    provider: "Pnyxy free · pin to use",
+    cost: "Free (daily quota · smaller bucket)",
+    bestFor: "Newest Google chat model — matches gemini.google.com",
     status: "active",
   },
   {

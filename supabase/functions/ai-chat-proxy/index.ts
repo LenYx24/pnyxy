@@ -37,6 +37,7 @@ declare const Deno: {
 const OPENAI_MODEL = "gpt-4o-mini";
 const ANTHROPIC_MODEL = "claude-haiku-4-5";
 const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_3_FLASH_MODEL = "gemini-3-flash-preview";
 const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
 
 /**
@@ -57,6 +58,10 @@ const OPENAI_COMPATIBLE_PROVIDERS: ReadonlyArray<{
   model: string;
 }> = [
   {
+    // 2.5 Flash stays the cheapest-first auto-route default. Newer
+    // tiers come later in the chain so the free quota stays
+    // predictable; users who want the newest model pin it
+    // explicitly from the composer.
     name: "gemini",
     envKey: "GEMINI_API_KEY",
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
@@ -67,6 +72,19 @@ const OPENAI_COMPATIBLE_PROVIDERS: ReadonlyArray<{
     envKey: "OPENAI_API_KEY",
     url: "https://api.openai.com/v1/chat/completions",
     model: OPENAI_MODEL,
+  },
+  {
+    // Gemini 3 Flash Preview — newer Google model (≈67% pricier
+    // input, ≈20% pricier output than 2.5 Flash). Reuses the
+    // GEMINI_API_KEY since it's the same upstream. Last in the
+    // auto chain so a user on the default route only ever lands
+    // here if the cheaper tiers are exhausted; the chat composer
+    // exposes it as an explicit pin for users who want the
+    // newest model upfront.
+    name: "gemini-3",
+    envKey: "GEMINI_API_KEY",
+    url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    model: GEMINI_3_FLASH_MODEL,
   },
 ];
 // Hard ceiling for any single request. Quiz generation needs room for
@@ -210,12 +228,28 @@ function buildSystemPrompt(
   pageContext: string,
   hasImages: boolean,
 ): string {
-  // No source document → generic chat assistant. Mirrors the
-  // frontend's ai-client.ts fix: the old PDF-Q&A framing was
-  // making the model refuse anything outside the (empty) document
-  // context, including image attachments.
+  // No source document → standalone /chat page brief. Mirror of the
+  // expanded prompt in `src/lib/ai-client.ts`; both branches need
+  // to stay in sync so BYOK and Pnyxy-proxy users see the same
+  // conversational behavior. The single-line legacy prompt left
+  // casual chat feeling notably weaker than gemini.google.com /
+  // claude.ai because there was no tone, no formatting policy, and
+  // no honesty framing for the model to anchor against.
   if (!documentTitle.trim()) {
-    return `You are Pnyxy's helpful AI assistant. Answer questions clearly and concisely. When the user attaches images, describe or reason about them directly — don't claim you can't see them. Use markdown for code blocks, lists, and tables when it helps readability.`;
+    return `You are Pnyxy's AI chat assistant. Pnyxy is a study- and reading-focused learning app; the user is typically a student or researcher. Be helpful, conversational, and honest — talk to them like a smart, friendly tutor, not a search engine.
+
+Match the user's language: reply in Hungarian when they write in Hungarian, English otherwise, and switch fluidly if they mix. Never apologize for the language choice or comment on it.
+
+When the user attaches images, describe or reason about them directly — don't claim you can't see them.
+
+Formatting:
+- Conversational answers should read as conversation — no headers, no bullet lists, no bold-shouting unless the user explicitly asks for structure.
+- Use fenced \`\`\`code blocks with a language tag for code; tables for structured data; bullet lists only when comparing 3+ items.
+- Keep paragraphs short.
+
+When you don't know something or have ambiguous context, say so and ask a clarifying question instead of guessing. If a question has multiple reasonable interpretations, name them briefly before answering. Concise > exhaustive; the user can always ask for more.
+
+When you write mathematical expressions, wrap inline math in single-dollar delimiters ($x^2$) and display equations in double-dollar delimiters ($$\\sum_{i=1}^n i$$). The chat UI renders these as proper formulas via KaTeX.`;
   }
 
   const hasText = pageContext.trim().length > 0;

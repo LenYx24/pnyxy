@@ -110,9 +110,33 @@ export interface DocumentState {
   aiPagesAutoMode: boolean;
 }
 
+/**
+ * Transient highlight slot for LLM citation jumps. When the user
+ * clicks a `[p.42:"quote"]` chip in a chat message, the click
+ * dispatcher writes the docId + page + quote into this slot;
+ * `CitationQuoteHighlightLayer` reads it, searches the PDF for the
+ * quote on that page, and paints a fading highlight. Cleared on
+ * timeout or on doc switch so a stale citation doesn't ghost-mark
+ * the next session.
+ */
+export interface ActiveCitation {
+  docId: string;
+  page: number;
+  quote: string;
+  /** Performance.now()-ish timestamp; the layer fades the highlight
+   *  out a few seconds later. Kept as a single source of truth so
+   *  the layer doesn't need its own timer state. */
+  createdAt: number;
+}
+
 interface ReaderState {
   documents: Map<string, DocumentState>;
   activeDocumentId: string | null;
+  /** Set by the chat citation click handler when the user opens a
+   *  `[p.N:"..."]` chip. Read by `CitationQuoteHighlightLayer` to
+   *  paint the transient highlight on the referenced page. Cleared
+   *  automatically when the highlight finishes fading. */
+  activeCitation: ActiveCitation | null;
 
   // Active document convenience getters
   getActiveDoc: () => DocumentState | undefined;
@@ -169,6 +193,11 @@ interface ReaderState {
   selectAiPagesAround: (docId?: string) => void;
   /** Toggle the "send selected pages as images" mode for the doc. */
   setAiSendPagesAsImage: (value: boolean, docId?: string) => void;
+
+  /** Arm a citation highlight. Use-page-citation calls this when a
+   *  chat-message chip with a quote payload is clicked; the layer
+   *  picks it up and paints the temporary highlight on render. */
+  setActiveCitation: (citation: ActiveCitation | null) => void;
 }
 
 function updateDoc(
@@ -277,6 +306,7 @@ function recordPageChange(
 export const useReaderStore = create<ReaderState>((set, get) => ({
   documents: new Map(),
   activeDocumentId: null,
+  activeCitation: null,
 
   getActiveDoc() {
     const { documents, activeDocumentId } = get();
@@ -723,6 +753,10 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         aiSendPagesAsImage: value,
       }),
     });
+  },
+
+  setActiveCitation(citation) {
+    set({ activeCitation: citation });
   },
 }));
 

@@ -15,6 +15,7 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { useTextSelection } from "@/hooks/use-text-selection";
 import { HighlightLayer } from "./HighlightLayer";
 import { AiCitationLayer } from "./AiCitationLayer";
+import { CitationQuoteHighlightLayer } from "./CitationQuoteHighlightLayer";
 import { SearchHighlightLayer } from "./SearchHighlightLayer";
 import { CommentMarkers } from "./CommentMarkers";
 import { InlineDrawLayer } from "./InlineDrawLayer";
@@ -117,6 +118,7 @@ const PageSlot = memo(function PageSlot({
           />
           <HighlightLayer pageNum={pageNum} />
           <AiCitationLayer pageNum={pageNum} />
+          <CitationQuoteHighlightLayer pageNum={pageNum} />
           <SearchHighlightLayer pageNum={pageNum} />
           <CommentMarkers pageNum={pageNum} />
           <InlineDrawLayer pageNum={pageNum} />

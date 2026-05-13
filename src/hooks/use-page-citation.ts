@@ -43,6 +43,18 @@ export function usePageCitationDispatch() {
         return;
       }
 
+      // Optional `q=` payload — the model's `[p.N:"quote"]` chips
+      // pass the verbatim passage so the reader can paint a
+      // temporary highlight on arrival. Decoded once here; the
+      // store slot triggers `CitationQuoteHighlightLayer`.
+      const quote = url.searchParams.get("q") ?? "";
+      const arm = useReaderStore.getState().setActiveCitation;
+      if (quote) {
+        arm({ docId, page, quote, createdAt: Date.now() });
+      } else {
+        arm(null);
+      }
+
       e.preventDefault();
       const active = useReaderStore.getState().getActiveDoc();
       if (active && active.meta.id === docId) {

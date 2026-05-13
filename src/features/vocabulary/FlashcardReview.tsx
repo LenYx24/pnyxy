@@ -9,6 +9,13 @@ import type { VocabEntry, VocabRating } from "@/types/vocab";
 interface FlashcardReviewProps {
   queue: VocabEntry[];
   onClose: () => void;
+  /** Cram mode — review the queue without updating each card's
+   *  FSRS schedule. Used by the "Review all" entry point so a
+   *  pre-exam pass through non-due cards doesn't trash the spaced-
+   *  repetition curve. Rating buttons still render (the user
+   *  picks how they felt about the card) but the rating is dropped
+   *  on the floor instead of feeding `recordReview`. */
+  cram?: boolean;
 }
 
 function clozeSentence(sentence: string, word: string): string {
@@ -37,7 +44,11 @@ const RATINGS: { key: VocabRating; tone: string }[] = [
   { key: "easy", tone: "bg-green-500/20 text-green-400 hover:bg-green-500/30" },
 ];
 
-export function FlashcardReview({ queue, onClose }: FlashcardReviewProps) {
+export function FlashcardReview({
+  queue,
+  onClose,
+  cram = false,
+}: FlashcardReviewProps) {
   const { t } = useTranslation();
   const recordReview = useVocabStore((s) => s.recordReview);
   const [index, setIndex] = useState(0);
@@ -55,11 +66,14 @@ export function FlashcardReview({ queue, onClose }: FlashcardReviewProps) {
   const handleRate = useCallback(
     async (rating: VocabRating) => {
       if (!current) return;
-      await recordReview(current.id, rating);
+      // In cram mode the rating is informational only — we don't
+      // touch FSRS so a "review anyway" pass before an exam can't
+      // pull the schedule forward or push it back unintentionally.
+      if (!cram) await recordReview(current.id, rating);
       setRevealed(false);
       setIndex((i) => i + 1);
     },
-    [current, recordReview],
+    [current, recordReview, cram],
   );
 
   // Keyboard shortcuts: space/enter to reveal, 1-4 to rate.
@@ -93,10 +107,23 @@ export function FlashcardReview({ queue, onClose }: FlashcardReviewProps) {
           <X size={18} />
         </button>
 
-        <header className="flex items-center justify-between pr-8">
-          <h2 className="text-lg font-semibold text-text-primary">
-            {t("vocabulary.review.title")}
-          </h2>
+        <header className="flex items-center justify-between gap-2 pr-8">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-text-primary">
+              {t("vocabulary.review.title")}
+            </h2>
+            {cram && (
+              <span
+                className="rounded-full bg-orange-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-300"
+                title={t("vocabulary.review.cramHint", {
+                  defaultValue:
+                    "Cram mode — ratings don't change the FSRS schedule",
+                })}
+              >
+                {t("vocabulary.review.cramBadge", { defaultValue: "Cram" })}
+              </span>
+            )}
+          </div>
           <span className="text-sm text-text-muted">
             {done
               ? t("vocabulary.review.done")

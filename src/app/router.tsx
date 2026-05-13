@@ -6,10 +6,10 @@
 // belong on the lazy-loaded page components themselves, not on
 // the router config. Disable the rule file-wide.
 /* eslint-disable react-refresh/only-export-components */
-import { lazy } from "react";
 import { Navigate, createBrowserRouter, redirect } from "react-router";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RouteErrorBoundary } from "@/components/ErrorBoundary";
+import { lazyWithRetry as lazy } from "@/lib/lazy-with-retry";
 
 // ── Eager routes ─────────────────────────────────────────────
 // These are kept in the main bundle because they're on the first-

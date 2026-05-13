@@ -265,7 +265,13 @@ function SidebarNavItem({
       to={item.to}
       onClick={onNavigate}
       title={label}
-      end={item.to === "/"}
+      // Exact match for every sidebar item — without `end`,
+      // NavLink does a prefix match, so `/quizzes` ended up
+      // co-highlighted whenever the user was on
+      // `/quizzes/review`. The sub-route already has its own
+      // entry in the Study submenu; the prefix-match was just
+      // double-painting the active state.
+      end
       className={({ isActive }) =>
         cn(
           "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",

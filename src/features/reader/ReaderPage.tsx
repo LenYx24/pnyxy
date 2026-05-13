@@ -935,10 +935,26 @@ export function ReaderPage() {
     const pageNum = Number.parseInt(pageParam, 10);
     if (!Number.isFinite(pageNum) || pageNum < 1) return;
     goToPage(pageNum);
+    // Companion `q=` payload from LLM citation chips with a quote.
+    // Arm the citation slot so CitationQuoteHighlightLayer picks it
+    // up once the page renders. In-reader clicks already armed it
+    // synchronously via use-page-citation; this branch handles the
+    // cross-page navigation case (clicking a citation from /chat
+    // when the reader wasn't mounted).
+    const quote = searchParams.get("q");
+    if (quote) {
+      useReaderStore.getState().setActiveCitation({
+        docId: activeDocumentId,
+        page: pageNum,
+        quote,
+        createdAt: Date.now(),
+      });
+    }
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         next.delete("page");
+        next.delete("q");
         return next;
       },
       { replace: true },

@@ -125,6 +125,19 @@ const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
     tagline: "Cheapest · best for casual chat",
   },
   {
+    // Newest Google chat model — same family the gemini.google.com
+    // webapp serves. Listed in the "mid" tier because the
+    // per-token cost sits between the cheap default and the
+    // premium Haiku 4.5 (≈$0.50 / $3.00 per MTok vs. Flash's
+    // ≈$0.30 / $2.50). In auto-route mode the proxy still tries
+    // 2.5 Flash first to keep the free quota cost predictable;
+    // pin this option to use it explicitly.
+    id: "gemini-3-flash-preview",
+    label: "Gemini 3 Flash (preview)",
+    costTier: "mid",
+    tagline: "Newest Google model · top casual chat",
+  },
+  {
     id: "gpt-4o-mini",
     label: "GPT-4o mini",
     costTier: "mid",

@@ -680,9 +680,20 @@ export function ChatPage() {
         // makes the desktop width win without bleeding into the
         // mobile drawer.
         style={!isMobile ? { width: sidebarWidth } : undefined}
+        // Mobile: `fixed` so the drawer overlays without occupying
+        // layout space — sliding `-translate-x-full` actually hides
+        // it. (Earlier this had `relative fixed` together; Tailwind
+        // emits `relative` later in the CSS than `fixed`, so the
+        // aside resolved to position:relative on mobile, took up
+        // width in the flow, and looked like a "permanently open
+        // but empty" submenu the user couldn't close.) Desktop:
+        // `sm:relative` keeps the aside as a static column AND
+        // provides the positioning context the resize handle's
+        // `absolute right-0` needs to land on the aside's right
+        // edge instead of the chat page's right edge.
         className={cn(
-          "relative fixed inset-y-0 left-0 z-30 flex w-72 max-w-[80vw] shrink-0 flex-col gap-3 border-r border-glass-border bg-bg-secondary p-3 transition-transform duration-200",
-          "sm:static sm:translate-x-0 sm:bg-glass-bg/40",
+          "fixed inset-y-0 left-0 z-30 flex w-72 max-w-[80vw] shrink-0 flex-col gap-3 border-r border-glass-border bg-bg-secondary p-3 transition-transform duration-200",
+          "sm:relative sm:translate-x-0 sm:bg-glass-bg/40",
           mobileListOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >

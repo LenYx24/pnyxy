@@ -37,6 +37,25 @@ export default defineConfig({
         // Bumped because pdf.worker.min.mjs is large (~1MB) — the
         // default 2MB cap was rejecting it from the precache list.
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // After a deploy, evict precache entries from previous
+        // revisions instead of letting them pile up. Without this,
+        // tabs sometimes resolved a route to a chunk filename that
+        // the SW had already lost from precache and origin no
+        // longer had, producing "Failed to fetch dynamically
+        // imported module" errors. The companion runtime fix in
+        // lazyWithRetry recovers when this still happens (e.g. on
+        // a brand-new tab whose HTML predates this SW), but
+        // cleaning up at the source matters more.
+        cleanupOutdatedCaches: true,
+        // New SW skips the "waiting" phase and activates the
+        // moment it's done installing. Paired with clientsClaim
+        // below so open tabs immediately use the new SW too —
+        // matters because `registerType: "autoUpdate"` only
+        // reloads on next navigation, and a tab sitting on the
+        // same route forever would otherwise keep the old SW
+        // (with old precache pointers) indefinitely.
+        skipWaiting: true,
+        clientsClaim: true,
         // /pdf-assets/cmaps + standard_fonts are loaded on demand
         // by pdf.js. Precache by glob would double-count; let
         // runtime caching grab them as they're requested.

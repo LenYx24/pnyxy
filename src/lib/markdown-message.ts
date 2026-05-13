@@ -164,13 +164,31 @@ export function renderMarkdown(
   // Citation pre-pass: only when the conversation has a source doc
   // attached. Conversations without one render `[p.N]` as plain text
   // (no link target to send the user to anyway).
-  const withCitations = sourceDocId
-    ? text.replace(
+  //
+  // Two variants:
+  //   [p.42]                          → clickable link, jumps to page
+  //   [p.42:"the exact passage"]      → clickable link, jumps to page
+  //                                      AND highlights the passage on
+  //                                      arrival (q= URL param)
+  // The quote-aware regex runs FIRST so it wins against the bare
+  // page regex on overlapping matches. Quote payload is
+  // URL-encoded; the click dispatcher in `use-page-citation.ts`
+  // strips it back out and writes it to `reader-store` for the
+  // citation highlight layer to render.
+  let withCitations = text;
+  if (sourceDocId) {
+    withCitations = withCitations
+      .replace(
+        /\[(p\.?\s?(\d+)):"([^"\n]+)"\]/g,
+        (_match, label: string, page: string, quote: string) =>
+          `[${label}](/reader/${sourceDocId}?page=${page}&q=${encodeURIComponent(quote)})`,
+      )
+      .replace(
         /\[(p\.?\s?(\d+))\]/g,
         (_match, label: string, page: string) =>
           `[${label}](/reader/${sourceDocId}?page=${page})`,
-      )
-    : text;
+      );
+  }
   const raw = marked.parse(withCitations, { async: false }) as string;
   return DOMPurify.sanitize(raw, {
     // - target/rel: anchors emitted by `marked`'s autolinker.

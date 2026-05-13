@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookMarked, Download, Play, Trash2, Search } from "lucide-react";
+import {
+  BookMarked,
+  Download,
+  Play,
+  Shuffle,
+  Trash2,
+  Search,
+} from "lucide-react";
 import { Button, GlassCard } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useVocabStore } from "@/stores/vocab-store";
@@ -22,7 +29,11 @@ export function VocabularyPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState<string | "all">("all");
+  // `reviewing` doubles as the modal-open flag; `cramMode` only
+  // matters when the modal is open and decides whether the rating
+  // buttons feed FSRS or are read-only.
   const [reviewing, setReviewing] = useState(false);
+  const [cramMode, setCramMode] = useState(false);
 
   useEffect(() => {
     loadEntries();
@@ -82,6 +93,23 @@ export function VocabularyPage() {
       .sort((a, b) => a.dueAt - b.dueAt);
   }, [all, sourceFilter]);
 
+  // Cram queue — every visible card regardless of dueAt, shuffled
+  // so a back-to-back cram session doesn't always start with the
+  // oldest entry. Used by the "Review all" button below; the
+  // shuffle freshens on every modal open so two passes in a row
+  // don't see the cards in the same order.
+  const cramQueue = useMemo(() => {
+    const out = [...visible];
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+    // `reviewing` is the trigger: we recompute the shuffled queue
+    // each time the modal opens, then keep it stable while open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewing && cramMode, visible.length]);
+
   const handleExport = () => {
     exportVocabAsCsv(visible);
   };
@@ -112,9 +140,32 @@ export function VocabularyPage() {
             <Download size={16} />
             {t("vocabulary.export")}
           </Button>
+          {/* "Cram" — review any visible card regardless of dueAt.
+              FSRS schedule isn't touched (see FlashcardReview's
+              `cram` prop). Disabled when there are zero cards to
+              show; otherwise always available even if nothing is
+              due. The icon (Shuffle) signals "free-form pass". */}
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setCramMode(true);
+              setReviewing(true);
+            }}
+            disabled={visible.length === 0}
+            title={t("vocabulary.cramHint", {
+              defaultValue:
+                "Practice any card without changing the spaced-repetition schedule",
+            })}
+          >
+            <Shuffle size={16} />
+            {t("vocabulary.cram", { defaultValue: "Cram" })}
+          </Button>
           <Button
             variant="primary"
-            onClick={() => setReviewing(true)}
+            onClick={() => {
+              setCramMode(false);
+              setReviewing(true);
+            }}
             disabled={reviewQueue.length === 0}
           >
             <Play size={16} />
@@ -224,9 +275,11 @@ export function VocabularyPage() {
 
       {reviewing && (
         <FlashcardReview
-          queue={reviewQueue}
+          queue={cramMode ? cramQueue : reviewQueue}
+          cram={cramMode}
           onClose={() => {
             setReviewing(false);
+            setCramMode(false);
           }}
         />
       )}
