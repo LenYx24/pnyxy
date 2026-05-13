@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -33,6 +33,12 @@ import { ShareBookModal } from "./ShareBookModal";
 import { BookInfoModal } from "./BookInfoModal";
 import type { Folder as FolderType } from "@/types/database";
 import type { UnifiedLibraryItem } from "@/types/catalog";
+import { DEFAULT_LIST_COLUMN_WIDTHS, type ListColumnWidths } from "./useLibraryPrefs";
+
+// Hard caps so a user can't drag a column down to 0 or out to silly
+// widths that would shove the rest of the row off-screen.
+const COL_MIN = 50;
+const COL_MAX = 360;
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -170,6 +176,7 @@ interface FolderRowProps {
   selectedIds: Set<string>;
   density: RowDensity;
   sortableId?: string;
+  columnWidths: ListColumnWidths;
 }
 
 function FolderRow({
@@ -194,6 +201,7 @@ function FolderRow({
   selectedIds,
   density,
   sortableId,
+  columnWidths,
 }: FolderRowProps) {
   const { t } = useTranslation();
   const isTopLevel = depth === 0;
@@ -405,13 +413,30 @@ function FolderRow({
           {folder.name}
         </span>
 
-        {/* Item count */}
-        <span className="mr-4 hidden shrink-0 text-xs text-text-muted sm:block">
+        {/* Item count — sits in the same horizontal slot as the
+            BookRow's Author column so the rows align under the
+            "Author" header on md+. */}
+        <span
+          className="mr-4 hidden shrink-0 truncate text-xs text-text-muted md:block"
+          style={{ width: columnWidths.author }}
+        >
           {childFolders.length + childBooks.length} items
         </span>
 
+        {/* Spacer matching the BookRow's Size column. Folders have no
+            file size of their own; the slot still has to exist so
+            both row types align under the same column header. */}
+        <span
+          className="mr-2 hidden shrink-0 lg:block"
+          style={{ width: columnWidths.size }}
+          aria-hidden="true"
+        />
+
         {/* Date */}
-        <span className="mr-2 hidden w-20 shrink-0 text-xs text-text-muted lg:block">
+        <span
+          className="mr-2 hidden shrink-0 truncate text-xs text-text-muted lg:block"
+          style={{ width: columnWidths.added }}
+        >
           {formatDate(folder.created_at)}
         </span>
 
@@ -466,6 +491,7 @@ function FolderRow({
                 expandedFolders={expandedFolders}
                 selectedIds={selectedIds}
                 density={density}
+                columnWidths={columnWidths}
               />
             );
           })}
@@ -480,6 +506,7 @@ function FolderRow({
               onMove={onMoveBook}
               onRemove={onRemoveBook}
               density={density}
+              columnWidths={columnWidths}
             />
           ))}
           {childFolders.length === 0 && childBooks.length === 0 && (
@@ -515,6 +542,7 @@ interface BookRowProps {
   onRemove: (entry: UnifiedLibraryItem) => void;
   density?: RowDensity;
   sortableId?: string;
+  columnWidths?: ListColumnWidths;
 }
 
 function BookRow({
@@ -527,6 +555,7 @@ function BookRow({
   onRemove,
   density = { py: "py-2.5", text: "text-sm", icon: 16, gap: "gap-2" },
   sortableId,
+  columnWidths = DEFAULT_LIST_COLUMN_WIDTHS,
 }: BookRowProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -778,17 +807,26 @@ function BookRow({
         )}
 
         {/* Author */}
-        <span className="mr-4 hidden w-32 shrink-0 truncate text-xs text-text-muted md:block">
+        <span
+          className="mr-4 hidden shrink-0 truncate text-xs text-text-muted md:block"
+          style={{ width: columnWidths.author }}
+        >
           {author}
         </span>
 
         {/* Size */}
-        <span className="mr-2 hidden w-16 shrink-0 text-xs text-text-muted lg:block">
+        <span
+          className="mr-2 hidden shrink-0 truncate text-xs text-text-muted lg:block"
+          style={{ width: columnWidths.size }}
+        >
           {getFileSize(entry) ?? "—"}
         </span>
 
         {/* Date */}
-        <span className="mr-2 hidden w-20 shrink-0 text-xs text-text-muted lg:block">
+        <span
+          className="mr-2 hidden shrink-0 truncate text-xs text-text-muted lg:block"
+          style={{ width: columnWidths.added }}
+        >
           {formatDate(entry.added_at)}
         </span>
 
@@ -892,6 +930,10 @@ function getRowDensity(cardSize: number) {
 interface LibraryListViewProps {
   folders: FolderType[];
   books: UnifiedLibraryItem[];
+  /** Interleaved render order — keys like `folder:<id>` / `book:<id>`.
+   *  When provided, rows render in this order instead of folders-then-books,
+   *  matching the SortableContext's order so DnD reorder works correctly. */
+  orderedKeys?: string[];
   allFolders: FolderType[];
   allBooks: UnifiedLibraryItem[];
   selectedIds: Set<string>;
@@ -908,11 +950,19 @@ interface LibraryListViewProps {
    *  container, creating a folder at the currently-viewed level. */
   onCreateRootFolder?: () => void;
   cardSize?: number;
+  /** Per-column widths in pixels for the resizable columns. Defaults
+   *  to DEFAULT_LIST_COLUMN_WIDTHS when omitted (e.g. preview/test
+   *  callers without a persisted store). */
+  columnWidths?: ListColumnWidths;
+  /** Fires while the user drags a column-header handle. Commits a
+   *  single column's new width — the caller persists it. */
+  setColumnWidth?: (key: keyof ListColumnWidths, width: number) => void;
 }
 
 export function LibraryListView({
   folders,
   books,
+  orderedKeys,
   allFolders,
   allBooks,
   selectedIds,
@@ -926,6 +976,8 @@ export function LibraryListView({
   onCreateSubfolder,
   onCreateRootFolder,
   cardSize = 200,
+  columnWidths = DEFAULT_LIST_COLUMN_WIDTHS,
+  setColumnWidth,
 }: LibraryListViewProps) {
   const density = getRowDensity(cardSize);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
@@ -945,16 +997,39 @@ export function LibraryListView({
 
   return (
     <LibraryListContainer onCreateRootFolder={onCreateRootFolder}>
-      {/* Column headers */}
+      {/* Column headers — Author/Size/Added each carry a right-edge
+          resize handle when `setColumnWidth` is wired. Mouse-only;
+          mobile hides these columns anyway. */}
       <div className="flex items-center border-b border-glass-border bg-glass-bg px-2 py-1.5 text-[11px] font-medium uppercase tracking-wider text-text-muted sm:px-3">
         <div className="mr-1 w-4 shrink-0" /> {/* drag handle spacer */}
         <div className="mr-1.5 w-7 shrink-0 sm:mr-2" />
         <div className="mr-1 hidden w-[26px] sm:block" />
         <div className="mr-2 w-4 shrink-0" />
         <div className="min-w-0 flex-1">Name</div>
-        <div className="mr-4 hidden w-32 md:block">Author</div>
-        <div className="mr-2 hidden w-16 shrink-0 lg:block">Size</div>
-        <div className="mr-2 hidden w-20 lg:block">Added</div>
+        <ResizableHeader
+          label="Author"
+          width={columnWidths.author}
+          onResize={
+            setColumnWidth ? (w) => setColumnWidth("author", w) : undefined
+          }
+          className="mr-4 hidden md:flex"
+        />
+        <ResizableHeader
+          label="Size"
+          width={columnWidths.size}
+          onResize={
+            setColumnWidth ? (w) => setColumnWidth("size", w) : undefined
+          }
+          className="mr-2 hidden lg:flex"
+        />
+        <ResizableHeader
+          label="Added"
+          width={columnWidths.added}
+          onResize={
+            setColumnWidth ? (w) => setColumnWidth("added", w) : undefined
+          }
+          className="mr-2 hidden lg:flex"
+        />
         <div className="w-7 shrink-0" />
       </div>
 
@@ -963,55 +1038,78 @@ export function LibraryListView({
           grid view. */}
       {onCreateRootFolder && <CreateFolderRow onClick={onCreateRootFolder} />}
 
-      {/* Folders */}
-      {folders.map((folder) => {
-        const childFolders = allFolders.filter(
-          (f) => f.parent_id === folder.id,
-        );
-        const childBooks = allBooks.filter(
-          (b) => b.folder_id === folder.id,
-        );
-        return (
-          <FolderRow
-            key={folder.id}
-            folder={folder}
-            sortableId={`folder:${folder.id}`}
-            expanded={expandedFolders.has(folder.id)}
-            onToggleExpand={toggleExpand}
-            onNavigate={onNavigateFolder}
-            onRename={onRenameFolder}
-            onDelete={onDeleteFolder}
-            selected={selectedIds.has(`folder:${folder.id}`)}
-            selectionActive={selectionActive}
-            onToggleSelect={onToggleSelect}
-            childFolders={childFolders}
-            childBooks={childBooks}
-            allFolders={allFolders}
-            allBooks={allBooks}
-            onMoveBook={onMoveBook}
-            onRemoveBook={onRemoveBook}
-            onCreateSubfolder={onCreateSubfolder}
-            expandedFolders={expandedFolders}
-            selectedIds={selectedIds}
-            density={density}
-          />
-        );
-      })}
+      {/* Render rows in `orderedKeys` order when supplied — interleaved
+          folders/books so SortableContext index positions match the
+          visual order and DnD reorder works. Falls back to folders-
+          then-books if no order was provided. */}
+      {(() => {
+        const folderByKey = new Map<string, FolderType>();
+        for (const f of folders) folderByKey.set(`folder:${f.id}`, f);
+        const bookByKey = new Map<string, UnifiedLibraryItem>();
+        for (const b of books) bookByKey.set(`book:${b.id}`, b);
 
-      {/* Books */}
-      {books.map((entry) => (
-        <BookRow
-          key={`${entry.source}-${entry.id}`}
-          entry={entry}
-          sortableId={`book:${entry.id}`}
-          selected={selectedIds.has(`book:${entry.id}`)}
-          selectionActive={selectionActive}
-          onToggleSelect={onToggleSelect}
-          onMove={onMoveBook}
-          onRemove={onRemoveBook}
-          density={density}
-        />
-      ))}
+        const renderOrder =
+          orderedKeys ?? [
+            ...folders.map((f) => `folder:${f.id}`),
+            ...books.map((b) => `book:${b.id}`),
+          ];
+
+        return renderOrder.map((key) => {
+          const folder = folderByKey.get(key);
+          if (folder) {
+            const childFolders = allFolders.filter(
+              (f) => f.parent_id === folder.id,
+            );
+            const childBooks = allBooks.filter(
+              (b) => b.folder_id === folder.id,
+            );
+            return (
+              <FolderRow
+                key={folder.id}
+                folder={folder}
+                sortableId={`folder:${folder.id}`}
+                expanded={expandedFolders.has(folder.id)}
+                onToggleExpand={toggleExpand}
+                onNavigate={onNavigateFolder}
+                onRename={onRenameFolder}
+                onDelete={onDeleteFolder}
+                selected={selectedIds.has(`folder:${folder.id}`)}
+                selectionActive={selectionActive}
+                onToggleSelect={onToggleSelect}
+                childFolders={childFolders}
+                childBooks={childBooks}
+                allFolders={allFolders}
+                allBooks={allBooks}
+                onMoveBook={onMoveBook}
+                onRemoveBook={onRemoveBook}
+                onCreateSubfolder={onCreateSubfolder}
+                expandedFolders={expandedFolders}
+                selectedIds={selectedIds}
+                density={density}
+                columnWidths={columnWidths}
+              />
+            );
+          }
+          const entry = bookByKey.get(key);
+          if (entry) {
+            return (
+              <BookRow
+                key={`${entry.source}-${entry.id}`}
+                entry={entry}
+                sortableId={`book:${entry.id}`}
+                selected={selectedIds.has(`book:${entry.id}`)}
+                selectionActive={selectionActive}
+                onToggleSelect={onToggleSelect}
+                onMove={onMoveBook}
+                onRemove={onRemoveBook}
+                density={density}
+                columnWidths={columnWidths}
+              />
+            );
+          }
+          return null;
+        });
+      })()}
     </LibraryListContainer>
   );
 }
@@ -1047,6 +1145,85 @@ function LibraryListContainer({
       className="overflow-x-auto overflow-y-hidden rounded-lg border border-glass-border"
     >
       {children}
+    </div>
+  );
+}
+
+/**
+ * Resizable column header — a label cell with a 4px grab strip on its
+ * right edge. Mouse-down on the strip starts a window-level drag that
+ * tracks deltaX and commits a clamped new width via `onResize`. When
+ * `onResize` is omitted (e.g. preview/test mounts without a setter),
+ * the header degrades to a plain non-resizable cell so the row still
+ * renders.
+ */
+function ResizableHeader({
+  label,
+  width,
+  onResize,
+  className,
+}: {
+  label: string;
+  width: number;
+  onResize?: (next: number) => void;
+  className?: string;
+}) {
+  const startRef = useRef<{ x: number; width: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  // Bind move/up on window so the drag survives the cursor leaving
+  // the narrow grab strip. Bound only while a drag is in progress so
+  // we're not leaking global listeners for every mounted header.
+  useEffect(() => {
+    if (!dragging || !onResize) return;
+    const handleMove = (e: MouseEvent) => {
+      if (!startRef.current) return;
+      const next = Math.min(
+        COL_MAX,
+        Math.max(COL_MIN, startRef.current.width + (e.clientX - startRef.current.x)),
+      );
+      onResize(next);
+    };
+    const handleUp = () => {
+      startRef.current = null;
+      setDragging(false);
+    };
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+    };
+  }, [dragging, onResize]);
+
+  return (
+    <div
+      className={cn("relative items-center", className)}
+      style={{ width }}
+    >
+      <span className="truncate">{label}</span>
+      {onResize && (
+        <span
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            startRef.current = { x: e.clientX, width };
+            setDragging(true);
+          }}
+          // The grab strip extends a touch past the column's right
+          // edge so the user can grab it without nudging perfect-
+          // pixel alignment. cursor-col-resize + a hover tint sells
+          // the affordance.
+          className={cn(
+            "absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize select-none",
+            "before:absolute before:left-1/2 before:top-1 before:-translate-x-1/2",
+            "before:h-[calc(100%-0.5rem)] before:w-px before:bg-glass-border",
+            "hover:before:bg-accent-purple/70",
+            dragging && "before:bg-accent-purple",
+          )}
+          aria-hidden="true"
+        />
+      )}
     </div>
   );
 }

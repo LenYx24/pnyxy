@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   StickyNote,
@@ -152,6 +152,8 @@ function NoteEditor({
 export function NotesTab() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const openedFrom = location.pathname + location.search;
   const book = useBook();
   const documentId = book.book.id;
 
@@ -354,7 +356,7 @@ export function NotesTab() {
             {highlights.map((h) => (
               <button
                 key={h.id}
-                onClick={() => navigate(`/reader/${documentId}`)}
+                onClick={() => navigate(`/reader/${documentId}`, { state: { from: openedFrom } })}
                 className="text-left cursor-pointer"
               >
                 <HighlightRow h={h} />
@@ -377,7 +379,7 @@ export function NotesTab() {
             {comments.map((c) => (
               <button
                 key={c.id}
-                onClick={() => navigate(`/reader/${documentId}`)}
+                onClick={() => navigate(`/reader/${documentId}`, { state: { from: openedFrom } })}
                 className="text-left cursor-pointer"
               >
                 <CommentRow c={c} />

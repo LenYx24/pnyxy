@@ -142,6 +142,15 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const [overflowOpen, setOverflowOpen] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<ChatComposerHandle>(null);
+  // Armed citation from the most recent "Send to chat" hand-off.
+  // Set by the pendingDraft drain effect below; consumed by the
+  // FIRST handleSubmit after that. Lives in a ref (not state) so
+  // setting + reading happen synchronously inside one render's
+  // submit handler without an extra re-render.
+  const pendingCitationRef = useRef<{
+    documentId: string;
+    selection: import("@/types/annotation").TextSelection;
+  } | null>(null);
   const keyboardInset = useKeyboardInset();
   // Same shared TTS instance pattern as ChatPage — single utterance
   // at the panel level so reading a different message stops the
@@ -186,6 +195,16 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
     if (!user || !pendingDraft) return;
     const draft = useChatStore.getState().consumePendingDraft();
     if (!draft) return;
+    // Arm the citation BEFORE the async work — handleSubmit reads
+    // this ref synchronously when the user sends, so racing the
+    // assignment after createConversation finishes risks dropping
+    // it if the user hits Enter quickly.
+    if (draft.selection && draft.source?.docId) {
+      pendingCitationRef.current = {
+        documentId: draft.source.docId,
+        selection: draft.selection,
+      };
+    }
     void (async () => {
       await createConversation(
         "",
@@ -276,9 +295,16 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       // reader panel today (mode-picker recommendation modes aren't
       // wired here because the reader panel always carries a doc
       // context that fights the recommendation system prompt).
-      const sendOptions = payload.reasoning
-        ? { reasoning: true }
-        : undefined;
+      // Consume the armed citation (if any) on this first send only —
+      // a follow-up "tell me more" turn in the same conversation
+      // shouldn't get re-cited from the original passage.
+      const armedCitation = pendingCitationRef.current;
+      pendingCitationRef.current = null;
+      const sendOptions: import("@/stores/chat-store").ChatSendOptions = {};
+      if (payload.reasoning) sendOptions.reasoning = true;
+      if (armedCitation) sendOptions.citation = armedCitation;
+      const finalSendOptions =
+        Object.keys(sendOptions).length > 0 ? sendOptions : undefined;
       // Branching: when the user clicked "Branch here" on a bubble,
       // branchFromId is set. We send under that parent instead of
       // appending to the active leaf. Clears the branch state on
@@ -291,7 +317,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           trimmed,
           payload.provider ?? undefined,
           payload.attachments.length > 0 ? payload.attachments : undefined,
-          sendOptions,
+          finalSendOptions,
         );
         return;
       }
@@ -299,7 +325,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         trimmed,
         payload.provider ?? undefined,
         payload.attachments.length > 0 ? payload.attachments : undefined,
-        sendOptions,
+        finalSendOptions,
       );
     },
     [
@@ -864,24 +890,20 @@ function ContextSummaryPill({
   if (!tocAvailable && selectedPages === 0 && !hasPersona && !showEditor) {
     return null;
   }
-  const parts: string[] = [];
-  if (tocAttached && tocAvailable) {
-    parts.push(t("reader.aiChat.contextToc"));
-  }
-  if (selectedPages > 0) {
-    parts.push(
-      t("reader.aiChat.contextPages", { count: selectedPages }),
-    );
-  }
-  if (hasPersona) {
-    parts.push(t("reader.aiChat.contextPersona"));
-  }
-  const summary =
-    parts.length > 0
-      ? parts.join(" · ")
-      : t("reader.aiChat.contextEmpty");
 
+  // Static-text fallback: rendered when there's no editor to open (we
+  // can't take the user anywhere actionable, so don't pretend to).
   if (!showEditor) {
+    const parts: string[] = [];
+    if (tocAttached && tocAvailable) parts.push(t("reader.aiChat.contextToc"));
+    if (selectedPages > 0) {
+      parts.push(t("reader.aiChat.contextPages", { count: selectedPages }));
+    }
+    if (hasPersona) parts.push(t("reader.aiChat.contextPersona"));
+    const summary =
+      parts.length > 0
+        ? parts.join(" · ")
+        : t("reader.aiChat.contextEmpty");
     return (
       <div className="px-3">
         <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
@@ -892,24 +914,66 @@ function ContextSummaryPill({
     );
   }
 
+  // Interactive variant: each part is a discrete element so the
+  // "N pages" chip can read as the obvious entry point to the page
+  // picker. Previously the whole pill was one big button and users
+  // didn't realize the page count was the click target. Now the
+  // chip carries the accent color + dotted underline, the rest stays
+  // muted, and bare-space clicks still open the editor as a
+  // forgiving fallback.
+  const openEditor = () => openAiContextEditor?.();
   return (
     <div className="px-3">
-      <button
-        type="button"
-        onClick={() => openAiContextEditor?.()}
-        className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px] text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+      <div
+        onClick={openEditor}
+        role="button"
+        tabIndex={-1}
+        className="flex w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-md px-1.5 py-1 text-[10px] text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
         title={t("reader.aiChat.customizeContext", {
           defaultValue: "Customize what pages get sent to the AI",
         })}
       >
         <FileText size={11} className="shrink-0" />
-        <span className="min-w-0 flex-1 truncate text-left">{summary}</span>
-        <span className="shrink-0 text-[10px] text-accent-purple/80">
+        {tocAttached && tocAvailable && (
+          <>
+            <span className="truncate">{t("reader.aiChat.contextToc")}</span>
+            {(selectedPages > 0 || hasPersona) && (
+              <span className="text-text-muted/50">·</span>
+            )}
+          </>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            openEditor();
+          }}
+          className={cn(
+            "shrink-0 rounded font-medium underline decoration-dotted underline-offset-2 transition-colors cursor-pointer",
+            "text-accent-purple hover:text-accent-purple/80",
+          )}
+          aria-label={t("reader.aiChat.contextPagesEditAria", {
+            defaultValue: "Choose which pages get sent to the AI",
+          })}
+        >
+          {selectedPages > 0
+            ? t("reader.aiChat.contextPages", { count: selectedPages })
+            : t("reader.aiChat.contextPagesEmpty", {
+                defaultValue: "Pick pages",
+              })}
+        </button>
+        {hasPersona && (
+          <>
+            <span className="text-text-muted/50">·</span>
+            <span className="truncate">{t("reader.aiChat.contextPersona")}</span>
+          </>
+        )}
+        <span className="ml-auto shrink-0 text-[10px] text-accent-purple/80">
           {t("reader.aiChat.customizeContextAction", {
             defaultValue: "Customize",
           })}
         </span>
-      </button>
+      </div>
     </div>
   );
 }

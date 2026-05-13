@@ -18,6 +18,12 @@ export function HeroSection() {
         <div className="absolute bottom-[30%] right-[15%] h-12 w-12 rotate-45 rounded-lg border border-accent-blue/15 animate-[float_9s_ease-in-out_infinite_0.5s]" />
       </div>
 
+      {/* Real h1 text includes the purpose ("Pnyxy — AI-assisted
+          reading and learning companion") so Google's OAuth crawler
+          and other text-only indexers can answer "what does this app
+          do?" from the h1 alone. Visually only the wordmark shows;
+          the descriptive half is `sr-only` so the layout stays clean
+          while the document outline carries the explanation. */}
       <h1 className="mb-6 flex flex-col items-center gap-3">
         <img
           src="/logo.svg"
@@ -27,6 +33,12 @@ export function HeroSection() {
         />
         <span className="text-5xl font-bold tracking-tight text-text-primary sm:text-6xl md:text-7xl">
           Pnyxy
+        </span>
+        <span className="sr-only">
+          {t("landing.h1ScreenReader", {
+            defaultValue:
+              "Pnyxy — AI-assisted reading and learning companion",
+          })}
         </span>
       </h1>
 

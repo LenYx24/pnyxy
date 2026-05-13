@@ -5,6 +5,12 @@ export type ViewMode = "grid" | "list";
 const STORAGE_KEY = "pnyxy-library-prefs";
 const SORT_ORDERS_KEY = "pnyxy-library-sort-orders";
 
+export interface ListColumnWidths {
+  author: number;
+  size: number;
+  added: number;
+}
+
 interface LibraryPrefs {
   viewMode: ViewMode;
   cardSize: number; // 140–320, grid minWidth in px
@@ -13,16 +19,27 @@ interface LibraryPrefs {
   // collapsed, desktop expanded) but the user's explicit pick is
   // persisted from then on.
   controlsExpanded: boolean;
+  // List-view column widths in pixels. Defaults mirror the original
+  // hard-coded w-32 / w-16 / w-20 tailwind values; resize handles in
+  // the column header let the user tune them per-column.
+  listColumnWidths: ListColumnWidths;
 }
 
 // Map of folder context → ordered item keys
 // Keys are "folder:<id>" or "book:<id>" strings
 type SortOrdersMap = Record<string, string[]>;
 
+export const DEFAULT_LIST_COLUMN_WIDTHS: ListColumnWidths = {
+  author: 128,
+  size: 64,
+  added: 80,
+};
+
 const DEFAULT_PREFS: LibraryPrefs = {
   viewMode: "grid",
   cardSize: 200,
   controlsExpanded: true,
+  listColumnWidths: DEFAULT_LIST_COLUMN_WIDTHS,
 };
 
 function loadPrefs(): LibraryPrefs {
@@ -38,7 +55,13 @@ function loadPrefs(): LibraryPrefs {
       // back to the platform default rather than the object default.
       const controlsExpanded =
         parsed.controlsExpanded ?? (isMobile ? false : true);
-      return { ...DEFAULT_PREFS, ...parsed, controlsExpanded };
+      // Merge column widths so newly-added columns get defaults when
+      // older clients have only some keys persisted.
+      const listColumnWidths = {
+        ...DEFAULT_LIST_COLUMN_WIDTHS,
+        ...(parsed.listColumnWidths ?? {}),
+      };
+      return { ...DEFAULT_PREFS, ...parsed, controlsExpanded, listColumnWidths };
     }
   } catch {
     // ignore
@@ -119,6 +142,20 @@ export function useLibraryPrefs() {
     });
   }, []);
 
+  const setListColumnWidth = useCallback(
+    (key: keyof ListColumnWidths, width: number) => {
+      setPrefs((p) => {
+        const next = {
+          ...p,
+          listColumnWidths: { ...p.listColumnWidths, [key]: width },
+        };
+        savePrefs(next);
+        return next;
+      });
+    },
+    [],
+  );
+
   const setSortOrder = useCallback((contextId: string, orderedKeys: string[]) => {
     setSortOrdersState((prev) => {
       const next = { ...prev, [contextId]: orderedKeys };
@@ -132,6 +169,7 @@ export function useLibraryPrefs() {
     setViewMode,
     setCardSize,
     setControlsExpanded,
+    setListColumnWidth,
     sortOrders,
     setSortOrder,
   };

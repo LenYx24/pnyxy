@@ -63,6 +63,19 @@ export function LandingPage() {
           />
         </Link>
         <div className="flex items-center gap-2">
+          {/* Privacy Policy link — visible in the header so Google's
+              OAuth-verification crawler picks it up above the fold.
+              The footer link is the canonical entry, but the verifier
+              kept rejecting the page for "no privacy policy link"
+              when the link was only at the bottom of a long
+              JS-rendered scroll. Mirrored on the tutorial column so
+              the visual weight stays balanced. */}
+          <Link
+            to="/privacy"
+            className="hidden text-xs text-text-muted underline-offset-2 transition-colors hover:text-text-secondary hover:underline md:inline-block"
+          >
+            {t("footer.privacy")}
+          </Link>
           <Link to="/tutorial" className="hidden sm:block">
             <Button variant="ghost" className="text-sm">
               {t("landing.tutorial")}

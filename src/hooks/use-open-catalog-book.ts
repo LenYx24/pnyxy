@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { registerFile } from "@/lib/file-store";
 import { logError } from "@/lib/logger";
 import { supabase } from "@/lib/supabase";
@@ -71,6 +71,11 @@ async function fetchViaProxy(url: string): Promise<Response> {
 
 export function useOpenCatalogBook() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Snapshot the entry pathname so the reader's back arrow can return
+  // to wherever the user opened from. Same trick as
+  // useOpenUploadedDocument — see the comment there.
+  const openedFrom = location.pathname + location.search;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,7 +94,7 @@ export function useOpenCatalogBook() {
         const cached = blobCache.get(book.id);
         if (cached) {
           registerFile(book.id, cached);
-          navigate(`/reader/${book.id}`);
+          navigate(`/reader/${book.id}`, { state: { from: openedFrom } });
           return;
         }
 
@@ -121,7 +126,7 @@ export function useOpenCatalogBook() {
 
         blobCache.set(book.id, file);
         registerFile(book.id, file);
-        navigate(`/reader/${book.id}`);
+        navigate(`/reader/${book.id}`, { state: { from: openedFrom } });
       } catch (err) {
         logError("useOpenCatalogBook", err);
         setError("fetch-failed");
@@ -129,7 +134,7 @@ export function useOpenCatalogBook() {
         setLoading(false);
       }
     },
-    [navigate],
+    [navigate, openedFrom],
   );
 
   return { openCatalogBook, loading, error };

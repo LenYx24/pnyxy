@@ -35,7 +35,12 @@ export type SyncOp = "insert" | "update" | "delete";
 /** Catalog of entities the queue knows how to apply. Extend this
  *  type as new local-first entities are added, then register a
  *  handler with `registerEntityHandler`. */
-export type SyncEntity = "folder" | "note" | "book_tag" | "user_book_tag";
+export type SyncEntity =
+  | "folder"
+  | "note"
+  | "book"
+  | "book_tag"
+  | "user_book_tag";
 
 export interface PendingMutation<P = unknown> {
   /** Stable client-side id. UUID. */

@@ -46,6 +46,11 @@ export interface ChatDraft {
   /** Editor-side context: ties the conversation to an artifact the
    *  AI is allowed to mutate via tool calls. */
   target?: { roadmapId?: string | null; quizId?: string | null } | null;
+  /** Selection rects from the reader — when set, the panel arms a
+   *  citation that will be saved once the user actually sends the
+   *  draft. Lets us draw dotted underlines on the source passage so
+   *  users can see which book quotes they've already asked about. */
+  selection?: import("@/types/annotation").TextSelection | null;
 }
 
 export interface ChatSourceContext {
@@ -68,6 +73,16 @@ export interface ChatSendOptions {
    *  providers ignore the flag). Composer surfaces this as a
    *  "Reasoning" toggle next to the model picker. */
   reasoning?: boolean;
+  /** Arm an AI citation for the source selection. When set, the
+   *  user message that gets inserted by this send is recorded in
+   *  the local ai_citations store so the reader can underline the
+   *  passage. Caller (AiChatPanel) populates this from a drained
+   *  ChatDraft.selection on the FIRST send after a "Send to chat"
+   *  hand-off, then clears it. */
+  citation?: {
+    documentId: string;
+    selection: import("@/types/annotation").TextSelection;
+  };
 }
 
 interface ChatState {
@@ -986,6 +1001,47 @@ async function sendOrBranch(
     next.set(userMsg.id, userMsg);
     return { messages: next, activeLeafId: userMsg.id };
   });
+
+  // Citation hook — when this send was armed with a source selection
+  // (see options.citation; AiChatPanel sets this on the first send
+  // after a "Send to chat" hand-off), record an AI citation linking
+  // the inserted user message back to the originating PDF passage.
+  // Best-effort: failures don't block the actual chat turn.
+  if (options?.citation) {
+    const citationConv = get().conversations.find(
+      (c) => c.id === conversationId,
+    );
+    void (async () => {
+      try {
+        const { saveAiCitation } = await import("@/lib/annotation-storage");
+        await saveAiCitation({
+          id:
+            (typeof crypto !== "undefined" && "randomUUID" in crypto)
+              ? crypto.randomUUID()
+              : `cit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          documentId: options.citation!.documentId,
+          selection: options.citation!.selection,
+          conversationId,
+          messageId: userMsg.id,
+          messageSnippet: trimmed.slice(0, 80),
+          conversationTitle: citationConv?.title ?? "",
+          createdAt: Date.now(),
+        });
+        // Pull the new citation into the annotation store so the
+        // reader's CitationLayer re-renders without waiting for a
+        // doc reopen. Lazy import — annotation-store would loop
+        // through chat-store otherwise.
+        const { useAnnotationStore } = await import(
+          "@/stores/annotation-store"
+        );
+        useAnnotationStore.getState().reloadCitations(
+          options.citation!.documentId,
+        );
+      } catch (err) {
+        logError("chat:sendMessage:citationSave", err);
+      }
+    })();
+  }
 
   // First message in a fresh conversation — fire an async title
   // request. We don't await it because the user shouldn't have to

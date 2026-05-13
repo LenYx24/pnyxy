@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { supabase } from "@/lib/supabase";
 import { createAdapterForFile } from "@/features/reader/adapters";
 import { useReaderStore } from "@/stores/reader-store";
@@ -102,6 +102,13 @@ export function prefetchBookBlob(
 
 export function useOpenUploadedDocument() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Capture wherever the user opened from so the reader's back arrow
+  // can return there. Read at hook scope; the value snapshots into
+  // the callback below via closure. Without this, the reader always
+  // hard-navigates to /library on back, which is wrong when the user
+  // opened from a book detail page.
+  const openedFrom = location.pathname + location.search;
 
   const openUploadedBook = useCallback(
     async (entry: UploadedLibraryItem) => {
@@ -137,12 +144,12 @@ export function useOpenUploadedDocument() {
         const docId = await useReaderStore.getState().addDocument(adapter, file);
 
         registerFile(docId, file);
-        navigate(`/reader/${docId}`);
+        navigate(`/reader/${docId}`, { state: { from: openedFrom } });
       } finally {
         setLoading(false);
       }
     },
-    [navigate],
+    [navigate, openedFrom],
   );
 
   return { openUploadedBook };

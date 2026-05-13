@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback } from "react";
 import { FloatingMenu } from "@/components/ui/FloatingMenu";
 import { getZoomControls } from "./pinch-zoom-controller";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
@@ -162,6 +162,19 @@ export function ReaderToolbar({
 }: ReaderToolbarProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  // The opener (book detail, library, bookmarks, etc.) stashes its
+  // path in `location.state.from` when navigating to /reader.
+  // - state.from set → step back via history so we land on the exact
+  //   entry the user came from without leaving a duplicate in the
+  //   stack (otherwise browser-back would yo-yo back into /reader).
+  // - no state → user landed here from a direct URL or external link,
+  //   fall back to /library which was the old unconditional behavior.
+  const fromPath = (location.state as { from?: string } | null)?.from ?? null;
+  const handleBack = useCallback(() => {
+    if (fromPath) navigate(-1);
+    else navigate("/library");
+  }, [fromPath, navigate]);
   const activeDoc = useActiveDocument();
   const inlineDrawActive = useInlineDrawStore((s) => s.active);
   const toggleInlineDraw = useInlineDrawStore((s) => s.toggleActive);
@@ -339,7 +352,7 @@ export function ReaderToolbar({
           </button>
         )}
         <button
-          onClick={() => navigate("/library")}
+          onClick={handleBack}
           className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer shrink-0"
           title={t("reader.toolbar.backToLibrary")}
         >

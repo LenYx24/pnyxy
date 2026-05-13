@@ -9,9 +9,11 @@ import {
   KeyboardSensor,
   MouseSensor,
   TouchSensor,
+  pointerWithin,
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragStartEvent,
   type DragEndEvent,
   type DropAnimation,
@@ -53,7 +55,7 @@ import { LibraryBookCard } from "./LibraryBookCard";
 import { LibraryListView } from "./LibraryListView";
 import { CreateFolderModal } from "./CreateFolderModal";
 import { applySort } from "./useLibraryPrefs";
-import type { ViewMode } from "./useLibraryPrefs";
+import type { ViewMode, ListColumnWidths } from "./useLibraryPrefs";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import type { BookStatusTag } from "@/types/database";
 import type { Folder as FolderType } from "@/types/database";
@@ -70,6 +72,8 @@ interface AllBooksTabProps {
   activeTag?: BookStatusTag | null;
   sortOrders: Record<string, string[]>;
   setSortOrder: (contextId: string, orderedKeys: string[]) => void;
+  listColumnWidths: ListColumnWidths;
+  setListColumnWidth: (key: keyof ListColumnWidths, width: number) => void;
   isLoading?: boolean;
 }
 
@@ -85,6 +89,8 @@ export function AllBooksTab({
   activeTag = null,
   sortOrders,
   setSortOrder,
+  listColumnWidths,
+  setListColumnWidth,
   isLoading = false,
 }: AllBooksTabProps) {
   const { t } = useTranslation();
@@ -170,13 +176,21 @@ export function AllBooksTab({
     return m;
   }, [filteredBooks]);
 
-  // Ordered arrays for rendering
+  // Ordered arrays for rendering. orderedKeys is derived from the
+  // same filtered folders/books that populate the maps, so every
+  // key resolves — no `filter(Boolean)` safety net needed.
   const orderedFolders = useMemo(
-    () => orderedKeys.filter((k) => k.startsWith("folder:")).map((k) => folderMap.get(k)!).filter(Boolean),
+    () =>
+      orderedKeys
+        .filter((k) => k.startsWith("folder:"))
+        .map((k) => folderMap.get(k)!),
     [orderedKeys, folderMap],
   );
   const orderedBooks = useMemo(
-    () => orderedKeys.filter((k) => k.startsWith("book:")).map((k) => bookMap.get(k)!).filter(Boolean),
+    () =>
+      orderedKeys
+        .filter((k) => k.startsWith("book:"))
+        .map((k) => bookMap.get(k)!),
     [orderedKeys, bookMap],
   );
 
@@ -208,6 +222,24 @@ export function AllBooksTab({
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
+
+  // Custom collision detector: explicit action targets (nest, breadcrumb)
+  // win whenever the cursor is actually inside them, even when the
+  // outer sortable shares the same center point — which is exactly
+  // the case for the list-view nest droppable (inset 6px symmetrically
+  // inside the row, so closestCenter alone tied with the sortable
+  // wrapper and "drop into folder" silently fell back to sibling
+  // reorder). Sibling reorder still uses closestCenter for everything
+  // that isn't an explicit action target.
+  const collisionDetection: CollisionDetection = useCallback((args) => {
+    const pointerHits = pointerWithin(args);
+    const explicit = pointerHits.filter((c) => {
+      const id = String(c.id);
+      return id.startsWith("nest:") || id.startsWith("breadcrumb:");
+    });
+    if (explicit.length > 0) return explicit;
+    return closestCenter(args);
+  }, []);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -389,7 +421,7 @@ export function AllBooksTab({
     <div>
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={collisionDetection}
         modifiers={dndModifiers}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
@@ -519,6 +551,7 @@ export function AllBooksTab({
               <LibraryListView
                 folders={orderedFolders}
                 books={orderedBooks}
+                orderedKeys={orderedKeys}
                 allFolders={folders}
                 allBooks={books}
                 selectedIds={selectedIds}
@@ -532,6 +565,8 @@ export function AllBooksTab({
                 onCreateSubfolder={handleCreateSubfolder}
                 onCreateRootFolder={handleCreateFolder}
                 cardSize={cardSize}
+                columnWidths={listColumnWidths}
+                setColumnWidth={setListColumnWidth}
               />
             )}
 

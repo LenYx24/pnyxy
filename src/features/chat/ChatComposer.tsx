@@ -900,15 +900,25 @@ export const ChatComposer = forwardRef<
           e.target.value = "";
         }}
       />
-      {/* Single toolbar row — no flex-wrap so it never splits into
-          two visual rows on narrow phones. */}
-      <div className="mt-2 flex items-center gap-1.5">
+      {/* Toolbar — single row when the composer is wide, two stacked
+          rows when narrow (small reader chat panel, mobile). The
+          @container query measures the composer's parent so the
+          layout switches based on its actual rendered width, not the
+          viewport — Dockview can give the panel any size independent
+          of screen. Inner divs use `@[22rem]/cm:contents` to flatten
+          back into a single flex row above the threshold; below, they
+          stay as nested flex containers stacked by `flex-col`. */}
+      <div className="@container/cm mt-2">
+      <div className="flex flex-col gap-1.5 @[22rem]/cm:flex-row @[22rem]/cm:items-center">
+      <div className="flex min-w-0 items-center gap-1.5 @[22rem]/cm:contents">
         <ModelPicker
           value={selectedProvider}
           options={configuredProviders}
           onChange={setSelectedProvider}
         />
         <ModePicker value={mode} onChange={setMode} />
+      </div>
+      <div className="flex items-center gap-1.5 @[22rem]/cm:contents">
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -1072,6 +1082,8 @@ export const ChatComposer = forwardRef<
             )}
           </button>
         </div>
+      </div>
+      </div>
       </div>
       {ConfirmModalElement}
     </div>

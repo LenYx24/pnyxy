@@ -91,6 +91,68 @@ export interface FolderSyncPayload {
   sort_order?: number;
 }
 
+// ── Books ───────────────────────────────────────────────────────
+//
+// Two book "sources" share one queue entry: catalog rows live in
+// `user_library` (the join table), uploaded rows in `books`. The
+// payload's `source` discriminator picks the right Supabase target.
+//
+// Payload shape:
+//   update: { id, source, folder_id }
+//   delete: { id, source, storage_path? }
+//   (insert is intentionally not queued — uploads + catalog-adds
+//    write directly as part of their own happy path.)
+
+export interface BookSyncPayload {
+  id: string;
+  source: "catalog" | "uploaded";
+  /** Partial patch for `update`. Today the only mutable field is
+   *  folder_id (move to folder / move to root). */
+  folder_id?: string | null;
+  /** For `delete` on an uploaded book: the storage object key to
+   *  remove before the DB row goes. The Storage `remove` is
+   *  best-effort and idempotent — if the file is already gone the
+   *  call still resolves cleanly, so the queue can retry safely. */
+  storage_path?: string;
+}
+
+async function handleBook(
+  op: SyncOp,
+  payload: BookSyncPayload,
+  _ctx: SyncContext,
+): Promise<void> {
+  const table = payload.source === "catalog" ? "user_library" : "books";
+  if (op === "delete") {
+    if (payload.source === "uploaded" && payload.storage_path) {
+      // Best-effort: errors here (missing object, transient 5xx) shouldn't
+      // block deleting the DB row. The storage row + DB row deletion
+      // are not transactional; if storage fails permanently the
+      // orphaned object is collected by a separate cleanup job.
+      await supabase.storage
+        .from("book-files")
+        .remove([payload.storage_path]);
+    }
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .eq("id", payload.id);
+    if (error) throwClassifiedSupabaseError(error.message, error.code);
+    return;
+  }
+  if (op === "update") {
+    if (payload.folder_id === undefined) return;
+    const { error } = await supabase
+      .from(table)
+      .update({ folder_id: payload.folder_id })
+      .eq("id", payload.id);
+    if (error) throwClassifiedSupabaseError(error.message, error.code);
+    return;
+  }
+  // `insert` for books goes through the upload pipeline directly; the
+  // queue isn't a write path for new books today. Treat as a no-op
+  // so the queue drains a stray entry without looping.
+}
+
 async function handleFolder(
   op: SyncOp,
   payload: FolderSyncPayload,
@@ -173,4 +235,5 @@ export function registerSyncEntityHandlers(): void {
   registered = true;
   registerEntityHandler<NoteSyncPayload>("note", handleNote);
   registerEntityHandler<FolderSyncPayload>("folder", handleFolder);
+  registerEntityHandler<BookSyncPayload>("book", handleBook);
 }

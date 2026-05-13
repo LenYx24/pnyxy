@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type {
+  AiCitation,
   Highlight,
   Comment,
   HighlightColor,
@@ -12,6 +13,7 @@ import {
   loadComments,
   saveComment,
   deleteComment as dbDeleteComment,
+  loadAiCitations,
 } from "@/lib/annotation-storage";
 import { cleanUserText } from "@/lib/profanity-filter";
 import { useUndoStore, registerAnnotationStore } from "@/stores/undo-store";
@@ -98,11 +100,20 @@ interface AnnotationState {
   // mutation so visible pages can do O(1) lookup instead of O(N) filtering.
   highlightsByPage: Map<number, Highlight[]>;
   commentsByPage: Map<number, Comment[]>;
+  /** AI citations grouped per page — same shape as highlightsByPage.
+   *  Read-only from the reader's perspective; new citations land via
+   *  `reloadCitations()` which the chat-store calls after a send. */
+  citationsByPage: Map<number, AiCitation[]>;
   activeHighlightColor: HighlightColor;
   selectedAnnotationId: string | null;
   contextMenu: ContextMenuState;
 
   loadAnnotations(documentId: string): Promise<void>;
+  /** Re-fetch citations for `documentId` from IndexedDB and re-build
+   *  the per-page index. Called by chat-store after a "Send to chat"
+   *  submit so the new underline shows up without waiting for a doc
+   *  reopen. No-op if the doc isn't currently loaded. */
+  reloadCitations(documentId: string): Promise<void>;
   clearAll(): void;
 
   addHighlight(selection: TextSelection, color: HighlightColor): void;
@@ -142,14 +153,16 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   comments: new Map(),
   highlightsByPage: new Map(),
   commentsByPage: new Map(),
+  citationsByPage: new Map(),
   activeHighlightColor: "yellow",
   selectedAnnotationId: null,
   contextMenu: { visible: false, x: 0, y: 0, selection: null, highlightId: null },
 
   async loadAnnotations(documentId: string) {
-    const [highlights, comments] = await Promise.all([
+    const [highlights, comments, citations] = await Promise.all([
       loadHighlights(documentId),
       loadComments(documentId),
+      loadAiCitations(documentId),
     ]);
     set({
       documentId,
@@ -157,8 +170,17 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
       comments: new Map(comments.map((c) => [c.id, c])),
       highlightsByPage: buildPageIndex(highlights),
       commentsByPage: buildPageIndex(comments),
+      citationsByPage: buildPageIndex(citations),
       selectedAnnotationId: null,
     });
+  },
+
+  async reloadCitations(documentId: string) {
+    // Skip if a different doc is now open — late writes from the
+    // previous doc's chat shouldn't repopulate after a doc switch.
+    if (get().documentId !== documentId) return;
+    const citations = await loadAiCitations(documentId);
+    set({ citationsByPage: buildPageIndex(citations) });
   },
 
   clearAll() {
@@ -168,6 +190,7 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
       comments: new Map(),
       highlightsByPage: new Map(),
       commentsByPage: new Map(),
+      citationsByPage: new Map(),
       selectedAnnotationId: null,
       contextMenu: { visible: false, x: 0, y: 0, selection: null, highlightId: null },
     });

@@ -10,7 +10,10 @@ import {
   replaceAllFoldersLocal,
 } from "@/lib/annotation-storage";
 import { enqueueMutation } from "@/lib/sync-queue";
-import type { FolderSyncPayload } from "@/lib/sync-entity-handlers";
+import type {
+  BookSyncPayload,
+  FolderSyncPayload,
+} from "@/lib/sync-entity-handlers";
 import { useTagStore } from "./tag-store";
 import { useOrgStore } from "./org-store";
 import { useNetworkStore } from "./network-store";
@@ -446,28 +449,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   },
 
   moveBookToFolder: async (entry, folderId) => {
-    if (entry.source === "catalog") {
-      const { error } = await supabase
-        .from("user_library")
-        .update({ folder_id: folderId })
-        .eq("id", entry.id);
-
-      if (error) {
-        logError("library-store:moveBookToFolder", error.message);
-        throw error;
-      }
-    } else {
-      const { error } = await supabase
-        .from("books")
-        .update({ folder_id: folderId })
-        .eq("id", entry.id);
-
-      if (error) {
-        logError("library-store:moveBookToFolder", error.message);
-        throw error;
-      }
-    }
-
+    // Optimistic — same shape as moveFolderToFolder: patch local
+    // state first, queue the Supabase mutation for the sync worker.
+    // Lets a drag-into-folder land instantly + survive offline, and
+    // also stops a failed Supabase call from silently swallowing the
+    // user's action behind a `void`-ed handler.
     set((state) => ({
       books: state.books.map((b) =>
         b.id === entry.id && b.source === entry.source
@@ -475,6 +461,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           : b,
       ),
     }));
+    void enqueueMutation<BookSyncPayload>("book", "update", {
+      id: entry.id,
+      source: entry.source,
+      folder_id: folderId,
+    });
   },
 
   moveFolderToFolder: async (folderId, newParentId) => {
@@ -511,38 +502,21 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   },
 
   removeFromLibrary: async (entry) => {
-    if (entry.source === "catalog") {
-      const { error } = await supabase
-        .from("user_library")
-        .delete()
-        .eq("id", entry.id);
-
-      if (error) {
-        logError("library-store:removeFromLibrary", error.message);
-        throw error;
-      }
-    } else {
-      // For uploaded books: delete storage file, then delete books row (cascades book_files)
-      await supabase.storage
-        .from("book-files")
-        .remove([entry.book.storage_path]);
-
-      const { error } = await supabase
-        .from("books")
-        .delete()
-        .eq("id", entry.id);
-
-      if (error) {
-        logError("library-store:removeFromLibrary:delete", error.message);
-        throw error;
-      }
-    }
-
+    // Optimistic delete: drop the row locally, queue the Supabase
+    // side. For uploaded books we also pass storage_path so the
+    // worker removes the underlying file before the books row goes
+    // (the storage cleanup is idempotent — safe to retry).
     set((state) => ({
       books: state.books.filter(
         (b) => !(b.id === entry.id && b.source === entry.source),
       ),
     }));
+    void enqueueMutation<BookSyncPayload>("book", "delete", {
+      id: entry.id,
+      source: entry.source,
+      storage_path:
+        entry.source === "uploaded" ? entry.book.storage_path : undefined,
+    });
   },
 
   getBooksInFolder: (folderId) => {
@@ -567,13 +541,22 @@ useOrgStore.subscribe((state, prev) => {
   if (state.currentOrgId) {
     // Org change is a real data invalidation — bypass the freshness
     // check; otherwise switching to a different workspace within 60s
-    // would silently keep showing the previous org's books.
+    // would silently keep showing the previous org's books. The
+    // in-progress doc-id set is per-user, but the *visible* set is
+    // gated to the books we just fetched, so it has to be refetched
+    // in lockstep — otherwise the "Reading" pill keeps showing the
+    // previous org's doc ids until the next freshness window.
     void useLibraryStore.getState().fetchLibrary(true);
     void useLibraryStore.getState().fetchFolders(true);
+    void useLibraryStore.getState().fetchInProgress(true);
   } else {
     useLibraryStore.setState({
       books: [],
       folders: [],
+      // Clear the in-progress set too; an empty books list with a
+      // populated id set is harmless today but a stale invariant
+      // waiting to fire later.
+      inProgressDocIds: new Set(),
       currentFolderId: null,
       folderPath: [],
       lastFetchedAt: { books: null, folders: null, inProgress: null },

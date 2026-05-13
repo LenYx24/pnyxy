@@ -65,12 +65,14 @@ describe("getDB", () => {
     const { getDB } = await loadModule();
     const db = await getDB();
     expect(db.name).toBe("pnyxy-annotations");
-    expect(db.version).toBe(7);
+    expect(db.version).toBe(9);
     expect(Array.from(db.objectStoreNames).sort()).toEqual(
       [
+        "ai_citations",
         "bookmarks",
         "comments",
         "documentMeta",
+        "folders",
         "highlights",
         "notes",
         "roadmaps",

@@ -14,6 +14,7 @@ import { useReaderStore, useDocumentState } from "@/stores/reader-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTextSelection } from "@/hooks/use-text-selection";
 import { HighlightLayer } from "./HighlightLayer";
+import { AiCitationLayer } from "./AiCitationLayer";
 import { SearchHighlightLayer } from "./SearchHighlightLayer";
 import { CommentMarkers } from "./CommentMarkers";
 import { InlineDrawLayer } from "./InlineDrawLayer";
@@ -115,6 +116,7 @@ const PageSlot = memo(function PageSlot({
             onRenderSuccess={() => onRenderSuccess(pageNum)}
           />
           <HighlightLayer pageNum={pageNum} />
+          <AiCitationLayer pageNum={pageNum} />
           <SearchHighlightLayer pageNum={pageNum} />
           <CommentMarkers pageNum={pageNum} />
           <InlineDrawLayer pageNum={pageNum} />

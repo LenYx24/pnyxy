@@ -13,6 +13,44 @@ const ZOOM_MIN = 25;
 const ZOOM_MAX = 1000;
 const PROGRESS_PERSIST_DEBOUNCE_MS = 800;
 
+/** Compute the auto-mode AI page selection for a doc: a window of
+ *  `aiSurroundingPagesCount` pages on either side of `center`,
+ *  clamped to [1, totalPages]. Returns null when there's nothing to
+ *  pick (non-PDF, empty doc, radius 0). Shared between `addDocument`
+ *  and the page-change actions so the "initial fill" and "follow
+ *  reading" paths can't drift. */
+function autoPagesAround(
+  format: string,
+  totalPages: number,
+  center: number,
+): Set<number> | null {
+  if (format !== "pdf" || totalPages <= 0) return null;
+  const radius = useSettingsStore.getState().aiSurroundingPagesCount;
+  if (radius <= 0) return null;
+  const c = center > 0 ? center : 1;
+  const lo = Math.max(1, c - radius);
+  const hi = Math.min(totalPages, c + radius);
+  const set = new Set<number>();
+  for (let p = lo; p <= hi; p++) set.add(p);
+  return set;
+}
+
+/** Helper for the page-change actions: when `doc.aiPagesAutoMode` is
+ *  on, return a partial doc update that re-fills `aiSelectedPages`
+ *  around the new center. Returns `{}` when auto-mode is off (the
+ *  user picked their own pages, leave them alone) or when the new
+ *  page can't produce an auto selection. Spread into the existing
+ *  updateDoc call. */
+function autoFollowUpdate(
+  doc: DocumentState,
+  newPage: number,
+): Partial<DocumentState> {
+  if (!doc.aiPagesAutoMode) return {};
+  const next = autoPagesAround(doc.meta.format, doc.totalPages, newPage);
+  if (!next) return {};
+  return { aiSelectedPages: next, aiSelectionAnchor: newPage };
+}
+
 export interface DocumentState {
   adapter: DocumentAdapter;
   meta: DocumentMeta;
@@ -61,6 +99,15 @@ export interface DocumentState {
    *  wants the model to actually see the pictures. Memory-only —
    *  same lifecycle as aiSelectedPages. */
   aiSendPagesAsImage: boolean;
+  /** When true, `aiSelectedPages` follows the user's current page —
+   *  re-fills with `currentPage ± aiSurroundingPagesCount` on every
+   *  page change. Default for new docs so the AI always has *some*
+   *  book context out of the box and the user can SEE which pages
+   *  are queued without entering a separate selection mode. Any
+   *  manual selection edit (toggle, range, select-all, clear) flips
+   *  this off so the user's choice sticks. Re-enabled by clicking
+   *  "Select around current page". */
+  aiPagesAutoMode: boolean;
 }
 
 interface ReaderState {
@@ -289,6 +336,15 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       // ignore — local copy already loaded above
     }
 
+    // Auto-mode pre-fill: derive the initial AI page selection from
+    // the resume position + the user's surrounding-pages setting so
+    // the AI has working book context the moment chat opens. PDF
+    // only — non-PDF formats have no extractable page text yet, so
+    // the auto-fill would be a no-op semantic-wise.
+    const initialAiPages =
+      autoPagesAround(meta.format, meta.totalPages, lastPosition) ??
+      new Set<number>();
+
     const docState: DocumentState = {
       adapter,
       meta,
@@ -304,9 +360,10 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       progressPage,
       scrollOffset,
       cfi,
-      aiSelectedPages: new Set(),
+      aiSelectedPages: initialAiPages,
       aiSelectionAnchor: null,
       aiSendPagesAsImage: false,
+      aiPagesAutoMode: true,
     };
 
     const next = new Map(get().documents);
@@ -356,6 +413,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         currentPage: clamped,
         scrollToPage: clamped,
         scrollOffset: 0,
+        ...autoFollowUpdate(doc, clamped),
       }),
       id,
       doc.currentPage,
@@ -377,6 +435,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         currentPage: next,
         scrollToPage: next,
         scrollOffset: 0,
+        ...autoFollowUpdate(doc, next),
       }),
       id,
       doc.currentPage,
@@ -398,6 +457,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         currentPage: prev,
         scrollToPage: prev,
         scrollOffset: 0,
+        ...autoFollowUpdate(doc, prev),
       }),
       id,
       doc.currentPage,
@@ -465,6 +525,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     });
   },
 
+  // (See updateDoc/autoFollowUpdate above — manual-selection ops drop
+  // out of auto-mode, page-change ops keep it on and re-fill.)
   setCurrentPage(page, docId) {
     const id = docId ?? get().activeDocumentId;
     if (!id) return;
@@ -473,7 +535,10 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     if (!doc) return;
     if (page === doc.currentPage) return;
     const updated = recordPageChange(
-      updateDoc(documents, id, { currentPage: page }),
+      updateDoc(documents, id, {
+        currentPage: page,
+        ...autoFollowUpdate(doc, page),
+      }),
       id,
       doc.currentPage,
       page,
@@ -573,6 +638,9 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         // paints from here. The anchor remains valid even after a
         // delete; you can shift-click *out* of pages just as well.
         aiSelectionAnchor: page,
+        // Manual edit → leave auto-mode so subsequent page navigation
+        // doesn't overwrite the user's choice.
+        aiPagesAutoMode: false,
       }),
     });
   },
@@ -591,6 +659,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       documents: updateDoc(get().documents, id, {
         aiSelectedPages: next,
         aiSelectionAnchor: to,
+        aiPagesAutoMode: false,
       }),
     });
   },
@@ -606,6 +675,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       documents: updateDoc(get().documents, id, {
         aiSelectedPages: next,
         aiSelectionAnchor: doc.totalPages,
+        aiPagesAutoMode: false,
       }),
     });
   },
@@ -614,11 +684,12 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     const id = docId ?? get().activeDocumentId;
     if (!id) return;
     const doc = get().documents.get(id);
-    if (!doc || doc.aiSelectedPages.size === 0) return;
+    if (!doc || (doc.aiSelectedPages.size === 0 && !doc.aiPagesAutoMode)) return;
     set({
       documents: updateDoc(get().documents, id, {
         aiSelectedPages: new Set(),
         aiSelectionAnchor: null,
+        aiPagesAutoMode: false,
       }),
     });
   },
@@ -628,17 +699,16 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     if (!id) return;
     const doc = get().documents.get(id);
     if (!doc || doc.totalPages <= 0) return;
-    const radius = useSettingsStore.getState().aiSurroundingPagesCount;
-    if (radius <= 0) return;
     const center = doc.currentPage > 0 ? doc.currentPage : 1;
-    const lo = Math.max(1, center - radius);
-    const hi = Math.min(doc.totalPages, center + radius);
-    const next = new Set<number>();
-    for (let p = lo; p <= hi; p++) next.add(p);
+    const next = autoPagesAround(doc.meta.format, doc.totalPages, center);
+    if (!next) return;
     set({
       documents: updateDoc(get().documents, id, {
         aiSelectedPages: next,
         aiSelectionAnchor: center,
+        // Re-enter auto-mode — the user opted back into "follow my
+        // reading", overwriting whatever manual edits they had.
+        aiPagesAutoMode: true,
       }),
     });
   },

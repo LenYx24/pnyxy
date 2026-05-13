@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Bookmark as BookmarkIcon } from "lucide-react";
 import { useBook } from "../BookPageContext";
@@ -17,6 +17,8 @@ import {
 export function BookmarksTab() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const openedFrom = location.pathname + location.search;
   const book = useBook();
   const documentId = book.book.id;
 
@@ -76,7 +78,9 @@ export function BookmarksTab() {
             <button
               key={bm.id}
               onClick={() =>
-                navigate(`/reader/${documentId}?page=${bm.page}`)
+                navigate(`/reader/${documentId}?page=${bm.page}`, {
+                  state: { from: openedFrom },
+                })
               }
               className="flex items-center gap-3 rounded-lg border border-glass-border bg-glass-bg/40 px-3 py-2 text-left transition-colors hover:border-accent-purple/40 hover:bg-glass-hover cursor-pointer"
             >

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Folder, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox, FloatingMenu, PromptModal } from "@/components/ui";
@@ -39,6 +40,16 @@ export function FolderCard({
     transition,
     isDragging,
   } = useSortable({ id: sortableId ?? folder.id, disabled: !sortableId });
+
+  // "Nest into me" drop target — fires the nest branch in
+  // AllBooksTab.handleDragEnd so dropping a book/folder onto a card
+  // moves it inside this folder. Without this, the cover only acted
+  // as a sortable position and drops did sibling reorder only.
+  const nest = useDroppable({
+    id: `nest:${folder.id}`,
+    disabled: !sortableId,
+    data: { type: "folder", folderId: folder.id },
+  });
 
   const style = sortableId
     ? { transform: CSS.Transform.toString(transform), transition }
@@ -115,7 +126,14 @@ export function FolderCard({
               the shape, and adding a border on top of the tint felt
               busy. Hover bumps the tint up one notch + adds shadow
               for the same lift the book covers get. */}
-          <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-accent-purple/[0.12] shadow-sm transition-all group-hover:bg-accent-purple/[0.18] group-hover:shadow-md">
+          <div
+            ref={nest.setNodeRef}
+            className={cn(
+              "relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-accent-purple/[0.12] shadow-sm transition-all group-hover:bg-accent-purple/[0.18] group-hover:shadow-md",
+              nest.isOver &&
+                "bg-accent-purple/30 ring-2 ring-inset ring-accent-purple/70",
+            )}
+          >
             <Folder
               size={iconSize}
               fill="currentColor"

@@ -66,6 +66,8 @@ export function LibraryPage() {
     setControlsExpanded,
     sortOrders,
     setSortOrder,
+    listColumnWidths,
+    setListColumnWidth,
   } = useLibraryPrefs();
 
   // Search
@@ -107,16 +109,11 @@ export function LibraryPage() {
             return next;
           });
         }
-      } else if (event.ctrlKey) {
-        // Toggle single item
-        setSelectedIds((prev) => {
-          const next = new Set(prev);
-          if (next.has(id)) next.delete(id);
-          else next.add(id);
-          return next;
-        });
       } else {
-        // Toggle (during active selection or checkbox click)
+        // Plain click during an active selection — or any
+        // ctrl/cmd-click — toggles the row. Range-select (shift) is
+        // handled above; everything else collapses to the same
+        // single-item toggle.
         setSelectedIds((prev) => {
           const next = new Set(prev);
           if (next.has(id)) next.delete(id);
@@ -507,6 +504,8 @@ export function LibraryPage() {
         activeTag={activeTag}
         sortOrders={sortOrders}
         setSortOrder={setSortOrder}
+        listColumnWidths={listColumnWidths}
+        setListColumnWidth={setListColumnWidth}
         isLoading={isLoading}
       />
 

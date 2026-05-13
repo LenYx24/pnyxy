@@ -1,8 +1,8 @@
 import { openDB, type IDBPDatabase } from "idb";
-import type { Highlight, Comment } from "@/types/annotation";
+import type { AiCitation, Highlight, Comment } from "@/types/annotation";
 
 const DB_NAME = "pnyxy-annotations";
-const DB_VERSION = 8;
+const DB_VERSION = 9;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -53,6 +53,15 @@ export function getDB(): Promise<IDBPDatabase> {
         if (!db.objectStoreNames.contains("folders")) {
           db.createObjectStore("folders", { keyPath: "id" });
         }
+        // v9: ai_citations — selections that were actually sent to
+        // the AI in a chat. Indexed by documentId for the per-doc
+        // citation layer; the popover lookup uses the loaded list
+        // directly so we don't need a messageId index.
+        if (!db.objectStoreNames.contains("ai_citations")) {
+          const cs = db.createObjectStore("ai_citations", { keyPath: "id" });
+          cs.createIndex("documentId", "documentId");
+          cs.createIndex("messageId", "messageId");
+        }
       },
     });
   }
@@ -91,6 +100,23 @@ export async function saveComment(c: Comment): Promise<void> {
 export async function deleteComment(id: string): Promise<void> {
   const db = await getDB();
   await db.delete("comments", id);
+}
+
+// --- AI citations ---
+
+export async function loadAiCitations(docId: string): Promise<AiCitation[]> {
+  const db = await getDB();
+  return db.getAllFromIndex("ai_citations", "documentId", docId);
+}
+
+export async function saveAiCitation(c: AiCitation): Promise<void> {
+  const db = await getDB();
+  await db.put("ai_citations", c);
+}
+
+export async function deleteAiCitation(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete("ai_citations", id);
 }
 
 // --- Document Meta (custom titles, etc.) ---

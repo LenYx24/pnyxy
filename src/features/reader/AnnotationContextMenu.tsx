@@ -11,8 +11,7 @@ import { createPortal } from "react-dom";
 import {
   Copy,
   MessageSquare,
-  Trash2,
-  Palette,
+  X,
   BookOpen,
   Languages,
   Loader2,
@@ -132,7 +131,6 @@ export function AnnotationContextMenu() {
 
   const [showCommentInput, setShowCommentInput] = useState(false);
   const [commentText, setCommentText] = useState("");
-  const [showColorChange, setShowColorChange] = useState(false);
   const [showTranslate, setShowTranslate] = useState(false);
   const [translatedText, setTranslatedText] = useState("");
   const [translating, setTranslating] = useState(false);
@@ -160,7 +158,6 @@ export function AnnotationContextMenu() {
   useEffect(() => {
     if (!contextMenu.visible) return;
     setShowCommentInput(false);
-    setShowColorChange(false);
     setShowTranslate(false);
     setTranslatedText("");
     setTranslateError("");
@@ -228,15 +225,17 @@ export function AnnotationContextMenu() {
 
   const navigate = useNavigate();
   const handleSendToChat = useCallback(() => {
-    const text = (
-      contextMenu.selection?.text ?? highlight?.selection.text ?? ""
-    ).trim();
+    const selection = contextMenu.selection ?? highlight?.selection ?? null;
+    const text = (selection?.text ?? "").trim();
     if (!text) return;
     const doc = useReaderStore.getState().getActiveDoc();
     if (!doc) return;
     // Stash a draft. Either the reader's in-panel AiChatPanel or
     // ChatPage will pick it up — both subscribe to pendingDraft and
     // drain it into a fresh conversation prefilled with the quote.
+    // `selection` rides along so AiChatPanel can arm a citation that
+    // gets saved on the first send, letting us underline the source
+    // passage in the PDF.
     useChatStore.getState().setPendingDraft({
       text: `> ${text.replace(/\n/g, "\n> ")}\n\n`,
       source: {
@@ -244,6 +243,7 @@ export function AnnotationContextMenu() {
         docTitle: doc.customTitle || doc.meta.title || "Untitled",
         page: doc.currentPage ?? null,
       },
+      selection,
     });
     hideContextMenu();
     window.getSelection()?.removeAllRanges();
@@ -323,7 +323,6 @@ export function AnnotationContextMenu() {
     (color: HighlightColor) => {
       if (!contextMenu.highlightId) return;
       updateHighlightColor(contextMenu.highlightId, color);
-      setShowColorChange(false);
       hideContextMenu();
     },
     [contextMenu.highlightId, updateHighlightColor, hideContextMenu],
@@ -473,43 +472,48 @@ export function AnnotationContextMenu() {
       className="fixed z-50 flex flex-col gap-1 rounded-lg border border-glass-border bg-bg-secondary/95 backdrop-blur-md p-2 shadow-xl"
       style={{ left: menuPos.x, top: menuPos.y }}
     >
-      {/* Highlight color circles (only for new selections) */}
-      {hasSelection && !showCommentInput && !showTranslate && (
+      {/* Color row — for new selections, click a color to highlight;
+          for existing highlights, click to change color, click the
+          trailing X to remove. Keeping the picker and the remove
+          action in the same row means delete is one click from
+          where the user just set the highlight, instead of buried
+          three rows down in the menu. */}
+      {(hasSelection || hasHighlight) && !showCommentInput && !showTranslate && !showDefine && (
         <>
           <div className="flex items-center gap-1.5 px-1">
             {COLORS.map(({ color, hex }) => (
               <button
                 key={color}
-                className="h-6 w-6 rounded-full border-2 border-transparent hover:border-white/40 transition-colors cursor-pointer hover:scale-110"
-                style={{ backgroundColor: hex }}
-                title={t("reader.annotationMenu.highlightTitle", { color })}
-                onClick={() => handleHighlight(color)}
-              />
-            ))}
-          </div>
-          <div className="h-px bg-glass-border my-0.5" />
-        </>
-      )}
-
-      {/* Change color for existing highlight */}
-      {hasHighlight && showColorChange && (
-        <>
-          <div className="flex items-center gap-1.5 px-1">
-            {COLORS.map(({ color, hex }) => (
-              <button
-                key={color}
-                className="h-6 w-6 rounded-full border-2 border-transparent hover:border-white/40 transition-colors cursor-pointer hover:scale-110"
+                className="h-6 w-6 rounded-full border-2 border-transparent transition-colors cursor-pointer hover:border-white/40 hover:scale-110"
                 style={{
                   backgroundColor: hex,
                   borderColor:
-                    highlight.color === color
+                    hasHighlight && highlight.color === color
                       ? "rgba(255,255,255,0.6)"
                       : undefined,
                 }}
-                title={color}
-                onClick={() => handleChangeColor(color)}
+                title={
+                  hasHighlight
+                    ? color
+                    : t("reader.annotationMenu.highlightTitle", { color })
+                }
+                onClick={() =>
+                  hasHighlight
+                    ? handleChangeColor(color)
+                    : handleHighlight(color)
+                }
               />
             ))}
+            {hasHighlight && (
+              <button
+                onClick={handleRemoveHighlight}
+                className="ml-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-transparent bg-red-500/15 text-red-400 transition-colors cursor-pointer hover:border-red-400/60 hover:bg-red-500/25 hover:scale-110"
+                title={t("reader.annotationMenu.removeHighlight")}
+                aria-label={t("reader.annotationMenu.removeHighlight")}
+              >
+                <X size={14} strokeWidth={2.5} />
+              </button>
+            )}
           </div>
           <div className="h-px bg-glass-border my-0.5" />
         </>
@@ -585,25 +589,9 @@ export function AnnotationContextMenu() {
             </button>
           )}
 
-          {hasHighlight && (
-            <>
-              <div className="h-px bg-glass-border my-0.5" />
-              <button
-                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
-                onClick={() => setShowColorChange(!showColorChange)}
-              >
-                <Palette size={14} />
-                {t("reader.annotationMenu.changeColor")}
-              </button>
-              <button
-                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-red-400/70 hover:bg-red-400/10 hover:text-red-400 transition-colors cursor-pointer"
-                onClick={handleRemoveHighlight}
-              >
-                <Trash2 size={14} />
-                {t("reader.annotationMenu.removeHighlight")}
-              </button>
-            </>
-          )}
+          {/* "Change color" + "Remove highlight" buttons moved up
+              into the color row above — the swatches double as the
+              color picker, and the trailing X is the delete. */}
         </div>
       ) : showDefine ? (
         /* Define panel */
