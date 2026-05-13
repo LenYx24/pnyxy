@@ -18,13 +18,16 @@ export function HeroSection() {
         <div className="absolute bottom-[30%] right-[15%] h-12 w-12 rotate-45 rounded-lg border border-accent-blue/15 animate-[float_9s_ease-in-out_infinite_0.5s]" />
       </div>
 
-      {/* Real h1 text includes the purpose ("Pnyxy — AI-assisted
-          reading and learning companion") so Google's OAuth crawler
-          and other text-only indexers can answer "what does this app
-          do?" from the h1 alone. Visually only the wordmark shows;
-          the descriptive half is `sr-only` so the layout stays clean
-          while the document outline carries the explanation. */}
-      <h1 className="mb-6 flex flex-col items-center gap-3">
+      {/* The h1's VISIBLE text includes the purpose ("Pnyxy —
+          AI-assisted reading and learning") so the first line a
+          crawler/reviewer sees on the page is "what does this app
+          do?". Earlier we tried hiding the descriptive half in an
+          `sr-only` span — Google's OAuth verifier still rejected
+          the page for "no purpose explanation", almost certainly
+          because their JS-rendered review skips screen-reader-only
+          content. The descriptive line uses a smaller weight so the
+          "Pnyxy" wordmark stays the visual anchor. */}
+      <h1 className="mb-6 flex flex-col items-center gap-2">
         <img
           src="/logo.svg"
           alt=""
@@ -34,15 +37,14 @@ export function HeroSection() {
         <span className="text-5xl font-bold tracking-tight text-text-primary sm:text-6xl md:text-7xl">
           Pnyxy
         </span>
-        <span className="sr-only">
-          {t("landing.h1ScreenReader", {
-            defaultValue:
-              "Pnyxy — AI-assisted reading and learning companion",
+        <span className="mt-1 text-lg font-medium text-text-secondary sm:text-xl md:text-2xl">
+          {t("landing.h1Purpose", {
+            defaultValue: "AI-assisted reading and learning platform",
           })}
         </span>
       </h1>
 
-      <p className="mb-4 max-w-2xl text-xl text-text-secondary sm:text-2xl">
+      <p className="mb-4 max-w-2xl text-base text-text-secondary sm:text-lg">
         {t("landing.tagline")}
       </p>
       <p className="mb-10 max-w-xl text-base text-text-muted">

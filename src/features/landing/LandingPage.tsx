@@ -63,16 +63,16 @@ export function LandingPage() {
           />
         </Link>
         <div className="flex items-center gap-2">
-          {/* Privacy Policy link — visible in the header so Google's
-              OAuth-verification crawler picks it up above the fold.
-              The footer link is the canonical entry, but the verifier
-              kept rejecting the page for "no privacy policy link"
-              when the link was only at the bottom of a long
-              JS-rendered scroll. Mirrored on the tutorial column so
-              the visual weight stays balanced. */}
+          {/* Privacy Policy link — always visible in the header,
+              including on mobile viewports, because Google's OAuth
+              verifier appears to run JS with a mobile viewport and
+              kept reporting "no privacy policy link" while the
+              md+-only variant was hidden behind a media query. The
+              underlined text takes minimal space and reads clearly
+              as a link at every breakpoint. */}
           <Link
             to="/privacy"
-            className="hidden text-xs text-text-muted underline-offset-2 transition-colors hover:text-text-secondary hover:underline md:inline-block"
+            className="text-xs text-text-muted underline underline-offset-2 transition-colors hover:text-text-secondary"
           >
             {t("footer.privacy")}
           </Link>
