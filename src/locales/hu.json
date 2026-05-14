@@ -532,7 +532,8 @@
     "upload": {
       "failed": "Feltöltés sikertelen",
       "success": "Feltöltve",
-      "retry": "Újra"
+      "retry": "Újra",
+      "unsupportedFormat": "A {{formats}} formátum még nem támogatott. Feljegyeztük, hogy érdekel — ha elég sokan kérik, beletesszük."
     },
     "actions": {
       "scan": "Mappa beolvasása",

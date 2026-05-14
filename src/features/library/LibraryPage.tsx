@@ -8,6 +8,7 @@ import {
   Link as LinkIcon,
   BookPlus,
   Plus,
+  AlertTriangle,
 } from "lucide-react";
 import { Button, FloatingMenu } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -17,6 +18,11 @@ import { useConfirm } from "@/hooks/use-confirm";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useUploadStore } from "@/stores/upload-store";
+import {
+  classifyFile,
+  fileExtension,
+  logUploadAttempt,
+} from "@/lib/upload-telemetry";
 import { OpenFromUrlModal } from "./OpenFromUrlModal";
 import { StorageUsageBar } from "./StorageUsageBar";
 import { StreakPill } from "./StreakCard";
@@ -306,12 +312,17 @@ export function LibraryPage() {
   // ghost cards in the grid show per-file progress), other
   // supported formats are opened locally in the reader.
   const [dragOver, setDragOver] = useState(false);
+  // Inline notice for drag-drops that contained known-unsupported
+  // formats. Auto-dismisses after a few seconds so it doesn't
+  // linger. Set is per-extension so the message can name the
+  // formats the user actually tried.
+  const [unsupportedNotice, setUnsupportedNotice] = useState<string[]>([]);
+  const unsupportedDismissRef = useRef<number | null>(null);
   // Track drag-enter/leave nesting — a single drag fires enter/leave
   // for every child the pointer crosses, which would otherwise flicker
   // the overlay.
   const dragDepth = useRef(0);
 
-  const SUPPORTED_RE = /\.(pdf|epub|txt|md|markdown)$/i;
   const PDF_RE = /\.pdf$/i;
 
   const isFileDrag = (e: React.DragEvent) =>
@@ -336,6 +347,18 @@ export function LibraryPage() {
     if (dragDepth.current === 0) setDragOver(false);
   }, []);
 
+  const showUnsupportedNotice = useCallback((extensions: string[]) => {
+    if (extensions.length === 0) return;
+    setUnsupportedNotice(extensions);
+    if (unsupportedDismissRef.current !== null) {
+      window.clearTimeout(unsupportedDismissRef.current);
+    }
+    unsupportedDismissRef.current = window.setTimeout(() => {
+      setUnsupportedNotice([]);
+      unsupportedDismissRef.current = null;
+    }, 6000);
+  }, []);
+
   const handleDrop = useCallback(
     async (e: React.DragEvent) => {
       if (!isFileDrag(e)) return;
@@ -344,29 +367,59 @@ export function LibraryPage() {
       setDragOver(false);
 
       const all = Array.from(e.dataTransfer.files);
-      const files = all.filter((f) => SUPPORTED_RE.test(f.name));
-      if (files.length === 0) return;
+
+      // Bucket files by class. Known-unsupported book formats get
+      // logged so we can see real demand later; unknown-extension
+      // files (junk drops) are silently ignored.
+      const supported: File[] = [];
+      const rejectedExtensions = new Set<string>();
+      for (const file of all) {
+        const kind = classifyFile(file);
+        if (kind === "supported") {
+          supported.push(file);
+        } else if (kind === "known-unsupported") {
+          rejectedExtensions.add(fileExtension(file.name));
+          void logUploadAttempt({
+            file,
+            status: "rejected_unsupported_format",
+          });
+        }
+      }
+
+      if (rejectedExtensions.size > 0) {
+        showUnsupportedNotice([...rejectedExtensions]);
+      }
+
+      if (supported.length === 0) return;
 
       // PDFs are enqueued for background upload — the user sees a
       // ghost card per file in the grid with live progress + retry.
       // Non-PDFs (epub/txt/md) open locally as before; we only
       // navigate on the *last* one so multi-format drops don't yank
       // the user off the library mid-batch.
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      for (let i = 0; i < supported.length; i++) {
+        const file = supported[i];
         if (PDF_RE.test(file.name) && user) {
           enqueueUpload(file, currentFolderId);
         } else {
           try {
-            await openFile(file, i === files.length - 1);
+            await openFile(file, i === supported.length - 1);
           } catch {
             // openFile owns its own error UI; nothing for us to do.
           }
         }
       }
     },
-    [user, enqueueUpload, openFile, currentFolderId],
+    [user, enqueueUpload, openFile, currentFolderId, showUnsupportedNotice],
   );
+
+  useEffect(() => {
+    return () => {
+      if (unsupportedDismissRef.current !== null) {
+        window.clearTimeout(unsupportedDismissRef.current);
+      }
+    };
+  }, []);
 
   const isUploaded = removeEntry?.source === "uploaded";
 
@@ -409,6 +462,22 @@ export function LibraryPage() {
           </div>
         </div>
       )}
+      {/* Inline notice for drag-drops with known-unsupported book
+          formats. Auto-dismisses after a few seconds. The aim is
+          to acknowledge the attempt so the user doesn't think it
+          silently dropped, and to communicate that demand is
+          recorded. */}
+      {unsupportedNotice.length > 0 && (
+        <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <p>
+            {t("library.upload.unsupportedFormat", {
+              formats: unsupportedNotice.join(", "),
+            })}
+          </p>
+        </div>
+      )}
+
       {/* Drop overlay — shown while a file drag is hovering. */}
       {dragOver && (
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-bg-primary/70 backdrop-blur-sm">

@@ -4,6 +4,7 @@ import { createAdapterForFile } from "@/features/reader/adapters";
 import { useReaderStore } from "@/stores/reader-store";
 import { useUIStore } from "@/stores/ui-store";
 import { registerFile } from "@/lib/file-store";
+import { logUploadAttempt } from "@/lib/upload-telemetry";
 
 export function useOpenDocument() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -26,11 +27,21 @@ export function useOpenDocument() {
 
         registerFile(docId, file);
 
+        void logUploadAttempt({ file, status: "accepted" });
+
         if (shouldNavigate) {
           navigate(`/reader/${docId}`);
         }
 
         return docId;
+      } catch (err) {
+        void logUploadAttempt({
+          file,
+          status: "parse_failed",
+          failureReason:
+            err instanceof Error ? err.message : "Adapter threw while loading.",
+        });
+        throw err;
       } finally {
         setLoading(false);
       }

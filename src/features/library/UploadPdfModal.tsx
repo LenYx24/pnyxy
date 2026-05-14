@@ -5,6 +5,7 @@ import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useUploadStore } from "@/stores/upload-store";
 import { useLibraryStore } from "@/stores/library-store";
+import { fileExtension, logUploadAttempt } from "@/lib/upload-telemetry";
 import { StorageUsageBar } from "./StorageUsageBar";
 
 interface UploadPdfModalProps {
@@ -24,6 +25,9 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
   const { t } = useTranslation();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  // Rejected extension currently displayed under the drop zone.
+  // Cleared when the user picks another file or closes the modal.
+  const [rejectedExt, setRejectedExt] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const storageUsage = useUploadStore((s) => s.storageUsage);
@@ -36,13 +40,27 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
       fetchStorageUsage();
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset local state when the modal is opened
       setSelectedFile(null);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset rejection notice
+      setRejectedExt(null);
     }
   }, [open, fetchStorageUsage]);
 
   const handleFileSelect = useCallback((file: File) => {
-    if (file.type !== "application/pdf") {
+    const isPdf =
+      file.type === "application/pdf" ||
+      file.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf) {
+      // Log every non-PDF pick so we know which formats users want
+      // the cloud-upload pipeline to support next.
+      void logUploadAttempt({
+        file,
+        status: "rejected_unsupported_format",
+      });
+      setRejectedExt(fileExtension(file.name) || "?");
+      setSelectedFile(null);
       return;
     }
+    setRejectedExt(null);
     setSelectedFile(file);
   }, []);
 
@@ -107,29 +125,41 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
         <div className="p-4">
           {/* Drop zone / file picker */}
           {!selectedFile ? (
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              className={cn(
-                "flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed p-8 transition-colors",
-                dragOver
-                  ? "border-accent-purple bg-accent-purple/10"
-                  : "border-glass-border hover:border-accent-purple/50",
+            <>
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                className={cn(
+                  "flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed p-8 transition-colors",
+                  dragOver
+                    ? "border-accent-purple bg-accent-purple/10"
+                    : "border-glass-border hover:border-accent-purple/50",
+                )}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload size={32} className="text-text-muted" />
+                <p className="text-sm text-text-primary">
+                  {t("library.uploadModal.dropZone")}
+                </p>
+                <p className="text-xs text-text-muted">
+                  {t("library.uploadModal.pdfOnly")}
+                </p>
+              </div>
+              {rejectedExt && (
+                <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-500/10 p-3">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-400" />
+                  <p className="text-xs text-amber-300">
+                    {t("library.upload.unsupportedFormat", {
+                      formats: rejectedExt,
+                    })}
+                  </p>
+                </div>
               )}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload size={32} className="text-text-muted" />
-              <p className="text-sm text-text-primary">
-                {t("library.uploadModal.dropZone")}
-              </p>
-              <p className="text-xs text-text-muted">
-                {t("library.uploadModal.pdfOnly")}
-              </p>
-            </div>
+            </>
           ) : (
             <div className="space-y-4">
               {/* File info */}
@@ -186,10 +216,13 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
             </div>
           )}
 
+          {/* Widened accept list: the modal still only enqueues
+              PDFs, but exposing the common book formats in the
+              picker lets us log what users actually try to add. */}
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf"
+            accept=".pdf,.epub,.txt,.md,.markdown,.mobi,.azw,.azw3,.fb2,.docx,.doc,.rtf,.odt,.cbz,.cbr,.djvu"
             className="hidden"
             onChange={handleInputChange}
           />

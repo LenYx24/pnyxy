@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import { createPdfAdapter } from "@/features/reader/adapters/pdf-adapter";
+import { logUploadAttempt } from "@/lib/upload-telemetry";
 import { useOrgStore } from "./org-store";
 import { useLibraryStore } from "./library-store";
 import type { StorageTier } from "@/types/database";
@@ -219,7 +220,18 @@ async function runUploadJob(
   const file = job.file;
   const folderId = job.folderId;
 
-  const fail = (message: string) => {
+  const fail = (
+    message: string,
+    telemetryStatus:
+      | "upload_failed"
+      | "parse_failed"
+      | "rejected_too_large" = "upload_failed",
+  ) => {
+    void logUploadAttempt({
+      file,
+      status: telemetryStatus,
+      failureReason: message,
+    });
     set((s) => ({
       uploads: patchJob(s.uploads, id, {
         status: "error",
@@ -259,6 +271,11 @@ async function runUploadJob(
       author = meta.author || null;
       pageCount = meta.totalPages;
       fileHash = meta.id; // pdf-adapter uses the file hash as id
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to read PDF.";
+      fail(`Failed to read PDF: ${message}`, "parse_failed");
+      return;
     } finally {
       adapter.dispose();
     }
@@ -335,15 +352,19 @@ async function runUploadJob(
     if (fileError) {
       await supabase.storage.from("book-files").remove([storagePath]);
       await supabase.from("books").delete().eq("id", bookRow.id);
+      const overLimit = fileError.message.includes("Storage limit");
       fail(
-        fileError.message.includes("Storage limit")
+        overLimit
           ? "Storage limit exceeded. Upgrade to Premium for more space."
           : `Failed to save file record: ${fileError.message}`,
+        overLimit ? "rejected_too_large" : "upload_failed",
       );
       return;
     }
 
     bump(100);
+
+    void logUploadAttempt({ file, status: "accepted" });
 
     set((s) => ({
       uploads: patchJob(s.uploads, id, {
@@ -359,6 +380,9 @@ async function runUploadJob(
     void get().fetchStorageUsage();
     void useLibraryStore.getState().fetchLibrary(true);
   } catch (err) {
-    fail(err instanceof Error ? err.message : "Upload failed unexpectedly.");
+    fail(
+      err instanceof Error ? err.message : "Upload failed unexpectedly.",
+      "upload_failed",
+    );
   }
 }

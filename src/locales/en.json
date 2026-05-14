@@ -532,7 +532,8 @@
     "upload": {
       "failed": "Upload failed",
       "success": "Uploaded",
-      "retry": "Retry"
+      "retry": "Retry",
+      "unsupportedFormat": "The {{formats}} format isn't supported yet. We've recorded that you're interested — if enough people ask, we'll add it."
     },
     "actions": {
       "scan": "Scan folder",
