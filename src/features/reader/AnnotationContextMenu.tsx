@@ -17,6 +17,7 @@ import {
   Loader2,
   Share2,
   Bot,
+  Volume2,
 } from "lucide-react";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -24,6 +25,7 @@ import { useVocabStore } from "@/stores/vocab-store";
 import { useReaderStore } from "@/stores/reader-store";
 import { useChatStore } from "@/stores/chat-store";
 import { useUIStore } from "@/stores/ui-store";
+import { useTtsStore } from "@/stores/tts-store";
 import type { HighlightColor } from "@/types/annotation";
 
 const COLORS: { color: HighlightColor; hex: string }[] = [
@@ -385,6 +387,14 @@ export function AnnotationContextMenu() {
     }
   }, [capturedVocabId, removeVocabEntry]);
 
+  const handleReadAloud = useCallback(() => {
+    const text = selectedText.trim();
+    if (!text) return;
+    useTtsStore.getState().speak(text);
+    hideContextMenu();
+    window.getSelection()?.removeAllRanges();
+  }, [selectedText, hideContextMenu]);
+
   const handleTranslate = useCallback(async () => {
     if (!selectedText.trim()) return;
     setShowTranslate(true);
@@ -544,6 +554,16 @@ export function AnnotationContextMenu() {
             >
               <Languages size={14} />
               {t("reader.annotationMenu.translate")}
+            </button>
+          )}
+
+          {selectedText.trim() && (
+            <button
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              onClick={handleReadAloud}
+            >
+              <Volume2 size={14} />
+              {t("reader.annotationMenu.readAloud")}
             </button>
           )}
 

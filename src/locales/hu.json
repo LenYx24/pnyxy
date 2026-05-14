@@ -1444,6 +1444,7 @@
       "copy": "Másolás",
       "copied": "Másolva",
       "translate": "Fordítás",
+      "readAloud": "Felolvasás",
       "dismiss": "Bezárás"
     },
     "sidebar": {
@@ -1587,6 +1588,7 @@
       "highlightTitle": "Kiemelés {{color}}",
       "define": "„{{word}}” jelentése",
       "translate": "Fordítás…",
+      "readAloud": "Felolvasás",
       "addComment": "Komment hozzáadása…",
       "copyText": "Szöveg másolása",
       "changeColor": "Szín módosítása",
@@ -1824,5 +1826,18 @@
       "good": "Jó",
       "easy": "Könnyű"
     }
+  },
+  "tts": {
+    "previous": "Előző mondat",
+    "next": "Következő mondat",
+    "pause": "Szünet",
+    "resume": "Folytatás",
+    "stop": "Felolvasás leállítása",
+    "settings": "Hangbeállítások",
+    "progress": "{{current}} / {{total}}",
+    "voice": "Hang",
+    "voiceDefault": "Böngésző alapértelmezett",
+    "noVoices": "Ezen az eszközön nincs elérhető hang.",
+    "rate": "Sebesség"
   }
 }

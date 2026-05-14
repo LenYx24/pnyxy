@@ -23,6 +23,7 @@ import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { BannedScreen } from "@/features/admin/BannedScreen";
 import { StreakCelebrationModal } from "@/features/library/StreakCelebrationModal";
 import { FeedbackPrompt } from "@/features/feedback/FeedbackPrompt";
+import { TtsMiniPlayer } from "@/components/tts/TtsMiniPlayer";
 
 const STATIC_PAGE_PATHS = ["/about", "/privacy", "/terms", "/help", "/tutorial"];
 
@@ -201,6 +202,7 @@ export function AppLayout() {
       <FeedbackPrompt />
       <ContextMenu />
       <CommandPalette />
+      <TtsMiniPlayer />
     </div>
   );
 }

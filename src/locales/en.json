@@ -1444,6 +1444,7 @@
       "copy": "Copy",
       "copied": "Copied",
       "translate": "Translate",
+      "readAloud": "Read aloud",
       "dismiss": "Dismiss"
     },
     "sidebar": {
@@ -1587,6 +1588,7 @@
       "highlightTitle": "Highlight {{color}}",
       "define": "Define \"{{word}}\"",
       "translate": "Translate…",
+      "readAloud": "Read aloud",
       "addComment": "Add comment…",
       "copyText": "Copy text",
       "changeColor": "Change color",
@@ -1824,5 +1826,18 @@
       "good": "Good",
       "easy": "Easy"
     }
+  },
+  "tts": {
+    "previous": "Previous sentence",
+    "next": "Next sentence",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop reading",
+    "settings": "Voice settings",
+    "progress": "{{current}} / {{total}}",
+    "voice": "Voice",
+    "voiceDefault": "Browser default",
+    "noVoices": "No voices available on this device.",
+    "rate": "Speed"
   }
 }

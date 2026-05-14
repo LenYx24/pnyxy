@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Copy, Languages, X, Loader2 } from "lucide-react";
+import { Copy, Languages, Volume2, X, Loader2 } from "lucide-react";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useTtsStore } from "@/stores/tts-store";
 
 /**
  * Same heuristic AnnotationContextMenu uses — kept inline (rather than
@@ -88,6 +89,12 @@ export function EpubSelectionPopover({
     }
   }, [selection]);
 
+  const handleReadAloud = useCallback(() => {
+    if (!selection) return;
+    useTtsStore.getState().speak(selection.text);
+    onDismiss();
+  }, [selection, onDismiss]);
+
   const handleTranslate = useCallback(async () => {
     if (!selection) return;
     setTranslating(true);
@@ -149,6 +156,14 @@ export function EpubSelectionPopover({
         >
           {translating ? <Loader2 size={14} className="animate-spin" /> : <Languages size={14} />}
           {t("reader.epubSelection.translate")}
+        </button>
+        <button
+          type="button"
+          onClick={handleReadAloud}
+          aria-label={t("reader.epubSelection.readAloud")}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-text-primary hover:bg-glass-hover cursor-pointer"
+        >
+          <Volume2 size={14} />
         </button>
         <button
           type="button"
