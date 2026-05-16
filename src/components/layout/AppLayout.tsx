@@ -126,11 +126,12 @@ export function AppLayout() {
   // sidebar back when the user wants to navigate away.
   const hideSidebarForReader = isReaderRoute && sidebarCollapsed;
   const showSidebar = !focusActive && !hideSidebarForReader;
-  // Bottom nav now stays visible on the reader too — the user
-  // explicitly asked for persistent app navigation while reading.
-  // The reader's own MobileReaderBottomBar slides above the global
-  // nav (see its `bottom` offset) so the two stack without overlap.
-  const showBottomNav = !focusActive;
+  // Bottom nav hides on the two routes the user spends the most time
+  // on (reader, chat) — the persistent rail competes with the page's
+  // own content there. On reader the user has a toolbar with its own
+  // nav-drawer button; on chat the mobile header carries the same.
+  // Everywhere else the rail is the one-tap way to switch surfaces.
+  const showBottomNav = !focusActive && !isReaderRoute && !isChatRoute;
   // Mobile-only top bar carries the brand + the avatar/profile menu
   // (Profile, Settings, Sign-out). Hidden on the reader since
   // ReaderToolbar already occupies that space, and during a focus

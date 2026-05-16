@@ -41,6 +41,9 @@
     "profile": "Profile",
     "noName": "No name",
     "study": "Study",
+    "more": "More",
+    "signOut": "Sign out",
+    "openNav": "Open navigation",
     "openCommandPalette": "Open command palette",
     "orgSwitcher": {
       "title": "Switch workspace",

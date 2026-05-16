@@ -100,15 +100,16 @@ export function MobileReaderBottomBar({
 
   return (
     <div
-      // The reader container is shrunk on mobile to leave room for the
-      // global BottomNav, so this bar can sit at `bottom-0` of the
-      // reader and naturally end up just above the global nav.
+      // Reader container is now full-viewport on every breakpoint
+      // (the global BottomNav is hidden on this route), so this bar
+      // owns the bottom edge of the screen and has to handle the
+      // device's safe-area inset itself.
       className={cn(
         "absolute left-0 right-0 bottom-0 z-20 transition-transform duration-200 ease-out",
         visible ? "translate-y-0" : "translate-y-full",
       )}
     >
-      <div className="border-t border-glass-border bg-bg-secondary/85 backdrop-blur-md pl-safe-left pr-safe-right">
+      <div className="border-t border-glass-border bg-bg-secondary/85 backdrop-blur-md pl-safe-left pr-safe-right pb-safe-bottom">
         <nav className="flex items-stretch justify-around">
           {items.map(({ key, icon: Icon, label, onClick, active }) => (
             <button

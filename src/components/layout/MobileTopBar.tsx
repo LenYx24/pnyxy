@@ -1,8 +1,15 @@
 import { useRef, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { LogIn, LogOut, Settings as SettingsIcon, User } from "lucide-react";
+import {
+  LogIn,
+  LogOut,
+  Menu,
+  Settings as SettingsIcon,
+  User,
+} from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
+import { useUIStore } from "@/stores/ui-store";
 import { FloatingMenu } from "@/components/ui/FloatingMenu";
 import { cn } from "@/lib/cn";
 
@@ -20,6 +27,7 @@ import { cn } from "@/lib/cn";
 export function MobileTopBar() {
   const { t } = useTranslation();
   const { user, profile, signOut } = useAuthStore();
+  const setMobileSidebarOpen = useUIStore((s) => s.setMobileSidebarOpen);
   const navigate = useNavigate();
 
   const [open, setOpen] = useState(false);
@@ -41,9 +49,23 @@ export function MobileTopBar() {
       className="fixed left-0 right-0 top-0 z-40 flex h-12 items-center justify-between border-b border-glass-border bg-bg-secondary/90 px-3 backdrop-blur-xl pt-safe-top md:hidden"
       style={{ height: "calc(3rem + var(--spacing-safe-top, 0px))" }}
     >
-      <Link to="/" aria-label="Pnyxy home" className="flex items-center">
-        <img src="/logo.svg" alt="Pnyxy" className="h-7 w-auto" />
-      </Link>
+      <div className="flex items-center gap-2">
+        {/* Global nav drawer trigger. Opens the same Sidebar overlay
+            the BottomNav's "More" entry does — having both entry
+            points means routes that hide the BottomNav (reader,
+            chat) still have a one-tap path to every destination. */}
+        <button
+          type="button"
+          onClick={() => setMobileSidebarOpen(true)}
+          aria-label={t("sidebar.openNav", { defaultValue: "Open navigation" })}
+          className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+        >
+          <Menu size={20} />
+        </button>
+        <Link to="/" aria-label="Pnyxy home" className="flex items-center">
+          <img src="/logo.svg" alt="Pnyxy" className="h-7 w-auto" />
+        </Link>
+      </div>
 
       {user ? (
         <>

@@ -1909,12 +1909,14 @@ export function ReaderPage() {
   return (
     <div
       ref={readerContainerRef}
-      // Mobile: leave room for the global BottomNav (3.5rem + safe-area)
-      // at the viewport bottom — the user wants persistent app
-      // navigation while reading. Desktop: still full viewport since
-      // the nav is hidden there. Using `100dvh` so the dynamic viewport
-      // (mobile Safari chrome shrink/grow) reports correctly.
-      className="relative flex h-[calc(100dvh-3.5rem-var(--spacing-safe-bottom,0px))] flex-col bg-bg-primary md:h-screen"
+      // Reader takes the full dynamic viewport on every breakpoint —
+      // the global BottomNav is now hidden on this route (it was
+      // competing with the MobileReaderBottomBar and the user's
+      // content for vertical real estate), so we no longer subtract
+      // its height. `100dvh` accounts for the URL-bar shrink/grow on
+      // mobile Safari; the reader's own bottom bar handles safe-area
+      // padding internally.
+      className="relative flex h-[100dvh] flex-col bg-bg-primary md:h-screen"
     >
       {isLoadingDocument && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-bg-primary/80 backdrop-blur-sm">

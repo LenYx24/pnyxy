@@ -41,6 +41,9 @@
     "profile": "Profil",
     "noName": "Nincs név",
     "study": "Tanulás",
+    "more": "Több",
+    "signOut": "Kijelentkezés",
+    "openNav": "Navigáció megnyitása",
     "openCommandPalette": "Parancspaletta megnyitása",
     "orgSwitcher": {
       "title": "Munkaterület váltása",

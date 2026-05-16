@@ -5,13 +5,17 @@ import {
   BotMessageSquare,
   Compass,
   Library,
+  Menu,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useUIStore } from "@/stores/ui-store";
 
-// Mobile bottom nav: the four core surfaces a user moves between
-// during normal use. Auth / profile / settings live in the mobile
-// top bar (avatar menu) so the bottom rail stays focused on
-// "where am I going next?" instead of identity / config.
+// Mobile bottom nav: four core surfaces + a "More" entry that opens
+// the sidebar drawer for every other destination (workspace, forum,
+// streaks, study tools, settings, profile). The bottom rail stays
+// focused on the everyday surfaces; everything else lives behind one
+// extra tap so the rail doesn't grow into a six-icon scrum that
+// outranks the content it sits beneath.
 const navItems = [
   { to: "/library", icon: Library, key: "library" as const },
   { to: "/chat", icon: BotMessageSquare, key: "chat" as const },
@@ -21,6 +25,7 @@ const navItems = [
 
 export function BottomNav() {
   const { t } = useTranslation();
+  const setMobileSidebarOpen = useUIStore((s) => s.setMobileSidebarOpen);
 
   return (
     <nav
@@ -45,6 +50,17 @@ export function BottomNav() {
           </NavLink>
         );
       })}
+      <button
+        type="button"
+        onClick={() => setMobileSidebarOpen(true)}
+        className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-medium text-text-muted transition-colors touch-target hover:text-text-primary cursor-pointer"
+        aria-label={t("sidebar.more", { defaultValue: "More" })}
+      >
+        <Menu size={18} />
+        <span className="truncate">
+          {t("sidebar.more", { defaultValue: "More" })}
+        </span>
+      </button>
     </nav>
   );
 }

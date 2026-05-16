@@ -249,13 +249,15 @@ export function ReaderToolbar({
 
   const isMobile = useIsMobile();
   const isDesktop = useIsDesktop();
-  // The hamburger is only useful when the global app sidebar is
-  // hidden — when it's already visible, its own internal toggle is
-  // right there and ours becomes a duplicate. On mobile the global
-  // sidebar lives behind the bottom-nav drawer, so the hamburger is
-  // redundant there too.
+  // The hamburger toggles different drawers per breakpoint: on
+  // desktop/tablet it expands the persistent app sidebar back into
+  // view (collapsed for reading by default), on mobile it slides in
+  // the global nav drawer instead. The global BottomNav is hidden on
+  // the reader route, so this button is the user's one path back to
+  // every other surface from inside a book.
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
-  const showAppSidebarToggle = sidebarCollapsed && !isMobile;
+  const setMobileSidebarOpen = useUIStore((s) => s.setMobileSidebarOpen);
+  const showAppSidebarToggle = isMobile || sidebarCollapsed;
 
   if (!activeDoc) return null;
 
@@ -369,7 +371,13 @@ export function ReaderToolbar({
       <div className="flex flex-1 min-w-0 items-center gap-1">
         {showAppSidebarToggle && (
           <button
-            onClick={() => useUIStore.getState().toggleSidebar()}
+            onClick={() => {
+              if (isMobile) {
+                setMobileSidebarOpen(true);
+              } else {
+                useUIStore.getState().toggleSidebar();
+              }
+            }}
             className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer shrink-0"
             title={t("reader.toolbar.toggleAppSidebar")}
           >

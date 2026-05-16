@@ -13,7 +13,7 @@ import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useReaderStore } from "@/stores/reader-store";
-import { useIsMobile, useIsDesktop } from "@/hooks/use-media-query";
+import { useIsDesktop } from "@/hooks/use-media-query";
 import { OrgSwitcher } from "./OrgSwitcher";
 import { visibleSidebarItems, type NavItem } from "@/lib/navigation";
 
@@ -318,13 +318,13 @@ function SidebarLabel({
 
 export function Sidebar() {
   const { sidebarCollapsed, mobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
-  const isMobile = useIsMobile();
   const isDesktop = useIsDesktop();
 
-  // Mobile: sidebar hidden entirely (BottomNav handles navigation)
-  if (isMobile) return null;
-
-  // Tablet: overlay sidebar with backdrop
+  // Mobile + tablet: overlay sidebar with backdrop. Same drawer
+  // behaviour at both breakpoints — the BottomNav's "More" entry
+  // and the reader/chat toolbar buttons all toggle the same store
+  // flag (`mobileSidebarOpen`), so the drawer is the single
+  // "everything else" surface on smaller screens.
   if (!isDesktop) {
     return (
       <>
@@ -338,7 +338,7 @@ export function Sidebar() {
         {/* Sidebar overlay */}
         <aside
           className={cn(
-            "fixed left-0 top-0 z-50 flex h-screen w-sidebar-expanded flex-col border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl",
+            "fixed left-0 top-0 z-50 flex h-[100dvh] w-sidebar-expanded max-w-[85vw] flex-col border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl",
             "transition-transform duration-300",
             mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
           )}
