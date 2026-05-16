@@ -30,6 +30,7 @@ import {
   BookmarkPlus,
   PanelLeft,
   Menu,
+  AlignLeft,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
@@ -219,6 +220,8 @@ export function ReaderToolbar({
   const rotatePage = useReaderStore((s) => s.rotatePage);
   const pdfInvertColors = useSettingsStore((s) => s.pdfInvertColors);
   const setPdfInvertColors = useSettingsStore((s) => s.setPdfInvertColors);
+  const pdfReflowMode = useSettingsStore((s) => s.pdfReflowMode);
+  const setPdfReflowMode = useSettingsStore((s) => s.setPdfReflowMode);
   const isPdf = activeDoc?.meta.format === "pdf";
 
   const addBookmark = useBookmarkStore((s) => s.addBookmark);
@@ -295,6 +298,13 @@ export function ReaderToolbar({
             icon: pdfInvertColors ? Sun : Moon,
             onClick: () => setPdfInvertColors(!pdfInvertColors),
           },
+          {
+            label: pdfReflowMode
+              ? t("reader.toolbar.reflowOff")
+              : t("reader.toolbar.reflowOn"),
+            icon: AlignLeft,
+            onClick: () => setPdfReflowMode(!pdfReflowMode),
+          },
         ]
       : []),
     { label: t("reader.toolbar.highlight"), icon: Highlighter, onClick: () => { setShowOverflowMenu(false); setShowColorPicker(!showColorPicker); } },
@@ -333,6 +343,21 @@ export function ReaderToolbar({
       ? [{ label: t("reader.toolbar.rectToAi", { defaultValue: "Crop to AI" }), icon: BotMessageSquare, onClick: onRectToAi }]
       : []),
     { label: t("reader.toolbar.print"), icon: Printer, onClick: onPrint },
+    // PDF-only view-mode toggles. Same items as the desktop inline
+    // buttons added below — kept here so tablet users can find them
+    // without a separate inline slot in the tablet header (tight
+    // horizontal budget at this breakpoint).
+    ...(isPdf
+      ? [
+          {
+            label: pdfReflowMode
+              ? t("reader.toolbar.reflowOff")
+              : t("reader.toolbar.reflowOn"),
+            icon: AlignLeft,
+            onClick: () => setPdfReflowMode(!pdfReflowMode),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -480,7 +505,12 @@ export function ReaderToolbar({
             {showOverflowMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowOverflowMenu(false)} />
-                <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-glass-border bg-bg-secondary/95 backdrop-blur-xl shadow-xl py-1">
+                {/* Cap the menu to ~70% of the dynamic viewport and
+                    overflow-y-auto so the long action list (highlight,
+                    screenshot, reflow, invert, …) can be scrolled
+                    instead of being clipped against the bottom of the
+                    screen on short phones. */}
+                <div className="absolute right-0 top-full z-50 mt-1 w-48 max-h-[70dvh] overflow-y-auto rounded-lg border border-glass-border bg-bg-secondary/95 backdrop-blur-xl shadow-xl py-1">
                   {overflowActions.map(({ label, icon: Icon, onClick, disabled }) => (
                     <button
                       key={label}
@@ -614,7 +644,7 @@ export function ReaderToolbar({
               {showOverflowMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowOverflowMenu(false)} />
-                  <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg border border-glass-border bg-bg-secondary/95 backdrop-blur-xl shadow-xl py-1">
+                  <div className="absolute right-0 top-full z-50 mt-1 w-40 max-h-[70dvh] overflow-y-auto rounded-lg border border-glass-border bg-bg-secondary/95 backdrop-blur-xl shadow-xl py-1">
                     {tabletOverflowActions.map(({ label, icon: Icon, onClick }) => (
                       <button
                         key={label}
@@ -670,6 +700,32 @@ export function ReaderToolbar({
             >
               <Columns2 size={16} />
             </button>
+            {/* PDF mobile-reflow toggle. Active state mirrors how the
+                fit-mode toggle highlights itself when on, so the user
+                can spot at a glance which view they're in. */}
+            {isPdf && (
+              <button
+                onClick={() => setPdfReflowMode(!pdfReflowMode)}
+                className={cn(
+                  "rounded-md p-1.5 transition-colors cursor-pointer",
+                  pdfReflowMode
+                    ? "text-accent-purple bg-accent-purple/10"
+                    : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+                )}
+                title={
+                  pdfReflowMode
+                    ? t("reader.toolbar.reflowOff")
+                    : t("reader.toolbar.reflowOn")
+                }
+                aria-label={
+                  pdfReflowMode
+                    ? t("reader.toolbar.reflowOff")
+                    : t("reader.toolbar.reflowOn")
+                }
+              >
+                <AlignLeft size={16} />
+              </button>
+            )}
             <div className="mx-1 h-4 w-px bg-glass-border" />
             {/* Undo button */}
             <button

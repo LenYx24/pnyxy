@@ -1,5 +1,5 @@
 import { pdfjs } from "react-pdf";
-import { streamChatResponse } from "@/lib/ai-client";
+import { aiJsonExtract } from "@/lib/ai-json-extract";
 
 /**
  * Pull text from a PDF File for AI processing. Caps at MAX_PAGES so a
@@ -10,6 +10,7 @@ import { streamChatResponse } from "@/lib/ai-client";
  * page-aware structure without needing actual page numbers.
  */
 const MAX_PAGES = 15;
+const MAX_TOPICS = 12;
 
 interface PdfTextItem {
   str?: string;
@@ -52,42 +53,21 @@ Rules:
  * three readers stay symmetric.
  */
 export async function extractExamTopics(text: string): Promise<string[]> {
-  const trimmed = text.trim();
-  if (trimmed.length < 80) return [];
-
-  let buf = "";
-  for await (const chunk of streamChatResponse(
-    [{ role: "user", content: trimmed }],
-    "",
-    "",
-    {
-      systemPromptOverride: SYSTEM_PROMPT,
-      maxOutputTokens: 600,
+  return aiJsonExtract<string>({
+    passage: text,
+    systemPrompt: SYSTEM_PROMPT,
+    minPassageLength: 80,
+    maxOutputTokens: 600,
+    maxItems: MAX_TOPICS,
+    errorLabel: "exam-topics",
+    pickArray: (parsed) => {
+      if (!parsed || typeof parsed !== "object") throw new Error();
+      return (parsed as { topics?: unknown }).topics;
     },
-  )) {
-    buf += chunk.delta;
-  }
-
-  const cleaned = buf
-    .trim()
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "");
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    throw new Error("exam-topics:parse-failed");
-  }
-  if (
-    !parsed ||
-    typeof parsed !== "object" ||
-    !Array.isArray((parsed as { topics?: unknown }).topics)
-  ) {
-    throw new Error("exam-topics:bad-shape");
-  }
-  return (parsed as { topics: unknown[] }).topics
-    .map((t) => (typeof t === "string" ? t.trim() : ""))
-    .filter((t): t is string => t.length > 0)
-    .slice(0, 12);
+    coerce: (raw) => {
+      if (typeof raw !== "string") return null;
+      const text = raw.trim();
+      return text.length > 0 ? text : null;
+    },
+  });
 }

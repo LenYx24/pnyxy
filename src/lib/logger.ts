@@ -1,5 +1,21 @@
+/**
+ * True for errors that are recoverable and unactionable from app
+ * code — typically navigator.locks coordination races in dev mode
+ * (React StrictMode + Supabase gotrue-js's auth-token lock). The
+ * SDK already retries internally, so the message is noise. Filtering
+ * these out of `logError` keeps the dev console focused on real
+ * problems without losing signal in production (where `logError`
+ * only runs when `import.meta.env.DEV` is true anyway).
+ */
+function isLockNoise(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.name !== "AbortError") return false;
+  return error.message.includes("Lock broken by another request");
+}
+
 export function logError(context: string, error: unknown) {
   if (import.meta.env.DEV) {
+    if (isLockNoise(error)) return;
     console.error(`[${context}]`, error);
   }
 }

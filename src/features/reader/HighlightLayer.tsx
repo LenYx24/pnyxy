@@ -1,5 +1,5 @@
 import { useAnnotationStore } from "@/stores/annotation-store";
-import type { Highlight, HighlightColor } from "@/types/annotation";
+import { isFiniteRect, type Highlight, type HighlightColor } from "@/types/annotation";
 import { cn } from "@/lib/cn";
 
 const COLOR_MAP: Record<HighlightColor, string> = {
@@ -33,7 +33,7 @@ export function HighlightLayer({ pageNum }: HighlightLayerProps) {
     >
       {pageHighlights.map((highlight) =>
         highlight.selection.rects
-          .filter((r) => r.pageNum === pageNum)
+          .filter((r) => r.pageNum === pageNum && isFiniteRect(r))
           .map((rect, i) => {
             const isSelected = selectedAnnotationId === highlight.id;
             return (

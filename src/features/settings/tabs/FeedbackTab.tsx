@@ -44,9 +44,23 @@ export function FeedbackTab() {
       });
 
       if (!res.ok) {
-        const payload = await res.json().catch(() => null);
+        // Read as text first — a 401/403 from the edge often comes
+        // back as plain text, and `res.json()` would have thrown a
+        // SyntaxError that hid the real reason ("Invalid JWT" /
+        // "Service not enabled" / etc.).
+        const bodyText = await res.text().catch(() => "");
+        type ErrorPayload = { error?: { message?: string } };
+        let parsed: ErrorPayload | null = null;
+        try {
+          parsed = bodyText
+            ? (JSON.parse(bodyText) as ErrorPayload)
+            : null;
+        } catch {
+          parsed = null;
+        }
         const msg =
-          payload?.error?.message ??
+          parsed?.error?.message ||
+          bodyText.slice(0, 200) ||
           t("settings.feedbackSection.errorGeneric");
         throw new Error(msg);
       }

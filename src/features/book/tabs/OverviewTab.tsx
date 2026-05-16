@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Plus,
@@ -9,8 +9,11 @@ import {
   BookOpen,
   FileText,
   FileX2,
+  Paperclip,
   Trash2,
   PenLine,
+  Sparkles,
+  ScrollText,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import {
@@ -24,6 +27,11 @@ import { useBrowseStore } from "@/stores/browse-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useRatingStore } from "@/stores/rating-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
+import { useQuizStore } from "@/stores/quiz-store";
+import { useUploadStore } from "@/stores/upload-store";
+import { bookIdSegment } from "@/lib/slugify";
+import { logError } from "@/lib/logger";
+import { supabase } from "@/lib/supabase";
 import { useOpenCatalogBook } from "@/hooks/use-open-catalog-book";
 import {
   useOpenUploadedDocument,
@@ -48,6 +56,122 @@ import { ReadingSessionCard } from "../ReadingSessionCard";
  * the primary way users can use the whiteboard feature at all,
  * since the reader can't open them.
  */
+/**
+ * One-click entry into the AI quiz generator for the current book.
+ * Creates an empty quiz row tied to this book and navigates to its
+ * editor with the AI generate panel pre-expanded — so the user lands
+ * directly on "From book: pages X–Y, count N, Generate" instead of
+ * having to: (1) open the quizzes list, (2) "New quiz", (3) find the
+ * AI panel, (4) toggle to "From book". Half the clicks become zero.
+ */
+function GenerateQuizFromBookButton() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const data = useBook();
+  const createQuiz = useQuizStore((s) => s.createQuiz);
+  const [creating, setCreating] = useState(false);
+
+  const handleClick = async () => {
+    if (creating) return;
+    setCreating(true);
+    const isUploaded = data.source === "uploaded";
+    const bookTitle = isUploaded ? data.book.title : data.book.title;
+    const id = await createQuiz({
+      title: bookTitle
+        ? t("book.overview.generate.defaultTitle", { book: bookTitle })
+        : t("book.overview.generate.defaultTitleNoBook"),
+      description: null,
+      visibility: "private",
+      uploaded_book_id: isUploaded ? data.book.id : null,
+      catalog_book_id: !isUploaded ? data.book.id : null,
+      questions: [],
+    });
+    setCreating(false);
+    if (id) navigate(`/quizzes/${id}/edit?aiOpen=1`);
+  };
+
+  return (
+    <Button onClick={handleClick} variant="secondary" disabled={creating}>
+      {creating ? (
+        <Loader2 size={16} className="animate-spin" />
+      ) : (
+        <>
+          <Sparkles size={16} />
+          {t("book.overview.generate.quiz")}
+        </>
+      )}
+    </Button>
+  );
+}
+
+/**
+ * Shortcut to the flashcards generator. Same pattern as the quiz
+ * shortcut: pre-create the row tied to this book, navigate to the
+ * editor with the AI panel auto-expanded AND in short-answer mode
+ * (so the panel generates Q/A pairs instead of multi-choice).
+ */
+function GenerateFlashcardsFromBookButton() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const data = useBook();
+  const createQuiz = useQuizStore((s) => s.createQuiz);
+  const [creating, setCreating] = useState(false);
+
+  const handleClick = async () => {
+    if (creating) return;
+    setCreating(true);
+    const isUploaded = data.source === "uploaded";
+    const bookTitle = data.book.title;
+    const id = await createQuiz({
+      title: bookTitle
+        ? t("book.overview.generate.defaultFlashTitle", { book: bookTitle })
+        : t("book.overview.generate.defaultFlashTitleNoBook"),
+      description: null,
+      visibility: "private",
+      uploaded_book_id: isUploaded ? data.book.id : null,
+      catalog_book_id: !isUploaded ? data.book.id : null,
+      questions: [],
+    });
+    setCreating(false);
+    if (id) navigate(`/quizzes/${id}/edit?aiOpen=1&kind=short_answer`);
+  };
+
+  return (
+    <Button onClick={handleClick} variant="secondary" disabled={creating}>
+      {creating ? (
+        <Loader2 size={16} className="animate-spin" />
+      ) : (
+        <>
+          <Sparkles size={16} />
+          {t("book.overview.generate.flashcards")}
+        </>
+      )}
+    </Button>
+  );
+}
+
+/**
+ * Shortcut to the book's exams tab. Past papers live under there with
+ * their own AI flows (extract topics, generate similar quiz, practice
+ * mode). Surfacing this on the Overview saves the user a sidebar
+ * click — the most-frequent ask from study sessions is "what's been
+ * on past exams", so it's worth the prime real estate.
+ */
+function GenerateExamFromBookButton() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const data = useBook();
+  const handleClick = () => {
+    navigate(`/books/${data.book.id}/exams`);
+  };
+  return (
+    <Button onClick={handleClick} variant="secondary">
+      <ScrollText size={16} />
+      {t("book.overview.generate.exam")}
+    </Button>
+  );
+}
+
 function CreateWhiteboardButton() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -252,6 +376,9 @@ function CatalogOverview({
             to the Library buttons since it's a "study tool" entry
             point the same way. */}
         <CreateWhiteboardButton />
+        <GenerateQuizFromBookButton />
+        <GenerateFlashcardsFromBookButton />
+        <GenerateExamFromBookButton />
 
         {/* Keep one download fallback for users who want the file
             offline or in a different reader. Single link, not the
@@ -270,7 +397,27 @@ function CatalogOverview({
         )}
       </div>
 
-      {!hasReadable && <NoFileBanner />}
+      {!hasReadable && (
+        <div className="space-y-2">
+          <NoFileBanner />
+          {/* User added this catalog book to their library but the
+              catalog doesn't ship with a downloadable file. Let them
+              upload their own PDF so they can actually read it —
+              otherwise the library entry is dead weight. The upload
+              creates a normal "uploaded book" with the catalog
+              metadata pre-filled and removes the catalog entry from
+              the user's library so they end up with a single, useful
+              row instead of two confusing ones. */}
+          {user && inLibrary && (
+            <CatalogUploadOwnCopyButton
+              catalogBookId={book.id}
+              fallbackTitle={book.title}
+              fallbackAuthor={book.authors[0]}
+              onUploaded={() => removeFromUserLibrary(book.id)}
+            />
+          )}
+        </div>
+      )}
 
       {/* Status picker is the lightest "make this book yours"
           control — useful even before / without opening the book. */}
@@ -463,6 +610,9 @@ function UploadedOverview({
           </Button>
         )}
         <CreateWhiteboardButton />
+        <GenerateQuizFromBookButton />
+        <GenerateFlashcardsFromBookButton />
+        <GenerateExamFromBookButton />
       </div>
 
       {!storagePath && (
@@ -554,6 +704,118 @@ function formatBytes(n: number): string {
  * storage_path land here. Lets the reader know notes/whiteboards/forum
  * still work — their attempt to open the book wasn't a bug.
  */
+/**
+ * "Upload your own copy" — sibling to the catalog metadata Open
+ * Library couldn't link a file for. Runs the normal uploadPdf flow
+ * so storage limits / progress / dedup all still work, then patches
+ * the book row with the catalog's title/author so the new entry
+ * doesn't fall back to whatever the PDF metadata happens to claim
+ * (which for scanned textbooks is usually blank or wrong).
+ *
+ * On success the catalog row is removed from the user's library
+ * (via `onUploaded`) and the page navigates to the new uploaded
+ * book so the user lands somewhere they can actually open.
+ */
+function CatalogUploadOwnCopyButton({
+  fallbackTitle,
+  fallbackAuthor,
+  onUploaded,
+}: {
+  catalogBookId: string;
+  fallbackTitle: string;
+  fallbackAuthor?: string;
+  onUploaded: () => void;
+}) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const uploadPdf = useUploadStore((s) => s.uploadPdf);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handlePick = () => inputRef.current?.click();
+
+  const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (
+      file.type !== "application/pdf" &&
+      !file.name.toLowerCase().endsWith(".pdf")
+    ) {
+      setError(
+        t("book.attach.errorPdfOnly", {
+          defaultValue: "Only PDF files are supported.",
+        }),
+      );
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const { bookId, error: uploadError } = await uploadPdf(file);
+      if (uploadError || !bookId) {
+        setError(
+          uploadError ??
+            t("book.attach.failed", { defaultValue: "Upload failed." }),
+        );
+        setBusy(false);
+        return;
+      }
+      // Patch the new books row with the catalog's title/author so we
+      // don't end up with "untitled.pdf" when the PDF metadata is
+      // missing. Best-effort: a failure here doesn't roll back the
+      // upload — the file is already attached and openable.
+      try {
+        const patch: Record<string, string> = { title: fallbackTitle };
+        if (fallbackAuthor) patch.author = fallbackAuthor;
+        await supabase.from("books").update(patch).eq("id", bookId);
+      } catch (err) {
+        logError("CatalogUploadOwnCopyButton:patch", err);
+      }
+      // Free the catalog row from the user's library — they now own
+      // the real file, so the placeholder is just noise.
+      try {
+        onUploaded();
+      } catch (err) {
+        logError("CatalogUploadOwnCopyButton:onUploaded", err);
+      }
+      navigate(`/books/${bookIdSegment(bookId, fallbackTitle)}`);
+    } catch (err) {
+      logError("CatalogUploadOwnCopyButton:handleFile", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : t("book.attach.failed", { defaultValue: "Upload failed." }),
+      );
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <Button variant="secondary" onClick={handlePick} disabled={busy}>
+        {busy ? (
+          <Loader2 size={14} className="animate-spin" />
+        ) : (
+          <Paperclip size={14} />
+        )}
+        {t("book.attach.uploadOwnCopy", {
+          defaultValue: "Upload your own PDF",
+        })}
+      </Button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".pdf,application/pdf"
+        className="hidden"
+        onChange={handleFile}
+      />
+      {error && <p className="text-[11px] text-red-400">{error}</p>}
+    </div>
+  );
+}
+
 function NoFileBanner() {
   const { t } = useTranslation();
   return (

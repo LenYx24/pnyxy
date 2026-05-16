@@ -2,7 +2,45 @@ import { openDB, type IDBPDatabase } from "idb";
 import type { AiCitation, Highlight, Comment } from "@/types/annotation";
 
 const DB_NAME = "pnyxy-annotations";
-const DB_VERSION = 9;
+// Bump 9 → 10 to force the upgrade callback to re-run on clients
+// whose v8 → v9 migration didn't complete (e.g. interrupted by a
+// strict-mode parallel `openDB` race that left some object stores
+// uncreated). The upgrade callback is fully idempotent — every store
+// is created with `if (!objectStoreNames.contains(...))`, so this
+// re-run only fills in whatever's missing without touching existing
+// data.
+const DB_VERSION = 10;
+
+/**
+ * Defensive wrapper: turn an IndexedDB `NotFoundError` (= the queried
+ * object store doesn't exist) into an empty result. This stops a
+ * half-applied migration from cascading into the whole annotation
+ * subsystem — the doc loads, just without whatever the missing store
+ * would have contained.
+ */
+function isMissingStoreError(err: unknown): boolean {
+  return (
+    err instanceof DOMException &&
+    (err.name === "NotFoundError" || err.name === "InvalidStateError")
+  );
+}
+
+async function loadOrEmpty<T>(
+  fn: () => Promise<T[]>,
+  label: string,
+): Promise<T[]> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (isMissingStoreError(err)) {
+      // Visible warning so a broken upgrade is at least discoverable
+      // in DevTools; the user still gets a working app.
+      console.warn(`[annotation-storage] missing store for ${label}; returning []`, err);
+      return [];
+    }
+    throw err;
+  }
+}
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -71,8 +109,10 @@ export function getDB(): Promise<IDBPDatabase> {
 // --- Highlights ---
 
 export async function loadHighlights(docId: string): Promise<Highlight[]> {
-  const db = await getDB();
-  return db.getAllFromIndex("highlights", "documentId", docId);
+  return loadOrEmpty(async () => {
+    const db = await getDB();
+    return db.getAllFromIndex("highlights", "documentId", docId);
+  }, "highlights");
 }
 
 export async function saveHighlight(h: Highlight): Promise<void> {
@@ -88,8 +128,10 @@ export async function deleteHighlight(id: string): Promise<void> {
 // --- Comments ---
 
 export async function loadComments(docId: string): Promise<Comment[]> {
-  const db = await getDB();
-  return db.getAllFromIndex("comments", "documentId", docId);
+  return loadOrEmpty(async () => {
+    const db = await getDB();
+    return db.getAllFromIndex("comments", "documentId", docId);
+  }, "comments");
 }
 
 export async function saveComment(c: Comment): Promise<void> {
@@ -105,8 +147,10 @@ export async function deleteComment(id: string): Promise<void> {
 // --- AI citations ---
 
 export async function loadAiCitations(docId: string): Promise<AiCitation[]> {
-  const db = await getDB();
-  return db.getAllFromIndex("ai_citations", "documentId", docId);
+  return loadOrEmpty(async () => {
+    const db = await getDB();
+    return db.getAllFromIndex("ai_citations", "documentId", docId);
+  }, "ai_citations");
 }
 
 export async function saveAiCitation(c: AiCitation): Promise<void> {
@@ -191,8 +235,10 @@ export interface StoredNote {
 }
 
 export async function loadAllNotes(): Promise<StoredNote[]> {
-  const db = await getDB();
-  return db.getAll("notes");
+  return loadOrEmpty(async () => {
+    const db = await getDB();
+    return db.getAll("notes");
+  }, "notes");
 }
 
 export async function loadNote(id: string): Promise<StoredNote | undefined> {
@@ -223,8 +269,10 @@ export interface StoredBookmark {
 }
 
 export async function loadBookmarks(docId: string): Promise<StoredBookmark[]> {
-  const db = await getDB();
-  return db.getAllFromIndex("bookmarks", "documentId", docId);
+  return loadOrEmpty(async () => {
+    const db = await getDB();
+    return db.getAllFromIndex("bookmarks", "documentId", docId);
+  }, "bookmarks");
 }
 
 export async function saveBookmark(bm: StoredBookmark): Promise<void> {
@@ -257,8 +305,10 @@ export interface StoredVocabEntry {
 }
 
 export async function loadAllVocabEntries(): Promise<StoredVocabEntry[]> {
-  const db = await getDB();
-  return db.getAll("vocab");
+  return loadOrEmpty(async () => {
+    const db = await getDB();
+    return db.getAll("vocab");
+  }, "vocab");
 }
 
 export async function saveVocabEntry(entry: StoredVocabEntry): Promise<void> {
@@ -287,8 +337,10 @@ export async function findVocabEntryByWord(
 // the library store can write/read it without conversion.
 
 export async function loadAllFolders<T = unknown>(): Promise<T[]> {
-  const db = await getDB();
-  return db.getAll("folders") as Promise<T[]>;
+  return loadOrEmpty(async () => {
+    const db = await getDB();
+    return (await db.getAll("folders")) as T[];
+  }, "folders");
 }
 
 export async function saveFolderLocal<T = unknown>(folder: T): Promise<void> {

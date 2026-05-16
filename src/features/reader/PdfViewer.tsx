@@ -72,11 +72,17 @@ const PageSlot = memo(function PageSlot({
   // noise) so the layout effects pass straight through to the page.
   const useSlotTransform = Math.abs(slotScale - 1) > 0.001;
 
+  // Belt-and-suspenders: if a stale `dimensions` entry ever does
+  // sneak NaN into `offsetTop`, render the slot at the top of the
+  // tray instead of emitting `top: NaN` into the DOM (which only
+  // produces a console warning and a visually-stuck page anyway).
+  const safeOffsetTop = Number.isFinite(offsetTop) ? offsetTop : 0;
+
   return (
     <div
       style={{
         position: "absolute",
-        top: offsetTop,
+        top: safeOffsetTop,
         left: 0,
         width: "100%",
         display: "flex",
@@ -298,14 +304,31 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   }, [baselineWidth]);
 
   // Estimate page height from cached dimensions or A4 ratio.
+  // Defensive: a stray cache entry with `width=0` or non-finite
+  // values would otherwise propagate NaN into `pageOffsets[]` and
+  // every downstream `top: <number>` style. We've seen this in the
+  // wild when react-pdf's onLoadSuccess fired before the page had
+  // intrinsic dimensions; the resulting NaN is invisible until the
+  // browser logs an "invalid value for top" warning on every page
+  // mount. Fall back to the A4 estimate in that case.
   const getPageHeight = useCallback(
     (pageNum: number): number => {
       const cached = dimensions.get(pageNum);
-      if (cached) {
+      if (
+        cached &&
+        Number.isFinite(cached.width) &&
+        Number.isFinite(cached.height) &&
+        cached.width > 0 &&
+        cached.height > 0
+      ) {
         const scale = baselineWidth / cached.width;
-        return cached.height * scale;
+        const height = cached.height * scale;
+        if (Number.isFinite(height) && height > 0) return height;
       }
-      return baselineWidth * A4_RATIO;
+      const fallback = baselineWidth * A4_RATIO;
+      return Number.isFinite(fallback) && fallback > 0
+        ? fallback
+        : 600 * A4_RATIO;
     },
     [baselineWidth, dimensions],
   );

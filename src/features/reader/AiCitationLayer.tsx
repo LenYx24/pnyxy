@@ -5,7 +5,7 @@ import { Bot, MessageSquare } from "lucide-react";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useChatStore } from "@/stores/chat-store";
 import { useUIStore } from "@/stores/ui-store";
-import type { AiCitation } from "@/types/annotation";
+import { isFiniteRect, type AiCitation } from "@/types/annotation";
 import { cn } from "@/lib/cn";
 
 const EMPTY: AiCitation[] = [];
@@ -168,7 +168,14 @@ function groupBySelection(citations: AiCitation[]): CitationGroup[] {
     const key = selectionKey(c);
     const existing = byKey.get(key);
     if (existing) existing.items.push(c);
-    else byKey.set(key, { key, rects: c.selection.rects, items: [c] });
+    else
+      byKey.set(key, {
+        key,
+        // Drop NaN-coord rects so the render layer doesn't emit
+        // `top: NaN%` into the DOM (see PageRect.isFiniteRect docs).
+        rects: c.selection.rects.filter(isFiniteRect),
+        items: [c],
+      });
   }
   // Most-recent-first inside each group so the popover lists newest
   // conversations at the top.

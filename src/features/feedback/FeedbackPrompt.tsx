@@ -161,13 +161,33 @@ export function FeedbackPrompt() {
         }),
       });
       if (!res.ok) {
-        const payload = (await res.json().catch(() => null)) as
-          | { error?: { message?: string } }
-          | null;
+        // Read the body as text first so we can surface non-JSON
+        // responses (e.g., a 401 HTML page from the Supabase edge
+        // when the apikey/JWT check fails, or a Resend rate-limit
+        // text body) instead of silently throwing
+        // SyntaxError: Unexpected token at the JSON parse step. The
+        // generic "Couldn't send" toast left users unable to tell
+        // why their text was being rejected.
+        const bodyText = await res.text().catch(() => "");
+        type ErrorPayload = { error?: { message?: string } };
+        let parsed: ErrorPayload | null = null;
+        try {
+          parsed = bodyText ? (JSON.parse(bodyText) as ErrorPayload) : null;
+        } catch {
+          parsed = null;
+        }
+        const detail =
+          parsed?.error?.message ?? bodyText.slice(0, 200) ?? "";
+        logError("FeedbackPrompt:send", {
+          status: res.status,
+          statusText: res.statusText,
+          detail,
+        });
         throw new Error(
-          payload?.error?.message ??
+          detail ||
             t("feedbackPrompt.errorGeneric", {
-              defaultValue: "Couldn't send. Try again from Settings → Feedback.",
+              defaultValue:
+                "Couldn't send. Try again from Settings → Feedback.",
             }),
         );
       }

@@ -447,6 +447,16 @@ export function QuizEditorPage() {
         onAppend={appendGeneratedQuestions}
         uploadedBookId={uploadedBookId}
         catalogBookId={catalogBookId}
+        // `?aiOpen=1` is the entry point used by the book Overview's
+        // "Generate quiz from this book" shortcut — start the panel
+        // expanded so the user lands directly on the form.
+        autoOpen={searchParams.get("aiOpen") === "1"}
+        // `?kind=short_answer` flips the panel into flashcard mode
+        // (used by the "Generate flashcards" shortcut). Anything
+        // else (or the param absent) keeps the default multi-choice.
+        kind={
+          searchParams.get("kind") === "short_answer" ? "short_answer" : "mcq4"
+        }
       />
 
       <section className="space-y-4">

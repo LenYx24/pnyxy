@@ -1,4 +1,4 @@
-import { streamChatResponse } from "@/lib/ai-client";
+import { aiJsonExtract } from "@/lib/ai-json-extract";
 
 export interface ExtractedQuestion {
   /** 1-based position in the exam — handy for "Question N of M" UI. */
@@ -33,47 +33,22 @@ Rules:
 export async function extractExamQuestions(
   examText: string,
 ): Promise<ExtractedQuestion[]> {
-  const trimmed = examText.trim();
-  if (trimmed.length < 80) return [];
-
-  let buf = "";
-  for await (const chunk of streamChatResponse(
-    [{ role: "user", content: trimmed }],
-    "",
-    "",
-    {
-      systemPromptOverride: SYSTEM_PROMPT,
-      maxOutputTokens: 1500,
+  return aiJsonExtract<ExtractedQuestion>({
+    passage: examText,
+    systemPrompt: SYSTEM_PROMPT,
+    minPassageLength: 80,
+    maxOutputTokens: 1500,
+    maxItems: MAX_QUESTIONS,
+    errorLabel: "exam-questions",
+    pickArray: (parsed) => {
+      if (!parsed || typeof parsed !== "object") throw new Error();
+      return (parsed as { questions?: unknown }).questions;
     },
-  )) {
-    buf += chunk.delta;
-  }
-
-  const cleaned = buf
-    .trim()
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "");
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    throw new Error("exam-questions:parse-failed");
-  }
-  if (
-    !parsed ||
-    typeof parsed !== "object" ||
-    !Array.isArray((parsed as { questions?: unknown }).questions)
-  ) {
-    throw new Error("exam-questions:bad-shape");
-  }
-  return (parsed as { questions: unknown[] }).questions
-    .map((q, i): ExtractedQuestion | null => {
-      if (typeof q !== "string") return null;
-      const text = q.trim();
+    coerce: (raw, i) => {
+      if (typeof raw !== "string") return null;
+      const text = raw.trim();
       if (!text) return null;
       return { id: i + 1, text };
-    })
-    .filter((q): q is ExtractedQuestion => q !== null)
-    .slice(0, MAX_QUESTIONS);
+    },
+  });
 }

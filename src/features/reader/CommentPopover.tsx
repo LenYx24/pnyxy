@@ -59,18 +59,31 @@ export function CommentPopover() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [setSelectedAnnotation]);
 
-  // Close on click outside
+  // Close on click outside. We identify "inside the popover" via the
+  // `data-comment-popover` attribute on the root rather than by
+  // `popoverRef.current.contains(target)` — the ref-based check is
+  // sensitive to attachment timing (portal + React StrictMode double-
+  // mount can leave `popoverRef.current` pointing at a stale node for
+  // a frame, causing every click *inside* the popover to dismiss it).
+  // The attribute-based form mirrors what AnnotationContextMenu uses
+  // for the same reason.
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (
-        popoverRef.current &&
-        !popoverRef.current.contains(e.target as Node) &&
-        !(e.target as HTMLElement).closest("[data-annotation-context-menu]")
-      ) {
-        setSelectedAnnotation(null);
-      }
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest("[data-comment-popover]")) return;
+      if (target.closest("[data-annotation-context-menu]")) return;
+      // Also leave the popover open when the click landed on a
+      // CommentMarker — toggling the same marker should dismiss it,
+      // but that path is handled by the marker's own onClick (which
+      // calls setSelectedAnnotation(null) explicitly). For clicks on
+      // *other* markers we let the normal dismissal happen so the
+      // newly-clicked marker re-opens the popover for its comment.
+      setSelectedAnnotation(null);
     };
     if (comment) {
+      // Defer one tick so the click that opened the popover (via a
+      // CommentMarker) doesn't itself close it.
       const timer = setTimeout(() => {
         document.addEventListener("mousedown", handleClick);
       }, 100);
@@ -100,7 +113,19 @@ export function CommentPopover() {
 
   if (!comment) return null;
 
-  const firstRect = comment.selection.rects[0];
+  // Find the first rect with finite coordinates. A historically
+  // corrupted comment (saved when its source page had zero
+  // dimensions, dividing by 0) can carry NaN positions; those
+  // rects would otherwise propagate into the `top`/`left` styles
+  // and trigger React's "invalid value for the `top` css style
+  // property" warnings every time the popover mounts.
+  const firstRect = comment.selection.rects.find(
+    (r) =>
+      Number.isFinite(r.x) &&
+      Number.isFinite(r.y) &&
+      Number.isFinite(r.width) &&
+      Number.isFinite(r.height),
+  );
   if (!firstRect) return null;
 
   // Find the page element to compute absolute position
@@ -134,6 +159,7 @@ export function CommentPopover() {
   const popoverContent = (
     <div
       ref={popoverRef}
+      data-comment-popover
       className="rounded-lg border border-glass-border bg-bg-secondary/95 backdrop-blur-md shadow-xl overflow-hidden"
       style={{
         position: "fixed",

@@ -8,6 +8,7 @@ import type {
   TocItem,
 } from "@/types/document";
 import { buildSearchRegex } from "@/lib/text-search";
+import { extractReflowedDocument } from "@/lib/pdf-reflow";
 
 type PDFDocumentProxy = Awaited<
   ReturnType<typeof pdfjs.getDocument>["promise"]
@@ -230,6 +231,16 @@ export function createPdfAdapter(): DocumentAdapter {
         if (pageMatches) matches.push(...pageMatches);
       }
       return matches;
+    },
+
+    async extractReflow(options) {
+      if (!doc) {
+        // Caller hit the toggle before the doc fully loaded — return
+        // an empty result rather than throw; the view's loading state
+        // will catch up once `load` resolves.
+        return { blocks: [], totalPages: 0 };
+      }
+      return extractReflowedDocument(doc, options);
     },
 
     dispose() {

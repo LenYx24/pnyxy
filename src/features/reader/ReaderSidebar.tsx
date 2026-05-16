@@ -231,6 +231,32 @@ export function ReaderSidebarContent({
 
   const notes = useNoteStore((s) => s.notes);
   const whiteboards = useWhiteboardStore((s) => s.whiteboards);
+  // Reader sidebar shows ONLY whiteboards relevant to the currently
+  // open document:
+  //   • `bookId === activeDocumentId` — explicitly tied to this book.
+  //   • `bookId == null` — legacy / global whiteboards created before
+  //     this filter existed; surfaced so they don't silently vanish
+  //     from the user's view. Going forward, the reader's own
+  //     `createWhiteboard()` callers tag with `activeDocumentId` so
+  //     newly-created reader whiteboards always land in the matched
+  //     bucket.
+  const visibleWhiteboards = useMemo(
+    () =>
+      whiteboards.filter(
+        (wb) =>
+          !activeDocumentId || !wb.bookId || wb.bookId === activeDocumentId,
+      ),
+    [whiteboards, activeDocumentId],
+  );
+  // Range-select (shift-click) reads the visible list via this ref so
+  // the index offsets match what the user actually sees. Updating the
+  // ref in an effect (rather than during render) keeps React's
+  // refs-during-render rule happy; the handler that consumes the ref
+  // fires later (on user click), so the one-tick lag never materialises.
+  const visibleWhiteboardsRef = useRef(visibleWhiteboards);
+  useEffect(() => {
+    visibleWhiteboardsRef.current = visibleWhiteboards;
+  }, [visibleWhiteboards]);
   const allowWhiteboardForAll = useSettingsStore(
     (s) => s.experimental_allowWhiteboardForAllFormats,
   );
@@ -349,7 +375,10 @@ export function ReaderSidebarContent({
       const end = Math.max(lastClickedWhiteboardIndexRef.current, index);
       setSelectedWhiteboardIds((prev) => {
         const next = new Set(prev);
-        const currentWbs = useWhiteboardStore.getState().whiteboards;
+        // Use the filtered visible list so indices line up with what
+        // the user is actually clicking on (the underlying store
+        // contains whiteboards from other books we don't show here).
+        const currentWbs = visibleWhiteboardsRef.current;
         for (let i = start; i <= end; i++) {
           if (currentWbs[i]) next.add(currentWbs[i].id);
         }
@@ -719,12 +748,12 @@ export function ReaderSidebarContent({
         {/* Whiteboards tab */}
         {sidebarTab === "whiteboards" && (
           <>
-            {whiteboards.length === 0 ? (
+            {visibleWhiteboards.length === 0 ? (
               <p className="px-3 py-2 text-sm text-text-muted">
                 {t("reader.sidebar.noWhiteboards")}
               </p>
             ) : (
-              whiteboards.map((wb, index) => (
+              visibleWhiteboards.map((wb, index) => (
                 <div
                   key={wb.id}
                   onClick={(e) => handleWhiteboardClick(wb.id, index, e)}

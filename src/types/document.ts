@@ -69,4 +69,11 @@ export interface DocumentAdapter {
   search?(query: string, opts: SearchOptions): Promise<SearchMatch[]>;
   /** Present on editable formats. Notifies subscribers after `setContent`. */
   subscribeContent?(fn: () => void): () => void;
+  /** Present on fixed-layout formats with a text layer (PDF today).
+   *  Returns the document re-expressed as a stream of heading /
+   *  paragraph blocks for mobile reflow rendering. */
+  extractReflow?(options: {
+    onProgress?: (current: number, total: number) => void;
+    signal?: AbortSignal;
+  }): Promise<import("@/lib/pdf-reflow").ReflowedDocument>;
 }

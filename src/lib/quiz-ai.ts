@@ -28,6 +28,24 @@ Rules:
 - Do not include metadata, markdown, headings, or explanatory text outside the JSON array.`;
 }
 
+function buildFlashcardSystemPrompt(count: number): string {
+  return `You generate short-answer study flashcards from a source text.
+
+Output EXACTLY a JSON array — no prose, no markdown fences, no commentary.
+
+Each element must be an object with these keys and only these keys:
+- "question_text": string (the question itself, no leading numbering)
+- "correct_text": string (the short, specific answer — one sentence or fewer)
+- "explanation": string OR omitted (optional context one sentence long)
+
+Rules:
+- Produce exactly ${count} card(s).
+- Each card stands alone — no "the above" / "as in the passage".
+- Avoid yes/no questions.
+- Answers must be directly supported by the source text.
+- Do not include any field other than the three above.`;
+}
+
 function buildQuizUserPrompt(sourceText: string): string {
   return `Source text:\n\n---\n${sourceText}\n---`;
 }
@@ -40,8 +58,13 @@ interface RawQuestion {
   option_c?: unknown;
   option_d?: unknown;
   correct_index?: unknown;
+  correct_text?: unknown;
   explanation?: unknown;
 }
+
+/** Generator output kind. "mcq4" → 4-option multi-choice; "short_answer"
+ *  → flashcard-style Q/A pair (free-form short answer). */
+export type GenerateKind = "mcq4" | "short_answer";
 
 export type QuizGenerationErrorKind =
   | "empty_source"
@@ -83,7 +106,10 @@ function isNonEmptyString(v: unknown): v is string {
   return typeof v === "string" && v.trim().length > 0;
 }
 
-function validateQuestions(raw: unknown): QuizQuestionDraft[] {
+function validateQuestions(
+  raw: unknown,
+  kind: GenerateKind,
+): QuizQuestionDraft[] {
   if (!Array.isArray(raw)) {
     throw new QuizGenerationError(
       "AI response was not a JSON array.",
@@ -92,39 +118,71 @@ function validateQuestions(raw: unknown): QuizQuestionDraft[] {
   }
   const out: QuizQuestionDraft[] = [];
   for (const entry of raw as RawQuestion[]) {
-    if (
-      !isNonEmptyString(entry.question_text) ||
-      !isNonEmptyString(entry.option_a) ||
-      !isNonEmptyString(entry.option_b) ||
-      !isNonEmptyString(entry.option_c) ||
-      !isNonEmptyString(entry.option_d)
-    ) {
-      throw new QuizGenerationError(
-        "A generated question is missing text or options.",
-        "shape_invalid",
-      );
+    if (kind === "mcq4") {
+      if (
+        !isNonEmptyString(entry.question_text) ||
+        !isNonEmptyString(entry.option_a) ||
+        !isNonEmptyString(entry.option_b) ||
+        !isNonEmptyString(entry.option_c) ||
+        !isNonEmptyString(entry.option_d)
+      ) {
+        throw new QuizGenerationError(
+          "A generated question is missing text or options.",
+          "shape_invalid",
+        );
+      }
+      const idx = entry.correct_index;
+      if (
+        typeof idx !== "number" ||
+        !Number.isInteger(idx) ||
+        idx < 0 ||
+        idx > 3
+      ) {
+        throw new QuizGenerationError(
+          "A generated question had an invalid correct_index.",
+          "shape_invalid",
+        );
+      }
+      out.push({
+        kind: "mcq4",
+        question_text: entry.question_text.trim(),
+        option_a: entry.option_a.trim(),
+        option_b: entry.option_b.trim(),
+        option_c: entry.option_c.trim(),
+        option_d: entry.option_d.trim(),
+        correct_index: idx,
+        correct_text: "",
+        explanation:
+          typeof entry.explanation === "string" && entry.explanation.trim()
+            ? entry.explanation.trim()
+            : null,
+      });
+    } else {
+      // short_answer — flashcard-style.
+      if (
+        !isNonEmptyString(entry.question_text) ||
+        !isNonEmptyString(entry.correct_text)
+      ) {
+        throw new QuizGenerationError(
+          "A generated flashcard is missing the question or answer.",
+          "shape_invalid",
+        );
+      }
+      out.push({
+        kind: "short_answer",
+        question_text: entry.question_text.trim(),
+        option_a: "",
+        option_b: "",
+        option_c: "",
+        option_d: "",
+        correct_index: 0,
+        correct_text: entry.correct_text.trim(),
+        explanation:
+          typeof entry.explanation === "string" && entry.explanation.trim()
+            ? entry.explanation.trim()
+            : null,
+      });
     }
-    const idx = entry.correct_index;
-    if (typeof idx !== "number" || !Number.isInteger(idx) || idx < 0 || idx > 3) {
-      throw new QuizGenerationError(
-        "A generated question had an invalid correct_index.",
-        "shape_invalid",
-      );
-    }
-    out.push({
-      kind: "mcq4",
-      question_text: entry.question_text.trim(),
-      option_a: entry.option_a.trim(),
-      option_b: entry.option_b.trim(),
-      option_c: entry.option_c.trim(),
-      option_d: entry.option_d.trim(),
-      correct_index: idx,
-      correct_text: "",
-      explanation:
-        typeof entry.explanation === "string" && entry.explanation.trim()
-          ? entry.explanation.trim()
-          : null,
-    });
   }
   if (out.length === 0) {
     throw new QuizGenerationError(
@@ -138,9 +196,16 @@ function validateQuestions(raw: unknown): QuizQuestionDraft[] {
 export async function generateQuizQuestions(args: {
   sourceText: string;
   count: number;
+  /** What flavour of draft to produce. Defaults to multi-choice so
+   *  existing callers (legacy AiGeneratePanel invocation) keep their
+   *  behaviour. "short_answer" routes through a flashcard-style
+   *  prompt + validator so the Q/A pairs map cleanly into the same
+   *  `quizzes` + `quiz_questions` tables (kind="short_answer"). */
+  kind?: GenerateKind;
   signal?: AbortSignal;
 }): Promise<QuizQuestionDraft[]> {
   const { sourceText, count, signal } = args;
+  const kind: GenerateKind = args.kind ?? "mcq4";
 
   const trimmedSource = sourceText.trim();
   if (!trimmedSource) {
@@ -162,7 +227,10 @@ export async function generateQuizQuestions(args: {
       ? trimmedSource.slice(0, MAX_SOURCE_CHARS)
       : trimmedSource;
 
-  const systemPrompt = buildQuizSystemPrompt(count);
+  const systemPrompt =
+    kind === "short_answer"
+      ? buildFlashcardSystemPrompt(count)
+      : buildQuizSystemPrompt(count);
   const userPrompt = buildQuizUserPrompt(clippedSource);
 
   let full = "";
@@ -210,5 +278,5 @@ export async function generateQuizQuestions(args: {
     );
   }
 
-  return validateQuestions(parsed);
+  return validateQuestions(parsed, kind);
 }

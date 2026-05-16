@@ -105,45 +105,53 @@ export function totalEstimatedMinutes(roadmap: Roadmap): number {
   );
 }
 
-/** Completed minutes for an enrollment. */
+/** Estimated minutes credited toward completion, scaled by each
+ *  node's `nodeProgress` percent (so a 50% node contributes half).
+ *  Mirrors the user's intuition that partial progress should count
+ *  partially when looking at "how much have I done?". */
 export function completedMinutes(
   roadmap: Roadmap,
   enrollment: Enrollment,
 ): number {
   let total = 0;
   for (const n of roadmap.nodes) {
-    if (enrollment.completedNodeIds[n.id]) {
-      total += Math.max(0, n.estimatedMinutes || 0);
-    }
+    const pct = enrollment.nodeProgress[n.id] ?? 0;
+    if (pct <= 0) continue;
+    total += Math.max(0, n.estimatedMinutes || 0) * (pct / 100);
   }
   return total;
 }
 
+/** Average of per-node percents across the roadmap, normalised to a
+ *  0–1 fraction. Empty roadmap → 0. */
 export function progressFraction(
   roadmap: Roadmap,
   enrollment: Enrollment,
 ): number {
   if (roadmap.nodes.length === 0) return 0;
-  const completed = Object.keys(enrollment.completedNodeIds).filter((id) =>
-    roadmap.nodes.some((n) => n.id === id),
-  ).length;
-  return completed / roadmap.nodes.length;
+  let sum = 0;
+  for (const n of roadmap.nodes) {
+    sum += (enrollment.nodeProgress[n.id] ?? 0) / 100;
+  }
+  return sum / roadmap.nodes.length;
 }
 
 /**
- * Soft-lock evaluation — a node is "locked" when at least one of its direct
- * predecessors hasn't been completed. The UI surfaces a lock icon but still
- * lets the user click through (intentional, per design).
+ * Soft-lock evaluation — a node is "locked" when at least one of its
+ * direct predecessors isn't fully complete (< 100%). The UI surfaces
+ * a lock icon but still lets the user click through (intentional,
+ * per design).
  */
 export function lockedNodeIds(
   roadmap: Roadmap,
-  completedNodeIds: Record<string, true>,
+  nodeProgress: Record<string, number>,
 ): Set<string> {
   const incomingDone = new Map<string, boolean>();
-  // Default everyone to unlocked, then mark locked when any predecessor missing.
+  // Default everyone to unlocked, then mark locked when any
+  // predecessor isn't yet at 100%.
   for (const n of roadmap.nodes) incomingDone.set(n.id, true);
   for (const e of roadmap.edges) {
-    if (!completedNodeIds[e.source]) {
+    if ((nodeProgress[e.source] ?? 0) < 100) {
       incomingDone.set(e.target, false);
     }
   }

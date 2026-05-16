@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -9,24 +10,27 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { createPortal } from "react-dom";
 import {
-  Copy,
-  MessageSquare,
-  X,
-  BookOpen,
-  Languages,
-  Loader2,
-  Share2,
   Bot,
+  BookOpen,
+  Copy,
+  Globe,
+  Languages,
+  MessageSquare,
+  Share2,
+  Sparkles,
   Volume2,
+  X,
 } from "lucide-react";
 import { useAnnotationStore } from "@/stores/annotation-store";
-import { useSettingsStore } from "@/stores/settings-store";
-import { useVocabStore } from "@/stores/vocab-store";
-import { useReaderStore } from "@/stores/reader-store";
 import { useChatStore } from "@/stores/chat-store";
-import { useUIStore } from "@/stores/ui-store";
+import { useReaderStore } from "@/stores/reader-store";
 import { useTtsStore } from "@/stores/tts-store";
+import { useUIStore } from "@/stores/ui-store";
 import type { HighlightColor } from "@/types/annotation";
+import { AnnotationMenuDefinePanel } from "./AnnotationMenuDefinePanel";
+import { AnnotationMenuTranslatePanel } from "./AnnotationMenuTranslatePanel";
+import { AnnotationMenuWikiPanel } from "./AnnotationMenuWikiPanel";
+import { AnnotationMenuExplainPanel } from "./AnnotationMenuExplainPanel";
 
 const COLORS: { color: HighlightColor; hex: string }[] = [
   { color: "yellow", hex: "#facc15" },
@@ -36,84 +40,37 @@ const COLORS: { color: HighlightColor; hex: string }[] = [
   { color: "orange", hex: "#fb923c" },
 ];
 
-interface DictionaryEntry {
-  word: string;
-  phonetic?: string;
-  meanings: {
-    partOfSpeech: string;
-    definitions: { definition: string; example?: string }[];
-  }[];
-}
-
-async function fetchDefinition(word: string): Promise<DictionaryEntry | null> {
-  // Free Dictionary API — no auth, English only, 404 if not found.
-  const res = await fetch(
-    `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
-  );
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = (await res.json()) as Array<{
-    word: string;
-    phonetic?: string;
-    phonetics?: { text?: string }[];
-    meanings?: {
-      partOfSpeech?: string;
-      definitions?: { definition: string; example?: string }[];
-    }[];
-  }>;
-  const first = data[0];
-  if (!first) return null;
-  const phonetic =
-    first.phonetic ?? first.phonetics?.find((p) => p.text)?.text ?? undefined;
-  const meanings = (first.meanings ?? [])
-    .map((m) => ({
-      partOfSpeech: m.partOfSpeech ?? "",
-      definitions: (m.definitions ?? []).slice(0, 3), // cap per part-of-speech
-    }))
-    .filter((m) => m.definitions.length > 0);
-  return { word: first.word, phonetic, meanings };
-}
+/**
+ * Which sub-view the menu is currently showing. `"none"` renders the
+ * top-level action list (Define / Translate / Read aloud / Wikipedia
+ * / Explain / Add comment / Send to chat / Copy / Share). `"comment"`
+ * shows the inline reply textarea. The other four mount their own
+ * panel components, each of which owns its data and abort state.
+ *
+ * Replacing the previous "five separate `showX` boolean useStates"
+ * with a single tagged state lets us encode "only one panel open at
+ * a time" structurally — no risk of two panels rendering due to a
+ * missed reset.
+ */
+type ActivePanel =
+  | "none"
+  | "comment"
+  | "define"
+  | "translate"
+  | "wiki"
+  | "explain";
 
 /**
- * MyMemory's free API requires real two-letter source + target lang
- * codes — `langpair=autodetect|hu` silently returns the input
- * untranslated. Cheap heuristic: pick `hu` when the text contains
- * Hungarian-specific accented characters (ő, ű, é, …); otherwise
- * `en`. This covers the dominant HU-student use case (English
- * textbook ↔ Hungarian) without an extra round-trip detector. Users
- * who pick a target same as the detected source will see "no
- * translation needed" via MyMemory's match score.
+ * Wrapped in `memo` because the menu is mounted under high-frequency
+ * re-rendering ancestors (reader scroll, page virtualisation) but
+ * takes no props of its own — every dynamic input comes from zustand
+ * subscriptions. memo lets it skip re-renders on parent updates that
+ * don't touch the menu's slice of the store, materially reducing
+ * cost during PDF scroll.
  */
-function detectSourceLang(text: string): string {
-  if (/[őűáéíóúöüÁÉÍÓÚŐŰÖÜ]/.test(text)) return "hu";
-  return "en";
-}
-
-const TRANSLATE_LANGUAGES = [
-  { code: "en", label: "English" },
-  { code: "es", label: "Spanish" },
-  { code: "fr", label: "French" },
-  { code: "de", label: "German" },
-  { code: "it", label: "Italian" },
-  { code: "pt", label: "Portuguese" },
-  { code: "ru", label: "Russian" },
-  { code: "zh", label: "Chinese" },
-  { code: "ja", label: "Japanese" },
-  { code: "ko", label: "Korean" },
-  { code: "ar", label: "Arabic" },
-  { code: "hi", label: "Hindi" },
-  { code: "tr", label: "Turkish" },
-  { code: "pl", label: "Polish" },
-  { code: "nl", label: "Dutch" },
-  { code: "sv", label: "Swedish" },
-  { code: "hu", label: "Hungarian" },
-  { code: "ro", label: "Romanian" },
-  { code: "uk", label: "Ukrainian" },
-  { code: "cs", label: "Czech" },
-];
-
-export function AnnotationContextMenu() {
+export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const contextMenu = useAnnotationStore((s) => s.contextMenu);
   const addHighlight = useAnnotationStore((s) => s.addHighlight);
   const addComment = useAnnotationStore((s) => s.addComment);
@@ -124,26 +81,8 @@ export function AnnotationContextMenu() {
   );
   const highlights = useAnnotationStore((s) => s.highlights);
 
-  const translateTargetLanguage = useSettingsStore(
-    (s) => s.translateTargetLanguage,
-  );
-  const setTranslateTargetLanguage = useSettingsStore(
-    (s) => s.setTranslateTargetLanguage,
-  );
-
-  const [showCommentInput, setShowCommentInput] = useState(false);
+  const [activePanel, setActivePanel] = useState<ActivePanel>("none");
   const [commentText, setCommentText] = useState("");
-  const [showTranslate, setShowTranslate] = useState(false);
-  const [translatedText, setTranslatedText] = useState("");
-  const [translating, setTranslating] = useState(false);
-  const [translateError, setTranslateError] = useState("");
-  const [showDefine, setShowDefine] = useState(false);
-  const [definition, setDefinition] = useState<DictionaryEntry | null>(null);
-  const [defining, setDefining] = useState(false);
-  const [defineError, setDefineError] = useState("");
-  const [capturedVocabId, setCapturedVocabId] = useState<string | null>(null);
-  const captureFromLookup = useVocabStore((s) => s.captureFromLookup);
-  const removeVocabEntry = useVocabStore((s) => s.removeEntry);
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
 
@@ -153,45 +92,42 @@ export function AnnotationContextMenu() {
 
   const selectedText =
     contextMenu.selection?.text ?? highlight?.selection.text ?? "";
+  const hasSelection = !!contextMenu.selection;
+  const hasHighlight = !!highlight;
+  const trimmedSelected = selectedText.trim();
 
-  // Reset sub-states when menu opens. Plain effect — these are
-  // independent of layout measurements, so they don't need to run
-  // synchronously before paint.
+  // Reset to the top-level action list whenever the menu opens for a
+  // new spot (different selection / right-click position). The
+  // panel sub-components unmount automatically when activePanel
+  // flips to "none", so their internal data + AbortControllers
+  // self-clean — no manual reset needed here.
   useEffect(() => {
     if (!contextMenu.visible) return;
-    setShowCommentInput(false);
-    setShowTranslate(false);
-    setTranslatedText("");
-    setTranslateError("");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot reset when the menu reopens for a new selection; can't cascade
+    setActivePanel("none");
     setCommentText("");
-    setShowDefine(false);
-    setDefinition(null);
-    setDefineError("");
-    setCapturedVocabId(null);
   }, [contextMenu.visible, contextMenu.x, contextMenu.y]);
 
-  // Position the menu before paint so it never appears at the
-  // touch-point and then jumps. useLayoutEffect runs after the
-  // ref is populated but before the browser paints — same effect
-  // as a requestAnimationFrame here, ~16ms faster on the user's
-  // perceived latency since they don't see an unflipped frame.
+  // Position the menu before paint so it never appears at the touch
+  // point and then jumps. useLayoutEffect runs after the ref is
+  // populated but before the browser paints — same effect as a
+  // requestAnimationFrame would give, but ~16ms faster perceived.
   useLayoutEffect(() => {
     if (!contextMenu.visible) return;
     const el = menuRef.current;
     if (!el) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- fallback position before the ref attaches; never cascades because the next effect run replaces it once the ref is up
       setMenuPos({ x: contextMenu.x, y: contextMenu.y + 8 });
       return;
     }
     const rect = el.getBoundingClientRect();
     const x = Math.min(contextMenu.x, window.innerWidth - rect.width - 8);
-    const y = Math.min(
-      contextMenu.y + 8,
-      window.innerHeight - rect.height - 8,
-    );
+    const y = Math.min(contextMenu.y + 8, window.innerHeight - rect.height - 8);
     setMenuPos({ x: Math.max(8, x), y: Math.max(8, y) });
   }, [contextMenu.visible, contextMenu.x, contextMenu.y]);
 
-  // Re-clamp when translate panel opens/closes (menu size changes)
+  // Re-clamp when the active panel changes (different panel = different
+  // menu size, e.g. Translate is taller than the action list).
   useEffect(() => {
     if (!contextMenu.visible) return;
     requestAnimationFrame(() => {
@@ -205,7 +141,7 @@ export function AnnotationContextMenu() {
       );
       setMenuPos({ x: Math.max(8, x), y: Math.max(8, y) });
     });
-  }, [showTranslate, translatedText, showDefine, definition, contextMenu.visible, contextMenu.x, contextMenu.y]);
+  }, [activePanel, contextMenu.visible, contextMenu.x, contextMenu.y]);
 
   const handleHighlight = useCallback(
     (color: HighlightColor) => {
@@ -218,20 +154,34 @@ export function AnnotationContextMenu() {
 
   const handleCopy = useCallback(() => {
     const text = contextMenu.selection?.text ?? highlight?.selection.text;
-    if (text) {
-      navigator.clipboard.writeText(text);
-    }
+    if (text) navigator.clipboard.writeText(text);
     hideContextMenu();
     window.getSelection()?.removeAllRanges();
   }, [contextMenu.selection, highlight, hideContextMenu]);
 
-  const navigate = useNavigate();
   const handleSendToChat = useCallback(() => {
-    const selection = contextMenu.selection ?? highlight?.selection ?? null;
+    const selection =
+      contextMenu.selection ?? highlight?.selection ?? null;
     const text = (selection?.text ?? "").trim();
-    if (!text) return;
     const doc = useReaderStore.getState().getActiveDoc();
-    if (!doc) return;
+    const openInReader = useUIStore.getState().openReaderAiChat;
+    // Diagnostic — flat string so Chrome doesn't collapse it on
+    // copy/paste. Strip once Send-to-AI-chat is reliably delivering
+    // the selection into the composer.
+    console.log(
+      `[send-to-chat] textLen=${text.length} preview="${text.slice(
+        0,
+        60,
+      )}" hasDoc=${!!doc} docId=${doc?.meta.id ?? "null"} hasOpenInReader=${!!openInReader}`,
+    );
+    if (!text) {
+      console.warn("[send-to-chat] early-return: empty text");
+      return;
+    }
+    if (!doc) {
+      console.warn("[send-to-chat] early-return: no active doc");
+      return;
+    }
     // Stash a draft. Either the reader's in-panel AiChatPanel or
     // ChatPage will pick it up — both subscribe to pendingDraft and
     // drain it into a fresh conversation prefilled with the quote.
@@ -247,21 +197,26 @@ export function AnnotationContextMenu() {
       },
       selection,
     });
+    console.log("[send-to-chat] pendingDraft set");
     hideContextMenu();
     window.getSelection()?.removeAllRanges();
     // Prefer the reader's side panel — keeps the user in their
     // reading context. Fall back to /chat only if no reader is
     // mounted (defensive; this menu only renders inside the reader).
-    const openInReader = useUIStore.getState().openReaderAiChat;
     if (openInReader) {
+      console.log("[send-to-chat] opening in-reader panel");
       openInReader();
     } else {
+      console.log(
+        "[send-to-chat] navigating to /chat (in-reader panel not registered)",
+      );
       navigate("/chat");
     }
   }, [contextMenu.selection, highlight, hideContextMenu, navigate]);
 
   const handleShare = useCallback(async () => {
-    const text = contextMenu.selection?.text ?? highlight?.selection.text ?? "";
+    const text =
+      contextMenu.selection?.text ?? highlight?.selection.text ?? "";
     if (!text.trim()) return;
     const doc = useReaderStore.getState().getActiveDoc();
     const title = doc?.customTitle ?? doc?.meta.title ?? "";
@@ -294,19 +249,31 @@ export function AnnotationContextMenu() {
     window.getSelection()?.removeAllRanges();
   }, [contextMenu.selection, highlight, hideContextMenu]);
 
-  const handleAddComment = useCallback(() => {
-    setShowCommentInput(true);
-    setCommentText("");
-  }, []);
+  const handleReadAloud = useCallback(() => {
+    if (!trimmedSelected) return;
+    useTtsStore.getState().speak(trimmedSelected);
+    hideContextMenu();
+    window.getSelection()?.removeAllRanges();
+  }, [trimmedSelected, hideContextMenu]);
 
   const handleSubmitComment = useCallback(() => {
     const selection = contextMenu.selection ?? highlight?.selection;
     if (!selection || !commentText.trim()) return;
-    addComment(selection, commentText.trim(), contextMenu.highlightId ?? undefined);
-    setShowCommentInput(false);
+    addComment(
+      selection,
+      commentText.trim(),
+      contextMenu.highlightId ?? undefined,
+    );
+    setActivePanel("none");
     setCommentText("");
     window.getSelection()?.removeAllRanges();
-  }, [contextMenu.selection, contextMenu.highlightId, highlight, commentText, addComment]);
+  }, [
+    contextMenu.selection,
+    contextMenu.highlightId,
+    highlight,
+    commentText,
+    addComment,
+  ]);
 
   const handleCommentKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -314,9 +281,7 @@ export function AnnotationContextMenu() {
         e.preventDefault();
         handleSubmitComment();
       }
-      if (e.key === "Escape") {
-        setShowCommentInput(false);
-      }
+      if (e.key === "Escape") setActivePanel("none");
     },
     [handleSubmitComment],
   );
@@ -336,144 +301,10 @@ export function AnnotationContextMenu() {
     hideContextMenu();
   }, [contextMenu.highlightId, removeHighlight, hideContextMenu]);
 
-  const handleDefine = useCallback(async () => {
-    const word = selectedText.trim();
-    if (!word) return;
-    setShowDefine(true);
-    setDefinition(null);
-    setDefineError("");
-    setDefining(true);
-    setCapturedVocabId(null);
-    try {
-      const entry = await fetchDefinition(word);
-      if (entry) {
-        setDefinition(entry);
-        // Silently save to vocabulary for later review. Only capture
-        // on a successful single-word lookup — long-phrase "defines"
-        // would pollute the flashcard deck.
-        if (!word.includes(" ")) {
-          const primaryDef = entry.meanings[0]?.definitions[0]?.definition ?? "";
-          const activeDoc = useReaderStore.getState().getActiveDoc();
-          try {
-            const saved = await captureFromLookup({
-              word: entry.word,
-              definition: primaryDef,
-              contextSentence: selectedText.length > word.length ? selectedText : "",
-              sourceDocumentId: activeDoc?.meta.id ?? null,
-              sourceTitle: activeDoc?.customTitle ?? activeDoc?.meta.title ?? null,
-              sourcePage: activeDoc?.currentPage ?? null,
-            });
-            setCapturedVocabId(saved.id);
-          } catch {
-            // Capture is best-effort — surface nothing to the user.
-          }
-        }
-      } else setDefineError("not_found");
-    } catch {
-      setDefineError("connect_failed");
-    } finally {
-      setDefining(false);
-    }
-  }, [selectedText, captureFromLookup]);
-
-  const handleUndoCapture = useCallback(async () => {
-    if (!capturedVocabId) return;
-    const id = capturedVocabId;
-    setCapturedVocabId(null);
-    try {
-      await removeVocabEntry(id);
-    } catch {
-      // Silent — re-saving will just overwrite.
-    }
-  }, [capturedVocabId, removeVocabEntry]);
-
-  const handleReadAloud = useCallback(() => {
-    const text = selectedText.trim();
-    if (!text) return;
-    useTtsStore.getState().speak(text);
-    hideContextMenu();
-    window.getSelection()?.removeAllRanges();
-  }, [selectedText, hideContextMenu]);
-
-  const handleTranslate = useCallback(async () => {
-    if (!selectedText.trim()) return;
-    setShowTranslate(true);
-    setTranslating(true);
-    setTranslatedText("");
-    setTranslateError("");
-
-    try {
-      const trimmed = selectedText.trim();
-      const text = encodeURIComponent(trimmed);
-      const source = detectSourceLang(trimmed);
-      const langPair = `${source}|${translateTargetLanguage}`;
-      const res = await fetch(
-        `https://api.mymemory.translated.net/get?q=${text}&langpair=${langPair}`,
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (data.responseStatus === 200 && data.responseData?.translatedText) {
-        setTranslatedText(data.responseData.translatedText);
-      } else {
-        setTranslateError(
-          data.responseDetails || t("reader.annotationMenu.translateFailed"),
-        );
-      }
-    } catch {
-      setTranslateError(t("reader.annotationMenu.translateConnectFailed"));
-    } finally {
-      setTranslating(false);
-    }
-  }, [selectedText, translateTargetLanguage, t]);
-
-  const handleLanguageChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      setTranslateTargetLanguage(e.target.value);
-      // Re-translate if already showing
-      if (showTranslate && selectedText.trim()) {
-        setTranslating(true);
-        setTranslatedText("");
-        setTranslateError("");
-        const trimmed = selectedText.trim();
-        const text = encodeURIComponent(trimmed);
-        const source = detectSourceLang(trimmed);
-        const langPair = `${source}|${e.target.value}`;
-        fetch(
-          `https://api.mymemory.translated.net/get?q=${text}&langpair=${langPair}`,
-        )
-          .then((res) => {
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            return res.json();
-          })
-          .then((data) => {
-            if (data.responseStatus === 200 && data.responseData?.translatedText) {
-              setTranslatedText(data.responseData.translatedText);
-            } else {
-              setTranslateError(
-                data.responseDetails ||
-                  t("reader.annotationMenu.translateFailed"),
-              );
-            }
-          })
-          .catch(() => {
-            setTranslateError(
-              t("reader.annotationMenu.translateConnectFailed"),
-            );
-          })
-          .finally(() => {
-            setTranslating(false);
-          });
-      }
-    },
-    [setTranslateTargetLanguage, showTranslate, selectedText, t],
-  );
+  const backToActions = useCallback(() => setActivePanel("none"), []);
 
   if (!contextMenu.visible) return null;
-  // Need either a selection or a highlight to show menu
   if (!contextMenu.selection && !contextMenu.highlightId) return null;
-
-  const hasSelection = !!contextMenu.selection;
-  const hasHighlight = !!highlight;
 
   return createPortal(
     <div
@@ -488,7 +319,7 @@ export function AnnotationContextMenu() {
           action in the same row means delete is one click from
           where the user just set the highlight, instead of buried
           three rows down in the menu. */}
-      {(hasSelection || hasHighlight) && !showCommentInput && !showTranslate && !showDefine && (
+      {(hasSelection || hasHighlight) && activePanel === "none" && (
         <>
           <div className="flex items-center gap-1.5 px-1">
             {COLORS.map(({ color, hex }) => (
@@ -529,35 +360,34 @@ export function AnnotationContextMenu() {
         </>
       )}
 
-      {/* Action buttons */}
-      {!showCommentInput && !showTranslate && !showDefine ? (
+      {activePanel === "none" && (
         <div className="flex flex-col gap-0.5">
-          {selectedText.trim() && (
+          {trimmedSelected && (
             <button
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
-              onClick={handleDefine}
+              onClick={() => setActivePanel("define")}
             >
               <BookOpen size={14} />
               {t("reader.annotationMenu.define", {
                 word:
-                  selectedText.trim().length > 20
-                    ? selectedText.trim().slice(0, 20) + "…"
-                    : selectedText.trim(),
+                  trimmedSelected.length > 20
+                    ? trimmedSelected.slice(0, 20) + "…"
+                    : trimmedSelected,
               })}
             </button>
           )}
 
-          {selectedText.trim() && (
+          {trimmedSelected && (
             <button
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
-              onClick={handleTranslate}
+              onClick={() => setActivePanel("translate")}
             >
               <Languages size={14} />
               {t("reader.annotationMenu.translate")}
             </button>
           )}
 
-          {selectedText.trim() && (
+          {trimmedSelected && (
             <button
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
               onClick={handleReadAloud}
@@ -567,13 +397,31 @@ export function AnnotationContextMenu() {
             </button>
           )}
 
-          {(selectedText.trim()) && (
-            <div className="h-px bg-glass-border my-0.5" />
+          {trimmedSelected && (
+            <button
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              onClick={() => setActivePanel("wiki")}
+            >
+              <Globe size={14} />
+              {t("reader.annotationMenu.wikipedia")}
+            </button>
           )}
+
+          {trimmedSelected && (
+            <button
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              onClick={() => setActivePanel("explain")}
+            >
+              <Sparkles size={14} />
+              {t("reader.annotationMenu.explain")}
+            </button>
+          )}
+
+          {trimmedSelected && <div className="h-px bg-glass-border my-0.5" />}
 
           <button
             className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
-            onClick={handleAddComment}
+            onClick={() => setActivePanel("comment")}
           >
             <MessageSquare size={14} />
             {t("reader.annotationMenu.addComment")}
@@ -608,198 +456,38 @@ export function AnnotationContextMenu() {
               {t("reader.annotationMenu.share")}
             </button>
           )}
-
-          {/* "Change color" + "Remove highlight" buttons moved up
-              into the color row above — the swatches double as the
-              color picker, and the trailing X is the delete. */}
         </div>
-      ) : showDefine ? (
-        /* Define panel */
-        <div className="flex flex-col gap-2 p-1 w-64">
-          <div className="flex items-center gap-1.5">
-            <BookOpen size={14} className="text-accent-purple" />
-            <span className="text-xs font-medium text-text-primary">
-              {t("reader.annotationMenu.definePanelTitle")}
-            </span>
-          </div>
+      )}
 
-          <div className="rounded bg-glass-bg/50 px-2 py-1.5 text-xs italic text-text-muted">
-            {selectedText.trim().length > 60
-              ? selectedText.trim().slice(0, 60) + "…"
-              : selectedText.trim()}
-          </div>
+      {activePanel === "define" && (
+        <AnnotationMenuDefinePanel
+          selectedText={selectedText}
+          onBack={backToActions}
+        />
+      )}
 
-          <div className="rounded bg-glass-bg px-2 py-2 text-xs text-text-primary leading-relaxed min-h-[3rem] max-h-48 overflow-y-auto">
-            {defining && (
-              <span className="flex items-center gap-1.5 text-text-muted">
-                <Loader2 size={12} className="animate-spin" />
-                {t("reader.annotationMenu.defining")}
-              </span>
-            )}
-            {defineError === "not_found" && (
-              <div className="space-y-1.5">
-                <span className="text-text-muted">
-                  {t("reader.annotationMenu.defineNotFound")}
-                </span>
-                <a
-                  href={`https://en.wiktionary.org/wiki/${encodeURIComponent(selectedText.trim())}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block text-accent-purple hover:underline"
-                >
-                  {t("reader.annotationMenu.defineTryWiktionary")}
-                </a>
-              </div>
-            )}
-            {defineError === "connect_failed" && (
-              <span className="text-red-400">
-                {t("reader.annotationMenu.defineConnectFailed")}
-              </span>
-            )}
-            {!defining && !defineError && definition && (
-              <div className="space-y-2">
-                <div className="flex items-baseline gap-2">
-                  <span className="font-semibold text-sm text-text-primary">
-                    {definition.word}
-                  </span>
-                  {definition.phonetic && (
-                    <span className="text-[11px] text-text-muted">
-                      {definition.phonetic}
-                    </span>
-                  )}
-                </div>
-                {definition.meanings.map((m, i) => (
-                  <div key={i} className="space-y-1">
-                    {m.partOfSpeech && (
-                      <span className="text-[10px] uppercase tracking-wide text-accent-purple">
-                        {m.partOfSpeech}
-                      </span>
-                    )}
-                    <ol className="list-decimal list-inside space-y-0.5 text-text-secondary">
-                      {m.definitions.map((d, j) => (
-                        <li key={j} className="pl-1">
-                          {d.definition}
-                          {d.example && (
-                            <div className="mt-0.5 pl-3 text-[11px] italic text-text-muted">
-                              "{d.example}"
-                            </div>
-                          )}
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+      {activePanel === "translate" && (
+        <AnnotationMenuTranslatePanel
+          selectedText={selectedText}
+          onBack={backToActions}
+        />
+      )}
 
-          <div className="flex items-center justify-between">
-            {capturedVocabId ? (
-              <div className="flex items-center gap-2 text-[11px] text-text-muted">
-                <span>{t("reader.annotationMenu.savedToVocab")}</span>
-                <button
-                  className="text-accent-purple hover:underline cursor-pointer"
-                  onClick={handleUndoCapture}
-                >
-                  {t("reader.annotationMenu.undo")}
-                </button>
-              </div>
-            ) : (
-              <span />
-            )}
-            <button
-              className="rounded px-2 py-1 text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
-              onClick={() => setShowDefine(false)}
-            >
-              {t("reader.annotationMenu.back")}
-            </button>
-          </div>
-        </div>
-      ) : showTranslate ? (
-        /* Translate panel — wider, with the source-detection chip
-           visible and the language picker on its own row so the
-           translation result has room to breathe. */
-        <div className="flex w-72 flex-col gap-2 p-1">
-          <div className="flex items-center gap-1.5">
-            <Languages size={14} className="text-accent-purple" />
-            <span className="text-xs font-medium text-text-primary">
-              {t("reader.annotationMenu.translatePanelTitle")}
-            </span>
-            <span className="ml-auto rounded bg-glass-bg px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-text-muted">
-              {detectSourceLang(selectedText.trim())}
-              <span className="mx-1">→</span>
-              {translateTargetLanguage}
-            </span>
-          </div>
+      {activePanel === "wiki" && (
+        <AnnotationMenuWikiPanel
+          initialQuery={trimmedSelected}
+          onBack={backToActions}
+        />
+      )}
 
-          {/* Source text */}
-          <div className="max-h-20 overflow-y-auto rounded bg-glass-bg/50 px-2 py-1.5 text-xs italic leading-relaxed text-text-muted">
-            {selectedText.trim().length > 200
-              ? selectedText.trim().slice(0, 200) + "…"
-              : selectedText.trim()}
-          </div>
+      {activePanel === "explain" && (
+        <AnnotationMenuExplainPanel
+          selectedText={selectedText}
+          onBack={backToActions}
+        />
+      )}
 
-          {/* Translation result — give it real vertical room. */}
-          <div className="max-h-40 min-h-[3rem] overflow-y-auto rounded bg-glass-bg px-2 py-1.5 text-xs leading-relaxed text-text-primary">
-            {translating && (
-              <span className="flex items-center gap-1.5 text-text-muted">
-                <Loader2 size={12} className="animate-spin" />
-                {t("reader.annotationMenu.translating")}
-              </span>
-            )}
-            {translateError && (
-              <span className="text-red-400">{translateError}</span>
-            )}
-            {!translating && !translateError && translatedText && (
-              translatedText
-            )}
-          </div>
-
-          {/* Target language picker */}
-          <div className="flex items-center gap-2">
-            <label
-              htmlFor="translate-lang"
-              className="text-[11px] text-text-muted"
-            >
-              {t("reader.annotationMenu.translateTargetLabel")}
-            </label>
-            <select
-              id="translate-lang"
-              value={translateTargetLanguage}
-              onChange={handleLanguageChange}
-              className="flex-1 cursor-pointer rounded border border-glass-border bg-glass-bg px-2 py-1 text-xs text-text-primary outline-none focus:border-accent-purple"
-            >
-              {TRANSLATE_LANGUAGES.map(({ code, label }) => (
-                <option key={code} value={code}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-1">
-            <button
-              className="rounded px-2 py-1 text-xs text-text-muted transition-colors hover:text-text-secondary cursor-pointer"
-              onClick={() => setShowTranslate(false)}
-            >
-              {t("reader.annotationMenu.back")}
-            </button>
-            {translatedText && (
-              <button
-                className="rounded bg-accent-purple/20 px-2 py-1 text-xs text-accent-purple transition-colors hover:bg-accent-purple/30 cursor-pointer"
-                onClick={() => {
-                  navigator.clipboard.writeText(translatedText);
-                  hideContextMenu();
-                  window.getSelection()?.removeAllRanges();
-                }}
-              >
-                {t("reader.annotationMenu.copy")}
-              </button>
-            )}
-          </div>
-        </div>
-      ) : (
+      {activePanel === "comment" && (
         <div className="flex flex-col gap-1.5 p-1">
           <textarea
             autoFocus
@@ -812,7 +500,7 @@ export function AnnotationContextMenu() {
           <div className="flex justify-end gap-1">
             <button
               className="rounded px-2 py-1 text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
-              onClick={() => setShowCommentInput(false)}
+              onClick={backToActions}
             >
               {t("common.cancel")}
             </button>
@@ -829,4 +517,4 @@ export function AnnotationContextMenu() {
     </div>,
     document.body,
   );
-}
+});

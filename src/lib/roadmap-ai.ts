@@ -1,5 +1,6 @@
 import { streamChatResponse } from "@/lib/ai-client";
-import type { RoadmapNode, RoadmapEdge } from "@/types/roadmap";
+import type { RoadmapNode, RoadmapEdge, ResourceRef } from "@/types/roadmap";
+import { lookupResources } from "@/lib/roadmap-resource-lookup";
 
 export const MIN_ROADMAP_NODES = 3;
 export const MAX_ROADMAP_NODES = 20;
@@ -49,7 +50,17 @@ Shape:
       "id": "n1" | "n2" | ...,     // internal label, just for edges
       "title": string,             // a topic to learn (5–60 chars)
       "description": string,       // 1–3 sentences explaining what to learn
-      "estimatedMinutes": number   // realistic minutes for an average learner
+      "estimatedMinutes": number,  // realistic minutes for an average learner
+      "references": [              // OPTIONAL — see Rules below
+        {
+          "kind": "book",          // "book", "url", or "youtube"
+          "title": string,
+          "author": string,        // optional, omit if unknown
+          "pageRange": { "from": number, "to": number },  // optional
+          "section": string,       // optional, e.g. "Chapter 3.2 — Linear maps"
+          "url": string            // required for kind="url" / "youtube"
+        }
+      ]
     },
     ...
   ],
@@ -68,7 +79,16 @@ Rules:
   every node at the same value.
 - Titles are short and concrete ("Linear maps and matrix representations"),
   not vague ("Section 3").
-- Do not nest objects. Do not include any field other than the ones above.`;
+- references: cite 1–3 well-known authoritative sources per node when
+  applicable. For STEM / textbook topics this means real, named books
+  ("Cormen et al. — Introduction to Algorithms, chapter 22"). Use
+  pageRange when you have specific page numbers; otherwise use section
+  with the chapter/section name. Use url/youtube only when a free
+  online resource is the obvious primary source. Empty array (or
+  omitted field) is fine if no sources come to mind — do NOT invent
+  fake books just to fill the slot.
+- Do not nest objects beyond what's shown. Do not include any field
+  other than the ones above.`;
 }
 
 function buildRoadmapUserPrompt(topic: string): string {
@@ -80,6 +100,16 @@ interface RawNode {
   title?: unknown;
   description?: unknown;
   estimatedMinutes?: unknown;
+  references?: unknown;
+}
+
+interface RawReference {
+  kind?: unknown;
+  title?: unknown;
+  author?: unknown;
+  pageRange?: unknown;
+  section?: unknown;
+  url?: unknown;
 }
 
 interface RawEdge {
@@ -122,8 +152,59 @@ interface ValidatedDraft {
     title: string;
     description: string;
     estimatedMinutes: number;
+    references: ResourceRef[];
   }>;
   edges: Array<{ source: string; target: string }>;
+}
+
+/** Filter out malformed reference rows; keep a sane subset. Empty
+ *  array on no input. References that survive carry the `pending`
+ *  match marker so the UI can show "looking up…" before the post-
+ *  generation lookup completes. */
+function parseReferences(raw: unknown): ResourceRef[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ResourceRef[] = [];
+  for (const r of raw as RawReference[]) {
+    if (!r || typeof r !== "object") continue;
+    if (!isNonEmptyString(r.title)) continue;
+    const kindRaw =
+      typeof r.kind === "string" ? r.kind.toLowerCase() : "book";
+    const kind: ResourceRef["kind"] =
+      kindRaw === "url" || kindRaw === "youtube" || kindRaw === "other"
+        ? kindRaw
+        : "book";
+
+    let pageRange: ResourceRef["pageRange"];
+    if (r.pageRange && typeof r.pageRange === "object") {
+      const pr = r.pageRange as { from?: unknown; to?: unknown };
+      if (
+        typeof pr.from === "number" &&
+        Number.isFinite(pr.from) &&
+        typeof pr.to === "number" &&
+        Number.isFinite(pr.to) &&
+        pr.from > 0 &&
+        pr.to >= pr.from
+      ) {
+        pageRange = {
+          from: Math.round(pr.from),
+          to: Math.round(pr.to),
+        };
+      }
+    }
+
+    out.push({
+      kind,
+      title: r.title.trim(),
+      author: isNonEmptyString(r.author) ? r.author.trim() : undefined,
+      pageRange,
+      section: isNonEmptyString(r.section) ? r.section.trim() : undefined,
+      url: isNonEmptyString(r.url) ? r.url.trim() : undefined,
+      match: { source: "pending" },
+    });
+    // Cap at 5 — chatty models occasionally pile on irrelevant cites.
+    if (out.length >= 5) break;
+  }
+  return out;
 }
 
 function validateDraft(raw: unknown): ValidatedDraft {
@@ -176,6 +257,7 @@ function validateDraft(raw: unknown): ValidatedDraft {
         5,
         Math.min(600, Math.round(raw.estimatedMinutes)),
       ),
+      references: parseReferences(raw.references),
     });
   }
   if (nodes.length < MIN_ROADMAP_NODES) {
@@ -333,13 +415,37 @@ export async function generateRoadmap({
   const idMap = new Map<string, string>();
   for (const n of draft.nodes) idMap.set(n.aiId, crypto.randomUUID());
 
-  const nodes: RoadmapNode[] = draft.nodes.map((n) => ({
-    id: idMap.get(n.aiId)!,
-    type: "text",
-    title: n.title,
-    description: n.description,
-    estimatedMinutes: n.estimatedMinutes,
-  }));
+  // Run the resource lookup once across every node's references —
+  // a single ILIKE round-trip per side regardless of how many refs
+  // landed. Failures degrade silently (refs keep `match.source ===
+  // "pending"`, which the UI handles); the generation itself stays
+  // successful.
+  const allRefs = draft.nodes.flatMap((n) => n.references);
+  let matchedRefs: ResourceRef[];
+  try {
+    matchedRefs = await lookupResources(allRefs);
+  } catch {
+    matchedRefs = allRefs.map((r) => ({
+      ...r,
+      match: { source: "none" as const },
+    }));
+  }
+  // Re-distribute the matched refs back to their nodes, preserving
+  // per-node order. We compare references by their object identity in
+  // the flat list (same index), since each ref object is unique here.
+  let cursor = 0;
+  const nodes: RoadmapNode[] = draft.nodes.map((n) => {
+    const refsForNode = matchedRefs.slice(cursor, cursor + n.references.length);
+    cursor += n.references.length;
+    return {
+      id: idMap.get(n.aiId)!,
+      type: "text",
+      title: n.title,
+      description: n.description,
+      estimatedMinutes: n.estimatedMinutes,
+      payload: refsForNode.length > 0 ? { references: refsForNode } : undefined,
+    };
+  });
 
   const safeEdges = dropCycles(draft.edges).map((e) => ({
     id: crypto.randomUUID(),

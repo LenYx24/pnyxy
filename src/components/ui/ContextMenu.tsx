@@ -49,16 +49,24 @@ export function ContextMenu() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
     };
-    const onScroll = () => close();
+    // Ignore scrolls inside the menu itself; otherwise long menus
+    // that need internal scrolling self-dismiss on the first wheel
+    // tick, which reads to users as a phantom close.
+    const onScroll = (e: Event) => {
+      const target = e.target as Node | null;
+      if (target && ref.current?.contains(target)) return;
+      close();
+    };
+    const onResize = () => close();
     document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("keydown", onKey);
     window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onScroll);
+    window.addEventListener("resize", onResize);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("keydown", onKey);
       window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("resize", onResize);
     };
   }, [visible, close]);
 

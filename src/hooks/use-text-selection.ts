@@ -2,9 +2,56 @@ import { useEffect } from "react";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import type { PageRect, TextSelection } from "@/types/annotation";
 
+/**
+ * Belt-and-suspenders clamp for selection over-extension. pdf.js's
+ * text layer occasionally lets a drag-select snap its endpoint to
+ * the layer container (instead of an individual span), which makes
+ * the range engulf every remaining span on the page. The CSS rule
+ * `:not(span) { user-select: none }` blocks most cases visually; this
+ * runs at read-time to repair any range that still slipped through,
+ * so we never hand a "whole-page" selection to the context menu.
+ */
+function clampOverExtendedSelection(sel: Selection): void {
+  if (sel.isCollapsed || !sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  const endNode = range.endContainer;
+
+  // The only "valid" endpoint is inside a span's text node. Anything
+  // landing on the textContent layer itself is an over-extension.
+  const endLayer =
+    endNode instanceof Element &&
+    endNode.classList?.contains("react-pdf__Page__textContent")
+      ? endNode
+      : null;
+  if (!endLayer) return;
+
+  // Probe the rightmost user-visible rect to find which span the
+  // user actually meant to reach. A small inset from the right edge
+  // lands inside the span instead of past it.
+  const clientRects = range.getClientRects();
+  if (clientRects.length === 0) return;
+  const lastRect = clientRects[clientRects.length - 1];
+  const probeY = lastRect.top + lastRect.height / 2;
+  const probeX = Math.max(lastRect.right - 2, lastRect.left);
+  const el = document.elementFromPoint(probeX, probeY);
+  const span = el?.closest("span");
+  if (!span || span.parentElement !== endLayer) return;
+
+  const lastChild = span.lastChild;
+  if (!(lastChild instanceof Text)) return;
+  // Shrink the range to end at the span we just hit. Re-applying the
+  // range tells the browser to repaint the highlight, so the user
+  // also sees the clamp visually.
+  range.setEnd(lastChild, lastChild.length);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
 function getSelectionData(): { selection: TextSelection; rects: PageRect[] } | null {
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+
+  clampOverExtendedSelection(sel);
 
   const range = sel.getRangeAt(0);
 

@@ -680,6 +680,19 @@ export const ChatComposer = forwardRef<
   const readingContextBtnRef = useRef<HTMLButtonElement>(null);
   const [readingMenuOpen, setReadingMenuOpen] = useState(false);
 
+  // Diagnostic — log every time `value` changes, plus the textarea
+  // DOM's actual value. If state and DOM diverge, the textarea isn't
+  // honouring the controlled value prop (would point at a key
+  // remount or a parent intervening). Strip after debugging.
+  useEffect(() => {
+    const dom = textareaRef.current?.value ?? "<no-textarea>";
+    console.log(
+      `[composer-value] propLen=${value.length} domLen=${
+        typeof dom === "string" ? dom.length : 0
+      } domPreview="${typeof dom === "string" ? dom.slice(0, 60) : ""}"`,
+    );
+  }, [value]);
+
   const handleAddFiles = useCallback(
     async (files: FileList | File[]) => {
       setAttachmentError(null);

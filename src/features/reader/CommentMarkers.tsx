@@ -1,6 +1,6 @@
 import { MessageSquare } from "lucide-react";
 import { useAnnotationStore } from "@/stores/annotation-store";
-import type { Comment } from "@/types/annotation";
+import { isFiniteRect, type Comment } from "@/types/annotation";
 import { cn } from "@/lib/cn";
 
 const EMPTY: Comment[] = [];
@@ -22,8 +22,12 @@ export function CommentMarkers({ pageNum }: CommentMarkersProps) {
     <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 4 }}>
       {pageComments.map((comment) => {
         const pageRects = comment.selection.rects.filter(
-          (r) => r.pageNum === pageNum,
+          (r) => r.pageNum === pageNum && isFiniteRect(r),
         );
+        // Skip a comment whose rects all got filtered out as NaN
+        // garbage — without this the `reduce` below throws on an
+        // empty array and breaks the whole layer render.
+        if (pageRects.length === 0) return null;
         const topRect = pageRects.reduce((a, b) => (a.y < b.y ? a : b));
         const isSelected = selectedAnnotationId === comment.id;
 

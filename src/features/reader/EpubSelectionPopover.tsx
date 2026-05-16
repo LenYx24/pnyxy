@@ -4,16 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Copy, Languages, Volume2, X, Loader2 } from "lucide-react";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTtsStore } from "@/stores/tts-store";
-
-/**
- * Same heuristic AnnotationContextMenu uses — kept inline (rather than
- * extracted) to keep this popover free of cross-imports until a third
- * caller appears.
- */
-function detectSourceLang(text: string): string {
-  if (/[őűáéíóúöüÁÉÍÓÚŐŰÖÜ]/.test(text)) return "hu";
-  return "en";
-}
+import { detectSourceLang } from "@/lib/lang-detect";
 
 async function translateText(text: string, target: string): Promise<string> {
   const source = detectSourceLang(text);

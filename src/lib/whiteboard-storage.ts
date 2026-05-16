@@ -4,8 +4,22 @@ import type { WhiteboardData } from "@/types/whiteboard";
 const STORE = "whiteboards";
 
 export async function loadAllWhiteboards(): Promise<WhiteboardData[]> {
-  const db = await getDB();
-  return db.getAll(STORE);
+  try {
+    const db = await getDB();
+    return await db.getAll(STORE);
+  } catch (err) {
+    // Same defensive pattern as `annotation-storage`'s loaders — a
+    // half-applied IDB upgrade shouldn't take down the reader sidebar
+    // and the workspace's whiteboard list.
+    if (
+      err instanceof DOMException &&
+      (err.name === "NotFoundError" || err.name === "InvalidStateError")
+    ) {
+      console.warn("[whiteboard-storage] missing store; returning []", err);
+      return [];
+    }
+    throw err;
+  }
 }
 
 export async function loadWhiteboard(

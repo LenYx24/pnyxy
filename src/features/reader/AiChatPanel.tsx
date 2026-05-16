@@ -136,6 +136,14 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const sourceDocId = activeConversation?.source_doc_id ?? null;
 
   const [input, setInput] = useState("");
+  // Track every change to `input` so we can see if setInput(draft.text)
+  // landed and whether anything later overwrites it. Logs the new
+  // value's length + a preview — short enough to fit in one line.
+  useEffect(() => {
+    console.log(
+      `[input-state] len=${input.length} preview="${input.slice(0, 80)}"`,
+    );
+  }, [input]);
   const [listOpen, setListOpen] = useState(false);
   const [branchFromId, setBranchFromId] = useState<string | null>(null);
   const overflowAnchorRef = useRef<HTMLButtonElement>(null);
@@ -195,31 +203,24 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
     if (!user || !pendingDraft) return;
     const draft = useChatStore.getState().consumePendingDraft();
     if (!draft) return;
-    // Arm the citation BEFORE the async work — handleSubmit reads
-    // this ref synchronously when the user sends, so racing the
-    // assignment after createConversation finishes risks dropping
-    // it if the user hits Enter quickly.
+    // Reader → AI handoff. Just drop the draft into the composer and
+    // arm the citation; the user's existing conversation stays
+    // active. If they don't have a doc-scoped conversation yet,
+    // `handleSubmit` lazily creates one on the first send (same
+    // path a typed message takes). The previous "auto-create a
+    // fresh conversation on every Send to AI" was wrong UX: it
+    // abandoned the user's current thread, scattered chat history
+    // across single-message conversations, and (per the user's
+    // recent report) lost the prefill text when the post-create
+    // re-render landed in a different state.
     if (draft.selection && draft.source?.docId) {
       pendingCitationRef.current = {
         documentId: draft.source.docId,
         selection: draft.selection,
       };
     }
-    void (async () => {
-      await createConversation(
-        "",
-        null,
-        draft.source ?? null,
-        draft.target ?? null,
-      );
-      setInput(draft.text);
-      // The composer owns its own textarea ref now; auto-focusing on
-      // draft handoff would require an imperative handle on the
-      // composer. Skipping for now — the user landed in the chat
-      // panel deliberately, the input already has their text in it,
-      // and tapping it to type more works.
-    })();
-  }, [pendingDraft, user, createConversation]);
+    setInput(draft.text);
+  }, [pendingDraft, user]);
 
   // Snap to the most recent conversation for the doc when the user
   // switches docs (reader tabs). Falls back to clearActive() so the

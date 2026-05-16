@@ -10,6 +10,24 @@ export interface PageRect {
   height: number;
 }
 
+/**
+ * True iff a PageRect carries finite numeric coordinates. Used by
+ * the annotation render layers (highlights, comments, citations) to
+ * skip historically-corrupted rects whose `x`/`y`/`width`/`height`
+ * picked up NaN from a divide-by-zero at save time. Those rects
+ * would otherwise emit `top: NaN%` (or similar) into the DOM and
+ * spam the console with React's "invalid value for the `top` css
+ * style property" warning on every render.
+ */
+export function isFiniteRect(r: PageRect): boolean {
+  return (
+    Number.isFinite(r.x) &&
+    Number.isFinite(r.y) &&
+    Number.isFinite(r.width) &&
+    Number.isFinite(r.height)
+  );
+}
+
 /** Serialized text selection */
 export interface TextSelection {
   text: string;

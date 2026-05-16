@@ -13,6 +13,7 @@ import {
   MIN_QUIZ_QUESTIONS,
   MAX_SOURCE_CHARS,
   QuizGenerationError,
+  type GenerateKind,
 } from "@/lib/quiz-ai";
 import type { QuizQuestionDraft } from "@/types/quiz";
 
@@ -23,6 +24,16 @@ interface AiGeneratePanelProps {
   /** When set (and uploadedBookId is not), "From book" mode is backed by
    *  the catalog book's ia_id or download_url, provided it resolves to a PDF. */
   catalogBookId?: string | null;
+  /** Start the panel expanded — used when the editor is opened from a
+   *  "Generate from this book" shortcut on the book Overview page so
+   *  the user lands directly on the form instead of having to click
+   *  the panel header first. */
+  autoOpen?: boolean;
+  /** Draft kind to produce. Defaults to "mcq4" (multiple-choice quiz);
+   *  "short_answer" routes through the flashcard prompt so the same
+   *  page-range UI doubles as a flashcard generator from the book
+   *  Overview's "Generate flashcards" shortcut. */
+  kind?: GenerateKind;
 }
 
 type BookSource =
@@ -45,9 +56,11 @@ export function AiGeneratePanel({
   onAppend,
   uploadedBookId,
   catalogBookId,
+  autoOpen = false,
+  kind = "mcq4",
 }: AiGeneratePanelProps) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(autoOpen);
   const [mode, setMode] = useState<Mode>("text");
   const [sourceText, setSourceText] = useState("");
   const [count, setCount] = useState(DEFAULT_COUNT);
@@ -123,7 +136,11 @@ export function AiGeneratePanel({
     setLoading(true);
     try {
       const text = await resolveSourceText();
-      const drafts = await generateQuizQuestions({ sourceText: text, count });
+      const drafts = await generateQuizQuestions({
+        sourceText: text,
+        count,
+        kind,
+      });
       onAppend(drafts);
       setSourceText("");
       setOpen(false);

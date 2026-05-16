@@ -20,6 +20,45 @@ export type NodeType =
   | "pnyxy-quiz" // Internal quiz (Phase 2)
   | "pnyxy-chapter"; // Chapter range from a book (Phase 2)
 
+/**
+ * A learning resource the AI cited for a node (or the user added).
+ * Books are the primary case — the AI proposes title + author + a
+ * page or chapter range, and the client tries to match it against
+ * the user's library (uploaded PDFs) and the public catalog. The
+ * match status drives the UI: matched → tappable link to the book
+ * page, unmatched → grey info-only badge.
+ */
+export interface ResourceRef {
+  kind: "book" | "url" | "youtube" | "other";
+  title: string;
+  author?: string;
+  /** Page-range when the AI gave concrete page numbers. Either this
+   *  or `section` is set on PDF-style references; the other side may
+   *  be undefined. Auto-progress detection only works when this is
+   *  present (mapping `book_resume_state.page` into 0-100%). */
+  pageRange?: { from: number; to: number };
+  /** Chapter title / section label when the AI gave a human label
+   *  rather than page numbers (typical for EPUBs and structured
+   *  textbooks). No auto-progress for this form. */
+  section?: string;
+  /** Free-form URL for kind="url" / "youtube". */
+  url?: string;
+  /**
+   * Populated by the post-generation lookup (`roadmap-resource-lookup`).
+   *   - `library`: uploaded user PDF; `bookId` = `books.id` UUID,
+   *      `docId` = the reader's adapter id (file_hash) for resume lookup.
+   *   - `catalog`: open catalog book; both ids equal the catalog UUID.
+   *   - `none`: AI cited a book we don't have. Shown grey, info-only.
+   *   - `pending`: lookup hasn't run yet (e.g. first paint after AI
+   *      generation, before the post-process completes).
+   */
+  match?:
+    | { source: "library"; bookId: string; docId: string }
+    | { source: "catalog"; bookId: string; docId: string }
+    | { source: "none" }
+    | { source: "pending" };
+}
+
 export interface RoadmapNode {
   id: NodeId;
   type: NodeType;
@@ -30,8 +69,12 @@ export interface RoadmapNode {
   /**
    * Type-specific payload — kept loose for now so Phase 2 can add fields
    * (videoUrl, bookId, chapterRange, etc.) without changing the storage layer.
+   *
+   * Conventions today:
+   *   - `payload.references: ResourceRef[]` — AI-cited learning materials
+   *     for this node. Optional; absent = no references.
    */
-  payload?: Record<string, unknown>;
+  payload?: Record<string, unknown> & { references?: ResourceRef[] };
   /**
    * Optional manual layout position. Auto-layout (dagre) is the default;
    * if the user drags a node, we persist its position here.
@@ -86,8 +129,14 @@ export interface Enrollment {
   userId: string | null;
   /** ISO date (YYYY-MM-DD) when the user enrolled. */
   startDate: string;
-  /** Set semantics — stored as object map for IDB-friendly serialization. */
-  completedNodeIds: Record<NodeId, true>;
+  /**
+   * 0–100 integer per node — the user's manually-set progress. Auto-
+   * detected progress from book reading is computed separately and
+   * composited at render time (display = max(manual, auto)).
+   * Migrated from the legacy `completedNodeIds: { [id]: true }` shape
+   * on first read; nodes that were marked complete come across as 100.
+   */
+  nodeProgress: Record<NodeId, number>;
   schedulePrefs: SchedulePrefs;
   createdAt: number;
   updatedAt: number;

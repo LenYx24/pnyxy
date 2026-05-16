@@ -152,7 +152,20 @@ export function AppLayout() {
           bottom on About / Privacy / Terms / Help. */}
       <main
         className={cn(
-          "flex min-h-screen flex-col transition-[margin] duration-200 ease-out",
+          "flex flex-col transition-[margin] duration-200 ease-out",
+          // On the reader AND chat routes we lock the main element
+          // to the dynamic viewport height and hide overflow. The
+          // browser chrome on mobile (URL bar) makes 100vh > 100dvh,
+          // so a `min-h-screen` main would let the body scroll a
+          // couple of dozen pixels, exposing a black strip beneath
+          // the route's own bottom bar / composer and pushing the
+          // route's top bar off-screen. Locking to 100dvh +
+          // overflow-hidden kills the scroll. Chat also benefits
+          // because the composer should always sit just above the
+          // global BottomNav, not below the visible area.
+          isReaderRoute || isChatRoute
+            ? "h-[100dvh] overflow-hidden"
+            : "min-h-screen",
           sidebarMargin && (sidebarCollapsed ? "ml-sidebar-collapsed" : "ml-sidebar-expanded"),
           // Push content below the mobile top bar so it doesn't sit
           // behind the fixed header. Reader is excluded above so it

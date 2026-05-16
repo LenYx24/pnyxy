@@ -394,6 +394,20 @@ export function ChatPage() {
     if (!user) return;
     const draft = useChatStore.getState().consumePendingDraft();
     if (!draft) return;
+    console.log("[chat-page-drain] consumed draft", {
+      textLen: draft.text.length,
+      textPreview: draft.text.slice(0, 80),
+      hasSource: !!draft.source,
+    });
+    // Pre-fill IMMEDIATELY, before any await. Two reasons:
+    //   1. The composer is a controlled textarea on local state, so
+    //      the value lands regardless of whether the conversation
+    //      row has finished creating in Supabase yet.
+    //   2. If `openConversation` errors silently (network, RLS), we
+    //      still want the user to see their draft text so they can
+    //      retry — putting setInput behind await means an error
+    //      anywhere upstream silently swallows the prefill.
+    setInput(draft.text);
     void (async () => {
       const id = await createConversation(
         "",
@@ -403,7 +417,7 @@ export function ChatPage() {
       );
       if (!id) return;
       await openConversation(id);
-      setInput(draft.text);
+      console.log("[chat-page-drain] conversation opened", { id });
     })();
     // Drain only once per mount / sign-in event. Subsequent reader
     // sends will re-fire the navigation and a fresh consume.
@@ -658,7 +672,7 @@ export function ChatPage() {
   const branchParent = branchFromId ? messages.get(branchFromId) : null;
 
   return (
-    <div className="relative flex h-[calc(100vh-3.5rem)] w-full p-0 sm:h-screen">
+    <div className="relative flex h-[calc(100dvh-3.5rem-var(--spacing-safe-bottom,0px))] w-full p-0 sm:h-screen">
       {/* Mobile-only backdrop. Tapping it closes the drawer. Hidden
           on desktop where the aside is a permanent column. */}
       {mobileListOpen && (

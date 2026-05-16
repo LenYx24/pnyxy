@@ -13,7 +13,8 @@ import {
   type EdgeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import type { Enrollment, Roadmap } from "@/types/roadmap";
+import type { Enrollment, ResourceRef, Roadmap } from "@/types/roadmap";
+import { displayProgressPct } from "@/lib/roadmap-auto-progress";
 import { autoLayout, findGoalNodeIds } from "../lib/auto-layout";
 import {
   computeSchedule,
@@ -32,6 +33,11 @@ interface RoadmapGraphProps {
   enrollment?: Enrollment;
   mode: "view" | "edit";
   selectedNodeId?: string | null;
+  /** Per-node auto-detected progress (0–100). Composited with the
+   *  enrollment's manual progress; the higher of the two drives the
+   *  visual state. Optional — pass when the parent has fetched
+   *  `book_resume_state` for the matched book references. */
+  autoProgress?: Record<string, number>;
   onSelectNode?: (id: string | null) => void;
   onNodeClick?: (id: string) => void;
   onConnect?: (source: string, target: string) => void;
@@ -53,6 +59,7 @@ function RoadmapGraphInner({
   enrollment,
   mode,
   selectedNodeId,
+  autoProgress,
   onSelectNode,
   onNodeClick,
   onConnect,
@@ -65,13 +72,13 @@ function RoadmapGraphInner({
     [roadmap.nodes, roadmap.edges],
   );
 
-  const completedSet = useMemo(
-    () => enrollment?.completedNodeIds ?? {},
-    [enrollment?.completedNodeIds],
+  const nodeProgressMap = useMemo(
+    () => enrollment?.nodeProgress ?? {},
+    [enrollment?.nodeProgress],
   );
   const lockedSet = useMemo(
-    () => lockedNodeIds(roadmap, completedSet),
-    [roadmap, completedSet],
+    () => lockedNodeIds(roadmap, nodeProgressMap),
+    [roadmap, nodeProgressMap],
   );
   const schedule = useMemo(
     () => (enrollment ? computeSchedule(roadmap, enrollment) : null),
@@ -94,13 +101,19 @@ function RoadmapGraphInner({
     () =>
       positionedNodes.map((n) => {
         const sched = schedule?.get(n.id);
+        const manual = nodeProgressMap[n.id] ?? 0;
+        const auto = autoProgress?.[n.id] ?? 0;
+        const display = displayProgressPct(manual, auto);
+        const refs =
+          (n.payload?.references as ResourceRef[] | undefined) ?? [];
         const data: RoadmapNodeData = {
           title: n.title,
           description: n.description,
           estimatedMinutes: n.estimatedMinutes,
-          completed: !!completedSet[n.id],
-          locked: lockedSet.has(n.id) && !completedSet[n.id],
+          progress: display,
+          locked: lockedSet.has(n.id) && display < 100,
           isGoal: goalIds.has(n.id),
+          primaryReference: refs[0],
           dueDate: sched?.dueDate,
           manualDate: sched?.manual,
           editMode: mode === "edit",
@@ -114,7 +127,16 @@ function RoadmapGraphInner({
           draggable: mode === "edit",
         };
       }),
-    [positionedNodes, completedSet, lockedSet, goalIds, schedule, mode, selectedNodeId],
+    [
+      positionedNodes,
+      nodeProgressMap,
+      autoProgress,
+      lockedSet,
+      goalIds,
+      schedule,
+      mode,
+      selectedNodeId,
+    ],
   );
 
   // Local mirror that ReactFlow controls. `applyNodeChanges` updates
@@ -146,16 +168,19 @@ function RoadmapGraphInner({
         // Highlight edges leading into the next-actionable nodes (not locked,
         // not completed) — small affordance that suggests where to go next.
         style: {
+          // Edge colour cues "where to go next": grey when locked
+          // and source not yet complete, green once source is fully
+          // complete (>= 100), default otherwise.
           stroke:
-            !completedSet[e.source] && lockedSet.has(e.target)
+            (nodeProgressMap[e.source] ?? 0) < 100 && lockedSet.has(e.target)
               ? "rgb(var(--color-text-muted-rgb,120 120 120))"
-              : completedSet[e.source]
+              : (nodeProgressMap[e.source] ?? 0) >= 100
                 ? "rgb(16 185 129 / 0.6)"
                 : undefined,
           strokeWidth: 1.5,
         },
       })),
-    [roadmap.edges, completedSet, lockedSet],
+    [roadmap.edges, nodeProgressMap, lockedSet],
   );
 
   const handleConnect = useCallback(

@@ -32,7 +32,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
       roadmapId: roadmap.id,
       userId: null,
       startDate,
-      completedNodeIds: {},
+      nodeProgress: {},
       schedulePrefs: prefs,
       createdAt: 0,
       updatedAt: 0,

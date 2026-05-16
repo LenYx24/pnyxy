@@ -19,6 +19,7 @@ import { MobileReaderBottomBar } from "./MobileReaderBottomBar";
 import { InlineDrawToolbar } from "./InlineDrawToolbar";
 import { useInlineDrawStore } from "@/stores/inline-draw-store";
 import { PdfViewer } from "./PdfViewer";
+import { PdfReflowView } from "./PdfReflowView";
 import { TextViewer } from "./TextViewer";
 import { EpubViewer } from "./EpubViewer";
 import { CommentsSidebar } from "./CommentsSidebar";
@@ -54,7 +55,7 @@ import { createAdapterForFile } from "./adapters";
 import { useOpenDocument } from "@/hooks/use-open-document";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { useBackToClose } from "@/hooks/use-back-to-close";
-import { useIsMobile } from "@/hooks/use-media-query";
+import { useIsMobile, useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui";
 import { saveDockviewLayout, loadDockviewLayout } from "@/stores/ui-store";
@@ -130,7 +131,13 @@ function TocPanel(props: IDockviewPanelProps) {
     ) {
       return;
     }
-    const whiteboardId = useWhiteboardStore.getState().createWhiteboard();
+    // Tag the new whiteboard with the active doc so the reader sidebar
+    // can filter to "this book only" — without it, every reader-created
+    // whiteboard would still show up across every other book.
+    const activeDocId = useReaderStore.getState().activeDocumentId ?? undefined;
+    const whiteboardId = useWhiteboardStore
+      .getState()
+      .createWhiteboard({ bookId: activeDocId });
     const panelId = `whiteboard-${whiteboardId}`;
     dockviewApi.addPanel({
       id: panelId,
@@ -190,12 +197,17 @@ function ActiveViewer({ documentId }: { documentId?: string }) {
   const resolvedId = documentId ?? activeDocumentId ?? undefined;
   const doc = useDocumentState(resolvedId ?? "");
   const format = doc?.meta.format;
+  const pdfReflowMode = useSettingsStore((s) => s.pdfReflowMode);
 
   if (!resolvedId || !doc) return <PdfViewer documentId={resolvedId} />;
 
   switch (format) {
     case "pdf":
-      return <PdfViewer documentId={resolvedId} />;
+      return pdfReflowMode ? (
+        <PdfReflowView documentId={resolvedId} />
+      ) : (
+        <PdfViewer documentId={resolvedId} />
+      );
     case "text":
     case "markdown":
       return <TextViewer documentId={resolvedId} />;
@@ -288,7 +300,10 @@ function MobileReaderLayout({
   // page via the standalone /whiteboards/:id route. Closing the panel
   // first prevents the slide-over from being stuck open after navigate.
   const handleCreateWhiteboard = useCallback(() => {
-    const id = useWhiteboardStore.getState().createWhiteboard();
+    const activeDocId = useReaderStore.getState().activeDocumentId ?? undefined;
+    const id = useWhiteboardStore
+      .getState()
+      .createWhiteboard({ bookId: activeDocId });
     setMobileReaderPanel("none");
     navigate(`/whiteboards/${id}`);
   }, [navigate, setMobileReaderPanel]);
@@ -848,7 +863,18 @@ export function ReaderPage() {
   // the current ReaderPage mount. Reset to 360 on full reader unmount
   // (i.e. closing and reopening the book) — that's the agreed scope:
   // session-local memory, not per-doc persistence.
-  const aiChatWidthRef = useRef<number>(360);
+  // Default chat panel width. On laptop/desktop the 360 px baseline
+  // leaves the PDF plenty of room; on a tablet in landscape (~1024–
+  // 1280 px) it leaves the chat itself cramped. Compute a width that
+  // claims roughly half the viewport on smaller screens, capped so a
+  // 1920+ px monitor still gets the slim 360 default. Refs survive
+  // panel close/reopen within the session — the user can drag the
+  // splitter and that lands back here on close (see line ~1564).
+  const aiChatWidthRef = useRef<number>(
+    typeof window !== "undefined" && window.innerWidth < 1280
+      ? Math.max(360, Math.min(620, Math.floor(window.innerWidth * 0.5)))
+      : 360,
+  );
   // Monotonically-increasing token bumped at the start of every
   // cold-path recovery. The async finally only clears the global
   // spinner when the token still matches — that way a successful
@@ -861,6 +887,32 @@ export function ReaderPage() {
   const loadingTokenRef = useRef(0);
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Pinch-zoom on touch tablets/laptops that fall outside `isMobile`
+  // (iPad in landscape, Surface, etc.). MobileReaderLayout owns the
+  // full mobile gesture suite — swipe, tap-to-chrome, pinch — and we
+  // don't want to double-fire those on phones. The desktop branch
+  // here attaches gestures to the whole reader container with swipe
+  // disabled, leaving only pinch active and only when the device is
+  // touch-capable. `(pointer: coarse)` is the standard probe for
+  // "the user is touching, not mousing".
+  const isTouch = useMediaQuery("(pointer: coarse)");
+  useMobileReaderGestures({
+    targetRef: readerContainerRef,
+    enableSwipe: false,
+    enablePinch: !isMobile && isTouch,
+    onSwipeLeft: () => {},
+    onSwipeRight: () => {},
+    onSingleTap: () => {},
+    onDoubleTap: () => {},
+    onPinch: useCallback(({ phase, scale, midX, midY }: PinchEvent) => {
+      const controls = getZoomControls();
+      if (!controls) return;
+      if (phase === "start") controls.begin(midX, midY);
+      else if (phase === "move") controls.update(scale);
+      else controls.end();
+    }, []),
+  });
   const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenDocument();
 
   // Load document from file registry if navigated directly. The
@@ -1359,7 +1411,11 @@ export function ReaderPage() {
 
       // Reuse existing whiteboard or create a new one
       if (!drawWhiteboardIdRef.current) {
-        drawWhiteboardIdRef.current = useWhiteboardStore.getState().createWhiteboard();
+        const activeDocId =
+          useReaderStore.getState().activeDocumentId ?? undefined;
+        drawWhiteboardIdRef.current = useWhiteboardStore
+          .getState()
+          .createWhiteboard({ bookId: activeDocId });
       }
 
       api.addPanel({

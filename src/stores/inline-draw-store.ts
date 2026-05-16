@@ -84,10 +84,18 @@ export const INLINE_DRAW_COLORS = [
 
 export const INLINE_DRAW_STROKE_WIDTH = 2.5;
 
+/** Pen mode draws new strokes; eraser mode lets the user tap an
+ *  existing stroke to delete just that one. The toolbar exposes a
+ *  toggle for it so users have a precise way to clean up parts of
+ *  their doodles without losing the rest of the page. */
+export type InlineDrawTool = "pen" | "eraser";
+
 interface InlineDrawState {
   active: boolean;
   /** Currently selected colour (hex). */
   color: string;
+  /** Pen vs eraser. */
+  tool: InlineDrawTool;
   /** Current book scope. Switching books clears in-memory state. */
   currentBookId: string | null;
   /** Page → strokes for the active book. Persisted to localStorage on
@@ -96,6 +104,7 @@ interface InlineDrawState {
   setActive: (active: boolean) => void;
   toggleActive: () => void;
   setColor: (color: string) => void;
+  setTool: (tool: InlineDrawTool) => void;
   /** Switch the active book — loads its drawings from localStorage,
    *  no-op if it's already the current book. */
   setBook: (bookId: string | null) => void;
@@ -104,11 +113,21 @@ interface InlineDrawState {
   /** Pop the last stroke on a page. Returns true if anything was
    *  removed (useful so the toolbar can disable the button). */
   undoStrokeOnPage: (page: number) => boolean;
+  /** Delete a specific stroke (by index) on a page — used by the
+   *  eraser tool when the user taps a stroke. */
+  removeStrokeOnPage: (page: number, strokeIndex: number) => void;
   /** Wipe strokes on a single page. */
   clearPage: (page: number) => void;
+  /** Wipe all strokes across every page for the active book — used
+   *  when the user wants a clean slate without flipping through each
+   *  page to clear them individually. */
+  clearAllPages: () => void;
   /** Read-side helper — returns a stable ref-equal array per render
    *  when the page hasn't changed. */
   strokesForPage: (page: number) => Stroke[];
+  /** Total stroke count for the active book — drives the toolbar's
+   *  disabled state for the "Clear all" button. */
+  totalStrokes: () => number;
 }
 
 const EMPTY: Stroke[] = [];
@@ -116,12 +135,17 @@ const EMPTY: Stroke[] = [];
 export const useInlineDrawStore = create<InlineDrawState>((set, get) => ({
   active: false,
   color: INLINE_DRAW_COLORS[0],
+  tool: "pen",
   currentBookId: null,
   drawingsByPage: new Map(),
 
-  setActive: (active) => set({ active }),
-  toggleActive: () => set((s) => ({ active: !s.active })),
+  // Leaving draw mode also resets the tool back to pen so the user
+  // doesn't re-enter mid-erase the next time they open the palette.
+  setActive: (active) => set(active ? { active } : { active, tool: "pen" }),
+  toggleActive: () =>
+    set((s) => (s.active ? { active: false, tool: "pen" } : { active: true })),
   setColor: (color) => set({ color }),
+  setTool: (tool) => set({ tool }),
 
   setBook: (bookId) => {
     if (get().currentBookId === bookId) return;
@@ -155,6 +179,18 @@ export const useInlineDrawStore = create<InlineDrawState>((set, get) => ({
     return true;
   },
 
+  removeStrokeOnPage: (page, strokeIndex) => {
+    const { drawingsByPage, currentBookId } = get();
+    const existing = drawingsByPage.get(page);
+    if (!existing || strokeIndex < 0 || strokeIndex >= existing.length) return;
+    const remaining = existing.filter((_, i) => i !== strokeIndex);
+    const next = new Map(drawingsByPage);
+    if (remaining.length === 0) next.delete(page);
+    else next.set(page, remaining);
+    set({ drawingsByPage: next });
+    if (currentBookId) saveToStorage(currentBookId, next);
+  },
+
   clearPage: (page) => {
     const { drawingsByPage, currentBookId } = get();
     if (!drawingsByPage.has(page)) return;
@@ -164,5 +200,19 @@ export const useInlineDrawStore = create<InlineDrawState>((set, get) => ({
     if (currentBookId) saveToStorage(currentBookId, next);
   },
 
+  clearAllPages: () => {
+    const { drawingsByPage, currentBookId } = get();
+    if (drawingsByPage.size === 0) return;
+    const next = new Map<number, Stroke[]>();
+    set({ drawingsByPage: next });
+    if (currentBookId) saveToStorage(currentBookId, next);
+  },
+
   strokesForPage: (page) => get().drawingsByPage.get(page) ?? EMPTY,
+
+  totalStrokes: () => {
+    let n = 0;
+    for (const strokes of get().drawingsByPage.values()) n += strokes.length;
+    return n;
+  },
 }));

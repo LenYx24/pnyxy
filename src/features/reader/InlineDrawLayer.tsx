@@ -22,11 +22,13 @@ interface InlineDrawLayerProps {
 
 export function InlineDrawLayer({ pageNum }: InlineDrawLayerProps) {
   const active = useInlineDrawStore((s) => s.active);
+  const tool = useInlineDrawStore((s) => s.tool);
   const color = useInlineDrawStore((s) => s.color);
   const strokes = useInlineDrawStore((s) =>
     (s.drawingsByPage.get(pageNum) ?? EMPTY),
   );
   const addStroke = useInlineDrawStore((s) => s.addStroke);
+  const removeStrokeOnPage = useInlineDrawStore((s) => s.removeStrokeOnPage);
 
   const svgRef = useRef<SVGSVGElement>(null);
   // In-flight stroke (between pointer-down and pointer-up). Local
@@ -50,6 +52,21 @@ export function InlineDrawLayer({ pageNum }: InlineDrawLayerProps) {
     if (e.button !== 0 && e.pointerType === "mouse") return; // left button only
     const p = toUnit(e);
     if (!p) return;
+    if (tool === "eraser") {
+      // Hit-test against the rendered strokes in unit space. The
+      // hit threshold scales with the SVG's actual rendered size so
+      // a 14px tap radius feels right at any zoom level.
+      const svg = svgRef.current;
+      const rect = svg?.getBoundingClientRect();
+      const hitR = rect && rect.width > 0 ? 14 / rect.width : 0.02;
+      const idx = strokes.findIndex((s) => strokeNearPoint(s, p, hitR));
+      if (idx >= 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        removeStrokeOnPage(pageNum, idx);
+      }
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     (e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId);
@@ -61,7 +78,7 @@ export function InlineDrawLayer({ pageNum }: InlineDrawLayerProps) {
   };
 
   const handlePointerMove = (e: PointerEvent<SVGSVGElement>) => {
-    if (!active || !draft) return;
+    if (!active || tool !== "pen" || !draft) return;
     const p = toUnit(e);
     if (!p) return;
     e.preventDefault();
@@ -112,7 +129,11 @@ export function InlineDrawLayer({ pageNum }: InlineDrawLayerProps) {
         // pointer-events lets selection / scroll / etc. pass through
         // when not drawing, but become catchable when active.
         pointerEvents: active ? "auto" : "none",
-        cursor: active ? "crosshair" : undefined,
+        cursor: active
+          ? tool === "eraser"
+            ? "cell"
+            : "crosshair"
+          : undefined,
         // Sit above the text layer (z-index 2 in pdfjs's textLayer
         // CSS) but below any overlay panels that the reader uses
         // for TOC / comments / AI chat.
@@ -149,6 +170,34 @@ function StrokePath({ stroke }: { stroke: Stroke }) {
       opacity={0.95}
     />
   );
+}
+
+/** Cheap hit-test: is the tap within `radius` (unit space) of any
+ *  point along the stroke? Good enough for short polylines and avoids
+ *  the cost of per-segment distance math at draw time. */
+function strokeNearPoint(
+  stroke: Stroke,
+  p: { x: number; y: number },
+  radius: number,
+): boolean {
+  const r2 = radius * radius;
+  for (let i = 0; i < stroke.points.length; i++) {
+    const sp = stroke.points[i];
+    const dx = sp.x - p.x;
+    const dy = sp.y - p.y;
+    if (dx * dx + dy * dy <= r2) return true;
+    // Also test the midpoint between adjacent samples so long thin
+    // strokes don't have erase gaps between sparse points.
+    if (i > 0) {
+      const prev = stroke.points[i - 1];
+      const mx = (prev.x + sp.x) / 2;
+      const my = (prev.y + sp.y) / 2;
+      const ddx = mx - p.x;
+      const ddy = my - p.y;
+      if (ddx * ddx + ddy * ddy <= r2) return true;
+    }
+  }
+  return false;
 }
 
 const EMPTY: Stroke[] = [];

@@ -1,5 +1,28 @@
-import type { Enrollment, Roadmap } from "@/types/roadmap";
+import type { Enrollment, NodeId, Roadmap } from "@/types/roadmap";
 import { getDB } from "./annotation-storage";
+
+/**
+ * Lift any legacy `completedNodeIds: { [id]: true }` map into the
+ * current `nodeProgress: { [id]: number }` shape, treating every
+ * completed node as 100%. Untouched if `nodeProgress` is already
+ * populated. Idempotent — safe to run on every load.
+ */
+function migrateEnrollment(raw: unknown): Enrollment {
+  const obj = raw as Enrollment & {
+    completedNodeIds?: Record<NodeId, true>;
+  };
+  const nodeProgress: Record<NodeId, number> = { ...(obj.nodeProgress ?? {}) };
+  const legacy = obj.completedNodeIds ?? {};
+  for (const id of Object.keys(legacy)) {
+    if (legacy[id] && nodeProgress[id] === undefined) {
+      nodeProgress[id] = 100;
+    }
+  }
+  return {
+    ...obj,
+    nodeProgress,
+  };
+}
 
 // --- Roadmaps ---
 
@@ -38,7 +61,8 @@ export async function deleteRoadmap(id: string): Promise<void> {
 
 export async function loadAllEnrollments(): Promise<Enrollment[]> {
   const db = await getDB();
-  return db.getAll("roadmapEnrollments");
+  const raw = await db.getAll("roadmapEnrollments");
+  return raw.map(migrateEnrollment);
 }
 
 export async function saveEnrollment(e: Enrollment): Promise<void> {

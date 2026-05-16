@@ -10,11 +10,7 @@ const CONFETTI_COLORS = [
   "#e879f9", "#f87171", "#fbbf24",
 ];
 
-// Doubled from the previous 24 pieces × 2.5s so the celebration
-// actually registers. ~50 pieces is still cheap; the animation is
-// pure CSS transforms on absolutely-positioned divs.
 const CONFETTI_COUNT = 48;
-const CONFETTI_DURATION_S = 5;
 // Hard fallback dismiss — 5 minutes is long enough that an inattentive
 // user almost certainly comes back, sees their streak, and clicks the
 // confirm button. Without a cap the toast could sit on a forgotten
@@ -25,23 +21,50 @@ const TOAST_DURATION_MS = 5 * 60 * 1000;
 interface ConfettiPiece {
   left: string;
   animationDelay: string;
+  animationDuration: string;
+  animationTimingFunction: string;
   width: string;
   height: string;
   backgroundColor: string;
   borderRadius: string;
   transform: string;
+  // CSS custom property — picked up by the confetti-fall keyframe so
+  // each piece drifts a different amount horizontally on the way
+  // down, breaking the "one horizontal stripe" look.
+  ["--confetti-drift"]: string;
 }
 
 function buildConfetti(): ConfettiPiece[] {
-  return Array.from({ length: CONFETTI_COUNT }, (_, i) => ({
-    left: `${Math.random() * 100}%`,
-    animationDelay: `${Math.random() * 1.2}s`,
-    width: `${6 + Math.random() * 6}px`,
-    height: `${6 + Math.random() * 6}px`,
-    backgroundColor: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-    borderRadius: Math.random() > 0.5 ? "50%" : "2px",
-    transform: `rotate(${Math.random() * 360}deg)`,
-  }));
+  return Array.from({ length: CONFETTI_COUNT }, (_, i) => {
+    // Per-piece duration (2.5s–6s) so faster pieces overtake slower
+    // ones — without this, every piece sat at the same Y position
+    // at any given moment and the swarm read as a horizontal stripe
+    // moving down the screen.
+    const duration = 2.5 + Math.random() * 3.5;
+    // Stretch delay across the whole duration window so pieces are
+    // continuously falling rather than clustering at a single
+    // start time.
+    const delay = Math.random() * 2.5;
+    // ±25vw horizontal drift — different per piece, so the field
+    // visibly spreads sideways instead of falling in a strict column.
+    const drift = (Math.random() - 0.5) * 50;
+    return {
+      left: `${Math.random() * 100}%`,
+      animationDelay: `${delay}s`,
+      animationDuration: `${duration}s`,
+      // Mix of ease-in / linear / ease-out — different gravity curves
+      // for different pieces makes the swarm feel like actual confetti
+      // instead of a coordinated waterfall.
+      animationTimingFunction:
+        i % 3 === 0 ? "ease-in" : i % 3 === 1 ? "linear" : "ease-out",
+      width: `${6 + Math.random() * 6}px`,
+      height: `${6 + Math.random() * 6}px`,
+      backgroundColor: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+      borderRadius: Math.random() > 0.5 ? "50%" : "2px",
+      transform: `rotate(${Math.random() * 360}deg)`,
+      "--confetti-drift": `${drift}vw`,
+    };
+  });
 }
 
 function Confetti() {
@@ -54,7 +77,8 @@ function Confetti() {
           className="absolute top-0"
           style={{
             ...style,
-            animation: `confetti-fall ${CONFETTI_DURATION_S}s ease-in forwards`,
+            animationName: "confetti-fall",
+            animationFillMode: "forwards",
           }}
         />
       ))}

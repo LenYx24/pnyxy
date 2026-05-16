@@ -12,6 +12,27 @@ import { startServerHeartbeat } from "@/lib/server-heartbeat";
 import { registerSyncEntityHandlers } from "@/lib/sync-entity-handlers";
 import { loadUserCss } from "@/lib/user-css";
 
+// Suppress one class of unhandled promise rejection that's
+// recoverable but spammy: pdf.js's "Worker was terminated", which
+// fires when a `<Document>` unmounts mid-load (e.g. the library
+// cover-thumbnail when the user switches folders). react-pdf doesn't
+// catch the post-unmount rejection and it lands here as an unhandled
+// error. `preventDefault()` swallows it; everything else still
+// surfaces normally.
+window.addEventListener("unhandledrejection", (event) => {
+  const err = event.reason;
+  const message =
+    err instanceof Error
+      ? err.message
+      : typeof err === "string"
+        ? err
+        : "";
+  if (!message) return;
+  if (message.includes("Worker was terminated")) {
+    event.preventDefault();
+  }
+});
+
 // Initialize auth listener once at startup (Zustand stores work outside React)
 useAuthStore.getState().initialize();
 

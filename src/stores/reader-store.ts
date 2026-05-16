@@ -582,7 +582,24 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     const doc = get().documents.get(id);
     if (!doc) return;
     if (page >= 1 && page <= doc.totalPages) {
-      set({ documents: updateDoc(get().documents, id, { scrollToPage: page }) });
+      // Reset the within-page offset alongside the page jump.
+      // requestScrollToPage is for imperative navigation (search
+      // next/prev, TOC click, AI citation jump) which should always
+      // land at the top of the target page. Without this reset, the
+      // PdfViewer's scroll effect reuses the user's last
+      // scrollOffset (e.g. 0.7 = 70% down the previous page), which
+      // visually places them mid-way down a page they never
+      // requested — search lands on the *wrong* page entirely if
+      // the offset is large enough that 70% of page N's height
+      // overshoots page N's bottom and lands in N+1.
+      // Resume-on-doc-open writes (page, offset) atomically in the
+      // bookDocumentLoaded path; it doesn't go through here.
+      set({
+        documents: updateDoc(get().documents, id, {
+          scrollToPage: page,
+          scrollOffset: 0,
+        }),
+      });
     }
   },
 

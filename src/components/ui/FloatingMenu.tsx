@@ -42,7 +42,11 @@ export function FloatingMenu({
   onMouseLeave,
 }: FloatingMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const [pos, setPos] = useState<{
+    left: number;
+    top: number;
+    maxHeight: number;
+  } | null>(null);
 
   // Position the menu relative to the anchor after both are mounted.
   // Render off-screen on the first paint so the un-positioned default
@@ -68,14 +72,33 @@ export function FloatingMenu({
     if (left < MARGIN) left = MARGIN;
     if (left + m.width > vw - MARGIN) left = vw - m.width - MARGIN;
 
-    // Flip above the trigger if the menu would otherwise overflow
-    // the bottom edge — and only if there's actually room above.
-    if (top + m.height > vh - MARGIN) {
-      const above = a.top - m.height - 4;
-      top = above >= MARGIN ? above : MARGIN;
+    // Decide below vs above based on which side has more room — the
+    // menu's natural height may be larger than the available space
+    // on either side, so we pick the bigger half and cap the menu
+    // there. Falling back to body-side scroll prevents the menu from
+    // visibly extending past the viewport edge (which used to clip
+    // the bottom rows because the menu container is overflow-hidden).
+    const spaceBelow = vh - a.bottom - 4 - MARGIN;
+    const spaceAbove = a.top - 4 - MARGIN;
+    let maxHeight: number;
+    if (m.height <= spaceBelow) {
+      // Fits below — use natural height.
+      maxHeight = m.height;
+    } else if (m.height <= spaceAbove) {
+      // Fits above — flip up.
+      top = a.top - m.height - 4;
+      maxHeight = m.height;
+    } else if (spaceBelow >= spaceAbove) {
+      // Neither side fits the full menu; pick the larger half and
+      // cap the height there so the menu scrolls instead of getting
+      // clipped.
+      maxHeight = Math.max(spaceBelow, 120);
+    } else {
+      top = MARGIN;
+      maxHeight = Math.max(spaceAbove, 120);
     }
 
-    setPos({ left, top });
+    setPos({ left, top, maxHeight });
   }, [open, anchorRef]);
 
   useEffect(() => {
@@ -89,18 +112,26 @@ export function FloatingMenu({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
-    const onScroll = () => onClose();
+    // Scrolling any ancestor would dislodge the menu's anchor — easiest
+    // to just close. But ignore scrolls that happen *inside* the menu
+    // itself; otherwise tall menus that need internal scrolling would
+    // immediately self-dismiss on the first wheel tick / touchmove,
+    // which read to users as "the menu closed when I tried to use it."
+    const onScroll = (e: Event) => {
+      const target = e.target as Node | null;
+      if (target && menuRef.current?.contains(target)) return;
+      onClose();
+    };
+    const onResize = () => onClose();
     document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("keydown", onKey);
-    // Scrolling any ancestor would dislodge the menu's anchor — easiest
-    // to just close. Same for window resize.
     window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onScroll);
+    window.addEventListener("resize", onResize);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("keydown", onKey);
       window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("resize", onResize);
     };
   }, [open, onClose, anchorRef]);
 
@@ -114,12 +145,15 @@ export function FloatingMenu({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       className={cn(
-        "fixed z-[100] min-w-[11rem] overflow-hidden rounded-lg border border-glass-border bg-bg-secondary/95 py-1 shadow-xl backdrop-blur-xl",
+        // overflow-y-auto + a maxHeight let tall menus scroll
+        // instead of being clipped by the rounded-corner clip.
+        "fixed z-[100] min-w-[11rem] overflow-x-hidden overflow-y-auto rounded-lg border border-glass-border bg-bg-secondary/95 py-1 shadow-xl backdrop-blur-xl",
         className,
       )}
       style={{
         left: pos?.left ?? -9999,
         top: pos?.top ?? -9999,
+        maxHeight: pos?.maxHeight,
       }}
     >
       {children}

@@ -128,6 +128,16 @@ interface SettingsState {
    * the other reader-display prefs above).
    */
   pdfInvertColors: boolean;
+  /**
+   * Mobile reflow mode for PDFs. When on, the active PDF is
+   * re-rendered as flowing text (heading + paragraph blocks
+   * extracted via pdf.js's text layer) so the user doesn't have to
+   * pan horizontally on a phone. Off by default — original layout
+   * stays the canonical view for diagrams, citations and
+   * annotation work. Per-device only; not cloud-synced (matches the
+   * other reader-display prefs).
+   */
+  pdfReflowMode: boolean;
 
   setPageScrollBehavior: (v: "smooth" | "instant") => void;
   setScrollAnimationDuration: (v: number) => void;
@@ -173,6 +183,7 @@ interface SettingsState {
   setExperimentalAnnotations: (v: boolean) => void;
   setExperimentalWhiteboard: (v: boolean) => void;
   setPdfInvertColors: (v: boolean) => void;
+  setPdfReflowMode: (v: boolean) => void;
 
   // Cloud sync
   syncPreferences: () => Promise<void>;
@@ -216,6 +227,7 @@ export const useSettingsStore = create<SettingsState>()(
       experimental_allowWhiteboardForAllFormats: false,
 
       pdfInvertColors: false,
+      pdfReflowMode: false,
 
       setTranslateTargetLanguage: (v) => set({ translateTargetLanguage: v }),
       setPageScrollBehavior: (v) => set({ pageScrollBehavior: v }),
@@ -378,6 +390,7 @@ export const useSettingsStore = create<SettingsState>()(
       setExperimentalWhiteboard: (v) =>
         set({ experimental_allowWhiteboardForAllFormats: v }),
       setPdfInvertColors: (v) => set({ pdfInvertColors: v }),
+      setPdfReflowMode: (v) => set({ pdfReflowMode: v }),
 
       // ── Cloud sync ──
       syncPreferences: async () => {

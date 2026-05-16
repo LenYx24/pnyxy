@@ -3,9 +3,12 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
+  BookOpen,
   CalendarDays,
+  ExternalLink,
   Pencil,
   Play,
+  Sparkles,
   Trash2,
   Trophy,
   XCircle,
@@ -24,6 +27,13 @@ import {
   progressFraction,
   totalEstimatedMinutes,
 } from "./lib/scheduler";
+import type { ResourceRef } from "@/types/roadmap";
+import {
+  displayProgressPct,
+  fetchAutoProgressMap,
+} from "@/lib/roadmap-auto-progress";
+import { cn } from "@/lib/cn";
+import { bookIdSegment } from "@/lib/slugify";
 
 export function RoadmapDetailPage() {
   const { t } = useTranslation();
@@ -34,9 +44,31 @@ export function RoadmapDetailPage() {
   const roadmap = useRoadmap(roadmapId);
   const enrollment = useEnrollmentForRoadmap(roadmapId);
   const toggleNodeComplete = useRoadmapStore((s) => s.toggleNodeComplete);
+  const setNodeProgress = useRoadmapStore((s) => s.setNodeProgress);
   const unenroll = useRoadmapStore((s) => s.unenroll);
   const deleteRoadmap = useRoadmapStore((s) => s.deleteRoadmap);
   const setNodeDateOverride = useRoadmapStore((s) => s.setNodeDateOverride);
+
+  // Fetch auto-progress for matched book references on mount + on
+  // focus (e.g. user reads a referenced book in another tab, comes
+  // back). One Supabase round-trip total — caps at the number of
+  // distinct matched books in the roadmap.
+  const [autoProgress, setAutoProgress] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!roadmap) return;
+    let cancelled = false;
+    const refresh = () => {
+      void fetchAutoProgressMap(roadmap).then((map) => {
+        if (!cancelled) setAutoProgress(map);
+      });
+    };
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refresh);
+    };
+  }, [roadmap]);
 
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -198,6 +230,7 @@ export function RoadmapDetailPage() {
               enrollment={enrollment}
               mode="view"
               selectedNodeId={selectedNodeId}
+              autoProgress={autoProgress}
               onSelectNode={setSelectedNodeId}
               onNodeClick={handleNodeClick}
             />
@@ -253,15 +286,24 @@ export function RoadmapDetailPage() {
               </div>
             )}
             {enrollment && (
-              <button
-                onClick={() => toggleNodeComplete(enrollment.id, selectedNode.id)}
-                className="mt-4 w-full rounded-md bg-accent-purple px-3 py-2 text-sm font-medium text-white hover:opacity-90"
-              >
-                {enrollment.completedNodeIds[selectedNode.id]
-                  ? t("roadmaps.markIncomplete")
-                  : t("roadmaps.markComplete")}
-              </button>
+              <NodeProgressPanel
+                manualPct={enrollment.nodeProgress[selectedNode.id] ?? 0}
+                autoPct={autoProgress[selectedNode.id] ?? 0}
+                onChange={(pct) =>
+                  setNodeProgress(enrollment.id, selectedNode.id, pct)
+                }
+                onToggleComplete={() =>
+                  toggleNodeComplete(enrollment.id, selectedNode.id)
+                }
+              />
             )}
+            <ReferencesPanel
+              references={
+                (selectedNode.payload?.references as
+                  | ResourceRef[]
+                  | undefined) ?? []
+              }
+            />
           </aside>
         )}
       </div>
@@ -295,4 +337,173 @@ export function RoadmapDetailPage() {
       />
     </div>
   );
+}
+
+/**
+ * Per-node progress slider + quick-complete button. Shows the
+ * composited display percent (max of manual + auto-detected) and
+ * highlights when auto-detection is contributing — so the user
+ * understands that reading the cited book updated their progress
+ * without them clicking anything.
+ */
+function NodeProgressPanel({
+  manualPct,
+  autoPct,
+  onChange,
+  onToggleComplete,
+}: {
+  manualPct: number;
+  autoPct: number;
+  onChange: (pct: number) => void;
+  onToggleComplete: () => void;
+}) {
+  const { t } = useTranslation();
+  const display = displayProgressPct(manualPct, autoPct);
+  const autoWins = autoPct > manualPct;
+
+  return (
+    <div className="mt-4 space-y-2 rounded-md border border-glass-border bg-bg-secondary/40 p-3">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-medium text-text-secondary">
+          {t("roadmaps.nodeProgress")}
+        </label>
+        <span className="text-sm font-semibold text-text-primary">
+          {display}%
+        </span>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={5}
+        value={manualPct}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full accent-accent-purple"
+        aria-label={t("roadmaps.nodeProgressManual")}
+      />
+      {autoWins && (
+        <div className="flex items-center gap-1.5 text-[11px] text-accent-purple">
+          <Sparkles size={11} />
+          <span>{t("roadmaps.autoProgressBadge", { pct: autoPct })}</span>
+        </div>
+      )}
+      <button
+        onClick={onToggleComplete}
+        className={cn(
+          "w-full rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+          display >= 100
+            ? "border border-glass-border bg-glass-bg text-text-secondary hover:bg-glass-hover"
+            : "bg-accent-purple text-white hover:opacity-90",
+        )}
+      >
+        {display >= 100
+          ? t("roadmaps.markIncomplete")
+          : t("roadmaps.markComplete")}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Lists the AI-cited references for the selected node. Matched
+ * books become tappable links to the in-app book page; unmatched
+ * citations show greyed with the cite-only badge so the user knows
+ * the AI proposed it but we don't have it locally.
+ */
+function ReferencesPanel({ references }: { references: ResourceRef[] }) {
+  const { t } = useTranslation();
+  if (references.length === 0) return null;
+  return (
+    <div className="mt-4 space-y-2">
+      <h4 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+        {t("roadmaps.resources")}
+      </h4>
+      <ul className="space-y-1.5">
+        {references.map((ref, i) => (
+          <li key={i}>
+            <ReferenceRow refItem={ref} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ReferenceRow({ refItem }: { refItem: ResourceRef }) {
+  const { t } = useTranslation();
+  const matched =
+    refItem.match?.source === "library" || refItem.match?.source === "catalog";
+  const inner = (
+    <div
+      className={cn(
+        "rounded-md border px-2.5 py-2 text-xs transition-colors",
+        matched
+          ? "border-accent-purple/30 bg-accent-purple/5 hover:bg-accent-purple/10"
+          : "border-glass-border bg-glass-bg/40 text-text-muted",
+      )}
+    >
+      <div className="flex items-start gap-1.5">
+        <BookOpen
+          size={11}
+          className={cn(
+            "mt-0.5 shrink-0",
+            matched ? "text-accent-purple" : "text-text-muted",
+          )}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-text-primary">
+            {refItem.title}
+          </p>
+          {refItem.author && (
+            <p className="truncate text-[11px] text-text-muted">
+              {refItem.author}
+            </p>
+          )}
+          {(refItem.pageRange || refItem.section) && (
+            <p className="mt-0.5 text-[11px] text-text-muted">
+              {refItem.pageRange
+                ? t("roadmaps.refPageRange", {
+                    from: refItem.pageRange.from,
+                    to: refItem.pageRange.to,
+                  })
+                : refItem.section}
+            </p>
+          )}
+          {!matched && refItem.match?.source === "none" && (
+            <p className="mt-1 text-[10px] uppercase tracking-wide text-text-muted">
+              {t("roadmaps.refNotInLibrary")}
+            </p>
+          )}
+          {matched && (
+            <p className="mt-1 inline-flex items-center gap-0.5 text-[11px] text-accent-purple">
+              <ExternalLink size={9} />
+              {refItem.match?.source === "library"
+                ? t("roadmaps.refOpenLibrary")
+                : t("roadmaps.refOpenCatalog")}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (
+    matched &&
+    refItem.match &&
+    (refItem.match.source === "library" || refItem.match.source === "catalog")
+  ) {
+    return (
+      <Link to={`/books/${bookIdSegment(refItem.match.bookId, refItem.title)}`}>
+        {inner}
+      </Link>
+    );
+  }
+  if (refItem.url) {
+    return (
+      <a href={refItem.url} target="_blank" rel="noreferrer">
+        {inner}
+      </a>
+    );
+  }
+  return inner;
 }

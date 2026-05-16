@@ -42,6 +42,13 @@ interface RoadmapState {
   enroll(roadmapId: string, prefs?: Partial<SchedulePrefs>): Enrollment;
   unenroll(enrollmentId: string): void;
   toggleNodeComplete(enrollmentId: string, nodeId: string): void;
+  /** Set a node's manual progress to an explicit percent (0–100). 0
+   *  clears the entry; non-integer or out-of-range values are clamped. */
+  setNodeProgress(
+    enrollmentId: string,
+    nodeId: string,
+    percent: number,
+  ): void;
   updateSchedulePrefs(
     enrollmentId: string,
     patch: Partial<SchedulePrefs>,
@@ -191,7 +198,7 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
       roadmapId,
       userId: currentUserId(),
       startDate: ymd(new Date()),
-      completedNodeIds: {},
+      nodeProgress: {},
       schedulePrefs: { ...DEFAULT_SCHEDULE_PREFS, ...prefs },
       createdAt: now,
       updatedAt: now,
@@ -211,14 +218,29 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
   },
 
   toggleNodeComplete(enrollmentId, nodeId) {
+    // Backward-compat wrapper around setNodeProgress: cycles between
+    // "complete" (100) and "not started" (clear). Existing callers
+    // (node click, keyboard, etc.) keep working without thinking
+    // about percentages.
     const e = get().enrollments.get(enrollmentId);
     if (!e) return;
-    const completedNodeIds = { ...e.completedNodeIds };
-    if (completedNodeIds[nodeId]) delete completedNodeIds[nodeId];
-    else completedNodeIds[nodeId] = true;
+    const current = e.nodeProgress[nodeId] ?? 0;
+    get().setNodeProgress(enrollmentId, nodeId, current >= 100 ? 0 : 100);
+  },
+
+  setNodeProgress(enrollmentId, nodeId, percent) {
+    const e = get().enrollments.get(enrollmentId);
+    if (!e) return;
+    // Clamp + round so storage always sees a clean integer 0–100. 0
+    // deletes the entry so the JSON stays sparse — most nodes start
+    // un-touched and the absent key implicitly means 0.
+    const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+    const nodeProgress = { ...e.nodeProgress };
+    if (clamped <= 0) delete nodeProgress[nodeId];
+    else nodeProgress[nodeId] = clamped;
     const updated: Enrollment = {
       ...e,
-      completedNodeIds,
+      nodeProgress,
       updatedAt: Date.now(),
     };
     const next = new Map(get().enrollments);

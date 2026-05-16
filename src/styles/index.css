@@ -103,6 +103,12 @@
 
 @layer base {
   html {
+    /* Tells the browser our page is dark so native form-control popups
+     * (select dropdowns, date pickers, inspector overlays) render with
+     * the dark palette. Without this, `<select>` options show as dark
+     * text on white background even when the closed control is themed.
+     */
+    color-scheme: dark;
     /* Kill the browser's default pull-to-refresh and sideways history
      * gestures: the reader implements its own tap/swipe/pinch model
      * and Library has a bespoke pull-to-refresh. Without this, a
@@ -154,6 +160,17 @@
     user-select: text !important;
     -webkit-user-select: text !important;
   }
+  /* pdf.js's text layer keeps non-span markers (<br>, the
+   * `endOfContent` div, hint elements) between glyph spans. When a
+   * drag-select ends inside one of those markers, the browser
+   * extends the range from the start point all the way through the
+   * marker, which visually selects every following span on the page.
+   * Marking the markers unselectable contains the range to the
+   * spans the user can actually see. */
+  .react-pdf__Page__textContent > :not(span) {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+  }
   .react-pdf__Page__textContent span::selection {
     background-color: rgba(139, 92, 246, 0.3);
     color: transparent;
@@ -195,11 +212,18 @@
 @keyframes confetti-fall {
   0% {
     opacity: 1;
-    transform: translateY(-10px) rotate(0deg);
+    transform: translate(0, -10px) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
   }
   100% {
     opacity: 0;
-    transform: translateY(100vh) rotate(720deg);
+    /* --confetti-drift is set per-piece on the inline style so each
+       piece drifts a slightly different horizontal distance, breaking
+       the "every piece is at the same Y at any given moment" stripe
+       that used to happen when every piece shared identical timing. */
+    transform: translate(var(--confetti-drift, 0), 100vh) rotate(720deg);
   }
 }
 
