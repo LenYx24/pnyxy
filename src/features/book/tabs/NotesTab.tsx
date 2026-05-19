@@ -17,7 +17,7 @@ import { Button } from "@/components/ui";
 import { useBook } from "../BookPageContext";
 import { useNoteStore } from "@/stores/note-store";
 import { loadHighlights, loadComments } from "@/lib/annotation-storage";
-import { ocrImage, OcrUnavailableError } from "@/lib/ocr";
+import { ocrImage, OcrUnavailableError } from "@/lib/ai/ocr";
 import type { Highlight, Comment } from "@/types/annotation";
 import { cn } from "@/lib/cn";
 

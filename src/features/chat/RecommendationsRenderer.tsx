@@ -17,11 +17,11 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useOrgStore } from "@/stores/org-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useConfirm } from "@/hooks/use-confirm";
-import { promptOpenAiLink } from "@/lib/ai-link-prompt";
+import { promptOpenAiLink } from "@/lib/ai/ai-link-prompt";
 import type {
   RecommendedBook,
   RecommendedVideo,
-} from "@/lib/extract-recommendations";
+} from "@/lib/ai/extract-recommendations";
 import { cn } from "@/lib/cn";
 
 export function RecommendationCards({

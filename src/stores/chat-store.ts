@@ -10,20 +10,20 @@ import {
   type ToolMessage,
   type ToolResultBlock,
   type ToolStopReason,
-} from "@/lib/ai-client";
+} from "@/lib/ai/ai-client";
 import {
   ROADMAP_TOOLS,
   LabelMap,
   formatRoadmapSnapshot,
   buildRoadmapEditSystemPrompt,
   dispatchRoadmapTool,
-} from "@/lib/roadmap-tools";
+} from "@/lib/roadmap/roadmap-tools";
 import { useRoadmapStore } from "@/stores/roadmap-store";
 import {
   generateImage,
   ImageGenUnavailableError,
-} from "@/lib/image-generation";
-import { buildAiContextPack } from "@/lib/ai-context";
+} from "@/lib/ai/image-generation";
+import { buildAiContextPack } from "@/lib/ai/ai-context";
 import type { AiProvider } from "@/stores/settings-store";
 import type {
   ChatConversation,

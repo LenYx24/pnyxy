@@ -31,7 +31,7 @@ import type { ResourceRef } from "@/types/roadmap";
 import {
   displayProgressPct,
   fetchAutoProgressMap,
-} from "@/lib/roadmap-auto-progress";
+} from "@/lib/roadmap/roadmap-auto-progress";
 import { cn } from "@/lib/cn";
 import { bookIdSegment } from "@/lib/slugify";
 

@@ -14,7 +14,7 @@ import type { AiProvider } from "@/stores/settings-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/cn";
-import { AI_MODEL_CATALOG } from "@/lib/ai-models";
+import { AI_MODEL_CATALOG } from "@/lib/ai/ai-models";
 import { ModelCard } from "@/features/chat/ModelInfoModal";
 
 interface AiUsageRow {

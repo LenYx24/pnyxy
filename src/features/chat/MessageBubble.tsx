@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Check,
@@ -15,11 +15,11 @@ import {
   renderMarkdown,
   handleCodeBlockCopy,
   detectAiLinkClick,
-} from "@/lib/markdown-message";
-import { promptOpenAiLink } from "@/lib/ai-link-prompt";
+} from "@/lib/ai/markdown-message";
+import { promptOpenAiLink } from "@/lib/ai/ai-link-prompt";
 import { usePageCitationDispatch } from "@/hooks/use-page-citation";
 import { useReadAloud, markdownToSpeech } from "@/hooks/use-read-aloud";
-import { extractRecommendations } from "@/lib/extract-recommendations";
+import { extractRecommendations } from "@/lib/ai/extract-recommendations";
 import { RecommendationCards } from "./RecommendationsRenderer";
 import { cn } from "@/lib/cn";
 import type { ChatMessage } from "@/types/chat";
@@ -281,6 +281,7 @@ export function MessageBubble({
             {msg.content && (
               <AssistantContent
                 content={msg.content}
+                isStreaming={isStreaming}
                 sourceDocId={sourceDocId}
                 confirm={confirm}
                 handleCitationClick={handleCitationClick}
@@ -492,21 +493,62 @@ export function MessageBubble({
   );
 }
 
-function AssistantContent({
+// Throttle window for streaming-time markdown re-renders. The model
+// pushes tokens every few ms; without this we'd re-parse the entire
+// accumulated markdown + re-typeset every KaTeX formula + re-sanitize
+// on each token, which froze the UI on weaker laptops. 60ms is faster
+// than the eye can follow but slow enough that the parser only runs
+// ~16×/s instead of hundreds. The final value is always flushed (the
+// effect fires once more after the last update), so finalized
+// messages never show a stale truncation.
+const STREAM_RENDER_THROTTLE_MS = 60;
+
+const AssistantContent = memo(function AssistantContent({
   content,
+  isStreaming,
   sourceDocId,
   confirm,
   handleCitationClick,
 }: {
   content: string;
+  isStreaming: boolean;
   sourceDocId: string | null;
   confirm: BubbleConfirmFn;
   handleCitationClick: (e: React.MouseEvent<HTMLElement>) => void;
 }) {
   const { t } = useTranslation();
+  // While streaming, throttle the value we actually render. State
+  // updates batch into ~60ms windows; once streaming stops the
+  // effect's dependency flip flushes the final content immediately.
+  const [throttled, setThrottled] = useState(content);
+  useEffect(() => {
+    if (!isStreaming) {
+      // Final flush — write the post-stream content synchronously so
+      // the user doesn't see a stale truncated body after the model
+      // settles. setState ignores no-op updates.
+      setThrottled(content);
+      return;
+    }
+    if (content === throttled) return;
+    const id = window.setTimeout(
+      () => setThrottled(content),
+      STREAM_RENDER_THROTTLE_MS,
+    );
+    return () => window.clearTimeout(id);
+  }, [content, isStreaming, throttled]);
+
   const { cleaned, books, videos } = useMemo(
-    () => extractRecommendations(content),
-    [content],
+    () => extractRecommendations(throttled),
+    [throttled],
+  );
+  // The expensive part — full marked.parse → KaTeX → DOMPurify
+  // pipeline. Cached on (cleaned, sourceDocId) so unrelated parent
+  // re-renders (hover, branch toggle, sibling-message updates) don't
+  // re-run it. Combined with the throttle above, parses drop from
+  // hundreds during a long stream to a few dozen.
+  const html = useMemo(
+    () => renderMarkdown(cleaned, sourceDocId),
+    [cleaned, sourceDocId],
   );
   return (
     <>
@@ -522,16 +564,14 @@ function AssistantContent({
           }
           handleCitationClick(e);
         }}
-        dangerouslySetInnerHTML={{
-          __html: renderMarkdown(cleaned, sourceDocId),
-        }}
+        dangerouslySetInnerHTML={{ __html: html }}
       />
       {(books || videos) && (
         <RecommendationCards books={books} videos={videos} />
       )}
     </>
   );
-}
+});
 
 export function CopyButton({ text }: { text: string }) {
   const { t } = useTranslation();

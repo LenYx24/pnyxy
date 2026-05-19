@@ -27,7 +27,7 @@ import { useNoteStore } from "@/stores/note-store";
 import { useActiveDocument } from "@/stores/reader-store";
 import { useChatStore } from "@/stores/chat-store";
 import { useUIStore } from "@/stores/ui-store";
-import { renderMarkdown, handleCodeBlockCopy } from "@/lib/markdown-message";
+import { renderMarkdown, handleCodeBlockCopy } from "@/lib/ai/markdown-message";
 import { useIsDesktop } from "@/hooks/use-media-query";
 import { usePageCitationDispatch } from "@/hooks/use-page-citation";
 import { cn } from "@/lib/cn";

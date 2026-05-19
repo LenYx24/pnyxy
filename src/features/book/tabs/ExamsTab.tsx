@@ -25,8 +25,8 @@ import { logError } from "@/lib/logger";
 import { useAuthStore } from "@/stores/auth-store";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useOpenDocument } from "@/hooks/use-open-document";
-import { extractExamTopics, extractPdfText } from "@/lib/extract-exam-topics";
-import { generateQuizQuestions } from "@/lib/quiz-ai";
+import { extractExamTopics, extractPdfText } from "@/lib/ai/extract-exam-topics";
+import { generateQuizQuestions } from "@/lib/quiz/quiz-ai";
 import { useQuizStore } from "@/stores/quiz-store";
 import { useBook } from "../BookPageContext";
 

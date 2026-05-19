@@ -14,7 +14,7 @@ import {
   loadAllRoadmaps,
   saveEnrollment,
   saveRoadmap,
-} from "@/lib/roadmap-storage";
+} from "@/lib/roadmap/roadmap-storage";
 import { useAuthStore } from "@/stores/auth-store";
 import { ymd } from "@/features/roadmaps/lib/scheduler";
 

@@ -28,12 +28,13 @@ import {
 import { FloatingMenu } from "@/components/ui";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { useConfirm } from "@/hooks/use-confirm";
+import { useIsMobile } from "@/hooks/use-media-query";
 import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { supabase } from "@/lib/supabase";
-import { getConfiguredProviders } from "@/lib/ai-client";
-import type { RecommendationMode } from "@/lib/recommendation-prompts";
+import { getConfiguredProviders } from "@/lib/ai/ai-client";
+import type { RecommendationMode } from "@/lib/ai/recommendation-prompts";
 import type { ChatMessageAttachment } from "@/types/chat";
 import { ModelInfoModal } from "./ModelInfoModal";
 import { cn } from "@/lib/cn";
@@ -584,6 +585,13 @@ export const ChatComposer = forwardRef<
 ) {
   const { t } = useTranslation();
   const { confirm, ConfirmModalElement } = useConfirm();
+  // Drives the textarea's Enter behavior. On desktop Enter sends and
+  // Shift+Enter inserts a newline — the standard chat-app shortcut.
+  // On mobile the soft-keyboard return key is the only quick way to
+  // get a newline, so we flip it: Enter inserts a newline, the on-
+  // screen send button (and Ctrl/Cmd+Enter for external keyboards)
+  // sends. Without this, mobile users can't write multi-line prompts.
+  const isMobile = useIsMobile();
 
   const enabledProviders = useSettingsStore((s) => s.enabledProviders);
   const configuredProviders = useMemo(
@@ -901,7 +909,26 @@ export const ChatComposer = forwardRef<
         onChange={(e) => onChange(e.target.value)}
         onPaste={handlePaste}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
+          if (e.key !== "Enter") return;
+          // IME composition guard. While the user is mid-composition
+          // (CJK, Hungarian dead-key accents, etc.) the soft keyboard
+          // fires an Enter with `isComposing: true` to commit the
+          // composition — that's not a send intent. keyCode 229 is
+          // the legacy webview equivalent some Android browsers still
+          // emit instead of the modern flag.
+          if (
+            (e.nativeEvent as KeyboardEvent).isComposing ||
+            e.keyCode === 229
+          ) {
+            return;
+          }
+          // Mobile: Enter inserts a newline (browser default); only
+          // Ctrl/Cmd+Enter sends. Desktop: Enter sends, Shift+Enter
+          // inserts a newline.
+          const sendIntent = isMobile
+            ? e.ctrlKey || e.metaKey
+            : !e.shiftKey;
+          if (sendIntent) {
             e.preventDefault();
             void handleSendClick();
           }

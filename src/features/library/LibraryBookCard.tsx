@@ -21,8 +21,8 @@ import { useTagStore, bookKey } from "@/stores/tag-store";
 import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
 import { bookIdSegment } from "@/lib/slugify";
 import { TagPickerDropdown } from "./TagPickerDropdown";
-import { ShareBookModal } from "./ShareBookModal";
-import { BookInfoModal } from "./BookInfoModal";
+import { ShareBookModal } from "./modals/ShareBookModal";
+import { BookInfoModal } from "./modals/BookInfoModal";
 import { cn } from "@/lib/cn";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 

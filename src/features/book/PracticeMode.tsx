@@ -21,16 +21,16 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
-import { extractPdfText } from "@/lib/extract-exam-topics";
+import { extractPdfText } from "@/lib/ai/extract-exam-topics";
 import {
   extractExamQuestions,
   type ExtractedQuestion,
-} from "@/lib/extract-exam-questions";
+} from "@/lib/ai/extract-exam-questions";
 import {
   evaluatePracticeAnswer,
   parseVerdict,
-} from "@/lib/evaluate-practice-answer";
-import { renderMarkdown } from "@/lib/markdown-message";
+} from "@/lib/quiz/evaluate-practice-answer";
+import { renderMarkdown } from "@/lib/ai/markdown-message";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 

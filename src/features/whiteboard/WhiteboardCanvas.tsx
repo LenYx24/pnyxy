@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import type { Point, TextElement, WhiteboardElement } from "@/types/whiteboard";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import { WhiteboardToolbar } from "./WhiteboardToolbar";
+import { TextEditOverlay } from "./TextEditOverlay";
 import {
   drawBackground,
   drawElement,
@@ -16,11 +17,7 @@ import {
 import { hitTest } from "./lib/hit-testing";
 import { bboxesIntersect, getElementBounds, screenToWorld } from "./lib/math-utils";
 import { applyResize, angleFromPointer } from "./lib/transforms";
-import {
-  measureTextHeight,
-  TEXT_FONT_FAMILY,
-  TEXT_LINE_HEIGHT,
-} from "./lib/text-layout";
+import { measureTextHeight, TEXT_LINE_HEIGHT } from "./lib/text-layout";
 
 const DEFAULT_TEXT_WIDTH = 240;
 const DEFAULT_TEXT_FONT_SIZE = 16;
@@ -210,7 +207,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
 
   // --- Pointer event helpers ---
   const getWorldPoint = useCallback(
-    (e: React.PointerEvent | PointerEvent): Point => {
+    (e: { clientX: number; clientY: number }): Point => {
       const canvas = canvasRef.current!;
       const rect = canvas.getBoundingClientRect();
       const sx = e.clientX - rect.left;
@@ -222,7 +219,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
   );
 
   const getScreenPoint = useCallback(
-    (e: React.PointerEvent | PointerEvent): Point => {
+    (e: { clientX: number; clientY: number }): Point => {
       const canvas = canvasRef.current!;
       const rect = canvas.getBoundingClientRect();
       return { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -762,7 +759,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
 
       if (e.ctrlKey || e.metaKey) {
         const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        const screen = getScreenPoint(e as unknown as React.PointerEvent);
+        const screen = getScreenPoint(e);
         setZoom(zoom * delta, screen);
       } else {
         // Shift+wheel → horizontal pan (classic trackpad convention).
@@ -917,7 +914,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
 
   const handleDoubleClick = useCallback(
     (e: React.MouseEvent) => {
-      const world = getWorldPoint(e as unknown as React.PointerEvent);
+      const world = getWorldPoint(e);
       const { elements, zoom } = store.getState();
       const hit = hitTest(elements, world, zoom);
       if (hit?.type === "text") {
@@ -953,51 +950,18 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
       />
       <WhiteboardToolbar />
 
-      {/* Text-edit overlay — positioned in screen space over whichever
-          text element is being edited. Follows pan/zoom via the
-          subscribed panX/panY/zoom selectors. */}
+      {/* Text-edit overlay — positioned in screen space over the
+          text element being edited. Follows pan/zoom via the
+          subscribed panX/panY/zoom selectors fed in as props. */}
       {editingElement && (
-        <textarea
-          autoFocus
-          value={editDraft}
-          onChange={(e) => setEditDraft(e.target.value)}
-          onBlur={commitEdit}
-          onKeyDown={(e) => {
-            // Stop shortcuts (undo, tool keys) from firing while typing.
-            e.stopPropagation();
-            if (e.key === "Escape") {
-              e.preventDefault();
-              commitEdit();
-            } else if (
-              e.key === "Enter" &&
-              (e.ctrlKey || e.metaKey)
-            ) {
-              e.preventDefault();
-              commitEdit();
-            }
-          }}
-          style={{
-            position: "absolute",
-            left: editingElement.x * editingZoom + editingPanX,
-            top: editingElement.y * editingZoom + editingPanY,
-            width: editingElement.width * editingZoom,
-            minHeight:
-              editingElement.fontSize * TEXT_LINE_HEIGHT * editingZoom,
-            fontSize: editingElement.fontSize * editingZoom,
-            lineHeight: TEXT_LINE_HEIGHT,
-            fontFamily: TEXT_FONT_FAMILY,
-            color: editingElement.color,
-            background: "rgba(124, 92, 252, 0.08)",
-            border: "1px dashed #7c5cfc",
-            borderRadius: 4,
-            padding: 0,
-            margin: 0,
-            outline: "none",
-            resize: "none",
-            overflow: "hidden",
-            whiteSpace: "pre-wrap",
-            zIndex: 20,
-          }}
+        <TextEditOverlay
+          element={editingElement}
+          draft={editDraft}
+          onDraftChange={setEditDraft}
+          onCommit={commitEdit}
+          panX={editingPanX}
+          panY={editingPanY}
+          zoom={editingZoom}
         />
       )}
 

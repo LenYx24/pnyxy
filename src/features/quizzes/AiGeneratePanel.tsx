@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { BookOpen, FileText, Loader2, Minus, Plus, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { extractPdfText, hasAnyConfiguredProvider } from "@/lib/ai-client";
+import { extractPdfText, hasAnyConfiguredProvider } from "@/lib/ai/ai-client";
 import { getIADownloadUrl } from "@/lib/open-library";
 import { supabase } from "@/lib/supabase";
 import {
@@ -14,7 +14,7 @@ import {
   MAX_SOURCE_CHARS,
   QuizGenerationError,
   type GenerateKind,
-} from "@/lib/quiz-ai";
+} from "@/lib/quiz/quiz-ai";
 import type { QuizQuestionDraft } from "@/types/quiz";
 
 interface AiGeneratePanelProps {

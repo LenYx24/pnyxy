@@ -14,7 +14,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { Enrollment, ResourceRef, Roadmap } from "@/types/roadmap";
-import { displayProgressPct } from "@/lib/roadmap-auto-progress";
+import { displayProgressPct } from "@/lib/roadmap/roadmap-auto-progress";
 import { autoLayout, findGoalNodeIds } from "../lib/auto-layout";
 import {
   computeSchedule,

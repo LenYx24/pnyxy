@@ -4,8 +4,8 @@ import {
   saveNote as dbSaveNote,
   deleteNote as dbDeleteNote,
 } from "@/lib/annotation-storage";
-import { enqueueMutation } from "@/lib/sync-queue";
-import type { NoteSyncPayload } from "@/lib/sync-entity-handlers";
+import { enqueueMutation } from "@/lib/sync/sync-queue";
+import type { NoteSyncPayload } from "@/lib/sync/sync-entity-handlers";
 
 export interface Note {
   id: string;

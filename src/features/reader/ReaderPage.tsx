@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import i18n from "@/lib/i18n";
 import { BookOpen, FilePlus, Loader2, PanelLeft, X } from "lucide-react";
@@ -7,38 +7,29 @@ import {
   DockviewReact,
   type DockviewReadyEvent,
   type DockviewApi,
-  type IDockviewPanelProps,
 } from "dockview";
 import { PromptModal } from "@/components/ui";
 import type { TextSelection } from "@/types/annotation";
-import { ReaderSidebarContent } from "./ReaderSidebar";
 import { ReaderToolbar } from "./ReaderToolbar";
 import { DocumentTabs } from "./DocumentTabs";
-import { LibraryPickerModal } from "./LibraryPickerModal";
-import { MobileReaderBottomBar } from "./MobileReaderBottomBar";
-import { InlineDrawToolbar } from "./InlineDrawToolbar";
+import { LibraryPickerModal } from "./popovers/LibraryPickerModal";
+import { InlineDrawToolbar } from "./controls/InlineDrawToolbar";
 import { useInlineDrawStore } from "@/stores/inline-draw-store";
-import { PdfViewer } from "./PdfViewer";
-import { PdfReflowView } from "./PdfReflowView";
-import { TextViewer } from "./TextViewer";
-import { EpubViewer } from "./EpubViewer";
-import { CommentsSidebar } from "./CommentsSidebar";
-import { SearchOverlay } from "./SearchOverlay";
-import { AiChatPanel, AiChatPanelContent } from "./AiChatPanel";
+import { MobileReaderLayout } from "./MobileReaderLayout";
+import { dockviewComponents } from "./dockview-panels";
+import { ActiveViewer } from "./viewers/ActiveViewer";
+import { SearchOverlay } from "./popovers/SearchOverlay";
 import {
   useMobileReaderGestures,
   type PinchEvent,
-  type TapEvent,
-} from "./use-mobile-reader-gestures";
-import { getZoomControls } from "./pinch-zoom-controller";
+} from "./gestures/use-mobile-reader-gestures";
+import { getZoomControls } from "./gestures/pinch-zoom-controller";
 import {
   ScreenshotRectSelector,
   type ScreenshotRect,
-} from "./ScreenshotRectSelector";
-import { FocusSessionBadge } from "./FocusSessionBadge";
-import { NoteEditor } from "@/features/notes/NoteEditor";
-import { WhiteboardPanelWrapper } from "@/features/whiteboard/WhiteboardPanel";
-import { useReaderStore, useDocumentState } from "@/stores/reader-store";
+} from "./popovers/ScreenshotRectSelector";
+import { FocusSessionBadge } from "./controls/FocusSessionBadge";
+import { useReaderStore } from "@/stores/reader-store";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useBookmarkStore } from "@/stores/bookmark-store";
 import { useUndoStore } from "@/stores/undo-store";
@@ -54,603 +45,11 @@ import { logError } from "@/lib/logger";
 import { createAdapterForFile } from "./adapters";
 import { useOpenDocument } from "@/hooks/use-open-document";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
-import { useBackToClose } from "@/hooks/use-back-to-close";
 import { useIsMobile, useMediaQuery } from "@/hooks/use-media-query";
-import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui";
 import { saveDockviewLayout, loadDockviewLayout } from "@/stores/ui-store";
 import { loadTocWidth, saveTocWidth } from "@/lib/annotation-storage";
 import type { TocItem } from "@/types/document";
-
-function TocPanel(props: IDockviewPanelProps) {
-  const dockviewApi = props.containerApi;
-  const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenDocument();
-
-  const handleOpenFile = useCallback(() => {
-    triggerFilePicker();
-  }, [triggerFilePicker]);
-
-  const handleOpenNote = useCallback(
-    (noteId: string) => {
-      const panelId = `note-${noteId}`;
-      const existing = dockviewApi.getPanel(panelId);
-      if (existing) {
-        existing.api.setActive();
-        return;
-      }
-      dockviewApi.addPanel({
-        id: panelId,
-        component: "note",
-        title: i18n.t("reader.page.panelNote"),
-        params: { noteId },
-        position: { direction: "right" },
-      });
-    },
-    [dockviewApi],
-  );
-
-  const handleCreateNote = useCallback(() => {
-    const noteId = useNoteStore.getState().createNote();
-    const panelId = `note-${noteId}`;
-    dockviewApi.addPanel({
-      id: panelId,
-      component: "note",
-      title: i18n.t("reader.page.panelNewNote"),
-      params: { noteId },
-      position: { direction: "right" },
-    });
-  }, [dockviewApi]);
-
-  const handleOpenWhiteboard = useCallback(
-    (whiteboardId: string) => {
-      const panelId = `whiteboard-${whiteboardId}`;
-      const existing = dockviewApi.getPanel(panelId);
-      if (existing) {
-        existing.api.setActive();
-        return;
-      }
-      dockviewApi.addPanel({
-        id: panelId,
-        component: "whiteboard",
-        title: i18n.t("reader.page.panelWhiteboard"),
-        params: { whiteboardId },
-        position: { direction: "right" },
-      });
-    },
-    [dockviewApi],
-  );
-
-  const handleCreateWhiteboard = useCallback(() => {
-    const activeDoc = useReaderStore.getState().getActiveDoc();
-    const allowAll = useSettingsStore.getState()
-      .experimental_allowWhiteboardForAllFormats;
-    if (
-      activeDoc &&
-      !activeDoc.meta.capabilities.paginated &&
-      !allowAll
-    ) {
-      return;
-    }
-    // Tag the new whiteboard with the active doc so the reader sidebar
-    // can filter to "this book only" — without it, every reader-created
-    // whiteboard would still show up across every other book.
-    const activeDocId = useReaderStore.getState().activeDocumentId ?? undefined;
-    const whiteboardId = useWhiteboardStore
-      .getState()
-      .createWhiteboard({ bookId: activeDocId });
-    const panelId = `whiteboard-${whiteboardId}`;
-    dockviewApi.addPanel({
-      id: panelId,
-      component: "whiteboard",
-      title: i18n.t("reader.page.panelNewWhiteboard"),
-      params: { whiteboardId },
-      position: { direction: "right" },
-    });
-  }, [dockviewApi]);
-
-  const handleDeleteNote = useCallback(
-    (noteId: string) => {
-      const panelId = `note-${noteId}`;
-      const existing = dockviewApi.getPanel(panelId);
-      if (existing) dockviewApi.removePanel(existing);
-    },
-    [dockviewApi],
-  );
-
-  const handleDeleteWhiteboard = useCallback(
-    (whiteboardId: string) => {
-      const panelId = `whiteboard-${whiteboardId}`;
-      const existing = dockviewApi.getPanel(panelId);
-      if (existing) dockviewApi.removePanel(existing);
-    },
-    [dockviewApi],
-  );
-
-  return (
-    <>
-      <ReaderSidebarContent
-        onOpenFile={handleOpenFile}
-        onOpenNote={handleOpenNote}
-        onCreateNote={handleCreateNote}
-        onOpenWhiteboard={handleOpenWhiteboard}
-        onCreateWhiteboard={handleCreateWhiteboard}
-        onDeleteNote={handleDeleteNote}
-        onDeleteWhiteboard={handleDeleteWhiteboard}
-      />
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".pdf,.epub,.txt,.md,.markdown"
-        className="hidden"
-        onChange={handleFileSelect}
-      />
-    </>
-  );
-}
-
-/**
- * Dispatches to the format-appropriate viewer for a given document id,
- * defaulting to the active document.
- */
-function ActiveViewer({ documentId }: { documentId?: string }) {
-  const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
-  const resolvedId = documentId ?? activeDocumentId ?? undefined;
-  const doc = useDocumentState(resolvedId ?? "");
-  const format = doc?.meta.format;
-  const pdfReflowMode = useSettingsStore((s) => s.pdfReflowMode);
-
-  if (!resolvedId || !doc) return <PdfViewer documentId={resolvedId} />;
-
-  switch (format) {
-    case "pdf":
-      return pdfReflowMode ? (
-        <PdfReflowView documentId={resolvedId} />
-      ) : (
-        <PdfViewer documentId={resolvedId} />
-      );
-    case "text":
-    case "markdown":
-      return <TextViewer documentId={resolvedId} />;
-    case "epub":
-      return <EpubViewer documentId={resolvedId} />;
-    default:
-      return <PdfViewer documentId={resolvedId} />;
-  }
-}
-
-function ViewerPanel(props: IDockviewPanelProps<{ documentId?: string }>) {
-  // Wrap the viewer in a `relative` container and mount the floating
-  // search overlay HERE — inside the Dockview panel that holds the
-  // PDF. Previously the desktop SearchOverlay sat at the outer
-  // Dockview container, so its `absolute right-4` pinned to the right
-  // edge of the WHOLE dockview area (viewer + AI chat + TOC), which
-  // made the overlay visually cover the AI chat panel when that was
-  // open. Scoping it to ViewerPanel keeps the right edge aligned with
-  // the viewer itself regardless of which other panels are open.
-  return (
-    <div className="relative h-full w-full">
-      <ActiveViewer documentId={props.params?.documentId} />
-      <SearchOverlay />
-    </div>
-  );
-}
-
-function CommentsPanel(_props: IDockviewPanelProps) {
-  return <CommentsSidebar />;
-}
-
-function NotePanelWrapper(props: IDockviewPanelProps<{ noteId?: string }>) {
-  const noteId = props.params?.noteId;
-  if (!noteId) return null;
-  return <NoteEditor noteId={noteId} />;
-}
-
-const dockviewComponents = {
-  toc: TocPanel,
-  pdfViewer: ViewerPanel,
-  comments: CommentsPanel,
-  aiChat: AiChatPanel,
-  note: NotePanelWrapper,
-  whiteboard: WhiteboardPanelWrapper,
-};
-
-interface MobileReaderLayoutProps {
-  isFullscreen: boolean;
-  onToggleFullscreen: () => void;
-  isDrawMode: boolean;
-  onToggleDrawMode: () => void;
-  onScreenshot: () => void;
-  onScreenshotRect: () => void;
-  onRectToAi: () => void;
-  onPrint: () => void;
-  onToggleZenMode: () => void;
-}
-
-function MobileReaderLayout({
-  isFullscreen,
-  onToggleFullscreen,
-  isDrawMode,
-  onToggleDrawMode,
-  onScreenshot,
-  onScreenshotRect,
-  onRectToAi,
-  onPrint,
-  onToggleZenMode,
-}: MobileReaderLayoutProps) {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const mobileReaderPanel = useUIStore((s) => s.mobileReaderPanel);
-  const setMobileReaderPanel = useUIStore((s) => s.setMobileReaderPanel);
-
-  const handleToggleComments = useCallback(() => {
-    setMobileReaderPanel(mobileReaderPanel === "comments" ? "none" : "comments");
-  }, [mobileReaderPanel, setMobileReaderPanel]);
-
-  const handleToggleSearch = useCallback(() => {
-    const store = useSearchStore.getState();
-    if (store.isOpen) store.close();
-    else store.open("find");
-  }, []);
-
-  const handleToggleAiChat = useCallback(() => {
-    setMobileReaderPanel(mobileReaderPanel === "aiChat" ? "none" : "aiChat");
-  }, [mobileReaderPanel, setMobileReaderPanel]);
-
-  // On mobile we don't have Dockview, so a whiteboard opens as a full
-  // page via the standalone /whiteboards/:id route. Closing the panel
-  // first prevents the slide-over from being stuck open after navigate.
-  const handleCreateWhiteboard = useCallback(() => {
-    const activeDocId = useReaderStore.getState().activeDocumentId ?? undefined;
-    const id = useWhiteboardStore
-      .getState()
-      .createWhiteboard({ bookId: activeDocId });
-    setMobileReaderPanel("none");
-    navigate(`/whiteboards/${id}`);
-  }, [navigate, setMobileReaderPanel]);
-
-  const handleOpenWhiteboard = useCallback(
-    (whiteboardId: string) => {
-      setMobileReaderPanel("none");
-      navigate(`/whiteboards/${whiteboardId}`);
-    },
-    [navigate, setMobileReaderPanel],
-  );
-
-  const handleOpenContents = useCallback(() => {
-    setMobileReaderPanel(mobileReaderPanel === "toc" ? "none" : "toc");
-  }, [mobileReaderPanel, setMobileReaderPanel]);
-
-  const handleBookmark = useCallback(() => {
-    const doc = useReaderStore.getState().getActiveDoc();
-    if (!doc) return;
-    useBookmarkStore.getState().addBookmark(doc.currentPage);
-  }, []);
-
-  // Page-jump prompt — surfaces the desktop toolbar's "page X / Y"
-  // input on mobile, where the toolbar is hidden by default. Tapping
-  // the bottom bar's "X / Y" item opens this; the user types a page
-  // number and the prompt's onSubmit jumps the active doc. Two
-  // primitive selectors instead of one object selector — Zustand
-  // would otherwise see a fresh literal on every render and loop.
-  const [pageJumpOpen, setPageJumpOpen] = useState(false);
-  const currentPage = useReaderStore(
-    (s) => s.getActiveDoc()?.currentPage ?? 0,
-  );
-  const totalPages = useReaderStore(
-    (s) => s.getActiveDoc()?.totalPages ?? 0,
-  );
-  const handleJumpToPage = useCallback(() => {
-    setPageJumpOpen(true);
-  }, []);
-  const handleJumpToPageSubmit = useCallback((value: string) => {
-    const n = Number.parseInt(value, 10);
-    if (!Number.isFinite(n) || n < 1) return;
-    const doc = useReaderStore.getState().getActiveDoc();
-    if (!doc) return;
-    const clamped = Math.max(1, Math.min(doc.totalPages, n));
-    useReaderStore.getState().goToPage(clamped);
-  }, []);
-
-  // Close panels with ESC. On mobile this matters for iPad/Android
-  // users with an external keyboard; on phone it's cheap insurance.
-  useEffect(() => {
-    if (mobileReaderPanel === "none") return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setMobileReaderPanel("none");
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [mobileReaderPanel, setMobileReaderPanel]);
-
-  // Android hardware back / system back gesture closes the active
-  // mobile sliding panel (TOC / comments / AI chat) before falling
-  // through to the browser's default. Without this, pressing back
-  // while a panel is open would navigate the user out of the reader
-  // entirely.
-  useBackToClose(
-    mobileReaderPanel !== "none",
-    useCallback(() => setMobileReaderPanel("none"), [setMobileReaderPanel]),
-  );
-
-  // Tap-to-toggle chrome (ReadEra pattern). A click on the viewer
-  // area that isn't on an interactive element, isn't the tail of a
-  // selection drag, and isn't during an open context menu toggles the
-  // toolbar visibility. onClick fires only on completed taps — drags
-  // and scrolls don't trigger it — so this is safe for PDF.js's text
-  // selection + highlight flows.
-  const toggleMobileChromeHidden = useUIStore(
-    (s) => s.toggleMobileChromeHidden,
-  );
-  const setMobileChromeHidden = useUIStore((s) => s.setMobileChromeHidden);
-  const mobileChromeHidden = useUIStore((s) => s.mobileChromeHidden);
-  const chromeVisible = !mobileChromeHidden || mobileReaderPanel !== "none";
-  const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
-
-  // Start each reader session with chrome hidden — the user opens a
-  // book to read, not to stare at the toolbar. Resets on every new
-  // document so an explicit reveal doesn't persist across books.
-  useEffect(() => {
-    setMobileChromeHidden(true);
-  }, [activeDocumentId, setMobileChromeHidden]);
-
-  // Touch gestures: horizontal swipe → page turn (PDF only), pinch →
-  // zoom. Swipe disabled on EPUB/markdown/text since they don't have
-  // discrete pages in the same sense.
-  const nextPage = useReaderStore((s) => s.nextPage);
-  const prevPage = useReaderStore((s) => s.prevPage);
-  // Subscribe to the two primitives we actually use. Subscribing to
-  // `getActiveDoc()` would re-render this component on every pinch
-  // frame.
-  const isPaginated = useReaderStore(
-    (s) => s.getActiveDoc()?.meta.capabilities.paginated ?? false,
-  );
-  // Once the user has zoomed in past ~110%, they want to pan
-  // horizontally like a map; swipe-to-turn-page would fight that.
-  // Read it from the persisted zoomLevel + mode (live tray scale isn't
-  // mirrored to the store mid-gesture, but we only need this signal
-  // for swipe-vs-pan arbitration which is fine on stable scale).
-  const isZoomedIn = useReaderStore(
-    (s) => (s.getActiveDoc()?.zoomMode === "custom" &&
-      (s.getActiveDoc()?.zoomLevel ?? 100) > 110) ||
-      s.getActiveDoc()?.zoomMode === "fit-page",
-  );
-
-  const viewerRef = useRef<HTMLDivElement>(null);
-
-  // Single-tap toggles the chrome (toolbar / bottom bar). Skipped on
-  // taps that landed on an interactive child (buttons, links,
-  // annotation popovers, contenteditable nodes) and on taps that
-  // happen while the user has a text selection — pdf.js's selection
-  // handles can otherwise dismiss themselves before the user can
-  // interact with them.
-  const handleSingleTap = useCallback(
-    ({ target }: TapEvent) => {
-      if (mobileReaderPanel !== "none") return;
-      const el = target as HTMLElement | null;
-      if (
-        el?.closest?.(
-          "button, a, input, textarea, select, [role='button'], [contenteditable]",
-        )
-      ) {
-        return;
-      }
-      const selection = window.getSelection();
-      if (selection && selection.toString().length > 0) return;
-      if (document.querySelector("[data-annotation-context-menu]")) return;
-      toggleMobileChromeHidden();
-    },
-    [mobileReaderPanel, toggleMobileChromeHidden],
-  );
-
-  // Double-tap toggles between 1× (fit-width) and 2× zoom anchored at
-  // the tap point. Drives the live tray controller directly — no
-  // intermediate React state, the visual lands in one paint frame.
-  const handleDoubleTap = useCallback(
-    ({ x, y, target }: TapEvent) => {
-      if (mobileReaderPanel !== "none") return;
-      const el = target as HTMLElement | null;
-      if (
-        el?.closest?.(
-          "button, a, input, textarea, select, [role='button'], [contenteditable]",
-        )
-      ) {
-        return;
-      }
-      const controls = getZoomControls();
-      if (!controls) return;
-      const current = controls.getScale();
-      const target2x = current > 1.1 ? 1 : 2;
-      controls.setAbsolute(target2x, { pivotX: x, pivotY: y });
-    },
-    [mobileReaderPanel],
-  );
-
-  useMobileReaderGestures({
-    targetRef: viewerRef,
-    enableSwipe:
-      isPaginated && mobileReaderPanel === "none" && !isZoomedIn,
-    enablePinch: mobileReaderPanel === "none",
-    onSwipeLeft: nextPage,
-    onSwipeRight: prevPage,
-    onSingleTap: handleSingleTap,
-    onDoubleTap: handleDoubleTap,
-    // Pinch passes through to the live tray controller. Each phase is
-    // a thin call: PdfViewer mutates DOM, no React renders during the
-    // gesture, and the final scale gets debounced into the store ~250
-    // ms after the user lifts their fingers — so React renders exactly
-    // once per gesture and only after the visual has already settled.
-    onPinch: useCallback(({ phase, scale, midX, midY }: PinchEvent) => {
-      const controls = getZoomControls();
-      if (!controls) return;
-      if (phase === "start") controls.begin(midX, midY);
-      else if (phase === "move") controls.update(scale);
-      else controls.end();
-    }, []),
-  });
-
-  return (
-    <div className="relative flex flex-1 flex-col overflow-hidden">
-      {/* Toolbar is an absolute overlay so the viewer keeps the full
-          screen even while chrome is visible. Slides off-screen when
-          the user hides chrome. Always visible while a panel is open
-          (so the user has orientation). */}
-      <div
-        className={cn(
-          "absolute left-0 right-0 top-0 z-20 transition-transform duration-200 ease-out",
-          chromeVisible ? "translate-y-0" : "-translate-y-full",
-        )}
-      >
-        <ReaderToolbar
-          isFullscreen={isFullscreen}
-          onToggleFullscreen={onToggleFullscreen}
-          onToggleComments={handleToggleComments}
-          isDrawMode={isDrawMode}
-          onToggleDrawMode={onToggleDrawMode}
-          onScreenshot={onScreenshot}
-          onScreenshotRect={onScreenshotRect}
-          onRectToAi={onRectToAi}
-          onPrint={onPrint}
-          onToggleSearch={handleToggleSearch}
-          onToggleAiChat={handleToggleAiChat}
-          onToggleZenMode={onToggleZenMode}
-        />
-      </div>
-      <div
-        ref={viewerRef}
-        className="relative flex-1 overflow-hidden touch-pan-y"
-      >
-        <ActiveViewer />
-        <SearchOverlay />
-      </div>
-
-      <MobileReaderBottomBar
-        visible={chromeVisible}
-        activePanel={mobileReaderPanel}
-        onOpenContents={handleOpenContents}
-        onToggleSearch={handleToggleSearch}
-        onBookmark={handleBookmark}
-        onToggleComments={handleToggleComments}
-        onToggleAiChat={handleToggleAiChat}
-        pageCurrent={currentPage > 0 ? currentPage : undefined}
-        pageTotal={totalPages > 0 ? totalPages : undefined}
-        onJumpToPage={totalPages > 0 ? handleJumpToPage : undefined}
-      />
-
-      {/* Backdrop for overlay panels — covers the full viewport
-          (including the safe-inset strip at the top) so taps anywhere
-          outside the panel dismiss it. */}
-      {mobileReaderPanel !== "none" && (
-        <div
-          className="absolute inset-0 z-30 bg-black/40"
-          onClick={() => setMobileReaderPanel("none")}
-        />
-      )}
-
-      {/* Mobile overlay panels. The wrappers are always mounted so
-          CSS can animate the slide; the contents are mounted only
-          while the corresponding panel is active. That keeps side
-          effects (scroll-into-view, textarea resize, visualViewport
-          listeners in AiChatPanelContent) from firing on every reader
-          render — previously those leaked onto the main view on
-          Android WebView. `pointer-events-none` on closed wrappers
-          is belt-and-braces to stop an off-screen wrapper from
-          eating taps at its edge. */}
-
-      {/* TOC panel - slides from left */}
-      <div
-        className={cn(
-          "absolute left-0 top-0 bottom-0 z-40 flex w-full flex-col border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pl-safe-left",
-          mobileReaderPanel === "toc"
-            ? "translate-x-0"
-            : "-translate-x-full pointer-events-none",
-        )}
-      >
-        {mobileReaderPanel === "toc" && (
-          <>
-            <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
-              <span className="text-sm font-medium text-text-primary">
-                {t("reader.page.mobilePanelContents")}
-              </span>
-              <button
-                onClick={() => setMobileReaderPanel("none")}
-                aria-label={t("reader.page.closeContents")}
-                className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <ReaderSidebarContent
-                onOpenFile={() => {}}
-                onOpenNote={() => {}}
-                onCreateNote={() => {}}
-                onOpenWhiteboard={handleOpenWhiteboard}
-                onCreateWhiteboard={handleCreateWhiteboard}
-              />
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Comments panel - slides from right */}
-      <div
-        className={cn(
-          "absolute right-0 top-0 bottom-0 z-40 flex w-full flex-col border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
-          mobileReaderPanel === "comments"
-            ? "translate-x-0"
-            : "translate-x-full pointer-events-none",
-        )}
-      >
-        {mobileReaderPanel === "comments" && (
-          <>
-            <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
-              <span className="text-sm font-medium text-text-primary">
-                {t("reader.page.mobilePanelComments")}
-              </span>
-              <button
-                onClick={() => setMobileReaderPanel("none")}
-                aria-label={t("reader.page.closeComments")}
-                className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <CommentsSidebar />
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* AI Chat panel - slides from right */}
-      <div
-        className={cn(
-          "absolute right-0 top-0 bottom-0 z-40 flex w-full flex-col border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
-          mobileReaderPanel === "aiChat"
-            ? "translate-x-0"
-            : "translate-x-full pointer-events-none",
-        )}
-      >
-        {mobileReaderPanel === "aiChat" && (
-          <AiChatPanelContent onClose={() => setMobileReaderPanel("none")} />
-        )}
-      </div>
-
-      <PromptModal
-        open={pageJumpOpen}
-        title={t("reader.toolbar.jumpToPageTitle")}
-        body={t("reader.toolbar.jumpToPageBody", { total: totalPages })}
-        defaultValue={String(currentPage)}
-        placeholder={String(totalPages)}
-        confirmLabel={t("reader.toolbar.jumpToPageConfirm")}
-        onClose={() => setPageJumpOpen(false)}
-        onSubmit={handleJumpToPageSubmit}
-      />
-    </div>
-  );
-}
 
 function EmptyState() {
   const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenDocument();
@@ -815,7 +214,19 @@ export function ReaderPage() {
   const { t } = useTranslation();
   const { bookId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const isMobile = useIsMobile();
+  // A typical phone in landscape (~667–915px wide) crosses out of the
+  // `max-width: 767px` mobile breakpoint and hits the Dockview layout,
+  // where the AI chat panel ends up cramped beside the viewer. Treat
+  // "short + touch" as compact too so landscape phones get the
+  // slide-over panel UX (full-width chat, TOC, comments) instead of a
+  // split-view that has nowhere near enough room. `(pointer: coarse)`
+  // gates this to actual touch devices so a short desktop window
+  // (developer-tools docked low) doesn't accidentally lose Dockview.
+  const isMobilePortrait = useIsMobile();
+  const isLandscapePhone = useMediaQuery(
+    "(max-height: 500px) and (pointer: coarse)",
+  );
+  const isMobile = isMobilePortrait || isLandscapePhone;
   // Subscribe to derived booleans, not the documents Map itself —
   // the Map gets a new reference on every pinch frame (live-zoom)
   // and would re-render the whole reader 60×/sec.
@@ -1072,17 +483,19 @@ export function ReaderPage() {
     handler: useCallback(() => setZoomMode("fit-width"), [setZoomMode]),
   });
 
-  // Ctrl/Cmd + mouse-wheel zooms the PDF instead of the whole page.
-  // Document-level listener with passive: false so we can
-  // preventDefault and stop the browser's native page-zoom. Scoped
-  // by hit-testing the event target — only triggers when the wheel
-  // event happened over the active viewer, otherwise normal page
-  // zoom is preserved (e.g., on the sidebar or a Dockview header).
+  // Ctrl/Cmd + mouse-wheel zoom for non-PDF viewers (EPUB / text /
+  // markdown). PdfViewer owns its own Ctrl+wheel handler with proper
+  // pivot anchoring — keeping a second document-level handler that
+  // *also* fires discrete `store.zoomIn()` on every PDF zoom event
+  // caused the "page jumps on zoom" bug (two zoom paths racing,
+  // second one re-laid-out the page without anchoring). Skip the
+  // PDF viewer; let the others fall through.
   useEffect(() => {
     const onWheel = (e: WheelEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return;
       const target = e.target as HTMLElement | null;
-      if (!target?.closest("[data-active-viewer], [data-pdf-viewer]")) return;
+      if (!target?.closest("[data-active-viewer]")) return;
+      if (target.closest("[data-pdf-viewer]")) return;
       e.preventDefault();
       const store = useReaderStore.getState();
       if (e.deltaY < 0) store.zoomIn();
@@ -1109,36 +522,41 @@ export function ReaderPage() {
   // here — no need to plumb through smoothScrollBy.
   // Tuning dial: change LINE_SCROLL_PX below.
   const LINE_SCROLL_PX = 60;
-  const lineScroll = useCallback((dy: number) => {
-    const el = document.querySelector<HTMLElement>(
-      "[data-pdf-viewer][data-active-viewer]",
-    );
-    if (!el) return;
-    el.scrollBy({ top: dy, behavior: "smooth" });
-  }, []);
-  const horizScroll = useCallback((dx: number) => {
-    const el = document.querySelector<HTMLElement>(
-      "[data-pdf-viewer][data-active-viewer]",
-    );
-    if (!el) return;
-    el.scrollBy({ left: dx, behavior: "smooth" });
-  }, []);
+  // The PdfViewer mounts in a separate React subtree (via dockview)
+  // so we can't share a ref directly. Look up by the marker
+  // attributes the viewer renders on its scrollable container.
+  // Cached as a single helper instead of three duplicated
+  // `document.querySelector` calls.
+  const getActivePdfViewerEl = useCallback(
+    (): HTMLElement | null =>
+      document.querySelector<HTMLElement>(
+        "[data-pdf-viewer][data-active-viewer]",
+      ),
+    [],
+  );
+  const lineScroll = useCallback(
+    (dy: number) => {
+      getActivePdfViewerEl()?.scrollBy({ top: dy, behavior: "smooth" });
+    },
+    [getActivePdfViewerEl],
+  );
+  const horizScroll = useCallback(
+    (dx: number) => {
+      getActivePdfViewerEl()?.scrollBy({ left: dx, behavior: "smooth" });
+    },
+    [getActivePdfViewerEl],
+  );
 
   // When the page is zoomed enough that the viewer has a horizontal
   // scrollbar, repurpose Left/Right arrows to pan the viewer
   // horizontally instead of paging. Otherwise the user's natural
   // "look at the rest of this page" gesture (tap right arrow)
-  // jumps them to the next page mid-paragraph. We probe the active
-  // viewer's scrollWidth/clientWidth at the moment of the key press
-  // — cheap and always in sync with current zoom — and only fall
-  // back to page navigation when there's no horizontal overflow.
+  // jumps them to the next page mid-paragraph.
   const hasHorizontalOverflow = useCallback(() => {
-    const el = document.querySelector<HTMLElement>(
-      "[data-pdf-viewer][data-active-viewer]",
-    );
+    const el = getActivePdfViewerEl();
     if (!el) return false;
     return el.scrollWidth > el.clientWidth + 1;
-  }, []);
+  }, [getActivePdfViewerEl]);
 
   const arrowLeftHandler = useCallback(() => {
     if (hasHorizontalOverflow()) {
@@ -1730,10 +1148,17 @@ export function ReaderPage() {
         const docId = panelId.replace("viewer-", "");
         useReaderStore.getState().setActiveDocument(docId);
       } else if (panelId === "pdfViewer") {
-        // Legacy default viewer panel — use the first/only document
-        const docs = useReaderStore.getState().documents;
-        if (docs.size > 0) {
-          useReaderStore.getState().setActiveDocument(Array.from(docs.keys())[0]);
+        // Default viewer panel has a single panel id regardless of
+        // which document is shown — the active document is tracked
+        // in the store, not in the panel id. If a doc is already
+        // active, leave it alone. Without this guard, toggling the
+        // submenu (add/remove "toc" panel) re-fires onDidActivePanelChange
+        // with `pdfViewer`, and we'd snap back to the first document
+        // even when the user was reading a different tab.
+        const state = useReaderStore.getState();
+        if (state.activeDocumentId) return;
+        if (state.documents.size > 0) {
+          state.setActiveDocument(Array.from(state.documents.keys())[0]);
         }
       }
     });

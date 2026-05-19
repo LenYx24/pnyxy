@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Bot, X, Zap, Brain, Coins } from "lucide-react";
-import { AI_MODEL_CATALOG, type ModelInfo } from "@/lib/ai-models";
+import { AI_MODEL_CATALOG, type ModelInfo } from "@/lib/ai/ai-models";
 import { cn } from "@/lib/cn";
 
 interface ModelInfoModalProps {

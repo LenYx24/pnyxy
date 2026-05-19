@@ -53,7 +53,7 @@ import { formatShortcut } from "@/lib/keyboard-shortcuts";
 import { FolderCard } from "./FolderCard";
 import { LibraryBookCard } from "./LibraryBookCard";
 import { LibraryListView } from "./LibraryListView";
-import { CreateFolderModal } from "./CreateFolderModal";
+import { CreateFolderModal } from "./modals/CreateFolderModal";
 import { applySort } from "./useLibraryPrefs";
 import type { ViewMode, ListColumnWidths } from "./useLibraryPrefs";
 import type { UnifiedLibraryItem } from "@/types/catalog";

@@ -57,12 +57,10 @@ export function prefetchBookBlob(
   const controller = new AbortController();
   let cancelled = false;
 
-  const schedule =
-    typeof window !== "undefined" && "requestIdleCallback" in window
-      ? (cb: () => void) =>
-          (window as unknown as { requestIdleCallback: (cb: () => void, opts: { timeout: number }) => number })
-            .requestIdleCallback(cb, { timeout: 2000 })
-      : (cb: () => void) => window.setTimeout(cb, 200);
+  const ric = typeof window !== "undefined" ? window.requestIdleCallback : undefined;
+  const schedule = ric
+    ? (cb: () => void) => ric(cb, { timeout: 2000 })
+    : (cb: () => void) => window.setTimeout(cb, 200);
 
   const handle = schedule(() => {
     if (cancelled) return;
@@ -88,14 +86,8 @@ export function prefetchBookBlob(
   return () => {
     cancelled = true;
     controller.abort();
-    if (
-      typeof window !== "undefined" &&
-      "cancelIdleCallback" in window &&
-      typeof handle === "number"
-    ) {
-      (
-        window as unknown as { cancelIdleCallback: (id: number) => void }
-      ).cancelIdleCallback(handle);
+    if (typeof handle === "number") {
+      window.cancelIdleCallback?.(handle);
     }
   };
 }

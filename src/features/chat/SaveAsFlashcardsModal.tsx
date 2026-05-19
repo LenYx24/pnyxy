@@ -8,7 +8,7 @@ import { useQuizStore } from "@/stores/quiz-store";
 import {
   extractFlashcards,
   type FlashcardDraft,
-} from "@/lib/extract-flashcards";
+} from "@/lib/ai/extract-flashcards";
 
 interface SaveAsFlashcardsModalProps {
   open: boolean;

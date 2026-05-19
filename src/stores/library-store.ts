@@ -9,11 +9,11 @@ import {
   deleteFolderLocal,
   replaceAllFoldersLocal,
 } from "@/lib/annotation-storage";
-import { enqueueMutation } from "@/lib/sync-queue";
+import { enqueueMutation } from "@/lib/sync/sync-queue";
 import type {
   BookSyncPayload,
   FolderSyncPayload,
-} from "@/lib/sync-entity-handlers";
+} from "@/lib/sync/sync-entity-handlers";
 import { useTagStore } from "./tag-store";
 import { useOrgStore } from "./org-store";
 import { useNetworkStore } from "./network-store";

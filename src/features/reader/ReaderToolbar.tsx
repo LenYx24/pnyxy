@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback } from "react";
 import { FloatingMenu } from "@/components/ui/FloatingMenu";
-import { getZoomControls } from "./pinch-zoom-controller";
+import { getZoomControls } from "./gestures/pinch-zoom-controller";
 import { useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -41,8 +41,8 @@ import { useAnnotationStore } from "@/stores/annotation-store";
 import { useBookmarkStore } from "@/stores/bookmark-store";
 import { useUndoStore } from "@/stores/undo-store";
 import { useIsMobile, useIsDesktop } from "@/hooks/use-media-query";
-import { ReadingTrackerControl } from "./ReadingTrackerControl";
-import { FocusSessionControl } from "./FocusSessionControl";
+import { ReadingTrackerControl } from "./controls/ReadingTrackerControl";
+import { FocusSessionControl } from "./controls/FocusSessionControl";
 import type { HighlightColor } from "@/types/annotation";
 
 const HIGHLIGHT_COLORS: HighlightColor[] = ["yellow", "green", "blue", "pink", "orange"];
@@ -263,13 +263,17 @@ export function ReaderToolbar({
 
   const { currentPage, totalPages, zoomMode, zoomLevel } = activeDoc;
 
-  const handlePageSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitPageInput = () => {
     const page = parseInt(pageInput, 10);
     if (!isNaN(page)) {
       goToPage(page);
     }
     setPageInput("");
+  };
+
+  const handlePageSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitPageInput();
   };
 
   const handleBookmarkPage = () => {
@@ -362,9 +366,19 @@ export function ReaderToolbar({
       : []),
   ];
 
+  // Mobile shrinks the toolbar's vertical footprint: smaller height,
+  // smaller icon set, tighter button padding, and a compact page
+  // input. Desktop keeps the original generous chrome. One source of
+  // truth so the three breakpoint branches below don't drift.
+  const iconSize = isMobile ? 14 : 16;
+  const btnPad = isMobile ? "p-1" : "p-1.5";
+
   return (
     <div className="border-b border-glass-border bg-bg-secondary/60 backdrop-blur-md pt-safe-top pl-safe-left pr-safe-right">
-    <div className="flex h-11 items-center justify-between px-2 sm:px-4">
+    <div className={cn(
+      "flex items-center justify-between px-2 sm:px-4",
+      isMobile ? "h-9" : "h-11",
+    )}>
       {/* Left: hamburger (only when sidebar is hidden — toggles the
           global app sidebar back into view), back button, title
           (click to edit) */}
@@ -378,18 +392,24 @@ export function ReaderToolbar({
                 useUIStore.getState().toggleSidebar();
               }
             }}
-            className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer shrink-0"
+            className={cn(
+              "rounded-md text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer shrink-0",
+              btnPad,
+            )}
             title={t("reader.toolbar.toggleAppSidebar")}
           >
-            <Menu size={16} />
+            <Menu size={iconSize} />
           </button>
         )}
         <button
           onClick={handleBack}
-          className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer shrink-0"
+          className={cn(
+            "rounded-md text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer shrink-0",
+            btnPad,
+          )}
           title={t("reader.toolbar.backToLibrary")}
         >
-          <ArrowLeft size={16} />
+          <ArrowLeft size={iconSize} />
         </button>
         <div className="min-w-0 flex-1">
         {isEditingTitle ? (
@@ -436,39 +456,59 @@ export function ReaderToolbar({
           onClick={() => prevPage()}
           disabled={currentPage <= 1}
           className={cn(
-            "rounded-md p-1.5 transition-colors cursor-pointer touch-target",
+            "rounded-md transition-colors cursor-pointer touch-target",
+            btnPad,
             "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
             "disabled:opacity-30 disabled:cursor-not-allowed",
           )}
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft size={iconSize} />
         </button>
 
         <form onSubmit={handlePageSubmit} className="flex items-center gap-1">
           <input
             data-page-input
             type="text"
+            inputMode="numeric"
             value={pageInput}
             onChange={(e) => setPageInput(e.target.value)}
+            // Belt-and-braces: rely on form's implicit-submit-on-Enter
+            // for the desktop happy path, but also handle Enter on
+            // keydown directly. Some embedded webviews (Tauri / iOS
+            // PWA in standalone mode) swallow the synthetic Enter on
+            // single-input forms when the input is rendered inside a
+            // flex/grid container nested deep enough; the keydown
+            // listener guarantees the jump fires regardless.
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submitPageInput();
+                (e.currentTarget as HTMLInputElement).blur();
+              }
+            }}
             placeholder={String(currentPage)}
-            // Bumped from text-xs to text-sm + semibold so the page
-            // number reads at a glance — it's the most-looked-at
-            // value in the toolbar but used to be the lowest-contrast.
-            className="w-12 rounded border border-glass-border bg-glass-bg px-1.5 py-0.5 text-center text-sm font-semibold text-text-primary outline-none focus:border-accent-purple"
+            className={cn(
+              "rounded border border-glass-border bg-glass-bg px-1.5 py-0.5 text-center font-semibold text-text-primary outline-none focus:border-accent-purple",
+              isMobile ? "w-10 text-xs" : "w-12 text-sm",
+            )}
           />
-          <span className="text-sm font-medium text-text-secondary">/ {totalPages}</span>
+          <span className={cn(
+            "font-medium text-text-secondary",
+            isMobile ? "text-xs" : "text-sm",
+          )}>/ {totalPages}</span>
         </form>
 
         <button
           onClick={() => nextPage()}
           disabled={currentPage >= totalPages}
           className={cn(
-            "rounded-md p-1.5 transition-colors cursor-pointer touch-target",
+            "rounded-md transition-colors cursor-pointer touch-target",
+            btnPad,
             "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
             "disabled:opacity-30 disabled:cursor-not-allowed",
           )}
         >
-          <ChevronRight size={16} />
+          <ChevronRight size={iconSize} />
         </button>
 
         {/* Lookup actions — Search and AI chat sit next to page nav
@@ -506,9 +546,12 @@ export function ReaderToolbar({
           <div className="relative" ref={overflowRef}>
             <button
               onClick={() => setShowOverflowMenu(!showOverflowMenu)}
-              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer touch-target"
+              className={cn(
+                "rounded-md text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer touch-target",
+                btnPad,
+              )}
             >
-              <MoreHorizontal size={18} />
+              <MoreHorizontal size={iconSize} />
             </button>
             {showOverflowMenu && (
               <>

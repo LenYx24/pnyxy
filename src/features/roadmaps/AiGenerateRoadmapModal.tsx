@@ -10,7 +10,7 @@ import {
   MIN_ROADMAP_NODES,
   MAX_ROADMAP_NODES,
   DEFAULT_ROADMAP_NODES,
-} from "@/lib/roadmap-ai";
+} from "@/lib/roadmap/roadmap-ai";
 import type { RoadmapNode, RoadmapEdge } from "@/types/roadmap";
 
 interface RoadmapPreview {

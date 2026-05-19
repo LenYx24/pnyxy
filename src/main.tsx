@@ -7,9 +7,9 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useReadingSessionStore } from "@/stores/reading-session-store";
 import { initLaunchedFiles } from "@/lib/launched-files";
-import { startSyncOrchestrator } from "@/lib/sync-orchestrator";
-import { startServerHeartbeat } from "@/lib/server-heartbeat";
-import { registerSyncEntityHandlers } from "@/lib/sync-entity-handlers";
+import { startSyncOrchestrator } from "@/lib/sync/sync-orchestrator";
+import { startServerHeartbeat } from "@/lib/sync/server-heartbeat";
+import { registerSyncEntityHandlers } from "@/lib/sync/sync-entity-handlers";
 import { loadUserCss } from "@/lib/user-css";
 
 // Suppress one class of unhandled promise rejection that's

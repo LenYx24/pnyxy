@@ -17,7 +17,7 @@ import {
   emptyReviewState,
   nextReviewState,
   type ReviewState,
-} from "@/lib/quiz-srs";
+} from "@/lib/quiz/quiz-srs";
 
 interface QuizState {
   /** Public browse feed — replaced on every fetchPublic call. */

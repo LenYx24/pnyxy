@@ -1082,6 +1082,8 @@
       "delete": "Mappa törlése",
       "deleteConfirm": "Törlöd a(z) „{{name}}” mappát? A benne lévő beszélgetések visszakerülnek a gyökérbe.",
       "moveTo": "Áthelyezés mappába…",
+      "moveToFolder": "Áthelyezés ide: {{name}}",
+      "moveToRoot": "Áthelyezés a gyökérbe",
       "root": "Gyökér (nincs mappa)",
       "dropToRoot": "Húzd ide a gyökérbe helyezéshez"
     },

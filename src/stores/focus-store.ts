@@ -108,10 +108,7 @@ function persist(session: PersistedSession | null) {
  */
 function playDing() {
   try {
-    const Ctx =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
+    const Ctx = window.AudioContext ?? window.webkitAudioContext;
     if (!Ctx) return;
     const ctx = new Ctx();
     const osc = ctx.createOscillator();

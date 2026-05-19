@@ -23,7 +23,7 @@ import {
   fileExtension,
   logUploadAttempt,
 } from "@/lib/upload-telemetry";
-import { OpenFromUrlModal } from "./OpenFromUrlModal";
+import { OpenFromUrlModal } from "./modals/OpenFromUrlModal";
 import { StorageUsageBar } from "./StorageUsageBar";
 import { StreakPill } from "./StreakCard";
 import { useIsMobile } from "@/hooks/use-media-query";
@@ -34,10 +34,10 @@ import { LibraryToolbar } from "./LibraryToolbar";
 import { SelectionBar } from "./SelectionBar";
 import { TagFilterBar } from "./TagFilterBar";
 import { AllBooksTab } from "./AllBooksTab";
-import { FolderPickerModal } from "./FolderPickerModal";
-import { UploadPdfModal } from "./UploadPdfModal";
-import { DeviceBookScanModal } from "./DeviceBookScanModal";
-import { AddManualBookModal } from "./AddManualBookModal";
+import { FolderPickerModal } from "./modals/FolderPickerModal";
+import { UploadPdfModal } from "./modals/UploadPdfModal";
+import { DeviceBookScanModal } from "./modals/DeviceBookScanModal";
+import { AddManualBookModal } from "./modals/AddManualBookModal";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import type { BookStatusTag } from "@/types/database";
 
