@@ -2,7 +2,6 @@ import { useCallback } from "react";
 import { type IDockviewPanelProps } from "dockview";
 import i18n from "@/lib/i18n";
 import { NoteEditor } from "@/features/notes/NoteEditor";
-import { WhiteboardPanelWrapper } from "@/features/whiteboard/WhiteboardPanel";
 import { useNoteStore } from "@/stores/note-store";
 import { useReaderStore } from "@/stores/reader-store";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -12,7 +11,6 @@ import { ReaderSidebarContent } from "./ReaderSidebar";
 import { ActiveViewer } from "./viewers/ActiveViewer";
 import { SearchOverlay } from "./popovers/SearchOverlay";
 import { CommentsSidebar } from "./panels/CommentsSidebar";
-import { AiChatPanel } from "./panels/AiChatPanel";
 
 /**
  * Sidebar TOC panel — wired with the dockview container API so its
@@ -169,12 +167,3 @@ export function NotePanelWrapper(
   if (!noteId) return null;
   return <NoteEditor noteId={noteId} />;
 }
-
-export const dockviewComponents = {
-  toc: TocPanel,
-  pdfViewer: ViewerPanel,
-  comments: CommentsPanel,
-  aiChat: AiChatPanel,
-  note: NotePanelWrapper,
-  whiteboard: WhiteboardPanelWrapper,
-};

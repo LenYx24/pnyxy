@@ -16,7 +16,7 @@ import { LibraryPickerModal } from "./popovers/LibraryPickerModal";
 import { InlineDrawToolbar } from "./controls/InlineDrawToolbar";
 import { useInlineDrawStore } from "@/stores/inline-draw-store";
 import { MobileReaderLayout } from "./MobileReaderLayout";
-import { dockviewComponents } from "./dockview-panels";
+import { dockviewComponents } from "./dockview-components";
 import { ActiveViewer } from "./viewers/ActiveViewer";
 import { SearchOverlay } from "./popovers/SearchOverlay";
 import {
