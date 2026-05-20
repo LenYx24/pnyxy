@@ -7,6 +7,8 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Sun,
   Moon,
   RotateCw,
@@ -32,6 +34,7 @@ import {
   Menu,
   AlignLeft,
   Palette,
+  FileDown,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
@@ -40,6 +43,11 @@ import { useReaderStore, useActiveDocument, type ZoomMode } from "@/stores/reade
 import { useSettingsStore } from "@/stores/settings-store";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useBookmarkStore } from "@/stores/bookmark-store";
+import {
+  annotationsToJson,
+  annotationsToMarkdown,
+  downloadTextFile,
+} from "@/lib/export-highlights";
 import { useUndoStore } from "@/stores/undo-store";
 import { useIsMobile, useIsDesktop } from "@/hooks/use-media-query";
 import { ReadingTrackerControl } from "./controls/ReadingTrackerControl";
@@ -227,6 +235,12 @@ export function ReaderToolbar({
   const setPdfInvertColors = useSettingsStore((s) => s.setPdfInvertColors);
   const pdfReflowMode = useSettingsStore((s) => s.pdfReflowMode);
   const setPdfReflowMode = useSettingsStore((s) => s.setPdfReflowMode);
+  const secondaryPanelOpen = useSettingsStore(
+    (s) => s.readerSecondaryPanelOpen,
+  );
+  const setSecondaryPanelOpen = useSettingsStore(
+    (s) => s.setReaderSecondaryPanelOpen,
+  );
   const readerTheme = useSettingsStore((s) => s.readerTheme);
   const setReaderTheme = useSettingsStore((s) => s.setReaderTheme);
   const cycleReaderTheme = useCallback(() => {
@@ -238,6 +252,38 @@ export function ReaderToolbar({
           : "light",
     );
   }, [readerTheme, setReaderTheme]);
+
+  // Export highlights / comments / bookmarks for the active document.
+  // Reads each store's current state directly via getState() — no
+  // need to subscribe, this only fires on user click. The annotation
+  // and bookmark stores are already scoped to the active document
+  // (loaded by ReaderPage's mount effects), so .values() is safe.
+  const exportHighlights = useCallback(
+    (kind: "markdown" | "json") => {
+      const doc = useReaderStore.getState().getActiveDoc();
+      if (!doc) return;
+      const annState = useAnnotationStore.getState();
+      const bmState = useBookmarkStore.getState();
+      const highlights = Array.from(annState.highlights.values()).filter(
+        (h) => h.documentId === doc.meta.id,
+      );
+      const comments = Array.from(annState.comments.values()).filter(
+        (c) => c.documentId === doc.meta.id,
+      );
+      const bookmarks = Array.from(bmState.bookmarks.values()).filter(
+        (b) => b.documentId === doc.meta.id,
+      );
+      const body =
+        kind === "markdown"
+          ? annotationsToMarkdown(doc.meta, highlights, comments, bookmarks)
+          : annotationsToJson(doc.meta, highlights, comments, bookmarks);
+      const mime =
+        kind === "markdown" ? "text/markdown" : "application/json";
+      const filenameBase = `${doc.meta.title || "book"}-highlights`;
+      downloadTextFile(filenameBase, body, mime);
+    },
+    [],
+  );
   const isPdf = activeDoc?.meta.format === "pdf";
 
   const addBookmark = useBookmarkStore((s) => s.addBookmark);
@@ -309,6 +355,16 @@ export function ReaderToolbar({
       }),
       icon: Palette,
       onClick: cycleReaderTheme,
+    },
+    {
+      label: t("reader.toolbar.exportHighlightsMarkdown"),
+      icon: FileDown,
+      onClick: () => exportHighlights("markdown"),
+    },
+    {
+      label: t("reader.toolbar.exportHighlightsJson"),
+      icon: FileDown,
+      onClick: () => exportHighlights("json"),
     },
     { label: t("reader.toolbar.zoomIn"), icon: ZoomIn, onClick: handleZoomIn },
     { label: t("reader.toolbar.zoomOut"), icon: ZoomOut, onClick: handleZoomOut },
@@ -778,32 +834,6 @@ export function ReaderToolbar({
             >
               <Columns2 size={16} />
             </button>
-            {/* PDF mobile-reflow toggle. Active state mirrors how the
-                fit-mode toggle highlights itself when on, so the user
-                can spot at a glance which view they're in. */}
-            {isPdf && (
-              <button
-                onClick={() => setPdfReflowMode(!pdfReflowMode)}
-                className={cn(
-                  "rounded-md p-1.5 transition-colors cursor-pointer",
-                  pdfReflowMode
-                    ? "text-accent-purple bg-accent-purple/10"
-                    : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
-                )}
-                title={
-                  pdfReflowMode
-                    ? t("reader.toolbar.reflowOff")
-                    : t("reader.toolbar.reflowOn")
-                }
-                aria-label={
-                  pdfReflowMode
-                    ? t("reader.toolbar.reflowOff")
-                    : t("reader.toolbar.reflowOn")
-                }
-              >
-                <AlignLeft size={16} />
-              </button>
-            )}
             <div className="mx-1 h-4 w-px bg-glass-border" />
             {/* Undo button */}
             <button
@@ -849,47 +879,6 @@ export function ReaderToolbar({
               </button>
             )}
             <div className="mx-1 h-4 w-px bg-glass-border" />
-            {/* Screenshot */}
-            <button
-              onClick={onScreenshot}
-              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title={t("reader.toolbar.screenshotTitle")}
-            >
-              <Camera size={16} />
-            </button>
-            {/* Area (rectangle) screenshot */}
-            <button
-              onClick={onScreenshotRect}
-              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title={t("reader.toolbar.screenshotAreaTitle")}
-            >
-              <Crop size={16} />
-            </button>
-            {/* Crop a region and send it to the AI chat as an
-                image attachment — useful when text selection isn't
-                viable (scanned PDFs, math, image-only pages). */}
-            {onRectToAi && (
-              <button
-                onClick={onRectToAi}
-                className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-                title={t("reader.toolbar.rectToAiTitle", {
-                  defaultValue: "Crop region and send to AI chat",
-                })}
-                aria-label={t("reader.toolbar.rectToAiTitle", {
-                  defaultValue: "Crop region and send to AI chat",
-                })}
-              >
-                <BotMessageSquare size={16} />
-              </button>
-            )}
-            {/* Print */}
-            <button
-              onClick={onPrint}
-              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title={t("reader.toolbar.printTitle")}
-            >
-              <Printer size={16} />
-            </button>
             {/* Comments panel toggle */}
             <button
               onClick={onToggleComments}
@@ -902,22 +891,144 @@ export function ReaderToolbar({
             <ReadingTrackerControl />
             <FocusSessionControl />
             <button
-              onClick={onToggleZenMode}
-              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title={t("reader.toolbar.zenMode")}
-            >
-              <Focus size={16} />
-            </button>
-            <button
               onClick={onToggleFullscreen}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
               title={isFullscreen ? t("reader.toolbar.exitFullscreen") : t("reader.toolbar.fullscreen")}
             >
               {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
             </button>
+            {/* Secondary-panel toggle. Last button in the main bar so
+                the user's eye lands on the most common controls first
+                and the "show more tools" affordance sits at the edge,
+                where the muscle memory expects "drawer-style"
+                expansion. Chevron points down when collapsed (open
+                more), up when expanded (collapse). */}
+            <button
+              onClick={() => setSecondaryPanelOpen(!secondaryPanelOpen)}
+              className={cn(
+                "rounded-md p-1.5 transition-colors cursor-pointer",
+                secondaryPanelOpen
+                  ? "text-accent-purple bg-accent-purple/10"
+                  : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+              )}
+              title={t(
+                secondaryPanelOpen
+                  ? "reader.toolbar.secondaryPanelClose"
+                  : "reader.toolbar.secondaryPanelOpen",
+              )}
+              aria-expanded={secondaryPanelOpen}
+            >
+              {secondaryPanelOpen ? (
+                <ChevronUp size={16} />
+              ) : (
+                <ChevronDown size={16} />
+              )}
+            </button>
           </>
         )}
       </div>
+
+      {/* Secondary action panel — desktop only. Lives below the main
+          toolbar row, animates open/closed via max-height + opacity.
+          `aria-hidden` follows the open state so screen readers don't
+          announce the collapsed buttons. `pointer-events` matches so
+          a closed panel can't catch a stray click while the height
+          animation is still settling toward 0. The actions inside
+          mirror what used to sit inline on the main bar before the
+          declutter — they're still here, just one click away. */}
+      {isDesktop && (
+        <div
+          aria-hidden={!secondaryPanelOpen}
+          className={cn(
+            "overflow-hidden transition-all duration-300 ease-out",
+            secondaryPanelOpen
+              ? "max-h-12 opacity-100"
+              : "max-h-0 opacity-0 pointer-events-none",
+          )}
+        >
+          <div className="flex items-center gap-1 border-t border-glass-border px-2 sm:px-4 h-11">
+            {isPdf && (
+              <button
+                onClick={() => setPdfReflowMode(!pdfReflowMode)}
+                className={cn(
+                  "rounded-md p-1.5 transition-colors cursor-pointer flex items-center gap-1.5",
+                  pdfReflowMode
+                    ? "text-accent-purple bg-accent-purple/10"
+                    : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+                )}
+                title={
+                  pdfReflowMode
+                    ? t("reader.toolbar.reflowOff")
+                    : t("reader.toolbar.reflowOn")
+                }
+                aria-label={
+                  pdfReflowMode
+                    ? t("reader.toolbar.reflowOff")
+                    : t("reader.toolbar.reflowOn")
+                }
+              >
+                <AlignLeft size={16} />
+                <span className="text-xs">
+                  {pdfReflowMode
+                    ? t("reader.toolbar.reflowOff")
+                    : t("reader.toolbar.reflowOn")}
+                </span>
+              </button>
+            )}
+            <button
+              onClick={onScreenshot}
+              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer flex items-center gap-1.5"
+              title={t("reader.toolbar.screenshotTitle")}
+            >
+              <Camera size={16} />
+              <span className="text-xs">{t("reader.toolbar.screenshot")}</span>
+            </button>
+            <button
+              onClick={onScreenshotRect}
+              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer flex items-center gap-1.5"
+              title={t("reader.toolbar.screenshotAreaTitle")}
+            >
+              <Crop size={16} />
+              <span className="text-xs">
+                {t("reader.toolbar.screenshotArea")}
+              </span>
+            </button>
+            {onRectToAi && (
+              <button
+                onClick={onRectToAi}
+                className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer flex items-center gap-1.5"
+                title={t("reader.toolbar.rectToAiTitle", {
+                  defaultValue: "Crop region and send to AI chat",
+                })}
+                aria-label={t("reader.toolbar.rectToAiTitle", {
+                  defaultValue: "Crop region and send to AI chat",
+                })}
+              >
+                <BotMessageSquare size={16} />
+                <span className="text-xs">
+                  {t("reader.toolbar.rectToAi", { defaultValue: "Crop to AI" })}
+                </span>
+              </button>
+            )}
+            <button
+              onClick={onPrint}
+              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer flex items-center gap-1.5"
+              title={t("reader.toolbar.printTitle")}
+            >
+              <Printer size={16} />
+              <span className="text-xs">{t("reader.toolbar.print")}</span>
+            </button>
+            <button
+              onClick={onToggleZenMode}
+              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer flex items-center gap-1.5"
+              title={t("reader.toolbar.zenMode")}
+            >
+              <Focus size={16} />
+              <span className="text-xs">{t("reader.toolbar.zenMode")}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Highlight-color picker — portaled to the body via
           FloatingMenu so it escapes the toolbar wrapper's z-20

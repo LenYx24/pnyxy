@@ -165,6 +165,14 @@ interface SettingsState {
    */
   pdfInvertColors: boolean;
   /**
+   * Whether the reader's secondary action panel (the row below the
+   * main toolbar with rarely-used actions like Screenshot, Print,
+   * Reflow, Zen mode) is currently open. Persisted per-user so the
+   * choice survives reloads and cross-device. Desktop only — mobile
+   * and tablet keep their overflow-menu pattern.
+   */
+  readerSecondaryPanelOpen: boolean;
+  /**
    * Mobile reflow mode for PDFs. When on, the active PDF is
    * re-rendered as flowing text (heading + paragraph blocks
    * extracted via pdf.js's text layer) so the user doesn't have to
@@ -223,6 +231,7 @@ interface SettingsState {
   setExperimentalWhiteboard: (v: boolean) => void;
   setPdfInvertColors: (v: boolean) => void;
   setPdfReflowMode: (v: boolean) => void;
+  setReaderSecondaryPanelOpen: (v: boolean) => void;
 
   // Cloud sync
   syncPreferences: () => Promise<void>;
@@ -270,6 +279,7 @@ export const useSettingsStore = create<SettingsState>()(
 
       pdfInvertColors: false,
       pdfReflowMode: false,
+      readerSecondaryPanelOpen: false,
 
       setTranslateTargetLanguage: (v) => set({ translateTargetLanguage: v }),
       setPageScrollBehavior: (v) => set({ pageScrollBehavior: v }),
@@ -445,6 +455,7 @@ export const useSettingsStore = create<SettingsState>()(
         set({ experimental_allowWhiteboardForAllFormats: v }),
       setPdfInvertColors: (v) => set({ pdfInvertColors: v }),
       setPdfReflowMode: (v) => set({ pdfReflowMode: v }),
+      setReaderSecondaryPanelOpen: (v) => set({ readerSecondaryPanelOpen: v }),
 
       // ── Cloud sync ──
       syncPreferences: async () => {
@@ -555,7 +566,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "pnyxy-reader:settings",
-      version: 10,
+      version: 11,
       partialize: (state) => {
         // Persist everything; pluginStorage is local-only (stays in
         // localStorage) and is intentionally NOT synced to Supabase.
@@ -729,6 +740,14 @@ export const useSettingsStore = create<SettingsState>()(
             state.epubColumnWidth !== "narrow"
           ) {
             state.epubColumnWidth = "full";
+          }
+        }
+        // v10 → v11: seed secondary action panel state. Closed by
+        // default so existing readers see the same toolbar after the
+        // upgrade — only opens when the user clicks the new chevron.
+        if (version < 11) {
+          if (typeof state.readerSecondaryPanelOpen !== "boolean") {
+            state.readerSecondaryPanelOpen = false;
           }
         }
         return state as unknown as SettingsState;
