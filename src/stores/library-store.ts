@@ -17,6 +17,10 @@ import type {
 import { useTagStore } from "./tag-store";
 import { useOrgStore } from "./org-store";
 import { useNetworkStore } from "./network-store";
+import {
+  writeBookCounts,
+  ROOT_FOLDER_KEY,
+} from "@/features/library/bookCountCache";
 import type {
   UnifiedLibraryItem,
   CatalogLibraryItem,
@@ -212,6 +216,17 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       isLoading: false,
       lastFetchedAt: { ...get().lastFetchedAt, books: Date.now() },
     });
+
+    // Snapshot per-folder counts to localStorage so the next mount
+    // can paint skeleton cards at the right count before this fetch
+    // resolves. Best-effort — failures here just degrade the next
+    // load back to a generic skeleton row.
+    const byFolder: Record<string, number> = {};
+    for (const entry of all) {
+      const k = entry.folder_id ?? ROOT_FOLDER_KEY;
+      byFolder[k] = (byFolder[k] ?? 0) + 1;
+    }
+    writeBookCounts(orgId, { total: all.length, byFolder });
 
     // Warm the browser HTTP cache for the most-recently-added covers.
     // Same data drives Library + Home's RecentlyAddedShelf, so this

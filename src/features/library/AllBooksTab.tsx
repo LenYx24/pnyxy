@@ -35,7 +35,6 @@ import {
   ArrowUp,
   BookOpen,
   Folder,
-  Loader2,
   FileText,
   RotateCw,
   X,
@@ -54,6 +53,12 @@ import { FolderCard } from "./FolderCard";
 import { LibraryBookCard } from "./LibraryBookCard";
 import { LibraryListView } from "./LibraryListView";
 import { CreateFolderModal } from "./modals/CreateFolderModal";
+import { BookCardSkeleton } from "./BookCardSkeleton";
+import {
+  readBookCounts,
+  getCachedCount,
+} from "./bookCountCache";
+import { useOrgStore } from "@/stores/org-store";
 import { applySort } from "./useLibraryPrefs";
 import type { ViewMode, ListColumnWidths } from "./useLibraryPrefs";
 import type { UnifiedLibraryItem } from "@/types/catalog";
@@ -392,6 +397,26 @@ export function AllBooksTab({
   const effectiveCardSize = isMobile ? Math.min(cardSize, 130) : cardSize;
   const coverHeight = Math.round(effectiveCardSize * 0.6);
 
+  // Skeleton count for the loading state. Reads the per-folder count
+  // snapshot written by the last successful fetchLibrary — synchronous
+  // localStorage read, so the placeholders are in the very first paint
+  // and books don't pop in from a blank container on revisit. No
+  // cached count (first-ever visit, or a folder we've never opened
+  // while populated) falls back to ~one row's worth.
+  const currentOrgId = useOrgStore((s) => s.currentOrgId);
+  const skeletonCount = useMemo(() => {
+    const cached = currentOrgId
+      ? getCachedCount(readBookCounts(currentOrgId), currentFolderId)
+      : null;
+    if (cached !== null && cached > 0) return cached;
+    if (viewMode === "list") return 4;
+    // Grid: estimate one row from the viewport. Off-by-one is fine
+    // here — the goal is "something to look at" until the real count
+    // gets cached after this fetch resolves.
+    const w = typeof window !== "undefined" ? window.innerWidth : 1024;
+    return Math.max(3, Math.min(10, Math.floor(w / Math.max(effectiveCardSize, 100))));
+  }, [currentOrgId, currentFolderId, viewMode, effectiveCardSize]);
+
   // List view is a strict vertical stack, so pin the drag transform
   // to the Y axis — eliminates horizontal drift that the user almost
   // never intends. Grid view stays 2D since rows wrap. Always clamp
@@ -509,11 +534,18 @@ export function AllBooksTab({
         </div>
       )}
 
-      {/* Loading state */}
+      {/* Loading state — skeleton tiles in place of a spinner so the
+          grid/list looks populated while fetchLibrary is in flight.
+          Count comes from the per-folder localStorage cache written
+          on the last successful fetch; first-ever visit (no cache)
+          falls back to a single row so the user still sees activity
+          without committing to a fake count. */}
       {isEmpty && !query && isLoading && (
-        <div className="flex items-center justify-center py-32">
-          <Loader2 size={32} className="animate-spin text-accent-purple" />
-        </div>
+        <BookCardSkeleton
+          viewMode={viewMode}
+          count={skeletonCount}
+          cardSize={effectiveCardSize}
+        />
       )}
 
       {isEmpty && !query && !isLoading && (
