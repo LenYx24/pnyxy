@@ -1,20 +1,19 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!--
-    Pnyxy mark. Native SVG linearGradient — no <foreignObject>, no
-    conic gradient hacks. Google's image crawler strips <foreignObject>
-    when generating the search-result favicon, which was leaving only
-    the inner black triangle visible ("white background, tiny black
-    triangle" report). This version renders identically across
-    browsers, search-engine crawlers, and image processors, and is a
-    1:1 mirror of the boot-splash SVG inlined in index.html so the
-    home-screen icon, splash and favicon all read as the same mark.
+    Pnyxy mark for the favicon. Solid fill + fill-rule="evenodd" so the
+    cutout is a real hole, not a dark-coloured patch. Earlier versions
+    used a <linearGradient> for the P; Google's favicon rasteriser
+    silently dropped the gradient reference, leaving fill=none on the
+    outer path and exposing only the inner cutout against Google's
+    white results-row background ("white circle, tiny black triangle"
+    report). A flat colour avoids that whole class of crawler bug.
+    The home-screen PNGs and the boot splash keep the gradient — they
+    render through real SVG/raster paths where it works fine.
   -->
-  <defs>
-    <linearGradient id="pnyxy-favicon-grad" x1="205" y1="127" x2="800" y2="898" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#64FFDA"/>
-      <stop offset="100%" stop-color="#64FFF7"/>
-    </linearGradient>
-  </defs>
-  <path d="M205 898V307V127H576.917C910.573 127 888.629 646 576.917 646H398.554V898H205Z" fill="url(#pnyxy-favicon-grad)"/>
-  <path d="M564 402H205V574L564 402Z" fill="#0a0a0f"/>
+  <path
+    fill-rule="evenodd"
+    fill="#64FFDA"
+    d="M205 898V307V127H576.917C910.573 127 888.629 646 576.917 646H398.554V898H205Z
+       M564 402H205V574L564 402Z"
+  />
 </svg>
