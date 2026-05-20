@@ -664,6 +664,176 @@ export function ReaderPage() {
   // wired yet — keeps the helper available for future tuning.
   void horizScroll;
 
+  // ── Power-user shortcuts added in the keyboard-nav pass ─────────
+  // The shortcut module already auto-skips for HTMLInputElement /
+  // HTMLTextAreaElement, but not for contenteditable (which the EPUB
+  // iframe and inline-edit pills use). `isEditableFocused` covers
+  // both — same gate the vim h/j/k/l bindings use above.
+
+  // 1–5: set the active highlight color. Mirrors VS Code-style
+  // "press a digit to change the active brush" — once a user has the
+  // mapping memorised, swapping colour while reading takes a single
+  // keystroke instead of a trip to the toolbar palette.
+  const setActiveHighlightColor = useAnnotationStore(
+    (s) => s.setActiveHighlightColor,
+  );
+  useKeyboardShortcut({
+    id: "reader:highlight-yellow",
+    key: "1",
+    description: "Set highlight color: yellow",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      setActiveHighlightColor("yellow");
+    }, [setActiveHighlightColor]),
+    preventDefault: false,
+  });
+  useKeyboardShortcut({
+    id: "reader:highlight-green",
+    key: "2",
+    description: "Set highlight color: green",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      setActiveHighlightColor("green");
+    }, [setActiveHighlightColor]),
+    preventDefault: false,
+  });
+  useKeyboardShortcut({
+    id: "reader:highlight-blue",
+    key: "3",
+    description: "Set highlight color: blue",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      setActiveHighlightColor("blue");
+    }, [setActiveHighlightColor]),
+    preventDefault: false,
+  });
+  useKeyboardShortcut({
+    id: "reader:highlight-pink",
+    key: "4",
+    description: "Set highlight color: pink",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      setActiveHighlightColor("pink");
+    }, [setActiveHighlightColor]),
+    preventDefault: false,
+  });
+  useKeyboardShortcut({
+    id: "reader:highlight-orange",
+    key: "5",
+    description: "Set highlight color: orange",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      setActiveHighlightColor("orange");
+    }, [setActiveHighlightColor]),
+    preventDefault: false,
+  });
+
+  // n / Shift+N: jump between search matches. No-op when no search
+  // is active — searchStore.next/prev guard internally. Vim convention
+  // (n forward, N back) so the muscle-memory works for anyone
+  // coming from Vim or less.
+  useKeyboardShortcut({
+    id: "reader:search-next",
+    key: "n",
+    description: "Next search match",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      useSearchStore.getState().next();
+    }, []),
+    preventDefault: false,
+  });
+  useKeyboardShortcut({
+    id: "reader:search-prev",
+    key: "n",
+    shift: true,
+    description: "Previous search match",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      useSearchStore.getState().prev();
+    }, []),
+    preventDefault: false,
+  });
+
+  // Space / Shift+Space: page advance / back. Kindle convention.
+  // Bound explicitly (vs relying on browser's default Space=page-down
+  // on the scroll container) because the focused element isn't
+  // necessarily the viewer — the toolbar or sidebar might own focus
+  // and the user still expects Space to page through their book.
+  useKeyboardShortcut({
+    id: "reader:space-next",
+    key: " ",
+    description: "Next page",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      nextPageHandler();
+    }, [nextPageHandler]),
+  });
+  useKeyboardShortcut({
+    id: "reader:space-prev",
+    key: " ",
+    shift: true,
+    description: "Previous page",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      prevPageHandler();
+    }, [prevPageHandler]),
+  });
+
+  // Home / End: jump to the top / bottom of the active viewer. For
+  // PDF this means page 1 / the last page (because the viewer is one
+  // long scroll). For EPUB scrolled mode, the current spine item.
+  // EPUB paginated mode honours scrollTo on the rendition's iframe,
+  // which is close enough for now — proper "go to first / last
+  // chapter" would need epubjs `display(spine.first/last)` and
+  // belongs in a separate pass.
+  const getActiveViewerEl = useCallback(
+    (): HTMLElement | null =>
+      document.querySelector<HTMLElement>("[data-active-viewer]"),
+    [],
+  );
+  useKeyboardShortcut({
+    id: "reader:home",
+    key: "Home",
+    description: "Jump to start of document",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      const el = getActiveViewerEl();
+      el?.scrollTo({ top: 0, behavior: "smooth" });
+    }, [getActiveViewerEl]),
+  });
+  useKeyboardShortcut({
+    id: "reader:end",
+    key: "End",
+    description: "Jump to end of document",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      const el = getActiveViewerEl();
+      if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }, [getActiveViewerEl]),
+  });
+
+  // Ctrl+Shift+T: cycle reader theme (light → dark → sepia). Keyboard
+  // companion to the Palette entry in the toolbar overflow menu.
+  // Shift is needed because plain Ctrl+T is the browser's "new tab"
+  // and isn't ours to take.
+  useKeyboardShortcut({
+    id: "reader:cycle-theme",
+    key: "t",
+    ctrl: true,
+    shift: true,
+    description: "Cycle reader theme",
+    handler: useCallback(() => {
+      const { readerTheme, setReaderTheme } = useSettingsStore.getState();
+      setReaderTheme(
+        readerTheme === "light"
+          ? "dark"
+          : readerTheme === "dark"
+            ? "sepia"
+            : "light",
+      );
+    }, []),
+  });
+
   const toggleSidebar = useCallback(() => {
     const api = dockviewApiRef.current;
     if (!api) return;
