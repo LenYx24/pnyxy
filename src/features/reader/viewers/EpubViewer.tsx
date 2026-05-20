@@ -4,6 +4,10 @@ import { useReaderStore, useDocumentState } from "@/stores/reader-store";
 import { useSearchStore } from "@/stores/search-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { getReaderPalette } from "@/lib/reader-themes";
+import {
+  EPUB_COLUMN_WIDTH_CSS,
+  EPUB_FONT_FAMILY_CSS,
+} from "@/lib/epub-typography";
 import { AnnotationContextMenu } from "../popovers/AnnotationContextMenu";
 import { CommentPopover } from "../popovers/CommentPopover";
 import {
@@ -39,6 +43,8 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
   const epubFlow = useSettingsStore((s) => s.epubFlow);
   const epubFontScale = useSettingsStore((s) => s.epubFontScale);
   const epubLineHeight = useSettingsStore((s) => s.epubLineHeight);
+  const epubFontFamily = useSettingsStore((s) => s.epubFontFamily);
+  const epubColumnWidth = useSettingsStore((s) => s.epubColumnWidth);
   const readerTheme = useSettingsStore((s) => s.readerTheme);
   // Survives across the rendition re-mount that fires when the user
   // toggles flow modes — without this the reader would snap back to
@@ -128,6 +134,11 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
     rendition.themes.fontSize(`${Math.round(epubFontScale * 100)}%`);
     rendition.themes.override("line-height", String(epubLineHeight), true);
     applyEpubThemeColours(rendition, readerTheme);
+    applyEpubLayout(rendition, {
+      fontFamily: epubFontFamily,
+      columnWidth: epubColumnWidth,
+      flow: epubFlow,
+    });
 
     // Initial position: prefer the local ref (set during a flow-mode
     // toggle remount in this same session), fall back to the cloud-/
@@ -167,6 +178,17 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
     if (!rendition) return;
     applyEpubThemeColours(rendition, readerTheme);
   }, [readerTheme]);
+
+  // Live-apply font-family / column-width preset changes.
+  useEffect(() => {
+    const rendition = renditionRef.current;
+    if (!rendition) return;
+    applyEpubLayout(rendition, {
+      fontFamily: epubFontFamily,
+      columnWidth: epubColumnWidth,
+      flow: epubFlow,
+    });
+  }, [epubFontFamily, epubColumnWidth, epubFlow]);
 
   // When the active match changes, jump the rendition to its spine item.
   useEffect(() => {
@@ -226,4 +248,48 @@ function applyEpubThemeColours(
   rendition.themes.override("color", palette.text, true);
   rendition.themes.override("--reader-text-strong", palette.textStrong, true);
   rendition.themes.override("--reader-text-muted", palette.textMuted, true);
+}
+
+/**
+ * Body-level layout overrides — font-family and max-width — written
+ * via the same `themes.override` path the rest of the viewer uses.
+ * epub.js's `override` ultimately calls `body.style.setProperty(...)`
+ * inside each rendered iframe, so these land as inline body styles
+ * with `!important`.
+ *
+ * Skipped in paginated flow because epub.js computes column widths
+ * from the body's natural width; capping `max-width` here would tell
+ * it to lay out columns inside a 65ch slab and the page counter
+ * would go wrong. Padding stays untouched for the same reason — epub.js
+ * sets it for column gaps in paginated mode and overriding fights
+ * the pagination math.
+ */
+function applyEpubLayout(
+  rendition: Rendition,
+  opts: {
+    fontFamily: keyof typeof EPUB_FONT_FAMILY_CSS;
+    columnWidth: keyof typeof EPUB_COLUMN_WIDTH_CSS;
+    flow: "scrolled" | "paginated";
+  },
+): void {
+  const fontFamilyCss = EPUB_FONT_FAMILY_CSS[opts.fontFamily];
+  if (fontFamilyCss) {
+    rendition.themes.override("font-family", fontFamilyCss, true);
+  } else {
+    // Reverting from a preset back to "default" needs an explicit
+    // clear — leaving the previous inline body rule in place would
+    // keep overriding the EPUB's own font choices.
+    rendition.themes.override("font-family", "", true);
+  }
+
+  const maxWidthCss = EPUB_COLUMN_WIDTH_CSS[opts.columnWidth];
+  if (maxWidthCss && opts.flow === "scrolled") {
+    rendition.themes.override("max-width", maxWidthCss, true);
+    rendition.themes.override("margin-left", "auto", true);
+    rendition.themes.override("margin-right", "auto", true);
+  } else {
+    rendition.themes.override("max-width", "", true);
+    rendition.themes.override("margin-left", "", true);
+    rendition.themes.override("margin-right", "", true);
+  }
 }

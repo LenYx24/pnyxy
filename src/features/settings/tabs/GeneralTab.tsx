@@ -3,6 +3,12 @@ import { useTranslation } from "react-i18next";
 import { Download } from "lucide-react";
 import { useSettingsStore } from "@/stores/settings-store";
 import type { FitMode, EpubFlow } from "@/stores/settings-store";
+import {
+  EPUB_COLUMN_WIDTH_IDS,
+  EPUB_FONT_FAMILY_IDS,
+  type EpubColumnWidth,
+  type EpubFontFamily,
+} from "@/lib/epub-typography";
 import { Toggle, Slider } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import {
@@ -52,6 +58,8 @@ export function GeneralTab() {
     epubFlow,
     epubFontScale,
     epubLineHeight,
+    epubFontFamily,
+    epubColumnWidth,
     experimental_allowAnnotationsForAllFormats,
     experimental_allowWhiteboardForAllFormats,
     setPageScrollBehavior,
@@ -60,6 +68,8 @@ export function GeneralTab() {
     setEpubFlow,
     setEpubFontScale,
     setEpubLineHeight,
+    setEpubFontFamily,
+    setEpubColumnWidth,
     setExperimentalAnnotations,
     setExperimentalWhiteboard,
   } = useSettingsStore();
@@ -89,6 +99,20 @@ export function GeneralTab() {
       description: t("settings.reader.epubFlowPaginatedHint"),
     },
   ];
+
+  // Categorical font-family / column-width pickers. Labels come from
+  // i18n; the actual CSS lives in lib/epub-typography.ts so the
+  // settings UI doesn't have to know how stacks are spelled.
+  const epubFontFamilyOptions: { value: EpubFontFamily; label: string }[] =
+    EPUB_FONT_FAMILY_IDS.map((id) => ({
+      value: id,
+      label: t(`settings.reader.epubFontFamily_${id}`),
+    }));
+  const epubColumnWidthOptions: { value: EpubColumnWidth; label: string }[] =
+    EPUB_COLUMN_WIDTH_IDS.map((id) => ({
+      value: id,
+      label: t(`settings.reader.epubColumnWidth_${id}`),
+    }));
 
   return (
     <div className="space-y-6">
@@ -265,6 +289,56 @@ export function GeneralTab() {
             step={1}
             valueLabel={epubLineHeight.toFixed(1)}
           />
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-text-primary">
+            {t("settings.reader.epubFontFamily")}
+          </p>
+          <p className="text-xs text-text-muted">
+            {t("settings.reader.epubFontFamilyHint")}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {epubFontFamilyOptions.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setEpubFontFamily(opt.value)}
+                className={cn(
+                  "flex-1 min-w-[6rem] rounded-lg border px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
+                  epubFontFamily === opt.value
+                    ? "border-accent-purple bg-accent-purple/10 text-accent-purple"
+                    : "border-glass-border bg-glass-bg text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-text-primary">
+            {t("settings.reader.epubColumnWidth")}
+          </p>
+          <p className="text-xs text-text-muted">
+            {t("settings.reader.epubColumnWidthHint")}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {epubColumnWidthOptions.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setEpubColumnWidth(opt.value)}
+                className={cn(
+                  "flex-1 min-w-[6rem] rounded-lg border px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
+                  epubColumnWidth === opt.value
+                    ? "border-accent-purple bg-accent-purple/10 text-accent-purple"
+                    : "border-glass-border bg-glass-bg text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 

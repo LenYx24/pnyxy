@@ -154,6 +154,18 @@
       "epubFontScaleHint": "Az EPUB szövegét méretezi. A változás azonnal érvényesül a nyitott könyvekre.",
       "epubLineHeight": "EPUB sormagasság",
       "epubLineHeightHint": "Nagyobb sormagasság kíméli a szemet hosszabb olvasásnál.",
+      "epubFontFamily": "EPUB betűcsalád",
+      "epubFontFamilyHint": "Felülírja az EPUB-ba ágyazott betűtípusokat egy rendszer-betűkészlettel. Az „Alap” a kiadó beállításait hagyja érvényben.",
+      "epubFontFamily_default": "Alap",
+      "epubFontFamily_serif": "Talpas",
+      "epubFontFamily_sans": "Talpatlan",
+      "epubFontFamily_mono": "Írógép",
+      "epubColumnWidth": "Olvasási oszlop szélessége",
+      "epubColumnWidthHint": "Korlátozza, milyen szélesre nyúlhat a szöveg, hogy a szem ne kelljen a fél képernyőt átkövetnie. Csak görgetett módban.",
+      "epubColumnWidth_full": "Teljes",
+      "epubColumnWidth_wide": "Széles",
+      "epubColumnWidth_comfortable": "Kényelmes",
+      "epubColumnWidth_narrow": "Keskeny",
       "reset": "Visszaállítás"
     },
     "experimental": {

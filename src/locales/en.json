@@ -154,6 +154,18 @@
       "epubFontScaleHint": "Scales the EPUB's body text. Applies live to open books.",
       "epubLineHeight": "EPUB line height",
       "epubLineHeightHint": "More line height makes long passages easier on the eyes.",
+      "epubFontFamily": "EPUB font family",
+      "epubFontFamilyHint": "Override the EPUB's bundled fonts with a system stack. Default keeps the publisher's choice.",
+      "epubFontFamily_default": "Default",
+      "epubFontFamily_serif": "Serif",
+      "epubFontFamily_sans": "Sans-serif",
+      "epubFontFamily_mono": "Monospace",
+      "epubColumnWidth": "Reading column width",
+      "epubColumnWidthHint": "Cap how wide the text column gets so eyes don't track halfway across the screen. Scrolled flow only.",
+      "epubColumnWidth_full": "Full",
+      "epubColumnWidth_wide": "Wide",
+      "epubColumnWidth_comfortable": "Comfortable",
+      "epubColumnWidth_narrow": "Narrow",
       "reset": "Reset"
     },
     "experimental": {

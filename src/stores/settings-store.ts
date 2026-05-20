@@ -17,6 +17,12 @@ import {
   READER_THEME_IDS,
   type ReaderTheme,
 } from "@/lib/reader-themes";
+import {
+  EPUB_COLUMN_WIDTH_IDS,
+  EPUB_FONT_FAMILY_IDS,
+  type EpubColumnWidth,
+  type EpubFontFamily,
+} from "@/lib/epub-typography";
 import { useAuthStore } from "@/stores/auth-store";
 import { supabase } from "@/lib/supabase";
 
@@ -50,6 +56,22 @@ interface SettingsState {
   epubFontScale: number;
   /** Unitless CSS line-height applied inside the EPUB iframe. */
   epubLineHeight: number;
+  /**
+   * Preset font family applied to the EPUB body. `"default"` means
+   * no override — the EPUB's own font choices win, matching the
+   * pre-picker behaviour so an existing user's books still render
+   * the way they did before the setting existed.
+   */
+  epubFontFamily: EpubFontFamily;
+  /**
+   * Column cap for prose. `"full"` = no constraint (full iframe
+   * width, the historical default). Narrower presets center the
+   * column with `margin: auto` so long-line eye fatigue on
+   * widescreen monitors goes away. Only applied in scrolled flow —
+   * paginated mode computes its own column widths from the
+   * iframe and would fight with this.
+   */
+  epubColumnWidth: EpubColumnWidth;
   /**
    * Reader-content theme — controls the *document* background and
    * text colours (page, gutter, paragraph) but not the app chrome.
@@ -159,6 +181,8 @@ interface SettingsState {
   setEpubFlow: (v: EpubFlow) => void;
   setEpubFontScale: (v: number) => void;
   setEpubLineHeight: (v: number) => void;
+  setEpubFontFamily: (v: EpubFontFamily) => void;
+  setEpubColumnWidth: (v: EpubColumnWidth) => void;
   setReaderTheme: (v: ReaderTheme) => void;
   setTagColor: (tag: BookStatusTag, color: ColorKey) => void;
   setEnabledProviders: (list: AiProvider[]) => void;
@@ -214,6 +238,8 @@ export const useSettingsStore = create<SettingsState>()(
       epubFlow: "scrolled",
       epubFontScale: 1.0,
       epubLineHeight: 1.5,
+      epubFontFamily: "default",
+      epubColumnWidth: "full",
       readerTheme: "light",
       tagColors: {},
       enabledProviders: ["pnyxy"],
@@ -255,6 +281,14 @@ export const useSettingsStore = create<SettingsState>()(
         set({ epubFontScale: Math.min(Math.max(v, 0.7), 1.6) }),
       setEpubLineHeight: (v) =>
         set({ epubLineHeight: Math.min(Math.max(v, 1.0), 2.2) }),
+      setEpubFontFamily: (v) =>
+        set({
+          epubFontFamily: EPUB_FONT_FAMILY_IDS.includes(v) ? v : "default",
+        }),
+      setEpubColumnWidth: (v) =>
+        set({
+          epubColumnWidth: EPUB_COLUMN_WIDTH_IDS.includes(v) ? v : "full",
+        }),
       setReaderTheme: (v) =>
         set({
           readerTheme: READER_THEME_IDS.includes(v) ? v : "light",
@@ -521,7 +555,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "pnyxy-reader:settings",
-      version: 9,
+      version: 10,
       partialize: (state) => {
         // Persist everything; pluginStorage is local-only (stays in
         // localStorage) and is intentionally NOT synced to Supabase.
@@ -674,6 +708,27 @@ export const useSettingsStore = create<SettingsState>()(
             state.readerTheme !== "sepia"
           ) {
             state.readerTheme = "light";
+          }
+        }
+        // v9 → v10: seed EPUB typography presets. Both defaults
+        // resolve to "no override", so existing readers' books look
+        // identical until they actively pick a preset.
+        if (version < 10) {
+          if (
+            state.epubFontFamily !== "default" &&
+            state.epubFontFamily !== "serif" &&
+            state.epubFontFamily !== "sans" &&
+            state.epubFontFamily !== "mono"
+          ) {
+            state.epubFontFamily = "default";
+          }
+          if (
+            state.epubColumnWidth !== "full" &&
+            state.epubColumnWidth !== "wide" &&
+            state.epubColumnWidth !== "comfortable" &&
+            state.epubColumnWidth !== "narrow"
+          ) {
+            state.epubColumnWidth = "full";
           }
         }
         return state as unknown as SettingsState;
