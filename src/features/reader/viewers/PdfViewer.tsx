@@ -12,6 +12,7 @@ import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { useReaderStore, useDocumentState } from "@/stores/reader-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { getReaderPalette } from "@/lib/reader-themes";
 import { useTextSelection } from "@/hooks/use-text-selection";
 import { HighlightLayer } from "../layers/HighlightLayer";
 import { AiCitationLayer } from "../layers/AiCitationLayer";
@@ -185,6 +186,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   const rotation = doc?.pageRotation ?? 0;
   const scrollToPage = doc?.scrollToPage ?? null;
   const invertColors = useSettingsStore((s) => s.pdfInvertColors);
+  const readerTheme = useSettingsStore((s) => s.readerTheme);
 
   const offsetReportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1335,8 +1337,16 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       onScroll={handleScroll}
       data-pdf-viewer
       data-active-viewer
-      style={{ touchAction: "pan-x pan-y" }}
-      className="h-full w-full overflow-auto bg-bg-primary"
+      // pdfGutter recolours the space *around* the page (where the
+      // app-chrome bg used to bleed through). The page itself is a
+      // raster — can't be themed in place — but the gutter colour is
+      // what carries the "sepia / dark mode" reading-room feel for
+      // the eye on either side of the page edge.
+      style={{
+        touchAction: "pan-x pan-y",
+        backgroundColor: getReaderPalette(readerTheme).pdfGutter,
+      }}
+      className="h-full w-full overflow-auto"
     >
       <Document
         file={meta.fileUrl}
@@ -1392,9 +1402,17 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
                 height: totalContentHeight,
                 transformOrigin: "0 0",
                 transform: "scale(1)",
-                filter: invertColors
-                  ? "invert(1) hue-rotate(180deg)"
-                  : undefined,
+                // PDF page tinting precedence:
+                //   1. Active reader theme's `pdfPageFilter` if set
+                //      (dark theme → invert + hue-rotate so light pages
+                //      come out dark with roughly-correct image colour).
+                //   2. The legacy per-user `pdfInvertColors` toggle when
+                //      no theme filter applies — keeps the "night mode
+                //      on PDFs only" power-user knob working in light
+                //      / sepia themes.
+                filter:
+                  getReaderPalette(readerTheme).pdfPageFilter ??
+                  (invertColors ? "invert(1) hue-rotate(180deg)" : undefined),
               }}
             >
               {renderedPages.map((pageNum) => (

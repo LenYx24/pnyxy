@@ -13,6 +13,10 @@ import {
 } from "@/lib/themes";
 import { buildDefaultPluginSettings } from "@/lib/plugins/core-registry";
 import type { PluginManifest } from "@/lib/plugins/types";
+import {
+  READER_THEME_IDS,
+  type ReaderTheme,
+} from "@/lib/reader-themes";
 import { useAuthStore } from "@/stores/auth-store";
 import { supabase } from "@/lib/supabase";
 
@@ -46,6 +50,16 @@ interface SettingsState {
   epubFontScale: number;
   /** Unitless CSS line-height applied inside the EPUB iframe. */
   epubLineHeight: number;
+  /**
+   * Reader-content theme — controls the *document* background and
+   * text colours (page, gutter, paragraph) but not the app chrome.
+   * Independent from `activeThemeId` so a user can read with a sepia
+   * page in a dark-chrome app, the way Kindle / iBooks have always
+   * separated the two. EPUB and TXT/MD honour all three palettes;
+   * PDF can only theme the gutter and (in dark mode) the canvas
+   * filter — the raster page itself stays as-rendered.
+   */
+  readerTheme: ReaderTheme;
   tagColors: Partial<Record<BookStatusTag, ColorKey>>;
   enabledProviders: AiProvider[];
   anthropicApiKey: string;
@@ -145,6 +159,7 @@ interface SettingsState {
   setEpubFlow: (v: EpubFlow) => void;
   setEpubFontScale: (v: number) => void;
   setEpubLineHeight: (v: number) => void;
+  setReaderTheme: (v: ReaderTheme) => void;
   setTagColor: (tag: BookStatusTag, color: ColorKey) => void;
   setEnabledProviders: (list: AiProvider[]) => void;
   toggleProvider: (provider: AiProvider) => void;
@@ -199,6 +214,7 @@ export const useSettingsStore = create<SettingsState>()(
       epubFlow: "scrolled",
       epubFontScale: 1.0,
       epubLineHeight: 1.5,
+      readerTheme: "light",
       tagColors: {},
       enabledProviders: ["pnyxy"],
       anthropicApiKey: "",
@@ -239,6 +255,10 @@ export const useSettingsStore = create<SettingsState>()(
         set({ epubFontScale: Math.min(Math.max(v, 0.7), 1.6) }),
       setEpubLineHeight: (v) =>
         set({ epubLineHeight: Math.min(Math.max(v, 1.0), 2.2) }),
+      setReaderTheme: (v) =>
+        set({
+          readerTheme: READER_THEME_IDS.includes(v) ? v : "light",
+        }),
       setTagColor: (tag, color) =>
         set((state) => ({ tagColors: { ...state.tagColors, [tag]: color } })),
       setEnabledProviders: (list) =>
@@ -501,7 +521,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "pnyxy-reader:settings",
-      version: 8,
+      version: 9,
       partialize: (state) => {
         // Persist everything; pluginStorage is local-only (stays in
         // localStorage) and is intentionally NOT synced to Supabase.
@@ -643,6 +663,18 @@ export const useSettingsStore = create<SettingsState>()(
             Number.isFinite(surrounding) && surrounding >= 0
               ? Math.min(Math.round(surrounding), 50)
               : 5;
+        }
+        // v8 → v9: seed reader-content theme. Default "light" keeps
+        // the pre-upgrade visual exactly as it was (white EPUB page,
+        // app-chrome dark mode untouched).
+        if (version < 9) {
+          if (
+            state.readerTheme !== "light" &&
+            state.readerTheme !== "dark" &&
+            state.readerTheme !== "sepia"
+          ) {
+            state.readerTheme = "light";
+          }
         }
         return state as unknown as SettingsState;
       },

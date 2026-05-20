@@ -31,6 +31,7 @@ import {
   PanelLeft,
   Menu,
   AlignLeft,
+  Palette,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
@@ -44,6 +45,10 @@ import { useIsMobile, useIsDesktop } from "@/hooks/use-media-query";
 import { ReadingTrackerControl } from "./controls/ReadingTrackerControl";
 import { FocusSessionControl } from "./controls/FocusSessionControl";
 import type { HighlightColor } from "@/types/annotation";
+
+function nextReaderTheme(t: "light" | "dark" | "sepia"): "light" | "dark" | "sepia" {
+  return t === "light" ? "dark" : t === "dark" ? "sepia" : "light";
+}
 
 const HIGHLIGHT_COLORS: HighlightColor[] = ["yellow", "green", "blue", "pink", "orange"];
 const COLOR_HEX: Record<HighlightColor, string> = {
@@ -222,6 +227,17 @@ export function ReaderToolbar({
   const setPdfInvertColors = useSettingsStore((s) => s.setPdfInvertColors);
   const pdfReflowMode = useSettingsStore((s) => s.pdfReflowMode);
   const setPdfReflowMode = useSettingsStore((s) => s.setPdfReflowMode);
+  const readerTheme = useSettingsStore((s) => s.readerTheme);
+  const setReaderTheme = useSettingsStore((s) => s.setReaderTheme);
+  const cycleReaderTheme = useCallback(() => {
+    setReaderTheme(
+      readerTheme === "light"
+        ? "dark"
+        : readerTheme === "dark"
+          ? "sepia"
+          : "light",
+    );
+  }, [readerTheme, setReaderTheme]);
   const isPdf = activeDoc?.meta.format === "pdf";
 
   const addBookmark = useBookmarkStore((s) => s.addBookmark);
@@ -283,6 +299,17 @@ export function ReaderToolbar({
 
   const overflowActions = [
     { label: t("reader.toolbar.bookmarkPage"), icon: BookmarkPlus, onClick: handleBookmarkPage },
+    {
+      // Cycles reader-content theme: light → dark → sepia → light.
+      // Label advertises the *next* theme so the user can predict the
+      // jump before clicking. A proper 3-way picker lives in the
+      // settings page; in-toolbar we keep it to one action.
+      label: t("reader.toolbar.readerTheme", {
+        next: t(`reader.toolbar.readerTheme_${nextReaderTheme(readerTheme)}`),
+      }),
+      icon: Palette,
+      onClick: cycleReaderTheme,
+    },
     { label: t("reader.toolbar.zoomIn"), icon: ZoomIn, onClick: handleZoomIn },
     { label: t("reader.toolbar.zoomOut"), icon: ZoomOut, onClick: handleZoomOut },
     { label: t("reader.toolbar.fitMode"), icon: Columns2, onClick: () => setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width") },

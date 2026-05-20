@@ -4,6 +4,7 @@ import DOMPurify from "dompurify";
 import { useReaderStore, useDocumentState } from "@/stores/reader-store";
 import { useSearchStore } from "@/stores/search-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { getReaderPalette } from "@/lib/reader-themes";
 import { useTextSelection } from "@/hooks/use-text-selection";
 import { AnnotationContextMenu } from "../popovers/AnnotationContextMenu";
 import { CommentPopover } from "../popovers/CommentPopover";
@@ -30,6 +31,8 @@ export function TextViewer({ documentId }: TextViewerProps) {
   const allowAnnotations = useSettingsStore(
     (s) => s.experimental_allowAnnotationsForAllFormats,
   );
+  const readerTheme = useSettingsStore((s) => s.readerTheme);
+  const palette = getReaderPalette(readerTheme);
   // Only wire the selection listener when the dev toggle is enabled; a
   // conditionally-empty ref keeps the hook's argument stable.
   useTextSelection(allowAnnotations ? selectionRootRef : { current: null });
@@ -108,11 +111,31 @@ export function TextViewer({ documentId }: TextViewerProps) {
       ref={selectionRootRef}
       data-active-viewer
       data-text-viewer
-      className="h-full w-full overflow-auto bg-bg-primary px-8 py-6 text-text-primary"
+      style={{ backgroundColor: palette.background, color: palette.text }}
+      className="h-full w-full overflow-auto px-8 py-6"
     >
       <div
         ref={containerRef}
-        className="prose prose-invert mx-auto max-w-3xl leading-relaxed [&_mark[data-search-match]]:bg-yellow-400/40 [&_mark[data-search-match]]:text-inherit [&_mark[data-search-match][data-current=true]]:bg-orange-400/70"
+        // Keep `prose` for the markdown typography reset; override
+        // Tailwind Typography's colour variables so the same `prose`
+        // class works across all three reader themes. Using the CSS
+        // vars (not prose-invert) means sepia doesn't have to fight a
+        // hard-wired dark palette.
+        style={
+          {
+            color: palette.text,
+            "--tw-prose-body": palette.text,
+            "--tw-prose-headings": palette.textStrong,
+            "--tw-prose-bold": palette.textStrong,
+            "--tw-prose-links": palette.textStrong,
+            "--tw-prose-quotes": palette.textMuted,
+            "--tw-prose-code": palette.textStrong,
+            "--tw-prose-bullets": palette.textMuted,
+            "--tw-prose-counters": palette.textMuted,
+            "--tw-prose-captions": palette.textMuted,
+          } as React.CSSProperties
+        }
+        className="prose mx-auto max-w-3xl leading-relaxed [&_mark[data-search-match]]:bg-yellow-400/40 [&_mark[data-search-match]]:text-inherit [&_mark[data-search-match][data-current=true]]:bg-orange-400/70"
       />
       {allowAnnotations && (
         <>

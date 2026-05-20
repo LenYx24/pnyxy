@@ -3,6 +3,7 @@ import type { Book, Contents, Rendition } from "epubjs";
 import { useReaderStore, useDocumentState } from "@/stores/reader-store";
 import { useSearchStore } from "@/stores/search-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { getReaderPalette } from "@/lib/reader-themes";
 import { AnnotationContextMenu } from "../popovers/AnnotationContextMenu";
 import { CommentPopover } from "../popovers/CommentPopover";
 import {
@@ -38,6 +39,7 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
   const epubFlow = useSettingsStore((s) => s.epubFlow);
   const epubFontScale = useSettingsStore((s) => s.epubFontScale);
   const epubLineHeight = useSettingsStore((s) => s.epubLineHeight);
+  const readerTheme = useSettingsStore((s) => s.readerTheme);
   // Survives across the rendition re-mount that fires when the user
   // toggles flow modes — without this the reader would snap back to
   // chapter 1 on every toggle.
@@ -119,10 +121,13 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
     };
     rendition.on("selected", handleSelected);
 
-    // Apply typography before the first display so the initial paint
-    // already uses the user's preferred size — avoids a visible reflow.
+    // Apply typography + theme before the first display so the initial
+    // paint already uses the user's preferences — avoids a visible
+    // reflow / colour flash. `override(..., true)` makes the rule
+    // `!important` so it wins over the EPUB's own inline styles.
     rendition.themes.fontSize(`${Math.round(epubFontScale * 100)}%`);
     rendition.themes.override("line-height", String(epubLineHeight), true);
+    applyEpubThemeColours(rendition, readerTheme);
 
     // Initial position: prefer the local ref (set during a flow-mode
     // toggle remount in this same session), fall back to the cloud-/
@@ -154,6 +159,15 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
     rendition.themes.override("line-height", String(epubLineHeight), true);
   }, [epubFontScale, epubLineHeight]);
 
+  // Live-apply theme changes the same way — switching light → sepia
+  // recolours all already-rendered spine items without a re-mount, so
+  // the user's scroll position survives.
+  useEffect(() => {
+    const rendition = renditionRef.current;
+    if (!rendition) return;
+    applyEpubThemeColours(rendition, readerTheme);
+  }, [readerTheme]);
+
   // When the active match changes, jump the rendition to its spine item.
   useEffect(() => {
     const rendition = renditionRef.current;
@@ -166,13 +180,19 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
 
   if (!doc) return null;
 
+  const palette = getReaderPalette(readerTheme);
   return (
     <div className="relative h-full w-full">
       <div
         ref={containerRef}
         data-active-viewer
         data-epub-viewer
-        className="h-full w-full overflow-auto bg-bg-primary text-text-primary"
+        // Background also colours the gutter that appears in paginated
+        // flow between the spread and the iframe edge; without this it
+        // shows through as the app-chrome bg, breaking the illusion of
+        // a page on sepia / light.
+        style={{ backgroundColor: palette.background, color: palette.text }}
+        className="h-full w-full overflow-auto"
       />
       {allowAnnotations && (
         <>
@@ -186,4 +206,24 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
       />
     </div>
   );
+}
+
+/**
+ * Push the active reader-theme colours into the rendition. epub.js's
+ * `themes.override(prop, val, important)` writes a CSS rule into every
+ * spine iframe — `important` to beat the EPUB's own inline styles
+ * (which often set background-color on `<body>` or text colour on
+ * paragraphs). Headings get the strong-emphasis colour so they pop in
+ * sepia / dark modes where the body text is intentionally low-contrast.
+ */
+function applyEpubThemeColours(
+  rendition: Rendition,
+  themeId: "light" | "dark" | "sepia",
+): void {
+  const palette = getReaderPalette(themeId);
+  rendition.themes.override("background", palette.background, true);
+  rendition.themes.override("background-color", palette.background, true);
+  rendition.themes.override("color", palette.text, true);
+  rendition.themes.override("--reader-text-strong", palette.textStrong, true);
+  rendition.themes.override("--reader-text-muted", palette.textMuted, true);
 }
