@@ -107,6 +107,8 @@ function RoadmapGraphInner({
         const refs =
           (n.payload?.references as ResourceRef[] | undefined) ?? [];
         const data: RoadmapNodeData = {
+          roadmapId: roadmap.id,
+          nodeId: n.id,
           title: n.title,
           description: n.description,
           estimatedMinutes: n.estimatedMinutes,

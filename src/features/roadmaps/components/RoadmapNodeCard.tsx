@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import {
   Handle,
   Position,
@@ -7,9 +8,16 @@ import {
 import { BookOpen, Check, Lock, Trophy } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatMinutes } from "../lib/scheduler";
+import { useRoadmapStore } from "@/stores/roadmap-store";
 import type { ResourceRef } from "@/types/roadmap";
 
 export interface RoadmapNodeData extends Record<string, unknown> {
+  /** Roadmap this node belongs to — the inline minutes editor needs
+   *  it to write back through `upsertNode` without dragging the
+   *  parent component into the loop. */
+  roadmapId: string;
+  /** Identifier for this node within the roadmap. */
+  nodeId: string;
   title: string;
   description: string;
   estimatedMinutes: number;
@@ -143,7 +151,11 @@ export function RoadmapNodeCard({
             </div>
           )}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-text-muted">
-            <span>{formatMinutes(d.estimatedMinutes)}</span>
+            <MinutesPill
+              roadmapId={d.roadmapId}
+              nodeId={d.nodeId}
+              minutes={d.estimatedMinutes}
+            />
             {d.dueDate && (
               <span
                 className={cn(
@@ -175,5 +187,95 @@ export function RoadmapNodeCard({
         className="!h-2 !w-2 !border-glass-border !bg-bg-secondary"
       />
     </div>
+  );
+}
+
+/**
+ * Click-to-edit minutes badge on the node card. Reads/writes the
+ * roadmap through the store directly so the parent (xyflow / detail
+ * page / editor) doesn't need to pass a callback. Estimates change a
+ * lot in practice — a user partway through a node realises their
+ * 30-minute guess is really 90 — so the inline edit deliberately
+ * lives outside the editor's full edit-mode flow.
+ *
+ * Click stops propagation so it doesn't toggle node selection /
+ * complete-state. Commit on Enter or blur, cancel on Escape. xyflow's
+ * built-in `.nodrag` / `.nopan` classes keep this from kicking off a
+ * graph drag when the user click-and-holds inside the input.
+ */
+function MinutesPill({
+  roadmapId,
+  nodeId,
+  minutes,
+}: {
+  roadmapId: string;
+  nodeId: string;
+  minutes: number;
+}) {
+  const updateNodeMinutes = useRoadmapStore((s) => s.updateNodeMinutes);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<string>(String(minutes));
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing) setDraft(String(minutes));
+  }, [minutes, editing]);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  const commit = () => {
+    const parsed = Number(draft);
+    if (Number.isFinite(parsed)) updateNodeMinutes(roadmapId, nodeId, parsed);
+    setEditing(false);
+  };
+  const cancel = () => {
+    setDraft(String(minutes));
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="number"
+        min={0}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            cancel();
+          }
+        }}
+        className="nodrag nopan w-14 rounded border border-accent-purple/60 bg-bg-secondary px-1 py-0.5 text-[11px] outline-none"
+        aria-label="Estimated minutes"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        setEditing(true);
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      className="nodrag nopan -mx-1 -my-0.5 cursor-text rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary"
+      title="Click to edit"
+    >
+      {formatMinutes(minutes)}
+    </button>
   );
 }

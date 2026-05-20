@@ -121,6 +121,15 @@ export interface SchedulePrefs {
    * pins it to that date instead of the computed one.
    */
   nodeDateOverrides: Record<NodeId, string>;
+  /**
+   * Deadline-mode multiplier applied to the derived weekday hours to
+   * get weekend hours (`weekendHours = weekdayHours * weekendMultiplier`).
+   * 0 = no weekend study. Only meaningful when the enrollment has a
+   * `targetEndDate` set — in that mode the UI shows the multiplier
+   * knob instead of the raw weekdayHours/weekendHours inputs, and
+   * the store keeps both pairs in sync. Unset = manual mode.
+   */
+  weekendMultiplier?: number;
 }
 
 export interface Enrollment {
@@ -129,6 +138,14 @@ export interface Enrollment {
   userId: string | null;
   /** ISO date (YYYY-MM-DD) when the user enrolled. */
   startDate: string;
+  /**
+   * Optional finish-by date (YYYY-MM-DD). When set, the deadline UI
+   * derives `schedulePrefs.weekdayHours` / `weekendHours` from this
+   * date plus the remaining work — the user trades "how many hours
+   * per day" for "by when do I want to be done", and the scheduler
+   * picks up the derived hours unchanged.
+   */
+  targetEndDate?: string;
   /**
    * 0–100 integer per node — the user's manually-set progress. Auto-
    * detected progress from book reading is computed separately and

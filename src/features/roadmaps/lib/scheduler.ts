@@ -169,6 +169,113 @@ export function formatMinutes(mins: number, locale = "en"): string {
   return locale === "hu" ? `${h} ó ${rem} p` : `${h} h ${rem} min`;
 }
 
+/**
+ * Sum of estimated minutes still owed across the roadmap, weighted by
+ * each node's remaining percent. A node at 40% with a 60-minute estimate
+ * counts as 36 minutes of remaining work. Mirrors `completedMinutes` —
+ * remaining = total − completed, but computed in one pass.
+ */
+export function remainingEstimatedMinutes(
+  roadmap: Roadmap,
+  enrollment: Enrollment,
+): number {
+  let total = 0;
+  for (const n of roadmap.nodes) {
+    const est = Math.max(0, n.estimatedMinutes || 0);
+    const pct = enrollment.nodeProgress[n.id] ?? 0;
+    const remainingPct = Math.max(0, 100 - pct) / 100;
+    total += est * remainingPct;
+  }
+  return total;
+}
+
+/**
+ * Counts available study days between `from` (inclusive, but only if
+ * later than today's start) and `to` (inclusive). Splits the result
+ * into weekday and weekend buckets so a deadline-mode calculator can
+ * apply the weekend multiplier correctly.
+ */
+export function countDaysInRange(
+  from: Date,
+  to: Date,
+): { weekdays: number; weekends: number } {
+  let weekdays = 0;
+  let weekends = 0;
+  // Iterate by day; the spans the deadline UI cares about are short
+  // (weeks to months), so the naive loop is fine and avoids
+  // off-by-one bugs from DST boundaries.
+  const cursor = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  while (cursor.getTime() <= end.getTime()) {
+    if (isWeekend(cursor)) weekends += 1;
+    else weekdays += 1;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return { weekdays, weekends };
+}
+
+export interface DeadlineDerivation {
+  /** Computed hours per Mon–Fri. */
+  weekdayHours: number;
+  /** Computed hours per Sat–Sun. 0 when multiplier is 0. */
+  weekendHours: number;
+  /** Whether weekend study is on (multiplier > 0). */
+  workOnWeekends: boolean;
+  /** Days available between today (inclusive) and the deadline (inclusive). */
+  daysAvailable: { weekdays: number; weekends: number };
+  /** Total minutes that need to be allocated across those days. */
+  totalMinutes: number;
+  /**
+   * False when there are 0 effective days (deadline in the past,
+   * or only-weekend days remaining with multiplier=0). UI should
+   * warn the user instead of writing nonsense back to schedulePrefs.
+   */
+  feasible: boolean;
+}
+
+/**
+ * Inverts the scheduler: given remaining minutes and a target finish
+ * date, returns the weekday/weekend hours the user would need to keep
+ * to land on time. `weekendMultiplier` controls how weekend days are
+ * weighted relative to weekdays (0 = no weekend work, 1 = equal,
+ * 1.5 = half-again as much per weekend day, …).
+ */
+export function deriveHoursForDeadline(opts: {
+  totalMinutes: number;
+  today: Date;
+  endDate: Date;
+  weekendMultiplier: number;
+}): DeadlineDerivation {
+  const { totalMinutes, today, endDate, weekendMultiplier } = opts;
+  const m = Math.max(0, weekendMultiplier);
+  const { weekdays, weekends } = countDaysInRange(today, endDate);
+  const effectiveDays = weekdays + m * weekends;
+  const feasible =
+    endDate.getTime() >= today.getTime() &&
+    effectiveDays > 0 &&
+    totalMinutes > 0;
+  if (!feasible) {
+    return {
+      weekdayHours: 0,
+      weekendHours: 0,
+      workOnWeekends: m > 0,
+      daysAvailable: { weekdays, weekends },
+      totalMinutes,
+      feasible: false,
+    };
+  }
+  const weekdayHours = totalMinutes / 60 / effectiveDays;
+  const weekendHours = m * weekdayHours;
+  return {
+    weekdayHours,
+    weekendHours,
+    workOnWeekends: m > 0,
+    daysAvailable: { weekdays, weekends },
+    totalMinutes,
+    feasible: true,
+  };
+}
+
 /** Tiny helper: fresh node skeleton for the editor. */
 export function makeBlankNode(): RoadmapNode {
   return {

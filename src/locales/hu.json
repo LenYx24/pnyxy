@@ -1000,6 +1000,17 @@
     "refOpenCatalog": "Megtekintés a katalógusban",
     "scheduledFor": "Tervezett dátum",
     "resetSchedule": "Visszaállítás automatikusra",
+    "deadline": {
+      "heading": "Befejezés eddig",
+      "clear": "Törlés",
+      "weekendMultiplier": "Hétvégi intenzitás",
+      "weekendMultiplierHint": "A hétvégék {{multiplier}}×-osan számítanak a hétköznapokhoz képest.",
+      "weekendMultiplierZeroHint": "Hétvégén nincs tanulás — csak a hétköznapok számítanak.",
+      "perWeekday": "Hétköznapokon",
+      "perWeekend": "Hétvégi napokon",
+      "coverage": "{{total}} hátralévő tanulás {{weekdays}} hétköznap és {{weekends}} hétvégi nap között.",
+      "infeasible": "A határidő túl közeli (vagy csak hétvégi napok maradtak, és a hétvége ki van kapcsolva)."
+    },
     "notFound": "Nincs ilyen útvonal.",
     "backToList": "Vissza az útvonalakhoz",
     "enroll": {

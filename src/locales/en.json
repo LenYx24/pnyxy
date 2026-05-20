@@ -1000,6 +1000,17 @@
     "refOpenCatalog": "View in catalog",
     "scheduledFor": "Scheduled for",
     "resetSchedule": "Reset to auto-scheduled",
+    "deadline": {
+      "heading": "Finish by",
+      "clear": "Clear",
+      "weekendMultiplier": "Weekend intensity",
+      "weekendMultiplierHint": "Weekends count {{multiplier}}× a weekday.",
+      "weekendMultiplierZeroHint": "Weekends off — only weekdays count.",
+      "perWeekday": "Per weekday",
+      "perWeekend": "Per weekend day",
+      "coverage": "{{total}} of remaining work across {{weekdays}} weekdays and {{weekends}} weekend days.",
+      "infeasible": "Deadline is too soon (or weekends are off and only weekend days remain)."
+    },
     "notFound": "Roadmap not found.",
     "backToList": "Back to roadmaps",
     "enroll": {

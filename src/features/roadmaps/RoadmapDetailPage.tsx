@@ -20,6 +20,7 @@ import {
 } from "@/stores/roadmap-store";
 import { ConfirmModal } from "@/components/ui";
 import { RoadmapGraph } from "./components/RoadmapGraph";
+import { DeadlinePicker } from "./components/DeadlinePicker";
 import { EnrollDialog } from "./EnrollDialog";
 import {
   computeSchedule,
@@ -48,6 +49,7 @@ export function RoadmapDetailPage() {
   const unenroll = useRoadmapStore((s) => s.unenroll);
   const deleteRoadmap = useRoadmapStore((s) => s.deleteRoadmap);
   const setNodeDateOverride = useRoadmapStore((s) => s.setNodeDateOverride);
+  const setDeadline = useRoadmapStore((s) => s.setDeadline);
 
   // Fetch auto-progress for matched book references on mount + on
   // focus (e.g. user reads a referenced book in another tab, comes
@@ -237,73 +239,87 @@ export function RoadmapDetailPage() {
           )}
         </div>
 
-        {/* Side panel — shown when a node is selected. */}
-        {selectedNode && (
+        {/* Side panel — always shown while enrolled (carries the
+            deadline picker that applies to the whole roadmap), with
+            the per-node section appended below when a node is also
+            selected. */}
+        {(enrollment || selectedNode) && (
           <aside className="hidden w-80 shrink-0 overflow-y-auto border-l border-glass-border bg-bg-secondary/50 p-4 lg:block">
-            <h3 className="text-base font-semibold text-text-primary">
-              {selectedNode.title}
-            </h3>
-            {selectedNode.description && (
-              <p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">
-                {selectedNode.description}
-              </p>
-            )}
-            <div className="mt-3 flex items-center gap-1.5 text-xs text-text-muted">
-              <CalendarDays size={12} />
-              <span>{formatMinutes(selectedNode.estimatedMinutes)}</span>
-            </div>
-            {enrollment && selectedSchedule && (
-              <div className="mt-4 space-y-2">
-                <label className="block text-xs font-medium text-text-secondary">
-                  {t("roadmaps.scheduledFor")}
-                </label>
-                <input
-                  type="date"
-                  value={selectedSchedule.dueDate}
-                  onChange={(e) =>
-                    setNodeDateOverride(
-                      enrollment.id,
-                      selectedNode.id,
-                      e.target.value || null,
-                    )
-                  }
-                  className="w-full rounded-md border border-glass-border bg-bg-secondary px-3 py-2 text-sm outline-none focus:border-accent-purple"
-                />
-                {selectedSchedule.manual && (
-                  <button
-                    onClick={() =>
-                      setNodeDateOverride(
-                        enrollment.id,
-                        selectedNode.id,
-                        null,
-                      )
-                    }
-                    className="text-xs text-accent-purple hover:underline"
-                  >
-                    {t("roadmaps.resetSchedule")}
-                  </button>
-                )}
-              </div>
-            )}
             {enrollment && (
-              <NodeProgressPanel
-                manualPct={enrollment.nodeProgress[selectedNode.id] ?? 0}
-                autoPct={autoProgress[selectedNode.id] ?? 0}
-                onChange={(pct) =>
-                  setNodeProgress(enrollment.id, selectedNode.id, pct)
-                }
-                onToggleComplete={() =>
-                  toggleNodeComplete(enrollment.id, selectedNode.id)
-                }
+              <DeadlinePicker
+                roadmap={roadmap}
+                enrollment={enrollment}
+                onChange={(date, mult) => setDeadline(enrollment.id, date, mult)}
               />
             )}
-            <ReferencesPanel
-              references={
-                (selectedNode.payload?.references as
-                  | ResourceRef[]
-                  | undefined) ?? []
-              }
-            />
+            {selectedNode && (
+              <>
+                <h3 className="mt-4 text-base font-semibold text-text-primary">
+                  {selectedNode.title}
+                </h3>
+                {selectedNode.description && (
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">
+                    {selectedNode.description}
+                  </p>
+                )}
+                <div className="mt-3 flex items-center gap-1.5 text-xs text-text-muted">
+                  <CalendarDays size={12} />
+                  <span>{formatMinutes(selectedNode.estimatedMinutes)}</span>
+                </div>
+                {enrollment && selectedSchedule && (
+                  <div className="mt-4 space-y-2">
+                    <label className="block text-xs font-medium text-text-secondary">
+                      {t("roadmaps.scheduledFor")}
+                    </label>
+                    <input
+                      type="date"
+                      value={selectedSchedule.dueDate}
+                      onChange={(e) =>
+                        setNodeDateOverride(
+                          enrollment.id,
+                          selectedNode.id,
+                          e.target.value || null,
+                        )
+                      }
+                      className="w-full rounded-md border border-glass-border bg-bg-secondary px-3 py-2 text-sm outline-none focus:border-accent-purple"
+                    />
+                    {selectedSchedule.manual && (
+                      <button
+                        onClick={() =>
+                          setNodeDateOverride(
+                            enrollment.id,
+                            selectedNode.id,
+                            null,
+                          )
+                        }
+                        className="text-xs text-accent-purple hover:underline"
+                      >
+                        {t("roadmaps.resetSchedule")}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {enrollment && (
+                  <NodeProgressPanel
+                    manualPct={enrollment.nodeProgress[selectedNode.id] ?? 0}
+                    autoPct={autoProgress[selectedNode.id] ?? 0}
+                    onChange={(pct) =>
+                      setNodeProgress(enrollment.id, selectedNode.id, pct)
+                    }
+                    onToggleComplete={() =>
+                      toggleNodeComplete(enrollment.id, selectedNode.id)
+                    }
+                  />
+                )}
+                <ReferencesPanel
+                  references={
+                    (selectedNode.payload?.references as
+                      | ResourceRef[]
+                      | undefined) ?? []
+                  }
+                />
+              </>
+            )}
           </aside>
         )}
       </div>

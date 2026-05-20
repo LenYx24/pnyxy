@@ -16,7 +16,12 @@ import {
   saveRoadmap,
 } from "@/lib/roadmap/roadmap-storage";
 import { useAuthStore } from "@/stores/auth-store";
-import { ymd } from "@/features/roadmaps/lib/scheduler";
+import {
+  deriveHoursForDeadline,
+  parseYmd,
+  remainingEstimatedMinutes,
+  ymd,
+} from "@/features/roadmaps/lib/scheduler";
 
 interface RoadmapState {
   roadmaps: Map<string, Roadmap>;
@@ -31,6 +36,14 @@ interface RoadmapState {
 
   upsertNode(roadmapId: string, node: RoadmapNode): void;
   removeNode(roadmapId: string, nodeId: string): void;
+  /** Targeted patch for the node card's inline minutes editor. Avoids
+   *  routing the full RoadmapNode object through the card just to set
+   *  one field. Negative or NaN values are clamped to 0. */
+  updateNodeMinutes(
+    roadmapId: string,
+    nodeId: string,
+    minutes: number,
+  ): void;
   upsertEdge(roadmapId: string, edge: RoadmapEdge): void;
   removeEdge(roadmapId: string, edgeId: string): void;
   setNodePosition(
@@ -57,6 +70,20 @@ interface RoadmapState {
     enrollmentId: string,
     nodeId: string,
     date: string | null,
+  ): void;
+  /**
+   * Set (or clear) the enrollment's deadline. When `date` is provided,
+   * the store also derives weekday/weekend hours from the remaining
+   * roadmap work + the supplied `weekendMultiplier` and writes them
+   * into schedulePrefs in the same update — so the scheduler's per-node
+   * due dates immediately reflow to hit the deadline. When `date` is
+   * null, the deadline is cleared and the user's manually-set hours
+   * remain untouched.
+   */
+  setDeadline(
+    enrollmentId: string,
+    date: string | null,
+    weekendMultiplier: number,
   ): void;
 }
 
@@ -156,6 +183,16 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
       (e) => e.source !== nodeId && e.target !== nodeId,
     );
     get().updateRoadmap(roadmapId, { nodes, edges });
+  },
+
+  updateNodeMinutes(roadmapId, nodeId, minutes) {
+    const r = get().roadmaps.get(roadmapId);
+    if (!r) return;
+    const safe = Number.isFinite(minutes) ? Math.max(0, Math.round(minutes)) : 0;
+    const nodes = r.nodes.map((n) =>
+      n.id === nodeId ? { ...n, estimatedMinutes: safe } : n,
+    );
+    get().updateRoadmap(roadmapId, { nodes });
   },
 
   upsertEdge(roadmapId, edge) {
@@ -270,6 +307,76 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
     if (date) overrides[nodeId] = date;
     else delete overrides[nodeId];
     get().updateSchedulePrefs(enrollmentId, { nodeDateOverrides: overrides });
+  },
+
+  setDeadline(enrollmentId, date, weekendMultiplier) {
+    const e = get().enrollments.get(enrollmentId);
+    if (!e) return;
+
+    // Clear-deadline path: drop targetEndDate + weekendMultiplier and
+    // leave whatever hours the user (or a previous deadline derivation)
+    // wrote — switching back to manual mode shouldn't surprise the
+    // user with a reset to defaults.
+    if (!date) {
+      const updated: Enrollment = {
+        ...e,
+        targetEndDate: undefined,
+        schedulePrefs: {
+          ...e.schedulePrefs,
+          weekendMultiplier: undefined,
+        },
+        updatedAt: Date.now(),
+      };
+      const next = new Map(get().enrollments);
+      next.set(enrollmentId, updated);
+      set({ enrollments: next });
+      persistEnrollment(updated);
+      return;
+    }
+
+    const roadmap = get().roadmaps.get(e.roadmapId);
+    if (!roadmap) return;
+
+    const totalMinutes = remainingEstimatedMinutes(roadmap, e);
+    // Today is the natural starting point for "what pace do I need
+    // from here on out" — `startDate` ages and would understate the
+    // required hours after a few weeks of enrollment.
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endDate = parseYmd(date);
+
+    const derived = deriveHoursForDeadline({
+      totalMinutes,
+      today,
+      endDate,
+      weekendMultiplier,
+    });
+
+    // Infeasible deadline (past, or only-weekend days with multiplier=0):
+    // still persist the user's chosen date + multiplier so the UI can
+    // show the warning state, but don't clobber their hours with 0s.
+    const hoursPatch = derived.feasible
+      ? {
+          weekdayHours: derived.weekdayHours,
+          weekendHours: derived.weekendHours,
+          workOnWeekends: derived.workOnWeekends,
+        }
+      : {};
+
+    const updated: Enrollment = {
+      ...e,
+      targetEndDate: date,
+      schedulePrefs: {
+        ...e.schedulePrefs,
+        ...hoursPatch,
+        weekendMultiplier,
+      },
+      updatedAt: Date.now(),
+    };
+    const next = new Map(get().enrollments);
+    next.set(enrollmentId, updated);
+    set({ enrollments: next });
+    persistEnrollment(updated);
   },
 }));
 
