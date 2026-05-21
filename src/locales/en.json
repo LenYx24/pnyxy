@@ -1719,7 +1719,10 @@
       "contextPages_one": "{{count}} page",
       "contextPages_other": "{{count}} pages",
       "contextPersona": "your profile",
-      "contextEmpty": "No context attached"
+      "contextEmpty": "No context attached",
+      "pickPagesEmpty": "Tap pages to include",
+      "pickPagesSelected_one": "{{count}} page selected",
+      "pickPagesSelected_other": "{{count}} pages selected"
     }
   },
   "quizzes": {

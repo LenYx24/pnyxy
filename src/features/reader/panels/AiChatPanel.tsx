@@ -38,6 +38,7 @@ import type { IDockviewPanelProps } from "dockview";
 import type { ChatConversation, ChatMessage } from "@/types/chat";
 import { PanelShell } from "./PanelShell";
 import { ContextSummaryPill } from "./ContextSummaryPill";
+import { InlineAiPagePicker } from "./InlineAiPagePicker";
 
 const EMPTY_PATH: ChatMessage[] = [];
 
@@ -147,6 +148,13 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
     );
   }, [input]);
   const [listOpen, setListOpen] = useState(false);
+  // Inline page-picker visibility. Toggled from the ContextSummaryPill;
+  // resets on doc change so re-opening a different book doesn't show
+  // a stale picker that's still mid-mount for the previous PDF.
+  const [pagePickerOpen, setPagePickerOpen] = useState(false);
+  useEffect(() => {
+    setPagePickerOpen(false);
+  }, [activeDocumentId]);
   const [branchFromId, setBranchFromId] = useState<string | null>(null);
   const overflowAnchorRef = useRef<HTMLButtonElement>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
@@ -712,13 +720,24 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       {/* Context summary pill — surfaces what the next message will
           carry as system-prompt context (TOC outline, manually-selected
           pages, custom default persona). The chat-store reads the same
-          state at send time, so this matches what's actually sent. */}
+          state at send time, so this matches what's actually sent.
+          PDF docs get an inline page-picker (toggled from the pill); for
+          other formats the pill falls back to the sidebar editor route
+          via the registered openAiContextEditor. */}
       <ContextSummaryPill
         tocAvailable={(activeDoc?.toc.length ?? 0) > 0}
         tocAttached={aiAttachToc}
         selectedPages={activeDoc?.aiSelectedPages.size ?? 0}
         hasPersona={aiCustomDefaultContext.trim().length > 0}
+        onPickPages={
+          activeDoc?.meta.format === "pdf"
+            ? () => setPagePickerOpen((v) => !v)
+            : undefined
+        }
       />
+      {pagePickerOpen && activeDoc?.meta.format === "pdf" && (
+        <InlineAiPagePicker onClose={() => setPagePickerOpen(false)} />
+      )}
       {/* Shared ChatComposer — same component as the standalone
           chat page, so the reader panel automatically gets every
           composer feature: attachments, mode picker, mic, model

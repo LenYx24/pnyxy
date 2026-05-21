@@ -1719,7 +1719,10 @@
       "contextPages_one": "{{count}} oldal",
       "contextPages_other": "{{count}} oldal",
       "contextPersona": "saját profil",
-      "contextEmpty": "Nincs csatolt kontextus"
+      "contextEmpty": "Nincs csatolt kontextus",
+      "pickPagesEmpty": "Koppints egy oldalra a hozzáadáshoz",
+      "pickPagesSelected_one": "{{count}} oldal kiválasztva",
+      "pickPagesSelected_other": "{{count}} oldal kiválasztva"
     }
   },
   "quizzes": {
