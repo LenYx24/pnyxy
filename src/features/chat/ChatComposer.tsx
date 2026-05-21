@@ -566,6 +566,14 @@ interface ChatComposerProps {
   /** Override the textarea placeholder. Defaults to
    *  `chat.composerPlaceholder` i18n key. */
   placeholderKey?: string;
+  /** When true, drops the side + bottom borders and the bottom
+   *  rounded corners on mobile so the composer sits flush against
+   *  the screen edges. The top corners stay rounded so it still
+   *  reads as its own surface. Desktop falls back to the regular
+   *  panel-island styling. Used by the standalone /chat page; the
+   *  reader-side AI panel keeps the all-around card because it's
+   *  already nested in a narrow side panel with its own chrome. */
+  edgeToEdgeOnMobile?: boolean;
 }
 
 export const ChatComposer = forwardRef<
@@ -580,6 +588,7 @@ export const ChatComposer = forwardRef<
     onStop,
     onLoadReadingContext,
     placeholderKey = "chat.composerPlaceholder",
+    edgeToEdgeOnMobile = false,
   },
   ref,
 ) {
@@ -876,7 +885,16 @@ export const ChatComposer = forwardRef<
   return (
     <div
       className={cn(
-        "rounded-2xl border bg-bg-tertiary p-3 shadow-md transition-colors",
+        "border bg-bg-tertiary p-3 shadow-md transition-colors",
+        // Mobile-flush variant: negative horizontal margin breaks
+        // out of the parent's px-3 so the composer extends to the
+        // viewport edges, side + bottom borders are dropped, and
+        // only the top corners stay rounded so it still reads as
+        // its own surface above the thread. Desktop reverts to the
+        // all-around panel-island with normal margins.
+        edgeToEdgeOnMobile
+          ? "-mx-3 rounded-t-2xl border-x-0 border-b-0 sm:mx-0 sm:rounded-2xl sm:border-x sm:border-b"
+          : "rounded-2xl",
         speech.listening
           ? "border-accent-purple ring-2 ring-accent-purple/30"
           : "border-glass-border focus-within:border-accent-purple/60",
@@ -958,12 +976,15 @@ export const ChatComposer = forwardRef<
           @container query measures the composer's parent so the
           layout switches based on its actual rendered width, not the
           viewport — Dockview can give the panel any size independent
-          of screen. Inner divs use `@[22rem]/cm:contents` to flatten
-          back into a single flex row above the threshold; below, they
-          stay as nested flex containers stacked by `flex-col`. */}
+          of screen. Threshold sits at 30rem (480px): phone portrait
+          (~360–420px) always falls below, tablet-portrait and up
+          stay single-row. Inner divs use `@[30rem]/cm:contents` to
+          flatten back into a single flex row above the threshold;
+          below, they stay as nested flex containers stacked by
+          `flex-col`. */}
       <div className="@container/cm mt-2">
-      <div className="flex flex-col gap-1.5 @[22rem]/cm:flex-row @[22rem]/cm:items-center">
-      <div className="flex min-w-0 items-center gap-1.5 @[22rem]/cm:contents">
+      <div className="flex flex-col gap-1.5 @[30rem]/cm:flex-row @[30rem]/cm:items-center">
+      <div className="flex min-w-0 items-center gap-1.5 @[30rem]/cm:contents">
         <ModelPicker
           value={selectedProvider}
           options={configuredProviders}
@@ -971,7 +992,7 @@ export const ChatComposer = forwardRef<
         />
         <ModePicker value={mode} onChange={setMode} />
       </div>
-      <div className="flex items-center gap-1.5 @[22rem]/cm:contents">
+      <div className="flex items-center gap-1.5 @[30rem]/cm:contents">
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}

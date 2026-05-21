@@ -1146,11 +1146,15 @@ export function ChatPage() {
               </div>
             </div>
 
-            {/* Composer — wrapped as a "panel island" so it sits as
-                its own surface against the thread above. Bottom
-                padding (pb-6) gives the input some breathing room
-                above the page edge. */}
-            <div className="bg-bg-primary/30 px-3 pb-6 pt-3">
+            {/* Composer — wrapped as a "panel island" on desktop
+                (rounded card with breathing room around it). On
+                mobile the wrapper keeps its horizontal padding so the
+                branching / roadmap pills above stay inset, while
+                pb-6 drops to 0 so the composer can sit flush against
+                the screen bottom. The composer's flush variant
+                breaks out of the px-3 horizontally with a negative
+                margin. */}
+            <div className="bg-bg-primary/30 px-3 pb-0 pt-3 sm:pb-6">
               {/* Roadmap edit-mode pill — present when this
                   conversation is tied to a roadmap. The AI has tool
                   access; tool calls render as quoted lines inline. */}
@@ -1261,6 +1265,7 @@ export function ChatPage() {
                   isStreaming={streamingMessageId !== null}
                   onStop={() => useChatStore.getState().stopStreaming()}
                   onLoadReadingContext={handleLoadReadingContext}
+                  edgeToEdgeOnMobile
                 />
               </div>
             </div>
