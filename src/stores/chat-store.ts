@@ -135,8 +135,18 @@ interface ChatState {
    *  mental model some users expect. */
   duplicateFromMessage: (fromMessageId: string) => Promise<string | null>;
   /** Move a conversation into the given folder, or null to send it
-   *  back to the root. */
-  moveConversationToFolder: (id: string, folderId: string | null) => Promise<void>;
+   *  back to the root. When `sortOrder` is provided, the same row
+   *  update also pins the conv's position — used by DnD reorder
+   *  flows where the user drops on a specific neighbour. */
+  moveConversationToFolder: (
+    id: string,
+    folderId: string | null,
+    sortOrder?: number,
+  ) => Promise<void>;
+  /** Update only the sort_order — for same-folder drag reorder.
+   *  Single-row update; the optimistic patch flips the local row
+   *  before the round-trip and rolls back on error. */
+  reorderConversation: (id: string, sortOrder: number) => Promise<void>;
   clearActive: () => void;
 
   // ── Folders ─────────────────────────────────────────────────
@@ -149,8 +159,16 @@ interface ChatState {
   deleteFolder: (id: string) => Promise<void>;
   /** Reparent a folder. `parentId = null` → top-level. Refuses to
    *  set the folder as a descendant of itself (would orphan the
-   *  subtree from the user's view via the cycle). */
-  moveFolderToParent: (id: string, parentId: string | null) => Promise<void>;
+   *  subtree from the user's view via the cycle). Optional
+   *  `sortOrder` pins the position inside the new parent so
+   *  drop-on-sibling DnD lands the folder where the line shows. */
+  moveFolderToParent: (
+    id: string,
+    parentId: string | null,
+    sortOrder?: number,
+  ) => Promise<void>;
+  /** Same-parent reorder. Single-row update, optimistic + rollback. */
+  reorderFolder: (id: string, sortOrder: number) => Promise<void>;
 
   /** Switch the active leaf without sending anything — used when the
    *  user picks a different branch from the tree. */
@@ -230,6 +248,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         .from("chat_conversations")
         .select("*")
         .eq("user_id", user.id)
+        // Manual sort_order is the primary axis; updated_at acts as
+        // a tiebreaker so freshly-touched conversations with the
+        // same (default) sort_order still surface near the top.
+        .order("sort_order", { ascending: true })
         .order("updated_at", { ascending: false });
       if (error) throw error;
       set({ conversations: (data ?? []) as ChatConversation[] });
@@ -245,12 +267,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in to use chat.");
+    // New convs land at the top of their target context. We use
+    // `min(siblings.sort_order) - 1` so the new row's value is
+    // strictly below every existing sibling — no renumbering, no
+    // collisions with another tab's concurrent create.
+    const siblingSorts = get()
+      .conversations.filter((c) => c.folder_id === folderId)
+      .map((c) => c.sort_order);
+    const sortOrder =
+      siblingSorts.length > 0 ? Math.min(...siblingSorts) - 1 : 0;
     const { data, error } = await supabase
       .from("chat_conversations")
       .insert({
         user_id: user.id,
         title,
         folder_id: folderId,
+        sort_order: sortOrder,
         source_doc_id: source?.docId ?? null,
         source_doc_title: source?.docTitle ?? null,
         source_page: source?.page ?? null,
@@ -671,20 +703,70 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
   },
 
-  async moveConversationToFolder(id, folderId) {
+  async moveConversationToFolder(id, folderId, sortOrder) {
+    // No-op guard: dropping a conversation onto its current folder
+    // with no sortOrder change is a frequent DnD overshoot — skip
+    // the round-trip. We do still proceed when sortOrder differs,
+    // since same-folder reorder reaches this method when DnD wants
+    // both a folder change AND a position pin (cross-folder drop on
+    // sibling conv).
+    const current = get().conversations.find((c) => c.id === id);
+    if (!current) return;
+    const folderUnchanged = current.folder_id === folderId;
+    const sortUnchanged =
+      sortOrder === undefined || current.sort_order === sortOrder;
+    if (folderUnchanged && sortUnchanged) return;
+    // Optimistic patch with rollback on error. Mirrors the
+    // moveFolderToParent flow below.
+    const previousFolderId = current.folder_id;
+    const previousSortOrder = current.sort_order;
+    const patch: Partial<ChatConversation> = { folder_id: folderId };
+    if (sortOrder !== undefined) patch.sort_order = sortOrder;
+    set((s) => ({
+      conversations: s.conversations.map((c) =>
+        c.id === id ? { ...c, ...patch } : c,
+      ),
+    }));
+    const update: Record<string, unknown> = { folder_id: folderId };
+    if (sortOrder !== undefined) update.sort_order = sortOrder;
     const { error } = await supabase
       .from("chat_conversations")
-      .update({ folder_id: folderId })
+      .update(update)
       .eq("id", id);
     if (error) {
       logError("chat:moveConversation", error);
+      set((s) => ({
+        conversations: s.conversations.map((c) =>
+          c.id === id
+            ? { ...c, folder_id: previousFolderId, sort_order: previousSortOrder }
+            : c,
+        ),
+      }));
       throw error;
     }
+  },
+
+  async reorderConversation(id, sortOrder) {
+    const current = get().conversations.find((c) => c.id === id);
+    if (!current || current.sort_order === sortOrder) return;
+    const previousSortOrder = current.sort_order;
     set((s) => ({
       conversations: s.conversations.map((c) =>
-        c.id === id ? { ...c, folder_id: folderId } : c,
+        c.id === id ? { ...c, sort_order: sortOrder } : c,
       ),
     }));
+    const { error } = await supabase
+      .from("chat_conversations")
+      .update({ sort_order: sortOrder })
+      .eq("id", id);
+    if (error) {
+      logError("chat:reorderConversation", error);
+      set((s) => ({
+        conversations: s.conversations.map((c) =>
+          c.id === id ? { ...c, sort_order: previousSortOrder } : c,
+        ),
+      }));
+    }
   },
 
   // ── Folders ─────────────────────────────────────────────────
@@ -701,6 +783,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .from("folders")
       .select("*")
       .eq("user_id", user.id)
+      // sort_order asc with created_at as tiebreaker for two
+      // folders that ended up at the same fractional value.
+      .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
     if (error) {
       // The unified `folders` table has existed since the initial
@@ -720,9 +805,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return null;
+    // Same min-1 pattern as createConversation — new folders land
+    // at the top of their parent context. Scoped per (user, parent)
+    // because sort_order only meaningfully compares siblings.
+    const siblingSorts = get()
+      .folders.filter((f) => f.parent_id === parentId)
+      .map((f) => f.sort_order);
+    const sortOrder =
+      siblingSorts.length > 0 ? Math.min(...siblingSorts) - 1 : 0;
     const { data, error } = await supabase
       .from("folders")
-      .insert({ user_id: user.id, name: trimmed, parent_id: parentId })
+      .insert({
+        user_id: user.id,
+        name: trimmed,
+        parent_id: parentId,
+        sort_order: sortOrder,
+      })
       .select()
       .single();
     if (error || !data) {
@@ -763,8 +861,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
     await Promise.all([get().fetchFolders(), get().fetchConversations()]);
   },
 
-  async moveFolderToParent(id, parentId) {
+  async moveFolderToParent(id, parentId, sortOrder) {
     if (id === parentId) return;
+    // No-op guard for "drop onto current parent" — but only when the
+    // sort_order also isn't shifting. Cross-parent moves always
+    // proceed; same-parent calls without a sort change are skipped.
+    const current = get().folders.find((f) => f.id === id);
+    if (!current) return;
+    const parentUnchanged = current.parent_id === parentId;
+    const sortUnchanged =
+      sortOrder === undefined || current.sort_order === sortOrder;
+    if (parentUnchanged && sortUnchanged) return;
     // Cycle guard: walk up from the proposed new parent — if we hit
     // `id` somewhere in its ancestor chain, the move would orphan the
     // subtree from the user's view (a folder can't be its own
@@ -778,19 +885,60 @@ export const useChatStore = create<ChatState>((set, get) => ({
         cursor = next?.parent_id ?? null;
       }
     }
+    // Optimistic patch with rollback on error, mirroring the
+    // conversation-move flow so dragged folders settle into their new
+    // home immediately instead of jumping after a round trip. Both
+    // parent_id and sort_order can shift in the same write; we pin
+    // sort_order only when the caller supplied one.
+    const previousParentId = current.parent_id;
+    const previousSortOrder = current.sort_order;
+    const patch: Partial<ChatFolder> = { parent_id: parentId };
+    if (sortOrder !== undefined) patch.sort_order = sortOrder;
+    set((s) => ({
+      folders: s.folders.map((f) =>
+        f.id === id ? { ...f, ...patch } : f,
+      ),
+    }));
+    const update: Record<string, unknown> = { parent_id: parentId };
+    if (sortOrder !== undefined) update.sort_order = sortOrder;
     const { error } = await supabase
       .from("folders")
-      .update({ parent_id: parentId })
+      .update(update)
       .eq("id", id);
     if (error) {
       logError("chat:moveFolderToParent", error);
+      set((s) => ({
+        folders: s.folders.map((f) =>
+          f.id === id
+            ? { ...f, parent_id: previousParentId, sort_order: previousSortOrder }
+            : f,
+        ),
+      }));
       return;
     }
+  },
+
+  async reorderFolder(id, sortOrder) {
+    const current = get().folders.find((f) => f.id === id);
+    if (!current || current.sort_order === sortOrder) return;
+    const previousSortOrder = current.sort_order;
     set((s) => ({
       folders: s.folders.map((f) =>
-        f.id === id ? { ...f, parent_id: parentId } : f,
+        f.id === id ? { ...f, sort_order: sortOrder } : f,
       ),
     }));
+    const { error } = await supabase
+      .from("folders")
+      .update({ sort_order: sortOrder })
+      .eq("id", id);
+    if (error) {
+      logError("chat:reorderFolder", error);
+      set((s) => ({
+        folders: s.folders.map((f) =>
+          f.id === id ? { ...f, sort_order: previousSortOrder } : f,
+        ),
+      }));
+    }
   },
 }));
 

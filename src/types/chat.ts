@@ -19,6 +19,11 @@ export interface ChatConversation {
    *  apply edits live. Mutually exclusive with target_quiz_id. */
   target_roadmap_id: string | null;
   target_quiz_id: string | null;
+  /** User-controlled position in the sidebar (lower = earlier).
+   *  Drag-and-drop reorder writes a fractional value between the
+   *  two neighbours so a single row update suffices. New
+   *  conversations get `min(siblings) - 1` so they land at the top. */
+  sort_order: number;
   created_at: string;
   updated_at: string;
   active_leaf_id: string | null;
@@ -30,6 +35,10 @@ export interface ChatFolder {
   /** Null = top-level folder (sibling of root-level conversations). */
   parent_id: string | null;
   name: string;
+  /** Same convention + fractional-insert behaviour as conversations.
+   *  Lives on the unified `folders` table; library doesn't read
+   *  this column today but is free to start respecting it later. */
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }

@@ -42,10 +42,13 @@ import {
   closestCenter,
   KeyboardSensor,
   MouseSensor,
+  pointerWithin,
   TouchSensor,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
@@ -116,19 +119,69 @@ export function ChatPage() {
   const renameFolder = useChatStore((s) => s.renameFolder);
   const deleteFolder = useChatStore((s) => s.deleteFolder);
   const moveFolderToParent = useChatStore((s) => s.moveFolderToParent);
+  const reorderConversation = useChatStore((s) => s.reorderConversation);
+  const reorderFolder = useChatStore((s) => s.reorderFolder);
+
+  // The store now fetches conversations ordered by sort_order asc
+  // (DB-backed, see migration 00041). No client-side sort layer
+  // needed — what comes out of useChatStore is already in display
+  // order. Same for folders.
+  const sortedConversations = conversations;
 
   // Drag-and-drop sensors. MouseSensor (not PointerSensor) so touch
   // events are exclusively handled by TouchSensor below — otherwise
-  // PointerSensor's `distance: 8` activation beat TouchSensor's
-  // 200ms delay on phones and a regular scroll-swipe over a
-  // conversation row would start a drag.
+  // PointerSensor's distance activation beat TouchSensor's delay on
+  // phones and a regular scroll-swipe over a conversation row would
+  // start a drag.
+  //
+  // distance: 14 (was 8) — sidebar rows are tight and stuffed with
+  // inline action buttons (Move/Rename/Delete pencils). Clicking
+  // those with even slight cursor drift used to trip the 8px
+  // threshold and start an unintended drag. 14px sits above typical
+  // hand-jitter while staying well below "obvious drag" distances.
+  //
+  // delay: 600 (was 200) — the long-press context menu fires at
+  // 500ms (see use-context-menu.ts). With 200ms the drag always won
+  // and touch users could never reach the context menu via
+  // long-press. 600ms leaves a clear gap: < 500ms tap → click,
+  // 500-600ms hold → context menu, ≥ 600ms hold + movement → drag.
   const dndSensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 14 } }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 5 },
+      activationConstraint: { delay: 600, tolerance: 5 },
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+
+  // Collision detection: pointerWithin matches the dropzone the
+  // pointer is actually inside, which is what users expect for
+  // drop-into semantics. The earlier closestCenter mis-targeted in
+  // two ways: (1) the thin RootDropZone strip has a center far from
+  // where users actually drop, so drops near a folder got attributed
+  // to root; (2) when a folder is hovered near a sibling boundary,
+  // closestCenter picks whichever center is fractionally closer
+  // rather than the one the pointer is in.
+  //
+  // The outer tree wrapper also registers as a "root" droppable so
+  // any drop that misses a folder/conv still lands at root (fixes
+  // the "I can't drop on root" complaint). Without the area-sort
+  // below, that outer droppable would beat nested folder rows
+  // because both contain the pointer. Sorting by ascending area
+  // means the most specific (smallest) droppable wins — folder row
+  // > root container, conversation row > folder row.
+  //
+  // closestCenter stays as a fallback for when the pointer is in a
+  // dead zone between rows so a drop doesn't silently cancel.
+  const collisionDetection: CollisionDetection = (args) => {
+    const within = pointerWithin(args);
+    if (within.length === 0) return closestCenter(args);
+    return within.slice().sort((a, b) => {
+      const aRect = args.droppableRects.get(a.id);
+      const bRect = args.droppableRects.get(b.id);
+      if (!aRect || !bRect) return 0;
+      return aRect.width * aRect.height - bRect.width * bRect.height;
+    });
+  };
 
   // Active drag preview state. Library uses the same pattern: track
   // what's being dragged so a DragOverlay can render a ghost that
@@ -136,6 +189,11 @@ export function ChatPage() {
   // dnd-kit transform on the in-place row (which feels laggy on
   // the chat sidebar's tighter row heights).
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  // Current `over` id during a drag — drives the drop-indicator line
+  // that gets rendered in conversation rows. Tracked separately from
+  // the active drag because we need to know what the pointer is over
+  // *right now*, which dnd-kit updates on every move via onDragOver.
+  const [overDragId, setOverDragId] = useState<string | null>(null);
   const activeDragConv = useMemo(() => {
     if (!activeDragId?.startsWith("conv:")) return null;
     const id = activeDragId.slice("conv:".length);
@@ -149,34 +207,161 @@ export function ChatPage() {
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveDragId(event.active.id as string);
+    setOverDragId(null);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    setOverDragId((event.over?.id as string | null) ?? null);
+  };
+
+  // ─── Sort-order arithmetic helpers ───────────────────────
+  // sort_order is a fractional number (double precision in the DB)
+  // so we can drop an item between any two existing siblings by
+  // computing the midpoint, no batch renumbering needed.
+  //
+  // `topOf(ctx)` picks `min - 1` so a new item lands above
+  // everything else in `ctx` (used by drop-on-folder-body and
+  // drop-on-root).
+  //
+  // `aboveItem(ctx, targetId)` picks the midpoint between target
+  // and its predecessor. `ctx` must be the FUTURE state of the
+  // context — i.e. excluding the dragged item if it's coming from
+  // another context. Result places the dragged item directly above
+  // the target, matching the drop-line UX (line at top = "lands
+  // above").
+  const topOf = (ctx: { sort_order: number }[]): number => {
+    if (ctx.length === 0) return 0;
+    return Math.min(...ctx.map((x) => x.sort_order)) - 1;
+  };
+  const aboveItem = (
+    ctx: { id: string; sort_order: number }[],
+    targetId: string,
+  ): number => {
+    const sorted = [...ctx].sort((a, b) => a.sort_order - b.sort_order);
+    const idx = sorted.findIndex((x) => x.id === targetId);
+    if (idx === -1) return topOf(ctx);
+    const targetSort = sorted[idx].sort_order;
+    if (idx === 0) return targetSort - 1;
+    const prevSort = sorted[idx - 1].sort_order;
+    return (prevSort + targetSort) / 2;
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveDragId(null);
+    setOverDragId(null);
     const { active, over } = event;
     if (!over) return;
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    // Move targets are encoded into droppable ids:
-    //   nest:<folderId>  → drop INTO this folder
-    //   root             → drop at the top level
-    const intoFolderId = overId === "root"
-      ? null
-      : overId.startsWith("nest:")
-        ? overId.slice("nest:".length)
-        : undefined;
-    if (intoFolderId === undefined) return;
+    const isRootDrop = overId === "root" || overId === "root-pin";
 
-    if (activeId.startsWith("conv:")) {
-      const id = activeId.slice("conv:".length);
-      void moveConversationToFolder(id, intoFolderId);
-    } else if (activeId.startsWith("folder:")) {
+    // ─── Folder drag ─────────────────────────────────────────
+    if (activeId.startsWith("folder:")) {
       const id = activeId.slice("folder:".length);
-      // Don't try to drop a folder into itself — moveFolderToParent
-      // also catches descendant cycles.
-      if (id === intoFolderId) return;
-      void moveFolderToParent(id, intoFolderId);
+      const activeFolder = folders.find((f) => f.id === id);
+      if (!activeFolder) return;
+
+      if (isRootDrop) {
+        // Move to root + position at the top.
+        const futureSiblings = folders.filter(
+          (f) => f.parent_id === null && f.id !== id,
+        );
+        void moveFolderToParent(id, null, topOf(futureSiblings));
+        return;
+      }
+
+      // Folder drop on another folder: same-parent → reorder,
+      // different-parent → nest INTO target. Disambiguation by
+      // parent comparison rather than hit-zone splitting keeps the
+      // model simple — "drop next to a sibling" is the common
+      // intent; users who want to nest a sibling use the context
+      // menu or first move the source out of the parent.
+      if (overId.startsWith("folder:") || overId.startsWith("nest:")) {
+        const targetId = overId.startsWith("folder:")
+          ? overId.slice("folder:".length)
+          : overId.slice("nest:".length);
+        if (id === targetId) return;
+        const targetFolder = folders.find((f) => f.id === targetId);
+        if (!targetFolder) return;
+
+        if (activeFolder.parent_id === targetFolder.parent_id) {
+          // Same parent → reorder. Exclude self from the context
+          // sample so aboveItem's midpoint math doesn't see the
+          // dragged folder's current position.
+          const siblings = folders.filter(
+            (f) => f.parent_id === targetFolder.parent_id && f.id !== id,
+          );
+          void reorderFolder(id, aboveItem(siblings, targetId));
+        } else {
+          // Different parent → nest INTO the target. Place at the
+          // top of target's children so the user sees it land
+          // somewhere visible without scrolling.
+          const futureChildren = folders.filter(
+            (f) => f.parent_id === targetId && f.id !== id,
+          );
+          void moveFolderToParent(id, targetId, topOf(futureChildren));
+        }
+      }
+      return;
+    }
+
+    // ─── Conversation drag ───────────────────────────────────
+    if (!activeId.startsWith("conv:")) return;
+    const convId = activeId.slice("conv:".length);
+    const activeConv = conversations.find((c) => c.id === convId);
+    if (!activeConv) return;
+
+    // Drop on root: move to root, land at the top of Quick chats.
+    if (isRootDrop) {
+      const futureRoot = conversations.filter(
+        (c) => c.folder_id === null && c.id !== convId,
+      );
+      void moveConversationToFolder(convId, null, topOf(futureRoot));
+      return;
+    }
+
+    // Drop on a folder row → nest into folder, land at the top.
+    // Both id forms ("folder:" from sortable, "nest:" if any
+    // residual non-sortable path still emits them) route here.
+    if (overId.startsWith("folder:") || overId.startsWith("nest:")) {
+      const targetFolderId = overId.startsWith("folder:")
+        ? overId.slice("folder:".length)
+        : overId.slice("nest:".length);
+      const futureChildren = conversations.filter(
+        (c) => c.folder_id === targetFolderId && c.id !== convId,
+      );
+      void moveConversationToFolder(
+        convId,
+        targetFolderId,
+        topOf(futureChildren),
+      );
+      return;
+    }
+
+    // Drop on another conversation: insert above it. Same folder →
+    // single-row reorder; different folder → move + position pin
+    // in the same write.
+    if (overId.startsWith("conv:")) {
+      const overConvId = overId.slice("conv:".length);
+      if (overConvId === convId) return;
+      const overConv = conversations.find((c) => c.id === overConvId);
+      if (!overConv) return;
+
+      const futureContext = conversations.filter(
+        (c) => c.folder_id === overConv.folder_id && c.id !== convId,
+      );
+      const newSortOrder = aboveItem(futureContext, overConvId);
+
+      if (activeConv.folder_id === overConv.folder_id) {
+        void reorderConversation(convId, newSortOrder);
+      } else {
+        void moveConversationToFolder(
+          convId,
+          overConv.folder_id,
+          newSortOrder,
+        );
+      }
     }
   };
 
@@ -327,10 +512,10 @@ export function ChatPage() {
   const filteredConversationData = useMemo(() => {
     const q = conversationSearch.trim().toLowerCase();
     if (!q) {
-      return { conversations, folders };
+      return { conversations: sortedConversations, folders };
     }
     const folderById = new Map(folders.map((f) => [f.id, f]));
-    const matched = conversations.filter((c) =>
+    const matched = sortedConversations.filter((c) =>
       (c.title || "").toLowerCase().includes(q),
     );
     // Walk up each matched conversation's folder chain so every
@@ -349,7 +534,7 @@ export function ChatPage() {
       conversations: matched,
       folders: folders.filter((f) => keptFolderIds.has(f.id)),
     };
-  }, [conversations, folders, conversationSearch]);
+  }, [sortedConversations, folders, conversationSearch]);
   // If the user disables the picked provider, snap back to "Default"
   // rather than hold a stale value that would either error or be
   // silently ignored by the strict-mode resolver.
@@ -792,11 +977,15 @@ export function ChatPage() {
 
         <DndContext
           sensors={dndSensors}
-          collisionDetection={closestCenter}
+          collisionDetection={collisionDetection}
           modifiers={[restrictToWindowEdges]}
           onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
-          onDragCancel={() => setActiveDragId(null)}
+          onDragCancel={() => {
+            setActiveDragId(null);
+            setOverDragId(null);
+          }}
         >
           <div className="flex-1 space-y-0.5 overflow-y-auto">
             {conversations.length === 0 && folders.length === 0 ? (
@@ -815,6 +1004,8 @@ export function ChatPage() {
                   folders={filteredConversationData.folders}
                   conversations={filteredConversationData.conversations}
                   activeId={activeId}
+                  activeDragId={activeDragId}
+                  overDragId={overDragId}
                   editingId={editingId}
                   editTitle={editTitle}
                   collapsedFolders={collapsedFolders}
