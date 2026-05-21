@@ -1,14 +1,18 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, BookOpen } from "lucide-react";
-import { Button } from "@/components/ui";
+import { ArrowLeft, BookOpen, Pencil } from "lucide-react";
+import { Button, PromptModal } from "@/components/ui";
 import { BookPageContext } from "./BookPageContext";
 import { BookPageSidebar } from "./BookPageSidebar";
 import { PageTracker } from "./PageTracker";
 import { useBookData } from "./useBookData";
 import { trackRecentlyViewed } from "@/features/browse/recently-viewed";
 import { bookIdSegment, parseBookIdSegment } from "@/lib/slugify";
+import { useLibraryStore } from "@/stores/library-store";
+import { containsProfanity } from "@/lib/profanity-filter";
+import { logError } from "@/lib/logger";
+import type { UploadedLibraryItem } from "@/types/catalog";
 
 export function BookPage() {
   const { t } = useTranslation();
@@ -24,7 +28,11 @@ export function BookPage() {
     [rawBookId],
   );
 
-  const { data, loading, notFound } = useBookData(bookId);
+  const { data, loading, notFound, patchUploadedBook } = useBookData(bookId);
+  // Rename modal lives at the BookPage level so the click target in
+  // the sidebar (the <h1>) can open it. Only uploaded books get the
+  // affordance — catalog titles are shared community metadata.
+  const [renameOpen, setRenameOpen] = useState(false);
 
   // Track catalog-book visits for the "Recently viewed" shelf (which
   // will live on the future Home page). Non-catalog books are ignored.
@@ -122,9 +130,28 @@ export function BookPage() {
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <h1 className="line-clamp-2 text-sm font-semibold text-text-primary">
-                  {title}
-                </h1>
+                {data.source === "uploaded" ? (
+                  <button
+                    type="button"
+                    onClick={() => setRenameOpen(true)}
+                    title={t("library.actions.rename", {
+                      defaultValue: "Rename",
+                    })}
+                    className="group/title -mx-1 flex w-full items-start gap-1 rounded px-1 py-0.5 text-left transition-colors hover:bg-glass-hover cursor-pointer"
+                  >
+                    <h1 className="line-clamp-2 min-w-0 flex-1 text-sm font-semibold text-text-primary">
+                      {title}
+                    </h1>
+                    <Pencil
+                      size={11}
+                      className="mt-0.5 shrink-0 text-text-muted opacity-0 transition-opacity group-hover/title:opacity-100"
+                    />
+                  </button>
+                ) : (
+                  <h1 className="line-clamp-2 text-sm font-semibold text-text-primary">
+                    {title}
+                  </h1>
+                )}
                 <p className="line-clamp-1 text-[11px] text-text-muted">
                   {authors}
                 </p>
@@ -156,6 +183,70 @@ export function BookPage() {
           <Outlet />
         </main>
       </div>
+      {data.source === "uploaded" && (
+        <PromptModal
+          open={renameOpen}
+          title={t("library.actions.renameBookTitle", {
+            defaultValue: "Rename book",
+          })}
+          defaultValue={data.book.title}
+          validate={(value) => {
+            if (value.length > 200) {
+              return t("library.actions.renameTooLong", {
+                defaultValue: "Title is too long (max 200 characters).",
+              });
+            }
+            if (containsProfanity(value)) {
+              return t("library.actions.renameProfanity", {
+                defaultValue: "Title contains disallowed language.",
+              });
+            }
+            return null;
+          }}
+          onClose={() => setRenameOpen(false)}
+          onSubmit={(value) => {
+            // Build the same UploadedLibraryItem shape the library
+            // surfaces use so the store's optimistic patch lands on
+            // the right row. file_name / storage_path are required
+            // by the type but renameBook only touches `book.title`,
+            // so falling back to empty strings here is safe.
+            const entry: UploadedLibraryItem = {
+              source: "uploaded",
+              id: data.book.id,
+              folder_id: data.book.folder_id,
+              added_at: data.book.created_at,
+              book: {
+                id: data.book.id,
+                title: data.book.title,
+                author: data.book.author,
+                cover_url: data.book.cover_url,
+                page_count: data.book.page_count,
+                format: data.book.format,
+                file_hash: data.book.file_hash,
+                storage_path: data.storagePath ?? "",
+                size_bytes: data.sizeBytes,
+                file_name: data.fileName ?? "",
+              },
+            };
+            // Patch local view first so the sidebar + URL slug update
+            // before the round-trip lands — same instant feel as a
+            // library-surface rename. The store also patches its own
+            // copy, so navigating back to /library shows the new
+            // title without a refetch.
+            const trimmed = value.trim();
+            patchUploadedBook({ title: trimmed });
+            void useLibraryStore
+              .getState()
+              .renameBook(entry, value)
+              .catch((err) => {
+                logError("book:renameTitle", err);
+                // Revert the optimistic local patch on failure so the
+                // user doesn't see a title that didn't actually save.
+                patchUploadedBook({ title: data.book.title });
+              });
+          }}
+        />
+      )}
     </BookPageContext.Provider>
   );
 }

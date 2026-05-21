@@ -562,7 +562,13 @@
       "fromUrlTitle": "Open a file from a URL",
       "manual": "Manual entry",
       "manualTitle": "Add a book by hand — for physical copies or books without a file",
-      "more": "More"
+      "more": "More",
+      "download": "Download",
+      "downloadFormat": "Download {{format}}",
+      "rename": "Rename",
+      "renameBookTitle": "Rename book",
+      "renameTooLong": "Title is too long (max 200 characters).",
+      "renameProfanity": "Title contains disallowed language."
     },
     "addManual": {
       "title": "Add a book manually",

@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { FloatingMenu } from "@/components/ui/FloatingMenu";
 import { getZoomControls } from "./gestures/pinch-zoom-controller";
 import { useLocation, useNavigate } from "react-router";
@@ -291,7 +291,18 @@ export function ReaderToolbar({
   const setActiveHighlightColor = useAnnotationStore((s) => s.setActiveHighlightColor);
   const canUndo = useUndoStore((s) => s.stack.length > 0);
   const performUndo = useUndoStore((s) => s.performUndo);
+  // Page input mirrors the live currentPage as a real value (not a
+  // placeholder) so the caret doesn't blink on top of grayed-out
+  // digits. `pageInputFocused` gates the sync-from-store effect:
+  // while the user is typing we never overwrite their draft, but
+  // any external change (arrow keys, scroll-driven page tracking,
+  // bookmark jump) is reflected the moment focus leaves.
   const [pageInput, setPageInput] = useState("");
+  const [pageInputFocused, setPageInputFocused] = useState(false);
+  const currentPageForSync = activeDoc?.currentPage ?? 1;
+  useEffect(() => {
+    if (!pageInputFocused) setPageInput(String(currentPageForSync));
+  }, [currentPageForSync, pageInputFocused]);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -330,7 +341,9 @@ export function ReaderToolbar({
     if (!isNaN(page)) {
       goToPage(page);
     }
-    setPageInput("");
+    // Don't clear; the focus/sync effect will pull the (possibly new)
+    // currentPage in once the input blurs — which also handles the
+    // "user typed garbage and submitted" case by reverting cleanly.
   };
 
   const handlePageSubmit = (e: React.FormEvent) => {
@@ -555,21 +568,42 @@ export function ReaderToolbar({
             inputMode="numeric"
             value={pageInput}
             onChange={(e) => setPageInput(e.target.value)}
+            // Select-all on focus so a single click prepares the input
+            // for "just type the new page" without forcing the user
+            // to first highlight or backspace. The select runs in a
+            // microtask via requestAnimationFrame because Chromium
+            // occasionally collapses a selection set synchronously
+            // during the focus event when the click also positions
+            // the caret.
+            onFocus={(e) => {
+              setPageInputFocused(true);
+              const el = e.currentTarget;
+              requestAnimationFrame(() => el.select());
+            }}
+            onBlur={() => {
+              setPageInputFocused(false);
+              // Sync effect will reset to the (post-submit) currentPage
+              // on the next render. No manual reset needed.
+            }}
             // Belt-and-braces: rely on form's implicit-submit-on-Enter
             // for the desktop happy path, but also handle Enter on
             // keydown directly. Some embedded webviews (Tauri / iOS
             // PWA in standalone mode) swallow the synthetic Enter on
             // single-input forms when the input is rendered inside a
             // flex/grid container nested deep enough; the keydown
-            // listener guarantees the jump fires regardless.
+            // listener guarantees the jump fires regardless. Escape
+            // bails out without navigating — drop the draft and blur.
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
                 submitPageInput();
                 (e.currentTarget as HTMLInputElement).blur();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                setPageInput(String(currentPage));
+                (e.currentTarget as HTMLInputElement).blur();
               }
             }}
-            placeholder={String(currentPage)}
             className={cn(
               "rounded border border-glass-border bg-glass-bg px-1.5 py-0.5 text-center font-semibold text-text-primary outline-none focus:border-accent-purple",
               isMobile ? "w-10 text-xs" : "w-12 text-sm",

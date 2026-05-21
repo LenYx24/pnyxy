@@ -62,6 +62,10 @@ interface LibraryState {
   navigateToFolder: (id: string | null) => void;
   moveBookToFolder: (entry: UnifiedLibraryItem, folderId: string | null) => Promise<void>;
   moveFolderToFolder: (folderId: string, newParentId: string | null) => Promise<void>;
+  /** Rename an uploaded book. Catalog titles aren't user-editable
+   *  (they live on the shared catalog_books row). Throws on empty,
+   *  too-long, or profane titles so callers can surface a toast. */
+  renameBook: (entry: UploadedLibraryItem, title: string) => Promise<void>;
   removeFromLibrary: (entry: UnifiedLibraryItem) => Promise<void>;
   getBooksInFolder: (folderId: string | null) => UnifiedLibraryItem[];
   getSubfolders: (parentId: string | null) => Folder[];
@@ -480,6 +484,41 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       id: entry.id,
       source: entry.source,
       folder_id: folderId,
+    });
+  },
+
+  renameBook: async (entry, title) => {
+    // Sanitize first so a paste with control chars / runs of
+    // whitespace can't ship a janky title to Supabase. Mirrors the
+    // shape of renameFolder above — same profanity gate, same
+    // optimistic-then-queue rhythm.
+    const sanitized = title
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\x00-\x1F\x7F]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (sanitized.length === 0) {
+      throw new Error("Title cannot be empty.");
+    }
+    if (sanitized.length > 200) {
+      throw new Error("Title is too long (max 200 characters).");
+    }
+    if (containsProfanity(sanitized)) {
+      throw new Error(
+        "Title contains disallowed language. Please choose another.",
+      );
+    }
+    set((state) => ({
+      books: state.books.map((b) =>
+        b.source === "uploaded" && b.id === entry.id
+          ? { ...b, book: { ...b.book, title: sanitized } }
+          : b,
+      ),
+    }));
+    void enqueueMutation<BookSyncPayload>("book", "update", {
+      id: entry.id,
+      source: "uploaded",
+      title: sanitized,
     });
   },
 

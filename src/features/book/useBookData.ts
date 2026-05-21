@@ -38,6 +38,19 @@ export function useBookData(bookId: string | undefined) {
   const [loading, setLoading] = useState(() => !!bookId);
   const [notFound, setNotFound] = useState(() => !bookId);
 
+  // Optimistic patch for the loaded uploaded-book row. Returned to
+  // callers so a rename-from-the-description-page can update the
+  // sidebar title + URL slug without a re-fetch round trip. The
+  // library-store is the source of truth on its own — this just
+  // keeps this page's local copy in sync for the in-flight session.
+  const patchUploadedBook = (patch: Partial<Book>) => {
+    setData((d) =>
+      d?.source === "uploaded"
+        ? { ...d, book: { ...d.book, ...patch } }
+        : d,
+    );
+  };
+
   useEffect(() => {
     if (!bookId) return;
     let cancelled = false;
@@ -116,5 +129,5 @@ export function useBookData(bookId: string | undefined) {
     };
   }, [bookId]);
 
-  return { data, loading, notFound };
+  return { data, loading, notFound, patchUploadedBook };
 }

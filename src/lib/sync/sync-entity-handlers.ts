@@ -106,9 +106,13 @@ export interface FolderSyncPayload {
 export interface BookSyncPayload {
   id: string;
   source: "catalog" | "uploaded";
-  /** Partial patch for `update`. Today the only mutable field is
-   *  folder_id (move to folder / move to root). */
+  /** Partial patch for `update`. Mutable fields:
+   *  - folder_id  (move to folder / move to root, both sources)
+   *  - title      (rename, uploaded only — catalog titles are shared
+   *               community metadata)
+   */
   folder_id?: string | null;
+  title?: string;
   /** For `delete` on an uploaded book: the storage object key to
    *  remove before the DB row goes. The Storage `remove` is
    *  best-effort and idempotent — if the file is already gone the
@@ -140,10 +144,19 @@ async function handleBook(
     return;
   }
   if (op === "update") {
-    if (payload.folder_id === undefined) return;
+    const patch: Record<string, unknown> = {};
+    if (payload.folder_id !== undefined) patch.folder_id = payload.folder_id;
+    // Title rename is uploaded-only. Catalog titles live on the
+    // shared `catalog_books` row and would affect every user — we
+    // refuse to forward such a payload as a defence in depth even
+    // if the store ever leaked one through.
+    if (payload.title !== undefined && payload.source === "uploaded") {
+      patch.title = payload.title;
+    }
+    if (Object.keys(patch).length === 0) return;
     const { error } = await supabase
       .from(table)
-      .update({ folder_id: payload.folder_id })
+      .update(patch)
       .eq("id", payload.id);
     if (error) throwClassifiedSupabaseError(error.message, error.code);
     return;

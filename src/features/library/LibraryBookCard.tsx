@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   MoreVertical,
   FolderInput,
@@ -9,12 +9,21 @@ import {
   Info,
   Heart,
   BookOpen,
+  Download,
+  Pencil,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Checkbox, FloatingMenu, TagBadge } from "@/components/ui";
+import { Checkbox, FloatingMenu, PromptModal, TagBadge } from "@/components/ui";
+import {
+  canDownloadEntry,
+  getDownloadActions,
+  type DownloadAction,
+} from "@/lib/library/download-entry";
+import { containsProfanity } from "@/lib/profanity-filter";
+import { logError } from "@/lib/logger";
 import { PdfCoverThumbnail } from "@/components/ui/PdfCoverThumbnail";
 import { useLibraryStore } from "@/stores/library-store";
 import { useTagStore, bookKey } from "@/stores/tag-store";
@@ -76,7 +85,33 @@ export function LibraryBookCard({
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // Download options: one item for uploaded books, up to three for
+  // public-domain catalog scans. Memoised so the menu doesn't
+  // rebuild closures on every hover.
+  const downloadActions: DownloadAction[] = useMemo(
+    () => (canDownloadEntry(entry) ? getDownloadActions(entry) : []),
+    [entry],
+  );
+  const downloadLabel = (action: DownloadAction): string => {
+    if (action.format === "original") {
+      return t("library.actions.download", { defaultValue: "Download" });
+    }
+    return t("library.actions.downloadFormat", {
+      defaultValue: "Download {{format}}",
+      format: action.format.toUpperCase(),
+    });
+  };
+  const runDownload = async (action: DownloadAction) => {
+    setMenuOpen(false);
+    try {
+      await action.run();
+    } catch (err) {
+      logError("library:downloadAction", err);
+    }
+  };
   const key = bookKey(entry);
   const tags = useTagStore((s) => s.bookTags.get(key)) ?? [];
   const customTags = useTagStore((s) => s.customTagsByBook.get(key)) ?? [];
@@ -382,6 +417,32 @@ export function LibraryBookCard({
                 onClick={(e) => {
                   e.stopPropagation();
                   setMenuOpen(false);
+                  setRenameOpen(true);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              >
+                <Pencil size={14} />
+                {t("library.actions.rename", { defaultValue: "Rename" })}
+              </button>
+            )}
+            {downloadActions.map((action) => (
+              <button
+                key={action.key}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void runDownload(action);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              >
+                <Download size={14} />
+                {downloadLabel(action)}
+              </button>
+            ))}
+            {entry.source === "uploaded" && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
                   setShareOpen(true);
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
@@ -424,6 +485,39 @@ export function LibraryBookCard({
         onClose={() => setInfoOpen(false)}
         entry={entry}
       />
+      {entry.source === "uploaded" && (
+        <PromptModal
+          open={renameOpen}
+          title={t("library.actions.renameBookTitle", {
+            defaultValue: "Rename book",
+          })}
+          defaultValue={entry.book.title}
+          validate={(value) => {
+            // PromptModal trims + rejects empty before this runs.
+            // Length & profanity are surfaced inline so the user
+            // can fix without losing the modal context. The store
+            // re-validates as defence in depth.
+            if (value.length > 200) {
+              return t("library.actions.renameTooLong", {
+                defaultValue: "Title is too long (max 200 characters).",
+              });
+            }
+            if (containsProfanity(value)) {
+              return t("library.actions.renameProfanity", {
+                defaultValue: "Title contains disallowed language.",
+              });
+            }
+            return null;
+          }}
+          onClose={() => setRenameOpen(false)}
+          onSubmit={(value) => {
+            void useLibraryStore
+              .getState()
+              .renameBook(entry, value)
+              .catch((err) => logError("library:renameBook", err));
+          }}
+        />
+      )}
     </div>
   );
 }

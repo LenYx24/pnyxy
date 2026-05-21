@@ -3,9 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
   Plus,
   Check,
-  Download,
   Loader2,
-  ExternalLink,
   BookOpen,
   FileText,
   FileX2,
@@ -22,7 +20,10 @@ import {
   StarRatingDisplay,
   StarRatingInput,
 } from "@/components/ui";
-import { getDownloadOptions } from "@/lib/open-library";
+import {
+  getCatalogBookDownloadActions,
+  getDownloadActions,
+} from "@/lib/library/download-entry";
 import { useBrowseStore } from "@/stores/browse-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useRatingStore } from "@/stores/rating-store";
@@ -40,7 +41,6 @@ import {
 import { useConfirm } from "@/hooks/use-confirm";
 import type {
   CatalogBook,
-  DownloadOption,
   UploadedLibraryItem,
 } from "@/types/catalog";
 import type { Book, Category } from "@/types/database";
@@ -48,6 +48,7 @@ import { useBook } from "../BookPageContext";
 import { BookStatusPicker } from "../BookStatusPicker";
 import { BookCategoryEditor } from "../BookCategoryEditor";
 import { AttachFileButton } from "../AttachFileButton";
+import { DownloadButton } from "../DownloadButton";
 import { ReadingSessionCard } from "../ReadingSessionCard";
 
 /**
@@ -263,16 +264,11 @@ function CatalogOverview({
     }
   };
 
-  let downloads: DownloadOption[] = [];
-  if (book.ia_id) {
-    downloads = getDownloadOptions(book.ia_id);
-  } else if (book.download_url) {
-    const ext = book.download_url.split(".").pop()?.toLowerCase();
-    const format = ext === "epub" ? "epub" : ext === "txt" ? "txt" : "pdf";
-    downloads = [
-      { format, url: book.download_url, label: format.toUpperCase() },
-    ];
-  }
+  // Licensing-gated downloads. Public-domain IA scans expose three
+  // formats (PDF / EPUB / TXT); explicit catalog `download_url`
+  // entries expose one. Commercial catalog rows have neither and
+  // DownloadButton renders nothing.
+  const downloadActions = getCatalogBookDownloadActions(book);
 
   const handleAddToLibrary = async () => {
     if (!user) return;
@@ -308,7 +304,6 @@ function CatalogOverview({
   };
 
   const hasReadable = !!(book.download_url || book.ia_id);
-  const primaryDownload = downloads[0];
 
   return (
     <div className="space-y-6">
@@ -380,21 +375,11 @@ function CatalogOverview({
         <GenerateFlashcardsFromBookButton />
         <GenerateExamFromBookButton />
 
-        {/* Keep one download fallback for users who want the file
-            offline or in a different reader. Single link, not the
-            format matrix that was here before. */}
-        {primaryDownload && (
-          <a
-            href={primaryDownload.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-5 py-2.5 text-sm font-medium text-text-primary backdrop-blur-md transition-all duration-200 hover:bg-glass-hover"
-          >
-            <Download size={16} />
-            {t("book.overview.download")}
-            <ExternalLink size={12} className="text-text-muted" />
-          </a>
-        )}
+        {/* Download dropdown (PDF / EPUB / TXT for IA scans, single
+            link for catalog rows with a direct download_url). Renders
+            nothing for commercial-only entries — same licensing gate
+            the library cards use. */}
+        <DownloadButton actions={downloadActions} />
       </div>
 
       {!hasReadable && (
@@ -562,29 +547,39 @@ function UploadedOverview({
     return prefetchBookBlob(storagePath, { sizeBytes });
   }, [storagePath, sizeBytes]);
 
+  // Built once and reused by both "Open in reader" and the Download
+  // button. Synthesising the UploadedLibraryItem here matches the
+  // shape every downstream consumer already expects (openUploadedBook,
+  // getDownloadActions), keeping this page from drifting away from
+  // the library card surfaces.
+  const uploadedEntry: UploadedLibraryItem | null =
+    storagePath && fileName
+      ? {
+          source: "uploaded",
+          id: book.id,
+          folder_id: book.folder_id,
+          added_at: book.created_at,
+          book: {
+            id: book.id,
+            title: book.title,
+            author: book.author,
+            cover_url: book.cover_url,
+            page_count: book.page_count,
+            format: book.format,
+            file_hash: book.file_hash,
+            storage_path: storagePath,
+            size_bytes: sizeBytes,
+            file_name: fileName,
+          },
+        }
+      : null;
+  const downloadActions = uploadedEntry ? getDownloadActions(uploadedEntry) : [];
+
   const handleOpen = async () => {
-    if (!storagePath || !fileName) return;
+    if (!uploadedEntry) return;
     setLoading(true);
     try {
-      const entry: UploadedLibraryItem = {
-        source: "uploaded",
-        id: book.id,
-        folder_id: book.folder_id,
-        added_at: book.created_at,
-        book: {
-          id: book.id,
-          title: book.title,
-          author: book.author,
-          cover_url: book.cover_url,
-          page_count: book.page_count,
-          format: book.format,
-          file_hash: book.file_hash,
-          storage_path: storagePath,
-          size_bytes: sizeBytes,
-          file_name: fileName,
-        },
-      };
-      await openUploadedBook(entry);
+      await openUploadedBook(uploadedEntry);
     } finally {
       setLoading(false);
     }
@@ -613,6 +608,7 @@ function UploadedOverview({
         <GenerateQuizFromBookButton />
         <GenerateFlashcardsFromBookButton />
         <GenerateExamFromBookButton />
+        <DownloadButton actions={downloadActions} />
       </div>
 
       {!storagePath && (

@@ -1,11 +1,13 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   BookOpen,
+  Download,
   FolderInput,
   GripVertical,
   Info,
+  Pencil,
   Share2,
   Tag,
   Trash2,
@@ -14,7 +16,7 @@ import {
 import { useDraggable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Checkbox, TagBadge } from "@/components/ui";
+import { Checkbox, PromptModal, TagBadge } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useLibraryStore } from "@/stores/library-store";
 import { bookKey, useTagStore } from "@/stores/tag-store";
@@ -23,6 +25,13 @@ import { bookIdSegment } from "@/lib/slugify";
 import { useContextMenu } from "@/hooks/use-context-menu";
 import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import type { UnifiedLibraryItem } from "@/types/catalog";
+import {
+  canDownloadEntry,
+  getDownloadActions,
+  type DownloadAction,
+} from "@/lib/library/download-entry";
+import { containsProfanity } from "@/lib/profanity-filter";
+import { logError } from "@/lib/logger";
 import { TagPickerDropdown } from "../TagPickerDropdown";
 import { BookInfoModal } from "../modals/BookInfoModal";
 import { ShareBookModal } from "../modals/ShareBookModal";
@@ -107,6 +116,33 @@ export function BookRow({
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+
+  // Download options for this row — single item for uploaded books,
+  // up to three for public-domain catalog scans (PDF / EPUB / TXT).
+  // Empty array when the catalog entry has no downloadable artifact
+  // (commercial-only metadata).
+  const downloadActions: DownloadAction[] = useMemo(
+    () => (canDownloadEntry(entry) ? getDownloadActions(entry) : []),
+    [entry],
+  );
+  const downloadLabel = (action: DownloadAction): string => {
+    if (action.format === "original") {
+      return t("library.actions.download", { defaultValue: "Download" });
+    }
+    return t("library.actions.downloadFormat", {
+      defaultValue: "Download {{format}}",
+      format: action.format.toUpperCase(),
+    });
+  };
+  const runDownload = async (action: DownloadAction) => {
+    setMenuOpen(false);
+    try {
+      await action.run();
+    } catch (err) {
+      logError("library:downloadAction", err);
+    }
+  };
   // Anchor for the tag picker. Wraps the ContextMenu's button area so
   // the picker pops near the 3-dots (which is the "Manage tags" entry
   // they just clicked from). The 3-dots button itself is owned by
@@ -185,6 +221,22 @@ export function BookRow({
         onClick: () => onMove(entry),
       },
     ];
+    if (entry.source === "uploaded") {
+      items.push({
+        id: "rename",
+        label: t("library.actions.rename", { defaultValue: "Rename" }),
+        icon: Pencil,
+        onClick: () => setRenameOpen(true),
+      });
+    }
+    for (const action of downloadActions) {
+      items.push({
+        id: `download-${action.key}`,
+        label: downloadLabel(action),
+        icon: Download,
+        onClick: () => void runDownload(action),
+      });
+    }
     if (entry.source === "uploaded") {
       items.push({
         id: "share",
@@ -381,6 +433,24 @@ export function BookRow({
             />
             {entry.source === "uploaded" && (
               <MenuItem
+                icon={Pencil}
+                label={t("library.actions.rename", { defaultValue: "Rename" })}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setRenameOpen(true);
+                }}
+              />
+            )}
+            {downloadActions.map((action) => (
+              <MenuItem
+                key={action.key}
+                icon={Download}
+                label={downloadLabel(action)}
+                onClick={() => void runDownload(action)}
+              />
+            ))}
+            {entry.source === "uploaded" && (
+              <MenuItem
                 icon={Share2}
                 label="Share with community"
                 onClick={() => {
@@ -422,6 +492,35 @@ export function BookRow({
         onClose={() => setInfoOpen(false)}
         entry={entry}
       />
+      {entry.source === "uploaded" && (
+        <PromptModal
+          open={renameOpen}
+          title={t("library.actions.renameBookTitle", {
+            defaultValue: "Rename book",
+          })}
+          defaultValue={entry.book.title}
+          validate={(value) => {
+            if (value.length > 200) {
+              return t("library.actions.renameTooLong", {
+                defaultValue: "Title is too long (max 200 characters).",
+              });
+            }
+            if (containsProfanity(value)) {
+              return t("library.actions.renameProfanity", {
+                defaultValue: "Title contains disallowed language.",
+              });
+            }
+            return null;
+          }}
+          onClose={() => setRenameOpen(false)}
+          onSubmit={(value) => {
+            void useLibraryStore
+              .getState()
+              .renameBook(entry, value)
+              .catch((err) => logError("library:renameBook", err));
+          }}
+        />
+      )}
     </div>
   );
 }

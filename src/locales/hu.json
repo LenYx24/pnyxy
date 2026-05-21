@@ -562,7 +562,13 @@
       "fromUrlTitle": "Fájl megnyitása URL-ről",
       "manual": "Kézi rögzítés",
       "manualTitle": "Könyv kézi hozzáadása — papíralapú vagy fájl nélküli könyvekhez",
-      "more": "Továbbiak"
+      "more": "Továbbiak",
+      "download": "Letöltés",
+      "downloadFormat": "Letöltés ({{format}})",
+      "rename": "Átnevezés",
+      "renameBookTitle": "Könyv átnevezése",
+      "renameTooLong": "A cím túl hosszú (legfeljebb 200 karakter).",
+      "renameProfanity": "A cím nem megfelelő nyelvezetet tartalmaz."
     },
     "addManual": {
       "title": "Könyv hozzáadása kézzel",
