@@ -370,6 +370,13 @@ ${contextBody}
 
 Answer questions about this document. Be concise and helpful.
 
+Formatting:
+- Use markdown to make answers easy to scan rather than a wall of gray text. The chat renders **bold**, *italics*, bullet/numbered lists, fenced code blocks, tables, and \`##\` / \`###\` headers.
+- **Bold** key terms, names, and the load-bearing parts of an answer; use *italics* sparingly for emphasis or for titles of works.
+- Break ideas into short paragraphs separated by blank lines — single newlines also break to a new line, but blank lines give proper paragraph spacing and read better.
+- Reach for bullet lists when enumerating 2+ items, comparing things, or listing steps; use a numbered list when order or count matters. One-sentence answers stay one sentence — don't over-structure trivial replies.
+- Use \`##\` / \`###\` headers only when an answer has multiple genuine sections worth labelling; skip them for short replies.
+
 When you reference the book, cite it inline using one of these two formats:
 - For a page reference: [p.N] — e.g. "the author's main argument [p.42]".
 - When you can point to an exact passage on that page, include the literal quoted text: [p.N:"the exact text you mean"] — e.g. "this is best summarized as [p.42:\\"a network of independent agents\\"]". The reader will jump to page N and highlight that passage.

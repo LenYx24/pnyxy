@@ -82,6 +82,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const messages = useChatStore((s) => s.messages);
   const activeLeafId = useChatStore((s) => s.activeLeafId);
   const streamingMessageId = useChatStore((s) => s.streamingMessageId);
+  const isChatLoading = useChatStore((s) => s.isLoading);
   const fetchConversations = useChatStore((s) => s.fetchConversations);
   const createConversation = useChatStore((s) => s.createConversation);
   const openConversation = useChatStore((s) => s.openConversation);
@@ -223,29 +224,55 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
     setInput(draft.text);
   }, [pendingDraft, user]);
 
-  // Snap to the most recent conversation for the doc when the user
-  // switches docs (reader tabs). Falls back to clearActive() so the
-  // composer treats the next send as "create a new conversation".
-  // Keyed on `activeDocumentId` only — re-running on every conversation
-  // list update would clobber the user's manual switch.
+  // Snap to the most recent conversation for the doc on panel open
+  // (and when switching docs / reader tabs). The conversations list
+  // is fetched lazily after mount, so we can't key this effect on
+  // `activeDocumentId` alone — that ran once with an empty list and
+  // never restored the previous thread when the user came back to a
+  // book. Instead, we track which docId we've already snap-attempted
+  // for in a ref; the effect can re-run safely once `conversations`
+  // populates (or any time the user manually switches), and the ref
+  // prevents a re-snap from clobbering that manual choice.
+  const snappedForDocIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!activeDocumentId || !user) return;
+    // Wait for the initial fetch — without this, we'd snap to an
+    // empty list, fall through to clearActive(), and then never
+    // recover because subsequent runs see snappedForDocIdRef already
+    // set for this doc.
+    if (isChatLoading && conversations.length === 0) return;
+    if (snappedForDocIdRef.current === activeDocumentId) return;
+    // Already pointing at a conversation for this doc (e.g. user
+    // navigated here from /chat with a doc-scoped thread already
+    // active). Counts as snapped — leave it alone.
     if (
       activeConversation &&
       activeConversation.source_doc_id === activeDocumentId
     ) {
+      snappedForDocIdRef.current = activeDocumentId;
       return;
     }
     const candidates = conversations.filter(
       (c) => c.source_doc_id === activeDocumentId,
     );
     if (candidates.length > 0) {
+      // `fetchConversations` orders by updated_at desc, so [0] is the
+      // most recently used thread — exactly what the user wants
+      // restored on book re-open.
       void openConversation(candidates[0].id);
     } else {
       clearActive();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberate single-run-on-doc-change semantics; see comment above
-  }, [activeDocumentId, user]);
+    snappedForDocIdRef.current = activeDocumentId;
+  }, [
+    activeDocumentId,
+    user,
+    isChatLoading,
+    conversations,
+    activeConversation,
+    openConversation,
+    clearActive,
+  ]);
 
   // Auto-scroll to bottom when new messages arrive or the streaming
   // assistant message grows.
