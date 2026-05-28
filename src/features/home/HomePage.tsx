@@ -12,6 +12,7 @@ import { BrowseBookShelfCard } from "@/features/browse/BrowseBookShelfCard";
 import { RecentlyViewedShelf } from "@/features/browse/RecentlyViewedShelf";
 import { CategoryShelf } from "./CategoryShelf";
 import { RecentlyAddedShelf } from "./RecentlyAddedShelf";
+import { TodayPanel } from "./TodayPanel";
 
 export function HomePage() {
   const { t } = useTranslation();
@@ -56,6 +57,13 @@ export function HomePage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_18rem]">
         {/* Main column — stacked shelves */}
         <main className="min-w-0">
+          {/* "Today" aggregator: reading-plan targets, roadmap nodes
+              due, quiz reviews queued, continue-reading hand-off. The
+              panel renders nothing when none of those have content,
+              so signed-out users / users who haven't set anything up
+              don't see an empty shell. */}
+          {user && <TodayPanel />}
+
           {/* User's own books first — what they care about most when
               they land on home. The shelf renders nothing if the
               library is empty, so signed-out / first-run users go

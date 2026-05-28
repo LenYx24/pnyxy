@@ -528,6 +528,24 @@
       "discover": "Discover more",
       "discoverHint": "Thousands of public-domain books in the catalog.",
       "browseCatalog": "Browse catalog"
+    },
+    "today": {
+      "heading": "Today",
+      "subtitle": "What's queued up for you across plans and roadmaps.",
+      "readingPlansTitle": "Reading today",
+      "pagesLeft_one": "{{count}} page",
+      "pagesLeft_other": "{{count}} pages",
+      "roadmapDueTitle": "Roadmap steps due",
+      "untitledNode": "Untitled step",
+      "overdue": "overdue",
+      "dueToday": "today",
+      "quizDueTitle": "Review queue",
+      "quizDueBody_one": "{{count}} card is due for review.",
+      "quizDueBody_other": "{{count}} cards are due for review.",
+      "startReview": "Start review",
+      "continueTitle": "Continue reading",
+      "continueResumeHint": "Pick up where you left off",
+      "emptyState": "Nothing queued for today. Open a book, start a reading plan, or enroll in a roadmap to see actionable items here."
     }
   },
   "library": {
@@ -1039,7 +1057,14 @@
       "workOnWeekends": "Work on weekends",
       "totalEstimate": "Total estimate: {{total}}",
       "finishBy": "Projected finish: {{date}}",
-      "confirm": "Enroll"
+      "confirm": "Enroll",
+      "modeAria": "Scheduling mode",
+      "modeHours": "Hours/day",
+      "modeDeadline": "Target date",
+      "deadlineDate": "Finish by",
+      "weekendMultiplier": "Weekend vs weekday pace",
+      "weekendMultiplierHint": "Weekends carry {{multiplier}}× a weekday's load.",
+      "weekendMultiplierZeroHint": "Weekends off — all work happens on weekdays."
     }
   },
   "chat": {

@@ -528,6 +528,24 @@
       "discover": "Fedezz fel többet",
       "discoverHint": "Több ezer közkincs könyv a katalógusban.",
       "browseCatalog": "Katalógus böngészése"
+    },
+    "today": {
+      "heading": "Ma",
+      "subtitle": "Ami a terveidben és útiterveidben mára esedékes.",
+      "readingPlansTitle": "Mára kijelölt olvasás",
+      "pagesLeft_one": "{{count}} oldal",
+      "pagesLeft_other": "{{count}} oldal",
+      "roadmapDueTitle": "Esedékes útiterv-lépések",
+      "untitledNode": "Névtelen lépés",
+      "overdue": "lejárt",
+      "dueToday": "ma",
+      "quizDueTitle": "Ismétlés sor",
+      "quizDueBody_one": "{{count}} kártya vár ismétlésre.",
+      "quizDueBody_other": "{{count}} kártya vár ismétlésre.",
+      "startReview": "Ismétlés indítása",
+      "continueTitle": "Olvasás folytatása",
+      "continueResumeHint": "Folytasd ott, ahol abbahagytad",
+      "emptyState": "Ma nincs ütemezett tennivaló. Nyiss meg egy könyvet, indíts egy olvasási tervet vagy iratkozz fel egy útitervre, hogy itt teendők jelenjenek meg."
     }
   },
   "library": {
@@ -1039,7 +1057,14 @@
       "workOnWeekends": "Hétvégén is tanulok",
       "totalEstimate": "Teljes becslés: {{total}}",
       "finishBy": "Várható befejezés: {{date}}",
-      "confirm": "Beiratkozás"
+      "confirm": "Beiratkozás",
+      "modeAria": "Ütemezési mód",
+      "modeHours": "Óra/nap",
+      "modeDeadline": "Céldátum",
+      "deadlineDate": "Befejezés eddig",
+      "weekendMultiplier": "Hétvégi vs. hétköznapi tempó",
+      "weekendMultiplierHint": "A hétvégi napok a hétköznapi terhelés {{multiplier}}×-osát viszik.",
+      "weekendMultiplierZeroHint": "Hétvégén nincs tanulás — minden a hétköznapokra esik."
     }
   },
   "chat": {
