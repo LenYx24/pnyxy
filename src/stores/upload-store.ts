@@ -267,7 +267,11 @@ async function runUploadJob(
     let fileHash: string;
     try {
       const meta = await adapter.load(file);
-      title = meta.title;
+      // The book's name is its filename (extension stripped), not the
+      // PDF's embedded Title — embedded titles are frequently missing,
+      // stale, or generic ("Microsoft Word - untitled"), whereas the
+      // filename is what the user recognises.
+      title = file.name.replace(/\.pdf$/i, "").trim() || meta.title;
       author = meta.author || null;
       pageCount = meta.totalPages;
       fileHash = meta.id; // pdf-adapter uses the file hash as id

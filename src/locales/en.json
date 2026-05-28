@@ -614,14 +614,26 @@
       "tabTitle": "{{name}} ({{shortcut}})"
     },
     "uploadModal": {
-      "title": "Upload PDF",
+      "title": "Upload PDFs",
       "successTitle": "PDF uploaded successfully!",
       "successBody": "You can now find it in your library.",
-      "dropZone": "Drop a PDF here, or click to browse",
+      "dropZone": "Drop PDFs here, or pick files / a folder",
       "pdfOnly": "PDF files only",
-      "wouldExceed": "This file would exceed your storage limit. Remove some files or upgrade to Premium.",
+      "chooseFiles": "Choose files",
+      "chooseFolder": "Choose folder",
+      "folderHint": "Folders are scanned one level deep — the folder structure is kept in your library.",
+      "addFiles": "Add files",
+      "addFolder": "Add folder",
+      "clear": "Clear all",
+      "selected_one": "{{count}} file · {{size}}",
+      "selected_other": "{{count}} files · {{size}}",
+      "noPdfsInFolder": "No PDFs found in that folder.",
+      "limitReached": "Reached the {{limit}}-file limit; extra files were skipped.",
+      "wouldExceed": "Uploading these would exceed your storage limit. Remove some files or upgrade to Premium.",
       "uploading": "Uploading… {{pct}}%",
-      "upload": "Upload"
+      "upload": "Upload",
+      "uploadCount_one": "Upload {{count}} file",
+      "uploadCount_other": "Upload {{count}} files"
     },
     "confirm": {
       "deleteTitle": "Delete Book",

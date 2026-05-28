@@ -614,14 +614,26 @@
       "tabTitle": "{{name}} ({{shortcut}})"
     },
     "uploadModal": {
-      "title": "PDF feltöltése",
+      "title": "PDF-ek feltöltése",
       "successTitle": "Sikeres feltöltés!",
       "successBody": "Már megtalálod a könyvtáradban.",
-      "dropZone": "Húzz ide egy PDF-et vagy kattints a tallózáshoz",
+      "dropZone": "Húzz ide PDF-eket, vagy válassz fájlokat / mappát",
       "pdfOnly": "Csak PDF fájlok",
-      "wouldExceed": "Ez a fájl túllépné a tárhely limitedet. Távolíts el néhány fájlt vagy válts Prémiumra.",
+      "chooseFiles": "Fájlok kiválasztása",
+      "chooseFolder": "Mappa kiválasztása",
+      "folderHint": "A mappákat egy szintnyire szkenneljük — a mappaszerkezet megmarad a könyvtáradban.",
+      "addFiles": "Fájlok hozzáadása",
+      "addFolder": "Mappa hozzáadása",
+      "clear": "Összes törlése",
+      "selected_one": "{{count}} fájl · {{size}}",
+      "selected_other": "{{count}} fájl · {{size}}",
+      "noPdfsInFolder": "Nem található PDF abban a mappában.",
+      "limitReached": "Elérted a(z) {{limit}} fájlos korlátot; a többi fájl kimaradt.",
+      "wouldExceed": "Ezek feltöltése túllépné a tárhely limitedet. Távolíts el néhány fájlt vagy válts Prémiumra.",
       "uploading": "Feltöltés… {{pct}}%",
-      "upload": "Feltöltés"
+      "upload": "Feltöltés",
+      "uploadCount_one": "{{count}} fájl feltöltése",
+      "uploadCount_other": "{{count}} fájl feltöltése"
     },
     "confirm": {
       "deleteTitle": "Könyv törlése",
