@@ -300,11 +300,10 @@ const FolderRow = memo(function FolderRow({
   // disambiguates "drop on folder" semantics by parent comparison —
   // same-parent → reorder, different-parent → nest.
   const sortable = useSortable({ id: `folder:${folder.id}` });
-  // Aliased back to the prior names so the rest of the function body
-  // (which referenced `draggable.*` and `droppable.*`) keeps working
-  // without churn. useSortable is a superset of both hooks.
+  // Aliased back to the prior name so the rest of the function body
+  // (which referenced `draggable.*`) keeps working without churn.
+  // useSortable is a superset of the draggable + droppable hooks.
   const draggable = sortable;
-  const droppable = sortable;
 
   // Visual feedback split. The folder row can be on the receiving
   // end of two different intents at the same time:
