@@ -12,7 +12,11 @@ import type { PageRect, TextSelection } from "@/types/annotation";
  * so we never hand a "whole-page" selection to the context menu.
  */
 function clampOverExtendedSelection(sel: Selection): void {
-  if (sel.isCollapsed || !sel.rangeCount) return;
+  // Only repair a single drag-select. For a Ctrl/⌘-click multi-range
+  // selection we must NOT touch it — the removeAllRanges()/addRange()
+  // repair below would collapse it down to a single range and drop the
+  // other fragments.
+  if (sel.isCollapsed || sel.rangeCount !== 1) return;
   const range = sel.getRangeAt(0);
   const endNode = range.endContainer;
 
@@ -53,45 +57,49 @@ function getSelectionData(): { selection: TextSelection; rects: PageRect[] } | n
 
   clampOverExtendedSelection(sel);
 
-  const range = sel.getRangeAt(0);
+  // Range 0 gates the "is this inside a PDF text layer?" check. The
+  // rect collection below walks EVERY range: a Ctrl/⌘-click selection
+  // is several disjoint ranges, and reading only range 0 was the bug
+  // where a multi-part selection only underlined its first fragment.
+  const firstRange = sel.getRangeAt(0);
 
   const ancestor =
-    range.commonAncestorContainer instanceof Element
-      ? range.commonAncestorContainer
-      : range.commonAncestorContainer.parentElement;
+    firstRange.commonAncestorContainer instanceof Element
+      ? firstRange.commonAncestorContainer
+      : firstRange.commonAncestorContainer.parentElement;
   if (!ancestor?.closest(".react-pdf__Page__textContent")) return null;
 
   const text = sel.toString().trim();
   if (!text) return null;
 
-  const clientRects = range.getClientRects();
-  if (!clientRects.length) return null;
-
   const rects: PageRect[] = [];
 
-  for (let i = 0; i < clientRects.length; i++) {
-    const rect = clientRects[i];
-    if (rect.width < 1 || rect.height < 1) continue;
+  for (let r = 0; r < sel.rangeCount; r++) {
+    const clientRects = sel.getRangeAt(r).getClientRects();
+    for (let i = 0; i < clientRects.length; i++) {
+      const rect = clientRects[i];
+      if (rect.width < 1 || rect.height < 1) continue;
 
-    const el = document.elementFromPoint(
-      rect.left + rect.width / 2,
-      rect.top + rect.height / 2,
-    );
-    const pageEl = el?.closest("[data-page-number]") as HTMLElement | null;
-    if (!pageEl) continue;
+      const el = document.elementFromPoint(
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2,
+      );
+      const pageEl = el?.closest("[data-page-number]") as HTMLElement | null;
+      if (!pageEl) continue;
 
-    const pageNum = parseInt(pageEl.dataset.pageNumber || "0", 10);
-    if (!pageNum) continue;
+      const pageNum = parseInt(pageEl.dataset.pageNumber || "0", 10);
+      if (!pageNum) continue;
 
-    const pageBounds = pageEl.getBoundingClientRect();
+      const pageBounds = pageEl.getBoundingClientRect();
 
-    rects.push({
-      pageNum,
-      x: (rect.left - pageBounds.left) / pageBounds.width,
-      y: (rect.top - pageBounds.top) / pageBounds.height,
-      width: rect.width / pageBounds.width,
-      height: rect.height / pageBounds.height,
-    });
+      rects.push({
+        pageNum,
+        x: (rect.left - pageBounds.left) / pageBounds.width,
+        y: (rect.top - pageBounds.top) / pageBounds.height,
+        width: rect.width / pageBounds.width,
+        height: rect.height / pageBounds.height,
+      });
+    }
   }
 
   if (rects.length === 0) return null;

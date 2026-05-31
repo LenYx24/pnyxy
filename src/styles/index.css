@@ -253,6 +253,28 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+/* Page citations ([p.42]) link back into the reader. Render them as a
+ * compact pill so they stand out from prose and read clearly, instead
+ * of a thin low-contrast underlined link. Targeted by the `/reader/`
+ * href that renderMarkdown() emits for citations, so ordinary external
+ * links keep the plain link style above. Colours come from the theme
+ * token, so it adapts to light / dark / high-contrast. */
+.ai-message a[href^="/reader/"] {
+  display: inline-block;
+  padding: 0 0.35em;
+  border-radius: 0.4em;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: nowrap;
+  text-decoration: none;
+  color: var(--color-accent-purple);
+  background: color-mix(in srgb, var(--color-accent-purple) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent-purple) 32%, transparent);
+}
+.ai-message a[href^="/reader/"]:hover {
+  text-decoration: none;
+  background: color-mix(in srgb, var(--color-accent-purple) 26%, transparent);
+}
 .ai-message ul, .ai-message ol {
   padding-left: 1.25rem;
   margin: 0;

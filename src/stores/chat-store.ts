@@ -19,6 +19,7 @@ import {
   dispatchRoadmapTool,
 } from "@/lib/roadmap/roadmap-tools";
 import { useRoadmapStore } from "@/stores/roadmap-store";
+import { useOrgStore } from "@/stores/org-store";
 import {
   generateImage,
   ImageGenUnavailableError,
@@ -805,6 +806,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return null;
+    // Chat folders live in the shared library `folders` table since
+    // 00036, where `org_id` is NOT NULL (00027) — so the insert must
+    // carry the active org or Postgres rejects it with a 400.
+    const orgId = useOrgStore.getState().currentOrgId;
+    if (!orgId) {
+      logError("chat:createFolder", "No active organization");
+      return null;
+    }
     // Same min-1 pattern as createConversation — new folders land
     // at the top of their parent context. Scoped per (user, parent)
     // because sort_order only meaningfully compares siblings.
@@ -817,6 +826,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .from("folders")
       .insert({
         user_id: user.id,
+        org_id: orgId,
         name: trimmed,
         parent_id: parentId,
         sort_order: sortOrder,
@@ -1283,29 +1293,65 @@ async function sendOrBranch(
         signal,
       );
     } else {
-      for await (const chunk of streamChatResponse(
-        promptMessages,
-        sourceTitle,
-        contextPack.pageContext,
-        {
-          preferredProvider,
-          signal,
-          customContext: contextPack.customContext,
-          // Per-turn override from the composer's mode picker
-          // (e.g. book / video recommendation modes). Skips the
-          // standard doc-context system prompt entirely for that
-          // turn — `customContext` is still threaded through for
-          // any vision / non-streaming code path that ignores the
-          // override.
-          systemPromptOverride: options?.systemPromptOverride,
-          // Reasoning-mode flip: ai-client's OpenAI branch reads
-          // this and swaps model to o3-mini. Other branches ignore
-          // it so it's safe to forward unconditionally.
-          reasoning: options?.reasoning,
-        },
-      )) {
-        acc += chunk.delta;
-        patchAssistant(acc);
+      // Smooth the on-screen reveal. Providers (and the SSE proxy)
+      // often hand us deltas in big bursts — whole sentences or
+      // paragraphs — which makes the text pop in chunks. We keep
+      // appending raw deltas to `acc` as they land, but a separate
+      // rAF "pump" advances what's actually shown a little each frame
+      // so it types out smoothly regardless of network chunkiness.
+      // The step scales with the backlog, so a large burst drains
+      // quickly and the pump always catches up; we await it in the
+      // finally so the full text is shown before we persist.
+      let revealed = 0;
+      let streamDone = false;
+      const pump = (async () => {
+        while (!signal.aborted) {
+          if (revealed < acc.length) {
+            const remaining = acc.length - revealed;
+            revealed = Math.min(
+              acc.length,
+              revealed + Math.max(2, Math.ceil(remaining / 6)),
+            );
+            patchAssistant(acc.slice(0, revealed));
+          } else if (streamDone) {
+            return;
+          }
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => resolve()),
+          );
+        }
+      })();
+
+      try {
+        for await (const chunk of streamChatResponse(
+          promptMessages,
+          sourceTitle,
+          contextPack.pageContext,
+          {
+            preferredProvider,
+            signal,
+            customContext: contextPack.customContext,
+            // Per-turn override from the composer's mode picker
+            // (e.g. book / video recommendation modes). Skips the
+            // standard doc-context system prompt entirely for that
+            // turn — `customContext` is still threaded through for
+            // any vision / non-streaming code path that ignores the
+            // override.
+            systemPromptOverride: options?.systemPromptOverride,
+            // Reasoning-mode flip: ai-client's OpenAI branch reads
+            // this and swaps model to o3-mini. Other branches ignore
+            // it so it's safe to forward unconditionally.
+            reasoning: options?.reasoning,
+          },
+        )) {
+          acc += chunk.delta;
+        }
+      } finally {
+        // Stop the pump and let it flush the rest of `acc` before we
+        // fall through to persistence (the outer finally writes the
+        // full text anyway, so an aborted pump never truncates).
+        streamDone = true;
+        await pump;
       }
     }
   } catch (err) {

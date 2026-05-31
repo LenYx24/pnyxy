@@ -946,7 +946,11 @@ export const ChatComposer = forwardRef<
           const sendIntent = isMobile
             ? e.ctrlKey || e.metaKey
             : !e.shiftKey;
-          if (sendIntent) {
+          // While a response is streaming the user can keep typing
+          // their next message, but Enter must not send: the store
+          // streams one turn at a time and the action button is in
+          // "Stop" mode. The send fires once the stream finishes.
+          if (sendIntent && !isStreaming) {
             e.preventDefault();
             void handleSendClick();
           }
@@ -958,7 +962,6 @@ export const ChatComposer = forwardRef<
         }
         rows={2}
         className="block min-h-[3rem] w-full resize-none bg-transparent px-1 text-sm text-text-primary placeholder:text-text-muted outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        disabled={isStreaming}
       />
       <input
         ref={fileInputRef}

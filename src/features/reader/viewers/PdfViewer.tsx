@@ -1139,6 +1139,39 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     setScrollTop(desired);
   }, [pageOffsets, getPageHeight]);
 
+  // Re-anchor to the current page when the container WIDTH changes
+  // (e.g. dragging a side-panel divider). In fit-width / custom modes
+  // every page's tray-local width is `baselineWidth`, so a width change
+  // resizes all pages and shifts `pageOffsets` — a fixed scrollTop then
+  // lands on a different page and the reader "jumps". The store-sync
+  // effect below already re-anchors fit-page (whose scale depends on
+  // width), so we skip that mode here. Mirrors the resume re-snap
+  // above: same programmatic write, sourced from the persisted
+  // currentPage + scrollOffset (both width-independent). Pages above
+  // the current one are already measured (the user scrolled past them),
+  // so a single write holds — no settle loop needed.
+  const lastAnchorWidthRef = useRef(baselineWidth);
+  useLayoutEffect(() => {
+    const prevWidth = lastAnchorWidthRef.current;
+    lastAnchorWidthRef.current = baselineWidth;
+    if (prevWidth === baselineWidth) return; // only act on a width change
+    if (zoomMode === "fit-page") return; // applyScale owns this re-anchor
+    if (scrollToPage !== null || resumeTargetRef.current) return; // resume owns the scroll
+    const el = containerRef.current;
+    if (!el || pageOffsets.length === 0) return;
+
+    const doc = useReaderStore.getState().documents.get(docId ?? "");
+    if (!doc) return;
+    const pageTop = pageOffsets[doc.currentPage - 1];
+    if (pageTop === undefined) return;
+    const pageHeight = getPageHeight(doc.currentPage);
+    const desired =
+      (pageTop + doc.scrollOffset * pageHeight) * liveScaleRef.current;
+    if (Math.abs(el.scrollTop - desired) <= 1) return;
+    writeProgrammaticScroll(el, desired);
+    setScrollTop(desired);
+  }, [baselineWidth, zoomMode, scrollToPage, pageOffsets, getPageHeight, docId]);
+
   // Save scroll fraction to store for resume sync. Skip when the
   // scroll came from us (zoom-pivot, scroll-to-page, resume) —
   // those writes shouldn't overwrite the saved fraction with the
