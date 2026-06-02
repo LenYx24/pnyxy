@@ -22,16 +22,20 @@ import {
 // ── Notes ───────────────────────────────────────────────────────
 //
 // Payload shape mirrors `StoredNote` from annotation-storage:
-// `{ id, title, content, createdAt, updatedAt }` for insert/update,
-// `{ id }` for delete. Note: book_id is intentionally null for
-// every locally-created note — the existing Note UI is book-
-// agnostic ("Notes are shared across books" per the i18n hint).
-// If/when we add per-book notes the payload can grow a book_id.
+// `{ id, title, content, folder_id, sort_order, createdAt, updatedAt }`
+// for insert/update, `{ id }` for delete. book_id stays null for every
+// locally-created note — note↔book association now flows through the
+// library folder tree (folder_id, added in 00044) rather than a direct
+// book_id. Because the handler upserts the WHOLE row keyed by id, the
+// note-store always sends every column on update; a partial payload
+// would reset the omitted columns to their defaults.
 
 export interface NoteSyncPayload {
   id: string;
   title?: string;
   content?: string;
+  folder_id?: string | null;
+  sort_order?: number;
   createdAt?: number;
   updatedAt?: number;
 }
@@ -60,6 +64,11 @@ async function handleNote(
     book_id: null,
     title: payload.title ?? "",
     content: payload.content ?? "",
+    // Library-tree placement (00044). null → root; sort_order 0 is the
+    // column default. Always present because the store sends the full
+    // row on every upsert.
+    folder_id: payload.folder_id ?? null,
+    sort_order: payload.sort_order ?? 0,
     // Server-side `created_at` defaults to now(); we still mirror
     // the client timestamp so cross-device sort order matches
     // what the user saw locally.

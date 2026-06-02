@@ -44,6 +44,7 @@ import {
 import { Button, GlassCard } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useLibraryStore } from "@/stores/library-store";
+import { useNoteStore, type Note } from "@/stores/note-store";
 import { useTagStore } from "@/stores/tag-store";
 import { useUploadStore, type UploadJob } from "@/stores/upload-store";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
@@ -51,6 +52,7 @@ import { useIsMobile } from "@/hooks/use-media-query";
 import { formatShortcut } from "@/lib/keyboard-shortcuts";
 import { FolderCard } from "./FolderCard";
 import { LibraryBookCard } from "./LibraryBookCard";
+import { LibraryNoteCard } from "./LibraryNoteCard";
 import { LibraryListView } from "./LibraryListView";
 import { CreateFolderModal } from "./modals/CreateFolderModal";
 import { BookCardSkeleton } from "./BookCardSkeleton";
@@ -112,6 +114,17 @@ export function AllBooksTab({
   const moveBookToFolder = useLibraryStore((s) => s.moveBookToFolder);
   const moveFolderToFolder = useLibraryStore((s) => s.moveFolderToFolder);
 
+  // Notes live in the local-first note-store (IndexedDB), not the
+  // Supabase-backed library store — so the tree aggregates them in
+  // directly. loadNotes hydrates from IDB on mount (idempotent / cheap;
+  // the editor pages call it too).
+  const notes = useNoteStore((s) => s.notes);
+  const loadNotes = useNoteStore((s) => s.loadNotes);
+  const moveNoteToFolder = useNoteStore((s) => s.moveNoteToFolder);
+  useEffect(() => {
+    void loadNotes();
+  }, [loadNotes]);
+
   const getTagsForBook = useTagStore((s) => s.getTagsForBook);
 
   const subfolders = useMemo(
@@ -121,6 +134,10 @@ export function AllBooksTab({
   const booksInFolder = useMemo(
     () => books.filter((b) => b.folder_id === currentFolderId),
     [books, currentFolderId],
+  );
+  const notesInFolder = useMemo(
+    () => notes.filter((n) => n.folderId === currentFolderId),
+    [notes, currentFolderId],
   );
 
   // Apply search + tag filter
@@ -152,16 +169,29 @@ export function AllBooksTab({
     return result;
   }, [booksInFolder, query, activeTag, getTagsForBook]);
 
+  // Notes are searchable by title. The book status-tag filter doesn't
+  // apply to notes (they carry no reading-status tags), so an active
+  // tag hides them entirely — matching the "show only tagged books"
+  // intent of that filter.
+  const filteredNotes = useMemo(() => {
+    if (activeTag) return [] as Note[];
+    if (!query) return notesInFolder;
+    return notesInFolder.filter((n) =>
+      (n.title || "").toLowerCase().includes(query),
+    );
+  }, [notesInFolder, query, activeTag]);
+
   // ─── Sort order ───────────────────────────────────────────
   const contextId = currentFolderId ?? "root";
   const savedOrder = sortOrders[contextId];
 
-  // Build combined sortable items (folders first, then books)
+  // Build combined sortable items (folders first, then books, then notes)
   const allItemKeys = useMemo(() => {
     const folderKeys = filteredFolders.map((f) => `folder:${f.id}`);
     const bookKeys = filteredBooks.map((b) => `book:${b.id}`);
-    return [...folderKeys, ...bookKeys];
-  }, [filteredFolders, filteredBooks]);
+    const noteKeys = filteredNotes.map((n) => `note:${n.id}`);
+    return [...folderKeys, ...bookKeys, ...noteKeys];
+  }, [filteredFolders, filteredBooks, filteredNotes]);
 
   const orderedKeys = useMemo(
     () => applySort(savedOrder, allItemKeys),
@@ -180,6 +210,12 @@ export function AllBooksTab({
     for (const b of filteredBooks) m.set(`book:${b.id}`, b);
     return m;
   }, [filteredBooks]);
+
+  const noteMap = useMemo(() => {
+    const m = new Map<string, Note>();
+    for (const n of filteredNotes) m.set(`note:${n.id}`, n);
+    return m;
+  }, [filteredNotes]);
 
   // Ordered arrays for rendering. orderedKeys is derived from the
   // same filtered folders/books that populate the maps, so every
@@ -266,6 +302,8 @@ export function AllBooksTab({
         if (activeId.startsWith("book:")) {
           const book = bookMap.get(activeId);
           if (book) void moveBookToFolder(book, targetFolderId);
+        } else if (activeId.startsWith("note:")) {
+          moveNoteToFolder(activeId.slice("note:".length), targetFolderId);
         } else if (activeId.startsWith("folder:")) {
           const draggedFolderId = activeId.slice("folder:".length);
           if (draggedFolderId !== targetFolderId) {
@@ -285,6 +323,8 @@ export function AllBooksTab({
         if (activeId.startsWith("book:")) {
           const book = bookMap.get(activeId);
           if (book) void moveBookToFolder(book, targetFolderId);
+        } else if (activeId.startsWith("note:")) {
+          moveNoteToFolder(activeId.slice("note:".length), targetFolderId);
         } else if (activeId.startsWith("folder:")) {
           const draggedFolderId = activeId.slice("folder:".length);
           if (draggedFolderId !== targetFolderId) {
@@ -312,6 +352,7 @@ export function AllBooksTab({
       bookMap,
       moveBookToFolder,
       moveFolderToFolder,
+      moveNoteToFolder,
     ],
   );
 
@@ -389,7 +430,10 @@ export function AllBooksTab({
     handler: handleGoUp,
   });
 
-  const isEmpty = filteredFolders.length === 0 && filteredBooks.length === 0;
+  const isEmpty =
+    filteredFolders.length === 0 &&
+    filteredBooks.length === 0 &&
+    filteredNotes.length === 0;
   // On mobile the desktop cardSize default (200px) means a single
   // column and a giant 300px-tall cover per row. Clamp the grid's
   // floor to ~130px so two cards fit on a 375px viewport — matches
@@ -430,6 +474,7 @@ export function AllBooksTab({
   // ─── Drag overlay content ────────────────────────────────
   const activeDragFolder = activeId ? folderMap.get(activeId) : null;
   const activeDragBook = activeId ? bookMap.get(activeId) : null;
+  const activeDragNote = activeId ? noteMap.get(activeId) : null;
   // Smooth "settle into place" on drop instead of the default snap.
   // Same easing dnd-kit ships in `defaultDropAnimation`, but with the
   // sideEffects helper so the dragged source row keeps its dimming
@@ -652,6 +697,20 @@ export function AllBooksTab({
                       />
                     );
                   }
+                  const note = noteMap.get(key);
+                  if (note) {
+                    return (
+                      <LibraryNoteCard
+                        key={`note:${note.id}`}
+                        note={note}
+                        sortableId={`note:${note.id}`}
+                        coverHeight={coverHeight}
+                        selected={selectedIds.has(`note:${note.id}`)}
+                        selectionActive={selectionActive}
+                        onToggleSelect={onToggleSelect}
+                      />
+                    );
+                  }
                   return null;
                 })}
               </div>
@@ -694,6 +753,19 @@ export function AllBooksTab({
                       {activeDragBook.source === "catalog"
                         ? activeDragBook.catalog_book.title
                         : activeDragBook.book.title}
+                    </span>
+                  </div>
+                </GlassCard>
+              </div>
+            )}
+            {activeDragNote && (
+              <div style={{ width: cardSize }} className="pointer-events-none">
+                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent-purple">
+                  <div className="flex items-center gap-3 p-3">
+                    <FileText size={16} className="shrink-0 text-accent-blue/70" />
+                    <span className="text-sm font-medium text-text-primary truncate">
+                      {activeDragNote.title.trim() ||
+                        t("library.allBooks.untitledNote")}
                     </span>
                   </div>
                 </GlassCard>

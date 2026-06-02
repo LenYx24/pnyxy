@@ -116,6 +116,7 @@
   "settings": {
     "title": "Settings",
     "general": "General",
+    "plan": "Plan",
     "appearance": "Appearance",
     "ai": "AI",
     "organizations": "Organizations",
@@ -124,6 +125,23 @@
     "shortcuts": "Shortcuts",
     "feedback": "Feedback",
     "about": "About",
+    "plan_section": {
+      "heading": "Plan & billing",
+      "currentFree": "You're on the Free plan",
+      "currentPremium": "You're on the Premium plan",
+      "freeBadge": "Free",
+      "premiumBadge": "Premium",
+      "manageHint": "Your Premium subscription is active. To update payment details or cancel, use the link in your Lemon Squeezy receipt email.",
+      "upgradeButton": "Upgrade to Premium",
+      "comingSoon": "Coming soon",
+      "securedBy": "Payments are securely handled by Lemon Squeezy.",
+      "features": {
+        "largerQuota": "Much larger daily AI quota",
+        "moreStorage": "25 GB of cloud storage for your books",
+        "betterModels": "Access to higher-quality AI models",
+        "prioritySupport": "Priority support and early access to new features"
+      }
+    },
     "language": {
       "label": "Language",
       "description": "Choose the language used across the interface.",
@@ -586,7 +604,9 @@
       "rename": "Rename",
       "renameBookTitle": "Rename book",
       "renameTooLong": "Title is too long (max 200 characters).",
-      "renameProfanity": "Title contains disallowed language."
+      "renameProfanity": "Title contains disallowed language.",
+      "moveToFolder": "Move to folder",
+      "exportMarkdown": "Export as Markdown"
     },
     "addManual": {
       "title": "Add a book manually",
@@ -681,6 +701,9 @@
       "emptyRootHint": "Browse the catalog to add books, or create a folder to organize them.",
       "browseCatalog": "Browse Catalog",
       "folderLabel": "Folder",
+      "noteLabel": "Note",
+      "untitledNote": "Untitled note",
+      "openNote": "Open note",
       "deleteFolder": {
         "title": "Delete Folder",
         "body": "Are you sure? Books in this folder will be moved to the root level. Subfolders will also be deleted.",

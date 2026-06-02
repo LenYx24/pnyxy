@@ -12,6 +12,7 @@ import {
   MessageSquarePlus,
   ChevronDown,
   Building2,
+  Sparkles,
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { cn } from "@/lib/cn";
@@ -26,6 +27,7 @@ export interface TabDef {
 // eslint-disable-next-line react-refresh/only-export-components
 export const SETTINGS_TABS: TabDef[] = [
   { to: "general", labelKey: "general", icon: SettingsIcon },
+  { to: "plan", labelKey: "plan", icon: Sparkles },
   { to: "appearance", labelKey: "appearance", icon: Palette },
   { to: "ai", labelKey: "ai", icon: BotMessageSquare },
   { to: "organizations", labelKey: "organizations", icon: Building2 },

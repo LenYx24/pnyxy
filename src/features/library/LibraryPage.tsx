@@ -17,6 +17,7 @@ import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLibraryStore } from "@/stores/library-store";
+import { useNoteStore } from "@/stores/note-store";
 import { useUploadStore } from "@/stores/upload-store";
 import {
   classifyFile,
@@ -61,6 +62,9 @@ export function LibraryPage() {
   const moveBookToFolder = useLibraryStore((s) => s.moveBookToFolder);
   const moveFolderToFolder = useLibraryStore((s) => s.moveFolderToFolder);
   const removeFromLibrary = useLibraryStore((s) => s.removeFromLibrary);
+  const notes = useNoteStore((s) => s.notes);
+  const moveNoteToFolder = useNoteStore((s) => s.moveNoteToFolder);
+  const deleteNote = useNoteStore((s) => s.deleteNote);
   const user = useAuthStore((s) => s.user);
 
   // View preferences
@@ -94,8 +98,9 @@ export function LibraryPage() {
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((f) => `folder:${f.id}`);
     const bookIds = books.map((b) => `book:${b.id}`);
-    return [...folderIds, ...bookIds];
-  }, [folders, books]);
+    const noteIds = notes.map((n) => `note:${n.id}`);
+    return [...folderIds, ...bookIds, ...noteIds];
+  }, [folders, books, notes]);
 
   const handleToggleSelect = useCallback(
     (id: string, event: { ctrlKey: boolean; shiftKey: boolean }) => {
@@ -252,10 +257,18 @@ export function LibraryPage() {
       .filter((s) => s.startsWith("folder:"))
       .map((s) => s.slice(7));
 
+    const noteIds = [...selectedIds]
+      .filter((s) => s.startsWith("note:"))
+      .map((s) => s.slice(5));
+
     // Move books
     for (const id of bookIds) {
       const entry = books.find((b) => b.id === id);
       if (entry) await moveBookToFolder(entry, folderId);
+    }
+    // Move notes
+    for (const id of noteIds) {
+      moveNoteToFolder(id, folderId);
     }
     // Move folders
     for (const id of folderIds) {
@@ -284,6 +297,14 @@ export function LibraryPage() {
     for (const id of bookIds) {
       const entry = books.find((b) => b.id === id);
       if (entry) await removeFromLibrary(entry);
+    }
+
+    // Delete notes
+    const noteIds = [...selectedIds]
+      .filter((s) => s.startsWith("note:"))
+      .map((s) => s.slice(5));
+    for (const id of noteIds) {
+      deleteNote(id);
     }
 
     // For folders, use deleteFolder from the store

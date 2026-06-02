@@ -37,6 +37,14 @@ export interface Profile {
   onboarded: boolean;
   created_at: string;
   updated_at: string;
+  // Billing (written only by the lemonsqueezy-webhook via service role;
+  // see migration 00043). Optional because the profile select doesn't
+  // always include them.
+  subscription_provider?: string | null;
+  ls_customer_id?: string | null;
+  ls_subscription_id?: string | null;
+  subscription_status?: string | null;
+  current_period_end?: string | null;
 }
 
 // ── Categories ──────────────────────────────────────────────
@@ -207,6 +215,10 @@ export interface DbNote {
   id: string;
   user_id: string;
   book_id: string | null;
+  /** Library folder the note lives in (00044). null = root. */
+  folder_id: string | null;
+  /** Position within the folder; lower = earlier (00044). */
+  sort_order: number;
   title: string;
   content: string;
   created_at: string;

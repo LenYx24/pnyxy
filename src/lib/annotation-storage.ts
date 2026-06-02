@@ -2,14 +2,14 @@ import { openDB, type IDBPDatabase } from "idb";
 import type { AiCitation, Highlight, Comment } from "@/types/annotation";
 
 const DB_NAME = "pnyxy-annotations";
-// Bump 9 → 10 to force the upgrade callback to re-run on clients
-// whose v8 → v9 migration didn't complete (e.g. interrupted by a
-// strict-mode parallel `openDB` race that left some object stores
-// uncreated). The upgrade callback is fully idempotent — every store
-// is created with `if (!objectStoreNames.contains(...))`, so this
-// re-run only fills in whatever's missing without touching existing
-// data.
-const DB_VERSION = 10;
+// Bump 10 → 11 for the notes folder-tree work (00044): StoredNote
+// gained `folderId` + `sortOrder`. No object-store change is needed —
+// the fields are plain properties on the existing `notes` keyPath:"id"
+// store, and pre-existing rows simply read back `undefined` (treated
+// as root placement / sort 0). The bump is here only so the version
+// number stays monotonic with the schema's conceptual evolution; the
+// upgrade callback remains fully idempotent.
+const DB_VERSION = 11;
 
 /**
  * Defensive wrapper: turn an IndexedDB `NotFoundError` (= the queried
@@ -230,6 +230,15 @@ export interface StoredNote {
   id: string;
   title: string;
   content: string;
+  /** Library folder this note lives in, or null/undefined for the
+   *  root. Mirrors the Supabase `notes.folder_id` column (00044) so
+   *  the note shows up in the library filetree. Pre-00044 rows read
+   *  back `undefined` → treated as root. */
+  folderId?: string | null;
+  /** Position within the folder. Lower = earlier. Fractional so a
+   *  drag-reorder can insert between neighbours without renumbering.
+   *  Pre-00044 rows read back `undefined` → treated as 0. */
+  sortOrder?: number;
   createdAt: number;
   updatedAt: number;
 }

@@ -116,6 +116,7 @@
   "settings": {
     "title": "Beállítások",
     "general": "Általános",
+    "plan": "Csomag",
     "appearance": "Megjelenés",
     "ai": "AI",
     "organizations": "Szervezetek",
@@ -124,6 +125,23 @@
     "shortcuts": "Gyorsbillentyűk",
     "feedback": "Visszajelzés",
     "about": "Rólunk",
+    "plan_section": {
+      "heading": "Csomag és számlázás",
+      "currentFree": "Jelenleg az Ingyenes csomagot használod",
+      "currentPremium": "Jelenleg a Prémium csomagot használod",
+      "freeBadge": "Ingyenes",
+      "premiumBadge": "Prémium",
+      "manageHint": "A Prémium előfizetésed aktív. A fizetési adatok módosításához vagy lemondáshoz használd a Lemon Squeezy visszaigazoló e-mailjében lévő linket.",
+      "upgradeButton": "Váltás Prémiumra",
+      "comingSoon": "Hamarosan",
+      "securedBy": "A fizetést biztonságosan a Lemon Squeezy kezeli.",
+      "features": {
+        "largerQuota": "Sokkal nagyobb napi AI-kvóta",
+        "moreStorage": "25 GB felhőtárhely a könyveidnek",
+        "betterModels": "Hozzáférés jobb minőségű AI-modellekhez",
+        "prioritySupport": "Elsőbbségi támogatás és korai hozzáférés az új funkciókhoz"
+      }
+    },
     "language": {
       "label": "Nyelv",
       "description": "Válaszd ki a felület nyelvét.",
@@ -586,7 +604,9 @@
       "rename": "Átnevezés",
       "renameBookTitle": "Könyv átnevezése",
       "renameTooLong": "A cím túl hosszú (legfeljebb 200 karakter).",
-      "renameProfanity": "A cím nem megfelelő nyelvezetet tartalmaz."
+      "renameProfanity": "A cím nem megfelelő nyelvezetet tartalmaz.",
+      "moveToFolder": "Áthelyezés mappába",
+      "exportMarkdown": "Exportálás Markdownként"
     },
     "addManual": {
       "title": "Könyv hozzáadása kézzel",
@@ -681,6 +701,9 @@
       "emptyRootHint": "Böngéssz a katalógusban, hogy könyveket adj hozzá, vagy hozz létre egy mappát a rendszerezéshez.",
       "browseCatalog": "Katalógus böngészése",
       "folderLabel": "Mappa",
+      "noteLabel": "Jegyzet",
+      "untitledNote": "Névtelen jegyzet",
+      "openNote": "Jegyzet megnyitása",
       "deleteFolder": {
         "title": "Mappa törlése",
         "body": "Biztos? A mappában lévő könyvek a gyökérszintre kerülnek. Az almappák is törlődnek.",

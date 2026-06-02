@@ -3,6 +3,10 @@ project_id = "pnyxy-reader"
 [functions.ai-chat-proxy]
 verify_jwt = false
 
+# Lemon Squeezy calls this with its own HMAC signature, not a user JWT.
+[functions.lemonsqueezy-webhook]
+verify_jwt = false
+
 [auth]
 enabled = true
 site_url = "http://localhost:5173"

@@ -65,7 +65,9 @@ describe("getDB", () => {
     const { getDB } = await loadModule();
     const db = await getDB();
     expect(db.name).toBe("pnyxy-annotations");
-    expect(db.version).toBe(10);
+    // v11: notes gained folderId/sortOrder for the library filetree
+    // (00044). No new object store — the bump is schema-version only.
+    expect(db.version).toBe(11);
     expect(Array.from(db.objectStoreNames).sort()).toEqual(
       [
         "ai_citations",

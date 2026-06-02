@@ -88,6 +88,11 @@ const LibraryPage = lazy(() =>
     default: m.LibraryPage,
   })),
 );
+const NotePage = lazy(() =>
+  import("@/features/notes/NotePage").then((m) => ({
+    default: m.NotePage,
+  })),
+);
 const WorkspacePage = lazy(() =>
   import("@/features/workspace/WorkspacePage").then((m) => ({
     default: m.WorkspacePage,
@@ -106,6 +111,11 @@ const SettingsPage = lazy(() =>
 const GeneralTab = lazy(() =>
   import("@/features/settings/tabs/GeneralTab").then((m) => ({
     default: m.GeneralTab,
+  })),
+);
+const PlanTab = lazy(() =>
+  import("@/features/settings/tabs/PlanTab").then((m) => ({
+    default: m.PlanTab,
   })),
 );
 const AppearanceTab = lazy(() =>
@@ -344,6 +354,7 @@ export const router = createBrowserRouter([
         ],
       },
       { path: "library", element: <LibraryPage /> },
+      { path: "notes/:noteId", element: <NotePage /> },
       { path: "workspace", element: <WorkspacePage /> },
       { path: "streaks", element: <StreaksPage /> },
       { path: "plans/new", element: <PlanDetailPage /> },
@@ -364,6 +375,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="general" replace /> },
           { path: "general", element: <GeneralTab /> },
+          { path: "plan", element: <PlanTab /> },
           { path: "appearance", element: <AppearanceTab /> },
           { path: "ai", element: <AiTab /> },
           { path: "organizations", element: <OrganizationsTab /> },
