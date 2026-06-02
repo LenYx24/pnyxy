@@ -1,3 +1,5 @@
+import { supabase } from "@/lib/supabase";
+import { logError } from "@/lib/logger";
 import { pathFromRoot } from "@/stores/chat-store";
 import type { ChatConversation, ChatMessage } from "@/types/chat";
 
@@ -64,6 +66,41 @@ export function conversationToMarkdown(
   }
 
   return lines.join("\n");
+}
+
+/**
+ * Fetch a conversation's messages and download its active-leaf thread
+ * as Markdown. Used by the library filetree, where only the
+ * conversation row is in hand (messages aren't loaded into the chat
+ * store unless the conversation is open). Follows the stored
+ * active_leaf_id, falling back to the newest message by created_at.
+ */
+export async function downloadConversationMarkdownById(
+  conversation: ChatConversation,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select("*")
+    .eq("conversation_id", conversation.id)
+    .order("created_at", { ascending: true });
+  if (error) {
+    logError("export-conversation:fetchMessages", error);
+    return;
+  }
+  const map = new Map<string, ChatMessage>();
+  for (const m of (data ?? []) as ChatMessage[]) map.set(m.id, m);
+
+  let leafId = conversation.active_leaf_id;
+  if (!leafId || !map.has(leafId)) {
+    let newest: ChatMessage | null = null;
+    for (const m of map.values()) {
+      if (!newest || m.created_at > newest.created_at) newest = m;
+    }
+    leafId = newest?.id ?? null;
+  }
+
+  const md = conversationToMarkdown(conversation, map, leafId);
+  downloadMarkdown(conversation.title.trim() || "Untitled conversation", md);
 }
 
 /**

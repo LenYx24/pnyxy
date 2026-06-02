@@ -606,7 +606,9 @@
       "renameTooLong": "A cím túl hosszú (legfeljebb 200 karakter).",
       "renameProfanity": "A cím nem megfelelő nyelvezetet tartalmaz.",
       "moveToFolder": "Áthelyezés mappába",
-      "exportMarkdown": "Exportálás Markdownként"
+      "exportMarkdown": "Exportálás Markdownként",
+      "exportJson": "Exportálás JSON-ként",
+      "exportGift": "Exportálás GIFT-ként"
     },
     "addManual": {
       "title": "Könyv hozzáadása kézzel",
@@ -704,6 +706,19 @@
       "noteLabel": "Jegyzet",
       "untitledNote": "Névtelen jegyzet",
       "openNote": "Jegyzet megnyitása",
+      "whiteboardLabel": "Tábla",
+      "untitledWhiteboard": "Névtelen tábla",
+      "openWhiteboard": "Tábla megnyitása",
+      "quizLabel": "Kvíz",
+      "untitledQuiz": "Névtelen kvíz",
+      "openQuiz": "Kvíz megnyitása",
+      "quizQuestionCount_one": "{{count}} kérdés",
+      "quizQuestionCount_other": "{{count}} kérdés",
+      "chatLabel": "Beszélgetés",
+      "untitledChat": "Névtelen beszélgetés",
+      "openChat": "Beszélgetés megnyitása",
+      "chatFromSource": "Forrás: {{source}}",
+      "new": "Új",
       "deleteFolder": {
         "title": "Mappa törlése",
         "body": "Biztos? A mappában lévő könyvek a gyökérszintre kerülnek. Az almappák is törlődnek.",
@@ -1298,6 +1313,12 @@
     "notFound": "A könyv nem található.",
     "goBack": "Vissza",
     "back": "Vissza",
+    "related": {
+      "heading": "Kapcsolódó a könyvtáradban",
+      "flashcards_one": "{{count}} kártya",
+      "flashcards_other": "{{count}} kártya",
+      "flashcardsKind": "Kártyák"
+    },
     "unknownAuthor": "Ismeretlen szerző",
     "uploadedBadge": "Feltöltött",
     "nav": {

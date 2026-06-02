@@ -69,6 +69,15 @@ interface QuizState {
 
   deleteQuiz: (id: string) => Promise<void>;
 
+  /** Move a quiz into a library folder (or null for root). Optimistic
+   *  local patch + Supabase update; `sortOrder` optionally pins the
+   *  position for drag-onto-sibling drops. */
+  moveQuizToFolder: (
+    id: string,
+    folderId: string | null,
+    sortOrder?: number,
+  ) => Promise<void>;
+
   /** Copy a quiz (and its questions) into the signed-in user's own
    *  library as a new private quiz. Used for "Duplicate to my
    *  quizzes" on community items. Returns the new quiz id, or null. */
@@ -356,6 +365,40 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       throw error;
     }
     set((s) => ({ myQuizzes: s.myQuizzes.filter((q) => q.id !== id) }));
+  },
+
+  async moveQuizToFolder(id, folderId, sortOrder) {
+    const current = get().myQuizzes.find((q) => q.id === id);
+    if (!current) return;
+    const folderUnchanged = current.folder_id === folderId;
+    const sortUnchanged =
+      sortOrder === undefined || current.sort_order === sortOrder;
+    if (folderUnchanged && sortUnchanged) return;
+    // Optimistic patch with rollback on error — mirrors chat's
+    // moveConversationToFolder.
+    const prevFolderId = current.folder_id;
+    const prevSortOrder = current.sort_order;
+    const patch: Partial<Quiz> = { folder_id: folderId };
+    if (sortOrder !== undefined) patch.sort_order = sortOrder;
+    set((s) => ({
+      myQuizzes: s.myQuizzes.map((q) => (q.id === id ? { ...q, ...patch } : q)),
+    }));
+    const update: Record<string, unknown> = { folder_id: folderId };
+    if (sortOrder !== undefined) update.sort_order = sortOrder;
+    const { error } = await supabase
+      .from("quizzes")
+      .update(update)
+      .eq("id", id);
+    if (error) {
+      logError("quiz-store:moveQuizToFolder", error);
+      set((s) => ({
+        myQuizzes: s.myQuizzes.map((q) =>
+          q.id === id
+            ? { ...q, folder_id: prevFolderId, sort_order: prevSortOrder }
+            : q,
+        ),
+      }));
+    }
   },
 
   async duplicateQuiz(id) {

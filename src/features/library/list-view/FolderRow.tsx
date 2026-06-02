@@ -18,8 +18,16 @@ import { useContextMenu } from "@/hooks/use-context-menu";
 import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import type { Folder as FolderType } from "@/types/database";
 import type { UnifiedLibraryItem } from "@/types/catalog";
+import type { Note } from "@/stores/note-store";
+import type { WhiteboardData } from "@/types/whiteboard";
+import type { Quiz } from "@/types/quiz";
+import type { ChatConversation } from "@/types/chat";
 import type { ListColumnWidths } from "../useLibraryPrefs";
 import { BookRow } from "./BookRow";
+import { NoteRow } from "./NoteRow";
+import { WhiteboardRow } from "./WhiteboardRow";
+import { QuizRow } from "./QuizRow";
+import { ChatRow } from "./ChatRow";
 import { ContextMenu, MenuItem } from "./MenuButton";
 import { formatDate, type RowDensity } from "./helpers";
 
@@ -39,8 +47,16 @@ interface FolderRowProps {
   ) => void;
   childFolders: FolderType[];
   childBooks: UnifiedLibraryItem[];
+  childNotes?: Note[];
+  childWhiteboards?: WhiteboardData[];
+  childQuizzes?: Quiz[];
+  childChats?: ChatConversation[];
   allFolders: FolderType[];
   allBooks: UnifiedLibraryItem[];
+  allNotes?: Note[];
+  allWhiteboards?: WhiteboardData[];
+  allQuizzes?: Quiz[];
+  allChats?: ChatConversation[];
   onMoveBook: (entry: UnifiedLibraryItem) => void;
   onRemoveBook: (entry: UnifiedLibraryItem) => void;
   /** Open the create-folder modal targeting this folder as parent.
@@ -66,8 +82,16 @@ export function FolderRow({
   onToggleSelect,
   childFolders,
   childBooks,
+  childNotes = [],
+  childWhiteboards = [],
+  childQuizzes = [],
+  childChats = [],
   allFolders,
   allBooks,
+  allNotes = [],
+  allWhiteboards = [],
+  allQuizzes = [],
+  allChats = [],
   onMoveBook,
   onRemoveBook,
   onCreateSubfolder,
@@ -287,7 +311,13 @@ export function FolderRow({
           className="mr-4 hidden shrink-0 truncate text-xs text-text-muted md:block"
           style={{ width: columnWidths.author }}
         >
-          {childFolders.length + childBooks.length} items
+          {childFolders.length +
+            childBooks.length +
+            childNotes.length +
+            childWhiteboards.length +
+            childQuizzes.length +
+            childChats.length}{" "}
+          items
         </span>
 
         {/* Spacer matching the BookRow's Size column. */}
@@ -335,6 +365,16 @@ export function FolderRow({
               (f) => f.parent_id === cf.id,
             );
             const cfBooks = allBooks.filter((b) => b.folder_id === cf.id);
+            const cfNotes = allNotes.filter((n) => n.folderId === cf.id);
+            const cfWhiteboards = allWhiteboards.filter(
+              (w) => (w.folderId ?? null) === cf.id,
+            );
+            const cfQuizzes = allQuizzes.filter(
+              (q) => (q.folder_id ?? null) === cf.id,
+            );
+            const cfChats = allChats.filter(
+              (c) => (c.folder_id ?? null) === cf.id,
+            );
             return (
               <FolderRow
                 key={cf.id}
@@ -350,8 +390,16 @@ export function FolderRow({
                 onToggleSelect={onToggleSelect}
                 childFolders={cfChildren}
                 childBooks={cfBooks}
+                childNotes={cfNotes}
+                childWhiteboards={cfWhiteboards}
+                childQuizzes={cfQuizzes}
+                childChats={cfChats}
                 allFolders={allFolders}
                 allBooks={allBooks}
+                allNotes={allNotes}
+                allWhiteboards={allWhiteboards}
+                allQuizzes={allQuizzes}
+                allChats={allChats}
                 onMoveBook={onMoveBook}
                 onRemoveBook={onRemoveBook}
                 onCreateSubfolder={onCreateSubfolder}
@@ -376,14 +424,67 @@ export function FolderRow({
               columnWidths={columnWidths}
             />
           ))}
-          {childFolders.length === 0 && childBooks.length === 0 && (
-            <div
-              className="px-3 py-2 text-xs text-text-muted italic"
-              style={{ paddingLeft: 8 + Math.min((depth + 1) * 20, 80) }}
-            >
-              Empty folder
-            </div>
-          )}
+          {childNotes.map((note) => (
+            <NoteRow
+              key={`note:${note.id}`}
+              note={note}
+              depth={depth + 1}
+              selected={selectedIds.has(`note:${note.id}`)}
+              selectionActive={selectionActive}
+              onToggleSelect={onToggleSelect}
+              density={density}
+              columnWidths={columnWidths}
+            />
+          ))}
+          {childWhiteboards.map((wb) => (
+            <WhiteboardRow
+              key={`whiteboard:${wb.id}`}
+              whiteboard={wb}
+              depth={depth + 1}
+              selected={selectedIds.has(`whiteboard:${wb.id}`)}
+              selectionActive={selectionActive}
+              onToggleSelect={onToggleSelect}
+              density={density}
+              columnWidths={columnWidths}
+            />
+          ))}
+          {childQuizzes.map((quiz) => (
+            <QuizRow
+              key={`quiz:${quiz.id}`}
+              quiz={quiz}
+              depth={depth + 1}
+              selected={selectedIds.has(`quiz:${quiz.id}`)}
+              selectionActive={selectionActive}
+              onToggleSelect={onToggleSelect}
+              density={density}
+              columnWidths={columnWidths}
+            />
+          ))}
+          {childChats.map((chat) => (
+            <ChatRow
+              key={`chat:${chat.id}`}
+              conversation={chat}
+              depth={depth + 1}
+              selected={selectedIds.has(`chat:${chat.id}`)}
+              selectionActive={selectionActive}
+              onToggleSelect={onToggleSelect}
+              density={density}
+              columnWidths={columnWidths}
+            />
+          ))}
+          {childFolders.length === 0 &&
+            childBooks.length === 0 &&
+            childNotes.length === 0 &&
+            childWhiteboards.length === 0 &&
+            childQuizzes.length === 0 &&
+            childChats.length === 0 && (
+              <div
+                className="px-3 py-2 text-xs text-text-muted italic"
+                style={{ paddingLeft: 8 + Math.min((depth + 1) * 20, 80) }}
+              >
+                Empty folder
+              </div>
+            )}
         </div>
       )}
       <PromptModal

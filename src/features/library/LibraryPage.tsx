@@ -18,6 +18,9 @@ import { useConfirm } from "@/hooks/use-confirm";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useNoteStore } from "@/stores/note-store";
+import { useWhiteboardStore } from "@/stores/whiteboard-store";
+import { useQuizStore } from "@/stores/quiz-store";
+import { useChatStore } from "@/stores/chat-store";
 import { useUploadStore } from "@/stores/upload-store";
 import {
   classifyFile,
@@ -65,6 +68,19 @@ export function LibraryPage() {
   const notes = useNoteStore((s) => s.notes);
   const moveNoteToFolder = useNoteStore((s) => s.moveNoteToFolder);
   const deleteNote = useNoteStore((s) => s.deleteNote);
+  const whiteboards = useWhiteboardStore((s) => s.whiteboards);
+  const moveWhiteboardToFolder = useWhiteboardStore(
+    (s) => s.moveWhiteboardToFolder,
+  );
+  const deleteWhiteboard = useWhiteboardStore((s) => s.deleteWhiteboard);
+  const quizzes = useQuizStore((s) => s.myQuizzes);
+  const moveQuizToFolder = useQuizStore((s) => s.moveQuizToFolder);
+  const deleteQuiz = useQuizStore((s) => s.deleteQuiz);
+  const conversations = useChatStore((s) => s.conversations);
+  const moveConversationToFolder = useChatStore(
+    (s) => s.moveConversationToFolder,
+  );
+  const deleteConversation = useChatStore((s) => s.deleteConversation);
   const user = useAuthStore((s) => s.user);
 
   // View preferences
@@ -99,8 +115,18 @@ export function LibraryPage() {
       .map((f) => `folder:${f.id}`);
     const bookIds = books.map((b) => `book:${b.id}`);
     const noteIds = notes.map((n) => `note:${n.id}`);
-    return [...folderIds, ...bookIds, ...noteIds];
-  }, [folders, books, notes]);
+    const whiteboardIds = whiteboards.map((w) => `whiteboard:${w.id}`);
+    const quizIds = quizzes.map((q) => `quiz:${q.id}`);
+    const chatIds = conversations.map((c) => `chat:${c.id}`);
+    return [
+      ...folderIds,
+      ...bookIds,
+      ...noteIds,
+      ...whiteboardIds,
+      ...quizIds,
+      ...chatIds,
+    ];
+  }, [folders, books, notes, whiteboards, quizzes, conversations]);
 
   const handleToggleSelect = useCallback(
     (id: string, event: { ctrlKey: boolean; shiftKey: boolean }) => {
@@ -260,6 +286,15 @@ export function LibraryPage() {
     const noteIds = [...selectedIds]
       .filter((s) => s.startsWith("note:"))
       .map((s) => s.slice(5));
+    const whiteboardIds = [...selectedIds]
+      .filter((s) => s.startsWith("whiteboard:"))
+      .map((s) => s.slice(11));
+    const quizIds = [...selectedIds]
+      .filter((s) => s.startsWith("quiz:"))
+      .map((s) => s.slice(5));
+    const chatIds = [...selectedIds]
+      .filter((s) => s.startsWith("chat:"))
+      .map((s) => s.slice(5));
 
     // Move books
     for (const id of bookIds) {
@@ -269,6 +304,18 @@ export function LibraryPage() {
     // Move notes
     for (const id of noteIds) {
       moveNoteToFolder(id, folderId);
+    }
+    // Move whiteboards
+    for (const id of whiteboardIds) {
+      moveWhiteboardToFolder(id, folderId);
+    }
+    // Move quizzes
+    for (const id of quizIds) {
+      await moveQuizToFolder(id, folderId);
+    }
+    // Move conversations
+    for (const id of chatIds) {
+      await moveConversationToFolder(id, folderId);
     }
     // Move folders
     for (const id of folderIds) {
@@ -305,6 +352,30 @@ export function LibraryPage() {
       .map((s) => s.slice(5));
     for (const id of noteIds) {
       deleteNote(id);
+    }
+
+    // Delete whiteboards
+    const whiteboardIds = [...selectedIds]
+      .filter((s) => s.startsWith("whiteboard:"))
+      .map((s) => s.slice(11));
+    for (const id of whiteboardIds) {
+      deleteWhiteboard(id);
+    }
+
+    // Delete quizzes
+    const quizIds = [...selectedIds]
+      .filter((s) => s.startsWith("quiz:"))
+      .map((s) => s.slice(5));
+    for (const id of quizIds) {
+      await deleteQuiz(id);
+    }
+
+    // Delete conversations
+    const chatIds = [...selectedIds]
+      .filter((s) => s.startsWith("chat:"))
+      .map((s) => s.slice(5));
+    for (const id of chatIds) {
+      await deleteConversation(id);
     }
 
     // For folders, use deleteFolder from the store

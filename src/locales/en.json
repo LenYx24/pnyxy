@@ -606,7 +606,9 @@
       "renameTooLong": "Title is too long (max 200 characters).",
       "renameProfanity": "Title contains disallowed language.",
       "moveToFolder": "Move to folder",
-      "exportMarkdown": "Export as Markdown"
+      "exportMarkdown": "Export as Markdown",
+      "exportJson": "Export as JSON",
+      "exportGift": "Export as GIFT"
     },
     "addManual": {
       "title": "Add a book manually",
@@ -704,6 +706,19 @@
       "noteLabel": "Note",
       "untitledNote": "Untitled note",
       "openNote": "Open note",
+      "whiteboardLabel": "Whiteboard",
+      "untitledWhiteboard": "Untitled whiteboard",
+      "openWhiteboard": "Open whiteboard",
+      "quizLabel": "Quiz",
+      "untitledQuiz": "Untitled quiz",
+      "openQuiz": "Open quiz",
+      "quizQuestionCount_one": "{{count}} question",
+      "quizQuestionCount_other": "{{count}} questions",
+      "chatLabel": "Chat",
+      "untitledChat": "Untitled chat",
+      "openChat": "Open chat",
+      "chatFromSource": "From {{source}}",
+      "new": "New",
       "deleteFolder": {
         "title": "Delete Folder",
         "body": "Are you sure? Books in this folder will be moved to the root level. Subfolders will also be deleted.",
@@ -1297,6 +1312,12 @@
   "book": {
     "notFound": "Book not found.",
     "goBack": "Go back",
+    "related": {
+      "heading": "Related in your library",
+      "flashcards_one": "{{count}} flashcard",
+      "flashcards_other": "{{count}} flashcards",
+      "flashcardsKind": "Flashcards"
+    },
     "back": "Back",
     "unknownAuthor": "Unknown author",
     "uploadedBadge": "Uploaded",

@@ -69,11 +69,14 @@ interface WhiteboardState {
   /** Pull whiteboards from Supabase, merge into local IDB + in-memory
    *  list. Called after sign-in. Cloud wins on conflict. */
   syncFromCloud: () => Promise<void>;
-  createWhiteboard: (opts?: { bookId?: string; title?: string }) => string;
+  createWhiteboard: (opts?: { bookId?: string; title?: string; folderId?: string | null }) => string;
   /** Most recent cloud-sync error (quota, network). Cleared by the
    *  UI when acknowledged. */
   lastSyncError: string | null;
   deleteWhiteboard: (id: string) => void;
+  /** Move a whiteboard into a library folder (or null for root).
+   *  Updates the jsonb blob locally + pushes to the cloud. */
+  moveWhiteboardToFolder: (id: string, folderId: string | null) => void;
   loadWhiteboardData: (id: string) => Promise<void>;
   saveCurrentWhiteboard: () => void;
 
@@ -151,7 +154,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     }
   },
 
-  createWhiteboard(opts?: { bookId?: string; title?: string }) {
+  createWhiteboard(opts?: { bookId?: string; title?: string; folderId?: string | null }) {
     const wb: WhiteboardData = {
       id: crypto.randomUUID(),
       title: opts?.title ?? "Untitled Whiteboard",
@@ -160,6 +163,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       createdAt: Date.now(),
       updatedAt: Date.now(),
       bookId: opts?.bookId,
+      folderId: opts?.folderId ?? null,
     };
     set((s) => ({ whiteboards: [wb, ...s.whiteboards] }));
     dbSaveWhiteboard(wb);
@@ -182,6 +186,23 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     }));
     dbDeleteWhiteboard(id);
     deleteWhiteboardCloud(id);
+  },
+
+  moveWhiteboardToFolder(id, folderId) {
+    const existing = get().whiteboards.find((w) => w.id === id);
+    if (!existing || (existing.folderId ?? null) === folderId) return;
+    const wb: WhiteboardData = {
+      ...existing,
+      folderId,
+      updatedAt: Date.now(),
+    };
+    set((s) => ({
+      whiteboards: s.whiteboards.map((w) => (w.id === id ? wb : w)),
+    }));
+    dbSaveWhiteboard(wb);
+    // Fire-and-forget cloud push — folder placement is a metadata
+    // edit, so it can't trip the insert-only quota trigger.
+    void pushWhiteboard(wb);
   },
 
   async loadWhiteboardData(id) {
@@ -215,8 +236,10 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       updatedAt: Date.now(),
       // Preserve scope: dropping bookId here would orphan a
       // book-scoped whiteboard back into the global workspace list
-      // on the very next save.
+      // on the very next save. Same for folderId — a save mustn't
+      // bounce the whiteboard out of its library folder.
       bookId: existing?.bookId,
+      folderId: existing?.folderId ?? null,
     };
     dbSaveWhiteboard(wb);
     // Fire-and-forget cloud push. Quota errors can fire on the very

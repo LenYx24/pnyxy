@@ -36,6 +36,9 @@ import {
   BookOpen,
   Folder,
   FileText,
+  Shapes,
+  ListChecks,
+  MessageSquare,
   RotateCw,
   X,
   Check,
@@ -45,6 +48,12 @@ import { Button, GlassCard } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useLibraryStore } from "@/stores/library-store";
 import { useNoteStore, type Note } from "@/stores/note-store";
+import { useWhiteboardStore } from "@/stores/whiteboard-store";
+import type { WhiteboardData } from "@/types/whiteboard";
+import { useQuizStore } from "@/stores/quiz-store";
+import type { Quiz } from "@/types/quiz";
+import { useChatStore } from "@/stores/chat-store";
+import type { ChatConversation } from "@/types/chat";
 import { useTagStore } from "@/stores/tag-store";
 import { useUploadStore, type UploadJob } from "@/stores/upload-store";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
@@ -53,6 +62,10 @@ import { formatShortcut } from "@/lib/keyboard-shortcuts";
 import { FolderCard } from "./FolderCard";
 import { LibraryBookCard } from "./LibraryBookCard";
 import { LibraryNoteCard } from "./LibraryNoteCard";
+import { LibraryWhiteboardCard } from "./LibraryWhiteboardCard";
+import { LibraryQuizCard } from "./LibraryQuizCard";
+import { LibraryChatCard } from "./LibraryChatCard";
+import { NewItemMenu } from "./NewItemMenu";
 import { LibraryListView } from "./LibraryListView";
 import { CreateFolderModal } from "./modals/CreateFolderModal";
 import { BookCardSkeleton } from "./BookCardSkeleton";
@@ -121,9 +134,25 @@ export function AllBooksTab({
   const notes = useNoteStore((s) => s.notes);
   const loadNotes = useNoteStore((s) => s.loadNotes);
   const moveNoteToFolder = useNoteStore((s) => s.moveNoteToFolder);
+  const whiteboards = useWhiteboardStore((s) => s.whiteboards);
+  const loadWhiteboards = useWhiteboardStore((s) => s.loadWhiteboards);
+  const moveWhiteboardToFolder = useWhiteboardStore(
+    (s) => s.moveWhiteboardToFolder,
+  );
+  const quizzes = useQuizStore((s) => s.myQuizzes);
+  const fetchMyQuizzes = useQuizStore((s) => s.fetchMine);
+  const moveQuizToFolder = useQuizStore((s) => s.moveQuizToFolder);
+  const conversations = useChatStore((s) => s.conversations);
+  const fetchConversations = useChatStore((s) => s.fetchConversations);
+  const moveConversationToFolder = useChatStore(
+    (s) => s.moveConversationToFolder,
+  );
   useEffect(() => {
     void loadNotes();
-  }, [loadNotes]);
+    void loadWhiteboards();
+    void fetchMyQuizzes();
+    void fetchConversations();
+  }, [loadNotes, loadWhiteboards, fetchMyQuizzes, fetchConversations]);
 
   const getTagsForBook = useTagStore((s) => s.getTagsForBook);
 
@@ -138,6 +167,18 @@ export function AllBooksTab({
   const notesInFolder = useMemo(
     () => notes.filter((n) => n.folderId === currentFolderId),
     [notes, currentFolderId],
+  );
+  const whiteboardsInFolder = useMemo(
+    () => whiteboards.filter((w) => (w.folderId ?? null) === currentFolderId),
+    [whiteboards, currentFolderId],
+  );
+  const quizzesInFolder = useMemo(
+    () => quizzes.filter((q) => (q.folder_id ?? null) === currentFolderId),
+    [quizzes, currentFolderId],
+  );
+  const chatsInFolder = useMemo(
+    () => conversations.filter((c) => (c.folder_id ?? null) === currentFolderId),
+    [conversations, currentFolderId],
   );
 
   // Apply search + tag filter
@@ -181,17 +222,60 @@ export function AllBooksTab({
     );
   }, [notesInFolder, query, activeTag]);
 
+  // Same treatment as notes: searchable by title, hidden when a book
+  // status-tag filter is active (whiteboards carry no such tags).
+  const filteredWhiteboards = useMemo(() => {
+    if (activeTag) return [] as WhiteboardData[];
+    if (!query) return whiteboardsInFolder;
+    return whiteboardsInFolder.filter((w) =>
+      (w.title || "").toLowerCase().includes(query),
+    );
+  }, [whiteboardsInFolder, query, activeTag]);
+
+  const filteredQuizzes = useMemo(() => {
+    if (activeTag) return [] as Quiz[];
+    if (!query) return quizzesInFolder;
+    return quizzesInFolder.filter((q) =>
+      (q.title || "").toLowerCase().includes(query),
+    );
+  }, [quizzesInFolder, query, activeTag]);
+
+  const filteredChats = useMemo(() => {
+    if (activeTag) return [] as ChatConversation[];
+    if (!query) return chatsInFolder;
+    return chatsInFolder.filter((c) =>
+      (c.title || "").toLowerCase().includes(query),
+    );
+  }, [chatsInFolder, query, activeTag]);
+
   // ─── Sort order ───────────────────────────────────────────
   const contextId = currentFolderId ?? "root";
   const savedOrder = sortOrders[contextId];
 
-  // Build combined sortable items (folders first, then books, then notes)
+  // Build combined sortable items (folders, then books, notes, whiteboards)
   const allItemKeys = useMemo(() => {
     const folderKeys = filteredFolders.map((f) => `folder:${f.id}`);
     const bookKeys = filteredBooks.map((b) => `book:${b.id}`);
     const noteKeys = filteredNotes.map((n) => `note:${n.id}`);
-    return [...folderKeys, ...bookKeys, ...noteKeys];
-  }, [filteredFolders, filteredBooks, filteredNotes]);
+    const whiteboardKeys = filteredWhiteboards.map((w) => `whiteboard:${w.id}`);
+    const quizKeys = filteredQuizzes.map((q) => `quiz:${q.id}`);
+    const chatKeys = filteredChats.map((c) => `chat:${c.id}`);
+    return [
+      ...folderKeys,
+      ...bookKeys,
+      ...noteKeys,
+      ...whiteboardKeys,
+      ...quizKeys,
+      ...chatKeys,
+    ];
+  }, [
+    filteredFolders,
+    filteredBooks,
+    filteredNotes,
+    filteredWhiteboards,
+    filteredQuizzes,
+    filteredChats,
+  ]);
 
   const orderedKeys = useMemo(
     () => applySort(savedOrder, allItemKeys),
@@ -217,6 +301,24 @@ export function AllBooksTab({
     return m;
   }, [filteredNotes]);
 
+  const whiteboardMap = useMemo(() => {
+    const m = new Map<string, WhiteboardData>();
+    for (const w of filteredWhiteboards) m.set(`whiteboard:${w.id}`, w);
+    return m;
+  }, [filteredWhiteboards]);
+
+  const quizMap = useMemo(() => {
+    const m = new Map<string, Quiz>();
+    for (const q of filteredQuizzes) m.set(`quiz:${q.id}`, q);
+    return m;
+  }, [filteredQuizzes]);
+
+  const chatMap = useMemo(() => {
+    const m = new Map<string, ChatConversation>();
+    for (const c of filteredChats) m.set(`chat:${c.id}`, c);
+    return m;
+  }, [filteredChats]);
+
   // Ordered arrays for rendering. orderedKeys is derived from the
   // same filtered folders/books that populate the maps, so every
   // key resolves — no `filter(Boolean)` safety net needed.
@@ -233,6 +335,34 @@ export function AllBooksTab({
         .filter((k) => k.startsWith("book:"))
         .map((k) => bookMap.get(k)!),
     [orderedKeys, bookMap],
+  );
+  const orderedNotes = useMemo(
+    () =>
+      orderedKeys
+        .filter((k) => k.startsWith("note:"))
+        .map((k) => noteMap.get(k)!),
+    [orderedKeys, noteMap],
+  );
+  const orderedWhiteboards = useMemo(
+    () =>
+      orderedKeys
+        .filter((k) => k.startsWith("whiteboard:"))
+        .map((k) => whiteboardMap.get(k)!),
+    [orderedKeys, whiteboardMap],
+  );
+  const orderedQuizzes = useMemo(
+    () =>
+      orderedKeys
+        .filter((k) => k.startsWith("quiz:"))
+        .map((k) => quizMap.get(k)!),
+    [orderedKeys, quizMap],
+  );
+  const orderedChats = useMemo(
+    () =>
+      orderedKeys
+        .filter((k) => k.startsWith("chat:"))
+        .map((k) => chatMap.get(k)!),
+    [orderedKeys, chatMap],
   );
 
   // ─── DnD ─────────────────────────────────────────────────
@@ -304,6 +434,18 @@ export function AllBooksTab({
           if (book) void moveBookToFolder(book, targetFolderId);
         } else if (activeId.startsWith("note:")) {
           moveNoteToFolder(activeId.slice("note:".length), targetFolderId);
+        } else if (activeId.startsWith("whiteboard:")) {
+          moveWhiteboardToFolder(
+            activeId.slice("whiteboard:".length),
+            targetFolderId,
+          );
+        } else if (activeId.startsWith("quiz:")) {
+          void moveQuizToFolder(activeId.slice("quiz:".length), targetFolderId);
+        } else if (activeId.startsWith("chat:")) {
+          void moveConversationToFolder(
+            activeId.slice("chat:".length),
+            targetFolderId,
+          );
         } else if (activeId.startsWith("folder:")) {
           const draggedFolderId = activeId.slice("folder:".length);
           if (draggedFolderId !== targetFolderId) {
@@ -325,6 +467,18 @@ export function AllBooksTab({
           if (book) void moveBookToFolder(book, targetFolderId);
         } else if (activeId.startsWith("note:")) {
           moveNoteToFolder(activeId.slice("note:".length), targetFolderId);
+        } else if (activeId.startsWith("whiteboard:")) {
+          moveWhiteboardToFolder(
+            activeId.slice("whiteboard:".length),
+            targetFolderId,
+          );
+        } else if (activeId.startsWith("quiz:")) {
+          void moveQuizToFolder(activeId.slice("quiz:".length), targetFolderId);
+        } else if (activeId.startsWith("chat:")) {
+          void moveConversationToFolder(
+            activeId.slice("chat:".length),
+            targetFolderId,
+          );
         } else if (activeId.startsWith("folder:")) {
           const draggedFolderId = activeId.slice("folder:".length);
           if (draggedFolderId !== targetFolderId) {
@@ -353,6 +507,9 @@ export function AllBooksTab({
       moveBookToFolder,
       moveFolderToFolder,
       moveNoteToFolder,
+      moveWhiteboardToFolder,
+      moveQuizToFolder,
+      moveConversationToFolder,
     ],
   );
 
@@ -433,7 +590,10 @@ export function AllBooksTab({
   const isEmpty =
     filteredFolders.length === 0 &&
     filteredBooks.length === 0 &&
-    filteredNotes.length === 0;
+    filteredNotes.length === 0 &&
+    filteredWhiteboards.length === 0 &&
+    filteredQuizzes.length === 0 &&
+    filteredChats.length === 0;
   // On mobile the desktop cardSize default (200px) means a single
   // column and a giant 300px-tall cover per row. Clamp the grid's
   // floor to ~130px so two cards fit on a 375px viewport — matches
@@ -475,6 +635,9 @@ export function AllBooksTab({
   const activeDragFolder = activeId ? folderMap.get(activeId) : null;
   const activeDragBook = activeId ? bookMap.get(activeId) : null;
   const activeDragNote = activeId ? noteMap.get(activeId) : null;
+  const activeDragWhiteboard = activeId ? whiteboardMap.get(activeId) : null;
+  const activeDragQuiz = activeId ? quizMap.get(activeId) : null;
+  const activeDragChat = activeId ? chatMap.get(activeId) : null;
   // Smooth "settle into place" on drop instead of the default snap.
   // Same easing dnd-kit ships in `defaultDropAnimation`, but with the
   // sideEffects helper so the dragged source row keeps its dimming
@@ -556,11 +719,15 @@ export function AllBooksTab({
             </Button>
           )}
 
-          {/* The "New folder" button used to live here. It's now an
-              inline tile/row inside the grid and list views — the
-              user creates a folder where folders live, not from a
-              header button. The Ctrl+Shift+F shortcut is still
-              wired in case keyboard users want it. */}
+          {/* "New ▸" — create a note / whiteboard / quiz / chat (or
+              folder) directly into the folder being viewed, then open
+              its editor. Items are born where they live instead of
+              created elsewhere and dragged in. Folder creation also
+              still has its inline tile/row + Ctrl+Shift+F shortcut. */}
+          <NewItemMenu
+            currentFolderId={currentFolderId}
+            onNewFolder={handleCreateFolder}
+          />
         </div>
       </div>
 
@@ -628,9 +795,17 @@ export function AllBooksTab({
               <LibraryListView
                 folders={orderedFolders}
                 books={orderedBooks}
+                notes={orderedNotes}
+                whiteboards={orderedWhiteboards}
+                quizzes={orderedQuizzes}
+                chats={orderedChats}
                 orderedKeys={orderedKeys}
                 allFolders={folders}
                 allBooks={books}
+                allNotes={notes}
+                allWhiteboards={whiteboards}
+                allQuizzes={quizzes}
+                allChats={conversations}
                 selectedIds={selectedIds}
                 selectionActive={selectionActive}
                 onToggleSelect={onToggleSelect}
@@ -711,6 +886,48 @@ export function AllBooksTab({
                       />
                     );
                   }
+                  const whiteboard = whiteboardMap.get(key);
+                  if (whiteboard) {
+                    return (
+                      <LibraryWhiteboardCard
+                        key={`whiteboard:${whiteboard.id}`}
+                        whiteboard={whiteboard}
+                        sortableId={`whiteboard:${whiteboard.id}`}
+                        coverHeight={coverHeight}
+                        selected={selectedIds.has(`whiteboard:${whiteboard.id}`)}
+                        selectionActive={selectionActive}
+                        onToggleSelect={onToggleSelect}
+                      />
+                    );
+                  }
+                  const quiz = quizMap.get(key);
+                  if (quiz) {
+                    return (
+                      <LibraryQuizCard
+                        key={`quiz:${quiz.id}`}
+                        quiz={quiz}
+                        sortableId={`quiz:${quiz.id}`}
+                        coverHeight={coverHeight}
+                        selected={selectedIds.has(`quiz:${quiz.id}`)}
+                        selectionActive={selectionActive}
+                        onToggleSelect={onToggleSelect}
+                      />
+                    );
+                  }
+                  const chat = chatMap.get(key);
+                  if (chat) {
+                    return (
+                      <LibraryChatCard
+                        key={`chat:${chat.id}`}
+                        conversation={chat}
+                        sortableId={`chat:${chat.id}`}
+                        coverHeight={coverHeight}
+                        selected={selectedIds.has(`chat:${chat.id}`)}
+                        selectionActive={selectionActive}
+                        onToggleSelect={onToggleSelect}
+                      />
+                    );
+                  }
                   return null;
                 })}
               </div>
@@ -766,6 +983,45 @@ export function AllBooksTab({
                     <span className="text-sm font-medium text-text-primary truncate">
                       {activeDragNote.title.trim() ||
                         t("library.allBooks.untitledNote")}
+                    </span>
+                  </div>
+                </GlassCard>
+              </div>
+            )}
+            {activeDragWhiteboard && (
+              <div style={{ width: cardSize }} className="pointer-events-none">
+                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent-purple">
+                  <div className="flex items-center gap-3 p-3">
+                    <Shapes size={16} className="shrink-0 text-emerald-400/80" />
+                    <span className="text-sm font-medium text-text-primary truncate">
+                      {activeDragWhiteboard.title.trim() ||
+                        t("library.allBooks.untitledWhiteboard")}
+                    </span>
+                  </div>
+                </GlassCard>
+              </div>
+            )}
+            {activeDragQuiz && (
+              <div style={{ width: cardSize }} className="pointer-events-none">
+                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent-purple">
+                  <div className="flex items-center gap-3 p-3">
+                    <ListChecks size={16} className="shrink-0 text-amber-400/80" />
+                    <span className="text-sm font-medium text-text-primary truncate">
+                      {activeDragQuiz.title.trim() ||
+                        t("library.allBooks.untitledQuiz")}
+                    </span>
+                  </div>
+                </GlassCard>
+              </div>
+            )}
+            {activeDragChat && (
+              <div style={{ width: cardSize }} className="pointer-events-none">
+                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent-purple">
+                  <div className="flex items-center gap-3 p-3">
+                    <MessageSquare size={16} className="shrink-0 text-sky-400/80" />
+                    <span className="text-sm font-medium text-text-primary truncate">
+                      {activeDragChat.title.trim() ||
+                        t("library.allBooks.untitledChat")}
                     </span>
                   </div>
                 </GlassCard>

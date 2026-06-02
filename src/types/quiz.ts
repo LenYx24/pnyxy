@@ -9,6 +9,10 @@ export interface Quiz {
   visibility: QuizVisibility;
   uploaded_book_id: string | null;
   catalog_book_id: string | null;
+  /** Library folder the quiz lives in (00045). null = root. */
+  folder_id: string | null;
+  /** Position within the folder; lower = earlier (00045). */
+  sort_order: number;
   question_count: number;
   randomize_questions: boolean;
   randomize_options: boolean;

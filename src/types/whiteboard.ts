@@ -101,4 +101,10 @@ export interface WhiteboardData {
    *  also leaves it undefined — those exist per-session inside the
    *  reader's dockview, not as book artifacts. */
   bookId?: string;
+  /** Library folder this whiteboard lives in, or null/undefined for
+   *  the root. Lets whiteboards appear in the library filetree
+   *  alongside books + notes. Stored inside this jsonb blob (like
+   *  bookId) — the whiteboard sync upserts the whole WhiteboardData,
+   *  so it round-trips with no schema change. */
+  folderId?: string | null;
 }

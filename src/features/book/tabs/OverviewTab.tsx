@@ -45,6 +45,7 @@ import type {
 } from "@/types/catalog";
 import type { Book, Category } from "@/types/database";
 import { useBook } from "../BookPageContext";
+import { RelatedToBook } from "../RelatedToBook";
 import { BookStatusPicker } from "../BookStatusPicker";
 import { BookCategoryEditor } from "../BookCategoryEditor";
 import { AttachFileButton } from "../AttachFileButton";
@@ -190,17 +191,24 @@ function CreateWhiteboardButton() {
 
 export function OverviewTab() {
   const data = useBook();
-  if (data.source === "catalog") {
-    return <CatalogOverview book={data.book} categories={data.categories} />;
-  }
   return (
-    <UploadedOverview
-      book={data.book}
-      storagePath={data.storagePath}
-      fileName={data.fileName}
-      sizeBytes={data.sizeBytes}
-      categories={data.categories}
-    />
+    <div className="space-y-6">
+      {data.source === "catalog" ? (
+        <CatalogOverview book={data.book} categories={data.categories} />
+      ) : (
+        <UploadedOverview
+          book={data.book}
+          storagePath={data.storagePath}
+          fileName={data.fileName}
+          sizeBytes={data.sizeBytes}
+          categories={data.categories}
+        />
+      )}
+      {/* Second grouping axis: everything in the user's library that's
+          ABOUT this book (quizzes/chats/whiteboards/flashcards),
+          independent of filetree folder placement. */}
+      <RelatedToBook />
+    </div>
   );
 }
 
