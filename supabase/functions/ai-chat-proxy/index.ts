@@ -36,6 +36,7 @@ declare const Deno: {
 
 const OPENAI_MODEL = "gpt-4o-mini";
 const ANTHROPIC_MODEL = "claude-haiku-4-5";
+const GEMINI_FLASH_LITE_MODEL = "gemini-2.5-flash-lite";
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_3_FLASH_MODEL = "gemini-3-flash-preview";
 const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
@@ -58,10 +59,22 @@ const OPENAI_COMPATIBLE_PROVIDERS: ReadonlyArray<{
   model: string;
 }> = [
   {
-    // 2.5 Flash stays the cheapest-first auto-route default. Newer
-    // tiers come later in the chain so the free quota stays
-    // predictable; users who want the newest model pin it
-    // explicitly from the composer.
+    // Cheapest tier and the auto-route default. Gemini 2.5 Flash-Lite
+    // is ~3-6x cheaper per token than 2.5 Flash and handles the bulk
+    // of reader Q&A — short, context-grounded questions — fine.
+    // Tried first so default "auto" traffic lands on the cheapest
+    // model; when its bucket is exhausted the chain falls through to
+    // the fuller 2.5 Flash and the pricier tiers below. Users who
+    // want more headroom upfront pin a stronger model in the composer.
+    name: "gemini-lite",
+    envKey: "GEMINI_API_KEY",
+    url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    model: GEMINI_FLASH_LITE_MODEL,
+  },
+  {
+    // 2.5 Flash: the step-up from Flash-Lite, still cheap. Reached on
+    // the auto route only after the Flash-Lite bucket runs dry (or
+    // when pinned explicitly).
     name: "gemini",
     envKey: "GEMINI_API_KEY",
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",

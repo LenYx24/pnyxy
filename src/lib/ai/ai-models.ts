@@ -75,7 +75,7 @@ export const AI_MODEL_CATALOG: ModelInfo[] = [
     displayName: "Pnyxy Free (auto-routed)",
     modelId: "auto",
     description:
-      "Pnyxy ingyenes szerveres útvonala. Sima chat-kérésekhez a legolcsóbb működő szolgáltatóhoz fut át (Gemini 2.5 Flash → GPT-4o-mini → Gemini 3 Flash preview fallback sorrendben), tool-use műveleteknél (kvíz/roadmap-generálás) Claude Haiku 4.5-öt hív. A chat composer modell-választójában explicit pinelhető a Gemini 3 Flash preview is — ez a Google legújabb chat-modellje (ugyanaz amit a gemini.google.com webapp ad), kicsit drágább per token mint a 2.5 Flash, de új-generációs minőség. Nem kell saját API-kulcs, viszont napi kvóta korlátozza.",
+      "Pnyxy ingyenes szerveres útvonala. Sima chat-kérésekhez a legolcsóbb működő szolgáltatóhoz fut át (Gemini 2.5 Flash-Lite → Gemini 2.5 Flash → GPT-4o-mini → Gemini 3 Flash preview fallback sorrendben), tool-use műveleteknél (kvíz/roadmap-generálás) Claude Haiku 4.5-öt hív. A chat composer modell-választójában explicit pinelhető a Gemini 3 Flash preview is — ez a Google legújabb chat-modellje (ugyanaz amit a gemini.google.com webapp ad), kicsit drágább per token mint a 2.5 Flash, de új-generációs minőség. Nem kell saját API-kulcs, viszont napi kvóta korlátozza.",
     bestFor: [
       "Olvasás közbeni gyors kérdések",
       "Fogalom-magyarázat egy kijelölt szakaszra",

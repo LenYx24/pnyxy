@@ -29,6 +29,7 @@ interface AiUsageRow {
 // model id if we don't have a friendlier name yet (so newly added
 // models still render usefully without a client redeploy).
 const MODEL_DISPLAY_NAMES: Record<string, string> = {
+  "gemini-2.5-flash-lite": "Gemini 2.5 Flash-Lite",
   "gemini-2.5-flash": "Gemini 2.5 Flash",
   "gemini-3-flash-preview": "Gemini 3 Flash (preview)",
   "gpt-4o-mini": "GPT-4o mini",
@@ -59,10 +60,17 @@ interface ComparisonRow {
 
 const COMPARISON_ROWS: ComparisonRow[] = [
   {
-    model: "Gemini 2.5 Flash",
+    model: "Gemini 2.5 Flash-Lite",
     provider: "Pnyxy free · primary",
     cost: "Free (daily quota)",
-    bestFor: "Default chat, summaries, vocab",
+    bestFor: "Default chat, quick Q&A, summaries",
+    status: "active",
+  },
+  {
+    model: "Gemini 2.5 Flash",
+    provider: "Pnyxy free · step-up",
+    cost: "Free (daily quota)",
+    bestFor: "Fuller model when Flash-Lite is exhausted",
     status: "active",
   },
   {

@@ -120,10 +120,16 @@ const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
   tagline: string;
 }> = [
   {
+    id: "gemini-2.5-flash-lite",
+    label: "Gemini 2.5 Flash-Lite",
+    costTier: "cheap",
+    tagline: "Cheapest · auto-route default",
+  },
+  {
     id: "gemini-2.5-flash",
     label: "Gemini 2.5 Flash",
     costTier: "cheap",
-    tagline: "Cheapest · best for casual chat",
+    tagline: "Fuller Flash · step-up from Lite",
   },
   {
     // Newest Google chat model — same family the gemini.google.com
