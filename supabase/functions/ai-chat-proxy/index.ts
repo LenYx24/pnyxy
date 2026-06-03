@@ -285,6 +285,48 @@ Answer questions about this document. Be concise and helpful. Reference specific
   return `You are an AI assistant helping the user with a PDF document titled "${documentTitle}". The user hasn't selected any pages or attached images yet; answer general questions about the document or ask the user to point you at a specific section.`;
 }
 
+// ── Anthropic prompt caching ─────────────────────────────────
+//
+// The system prompt is the stable, token-heavy part of a turn: the
+// standalone chat brief, or (in reader Q&A) the book title plus the
+// extracted page text that buildSystemPrompt folds in. Within one
+// reader session it's byte-identical across every follow-up question,
+// so marking it with an ephemeral cache breakpoint lets Anthropic
+// serve that prefix from cache on the next turn at ~10% of the input
+// price instead of re-billing the whole book context each time. The
+// cache has a 5-minute sliding TTL — perfect for a back-and-forth
+// chat, useless for one-shot traffic, and free to leave on either way
+// (Anthropic silently ignores the breakpoint when the prefix is below
+// the model's minimum cacheable length — 2048 tokens for Haiku — so
+// the short standalone brief just never caches, no error).
+//
+// Gemini and the OpenAI upstreams need no equivalent here: Gemini 2.5
+// Flash caches matching prefixes implicitly and gpt-4o-mini caches
+// prompts over 1024 tokens automatically — both bill the discount
+// without any request-side flag.
+
+function cachedSystem(
+  systemPrompt: string,
+): Array<{ type: "text"; text: string; cache_control: { type: "ephemeral" } }> {
+  return [
+    { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
+  ];
+}
+
+/** Mark the last tool with a cache breakpoint. In Anthropic's cache
+ *  ordering (tools → system → messages) a breakpoint on the final
+ *  tool caches the entire tools block — the roadmap/quiz schemas are
+ *  large and identical across the agentic loop's round-trips, so this
+ *  is the second-biggest stable prefix after the system prompt. */
+function withToolCache<T extends Record<string, unknown>>(tools: T[]): T[] {
+  if (tools.length === 0) return tools;
+  return tools.map((t, i) =>
+    i === tools.length - 1
+      ? { ...t, cache_control: { type: "ephemeral" } }
+      : t,
+  );
+}
+
 // ── handler ──────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -705,7 +747,7 @@ async function tryAnthropic(
         model: ANTHROPIC_MODEL,
         max_tokens: maxOutputTokens,
         stream: true,
-        system: systemPrompt,
+        system: cachedSystem(systemPrompt),
         messages,
       }),
     });
@@ -751,8 +793,8 @@ async function tryAnthropicWithTools(
         model: ANTHROPIC_MODEL,
         max_tokens: maxOutputTokens,
         stream: true,
-        system: systemPrompt,
-        tools,
+        system: cachedSystem(systemPrompt),
+        tools: withToolCache(tools),
         messages: toolMessages,
       }),
     });

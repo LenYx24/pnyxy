@@ -648,9 +648,21 @@ async function* streamAnthropic(
     {
       model: "claude-sonnet-4-5-20250929",
       max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
-      system:
-        options.systemPromptOverride ??
-        buildSystemPrompt(documentTitle, pageContext, options.customContext),
+      // Cache the system prompt: it's the stable, token-heavy prefix
+      // (standalone brief, or book title + extracted page text) and
+      // it's identical across the turns of one reader session, so
+      // every follow-up question reuses it at ~10% of the input cost.
+      // Anthropic ignores the breakpoint below the model's minimum
+      // cacheable length, so the short standalone brief is a no-op.
+      system: [
+        {
+          type: "text",
+          text:
+            options.systemPromptOverride ??
+            buildSystemPrompt(documentTitle, pageContext, options.customContext),
+          cache_control: { type: "ephemeral" },
+        },
+      ],
       messages: messages.map((m) => ({
         role: m.role,
         content: toAnthropicChatContent(m),
@@ -1089,11 +1101,25 @@ async function* streamToolsAnthropic(
     {
       model: "claude-sonnet-4-5-20250929",
       max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
-      system: options.systemPrompt,
-      tools: options.tools.map((t) => ({
+      // Cache both stable prefixes for the agentic loop: the system
+      // prompt and the (large) tool schemas are re-sent on every
+      // round-trip but never change within a generation, so a
+      // breakpoint on each lets the loop's follow-up calls reuse them
+      // from cache instead of re-billing the full prefix each hop.
+      system: [
+        {
+          type: "text",
+          text: options.systemPrompt,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      tools: options.tools.map((t, i) => ({
         name: t.name,
         description: t.description,
         input_schema: t.input_schema,
+        ...(i === options.tools.length - 1
+          ? { cache_control: { type: "ephemeral" as const } }
+          : {}),
       })),
       messages: messages.map(toAnthropicMessage),
     },
