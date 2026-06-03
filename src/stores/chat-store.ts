@@ -1214,13 +1214,15 @@ async function sendOrBranch(
   // Carry attachments through on each user turn so older messages
   // with images still send their images on a re-stream / branch.
   const path = pathFromRoot(get().messages, userMsg.id);
-  const promptMessages = path
-    .filter((m) => m.role === "user" || m.role === "assistant")
-    .map((m) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-      attachments: m.attachments ?? undefined,
-    }));
+  const promptMessages = windowChatHistory(
+    path
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        attachments: m.attachments ?? undefined,
+      })),
+  );
 
   // 3. Insert an empty assistant message we'll stream into.
   const { data: asstRow, error: asstErr } = await supabase
@@ -1418,6 +1420,29 @@ export function pathFromRoot(
       : null;
   }
   return path.reverse();
+}
+
+/** Cap the prompt history to the most recent turns. The full
+ *  root→leaf path grows without bound as a conversation goes on, and
+ *  we re-send the whole thing — text plus any image attachments on
+ *  old user turns — on every send, so a long chat keeps re-billing
+ *  the same early messages each turn. A reading-assistant chat almost
+ *  never needs more than the last several exchanges to stay coherent
+ *  (the document context lives in the system prompt, not the
+ *  history), so we keep the tail and drop the rest.
+ *
+ *  Anthropic — and the proxy's Anthropic fallback — require the first
+ *  message to be a user turn, so when the cut lands mid-turn on an
+ *  assistant reply we drop that leading reply too. */
+const MAX_HISTORY_MESSAGES = 16;
+
+export function windowChatHistory<T extends { role: "user" | "assistant" }>(
+  msgs: T[],
+): T[] {
+  if (msgs.length <= MAX_HISTORY_MESSAGES) return msgs;
+  let windowed = msgs.slice(-MAX_HISTORY_MESSAGES);
+  if (windowed[0]?.role === "assistant") windowed = windowed.slice(1);
+  return windowed;
 }
 
 /** Given a message id, count the number of direct children it has —

@@ -48,23 +48,102 @@ const EMPTY_PACK: AiContextPack = {
   imageAttachments: [],
 };
 
-/** Render the TOC tree as an indented outline. Skips entries with
- *  invalid pageIndex (some PDFs have phantom outline nodes pointing
- *  to nonexistent pages). Indentation = 2 spaces per nesting level. */
-function renderToc(toc: readonly TocItem[], depth = 0): string {
-  const lines: string[] = [];
+interface FlatTocEntry {
+  title: string;
+  /** 1-based page label, matching what the user sees in the reader. */
+  page: number;
+  depth: number;
+}
+
+/** Flatten the TOC tree depth-first, preserving document order and
+ *  nesting depth. Skips entries with an invalid pageIndex (phantom
+ *  outline nodes some PDFs carry pointing at nonexistent pages). */
+function flattenToc(
+  toc: readonly TocItem[],
+  depth: number,
+  out: FlatTocEntry[],
+): void {
   for (const item of toc) {
+    // pageIndex is 0-based in the model; users see 1-based labels.
     if (Number.isFinite(item.pageIndex) && item.pageIndex >= 0) {
-      const indent = "  ".repeat(depth);
-      // pageIndex is 0-based in the model; users see 1-based labels.
-      lines.push(`${indent}- ${item.title} (p.${item.pageIndex + 1})`);
+      out.push({ title: item.title, page: item.pageIndex + 1, depth });
     }
-    if (item.children.length > 0) {
-      const child = renderToc(item.children, depth + 1);
-      if (child) lines.push(child);
-    }
+    if (item.children.length > 0) flattenToc(item.children, depth + 1, out);
   }
-  return lines.join("\n");
+}
+
+/** One indented outline line. Indentation = 2 spaces per level. */
+const tocLine = (e: FlatTocEntry) =>
+  `${"  ".repeat(e.depth)}- ${e.title} (p.${e.page})`;
+
+/** Character budget for the TOC block (~1.5k tokens at 4 chars/token).
+ *  Most books fit whole; only sprawling, deeply-nested textbook TOCs
+ *  trip the cap. */
+const TOC_CHAR_BUDGET = 6000;
+
+/** Render the TOC as an indented outline, bounded to TOC_CHAR_BUDGET.
+ *  Small TOCs render in full — unchanged behavior. When a TOC is too
+ *  big to send whole, we keep every top-level chapter (cheap, and it
+ *  gives the model the whole-book map that "where do I find X"
+ *  questions need) and spend the rest of the budget on the sub-section
+ *  entries nearest the reader's current page (the local detail a
+ *  "what does this section cover" question needs). Skipped runs
+ *  collapse to a "  …" line so the model can tell the outline was
+ *  abbreviated and ask for a chapter to be expanded. */
+function renderTocWithinBudget(
+  toc: readonly TocItem[],
+  currentPage: number,
+): { text: string; abbreviated: boolean } {
+  const flat: FlatTocEntry[] = [];
+  flattenToc(toc, 0, flat);
+  if (flat.length === 0) return { text: "", abbreviated: false };
+
+  const full = flat.map(tocLine).join("\n");
+  if (full.length <= TOC_CHAR_BUDGET) {
+    return { text: full, abbreviated: false };
+  }
+
+  // Over budget — decide which entries to keep.
+  const keep = new Set<number>();
+  let size = 0;
+  // 1. Every top-level chapter: the global map, usually small.
+  flat.forEach((e, i) => {
+    if (e.depth === 0) {
+      keep.add(i);
+      size += tocLine(e).length + 1;
+    }
+  });
+  // 2. Fill the remaining budget with entries closest to the page the
+  //    reader is on, so nearby sub-sections survive the cut.
+  const rest = flat
+    .map((e, i) => ({ i, e }))
+    .filter(({ i }) => !keep.has(i))
+    .sort(
+      (a, b) =>
+        Math.abs(a.e.page - currentPage) - Math.abs(b.e.page - currentPage),
+    );
+  for (const { i, e } of rest) {
+    const cost = tocLine(e).length + 1;
+    if (size + cost > TOC_CHAR_BUDGET) break;
+    keep.add(i);
+    size += cost;
+  }
+
+  // Emit in original document order; collapse skipped runs to "  …".
+  const lines: string[] = [];
+  let skipping = false;
+  flat.forEach((e, i) => {
+    if (keep.has(i)) {
+      if (skipping) {
+        lines.push("  …");
+        skipping = false;
+      }
+      lines.push(tocLine(e));
+    } else {
+      skipping = true;
+    }
+  });
+  return { text: lines.join("\n"), abbreviated: true };
 }
 
 /** Pull text for a sparse set of pages. Calls extractPdfText once
@@ -127,9 +206,15 @@ export async function buildAiContextPack(
   // TOC: cheap to include, often the highest-leverage context for
   // "what's this book about" / "where do I find X" questions.
   if (settings.aiAttachToc && doc.toc.length > 0) {
-    const tocText = renderToc(doc.toc);
+    const { text: tocText, abbreviated } = renderTocWithinBudget(
+      doc.toc,
+      doc.currentPage,
+    );
     if (tocText.trim()) {
-      sections.push(`[Table of Contents]\n${tocText}`);
+      const label = abbreviated
+        ? "[Table of Contents — abbreviated; ask for a chapter to see its sub-sections]"
+        : "[Table of Contents]";
+      sections.push(`${label}\n${tocText}`);
     }
   }
 
