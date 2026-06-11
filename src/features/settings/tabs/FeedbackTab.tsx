@@ -92,7 +92,7 @@ export function FeedbackTab() {
 
       <div className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-purple/15 text-accent-purple">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
             <MessageSquarePlus size={18} />
           </div>
           <div className="min-w-0 flex-1">
@@ -123,7 +123,7 @@ export function FeedbackTab() {
             placeholder={t("settings.feedbackSection.subjectPlaceholder")}
             maxLength={200}
             disabled={status.kind === "sending"}
-            className="w-full rounded-lg border border-glass-border bg-bg-secondary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple disabled:opacity-60"
+            className="w-full rounded-lg border border-glass-border bg-bg-secondary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent disabled:opacity-60"
           />
         </div>
 
@@ -142,20 +142,20 @@ export function FeedbackTab() {
             rows={7}
             maxLength={10000}
             disabled={status.kind === "sending"}
-            className="w-full resize-y rounded-lg border border-glass-border bg-bg-secondary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple disabled:opacity-60"
+            className="w-full resize-y rounded-lg border border-glass-border bg-bg-secondary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent disabled:opacity-60"
           />
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div aria-live="polite" className="min-w-0 flex-1 text-xs">
             {status.kind === "sent" && (
-              <span className="inline-flex items-center gap-1.5 text-green-400">
+              <span className="inline-flex items-center gap-1.5 text-success">
                 <CheckCircle2 size={14} />
                 {t("settings.feedbackSection.sent")}
               </span>
             )}
             {status.kind === "error" && (
-              <span className="inline-flex items-center gap-1.5 text-red-400">
+              <span className="inline-flex items-center gap-1.5 text-danger">
                 <AlertCircle size={14} />
                 {status.message}
               </span>

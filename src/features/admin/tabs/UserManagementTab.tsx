@@ -71,7 +71,7 @@ export function UserManagementTab() {
   if (usersLoading && users.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-accent-purple" />
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
       </div>
     );
   }
@@ -93,14 +93,14 @@ export function UserManagementTab() {
                   className={cn(
                     "rounded-full px-2 py-0.5 text-xs font-medium",
                     user.role === "admin"
-                      ? "bg-accent-purple/15 text-accent-purple"
+                      ? "bg-accent/15 text-accent"
                       : "bg-glass-hover text-text-muted",
                   )}
                 >
                   {user.role}
                 </span>
                 {user.activeBan && (
-                  <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-400">
+                  <span className="rounded-full bg-danger/15 px-2 py-0.5 text-xs font-medium text-danger">
                     Banned
                     {user.activeBan.banned_until
                       ? ` until ${new Date(user.activeBan.banned_until).toLocaleDateString()}`
@@ -142,7 +142,7 @@ export function UserManagementTab() {
                     handleLiftBan(user.activeBan!.id, user.id)
                   }
                 >
-                  <ShieldOff size={14} className="text-green-400" />
+                  <ShieldOff size={14} className="text-success" />
                   Lift Ban
                 </Button>
               ) : (
@@ -157,13 +157,13 @@ export function UserManagementTab() {
                     })
                   }
                 >
-                  <ShieldBan size={14} className="text-red-400" />
+                  <ShieldBan size={14} className="text-danger" />
                   Ban
                 </Button>
               )}
 
               {acting === user.id && (
-                <Loader2 size={16} className="animate-spin text-accent-purple" />
+                <Loader2 size={16} className="animate-spin text-accent" />
               )}
             </div>
           </div>
@@ -181,7 +181,7 @@ export function UserManagementTab() {
                   onChange={(e) =>
                     setBanForm((f) => f && { ...f, reason: e.target.value })
                   }
-                  className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple focus:outline-none"
+                  className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
                   placeholder="Ban reason"
                 />
               </div>
@@ -196,7 +196,7 @@ export function UserManagementTab() {
                   onChange={(e) =>
                     setBanForm((f) => f && { ...f, days: e.target.value })
                   }
-                  className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-center text-sm text-text-primary focus:border-accent-purple focus:outline-none"
+                  className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-center text-sm text-text-primary focus:border-accent focus:outline-none"
                 />
               </div>
               <Button

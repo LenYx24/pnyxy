@@ -133,7 +133,7 @@ export function GeneralTab() {
               className={cn(
                 "flex-1 min-w-[8rem] rounded-lg border px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
                 currentLang === lang
-                  ? "border-accent-purple bg-accent-purple/10 text-accent-purple"
+                  ? "border-accent bg-accent/10 text-accent"
                   : "border-glass-border bg-glass-bg text-text-secondary hover:bg-glass-hover hover:text-text-primary",
               )}
             >
@@ -202,7 +202,7 @@ export function GeneralTab() {
                 className={cn(
                   "flex-1 rounded-lg border px-3 py-2.5 text-left transition-colors cursor-pointer",
                   defaultFitMode === opt.value
-                    ? "border-accent-purple bg-accent-purple/10 text-accent-purple"
+                    ? "border-accent bg-accent/10 text-accent"
                     : "border-glass-border bg-glass-bg text-text-secondary hover:bg-glass-hover hover:text-text-primary",
                 )}
               >
@@ -228,7 +228,7 @@ export function GeneralTab() {
                 className={cn(
                   "flex-1 rounded-lg border px-3 py-2.5 text-left transition-colors cursor-pointer",
                   epubFlow === opt.value
-                    ? "border-accent-purple bg-accent-purple/10 text-accent-purple"
+                    ? "border-accent bg-accent/10 text-accent"
                     : "border-glass-border bg-glass-bg text-text-secondary hover:bg-glass-hover hover:text-text-primary",
                 )}
               >
@@ -247,7 +247,7 @@ export function GeneralTab() {
             <button
               type="button"
               onClick={() => setEpubFontScale(1.0)}
-              className="text-xs text-text-muted hover:text-accent-purple cursor-pointer"
+              className="text-xs text-text-muted hover:text-accent cursor-pointer"
             >
               {t("settings.reader.reset")}
             </button>
@@ -273,7 +273,7 @@ export function GeneralTab() {
             <button
               type="button"
               onClick={() => setEpubLineHeight(1.5)}
-              className="text-xs text-text-muted hover:text-accent-purple cursor-pointer"
+              className="text-xs text-text-muted hover:text-accent cursor-pointer"
             >
               {t("settings.reader.reset")}
             </button>
@@ -306,7 +306,7 @@ export function GeneralTab() {
                 className={cn(
                   "flex-1 min-w-[6rem] rounded-lg border px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
                   epubFontFamily === opt.value
-                    ? "border-accent-purple bg-accent-purple/10 text-accent-purple"
+                    ? "border-accent bg-accent/10 text-accent"
                     : "border-glass-border bg-glass-bg text-text-secondary hover:bg-glass-hover hover:text-text-primary",
                 )}
               >
@@ -331,7 +331,7 @@ export function GeneralTab() {
                 className={cn(
                   "flex-1 min-w-[6rem] rounded-lg border px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
                   epubColumnWidth === opt.value
-                    ? "border-accent-purple bg-accent-purple/10 text-accent-purple"
+                    ? "border-accent bg-accent/10 text-accent"
                     : "border-glass-border bg-glass-bg text-text-secondary hover:bg-glass-hover hover:text-text-primary",
                 )}
               >
@@ -396,7 +396,7 @@ export function GeneralTab() {
           type="button"
           onClick={handleExport}
           disabled={exportStatus.kind === "exporting"}
-          className="inline-flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-glass-hover hover:border-accent-purple/50 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+          className="inline-flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-glass-hover hover:border-accent/50 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
         >
           <Download size={14} />
           {exportStatus.kind === "exporting"
@@ -404,17 +404,17 @@ export function GeneralTab() {
             : t("settings.data.exportButton")}
         </button>
         {exportStatus.kind === "success" && (
-          <p className="text-xs text-green-500">
+          <p className="text-xs text-success">
             {t("settings.data.exportSuccess")}
           </p>
         )}
         {exportStatus.kind === "partial" && (
-          <p className="text-xs text-amber-400">
+          <p className="text-xs text-warning">
             {t("settings.data.exportPartial", { count: exportStatus.count })}
           </p>
         )}
         {exportStatus.kind === "error" && (
-          <p className="text-xs text-red-400">
+          <p className="text-xs text-danger">
             {t("settings.data.exportError", { message: exportStatus.message })}
           </p>
         )}

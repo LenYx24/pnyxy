@@ -192,7 +192,7 @@ export function AppLayout() {
               <div className="flex h-full min-h-[40vh] items-center justify-center">
                 <Loader2
                   size={24}
-                  className="animate-spin text-accent-purple/70"
+                  className="animate-spin text-accent/70"
                   aria-label="Loading"
                 />
               </div>

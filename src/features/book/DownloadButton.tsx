@@ -53,7 +53,7 @@ export function DownloadButton({
 
   const baseClass =
     variant === "primary"
-      ? "inline-flex items-center gap-2 rounded-lg bg-accent-purple px-5 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-accent-purple/85 cursor-pointer"
+      ? "inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-accent/85 cursor-pointer"
       : "inline-flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-5 py-2.5 text-sm font-medium text-text-primary backdrop-blur-md transition-all duration-200 hover:bg-glass-hover cursor-pointer";
 
   if (actions.length === 1) {

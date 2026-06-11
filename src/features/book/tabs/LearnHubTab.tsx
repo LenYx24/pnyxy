@@ -26,10 +26,10 @@ export function LearnHubTab() {
           <Link
             key={m.slug}
             to={`/books/${bookId}/learn/${m.slug}`}
-            className="group relative overflow-hidden rounded-xl border border-glass-border bg-glass-bg/50 p-4 transition-all hover:border-accent-purple/50 hover:bg-glass-hover"
+            className="group relative overflow-hidden rounded-xl border border-glass-border bg-glass-bg/50 p-4 transition-all hover:border-accent/50 hover:bg-glass-hover"
           >
             <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-purple/15 text-accent-purple">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15 text-accent">
                 <m.icon size={18} />
               </div>
               <div className="min-w-0">
@@ -39,7 +39,7 @@ export function LearnHubTab() {
                 <p className="truncate text-xs text-text-muted">{m.tagline}</p>
               </div>
               {m.status === "stub" && (
-                <span className="ml-auto shrink-0 rounded-full bg-glass-bg px-2 py-0.5 text-[10px] font-medium text-text-muted">
+                <span className="ml-auto shrink-0 rounded-full bg-glass-bg px-2 py-0.5 text-2xs font-medium text-text-muted">
                   Soon
                 </span>
               )}

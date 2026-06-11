@@ -82,7 +82,7 @@ export function AnnotationMenuWikiPanel({ initialQuery, onBack }: Props) {
   return (
     <div className="flex w-72 flex-col gap-2 p-1">
       <div className="flex items-center gap-1.5">
-        <Globe size={14} className="text-accent-purple" />
+        <Globe size={14} className="text-accent" />
         <span className="text-xs font-medium text-text-primary">
           {t("reader.annotationMenu.wikiPanelTitle")}
         </span>
@@ -93,9 +93,9 @@ export function AnnotationMenuWikiPanel({ initialQuery, onBack }: Props) {
               type="button"
               onClick={() => runLookup(query, code)}
               disabled={loading || lang === code || !query.trim()}
-              className={`rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide transition-colors cursor-pointer ${
+              className={`rounded px-1.5 py-0.5 text-2xs uppercase tracking-wide transition-colors cursor-pointer ${
                 lang === code
-                  ? "bg-accent-purple/20 text-accent-purple"
+                  ? "bg-accent/20 text-accent"
                   : "bg-glass-bg text-text-muted hover:text-text-secondary"
               } disabled:opacity-60`}
             >
@@ -119,12 +119,12 @@ export function AnnotationMenuWikiPanel({ initialQuery, onBack }: Props) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("reader.annotationMenu.wikiQueryPlaceholder")}
           aria-label={t("reader.annotationMenu.wikiQueryLabel")}
-          className="flex-1 rounded border border-glass-border bg-glass-bg px-2 py-1 text-xs text-text-primary outline-none focus:border-accent-purple"
+          className="flex-1 rounded border border-glass-border bg-glass-bg px-2 py-1 text-xs text-text-primary outline-none focus:border-accent"
         />
         <button
           type="submit"
           disabled={loading || !query.trim()}
-          className="rounded bg-accent-purple/20 px-2 py-1 text-xs text-accent-purple transition-colors hover:bg-accent-purple/30 cursor-pointer disabled:opacity-50"
+          className="rounded bg-accent/20 px-2 py-1 text-xs text-accent transition-colors hover:bg-accent/30 cursor-pointer disabled:opacity-50"
         >
           {t("reader.annotationMenu.wikiSearch")}
         </button>
@@ -143,7 +143,7 @@ export function AnnotationMenuWikiPanel({ initialQuery, onBack }: Props) {
           </span>
         )}
         {error === "connect_failed" && !loading && (
-          <span className="text-red-400">
+          <span className="text-danger">
             {t("reader.annotationMenu.wikiConnectFailed")}
           </span>
         )}
@@ -154,7 +154,7 @@ export function AnnotationMenuWikiPanel({ initialQuery, onBack }: Props) {
                 {summary.title}
               </span>
               {summary.type === "disambiguation" && (
-                <span className="rounded bg-amber-500/15 px-1 text-[10px] uppercase tracking-wide text-amber-300">
+                <span className="rounded bg-warning/15 px-1 text-2xs uppercase tracking-wide text-warning">
                   {t("reader.annotationMenu.wikiDisambiguation")}
                 </span>
               )}
@@ -172,7 +172,7 @@ export function AnnotationMenuWikiPanel({ initialQuery, onBack }: Props) {
               href={summary.pageUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 text-accent-purple hover:underline"
+              className="inline-flex items-center gap-1 text-accent hover:underline"
             >
               {t("reader.annotationMenu.wikiOpen")}
               <ExternalLink size={11} />

@@ -85,7 +85,7 @@ export function QuizDetailPage() {
     return (
       <div className="mx-auto w-full max-w-2xl p-6 text-center">
         <p className="text-text-muted">{t("quizzes.detail.notFound")}</p>
-        <Link to="/quizzes" className="mt-4 inline-block text-sm text-accent-purple hover:underline">
+        <Link to="/quizzes" className="mt-4 inline-block text-sm text-accent hover:underline">
           {t("quizzes.detail.backToQuizzes")}
         </Link>
       </div>
@@ -134,7 +134,7 @@ export function QuizDetailPage() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-purple/15 text-accent-purple">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent">
               <FileQuestion size={18} />
             </div>
             <div className="min-w-0">
@@ -175,7 +175,7 @@ export function QuizDetailPage() {
               <Button
                 variant="secondary"
                 onClick={() => setConfirmDelete(true)}
-                className="text-red-400"
+                className="text-danger"
               >
                 <Trash2 size={14} />
               </Button>
@@ -234,10 +234,10 @@ export function QuizDetailPage() {
                       className={cn(
                         "shrink-0 font-medium tabular-nums",
                         pct >= 80
-                          ? "text-green-400"
+                          ? "text-success"
                           : pct >= 50
-                            ? "text-amber-400"
-                            : "text-red-400",
+                            ? "text-warning"
+                            : "text-danger",
                       )}
                     >
                       {a.score}/{a.total} ({pct}%)
@@ -259,7 +259,7 @@ export function QuizDetailPage() {
           </p>
           <Link
             to={`/quizzes/${quizId}/edit`}
-            className="mt-3 inline-block text-sm text-accent-purple hover:underline"
+            className="mt-3 inline-block text-sm text-accent hover:underline"
           >
             {t("quizzes.detail.addQuestions")}
           </Link>
@@ -288,7 +288,7 @@ export function QuizDetailPage() {
               </Button>
               <button
                 onClick={handleDelete}
-                className="rounded-lg bg-red-500/20 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/30 cursor-pointer"
+                className="rounded-lg bg-danger/20 px-4 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/30 cursor-pointer"
               >
                 {t("common.delete")}
               </button>
@@ -321,7 +321,7 @@ function MostMissedSection({ stats }: { stats: QuizQuestionStat[] }) {
           <AlertTriangle size={14} />
           {t("quizzes.detail.mostMissed")}
         </div>
-        <span className="text-[11px] font-normal normal-case text-text-muted">
+        <span className="text-2xs font-normal normal-case text-text-muted">
           {t("quizzes.detail.mostMissedAcross", { count: totalAnswers })}
         </span>
       </div>
@@ -344,9 +344,9 @@ function MostMissedSection({ stats }: { stats: QuizQuestionStat[] }) {
                 className={cn(
                   "shrink-0 whitespace-nowrap font-medium tabular-nums",
                   pct >= 50
-                    ? "text-red-400"
+                    ? "text-danger"
                     : pct >= 25
-                      ? "text-amber-400"
+                      ? "text-warning"
                       : "text-text-muted",
                 )}
               >

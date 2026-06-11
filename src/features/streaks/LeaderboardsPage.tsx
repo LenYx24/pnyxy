@@ -99,7 +99,7 @@ export function LeaderboardsPage() {
     <div className="mx-auto w-full max-w-4xl space-y-6 p-4 sm:p-6">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-glass-bg">
-          <Trophy size={20} className="text-yellow-400" />
+          <Trophy size={20} className="text-warning" />
         </div>
         <div>
           <h1 className="text-2xl font-bold text-text-primary">
@@ -118,7 +118,7 @@ export function LeaderboardsPage() {
             className={cn(
               "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition-colors cursor-pointer sm:text-sm",
               board === key
-                ? "bg-accent-purple/15 text-accent-purple"
+                ? "bg-accent/15 text-accent"
                 : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
             )}
           >
@@ -158,13 +158,13 @@ export function LeaderboardsPage() {
                 key={row.user_id}
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 transition-colors",
-                  isMe && "bg-accent-purple/5",
+                  isMe && "bg-accent/5",
                 )}
               >
                 <span className="w-6 shrink-0 text-center text-sm font-semibold text-text-muted tabular-nums">
                   {medal ?? i + 1}
                 </span>
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-purple/15">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/15">
                   {row.profile?.avatar_url ? (
                     <img
                       src={row.profile.avatar_url}
@@ -172,7 +172,7 @@ export function LeaderboardsPage() {
                       className="h-8 w-8 rounded-full object-cover"
                     />
                   ) : (
-                    <span className="text-xs font-bold text-accent-purple">
+                    <span className="text-xs font-bold text-accent">
                       {initial}
                     </span>
                   )}
@@ -180,7 +180,7 @@ export function LeaderboardsPage() {
                 <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
                   {row.profile?.display_name ?? t("leaderboards.anonymous")}
                   {isMe && (
-                    <span className="ml-2 rounded bg-accent-purple/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent-purple">
+                    <span className="ml-2 rounded bg-accent/20 px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wide text-accent">
                       {t("leaderboards.you")}
                     </span>
                   )}

@@ -165,7 +165,7 @@ export function QuizRow({
         className={cn(
           "group flex select-none items-center border-b border-glass-border/30 px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
           density.py,
-          selected && "bg-accent-purple/10",
+          selected && "bg-accent/10",
           isDragging && "opacity-50",
         )}
         style={{ paddingLeft: 8 + indent }}
@@ -194,8 +194,8 @@ export function QuizRow({
 
         <div className="mr-1 hidden w-[26px] sm:block" />
 
-        <div className="mr-2.5 flex aspect-[5/7] h-8 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-gradient-to-br from-amber-400/20 to-accent-purple/20 sm:h-9">
-          <ListChecks size={14} className="text-amber-400/80" />
+        <div className="mr-2.5 flex aspect-[5/7] h-8 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-gradient-to-br from-warning/20 to-accent/20 sm:h-9">
+          <ListChecks size={14} className="text-warning/80" />
         </div>
 
         <span
@@ -205,7 +205,7 @@ export function QuizRow({
           {title}
         </span>
 
-        <span className="mr-2 hidden items-center gap-1 rounded bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400 sm:inline-flex">
+        <span className="mr-2 hidden items-center gap-1 rounded bg-warning/20 px-1.5 py-0.5 text-2xs font-semibold text-warning sm:inline-flex">
           <ListChecks size={9} />
           {t("library.allBooks.quizLabel")}
         </span>

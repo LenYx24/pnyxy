@@ -126,7 +126,7 @@ export function HomePage() {
           <div className="flex flex-col gap-3">
             <GlassCard className="p-4">
               <div className="mb-2 flex items-center gap-2">
-                <Library size={16} className="text-accent-purple" />
+                <Library size={16} className="text-accent" />
                 <h3 className="text-sm font-semibold text-text-primary">
                   {t("home.sidePanel.yourLibrary")}
                 </h3>

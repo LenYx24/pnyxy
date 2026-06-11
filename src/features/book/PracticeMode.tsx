@@ -231,8 +231,8 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-glass-border p-4">
           <div className="flex min-w-0 items-center gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-purple/15">
-              <GraduationCap size={16} className="text-accent-purple" />
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/15">
+              <GraduationCap size={16} className="text-accent" />
             </div>
             <div className="min-w-0">
               <h2 className="truncate text-base font-semibold text-text-primary">
@@ -270,7 +270,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {phase === "loading" && (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-text-muted">
-              <Loader2 size={28} className="animate-spin text-accent-purple" />
+              <Loader2 size={28} className="animate-spin text-accent" />
               <p className="text-sm">
                 {t("book.practice.loadingQuestions", {
                   defaultValue: "Reading the exam and pulling out questions…",
@@ -281,8 +281,8 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
 
           {phase === "error" && (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-text-muted">
-              <AlertTriangle size={28} className="text-amber-400" />
-              <p className="max-w-sm text-center text-sm text-red-300">
+              <AlertTriangle size={28} className="text-warning" />
+              <p className="max-w-sm text-center text-sm text-danger">
                 {error}
               </p>
               <Button variant="secondary" onClick={onClose}>
@@ -293,7 +293,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
 
           {phase === "done" && (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-success/15 text-success">
                 <CheckCircle2 size={28} />
               </div>
               <h3 className="text-lg font-semibold text-text-primary">
@@ -314,7 +314,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
             currentQuestion && (
               <>
                 <div className="rounded-xl border border-glass-border bg-glass-bg/30 p-4">
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                  <p className="mb-1 text-2xs font-semibold uppercase tracking-wider text-text-muted">
                     {t("book.practice.questionLabel", {
                       defaultValue: "Question",
                     })}
@@ -329,15 +329,15 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
                     className={cn(
                       "rounded-xl border p-4",
                       verdict === "correct"
-                        ? "border-emerald-500/40 bg-emerald-500/5"
+                        ? "border-success/40 bg-success/5"
                         : verdict === "partial"
-                          ? "border-amber-500/40 bg-amber-500/5"
+                          ? "border-warning/40 bg-warning/5"
                           : verdict === "incorrect"
-                            ? "border-red-500/40 bg-red-500/5"
+                            ? "border-danger/40 bg-danger/5"
                             : "border-glass-border bg-glass-bg/30",
                     )}
                   >
-                    <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                    <p className="mb-2 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-text-muted">
                       <VerdictIcon verdict={verdict} streaming={phase === "answering"} />
                       {t("book.practice.feedbackLabel", {
                         defaultValue: "Tutor feedback",
@@ -387,11 +387,11 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
               })}
               rows={3}
               disabled={phase === "answering"}
-              className="w-full resize-y rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25 disabled:opacity-60"
+              className="w-full resize-y rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-60"
               autoFocus
             />
             <div className="flex justify-between gap-2">
-              <p className="text-[10px] text-text-muted">
+              <p className="text-2xs text-text-muted">
                 {t("book.practice.submitHint", {
                   defaultValue: "Cmd/Ctrl + Enter to submit",
                 })}
@@ -441,13 +441,13 @@ function VerdictIcon({
     return <Loader2 size={11} className="animate-spin" />;
   }
   if (verdict === "correct") {
-    return <CheckCircle2 size={11} className="text-emerald-400" />;
+    return <CheckCircle2 size={11} className="text-success" />;
   }
   if (verdict === "partial") {
-    return <CircleHelp size={11} className="text-amber-400" />;
+    return <CircleHelp size={11} className="text-warning" />;
   }
   if (verdict === "incorrect") {
-    return <XCircle size={11} className="text-red-400" />;
+    return <XCircle size={11} className="text-danger" />;
   }
   return null;
 }

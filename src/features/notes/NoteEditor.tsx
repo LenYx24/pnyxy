@@ -548,7 +548,7 @@ function ViewBtn({
       className={cn(
         "rounded p-1 transition-colors cursor-pointer",
         active
-          ? "bg-accent-purple/20 text-accent-purple"
+          ? "bg-accent/20 text-accent"
           : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
       )}
     >

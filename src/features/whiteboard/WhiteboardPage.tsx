@@ -75,7 +75,7 @@ export function WhiteboardPage() {
           onClick={() => setConfirmOpen(true)}
           aria-label={t("whiteboard.delete")}
         >
-          <Trash2 size={16} className="text-red-400" />
+          <Trash2 size={16} className="text-danger" />
           <span className="hidden sm:inline">{t("whiteboard.delete")}</span>
         </Button>
       </header>

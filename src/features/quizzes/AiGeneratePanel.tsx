@@ -168,7 +168,7 @@ export function AiGeneratePanel({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-accent-purple/30 bg-accent-purple/5 px-4 py-3 text-sm font-medium text-accent-purple transition-colors hover:bg-accent-purple/10 cursor-pointer"
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3 text-sm font-medium text-accent transition-colors hover:bg-accent/10 cursor-pointer"
       >
         <Sparkles size={16} />
         {t("quizzes.ai.generate")}
@@ -177,9 +177,9 @@ export function AiGeneratePanel({
   }
 
   return (
-    <section className="space-y-4 rounded-xl border border-accent-purple/30 bg-accent-purple/5 p-4">
+    <section className="space-y-4 rounded-xl border border-accent/30 bg-accent/5 p-4">
       <header className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-sm font-semibold text-accent-purple">
+        <div className="flex items-center gap-2 text-sm font-semibold text-accent">
           <Sparkles size={16} />
           {t("quizzes.ai.heading")}
         </div>
@@ -194,7 +194,7 @@ export function AiGeneratePanel({
       </header>
 
       {!providerConfigured && (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
+        <p className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-warning">
           {t("quizzes.ai.noProvider")}{" "}
           <Link
             to="/settings"
@@ -240,9 +240,9 @@ export function AiGeneratePanel({
             maxLength={MAX_SOURCE_CHARS}
             placeholder={t("quizzes.ai.sourcePlaceholder")}
             disabled={loading}
-            className="w-full resize-y rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple/50 disabled:opacity-60"
+            className="w-full resize-y rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent/50 disabled:opacity-60"
           />
-          <p className="mt-1 text-[11px] text-text-muted">
+          <p className="mt-1 text-2xs text-text-muted">
             {t("quizzes.ai.charsCounter", {
               used: sourceText.length.toLocaleString(),
               max: MAX_SOURCE_CHARS.toLocaleString(),
@@ -276,7 +276,7 @@ export function AiGeneratePanel({
       </div>
 
       {error && (
-        <p className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+        <p className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
           {error}
         </p>
       )}
@@ -407,7 +407,7 @@ function ModeTab({
       className={cn(
         "flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
         active
-          ? "bg-accent-purple/15 text-accent-purple"
+          ? "bg-accent/15 text-accent"
           : "text-text-muted hover:text-text-primary",
       )}
     >
@@ -469,7 +469,7 @@ function BookRange({
           disabled={disabled}
         />
       </div>
-      <p className="text-[11px] text-text-muted">{t("quizzes.ai.bookHint")}</p>
+      <p className="text-2xs text-text-muted">{t("quizzes.ai.bookHint")}</p>
     </div>
   );
 }
@@ -491,7 +491,7 @@ function PageInput({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-medium uppercase tracking-wider text-text-muted">
+      <span className="text-2xs font-medium uppercase tracking-wider text-text-muted">
         {label}
       </span>
       <input
@@ -505,7 +505,7 @@ function PageInput({
           if (Number.isFinite(n)) onChange(n);
         }}
         disabled={disabled}
-        className="w-20 rounded-lg border border-glass-border bg-bg-primary/50 px-2 py-1.5 text-center text-sm tabular-nums text-text-primary outline-none focus:border-accent-purple/50 disabled:opacity-60"
+        className="w-20 rounded-lg border border-glass-border bg-bg-primary/50 px-2 py-1.5 text-center text-sm tabular-nums text-text-primary outline-none focus:border-accent/50 disabled:opacity-60"
       />
     </label>
   );

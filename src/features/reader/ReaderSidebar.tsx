@@ -85,7 +85,7 @@ function TocReadDot({ state }: { state: TocReadState }) {
     return (
       <span
         aria-hidden="true"
-        className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-purple"
+        className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
       />
     );
   }
@@ -93,7 +93,7 @@ function TocReadDot({ state }: { state: TocReadState }) {
     return (
       <span
         aria-hidden="true"
-        className="h-1.5 w-1.5 shrink-0 rounded-full border border-accent-purple"
+        className="h-1.5 w-1.5 shrink-0 rounded-full border border-accent"
       />
     );
   }
@@ -137,7 +137,7 @@ function TocEntry({
         className={cn(
           "flex w-full items-center gap-0.5 rounded-md transition-colors",
           isActive
-            ? "bg-accent-purple/15 text-accent-purple"
+            ? "bg-accent/15 text-accent"
             : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
         )}
         style={{ paddingLeft: indentPx }}
@@ -512,7 +512,7 @@ export function ReaderSidebarContent({
           reader. */}
       {docEntries.length > 0 && (
         <div className="border-b border-glass-border p-2 space-y-0.5">
-          <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+          <p className="px-3 py-1 text-2xs font-semibold uppercase tracking-wider text-text-muted">
             {t("reader.sidebar.openDocuments")}
           </p>
           {docEntries.map(([id, _doc]) => (
@@ -522,7 +522,7 @@ export function ReaderSidebarContent({
               className={cn(
                 "flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors cursor-pointer",
                 activeDocumentId === id
-                  ? "bg-accent-purple/15 text-accent-purple"
+                  ? "bg-accent/15 text-accent"
                   : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
               )}
             >
@@ -542,7 +542,7 @@ export function ReaderSidebarContent({
             className={cn(
               "flex shrink-0 items-center justify-center rounded-md p-2 transition-colors cursor-pointer",
               sidebarTab === key
-                ? "bg-accent-purple/15 text-accent-purple"
+                ? "bg-accent/15 text-accent"
                 : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
             )}
             title={label}
@@ -563,7 +563,7 @@ export function ReaderSidebarContent({
               className={cn(
                 "flex shrink-0 items-center justify-center rounded-md p-1.5 transition-colors cursor-pointer",
                 tocViewMode === "outline"
-                  ? "text-accent-purple bg-accent-purple/10"
+                  ? "text-accent bg-accent/10"
                   : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
               )}
               title={t("reader.sidebar.outlineTitle")}
@@ -576,7 +576,7 @@ export function ReaderSidebarContent({
               className={cn(
                 "flex shrink-0 items-center justify-center rounded-md p-1.5 transition-colors cursor-pointer",
                 tocViewMode === "thumbnail"
-                  ? "text-accent-purple bg-accent-purple/10"
+                  ? "text-accent bg-accent/10"
                   : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
               )}
               title={t("reader.sidebar.thumbnailsTitle")}
@@ -661,7 +661,7 @@ export function ReaderSidebarContent({
                   className={cn(
                     "block w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors cursor-pointer",
                     currentPage === i + 1
-                      ? "bg-accent-purple/15 text-accent-purple"
+                      ? "bg-accent/15 text-accent"
                       : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
                   )}
                 >
@@ -709,7 +709,7 @@ export function ReaderSidebarContent({
                       className={cn(
                         "h-4 w-4 rounded border transition-colors",
                         selectedNoteIds.has(note.id)
-                          ? "border-accent-purple bg-accent-purple"
+                          ? "border-accent bg-accent"
                           : "border-text-muted/40 hover:border-text-primary",
                       )}
                     >
@@ -729,7 +729,7 @@ export function ReaderSidebarContent({
                   </span>
                   {/* Quick delete */}
                   <button
-                    className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+                    className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 text-text-muted hover:text-danger hover:bg-danger/10 transition-all cursor-pointer"
                     title={t("reader.sidebar.deleteNote")}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -776,7 +776,7 @@ export function ReaderSidebarContent({
                       className={cn(
                         "h-4 w-4 rounded border transition-colors",
                         selectedWhiteboardIds.has(wb.id)
-                          ? "border-accent-purple bg-accent-purple"
+                          ? "border-accent bg-accent"
                           : "border-text-muted/40 hover:border-text-primary",
                       )}
                     >
@@ -796,7 +796,7 @@ export function ReaderSidebarContent({
                   </span>
                   {/* Quick delete */}
                   <button
-                    className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+                    className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 text-text-muted hover:text-danger hover:bg-danger/10 transition-all cursor-pointer"
                     title={t("reader.sidebar.deleteWhiteboard")}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -821,7 +821,7 @@ export function ReaderSidebarContent({
           </span>
           <button
             onClick={handleDeleteSelectedNotes}
-            className="flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+            className="flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-danger hover:bg-danger/10 transition-colors cursor-pointer"
           >
             <Trash2 size={12} />
             {t("reader.sidebar.delete")}
@@ -835,7 +835,7 @@ export function ReaderSidebarContent({
           </span>
           <button
             onClick={handleDeleteSelectedWhiteboards}
-            className="flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+            className="flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-danger hover:bg-danger/10 transition-colors cursor-pointer"
           >
             <Trash2 size={12} />
             {t("reader.sidebar.delete")}

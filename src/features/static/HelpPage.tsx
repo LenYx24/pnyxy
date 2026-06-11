@@ -8,7 +8,7 @@ export function HelpPage() {
     <div className="mx-auto w-full max-w-3xl space-y-6 p-4 sm:p-6">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-glass-bg">
-          <HelpCircle size={20} className="text-accent-purple" />
+          <HelpCircle size={20} className="text-accent" />
         </div>
         <h1 className="text-2xl font-bold text-text-primary">
           {t("static.help.title")}
@@ -20,9 +20,9 @@ export function HelpPage() {
           for the "I'm stuck on a specific thing" lookups. */}
       <Link
         to="/tutorial"
-        className="flex items-start gap-3 rounded-xl border border-accent-purple/30 bg-accent-purple/10 p-4 transition-colors hover:bg-accent-purple/15 sm:p-5"
+        className="flex items-start gap-3 rounded-xl border border-accent/30 bg-accent/10 p-4 transition-colors hover:bg-accent/15 sm:p-5"
       >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-purple/20 text-accent-purple">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/20 text-accent">
           <Compass size={18} />
         </div>
         <div className="min-w-0">
@@ -68,7 +68,7 @@ export function HelpPage() {
             {t("static.help.shortcuts.bodyPrefix")}
             <Link
               to="/settings/shortcuts"
-              className="text-accent-purple hover:underline"
+              className="text-accent hover:underline"
             >
               {t("static.help.shortcuts.link")}
             </Link>

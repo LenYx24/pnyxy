@@ -88,7 +88,7 @@ export function FocusSessionControl({ compact = false }: { compact?: boolean }) 
         className={cn(
           "rounded-md p-1.5 transition-colors cursor-pointer",
           open
-            ? "bg-accent-purple/15 text-accent-purple"
+            ? "bg-accent/15 text-accent"
             : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
         )}
       >
@@ -116,7 +116,7 @@ export function FocusSessionControl({ compact = false }: { compact?: boolean }) 
               className={cn(
                 "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors cursor-pointer",
                 mode === "time"
-                  ? "bg-accent-purple/15 text-accent-purple"
+                  ? "bg-accent/15 text-accent"
                   : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
               )}
             >
@@ -133,7 +133,7 @@ export function FocusSessionControl({ compact = false }: { compact?: boolean }) 
               className={cn(
                 "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors cursor-pointer",
                 mode === "pages" && pagesAvailable
-                  ? "bg-accent-purple/15 text-accent-purple"
+                  ? "bg-accent/15 text-accent"
                   : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
                 !pagesAvailable && "opacity-40 cursor-not-allowed",
               )}
@@ -155,7 +155,7 @@ export function FocusSessionControl({ compact = false }: { compact?: boolean }) 
                   onClick={() =>
                     mode === "time" ? handleStartTime(n) : handleStartPages(n)
                   }
-                  className="rounded-md border border-glass-border px-2 py-2 text-sm text-text-primary transition-colors hover:bg-glass-hover hover:border-accent-purple/50 cursor-pointer"
+                  className="rounded-md border border-glass-border px-2 py-2 text-sm text-text-primary transition-colors hover:bg-glass-hover hover:border-accent/50 cursor-pointer"
                 >
                   {n} {presetSuffix}
                 </button>
@@ -172,12 +172,12 @@ export function FocusSessionControl({ compact = false }: { compact?: boolean }) 
                 value={custom}
                 onChange={(e) => setCustom(e.target.value.replace(/\D/g, ""))}
                 placeholder={customPlaceholder}
-                className="w-full rounded-md border border-glass-border bg-bg-primary/50 px-2 py-1 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50"
+                className="w-full rounded-md border border-glass-border bg-bg-primary/50 px-2 py-1 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50"
               />
               <button
                 type="submit"
                 disabled={!custom}
-                className="shrink-0 rounded-md bg-accent-purple/15 px-2 py-1 text-xs font-medium text-accent-purple transition-colors hover:bg-accent-purple/25 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="shrink-0 rounded-md bg-accent/15 px-2 py-1 text-xs font-medium text-accent transition-colors hover:bg-accent/25 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 Start
               </button>

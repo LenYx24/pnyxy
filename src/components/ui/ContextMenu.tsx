@@ -125,7 +125,7 @@ function ContextMenuRow({
         item.disabled
           ? "cursor-not-allowed text-text-muted/50"
           : item.danger
-            ? "text-red-400 hover:bg-red-500/10 cursor-pointer"
+            ? "text-danger hover:bg-danger/10 cursor-pointer"
             : "text-text-secondary hover:bg-glass-hover hover:text-text-primary cursor-pointer",
       )}
     >

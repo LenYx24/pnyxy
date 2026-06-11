@@ -113,7 +113,7 @@ export function AuthPage() {
         {/* Logo */}
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold">
-            <span className="bg-gradient-to-r from-accent-purple to-accent-blue bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-accent to-accent-blue bg-clip-text text-transparent">
               Pnyxy
             </span>
           </h1>
@@ -131,7 +131,7 @@ export function AuthPage() {
               onClick={() => handleTabChange(tabKey)}
               className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors cursor-pointer ${
                 tab === tabKey
-                  ? "bg-accent-purple/15 text-accent-purple"
+                  ? "bg-accent/15 text-accent"
                   : "text-text-muted hover:text-text-secondary"
               }`}
             >
@@ -157,7 +157,7 @@ export function AuthPage() {
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted backdrop-blur-md outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
+                className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted backdrop-blur-md outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
                 placeholder={t("auth.displayNamePlaceholder")}
                 autoComplete="name"
               />
@@ -177,7 +177,7 @@ export function AuthPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted backdrop-blur-md outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
+              className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted backdrop-blur-md outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
               placeholder="you@example.com"
               autoComplete="email"
             />
@@ -198,7 +198,7 @@ export function AuthPage() {
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 pr-10 py-2.5 text-sm text-text-primary placeholder:text-text-muted backdrop-blur-md outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
+                className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 pr-10 py-2.5 text-sm text-text-primary placeholder:text-text-muted backdrop-blur-md outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
                 placeholder="••••••••"
                 autoComplete={tab === "sign-in" ? "current-password" : "new-password"}
               />
@@ -217,7 +217,7 @@ export function AuthPage() {
               <div className="mt-1.5 text-right">
                 <Link
                   to="/auth/forgot-password"
-                  className="text-xs text-accent-purple hover:underline"
+                  className="text-xs text-accent hover:underline"
                 >
                   {t("auth.forgotPassword")}
                 </Link>
@@ -226,13 +226,13 @@ export function AuthPage() {
           </div>
 
           {displayError && (
-            <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">
+            <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
               {displayError}
             </p>
           )}
 
           {signUpSuccess && (
-            <p className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+            <p className="rounded-lg bg-success/10 px-3 py-2 text-sm text-success">
               {t("auth.checkEmail")}
             </p>
           )}

@@ -72,13 +72,13 @@ export function ReadingTrackerControl({ compact = false }: { compact?: boolean }
           "rounded-md p-1.5 transition-colors cursor-pointer flex items-center gap-1",
           toggleEnabled
             ? "text-text-secondary hover:bg-glass-hover hover:text-text-primary"
-            : "text-amber-400 hover:bg-glass-hover",
+            : "text-warning hover:bg-glass-hover",
         )}
         title={buttonTitle}
       >
         <Icon size={16} />
         {!compact && (
-          <span className="text-[10px] font-medium tabular-nums">
+          <span className="text-2xs font-medium tabular-nums">
             {progressPct}%
           </span>
         )}
@@ -93,7 +93,7 @@ export function ReadingTrackerControl({ compact = false }: { compact?: boolean }
                 <span className="text-xs uppercase tracking-wide text-text-muted">
                   Reading progress
                 </span>
-                <span className="text-[10px] text-text-muted">
+                <span className="text-2xs text-text-muted">
                   {tracker.name}
                 </span>
               </div>
@@ -107,7 +107,7 @@ export function ReadingTrackerControl({ compact = false }: { compact?: boolean }
               </div>
               <div className="mt-2 h-1.5 rounded-full bg-glass-bg overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-accent-purple transition-all duration-300"
+                  className="h-full rounded-full bg-accent transition-all duration-300"
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
@@ -120,7 +120,7 @@ export function ReadingTrackerControl({ compact = false }: { compact?: boolean }
                   <div className="text-sm font-medium text-text-primary">
                     {toggleEnabled ? "Track reading" : "Shallow reading"}
                   </div>
-                  <div className="text-[11px] text-text-muted leading-snug">
+                  <div className="text-2xs text-text-muted leading-snug">
                     {toggleEnabled
                       ? "Pages you visit count as read, and time counts toward your streak."
                       : "Casual browsing — nothing counts. Turn this on when you're half-focused (cooking, commuting, etc.)."}
@@ -148,7 +148,7 @@ export function ReadingTrackerControl({ compact = false }: { compact?: boolean }
             </button>
 
             {Object.keys(TRACKERS).length > 1 && (
-              <div className="mt-3 pt-2 border-t border-glass-border text-[11px] text-text-muted">
+              <div className="mt-3 pt-2 border-t border-glass-border text-2xs text-text-muted">
                 Change tracker in Settings.
               </div>
             )}

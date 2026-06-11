@@ -21,9 +21,9 @@ export function BannedScreen() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-primary p-6">
-      <div className="w-full max-w-md rounded-xl border border-red-500/30 bg-bg-secondary/95 p-8 text-center backdrop-blur-xl">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/15">
-          <ShieldX className="h-8 w-8 text-red-400" />
+      <div className="w-full max-w-md rounded-xl border border-danger/30 bg-bg-secondary/95 p-8 text-center backdrop-blur-xl">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-danger/15">
+          <ShieldX className="h-8 w-8 text-danger" />
         </div>
 
         <h1 className="mb-2 text-2xl font-bold text-text-primary">

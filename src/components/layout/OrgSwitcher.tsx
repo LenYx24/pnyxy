@@ -142,7 +142,7 @@ export function OrgSwitcher({ collapsed, onNavigate }: OrgSwitcherProps) {
                     />
                     <span className="min-w-0 flex-1 truncate">{org.name}</span>
                     {isCurrent && (
-                      <Check size={14} className="shrink-0 text-accent-purple" />
+                      <Check size={14} className="shrink-0 text-accent" />
                     )}
                   </button>
                 </li>

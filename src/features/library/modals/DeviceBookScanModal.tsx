@@ -383,7 +383,7 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
             <div
               onClick={isScanning ? undefined : triggerScan}
               className={cn(
-                "flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed border-glass-border p-10 transition-colors hover:border-accent-purple/50",
+                "flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed border-glass-border p-10 transition-colors hover:border-accent/50",
                 isScanning && "cursor-wait",
               )}
             >
@@ -397,7 +397,7 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
                 you don't want, then click Import.
               </p>
               {scanError && (
-                <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-1.5 text-xs text-amber-400">
+                <p className="mt-2 rounded-lg bg-warning/10 px-3 py-1.5 text-xs text-warning">
                   {scanError}
                 </p>
               )}
@@ -450,9 +450,9 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
 
               {/* Storage warning */}
               {wouldExceed && !importing && !importDone && (
-                <div className="flex items-start gap-2 rounded-lg bg-red-500/10 p-3">
-                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-red-400" />
-                  <p className="text-xs text-red-400">
+                <div className="flex items-start gap-2 rounded-lg bg-danger/10 p-3">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-danger" />
+                  <p className="text-xs text-danger">
                     The selected files exceed your remaining storage (
                     {storageUsage ? formatBytes(remainingBytes) : "—"} left).
                     Uncheck some files or upgrade to Premium.
@@ -585,9 +585,9 @@ function TreeRow({
       <li
         className={cn(
           "flex items-center gap-2 px-2 py-1.5 text-sm transition-colors hover:bg-glass-hover",
-          node.status === "done" && "bg-green-500/5",
-          node.status === "error" && "bg-red-500/5",
-          node.status === "skipped" && "bg-amber-500/5",
+          node.status === "done" && "bg-success/5",
+          node.status === "error" && "bg-danger/5",
+          node.status === "skipped" && "bg-warning/5",
         )}
         style={{ paddingLeft: 8 + indent }}
       >
@@ -599,7 +599,7 @@ function TreeRow({
         )}
         {/* spacer matching folder chevron */}
         <span className="inline-block w-4" />
-        <FileText size={14} className="shrink-0 text-accent-purple" />
+        <FileText size={14} className="shrink-0 text-accent" />
         <span className="min-w-0 flex-1 truncate text-text-primary">
           {node.name}
         </span>
@@ -641,9 +641,9 @@ function TreeRow({
           />
         </button>
         {isExpanded ? (
-          <FolderOpen size={14} className="shrink-0 text-accent-purple/70" />
+          <FolderOpen size={14} className="shrink-0 text-accent/70" />
         ) : (
-          <FolderClosed size={14} className="shrink-0 text-accent-purple/70" />
+          <FolderClosed size={14} className="shrink-0 text-accent/70" />
         )}
         <span className="min-w-0 flex-1 truncate font-medium text-text-primary">
           {node.name}
@@ -689,21 +689,21 @@ function FileStatusBadge({ node }: { node: FileNode }) {
       );
     case "done":
       return (
-        <span className="flex items-center gap-1 text-xs text-green-400">
+        <span className="flex items-center gap-1 text-xs text-success">
           <Check size={12} />
           Imported
         </span>
       );
     case "skipped":
       return (
-        <span className="text-xs text-amber-400" title={node.message}>
+        <span className="text-xs text-warning" title={node.message}>
           Skipped
         </span>
       );
     case "error":
       return (
         <span
-          className="flex items-center gap-1 text-xs text-red-400"
+          className="flex items-center gap-1 text-xs text-danger"
           title={node.message}
         >
           <AlertTriangle size={12} />

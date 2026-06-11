@@ -78,8 +78,8 @@ export function OpenFromUrlModal({ open, onClose, onFile }: OpenFromUrlModalProp
       <div className="relative z-10 w-full max-w-md rounded-xl border border-glass-border bg-bg-secondary/95 backdrop-blur-xl">
         <div className="flex items-center justify-between border-b border-glass-border p-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-purple/15">
-              <LinkIcon size={16} className="text-accent-purple" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15">
+              <LinkIcon size={16} className="text-accent" />
             </div>
             <h2 className="text-lg font-semibold text-text-primary">
               Open from URL
@@ -99,7 +99,7 @@ export function OpenFromUrlModal({ open, onClose, onFile }: OpenFromUrlModalProp
         <form onSubmit={handleSubmit} className="space-y-4 p-4">
           <p className="text-xs text-text-muted">
             Paste a direct link to a PDF, EPUB, TXT, or Markdown file.
-            Local files (<code className="rounded bg-glass-bg px-1 py-0.5 text-[10px]">file://</code>) can't be opened by URL —
+            Local files (<code className="rounded bg-glass-bg px-1 py-0.5 text-2xs">file://</code>) can't be opened by URL —
             drag them onto the library or use Upload instead.
           </p>
 
@@ -118,13 +118,13 @@ export function OpenFromUrlModal({ open, onClose, onFile }: OpenFromUrlModalProp
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com/paper.pdf"
               disabled={loading}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25 disabled:opacity-50"
+              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-50"
               autoComplete="off"
             />
           </div>
 
           {error && (
-            <div className="flex items-start gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+            <div className="flex items-start gap-2 rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>

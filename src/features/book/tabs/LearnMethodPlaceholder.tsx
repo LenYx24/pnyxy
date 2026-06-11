@@ -36,7 +36,7 @@ export function LearnMethodPlaceholder() {
         </Link>
 
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-purple/15 text-accent-purple">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent">
             <Icon size={20} />
           </div>
           <div>
@@ -61,7 +61,7 @@ export function LearnMethodPlaceholder() {
         <p className="text-text-muted">Unknown learning method.</p>
         <Link
           to={`/books/${bookId}/learn`}
-          className="mt-4 inline-flex items-center gap-2 text-sm text-accent-purple hover:underline"
+          className="mt-4 inline-flex items-center gap-2 text-sm text-accent hover:underline"
         >
           <ArrowLeft size={14} />
           Back to Learn hub
@@ -83,7 +83,7 @@ export function LearnMethodPlaceholder() {
       </Link>
 
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-purple/15 text-accent-purple">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent">
           <Icon size={20} />
         </div>
         <div>

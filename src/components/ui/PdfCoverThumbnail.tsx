@@ -117,7 +117,7 @@ export function PdfCoverThumbnail({
     return (
       <div
         className={cn(
-          "flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-purple/30 to-accent-blue/30",
+          "flex h-full w-full items-center justify-center bg-gradient-to-br from-accent/30 to-accent-blue/30",
           className,
         )}
       >
@@ -147,7 +147,7 @@ export function PdfCoverThumbnail({
       error={
         <div
           className={cn(
-            "flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-purple/30 to-accent-blue/30",
+            "flex h-full w-full items-center justify-center bg-gradient-to-br from-accent/30 to-accent-blue/30",
             className,
           )}
         >

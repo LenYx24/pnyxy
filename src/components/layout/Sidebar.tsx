@@ -183,13 +183,13 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 "flex items-center rounded-lg px-1.5 py-1.5 transition-colors",
                 collapsed ? "w-full justify-center" : "min-w-0 flex-1",
                 isActive
-                  ? "bg-accent-purple/15 text-accent-purple"
+                  ? "bg-accent/15 text-accent"
                   : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
               )
             }
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-purple/15">
-              <span className="text-sm font-bold text-accent-purple">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/15">
+              <span className="text-sm font-bold text-accent">
                 {initial}
               </span>
             </div>
@@ -208,7 +208,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               cn(
                 "shrink-0 rounded-md p-1.5 transition-colors",
                 isActive
-                  ? "bg-accent-purple/15 text-accent-purple"
+                  ? "bg-accent/15 text-accent"
                   : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
               )
             }
@@ -224,7 +224,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             cn(
               "flex items-center border-t border-glass-border px-3 py-3 transition-colors",
               isActive
-                ? "bg-accent-purple/15 text-accent-purple"
+                ? "bg-accent/15 text-accent"
                 : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
             )
           }
@@ -277,7 +277,7 @@ function SidebarNavItem({
           "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
           variant === "profile-group" && "mx-2",
           isActive
-            ? "bg-accent-purple/15 text-accent-purple"
+            ? "bg-accent/15 text-accent"
             : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
         )
       }

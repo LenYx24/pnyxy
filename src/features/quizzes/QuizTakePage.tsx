@@ -102,7 +102,7 @@ export function QuizTakePage() {
         <p className="text-text-muted">{t("quizzes.take.noQuestions")}</p>
         <Link
           to={`/quizzes/${quizId ?? ""}`}
-          className="mt-3 inline-block text-sm text-accent-purple hover:underline"
+          className="mt-3 inline-block text-sm text-accent hover:underline"
         >
           {t("quizzes.take.backToQuiz")}
         </Link>
@@ -185,10 +185,10 @@ export function QuizTakePage() {
             className={cn(
               "text-sm font-medium",
               pct >= 80
-                ? "text-green-400"
+                ? "text-success"
                 : pct >= 50
-                  ? "text-amber-400"
-                  : "text-red-400",
+                  ? "text-warning"
+                  : "text-danger",
             )}
           >
             {pct}%{" "}
@@ -246,7 +246,7 @@ export function QuizTakePage() {
         </p>
         <div className="mt-1 h-1 w-full rounded-full bg-glass-bg">
           <div
-            className="h-full rounded-full bg-accent-purple transition-all"
+            className="h-full rounded-full bg-accent transition-all"
             style={{
               width: `${(current / playOrder.length) * 100}%`,
             }}
@@ -353,19 +353,19 @@ export function McqOptions({
               "flex w-full items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-colors",
               !revealed && "cursor-pointer",
               revealed && isCorrect
-                ? "border-green-500/50 bg-green-500/10 text-text-primary"
+                ? "border-success/50 bg-success/10 text-text-primary"
                 : revealed && isSelected && !isCorrect
-                  ? "border-red-500/50 bg-red-500/10 text-text-primary"
+                  ? "border-danger/50 bg-danger/10 text-text-primary"
                   : isSelected
-                    ? "border-accent-purple/60 bg-accent-purple/10 text-text-primary"
-                    : "border-glass-border bg-glass-bg/40 text-text-secondary hover:border-accent-purple/40 hover:text-text-primary",
+                    ? "border-accent/60 bg-accent/10 text-text-primary"
+                    : "border-glass-border bg-glass-bg/40 text-text-secondary hover:border-accent/40 hover:text-text-primary",
             )}
           >
             <span
               className={cn(
-                "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold",
+                "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-2xs font-semibold",
                 isSelected
-                  ? "border-accent-purple text-accent-purple"
+                  ? "border-accent text-accent"
                   : "border-text-muted/40 text-text-muted",
               )}
             >
@@ -373,10 +373,10 @@ export function McqOptions({
             </span>
             <span className="min-w-0 flex-1 break-words">{opt}</span>
             {revealed && isCorrect && (
-              <Check size={14} className="shrink-0 text-green-400" />
+              <Check size={14} className="shrink-0 text-success" />
             )}
             {revealed && isSelected && !isCorrect && (
-              <X size={14} className="shrink-0 text-red-400" />
+              <X size={14} className="shrink-0 text-danger" />
             )}
           </button>
         );
@@ -412,19 +412,19 @@ export function TrueFalseOptions({
               "flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-base font-medium transition-colors",
               !revealed && "cursor-pointer",
               revealed && isCorrect
-                ? "border-green-500/50 bg-green-500/10 text-text-primary"
+                ? "border-success/50 bg-success/10 text-text-primary"
                 : revealed && isSelected && !isCorrect
-                  ? "border-red-500/50 bg-red-500/10 text-text-primary"
+                  ? "border-danger/50 bg-danger/10 text-text-primary"
                   : isSelected
-                    ? "border-accent-purple/60 bg-accent-purple/10 text-text-primary"
-                    : "border-glass-border bg-glass-bg/40 text-text-secondary hover:border-accent-purple/40 hover:text-text-primary",
+                    ? "border-accent/60 bg-accent/10 text-text-primary"
+                    : "border-glass-border bg-glass-bg/40 text-text-secondary hover:border-accent/40 hover:text-text-primary",
             )}
           >
             {revealed && isCorrect && (
-              <Check size={16} className="text-green-400" />
+              <Check size={16} className="text-success" />
             )}
             {revealed && isSelected && !isCorrect && (
-              <X size={16} className="text-red-400" />
+              <X size={16} className="text-danger" />
             )}
             {label}
           </button>
@@ -459,20 +459,20 @@ export function ShortAnswerInput({
         className={cn(
           "w-full rounded-lg border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary outline-none disabled:opacity-70",
           revealed && isCorrect
-            ? "border-green-500/50 bg-green-500/10"
+            ? "border-success/50 bg-success/10"
             : revealed && !isCorrect
-              ? "border-red-500/50 bg-red-500/10"
-              : "border-glass-border focus:border-accent-purple/50",
+              ? "border-danger/50 bg-danger/10"
+              : "border-glass-border focus:border-accent/50",
         )}
       />
       {revealed && !isCorrect && (
         <p className="text-sm text-text-secondary">
           {t("quizzes.take.expected")}{" "}
-          <span className="font-medium text-green-400">{correctText}</span>
+          <span className="font-medium text-success">{correctText}</span>
         </p>
       )}
       {revealed && isCorrect && (
-        <p className="flex items-center gap-1.5 text-sm text-green-400">
+        <p className="flex items-center gap-1.5 text-sm text-success">
           <Check size={14} />
           {t("quizzes.take.correct")}
         </p>
@@ -501,8 +501,8 @@ export function ResultCard({
       className={cn(
         "space-y-2 rounded-xl border p-3 text-sm sm:p-4",
         correct
-          ? "border-green-500/30 bg-green-500/5"
-          : "border-red-500/30 bg-red-500/5",
+          ? "border-success/30 bg-success/5"
+          : "border-danger/30 bg-danger/5",
       )}
     >
       <p className="font-medium text-text-primary">
@@ -512,13 +512,13 @@ export function ResultCard({
       {question.kind === "short_answer" ? (
         <div className="space-y-1">
           <div className="flex items-start gap-2 text-text-secondary">
-            <span className="shrink-0 text-[11px] uppercase tracking-wider text-text-muted">
+            <span className="shrink-0 text-2xs uppercase tracking-wider text-text-muted">
               {t("quizzes.take.yourAnswer")}
             </span>
             <span
               className={cn(
                 "min-w-0 break-words",
-                correct ? "text-green-400" : "text-red-400",
+                correct ? "text-success" : "text-danger",
               )}
             >
               {answer?.selected_text?.trim() || t("quizzes.take.blank")}
@@ -526,10 +526,10 @@ export function ResultCard({
           </div>
           {!correct && (
             <div className="flex items-start gap-2 text-text-secondary">
-              <span className="shrink-0 text-[11px] uppercase tracking-wider text-text-muted">
+              <span className="shrink-0 text-2xs uppercase tracking-wider text-text-muted">
                 {t("quizzes.take.expected")}
               </span>
-              <span className="min-w-0 break-words text-green-400">
+              <span className="min-w-0 break-words text-success">
                 {question.correct_text}
               </span>
             </div>
@@ -553,8 +553,8 @@ export function ResultCard({
                 key={optIdx}
                 className={cn(
                   "flex items-start gap-2 rounded-md px-2 py-1",
-                  isCorrect && "text-green-400",
-                  isPicked && !isCorrect && "text-red-400",
+                  isCorrect && "text-success",
+                  isPicked && !isCorrect && "text-danger",
                   !isCorrect && !isPicked && "text-text-secondary",
                 )}
               >

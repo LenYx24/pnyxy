@@ -19,7 +19,7 @@ const SOLAR_THEME: Theme = {
     "--color-bg-primary": "#1a1208",
     "--color-bg-secondary": "#241a0d",
     "--color-bg-tertiary": "#2e2212",
-    "--color-accent-purple": "#f59e0b",
+    "--color-accent": "#f59e0b",
     "--color-accent-blue": "#fb923c",
     "--color-text-primary": "#fef3c7",
     "--color-text-secondary": "#fde68a",

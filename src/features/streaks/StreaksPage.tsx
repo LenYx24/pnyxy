@@ -83,7 +83,7 @@ export function StreaksPage() {
             to="/leaderboards"
             className="inline-flex items-center gap-1.5 rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary"
           >
-            <Trophy size={14} className="text-yellow-400" />
+            <Trophy size={14} className="text-warning" />
             {t("streaks.viewLeaderboards")}
           </Link>
         </div>
@@ -97,7 +97,7 @@ export function StreaksPage() {
           suffix={t("streaks.day", { count: currentStreak })}
         />
         <StatTile
-          icon={<Trophy size={20} className="text-yellow-400" />}
+          icon={<Trophy size={20} className="text-warning" />}
           label={t("streaks.longestStreak")}
           value={longestStreak}
           suffix={t("streaks.day", { count: longestStreak })}
@@ -111,7 +111,7 @@ export function StreaksPage() {
           })}
         />
         <StatTile
-          icon={<Target size={20} className="text-accent-purple" />}
+          icon={<Target size={20} className="text-accent" />}
           label={t("streaks.lastNDays", { days: HISTORY_DAYS })}
           value={completedDays}
           suffix={t("streaks.completedOf", { total: HISTORY_DAYS })}
@@ -126,7 +126,7 @@ export function StreaksPage() {
           <span
             className={cn(
               "text-xs font-medium",
-              today.goalCompleted ? "text-green-400" : "text-text-muted",
+              today.goalCompleted ? "text-success" : "text-text-muted",
             )}
           >
             {today.goalCompleted
@@ -143,7 +143,7 @@ export function StreaksPage() {
             <div
               className={cn(
                 "h-full rounded-full transition-all duration-500",
-                today.goalCompleted ? "bg-green-500" : "bg-accent-purple",
+                today.goalCompleted ? "bg-success" : "bg-accent",
               )}
               style={{ width: `${todayProgress * 100}%` }}
             />

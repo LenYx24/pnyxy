@@ -79,7 +79,7 @@ export function ProfilePage() {
       <div className="mx-auto max-w-2xl space-y-8">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-glass-bg">
-            <UserCircle size={20} className="text-accent-purple" />
+            <UserCircle size={20} className="text-accent" />
           </div>
           <h1 className="text-2xl font-bold text-text-primary">
             {t("profile.title")}
@@ -185,7 +185,7 @@ export function ProfilePage() {
     <div className="mx-auto max-w-2xl space-y-8">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-glass-bg">
-          <UserCircle size={20} className="text-accent-purple" />
+          <UserCircle size={20} className="text-accent" />
         </div>
         <h1 className="text-2xl font-bold text-text-primary">
           {t("profile.title")}
@@ -201,8 +201,8 @@ export function ProfilePage() {
               className="h-16 w-16 rounded-full object-cover"
             />
           ) : (
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-purple/15">
-              <span className="text-2xl font-bold text-accent-purple">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/15">
+              <span className="text-2xl font-bold text-accent">
                 {initial}
               </span>
             </div>
@@ -259,7 +259,7 @@ export function ProfilePage() {
         </div>
 
         {avatarError && (
-          <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">
+          <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
             {avatarError}
           </p>
         )}
@@ -283,11 +283,11 @@ export function ProfilePage() {
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted backdrop-blur-md outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
+            className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted backdrop-blur-md outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
             placeholder={t("profile.displayNamePlaceholder")}
           />
           {displayNameFlagged && (
-            <p className="mt-1 text-xs text-amber-400">
+            <p className="mt-1 text-xs text-warning">
               {t("profile.displayNameFlagged")}
             </p>
           )}
@@ -301,12 +301,12 @@ export function ProfilePage() {
             {saving ? t("profile.saving") : t("profile.save")}
           </Button>
           {saved && (
-            <span className="text-sm text-green-400">
+            <span className="text-sm text-success">
               {t("profile.savedToast")}
             </span>
           )}
           {saveError && (
-            <span className="text-sm text-red-400">{saveError}</span>
+            <span className="text-sm text-danger">{saveError}</span>
           )}
         </div>
       </section>

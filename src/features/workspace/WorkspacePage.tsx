@@ -50,7 +50,7 @@ function NoteEditor({
   };
 
   return (
-    <div className="rounded-lg border border-accent-purple/40 bg-glass-bg/60 p-3">
+    <div className="rounded-lg border border-accent/40 bg-glass-bg/60 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <input
           autoFocus
@@ -65,7 +65,7 @@ function NoteEditor({
             save();
             onClose();
           }}
-          className="rounded p-1 text-green-400 hover:bg-glass-hover cursor-pointer"
+          className="rounded p-1 text-success hover:bg-glass-hover cursor-pointer"
           title={t("common.save")}
         >
           <Check size={14} />
@@ -84,7 +84,7 @@ function NoteEditor({
         onBlur={save}
         placeholder={t("book.notes.contentPlaceholder")}
         rows={8}
-        className="block w-full resize-y rounded border border-glass-border bg-bg-primary/50 px-2 py-1.5 text-sm text-text-secondary outline-none placeholder:text-text-muted focus:border-accent-purple/60"
+        className="block w-full resize-y rounded border border-glass-border bg-bg-primary/50 px-2 py-1.5 text-sm text-text-secondary outline-none placeholder:text-text-muted focus:border-accent/60"
       />
     </div>
   );
@@ -205,7 +205,7 @@ export function WorkspacePage() {
                       {n.content || t("book.notes.emptyNote")}
                     </p>
                   </div>
-                  <span className="shrink-0 text-[10px] text-text-muted">
+                  <span className="shrink-0 text-2xs text-text-muted">
                     {formatDate(n.updatedAt)}
                   </span>
                   <button
@@ -217,7 +217,7 @@ export function WorkspacePage() {
                   </button>
                   <button
                     onClick={() => handleDeleteNote(n.id)}
-                    className="rounded p-1 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-red-400 group-hover:opacity-100 cursor-pointer"
+                    className="rounded p-1 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-danger group-hover:opacity-100 cursor-pointer"
                     aria-label={t("common.delete")}
                   >
                     <Trash2 size={12} />
@@ -233,7 +233,7 @@ export function WorkspacePage() {
       <section className="space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Pencil size={16} className="text-accent-purple" />
+            <Pencil size={16} className="text-accent" />
             <h2 className="text-lg font-semibold text-text-primary">
               {t("workspace.whiteboards.heading")}
               <span className="ml-2 text-xs font-normal text-text-muted">
@@ -267,22 +267,22 @@ export function WorkspacePage() {
               <button
                 key={wb.id}
                 onClick={() => navigate(`/whiteboards/${wb.id}`)}
-                className="flex items-center justify-between gap-3 rounded-lg border border-glass-border bg-glass-bg/40 px-3 py-2.5 text-left transition-colors hover:border-accent-purple/40 hover:bg-glass-hover cursor-pointer"
+                className="flex items-center justify-between gap-3 rounded-lg border border-glass-border bg-glass-bg/40 px-3 py-2.5 text-left transition-colors hover:border-accent/40 hover:bg-glass-hover cursor-pointer"
               >
                 <div className="flex min-w-0 items-center gap-2">
-                  <Pencil size={14} className="shrink-0 text-accent-purple" />
+                  <Pencil size={14} className="shrink-0 text-accent" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-text-primary">
                       {wb.title || t("workspace.whiteboards.untitled")}
                     </p>
-                    <p className="text-[10px] text-text-muted">
+                    <p className="text-2xs text-text-muted">
                       {t("workspace.whiteboards.updated", {
                         date: formatDate(wb.updatedAt),
                       })}
                     </p>
                   </div>
                 </div>
-                <span className="shrink-0 text-[10px] tabular-nums text-text-muted">
+                <span className="shrink-0 text-2xs tabular-nums text-text-muted">
                   {wb.elements.length}
                 </span>
               </button>

@@ -355,7 +355,7 @@ function CatalogOverview({
         {user && inLibrary && (
           <>
             <Button variant="secondary" onClick={() => navigate("/library")}>
-              <Check size={16} className="text-green-400" />
+              <Check size={16} className="text-success" />
               {t("book.overview.inYourLibraryOpen")}
             </Button>
             <Button
@@ -363,7 +363,7 @@ function CatalogOverview({
               onClick={handleRemoveFromLibrary}
               disabled={libraryLoading}
               aria-label={t("book.overview.removeFromLibraryAria")}
-              className="hover:text-red-400"
+              className="hover:text-danger"
             >
               {libraryLoading ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -429,13 +429,13 @@ function CatalogOverview({
       )}
 
       {readError === "cors-fallback" && (
-        <p className="rounded-lg bg-yellow-500/10 px-3 py-2 text-xs text-yellow-400">
+        <p className="rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning">
           {t("book.overview.readCorsFallback")}
         </p>
       )}
 
       {book.ia_id && (
-        <p className="rounded-lg bg-green-500/10 px-3 py-2 text-xs text-green-400">
+        <p className="rounded-lg bg-success/10 px-3 py-2 text-xs text-success">
           {t("book.overview.publicDomainHint")}
         </p>
       )}
@@ -481,7 +481,7 @@ function CatalogOverview({
           ) : (
             <Link
               to="/auth"
-              className="text-xs text-accent-purple hover:underline"
+              className="text-xs text-accent hover:underline"
             >
               {t("ratings.signInToRate")}
             </Link>
@@ -516,7 +516,7 @@ function CatalogOverview({
               : book.categories.map((cat) => (
                   <span
                     key={cat}
-                    className="rounded-full bg-accent-purple/10 px-3 py-1 text-xs font-medium text-accent-purple"
+                    className="rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent"
                   >
                     {cat}
                   </span>
@@ -815,7 +815,7 @@ function CatalogUploadOwnCopyButton({
         className="hidden"
         onChange={handleFile}
       />
-      {error && <p className="text-[11px] text-red-400">{error}</p>}
+      {error && <p className="text-2xs text-danger">{error}</p>}
     </div>
   );
 }
@@ -823,8 +823,8 @@ function CatalogUploadOwnCopyButton({
 function NoFileBanner() {
   const { t } = useTranslation();
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-3">
-      <FileX2 size={18} className="mt-0.5 shrink-0 text-yellow-400" />
+    <div className="flex items-start gap-3 rounded-lg border border-warning/20 bg-warning/5 px-4 py-3">
+      <FileX2 size={18} className="mt-0.5 shrink-0 text-warning" />
       <div className="min-w-0 text-sm">
         <p className="font-medium text-text-primary">
           {t("book.overview.noFile.title")}

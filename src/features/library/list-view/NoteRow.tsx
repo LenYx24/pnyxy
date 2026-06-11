@@ -149,7 +149,7 @@ export function NoteRow({
         className={cn(
           "group flex select-none items-center border-b border-glass-border/30 px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
           density.py,
-          selected && "bg-accent-purple/10",
+          selected && "bg-accent/10",
           isDragging && "opacity-50",
         )}
         style={{ paddingLeft: 8 + indent }}
@@ -183,7 +183,7 @@ export function NoteRow({
 
         {/* Icon "cover" — note glyph in a tinted 5:7 tile, same footprint
             as BookRow's mini-cover so titles align across row types. */}
-        <div className="mr-2.5 flex aspect-[5/7] h-8 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-gradient-to-br from-accent-blue/20 to-accent-purple/20 sm:h-9">
+        <div className="mr-2.5 flex aspect-[5/7] h-8 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-gradient-to-br from-accent-blue/20 to-accent/20 sm:h-9">
           <FileText size={14} className="text-accent-blue/70" />
         </div>
 
@@ -196,7 +196,7 @@ export function NoteRow({
         </span>
 
         {/* "Note" type tag, mirroring BookRow's Uploaded pill. */}
-        <span className="mr-2 hidden items-center gap-1 rounded bg-accent-blue/20 px-1.5 py-0.5 text-[10px] font-semibold text-accent-blue sm:inline-flex">
+        <span className="mr-2 hidden items-center gap-1 rounded bg-accent-blue/20 px-1.5 py-0.5 text-2xs font-semibold text-accent-blue sm:inline-flex">
           <Pencil size={9} />
           {t("library.allBooks.noteLabel")}
         </span>

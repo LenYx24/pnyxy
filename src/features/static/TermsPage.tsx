@@ -15,7 +15,7 @@ export function TermsPage() {
     <div className="mx-auto w-full max-w-3xl space-y-6 p-4 sm:p-6">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-glass-bg">
-          <ScrollText size={20} className="text-accent-purple" />
+          <ScrollText size={20} className="text-accent" />
         </div>
         <div>
           <h1 className="text-2xl font-bold text-text-primary">
@@ -28,7 +28,7 @@ export function TermsPage() {
       </div>
 
       {showEnglishNotice && (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
+        <p className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-warning">
           {t("static.terms.englishOnly")}
         </p>
       )}

@@ -25,7 +25,7 @@ export function AdminPage() {
     <AdminGuard>
       <div className="mx-auto max-w-5xl pt-14">
         <div className="mb-6 flex items-center gap-3">
-          <Shield className="h-6 w-6 text-accent-purple" />
+          <Shield className="h-6 w-6 text-accent" />
           <h1 className="text-2xl font-bold text-text-primary">Admin Panel</h1>
         </div>
 
@@ -38,7 +38,7 @@ export function AdminPage() {
               className={cn(
                 "flex-1 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors cursor-pointer",
                 activeTab === key
-                  ? "bg-accent-purple/15 text-accent-purple"
+                  ? "bg-accent/15 text-accent"
                   : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
               )}
             >

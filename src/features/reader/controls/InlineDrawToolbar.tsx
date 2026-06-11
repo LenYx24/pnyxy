@@ -69,7 +69,7 @@ export function InlineDrawToolbar() {
           className={cn(
             "rounded-md p-1.5 transition-colors cursor-pointer",
             tool === "pen"
-              ? "bg-accent-purple/20 text-accent-purple"
+              ? "bg-accent/20 text-accent"
               : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
           )}
           title={t("reader.inlineDraw.pen", { defaultValue: "Pen" })}
@@ -83,7 +83,7 @@ export function InlineDrawToolbar() {
           className={cn(
             "rounded-md p-1.5 transition-colors cursor-pointer",
             tool === "eraser"
-              ? "bg-accent-purple/20 text-accent-purple"
+              ? "bg-accent/20 text-accent"
               : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
           )}
           title={t("reader.inlineDraw.eraser", {
@@ -139,7 +139,7 @@ export function InlineDrawToolbar() {
           type="button"
           onClick={() => clearPage(currentPage)}
           disabled={!pageHasStrokes}
-          className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-red-400 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-danger cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
           title={t("reader.inlineDraw.clearPage", {
             defaultValue: "Clear all strokes on this page",
           })}
@@ -165,7 +165,7 @@ export function InlineDrawToolbar() {
             }
           }}
           disabled={!hasAnyStrokes}
-          className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-red-400 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-danger cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
           title={t("reader.inlineDraw.clearAll", {
             defaultValue: "Clear drawings on every page",
           })}

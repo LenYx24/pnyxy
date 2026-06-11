@@ -88,7 +88,7 @@ export function PostPage() {
   if (isLoading && !currentPost) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-accent-purple" />
+        <Loader2 size={24} className="animate-spin text-accent" />
       </div>
     );
   }
@@ -138,7 +138,7 @@ export function PostPage() {
                 await removePost(currentPost.id);
                 navigate(`/forum/c/${slug}`);
               }}
-              className="flex items-center gap-1 text-red-400 transition-colors hover:text-red-300 cursor-pointer"
+              className="flex items-center gap-1 text-danger transition-colors hover:text-danger cursor-pointer"
             >
               <Trash2 size={12} />
               Delete
@@ -177,13 +177,13 @@ export function PostPage() {
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
             placeholder="Write a comment... (Markdown supported)"
-            className="h-24 w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary outline-none resize-y focus:border-accent-purple"
+            className="h-24 w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary outline-none resize-y focus:border-accent"
           />
           <div className="mt-2 flex justify-end">
             <button
               onClick={handleSubmitComment}
               disabled={!commentText.trim() || submitting}
-              className="rounded-lg bg-accent-purple/20 px-4 py-2 text-sm font-medium text-accent-purple transition-colors hover:bg-accent-purple/30 disabled:opacity-40 cursor-pointer"
+              className="rounded-lg bg-accent/20 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/30 disabled:opacity-40 cursor-pointer"
             >
               {submitting ? "Posting..." : "Comment"}
             </button>

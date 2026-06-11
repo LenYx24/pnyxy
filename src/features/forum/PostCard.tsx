@@ -61,7 +61,7 @@ export function PostCard({ post, communitySlug }: PostCardProps) {
           onClick={(e) => e.stopPropagation()}
           aria-label="Upvote"
           title="Voting coming soon"
-          className="rounded p-0.5 transition-colors hover:bg-glass-hover hover:text-accent-purple cursor-not-allowed"
+          className="rounded p-0.5 transition-colors hover:bg-glass-hover hover:text-accent cursor-not-allowed"
         >
           <ArrowUp size={14} />
         </button>
@@ -82,12 +82,12 @@ export function PostCard({ post, communitySlug }: PostCardProps) {
       {/* Content */}
       <div className="min-w-0 flex-1 py-2.5 pr-3">
         {/* Top meta row: community badge + author + time */}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-text-muted">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-text-muted">
           {showCommunityBadge && post.community && (
             <Link
               to={`/forum/c/${post.community.slug}`}
               onClick={(e) => e.stopPropagation()}
-              className="font-semibold text-accent-purple hover:underline"
+              className="font-semibold text-accent hover:underline"
             >
               c/{post.community.slug}
             </Link>

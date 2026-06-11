@@ -19,8 +19,19 @@
   --color-bg-tertiary: #1a1a24;
 
   /* Accent colors */
-  --color-accent-purple: #0891b2;
+  --color-accent: #0891b2;
   --color-accent-blue: #60a5fa;
+
+  /* Semantic state colors. One token per intent, used at full
+     strength for text/icons and at low opacity (e.g. bg-danger/15)
+     for tinted surfaces — replaces the ad-hoc red-400/red-500/
+     amber-400/green-400/emerald-400 scatter. Static across themes
+     (a warning is amber everywhere), unlike the runtime-themed
+     accent. */
+  --color-danger: #f87171;   /* red-400  — destructive / error */
+  --color-warning: #fbbf24;  /* amber-400 — caution / quota near limit */
+  --color-success: #4ade80;  /* green-400 — confirmed / saved / on-track */
+  --color-info: #60a5fa;     /* blue-400  — neutral informational */
 
   /* Text colors. Kept in sync with `pnyxy-dark` in
      src/lib/themes/core.ts — these are the initial @theme defaults
@@ -49,6 +60,12 @@
 
   /* Font */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Type scale. `text-2xs` (11px) is a real step so micro-labels and
+     badges stop reaching for arbitrary text-[10px]/text-[11px]. The
+     rest of the scale uses Tailwind's defaults (xs=12, sm=14, …). */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
 }
 
 @keyframes slide-up {
@@ -300,7 +317,7 @@
 .ai-message strong { color: var(--color-text-primary); font-weight: 600; }
 .ai-message em { font-style: italic; }
 .ai-message a {
-  color: var(--color-accent-purple);
+  color: var(--color-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -318,13 +335,13 @@
   line-height: 1.35;
   white-space: nowrap;
   text-decoration: none;
-  color: var(--color-accent-purple);
-  background: color-mix(in srgb, var(--color-accent-purple) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-accent-purple) 32%, transparent);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
 }
 .ai-message a[href^="/reader/"]:hover {
   text-decoration: none;
-  background: color-mix(in srgb, var(--color-accent-purple) 26%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 26%, transparent);
 }
 .ai-message ul, .ai-message ol {
   padding-left: 1.25rem;
@@ -394,8 +411,8 @@
   border-color: var(--color-glass-border);
 }
 .ai-message .pnyxy-copy-code--copied {
-  color: var(--color-accent-purple);
-  border-color: var(--color-accent-purple);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
 }
 .ai-message blockquote {
   border-left: 2px solid var(--color-glass-border);
@@ -465,9 +482,9 @@
   --xy-controls-button-color-hover: var(--color-text-primary);
   --xy-controls-button-border-color: var(--color-glass-border);
   --xy-edge-stroke: var(--color-text-muted);
-  --xy-edge-stroke-selected: var(--color-accent-purple);
-  --xy-selection-background-color: rgb(from var(--color-accent-purple) r g b / 0.15);
-  --xy-selection-border: 1px dashed var(--color-accent-purple);
+  --xy-edge-stroke-selected: var(--color-accent);
+  --xy-selection-background-color: rgb(from var(--color-accent) r g b / 0.15);
+  --xy-selection-border: 1px dashed var(--color-accent);
 }
 
 /* The Controls container itself — glass card on hover. */
@@ -495,7 +512,7 @@
 }
 .react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edge:focus .react-flow__edge-path {
-  stroke: var(--color-accent-purple);
+  stroke: var(--color-accent);
   stroke-width: 2;
 }
 /* Make the invisible click-target wider so edges are easy to grab. */
@@ -514,7 +531,7 @@
   transform: scale(1.04);
   box-shadow:
     0 8px 24px rgba(0, 0, 0, 0.35),
-    0 0 0 2px var(--color-accent-purple);
+    0 0 0 2px var(--color-accent);
   cursor: grabbing;
   z-index: 10;
 }
@@ -522,7 +539,7 @@
   cursor: grab;
 }
 .react-flow__node.selected:not(.dragging) {
-  box-shadow: 0 0 0 2px var(--color-accent-purple);
+  box-shadow: 0 0 0 2px var(--color-accent);
 }
 
 /* Background dot colour against dark themes. */

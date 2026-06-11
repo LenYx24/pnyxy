@@ -37,7 +37,7 @@ export function ForgotPasswordPage() {
       <div className="relative z-10 w-full max-w-md rounded-xl border border-glass-border bg-glass-bg p-8 backdrop-blur-xl">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold">
-            <span className="bg-gradient-to-r from-accent-purple to-accent-blue bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-accent to-accent-blue bg-clip-text text-transparent">
               Pnyxy
             </span>
           </h1>
@@ -48,7 +48,7 @@ export function ForgotPasswordPage() {
 
         {success ? (
           <div className="space-y-4">
-            <p className="rounded-lg bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+            <p className="rounded-lg bg-success/10 px-4 py-3 text-sm text-success">
               {t("auth.forgot.successBody")}
             </p>
             <Link to="/auth">
@@ -77,7 +77,7 @@ export function ForgotPasswordPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted backdrop-blur-md outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
+                className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted backdrop-blur-md outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
                 placeholder="you@example.com"
                 autoComplete="email"
                 autoFocus
@@ -85,7 +85,7 @@ export function ForgotPasswordPage() {
             </div>
 
             {localError && (
-              <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">
+              <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
                 {localError}
               </p>
             )}

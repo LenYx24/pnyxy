@@ -91,7 +91,7 @@ export function PdfReflowView({ documentId }: PdfReflowViewProps) {
     return (
       <div className="flex h-full items-center justify-center p-6">
         <div className="flex max-w-md flex-col items-center gap-3 text-center text-text-secondary">
-          <AlertTriangle size={28} className="text-amber-400" />
+          <AlertTriangle size={28} className="text-warning" />
           <p className="text-sm">
             {error === "unsupported"
               ? t("reader.reflow.errorUnsupported")
@@ -112,7 +112,7 @@ export function PdfReflowView({ documentId }: PdfReflowViewProps) {
     return (
       <div className="flex h-full items-center justify-center p-6">
         <div className="flex flex-col items-center gap-3 text-text-muted">
-          <Loader2 size={24} className="animate-spin text-accent-purple" />
+          <Loader2 size={24} className="animate-spin text-accent" />
           <p className="text-sm">{progressLabel}</p>
         </div>
       </div>
@@ -123,7 +123,7 @@ export function PdfReflowView({ documentId }: PdfReflowViewProps) {
     return (
       <div className="flex h-full items-center justify-center p-6">
         <div className="flex max-w-md flex-col items-center gap-3 text-center text-text-secondary">
-          <AlertTriangle size={28} className="text-amber-400" />
+          <AlertTriangle size={28} className="text-warning" />
           <p className="text-sm">{t("reader.reflow.emptyExtract")}</p>
           <p className="text-xs text-text-muted">
             {t("reader.reflow.emptyHint")}
@@ -144,7 +144,7 @@ export function PdfReflowView({ documentId }: PdfReflowViewProps) {
         className="mx-auto"
         style={{ maxWidth: "min(40rem, 100%)", lineHeight }}
       >
-        <div className="mb-6 rounded-lg border border-accent-purple/20 bg-accent-purple/5 px-3 py-2 text-xs text-accent-purple">
+        <div className="mb-6 rounded-lg border border-accent/20 bg-accent/5 px-3 py-2 text-xs text-accent">
           {t("reader.reflow.banner")}
         </div>
         {reflow.blocks.map((block, idx) => {
@@ -177,7 +177,7 @@ export function PdfReflowView({ documentId }: PdfReflowViewProps) {
           return (
             <div key={idx}>
               {showPageBreak && (
-                <div className="my-4 flex items-center gap-2 text-[10px] uppercase tracking-wide text-text-muted">
+                <div className="my-4 flex items-center gap-2 text-2xs uppercase tracking-wide text-text-muted">
                   <span className="h-px flex-1 bg-glass-border" />
                   <span>
                     {t("reader.reflow.pageLabel", { page: block.pageNum })}

@@ -82,7 +82,7 @@ export function BookmarksTab() {
                   state: { from: openedFrom },
                 })
               }
-              className="flex items-center gap-3 rounded-lg border border-glass-border bg-glass-bg/40 px-3 py-2 text-left transition-colors hover:border-accent-purple/40 hover:bg-glass-hover cursor-pointer"
+              className="flex items-center gap-3 rounded-lg border border-glass-border bg-glass-bg/40 px-3 py-2 text-left transition-colors hover:border-accent/40 hover:bg-glass-hover cursor-pointer"
             >
               <span
                 className="h-3 w-3 shrink-0 rounded-sm"

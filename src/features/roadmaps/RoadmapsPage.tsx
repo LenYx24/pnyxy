@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, Map as MapIcon, Plus, Sparkles, Trophy } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { Button } from "@/components/ui";
 import { useRoadmapStore } from "@/stores/roadmap-store";
 import { progressFraction } from "./lib/scheduler";
 import { AiGenerateRoadmapModal } from "./AiGenerateRoadmapModal";
@@ -66,7 +67,7 @@ export function RoadmapsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-glass-bg">
-            <MapIcon size={20} className="text-accent-purple" />
+            <MapIcon size={20} className="text-accent" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-text-primary">
@@ -78,20 +79,14 @@ export function RoadmapsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setAiOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-accent-purple/40 bg-accent-purple/10 px-3 py-2 text-sm font-medium text-accent-purple transition-colors hover:bg-accent-purple/20"
-          >
+          <Button variant="soft" onClick={() => setAiOpen(true)}>
             <Sparkles size={16} />
             {t("roadmaps.aiGenerate.button")}
-          </button>
-          <button
-            onClick={() => setCreating(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent-purple px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
-          >
+          </Button>
+          <Button onClick={() => setCreating(true)}>
             <Plus size={16} />
             {t("roadmaps.new")}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -114,24 +109,22 @@ export function RoadmapsPage() {
               }
             }}
             placeholder={t("roadmaps.titlePlaceholder")}
-            className="mt-2 w-full rounded-md border border-glass-border bg-bg-secondary px-3 py-2 text-sm outline-none focus:border-accent-purple"
+            className="mt-2 w-full rounded-md border border-glass-border bg-bg-secondary px-3 py-2 text-sm outline-none focus:border-accent"
           />
           <div className="mt-3 flex justify-end gap-2">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setCreating(false);
                 setNewTitle("");
               }}
-              className="rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-glass-hover"
             >
               {t("common.cancel")}
-            </button>
-            <button
-              onClick={handleCreate}
-              className="rounded-md bg-accent-purple px-3 py-1.5 text-sm font-medium text-white"
-            >
+            </Button>
+            <Button size="sm" onClick={handleCreate}>
               {t("roadmaps.createAndEdit")}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -163,11 +156,11 @@ export function RoadmapsPage() {
                   <div className="mt-3">
                     <div className="h-1.5 overflow-hidden rounded-full bg-glass-bg">
                       <div
-                        className="h-full rounded-full bg-accent-purple transition-all"
+                        className="h-full rounded-full bg-accent transition-all"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <p className="mt-1 text-[11px] text-text-muted">
+                    <p className="mt-1 text-2xs text-text-muted">
                       {t("roadmaps.percentComplete", { pct })}
                     </p>
                   </div>
@@ -193,7 +186,7 @@ export function RoadmapsPage() {
                 showCompleted && "rotate-90",
               )}
             />
-            <Trophy size={14} className="text-yellow-400" />
+            <Trophy size={14} className="text-warning" />
             <span>
               {t("roadmaps.completedHeading", { count: completed.length })}
             </span>
@@ -214,7 +207,7 @@ export function RoadmapsPage() {
                       </h3>
                       <Trophy
                         size={14}
-                        className="shrink-0 text-yellow-400"
+                        className="shrink-0 text-warning"
                       />
                     </div>
                     {r.description && (
@@ -242,7 +235,7 @@ export function RoadmapsPage() {
             </p>
             <button
               onClick={() => setCreating(true)}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-accent-purple px-3 py-2 text-sm font-medium text-white"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white"
             >
               <Plus size={16} />
               {t("roadmaps.new")}
@@ -264,7 +257,7 @@ export function RoadmapsPage() {
                     {r.description}
                   </p>
                 )}
-                <p className="mt-2 text-[11px] text-text-muted">
+                <p className="mt-2 text-2xs text-text-muted">
                   {t("roadmaps.nodeCount", { count: r.nodes.length })}
                 </p>
               </Link>

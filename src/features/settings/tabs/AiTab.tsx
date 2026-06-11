@@ -183,7 +183,7 @@ export function AiTab() {
     <div className="space-y-8">
       <header className="space-y-1.5">
         <div className="flex items-center gap-2">
-          <BotMessageSquare size={18} className="text-accent-purple" />
+          <BotMessageSquare size={18} className="text-accent" />
           <h2 className="text-lg font-semibold text-text-primary">
             {t("settings.aiSection.heading")}
           </h2>
@@ -252,7 +252,7 @@ export function AiTab() {
               <button
                 key={p}
                 onClick={() => toggleProvider(p)}
-                className="inline-flex items-center gap-1 rounded-md border border-dashed border-glass-border bg-transparent px-2 py-1 text-[11px] font-medium text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                className="inline-flex items-center gap-1 rounded-md border border-dashed border-glass-border bg-transparent px-2 py-1 text-2xs font-medium text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
               >
                 <Plus size={11} />
                 {PROVIDER_LABELS[p]}
@@ -296,7 +296,7 @@ function SectionHeading({
   return (
     <div className="space-y-0.5">
       <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
-      {subtitle && <p className="text-[11px] text-text-muted">{subtitle}</p>}
+      {subtitle && <p className="text-2xs text-text-muted">{subtitle}</p>}
     </div>
   );
 }
@@ -328,7 +328,7 @@ function ModelComparisonTable() {
       <div className="hidden overflow-x-auto sm:block">
         <table className="w-full border-collapse text-xs">
           <thead>
-            <tr className="text-left text-[10px] uppercase tracking-wide text-text-muted">
+            <tr className="text-left text-2xs uppercase tracking-wide text-text-muted">
               <th className="py-1.5 pr-3 font-medium">
                 {t("settings.aiSection.colModel", { defaultValue: "Model" })}
               </th>
@@ -362,7 +362,7 @@ function ModelComparisonTable() {
                 <td className="py-2 pr-3 text-text-secondary">
                   {row.provider}
                 </td>
-                <td className="py-2 pr-3 font-mono text-[11px] text-text-secondary">
+                <td className="py-2 pr-3 font-mono text-2xs text-text-secondary">
                   {row.cost}
                 </td>
                 <td className="py-2 pr-3 text-text-secondary">{row.bestFor}</td>
@@ -387,13 +387,13 @@ function ModelComparisonTable() {
                 <p className="truncate text-sm font-medium text-text-primary">
                   {row.model}
                 </p>
-                <p className="truncate text-[11px] text-text-muted">
+                <p className="truncate text-2xs text-text-muted">
                   {row.provider}
                 </p>
               </div>
               <StatusBadge status={row.status} />
             </div>
-            <div className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-2 text-[11px]">
+            <div className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-2 text-2xs">
               <span className="text-text-muted">
                 {t("settings.aiSection.colCost", {
                   defaultValue: "Cost",
@@ -417,10 +417,10 @@ function ModelComparisonTable() {
 function StatusBadge({ status }: { status: ModelRowStatus }) {
   const { t } = useTranslation();
   const styles: Record<ModelRowStatus, string> = {
-    active: "bg-emerald-500/15 text-emerald-300",
-    byok: "bg-accent-purple/15 text-accent-purple",
+    active: "bg-success/15 text-success",
+    byok: "bg-accent/15 text-accent",
     local: "bg-accent-blue/15 text-accent-blue",
-    soon: "bg-amber-500/10 text-amber-400/85",
+    soon: "bg-warning/10 text-warning/85",
   };
   const labels: Record<ModelRowStatus, string> = {
     active: t("settings.aiSection.statusActive", { defaultValue: "Active" }),
@@ -431,7 +431,7 @@ function StatusBadge({ status }: { status: ModelRowStatus }) {
   return (
     <span
       className={cn(
-        "inline-block whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+        "inline-block whitespace-nowrap rounded px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wide",
         styles[status],
       )}
     >
@@ -478,7 +478,7 @@ function AiContextSection() {
           onChange={(e) => setAiCustomDefaultContext(e.target.value)}
           rows={3}
           placeholder={t("settings.aiContext.customPlaceholder")}
-          className="w-full resize-y rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent-purple/50"
+          className="w-full resize-y rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
         />
       </label>
 
@@ -487,7 +487,7 @@ function AiContextSection() {
           type="checkbox"
           checked={aiAttachToc}
           onChange={(e) => setAiAttachToc(e.target.checked)}
-          className="h-4 w-4 cursor-pointer accent-accent-purple"
+          className="h-4 w-4 cursor-pointer accent-accent"
         />
         <span className="text-xs font-medium text-text-secondary">
           {t("settings.aiContext.attachTocLabel")}
@@ -504,7 +504,7 @@ function AiContextSection() {
           max={50}
           value={aiSurroundingPagesCount}
           onChange={(e) => setAiSurroundingPagesCount(Number(e.target.value))}
-          className="ml-auto w-16 rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-purple/50"
+          className="ml-auto w-16 rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
         />
       </label>
     </section>
@@ -578,18 +578,18 @@ function ProviderRow({
     <div className="rounded-md border border-glass-border bg-bg-primary/30 p-2.5 space-y-2 sm:p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-purple/20 text-[10px] font-mono font-medium text-accent-purple">
+          <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/20 text-2xs font-mono font-medium text-accent">
             {position}
           </span>
           <p className="text-sm font-medium text-text-primary truncate">
             {PROVIDER_LABELS[provider]}
             {isFirst && (
-              <span className="ml-2 text-[10px] uppercase tracking-wide text-accent-purple">
+              <span className="ml-2 text-2xs uppercase tracking-wide text-accent">
                 {t("settings.aiSection.primary")}
               </span>
             )}
             {needsKey && (
-              <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-400">
+              <span className="ml-2 text-2xs uppercase tracking-wide text-warning">
                 {t("settings.aiSection.needsKey")}
               </span>
             )}
@@ -619,18 +619,18 @@ function ProviderRow({
       {provider === "pnyxy" && (
         <div>
           {!user ? (
-            <p className="text-[11px] text-text-muted">
+            <p className="text-2xs text-text-muted">
               {t("settings.aiSection.pnyxyAnon")}
             </p>
           ) : usageLoading ? (
-            <p className="text-[11px] text-text-muted">
+            <p className="text-2xs text-text-muted">
               {t("settings.aiSection.usageLoading")}
             </p>
           ) : usageRows.length > 0 ? (
             <div className="divide-y divide-glass-border/50">
               {usageRows.map((row) => (
                 <div key={row.model} className="space-y-1 py-2.5 first:pt-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+                  <p className="text-2xs font-semibold uppercase tracking-wide text-text-secondary">
                     {MODEL_DISPLAY_NAMES[row.model] ?? row.model}
                   </p>
                   <UsageBar
@@ -647,7 +647,7 @@ function ProviderRow({
               ))}
             </div>
           ) : (
-            <p className="text-[11px] text-text-muted">
+            <p className="text-2xs text-text-muted">
               {t("settings.aiSection.usageUnavailable")}
             </p>
           )}
@@ -681,7 +681,7 @@ function ProviderRow({
       {provider === "local" && (
         <div className="space-y-2">
           <label className="block">
-            <span className="text-[11px] font-medium text-text-secondary">
+            <span className="text-2xs font-medium text-text-secondary">
               {t("settings.aiSection.localBaseUrlLabel")}
             </span>
             <input
@@ -692,11 +692,11 @@ function ProviderRow({
               spellCheck={false}
               autoCapitalize="off"
               autoComplete="off"
-              className="mt-0.5 w-full rounded-md border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-primary outline-none focus:border-accent-purple placeholder:text-text-muted"
+              className="mt-0.5 w-full rounded-md border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-primary outline-none focus:border-accent placeholder:text-text-muted"
             />
           </label>
           <label className="block">
-            <span className="text-[11px] font-medium text-text-secondary">
+            <span className="text-2xs font-medium text-text-secondary">
               {t("settings.aiSection.localModelLabel")}
             </span>
             <input
@@ -707,7 +707,7 @@ function ProviderRow({
               spellCheck={false}
               autoCapitalize="off"
               autoComplete="off"
-              className="mt-0.5 w-full rounded-md border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-primary outline-none focus:border-accent-purple placeholder:text-text-muted"
+              className="mt-0.5 w-full rounded-md border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-primary outline-none focus:border-accent placeholder:text-text-muted"
             />
           </label>
           <ApiKeyInput
@@ -781,7 +781,7 @@ function ApiKeyInput({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full rounded-md border border-glass-border bg-glass-bg px-3 py-1.5 pr-9 text-sm text-text-primary outline-none focus:border-accent-purple placeholder:text-text-muted"
+          className="w-full rounded-md border border-glass-border bg-glass-bg px-3 py-1.5 pr-9 text-sm text-text-primary outline-none focus:border-accent placeholder:text-text-muted"
         />
         <button
           type="button"
@@ -796,7 +796,7 @@ function ApiKeyInput({
           href={consoleHref}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-1 inline-block text-[10px] font-medium text-accent-blue underline-offset-2 hover:underline"
+          className="mt-1 inline-block text-2xs font-medium text-accent-blue underline-offset-2 hover:underline"
         >
           {consoleLabel} →
         </a>
@@ -828,7 +828,7 @@ function UsageBar({
         <div
           className={cn(
             "h-full rounded-full transition-all",
-            nearLimit ? "bg-red-500/70" : "bg-accent-purple/70",
+            nearLimit ? "bg-danger/70" : "bg-accent/70",
           )}
           style={{ width: `${pct}%` }}
         />

@@ -101,14 +101,14 @@ export function LibraryNoteCard({
       <div
         className={cn(
           "group relative",
-          selected && "ring-2 ring-accent-purple rounded-md",
+          selected && "ring-2 ring-accent rounded-md",
           isDragging && "opacity-50",
         )}
       >
         <div onClick={handleClick} title={title} className="cursor-pointer">
           {/* Icon "cover" — notes have no artwork, so a tinted tile with
               a document glyph stands in, sized like the book covers. */}
-          <div className="relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-gradient-to-br from-accent-blue/20 to-accent-purple/20 shadow-sm transition-shadow group-hover:shadow-md">
+          <div className="relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-gradient-to-br from-accent-blue/20 to-accent/20 shadow-sm transition-shadow group-hover:shadow-md">
             <FileText
               size={Math.round(Math.min(Math.max(coverHeight * 0.32, 24), 48))}
               className="text-accent-blue/70"
@@ -155,7 +155,7 @@ export function LibraryNoteCard({
             <p
               className={cn(
                 "truncate leading-tight text-text-muted",
-                compact ? "text-[10px]" : "text-xs",
+                compact ? "text-2xs" : "text-xs",
               )}
             >
               {t("library.allBooks.noteLabel")}
@@ -227,7 +227,7 @@ export function LibraryNoteCard({
                 setMenuOpen(false);
                 deleteNote(note.id);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 transition-colors hover:bg-glass-hover cursor-pointer"
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger transition-colors hover:bg-glass-hover cursor-pointer"
             >
               <Trash2 size={14} />
               {t("common.delete")}

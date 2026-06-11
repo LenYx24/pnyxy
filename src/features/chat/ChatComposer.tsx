@@ -239,15 +239,15 @@ function QuotaBar({
         <div
           className={cn(
             "h-full rounded-full transition-all",
-            nearLimit ? "bg-red-500/70" : "bg-accent-purple/70",
+            nearLimit ? "bg-danger/70" : "bg-accent/70",
           )}
           style={{ width: `${pct}%` }}
         />
       </div>
       <span
         className={cn(
-          "shrink-0 text-[10px] tabular-nums",
-          nearLimit ? "text-red-400" : "text-text-muted",
+          "shrink-0 text-2xs tabular-nums",
+          nearLimit ? "text-danger" : "text-text-muted",
         )}
       >
         {used.toLocaleString()} / {limit.toLocaleString()}
@@ -337,7 +337,7 @@ export function ModelPicker({
       : t("chat.composer.modelDefault");
 
   return (
-    <div className="flex min-w-0 items-center gap-1 text-[11px] text-text-muted">
+    <div className="flex min-w-0 items-center gap-1 text-2xs text-text-muted">
       {label && (
         <span className="font-medium uppercase tracking-wider">{label}</span>
       )}
@@ -346,7 +346,7 @@ export function ModelPicker({
         onClick={() => setOpen((v) => !v)}
         className="inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md border border-glass-border bg-bg-primary/50 px-2 text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
       >
-        <Bot size={12} className="shrink-0 text-accent-purple/80" />
+        <Bot size={12} className="shrink-0 text-accent/80" />
         <span className="truncate max-w-[100px] sm:max-w-none">
           {triggerLabel}
         </span>
@@ -466,9 +466,9 @@ function ModelOption({
     quotaHeadline == null
       ? "text-text-muted"
       : quotaHeadline.ratio > 0.8
-        ? "text-red-400"
+        ? "text-danger"
         : quotaHeadline.ratio > 0.5
-          ? "text-amber-400"
+          ? "text-warning"
           : "text-text-muted";
   return (
     <button
@@ -476,7 +476,7 @@ function ModelOption({
       className={cn(
         "flex w-full items-start justify-between gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-glass-hover cursor-pointer",
         active
-          ? "text-accent-purple"
+          ? "text-accent"
           : "text-text-secondary hover:text-text-primary",
       )}
     >
@@ -484,14 +484,14 @@ function ModelOption({
         <span className="font-medium">{label}</span>
         <span
           className={cn(
-            "text-[10px]",
-            active ? "text-accent-purple/70" : "text-text-muted",
+            "text-2xs",
+            active ? "text-accent/70" : "text-text-muted",
           )}
         >
           {subtitle}
         </span>
         {quotaHeadline && (
-          <span className={cn("text-[10px] font-mono", quotaColor)}>
+          <span className={cn("text-2xs font-mono", quotaColor)}>
             {quotaHeadline.row.tokens_used.toLocaleString()}/
             {quotaHeadline.row.tokens_limit.toLocaleString()} tok ·{" "}
             {quotaHeadline.row.request_count}/
@@ -541,7 +541,7 @@ function ModePicker({
   };
 
   return (
-    <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-text-muted">
+    <div className="flex min-w-0 items-center gap-1.5 text-2xs text-text-muted">
       <button
         ref={triggerRef}
         onClick={() => setOpen((v) => !v)}
@@ -549,7 +549,7 @@ function ModePicker({
           "inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors cursor-pointer",
           value === "default"
             ? "border-glass-border bg-bg-primary/50 text-text-secondary hover:bg-glass-hover hover:text-text-primary"
-            : "border-accent-purple/40 bg-accent-purple/15 text-accent-purple hover:bg-accent-purple/20",
+            : "border-accent/40 bg-accent/15 text-accent hover:bg-accent/20",
         )}
       >
         <Sparkles size={12} className="shrink-0" />
@@ -608,7 +608,7 @@ function AttachmentCard({
         </div>
       )}
       {attachment.name && (
-        <span className="max-w-[10rem] truncate text-[11px] text-text-secondary">
+        <span className="max-w-[10rem] truncate text-2xs text-text-secondary">
           {attachment.name}
         </span>
       )}
@@ -1012,8 +1012,8 @@ export const ChatComposer = forwardRef<
           ? "-mx-3 rounded-t-2xl border-x-0 border-b-0 sm:mx-0 sm:rounded-2xl sm:border-x sm:border-b"
           : "rounded-2xl",
         speech.listening
-          ? "border-accent-purple ring-2 ring-accent-purple/30"
-          : "border-glass-border focus-within:border-accent-purple/60",
+          ? "border-accent ring-2 ring-accent/30"
+          : "border-glass-border focus-within:border-accent/60",
       )}
     >
       {pendingAttachments.length > 0 && (
@@ -1028,12 +1028,12 @@ export const ChatComposer = forwardRef<
         </div>
       )}
       {attachmentError && (
-        <p role="alert" className="mb-2 text-[11px] text-red-400">
+        <p role="alert" className="mb-2 text-2xs text-danger">
           {attachmentError}
         </p>
       )}
       {attachmentsBlocked && !attachmentError && (
-        <p className="mb-2 text-[11px] text-amber-400">
+        <p className="mb-2 text-2xs text-warning">
           {t("chat.composer.attachments.needVisionModel")}
         </p>
       )}
@@ -1162,7 +1162,7 @@ export const ChatComposer = forwardRef<
             className={cn(
               "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40",
               reasoning
-                ? "border-accent-purple/50 bg-accent-purple/15 text-accent-purple"
+                ? "border-accent/50 bg-accent/15 text-accent"
                 : "border-glass-border bg-bg-primary/50 text-text-muted hover:bg-glass-hover hover:text-text-primary",
             )}
           >
@@ -1193,7 +1193,7 @@ export const ChatComposer = forwardRef<
                 <span className="font-medium">
                   {t("chat.readingContext.weekTitle")}
                 </span>
-                <span className="text-[11px] text-text-muted">
+                <span className="text-2xs text-text-muted">
                   {t("chat.readingContext.weekHint")}
                 </span>
               </button>
@@ -1204,7 +1204,7 @@ export const ChatComposer = forwardRef<
                 <span className="font-medium">
                   {t("chat.readingContext.recentTitle")}
                 </span>
-                <span className="text-[11px] text-text-muted">
+                <span className="text-2xs text-text-muted">
                   {t("chat.readingContext.recentHint")}
                 </span>
               </button>
@@ -1212,7 +1212,7 @@ export const ChatComposer = forwardRef<
           </>
         )}
         {speech.error && (
-          <span className="ml-auto truncate text-[11px] text-red-400">
+          <span className="ml-auto truncate text-2xs text-danger">
             {speech.error === "not-allowed"
               ? t("chat.composer.micDenied")
               : t("chat.composer.micError")}
@@ -1233,7 +1233,7 @@ export const ChatComposer = forwardRef<
               className={cn(
                 "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors cursor-pointer",
                 speech.listening
-                  ? "border-red-500/40 bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                  ? "border-danger/40 bg-danger/20 text-danger hover:bg-danger/30"
                   : "border-glass-border bg-bg-primary/50 text-text-muted hover:bg-glass-hover hover:text-text-primary",
               )}
               aria-label={
@@ -1262,7 +1262,7 @@ export const ChatComposer = forwardRef<
             className={cn(
               "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors cursor-pointer",
               isStreaming || canSend
-                ? "bg-accent-purple text-white hover:bg-accent-purple/80"
+                ? "bg-accent text-white hover:bg-accent/80"
                 : "bg-glass-bg text-text-muted disabled:cursor-not-allowed",
             )}
             aria-label={isStreaming ? t("chat.stop") : t("chat.send")}

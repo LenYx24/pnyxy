@@ -38,17 +38,17 @@ export function PluginRow({
             <p className="text-sm font-medium text-text-primary truncate">
               {manifest.name}
             </p>
-            <span className="text-[10px] font-mono text-text-muted">
+            <span className="text-2xs font-mono text-text-muted">
               v{manifest.version}
             </span>
             {isCore && (
-              <span className="rounded-full bg-accent-purple/20 px-1.5 py-0.5 text-[10px] font-medium text-accent-purple">
+              <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-2xs font-medium text-accent">
                 Core
               </span>
             )}
             <StatusBadge status={status} enabled={enabled} />
           </div>
-          <p className="text-[11px] text-text-muted">by {manifest.author}</p>
+          <p className="text-2xs text-text-muted">by {manifest.author}</p>
           {manifest.description && (
             <p className="mt-1 text-xs text-text-secondary">
               {manifest.description}
@@ -62,7 +62,7 @@ export function PluginRow({
               type="button"
               onClick={onUninstall}
               title="Uninstall"
-              className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-red-500/10 hover:text-red-400 cursor-pointer"
+              className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-danger/10 hover:text-danger cursor-pointer"
             >
               <Trash2 size={14} />
             </button>
@@ -74,7 +74,7 @@ export function PluginRow({
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="mt-2 inline-flex items-center gap-1 text-[11px] text-text-muted transition-colors hover:text-text-secondary cursor-pointer"
+        className="mt-2 inline-flex items-center gap-1 text-2xs text-text-muted transition-colors hover:text-text-secondary cursor-pointer"
       >
         <ChevronDown
           size={12}
@@ -86,7 +86,7 @@ export function PluginRow({
       {expanded && (
         <div className="mt-2 space-y-2 border-t border-glass-border/50 pt-2 text-xs">
           <div>
-            <p className="text-[10px] uppercase tracking-wide text-text-muted">
+            <p className="text-2xs uppercase tracking-wide text-text-muted">
               Permissions
             </p>
             {permissions.length === 0 ? (
@@ -96,7 +96,7 @@ export function PluginRow({
                 {permissions.map((p) => (
                   <li
                     key={p}
-                    className="rounded bg-glass-bg px-1.5 py-0.5 font-mono text-[10px] text-text-secondary"
+                    className="rounded bg-glass-bg px-1.5 py-0.5 font-mono text-2xs text-text-secondary"
                   >
                     {p}
                   </li>
@@ -106,9 +106,9 @@ export function PluginRow({
           </div>
 
           {status?.state === "error" && status.error && (
-            <div className="rounded border border-red-500/40 bg-red-500/10 p-2 text-red-300">
-              <p className="text-[10px] uppercase tracking-wide">Error</p>
-              <p className="text-[11px]">{status.error}</p>
+            <div className="rounded border border-danger/40 bg-danger/10 p-2 text-danger">
+              <p className="text-2xs uppercase tracking-wide">Error</p>
+              <p className="text-2xs">{status.error}</p>
             </div>
           )}
         </div>
@@ -126,14 +126,14 @@ function StatusBadge({
 }) {
   if (!enabled) {
     return (
-      <span className="text-[10px] uppercase tracking-wide text-text-muted">
+      <span className="text-2xs uppercase tracking-wide text-text-muted">
         Disabled
       </span>
     );
   }
   if (!status || status.state === "unloaded") {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-text-muted">
+      <span className="inline-flex items-center gap-1 text-2xs uppercase tracking-wide text-text-muted">
         <LoaderCircle size={10} className="animate-spin" />
         Loading
       </span>
@@ -141,13 +141,13 @@ function StatusBadge({
   }
   if (status.state === "error") {
     return (
-      <span className="text-[10px] uppercase tracking-wide text-red-400">
+      <span className="text-2xs uppercase tracking-wide text-danger">
         Error
       </span>
     );
   }
   return (
-    <span className="text-[10px] uppercase tracking-wide text-emerald-400">
+    <span className="text-2xs uppercase tracking-wide text-success">
       Loaded
     </span>
   );

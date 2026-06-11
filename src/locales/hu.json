@@ -216,8 +216,8 @@
       },
       "customCss": {
         "heading": "Egyéni CSS",
-        "help": "Illessz be CSS szabályokat az alkalmazás stílusainak felülírásához. A Tailwind utility osztályok (pl. .bg-accent-purple, .text-text-muted) és a :root-on lévő téma változók (--accent-purple, --bg-primary, …) stabil szelektorok, ezekre érdemes hivatkozni. A változások azonnal érvényesülnek, és csak ezen az eszközön maradnak meg.",
-        "placeholder": ":root { --accent-purple: #ff7eb6; }\n\n/* Streak pille elrejtése */\n.streak-pill { display: none; }",
+        "help": "Illessz be CSS szabályokat az alkalmazás stílusainak felülírásához. A Tailwind utility osztályok (pl. .bg-accent, .text-text-muted) és a :root-on lévő téma változók (--color-accent, --bg-primary, …) stabil szelektorok, ezekre érdemes hivatkozni. A változások azonnal érvényesülnek, és csak ezen az eszközön maradnak meg.",
+        "placeholder": ":root { --color-accent: #ff7eb6; }\n\n/* Streak pille elrejtése */\n.streak-pill { display: none; }",
         "reset": "Visszaállítás"
       }
     },

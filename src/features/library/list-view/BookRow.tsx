@@ -272,7 +272,7 @@ export function BookRow({
         className={cn(
           "group flex select-none items-center border-b border-glass-border/30 px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
           density.py,
-          selected && "bg-accent-purple/10",
+          selected && "bg-accent/10",
           isDragging && "opacity-50",
         )}
         style={{ paddingLeft: 8 + indent }}
@@ -316,7 +316,7 @@ export function BookRow({
               loading="lazy"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-purple/25 to-accent-blue/25">
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent/25 to-accent-blue/25">
               <span className="text-xs font-bold text-white/30">
                 {title.charAt(0).toUpperCase()}
               </span>
@@ -344,7 +344,7 @@ export function BookRow({
             {customTags.slice(0, 2).map((label) => (
               <span
                 key={label}
-                className="inline-flex items-center rounded-full border border-glass-border bg-glass-bg px-1.5 py-0.5 text-[10px] text-text-secondary"
+                className="inline-flex items-center rounded-full border border-glass-border bg-glass-bg px-1.5 py-0.5 text-2xs text-text-secondary"
                 title={label}
               >
                 {label}
@@ -354,13 +354,13 @@ export function BookRow({
         )}
 
         {isInProgress && (
-          <span className="mr-2 hidden items-center gap-1 rounded bg-accent-purple/85 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white sm:inline-flex">
+          <span className="mr-2 hidden items-center gap-1 rounded bg-accent/85 px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide text-white sm:inline-flex">
             {t("library.reading")}
           </span>
         )}
 
         {entry.source === "uploaded" && (
-          <span className="mr-2 hidden items-center gap-1 rounded bg-accent-purple/20 px-1.5 py-0.5 text-[10px] font-semibold text-accent-purple sm:inline-flex">
+          <span className="mr-2 hidden items-center gap-1 rounded bg-accent/20 px-1.5 py-0.5 text-2xs font-semibold text-accent sm:inline-flex">
             <Upload size={9} />
             Uploaded
           </span>
@@ -398,7 +398,7 @@ export function BookRow({
             }}
             aria-label={t("library.actions.openInReader")}
             title={t("library.actions.openInReader")}
-            className="mr-1.5 shrink-0 rounded-md bg-accent-purple/15 p-1.5 text-accent-purple transition-colors hover:bg-accent-purple/25 cursor-pointer"
+            className="mr-1.5 shrink-0 rounded-md bg-accent/15 p-1.5 text-accent transition-colors hover:bg-accent/25 cursor-pointer"
           >
             <BookOpen size={14} />
           </button>

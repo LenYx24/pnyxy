@@ -139,7 +139,7 @@ function CommentNode({ comment, postId, depth }: CommentNodeProps) {
                 {isAuthor && (
                   <button
                     onClick={() => removeComment(comment.id)}
-                    className="flex items-center gap-1 text-xs text-text-muted transition-colors hover:text-red-400 cursor-pointer"
+                    className="flex items-center gap-1 text-xs text-text-muted transition-colors hover:text-danger cursor-pointer"
                   >
                     <Trash2 size={12} />
                     Delete
@@ -155,7 +155,7 @@ function CommentNode({ comment, postId, depth }: CommentNodeProps) {
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   placeholder="Write a reply..."
-                  className="h-20 w-full resize-none rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple"
+                  className="h-20 w-full resize-none rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
                   autoFocus
                 />
                 <div className="flex justify-end gap-2">
@@ -168,7 +168,7 @@ function CommentNode({ comment, postId, depth }: CommentNodeProps) {
                   <button
                     onClick={handleSubmitReply}
                     disabled={!replyText.trim() || submitting}
-                    className="rounded-md bg-accent-purple/20 px-3 py-1.5 text-xs text-accent-purple transition-colors hover:bg-accent-purple/30 disabled:opacity-40 cursor-pointer"
+                    className="rounded-md bg-accent/20 px-3 py-1.5 text-xs text-accent transition-colors hover:bg-accent/30 disabled:opacity-40 cursor-pointer"
                   >
                     {submitting ? "Posting..." : "Reply"}
                   </button>

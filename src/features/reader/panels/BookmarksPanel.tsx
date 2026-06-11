@@ -55,7 +55,7 @@ export function BookmarksPanel({ hideAddRow, onJump }: BookmarksPanelProps) {
       {!hideAddRow && activeDoc && (
         <button
           onClick={handleAdd}
-          className="flex items-center justify-center gap-2 rounded-md border border-dashed border-glass-border bg-glass-bg/30 px-3 py-2 text-xs text-text-muted transition-colors hover:border-accent-purple/40 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+          className="flex items-center justify-center gap-2 rounded-md border border-dashed border-glass-border bg-glass-bg/30 px-3 py-2 text-xs text-text-muted transition-colors hover:border-accent/40 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
         >
           <Plus size={14} />
           {t("reader.bookmarks.addAt", { page: activeDoc.currentPage })}
@@ -116,7 +116,7 @@ export function BookmarksPanel({ hideAddRow, onJump }: BookmarksPanelProps) {
                 </button>
               )}
 
-              <span className="shrink-0 text-[10px] tabular-nums text-text-muted">
+              <span className="shrink-0 text-2xs tabular-nums text-text-muted">
                 {t("reader.bookmarks.page", { page: bm.page })}
               </span>
 
@@ -132,7 +132,7 @@ export function BookmarksPanel({ hideAddRow, onJump }: BookmarksPanelProps) {
                   <>
                     <button
                       onClick={() => handleSaveLabel(bm.id)}
-                      className="rounded p-1 text-green-400 hover:bg-glass-hover cursor-pointer"
+                      className="rounded p-1 text-success hover:bg-glass-hover cursor-pointer"
                       aria-label={t("reader.bookmarks.save")}
                     >
                       <Check size={12} />
@@ -159,7 +159,7 @@ export function BookmarksPanel({ hideAddRow, onJump }: BookmarksPanelProps) {
                     </button>
                     <button
                       onClick={() => removeBookmark(bm.id)}
-                      className="rounded p-1 text-text-muted hover:bg-glass-hover hover:text-red-400 cursor-pointer"
+                      className="rounded p-1 text-text-muted hover:bg-glass-hover hover:text-danger cursor-pointer"
                       aria-label={t("reader.bookmarks.delete")}
                     >
                       <Trash2 size={12} />

@@ -45,7 +45,7 @@ export function OpenSourceSection() {
           className="block"
         >
           <GlassCard className="h-full p-6 transition-transform hover:scale-[1.01]">
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-accent-purple/15 text-accent-purple">
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-accent/15 text-accent">
               <GithubGlyph size={20} />
             </div>
             <h3 className="mb-2 text-lg font-semibold text-text-primary">
@@ -54,7 +54,7 @@ export function OpenSourceSection() {
             <p className="text-sm leading-relaxed text-text-secondary">
               {t("landing.openSource.repo.description")}
             </p>
-            <p className="mt-4 text-xs text-accent-purple">
+            <p className="mt-4 text-xs text-accent">
               github.com/LenYx24/pnyxy →
             </p>
           </GlassCard>

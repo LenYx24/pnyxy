@@ -107,7 +107,7 @@ export function BrowsePage() {
           placeholder={t("browse.searchPlaceholder")}
           defaultValue={searchQuery}
           onChange={(e) => handleSearchChange(e.target.value)}
-          className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2 pl-9 text-sm text-text-primary backdrop-blur-md placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
+          className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2 pl-9 text-sm text-text-primary backdrop-blur-md placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
         />
       </div>
 
@@ -116,7 +116,7 @@ export function BrowsePage() {
           onClick={() => filterByCategory(null)}
           className={`rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${
             activeCategory === null
-              ? "bg-accent-purple/15 text-accent-purple"
+              ? "bg-accent/15 text-accent"
               : "bg-glass-bg text-text-muted hover:text-text-primary border border-glass-border"
           }`}
         >

@@ -117,16 +117,16 @@ const KPIS: KpiDef[] = [
     key: "premium_users",
     label: "Premium",
     Icon: Crown,
-    color: "text-amber-400",
+    color: "text-warning",
     suffix: (o) =>
       o.total_users > 0
         ? ` (${Math.round((o.premium_users / o.total_users) * 100)}%)`
         : "",
   },
-  { key: "new_users_30d", label: "New (30d)", Icon: UserPlus, color: "text-green-400" },
+  { key: "new_users_30d", label: "New (30d)", Icon: UserPlus, color: "text-success" },
   { key: "active_users_7d", label: "Active (7d)", Icon: Activity, color: "text-cyan-400" },
-  { key: "total_books", label: "Books", Icon: BookOpen, color: "text-emerald-400" },
-  { key: "total_notes", label: "Notes", Icon: StickyNote, color: "text-yellow-400" },
+  { key: "total_books", label: "Books", Icon: BookOpen, color: "text-success" },
+  { key: "total_notes", label: "Notes", Icon: StickyNote, color: "text-warning" },
   { key: "total_whiteboards", label: "Whiteboards", Icon: PencilRuler, color: "text-purple-400" },
   { key: "total_quizzes", label: "Quizzes", Icon: GraduationCap, color: "text-pink-400" },
   { key: "total_conversations", label: "Chats", Icon: MessagesSquare, color: "text-indigo-400" },
@@ -198,7 +198,7 @@ export function AnalyticsTab() {
               className={cn(
                 "cursor-pointer rounded-md px-3 py-1 text-xs font-medium transition-colors",
                 rangeDays === d
-                  ? "bg-accent-purple/15 text-accent-purple"
+                  ? "bg-accent/15 text-accent"
                   : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
               )}
             >
@@ -209,14 +209,14 @@ export function AnalyticsTab() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+        <div className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
           {error}
         </div>
       )}
 
       {loading && !overview ? (
         <div className="flex h-40 items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-accent-purple" />
+          <Loader2 className="h-6 w-6 animate-spin text-accent" />
         </div>
       ) : (
         <>
@@ -348,7 +348,7 @@ export function AnalyticsTab() {
                               className={cn(
                                 "rounded px-1.5 py-0.5 text-xs",
                                 u.tier === "premium"
-                                  ? "bg-amber-400/15 text-amber-300"
+                                  ? "bg-warning/15 text-warning"
                                   : "bg-glass-hover text-text-muted",
                               )}
                             >

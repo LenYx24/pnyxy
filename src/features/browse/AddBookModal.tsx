@@ -114,7 +114,7 @@ export function AddBookModal({ open, onClose }: AddBookModalProps) {
                     className={cn(
                       "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer",
                       tab === t.id
-                        ? "bg-accent-purple/15 text-accent-purple"
+                        ? "bg-accent/15 text-accent"
                         : "text-text-muted hover:text-text-primary",
                     )}
                   >
@@ -124,7 +124,7 @@ export function AddBookModal({ open, onClose }: AddBookModalProps) {
               </div>
 
               {error && (
-                <p className="mb-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                <p className="mb-3 rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">
                   {error}
                 </p>
               )}
@@ -168,8 +168,8 @@ function SuccessMessage({
 }) {
   return (
     <div className="flex flex-col items-center gap-3 py-8">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/20">
-        <Check size={24} className="text-green-400" />
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-success/20">
+        <Check size={24} className="text-success" />
       </div>
       <p className="text-center text-sm text-text-primary">
         {count > 1
@@ -265,7 +265,7 @@ function SearchTab({
               setResults([]);
               setSelectedBooks(new Map());
             }}
-            className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary focus:border-accent-purple/50 focus:outline-none"
+            className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary focus:border-accent/50 focus:outline-none"
           >
             {providers.map((p) => (
               <option key={p.id} value={p.id}>
@@ -287,7 +287,7 @@ function SearchTab({
           placeholder={`Search ${provider.name}...`}
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
-          className="w-full rounded-lg border border-glass-border bg-bg-primary/50 py-2 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
+          className="w-full rounded-lg border border-glass-border bg-bg-primary/50 py-2 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
         />
         {searching && (
           <Loader2
@@ -310,7 +310,7 @@ function SearchTab({
                 className={cn(
                   "w-full rounded-lg px-3 py-2 text-left transition-colors cursor-pointer",
                   isSelected
-                    ? "bg-accent-purple/15 border border-accent-purple/30"
+                    ? "bg-accent/15 border border-accent/30"
                     : "hover:bg-glass-hover border border-transparent",
                 )}
               >
@@ -320,7 +320,7 @@ function SearchTab({
                       className={cn(
                         "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
                         isSelected
-                          ? "border-accent-purple bg-accent-purple"
+                          ? "border-accent bg-accent"
                           : "border-glass-border",
                       )}
                     >
@@ -339,7 +339,7 @@ function SearchTab({
                     </div>
                   </div>
                   {book.downloadable && (
-                    <span className="ml-2 flex shrink-0 items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-semibold text-green-400">
+                    <span className="ml-2 flex shrink-0 items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-2xs font-semibold text-success">
                       <Download size={10} />
                       Free
                     </span>
@@ -439,7 +439,7 @@ function UrlImportTab({
           placeholder="https://example.com/book.pdf"
           value={form.url}
           onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
-          className="w-full rounded-lg border border-glass-border bg-bg-primary/50 py-2 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
+          className="w-full rounded-lg border border-glass-border bg-bg-primary/50 py-2 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
         />
       </div>
       <input
@@ -447,7 +447,7 @@ function UrlImportTab({
         placeholder="Title *"
         value={form.title}
         onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-        className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
+        className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
       />
       <input
         type="text"
@@ -456,7 +456,7 @@ function UrlImportTab({
         onChange={(e) =>
           setForm((f) => ({ ...f, authors: e.target.value }))
         }
-        className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
+        className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
       />
 
       <Button onClick={handleSubmit} disabled={submitting} className="w-full">
@@ -544,7 +544,7 @@ function ManualTab({
         onChange={(e) =>
           setForm((f) => ({ ...f, title: e.target.value }))
         }
-        className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
+        className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
       />
       <input
         type="text"
@@ -553,7 +553,7 @@ function ManualTab({
         onChange={(e) =>
           setForm((f) => ({ ...f, authors: e.target.value }))
         }
-        className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
+        className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
       />
       <textarea
         placeholder="Description"
@@ -562,7 +562,7 @@ function ManualTab({
         onChange={(e) =>
           setForm((f) => ({ ...f, description: e.target.value }))
         }
-        className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none resize-none"
+        className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none resize-none"
       />
       <input
         type="text"
@@ -571,7 +571,7 @@ function ManualTab({
         onChange={(e) =>
           setForm((f) => ({ ...f, isbn: e.target.value }))
         }
-        className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
+        className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
       />
 
       {/* Category picker */}
@@ -588,7 +588,7 @@ function ManualTab({
               className={cn(
                 "rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
                 selectedCategoryIds.has(cat.id)
-                  ? "bg-accent-purple/15 text-accent-purple"
+                  ? "bg-accent/15 text-accent"
                   : "bg-glass-bg text-text-muted hover:text-text-primary border border-glass-border",
               )}
             >

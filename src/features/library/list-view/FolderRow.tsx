@@ -220,12 +220,12 @@ export function FolderRow({
         className={cn(
           // Subtle purple tint on folder rows so they read as distinct
           // containers in the mixed file/folder list (Nextcloud-style).
-          "group relative flex select-none items-center border-b border-glass-border/30 bg-accent-purple/[0.04] px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
+          "group relative flex select-none items-center border-b border-glass-border/30 bg-accent/[0.04] px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
           density.py,
-          selected && "bg-accent-purple/10",
+          selected && "bg-accent/10",
           isDragging && "opacity-50",
           showDropTargetHighlight &&
-            "bg-accent-purple/15 ring-1 ring-inset ring-accent-purple/50",
+            "bg-accent/15 ring-1 ring-inset ring-accent/50",
         )}
         style={{ paddingLeft: 8 + indent }}
         onClick={handleClick}
@@ -283,7 +283,7 @@ export function FolderRow({
         {/* Folder icon — chunky tinted square so "this is a folder"
             reads unmistakably in a list of book rows. */}
         <div
-          className="mr-2 flex shrink-0 items-center justify-center rounded-md bg-accent-purple/15"
+          className="mr-2 flex shrink-0 items-center justify-center rounded-md bg-accent/15"
           style={{
             width: density.icon + 12,
             height: density.icon + 12,
@@ -291,7 +291,7 @@ export function FolderRow({
         >
           <Folder
             size={density.icon}
-            className="text-accent-purple"
+            className="text-accent"
             strokeWidth={1.5}
           />
         </div>

@@ -111,7 +111,7 @@ export function ReadingSessionCard({ docId, pageCount }: Props) {
           <h3 className="text-sm font-semibold text-text-primary">
             {t("book.overview.session.heading")}
           </h3>
-          <p className="text-[11px] text-text-muted">
+          <p className="text-2xs text-text-muted">
             {t("book.overview.session.subheading")}
           </p>
         </div>
@@ -123,13 +123,13 @@ export function ReadingSessionCard({ docId, pageCount }: Props) {
           <button
             type="button"
             onClick={handleStopClick}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-red-500/40 bg-red-500/15 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/25 cursor-pointer"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-danger/40 bg-danger/15 px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/25 cursor-pointer"
           >
             <Square size={12} fill="currentColor" />
             {t("book.overview.session.stop")}
           </button>
         ) : isActiveForOtherBook ? (
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-300">
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-3 py-1.5 text-xs text-warning">
             <Clock size={12} />
             {t("book.overview.session.running")}
           </span>
@@ -137,7 +137,7 @@ export function ReadingSessionCard({ docId, pageCount }: Props) {
           <button
             type="button"
             onClick={handleStart}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent-purple px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-purple/80 cursor-pointer"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent/80 cursor-pointer"
           >
             <Play size={12} fill="currentColor" />
             {t("book.overview.session.start")}
@@ -146,8 +146,8 @@ export function ReadingSessionCard({ docId, pageCount }: Props) {
       </div>
 
       {isActiveForThisBook && (
-        <div className="flex items-baseline justify-between rounded-md border border-accent-purple/30 bg-accent-purple/10 px-3 py-2">
-          <span className="text-[11px] uppercase tracking-wider text-accent-purple">
+        <div className="flex items-baseline justify-between rounded-md border border-accent/30 bg-accent/10 px-3 py-2">
+          <span className="text-2xs uppercase tracking-wider text-accent">
             {t("book.overview.session.elapsed")}
           </span>
           <span className="font-mono text-lg tabular-nums text-text-primary">
@@ -157,7 +157,7 @@ export function ReadingSessionCard({ docId, pageCount }: Props) {
       )}
 
       {isActiveForOtherBook && (
-        <p className="text-[11px] text-amber-300/80">
+        <p className="text-2xs text-warning/80">
           {t("book.overview.session.activeOnOther")}
         </p>
       )}
@@ -225,7 +225,7 @@ function StatsGrid({
     <div className="space-y-2">
       {stats.percentComplete !== null && (
         <div>
-          <div className="mb-1 flex items-baseline justify-between text-[10px] uppercase tracking-wider text-text-muted">
+          <div className="mb-1 flex items-baseline justify-between text-2xs uppercase tracking-wider text-text-muted">
             <span>
               {t("book.overview.stats.percentComplete", {
                 percent: stats.percentComplete,
@@ -234,7 +234,7 @@ function StatsGrid({
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-primary/40">
             <div
-              className="h-full rounded-full bg-accent-purple transition-all"
+              className="h-full rounded-full bg-accent transition-all"
               style={{ width: `${stats.percentComplete}%` }}
             />
           </div>
@@ -255,13 +255,13 @@ function StatsGrid({
         />
         <StatCell
           icon={TrendingUp}
-          iconClass="text-emerald-400"
+          iconClass="text-success"
           label={t("book.overview.stats.pace")}
           value={paceValue}
         />
         <StatCell
           icon={Target}
-          iconClass="text-accent-purple"
+          iconClass="text-accent"
           label={finishLabel}
           value={finishValue}
         />
@@ -283,7 +283,7 @@ function StatCell({
 }) {
   return (
     <div className="rounded-md border border-glass-border bg-bg-primary/30 p-2.5">
-      <div className="mb-1 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-text-muted">
+      <div className="mb-1 flex items-center gap-1.5 text-2xs uppercase tracking-wider text-text-muted">
         <Icon size={11} className={cn("shrink-0", iconClass)} />
         <span className="truncate">{label}</span>
       </div>
@@ -333,7 +333,7 @@ function StopSessionModal({
             placeholder={t("book.overview.session.stopPagePlaceholder")}
             min={1}
             max={pageCount ?? undefined}
-            className="w-full rounded-md border border-glass-border bg-bg-primary px-2 py-1.5 text-sm text-text-primary outline-none focus:border-accent-purple"
+            className="w-full rounded-md border border-glass-border bg-bg-primary px-2 py-1.5 text-sm text-text-primary outline-none focus:border-accent"
           />
           {pageCount && (
             <span className="text-xs text-text-muted">/ {pageCount}</span>
@@ -351,7 +351,7 @@ function StopSessionModal({
             type="button"
             onClick={onConfirm}
             disabled={!draft.trim()}
-            className="rounded-md bg-accent-purple px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-purple/80 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent/80 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t("book.overview.session.stopConfirm")}
           </button>

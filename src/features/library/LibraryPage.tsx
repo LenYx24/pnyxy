@@ -542,7 +542,7 @@ export function LibraryPage() {
             <RefreshCw
               size={18}
               className={cn(
-                "text-accent-purple",
+                "text-accent",
                 isRefreshing && "animate-spin",
               )}
               style={
@@ -560,7 +560,7 @@ export function LibraryPage() {
           silently dropped, and to communicate that demand is
           recorded. */}
       {unsupportedNotice.length > 0 && (
-        <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+        <div className="mb-3 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <p>
             {t("library.upload.unsupportedFormat", {
@@ -573,8 +573,8 @@ export function LibraryPage() {
       {/* Drop overlay — shown while a file drag is hovering. */}
       {dragOver && (
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-bg-primary/70 backdrop-blur-sm">
-          <div className="mx-4 flex max-w-md flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-accent-purple/60 bg-bg-secondary/90 px-8 py-10 text-center shadow-xl">
-            <UploadCloud size={40} className="text-accent-purple" />
+          <div className="mx-4 flex max-w-md flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-accent/60 bg-bg-secondary/90 px-8 py-10 text-center shadow-xl">
+            <UploadCloud size={40} className="text-accent" />
             <p className="text-base font-semibold text-text-primary">
               {t("library.dropOverlay.title")}
             </p>
@@ -777,7 +777,7 @@ export function LibraryPage() {
               </Button>
               <button
                 onClick={confirmRemove}
-                className="cursor-pointer rounded-lg bg-red-500/20 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/30"
+                className="cursor-pointer rounded-lg bg-danger/20 px-4 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/30"
               >
                 {isUploaded
                   ? t("library.confirm.deleteAction")

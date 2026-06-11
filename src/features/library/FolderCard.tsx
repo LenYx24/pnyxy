@@ -111,7 +111,7 @@ export function FolderCard({
       <div
         className={cn(
           "group relative",
-          selected && "ring-2 ring-accent-purple rounded-md",
+          selected && "ring-2 ring-accent rounded-md",
           isDragging && "opacity-50",
         )}
       >
@@ -129,15 +129,15 @@ export function FolderCard({
           <div
             ref={nest.setNodeRef}
             className={cn(
-              "relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-accent-purple/[0.12] shadow-sm transition-all group-hover:bg-accent-purple/[0.18] group-hover:shadow-md",
+              "relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-accent/[0.12] shadow-sm transition-all group-hover:bg-accent/[0.18] group-hover:shadow-md",
               nest.isOver &&
-                "bg-accent-purple/30 ring-2 ring-inset ring-accent-purple/70",
+                "bg-accent/30 ring-2 ring-inset ring-accent/70",
             )}
           >
             <Folder
               size={iconSize}
               fill="currentColor"
-              className="text-accent-purple/85 transition-transform group-hover:scale-[1.02]"
+              className="text-accent/85 transition-transform group-hover:scale-[1.02]"
             />
 
             {/* Selection checkbox — sits on the cover so it shows
@@ -174,7 +174,7 @@ export function FolderCard({
             <p
               className={cn(
                 "truncate leading-tight text-text-muted",
-                compact ? "text-[10px]" : "text-xs",
+                compact ? "text-2xs" : "text-xs",
               )}
             >
               {t("library.folderCard.folderLabel")}
@@ -224,7 +224,7 @@ export function FolderCard({
                 setMenuOpen(false);
                 onDelete(folder.id);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 transition-colors hover:bg-glass-hover cursor-pointer"
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger transition-colors hover:bg-glass-hover cursor-pointer"
             >
               <Trash2 size={14} />
               {t("library.folderCard.delete")}

@@ -82,8 +82,8 @@ export function CreateFolderModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-glass-border p-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-purple/15">
-              <FolderPlus size={16} className="text-accent-purple" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15">
+              <FolderPlus size={16} className="text-accent" />
             </div>
             <h2 className="text-lg font-semibold text-text-primary">
               {t("library.createFolder.title")}
@@ -124,7 +124,7 @@ export function CreateFolderModal({
               onChange={(e) => setName(e.target.value)}
               placeholder={t("library.createFolder.namePlaceholder")}
               maxLength={240}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
+              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
             />
             <p className="mt-1 text-xs text-text-muted">
               {/* `<slash/>` and `<ex/>` are placeholder elements the
@@ -147,7 +147,7 @@ export function CreateFolderModal({
           </div>
 
           {error && (
-            <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+            <p className="rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">
               {error}
             </p>
           )}

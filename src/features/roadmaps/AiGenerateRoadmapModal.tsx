@@ -135,7 +135,7 @@ export function AiGenerateRoadmapModal({
       <div className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl border border-glass-border bg-bg-secondary/95 backdrop-blur-xl">
         <div className="flex items-center justify-between border-b border-glass-border px-5 py-3">
           <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-accent-purple" />
+            <Sparkles size={16} className="text-accent" />
             <h2 className="text-lg font-semibold text-text-primary">
               {t("roadmaps.aiGenerate.title")}
             </h2>
@@ -166,9 +166,9 @@ export function AiGenerateRoadmapModal({
               placeholder={t("roadmaps.aiGenerate.topicPlaceholder")}
               maxLength={200}
               disabled={generating}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple disabled:opacity-50"
+              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent disabled:opacity-50"
             />
-            <p className="mt-1 text-[11px] text-text-muted">
+            <p className="mt-1 text-2xs text-text-muted">
               {t("roadmaps.aiGenerate.topicHint")}
             </p>
           </div>
@@ -184,9 +184,9 @@ export function AiGenerateRoadmapModal({
               value={nodeCount}
               onChange={(e) => setNodeCount(Number(e.target.value))}
               disabled={generating}
-              className="w-full accent-accent-purple"
+              className="w-full accent-accent"
             />
-            <div className="flex justify-between text-[10px] text-text-muted">
+            <div className="flex justify-between text-2xs text-text-muted">
               <span>{MIN_ROADMAP_NODES}</span>
               <span>{MAX_ROADMAP_NODES}</span>
             </div>
@@ -194,13 +194,13 @@ export function AiGenerateRoadmapModal({
 
           {generating && (
             <div className="flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg/40 px-3 py-2 text-sm text-text-muted">
-              <Loader2 size={14} className="animate-spin text-accent-purple" />
+              <Loader2 size={14} className="animate-spin text-accent" />
               {t("roadmaps.aiGenerate.generating")}
             </div>
           )}
 
           {error && (
-            <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">
+            <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
               {error}
             </p>
           )}
@@ -230,13 +230,13 @@ export function AiGenerateRoadmapModal({
                     className="rounded-md border border-glass-border bg-bg-primary/40 p-2"
                   >
                     <div className="flex items-baseline gap-2">
-                      <span className="text-[10px] font-medium text-accent-purple">
+                      <span className="text-2xs font-medium text-accent">
                         {i + 1}.
                       </span>
                       <span className="flex-1 text-sm font-medium text-text-primary">
                         {n.title}
                       </span>
-                      <span className="shrink-0 text-[10px] text-text-muted">
+                      <span className="shrink-0 text-2xs text-text-muted">
                         ~{n.estimatedMinutes}m
                       </span>
                     </div>

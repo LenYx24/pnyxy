@@ -239,7 +239,7 @@ export function FeedbackPrompt() {
       <div className="pointer-events-auto w-[18rem] max-w-[calc(100vw-2rem)] rounded-xl border border-glass-border bg-bg-secondary/95 p-3 shadow-xl backdrop-blur-xl">
         {phase === "sent" ? (
           <div className="flex items-center gap-2 py-2 text-sm text-text-primary">
-            <Sparkles size={16} className="text-accent-purple" />
+            <Sparkles size={16} className="text-accent" />
             <span>
               {t("feedbackPrompt.thanks", {
                 defaultValue: "Thanks for the feedback!",
@@ -314,11 +314,11 @@ export function FeedbackPrompt() {
                             "Anything you'd like us to know — features, bugs, ideas.",
                         })
                   }
-                  className="w-full resize-none rounded-md border border-glass-border bg-bg-primary/50 px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25 disabled:opacity-60"
+                  className="w-full resize-none rounded-md border border-glass-border bg-bg-primary/50 px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-60"
                   autoFocus
                 />
                 {error && (
-                  <p className="text-[11px] text-red-400">{error}</p>
+                  <p className="text-2xs text-danger">{error}</p>
                 )}
                 <div className="flex justify-end gap-1">
                   <button
@@ -332,7 +332,7 @@ export function FeedbackPrompt() {
                   <button
                     type="submit"
                     disabled={phase === "sending"}
-                    className="inline-flex items-center gap-1 rounded-md bg-accent-purple/80 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-purple disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+                    className="inline-flex items-center gap-1 rounded-md bg-accent/80 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
                   >
                     {phase === "sending" ? (
                       <Loader2 size={11} className="animate-spin" />
@@ -364,7 +364,7 @@ function SentimentButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-1 flex-col items-center gap-0.5 rounded-md border border-glass-border bg-glass-bg/40 px-2 py-2 text-[11px] text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+      className="flex flex-1 flex-col items-center gap-0.5 rounded-md border border-glass-border bg-glass-bg/40 px-2 py-2 text-2xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
       title={label}
     >
       <span className="text-lg leading-none">{emoji}</span>

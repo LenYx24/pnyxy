@@ -95,7 +95,7 @@ function BookCard({ book }: { book: RecommendedBook }) {
   return (
     <article className="rounded-xl border border-glass-border bg-glass-bg/40 p-3">
       <header className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-purple/15 text-accent-purple">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
           <BookOpen size={16} />
         </div>
         <div className="min-w-0 flex-1">
@@ -115,7 +115,7 @@ function BookCard({ book }: { book: RecommendedBook }) {
           className={cn(
             "shrink-0 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition-colors cursor-pointer",
             state === "added"
-              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+              ? "border-success/40 bg-success/10 text-success"
               : "border-glass-border bg-bg-primary/40 text-text-secondary hover:bg-glass-hover hover:text-text-primary",
             (!user || state === "saving") && "cursor-not-allowed opacity-60",
           )}
@@ -147,7 +147,7 @@ function BookCard({ book }: { book: RecommendedBook }) {
         </p>
       )}
       {state === "error" && errorMsg && (
-        <p className="mt-2 text-[11px] text-red-400">{errorMsg}</p>
+        <p className="mt-2 text-2xs text-danger">{errorMsg}</p>
       )}
     </article>
   );
@@ -180,12 +180,12 @@ function VideoCard({ video }: { video: RecommendedVideo }) {
           className={cn(
             "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
             video.kind === "course"
-              ? "bg-amber-500/15 text-amber-400"
+              ? "bg-warning/15 text-warning"
               : video.kind === "article"
                 ? "bg-blue-500/15 text-blue-400"
                 : video.kind === "podcast"
                   ? "bg-purple-500/15 text-purple-400"
-                  : "bg-red-500/15 text-red-400",
+                  : "bg-danger/15 text-danger",
           )}
         >
           <Icon size={16} />

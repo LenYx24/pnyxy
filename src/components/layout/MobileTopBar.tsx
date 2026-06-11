@@ -73,7 +73,7 @@ export function MobileTopBar() {
             ref={triggerRef}
             onClick={() => setOpen((v) => !v)}
             aria-label={t("sidebar.profile", { defaultValue: "Profile" })}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-purple/15 text-sm font-bold text-accent-purple transition-colors hover:bg-accent-purple/25"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/15 text-sm font-bold text-accent transition-colors hover:bg-accent/25"
           >
             {profile?.avatar_url ? (
               <img
@@ -140,7 +140,7 @@ function MobileTopBarMenuItem({
         cn(
           "flex items-center gap-2 px-3 py-2 text-sm transition-colors",
           isActive
-            ? "bg-accent-purple/15 text-accent-purple"
+            ? "bg-accent/15 text-accent"
             : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
         )
       }

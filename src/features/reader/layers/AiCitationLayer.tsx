@@ -15,7 +15,7 @@ interface AiCitationLayerProps {
 }
 
 /**
- * Renders a thin dotted accent-purple underline below every text rect
+ * Renders a thin dotted accent underline below every text rect
  * that was sent to the AI in a chat (recorded by chat-store when a
  * "Send to chat" hand-off submits). Clicking the underline opens a
  * floating popover listing every chat message the passage rode along
@@ -98,7 +98,7 @@ export function AiCitationLayer({ pageNum }: AiCitationLayerProps) {
               width: `${rect.width * 100}%`,
               height: "0.18rem",
               backgroundImage:
-                "repeating-linear-gradient(90deg, var(--color-accent-purple, #a78bfa) 0 4px, transparent 4px 8px)",
+                "repeating-linear-gradient(90deg, var(--color-accent, #a78bfa) 0 4px, transparent 4px 8px)",
               backgroundSize: "8px 2px",
               backgroundRepeat: "repeat-x",
               backgroundPosition: "left center",
@@ -124,7 +124,7 @@ export function AiCitationLayer({ pageNum }: AiCitationLayerProps) {
           >
             {i === 0 && g.items.length > 1 && (
               <span
-                className="absolute right-0 top-full mt-0.5 rounded-full bg-accent-purple px-1 text-[8px] font-bold leading-tight text-white"
+                className="absolute right-0 top-full mt-0.5 rounded-full bg-accent px-1 text-[8px] font-bold leading-tight text-white"
                 aria-hidden="true"
               >
                 {g.items.length}
@@ -230,8 +230,8 @@ function OccurrencePopover({
         className="fixed z-[61] flex w-72 flex-col gap-1 rounded-lg border border-glass-border bg-bg-secondary/95 p-1.5 shadow-xl backdrop-blur-md"
         style={{ top: Math.max(8, top), left: Math.max(8, left) }}
       >
-        <div className="flex items-center gap-1.5 px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-          <Bot size={12} className="text-accent-purple" />
+        <div className="flex items-center gap-1.5 px-2 pb-1 pt-1 text-2xs font-semibold uppercase tracking-wider text-text-muted">
+          <Bot size={12} className="text-accent" />
           {t("reader.aiCitation.popoverTitle", {
             count: items.length,
             defaultValue: "Sent to AI · {{count}} times",
@@ -256,7 +256,7 @@ function OccurrencePopover({
                         defaultValue: "(untitled message)",
                       })}
                   </p>
-                  <p className="truncate text-[10px] text-text-muted">
+                  <p className="truncate text-2xs text-text-muted">
                     {[
                       c.conversationTitle ||
                         t("reader.aiCitation.untitledConv", {

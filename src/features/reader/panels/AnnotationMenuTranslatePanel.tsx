@@ -121,11 +121,11 @@ export function AnnotationMenuTranslatePanel({ selectedText, onBack }: Props) {
   return (
     <div className="flex w-72 flex-col gap-2 p-1">
       <div className="flex items-center gap-1.5">
-        <Languages size={14} className="text-accent-purple" />
+        <Languages size={14} className="text-accent" />
         <span className="text-xs font-medium text-text-primary">
           {t("reader.annotationMenu.translatePanelTitle")}
         </span>
-        <span className="ml-auto rounded bg-glass-bg px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-text-muted">
+        <span className="ml-auto rounded bg-glass-bg px-1.5 py-0.5 text-2xs uppercase tracking-wide text-text-muted">
           {detectSourceLang(selectedText.trim())}
           <span className="mx-1">→</span>
           {targetLanguage}
@@ -147,7 +147,7 @@ export function AnnotationMenuTranslatePanel({ selectedText, onBack }: Props) {
             {t("reader.annotationMenu.translating")}
           </span>
         )}
-        {error && <span className="text-red-400">{error}</span>}
+        {error && <span className="text-danger">{error}</span>}
         {!translating && !error && translated && translated}
       </div>
 
@@ -155,7 +155,7 @@ export function AnnotationMenuTranslatePanel({ selectedText, onBack }: Props) {
       <div className="flex items-center gap-2">
         <label
           htmlFor="translate-lang"
-          className="text-[11px] text-text-muted"
+          className="text-2xs text-text-muted"
         >
           {t("reader.annotationMenu.translateTargetLabel")}
         </label>
@@ -163,7 +163,7 @@ export function AnnotationMenuTranslatePanel({ selectedText, onBack }: Props) {
           id="translate-lang"
           value={targetLanguage}
           onChange={handleLanguageChange}
-          className="flex-1 cursor-pointer rounded border border-glass-border bg-glass-bg px-2 py-1 text-xs text-text-primary outline-none focus:border-accent-purple"
+          className="flex-1 cursor-pointer rounded border border-glass-border bg-glass-bg px-2 py-1 text-xs text-text-primary outline-none focus:border-accent"
         >
           {TRANSLATE_LANGUAGES.map(({ code, label }) => (
             <option key={code} value={code}>
@@ -183,7 +183,7 @@ export function AnnotationMenuTranslatePanel({ selectedText, onBack }: Props) {
         </button>
         {translated && (
           <button
-            className="rounded bg-accent-purple/20 px-2 py-1 text-xs text-accent-purple transition-colors hover:bg-accent-purple/30 cursor-pointer"
+            className="rounded bg-accent/20 px-2 py-1 text-xs text-accent transition-colors hover:bg-accent/30 cursor-pointer"
             onClick={() => {
               navigator.clipboard.writeText(translated);
               hideContextMenu();

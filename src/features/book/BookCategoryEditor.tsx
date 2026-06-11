@@ -122,7 +122,7 @@ export function BookCategoryEditor({
             <button
               type="button"
               onClick={() => void handleRemove(cat)}
-              className="rounded-full p-0.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-red-400 cursor-pointer"
+              className="rounded-full p-0.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-danger cursor-pointer"
               aria-label={t("common.remove", { defaultValue: "Remove" })}
               title={t("common.remove", { defaultValue: "Remove" })}
             >
@@ -174,7 +174,7 @@ export function BookCategoryEditor({
         </FloatingMenu>
       </div>
       {error && (
-        <p className="text-[11px] text-red-400">{error}</p>
+        <p className="text-2xs text-danger">{error}</p>
       )}
     </div>
   );

@@ -79,7 +79,7 @@ export function ForumPage() {
 
           {isLoadingPosts && posts.length === 0 ? (
             <div className="flex items-center justify-center py-16">
-              <Loader2 size={24} className="animate-spin text-accent-purple" />
+              <Loader2 size={24} className="animate-spin text-accent" />
             </div>
           ) : posts.length === 0 ? (
             <div className="rounded-xl border border-dashed border-glass-border p-10 text-center">
@@ -101,14 +101,14 @@ export function ForumPage() {
           <div className="rounded-xl border border-glass-border bg-glass-bg/50 p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-text-primary">
-                <MessagesSquare size={14} className="text-accent-purple" />
+                <MessagesSquare size={14} className="text-accent" />
                 {user && joinedCommunities.length > 0
                   ? t("forum.yourCommunities")
                   : t("forum.discover")}
               </h3>
               <Link
                 to="/forum/explore"
-                className="text-xs text-accent-purple hover:underline"
+                className="text-xs text-accent hover:underline"
               >
                 {t("forum.browseAll")}
               </Link>
@@ -124,10 +124,10 @@ export function ForumPage() {
                       className="flex min-w-0 items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary"
                     >
                       <span className="truncate">
-                        <span className="font-semibold text-accent-purple">c/</span>
+                        <span className="font-semibold text-accent">c/</span>
                         {c.slug}
                       </span>
-                      <span className="shrink-0 text-[11px] text-text-muted">
+                      <span className="shrink-0 text-2xs text-text-muted">
                         {c.member_count}
                       </span>
                     </Link>
@@ -164,7 +164,7 @@ function FeedSortTabs({
           className={cn(
             "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer",
             active === id
-              ? "bg-accent-purple/15 text-accent-purple"
+              ? "bg-accent/15 text-accent"
               : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
           )}
         >

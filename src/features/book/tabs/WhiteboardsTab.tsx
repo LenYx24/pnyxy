@@ -89,22 +89,22 @@ export function WhiteboardsTab() {
             <button
               key={wb.id}
               onClick={() => navigate(`/whiteboards/${wb.id}`)}
-              className="flex items-center justify-between gap-3 rounded-lg border border-glass-border bg-glass-bg/40 px-3 py-2.5 text-left transition-colors hover:border-accent-purple/40 hover:bg-glass-hover cursor-pointer"
+              className="flex items-center justify-between gap-3 rounded-lg border border-glass-border bg-glass-bg/40 px-3 py-2.5 text-left transition-colors hover:border-accent/40 hover:bg-glass-hover cursor-pointer"
             >
               <div className="flex min-w-0 items-center gap-2">
-                <Pencil size={14} className="shrink-0 text-accent-purple" />
+                <Pencil size={14} className="shrink-0 text-accent" />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-text-primary">
                     {wb.title || t("book.whiteboards.untitled")}
                   </p>
-                  <p className="text-[10px] text-text-muted">
+                  <p className="text-2xs text-text-muted">
                     {t("book.whiteboards.updated", {
                       date: formatDate(wb.updatedAt),
                     })}
                   </p>
                 </div>
               </div>
-              <span className="shrink-0 text-[10px] tabular-nums text-text-muted">
+              <span className="shrink-0 text-2xs tabular-nums text-text-muted">
                 {wb.elements.length}{" "}
                 {t("book.whiteboards.itemCount", { count: wb.elements.length })}
               </span>

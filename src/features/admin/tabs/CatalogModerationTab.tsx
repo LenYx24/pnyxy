@@ -33,7 +33,7 @@ export function CatalogModerationTab() {
   if (catalogLoading && pendingBooks.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-accent-purple" />
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
       </div>
     );
   }
@@ -84,7 +84,7 @@ export function CatalogModerationTab() {
               disabled={acting === book.id}
               onClick={() => handleApprove(book.id)}
             >
-              <Check size={16} className="text-green-400" />
+              <Check size={16} className="text-success" />
               Approve
             </Button>
             <Button
@@ -92,11 +92,11 @@ export function CatalogModerationTab() {
               disabled={acting === book.id}
               onClick={() => handleReject(book.id)}
             >
-              <X size={16} className="text-red-400" />
+              <X size={16} className="text-danger" />
               Reject
             </Button>
             {acting === book.id && (
-              <Loader2 size={16} className="animate-spin text-accent-purple" />
+              <Loader2 size={16} className="animate-spin text-accent" />
             )}
           </div>
         </div>

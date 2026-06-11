@@ -110,7 +110,7 @@ export function ThumbnailToc() {
       options={documentOptions}
       loading={
         <div className="flex items-center justify-center py-16">
-          <Loader2 size={24} className="animate-spin text-accent-purple" />
+          <Loader2 size={24} className="animate-spin text-accent" />
         </div>
       }
       error={null}
@@ -125,7 +125,7 @@ export function ThumbnailToc() {
             className={cn(
               "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors cursor-pointer",
               selectionMode
-                ? "bg-accent-purple/20 text-accent-purple"
+                ? "bg-accent/20 text-accent"
                 : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
             )}
             aria-pressed={selectionMode}
@@ -141,7 +141,7 @@ export function ThumbnailToc() {
               : t("reader.sidebar.aiSelectMode")}
           </button>
           {selectionMode && (
-            <span className="text-[10px] text-text-muted">
+            <span className="text-2xs text-text-muted">
               {selectedCount > 0
                 ? t("reader.sidebar.aiSelectedCount", { count: selectedCount })
                 : t("reader.sidebar.aiSelectionEmpty")}
@@ -153,7 +153,7 @@ export function ThumbnailToc() {
             <button
               type="button"
               onClick={() => selectAllAiPages()}
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-2xs text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
             >
               <CheckSquare size={12} />
               {t("reader.sidebar.aiSelectAll")}
@@ -161,7 +161,7 @@ export function ThumbnailToc() {
             <button
               type="button"
               onClick={() => clearAiPages()}
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-2xs text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
             >
               <Square size={12} />
               {t("reader.sidebar.aiClearSelection")}
@@ -169,7 +169,7 @@ export function ThumbnailToc() {
             <button
               type="button"
               onClick={() => selectAiPagesAround()}
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-2xs text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
             >
               <Crosshair size={12} />
               {t("reader.sidebar.aiSelectAround", { n: surroundingCount })}
@@ -184,9 +184,9 @@ export function ThumbnailToc() {
               onClick={() => setAiSendPagesAsImage(!sendAsImage)}
               aria-pressed={sendAsImage}
               className={cn(
-                "flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] cursor-pointer transition-colors",
+                "flex items-center gap-1 rounded px-1.5 py-0.5 text-2xs cursor-pointer transition-colors",
                 sendAsImage
-                  ? "bg-accent-purple/20 text-accent-purple"
+                  ? "bg-accent/20 text-accent"
                   : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
               )}
               title={t("reader.sidebar.aiSendAsImageHint", {
@@ -285,9 +285,9 @@ function ThumbnailItem({
         // user has explicit intent ("I'm choosing what to send"); the
         // page-they're-on highlight stays as a subtler purple.
         isSelected
-          ? "ring-2 ring-emerald-400 bg-emerald-400/10"
+          ? "ring-2 ring-success bg-success/10"
           : isActive
-            ? "ring-2 ring-accent-purple bg-accent-purple/10"
+            ? "ring-2 ring-accent bg-accent/10"
             : "hover:bg-glass-hover",
       )}
     >
@@ -296,7 +296,7 @@ function ThumbnailItem({
           className={cn(
             "absolute right-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded border",
             isSelected
-              ? "border-emerald-400 bg-emerald-400 text-bg-primary"
+              ? "border-success bg-success text-bg-primary"
               : "border-glass-border bg-bg-primary/80 text-transparent",
           )}
           aria-hidden="true"
@@ -326,7 +326,7 @@ function ThumbnailItem({
       <span
         className={cn(
           "text-xs",
-          isActive ? "text-accent-purple font-medium" : "text-text-muted",
+          isActive ? "text-accent font-medium" : "text-text-muted",
         )}
       >
         {pageNum}

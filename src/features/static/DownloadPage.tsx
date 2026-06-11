@@ -139,7 +139,7 @@ export function DownloadPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-glass-bg">
-          <Download size={20} className="text-accent-purple" />
+          <Download size={20} className="text-accent" />
         </div>
         <div>
           <h1 className="text-2xl font-bold text-text-primary">
@@ -162,18 +162,18 @@ export function DownloadPage() {
       )}
 
       {error === "no-release" && (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-300">
+        <div className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
           <AlertCircle size={18} className="mt-0.5 shrink-0" />
           <div>
             <p className="font-medium">{t("download.noReleaseTitle")}</p>
-            <p className="mt-1 text-xs text-amber-300/80">
+            <p className="mt-1 text-xs text-warning/80">
               {t("download.noReleaseBody")}
             </p>
             <a
               href={RELEASES_PAGE}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 inline-flex items-center gap-1 text-xs text-accent-purple hover:underline"
+              className="mt-2 inline-flex items-center gap-1 text-xs text-accent hover:underline"
             >
               <Package size={12} />
               {t("download.viewOnPackage")}
@@ -184,18 +184,18 @@ export function DownloadPage() {
       )}
 
       {error && error !== "no-release" && (
-        <div className="flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+        <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 p-4 text-sm text-danger">
           <AlertCircle size={18} className="mt-0.5 shrink-0" />
           <div>
             <p className="font-medium">{t("download.errorTitle")}</p>
-            <p className="mt-1 text-xs text-red-300/80">
+            <p className="mt-1 text-xs text-danger/80">
               {t("download.errorBody")}
             </p>
             <a
               href={RELEASES_PAGE}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 inline-flex items-center gap-1 text-xs text-accent-purple hover:underline"
+              className="mt-2 inline-flex items-center gap-1 text-xs text-accent hover:underline"
             >
               <Package size={12} />
               {t("download.viewOnPackage")}
@@ -295,7 +295,7 @@ function PlatformCard({
       className={cn(
         "rounded-xl border p-4 transition-colors",
         primary
-          ? "border-accent-purple/40 bg-accent-purple/5 p-5 sm:p-6"
+          ? "border-accent/40 bg-accent/5 p-5 sm:p-6"
           : "border-glass-border bg-glass-bg/40",
         empty && "opacity-60",
       )}
@@ -305,7 +305,7 @@ function PlatformCard({
           className={cn(
             "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
             primary
-              ? "bg-accent-purple/15 text-accent-purple"
+              ? "bg-accent/15 text-accent"
               : "bg-glass-bg text-text-secondary",
           )}
         >
@@ -342,7 +342,7 @@ function PlatformCard({
             key={a.name}
             href={a.browser_download_url}
             className={cn(
-              "flex items-center justify-between gap-3 rounded-lg border border-glass-border bg-bg-secondary/40 px-3 py-2 text-sm transition-colors hover:border-accent-purple/40 hover:bg-glass-hover",
+              "flex items-center justify-between gap-3 rounded-lg border border-glass-border bg-bg-secondary/40 px-3 py-2 text-sm transition-colors hover:border-accent/40 hover:bg-glass-hover",
             )}
           >
             <span className="min-w-0 flex-1 truncate text-text-primary">
@@ -351,7 +351,7 @@ function PlatformCard({
             <span className="shrink-0 text-xs text-text-muted">
               {formatSize(a.size)}
             </span>
-            <Download size={14} className="shrink-0 text-accent-purple" />
+            <Download size={14} className="shrink-0 text-accent" />
           </a>
         ))}
       </div>

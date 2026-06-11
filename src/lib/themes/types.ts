@@ -26,7 +26,7 @@ export type ThemeTokenKey =
   | "--color-bg-secondary"
   | "--color-bg-tertiary"
   // Accent colors
-  | "--color-accent-purple"
+  | "--color-accent"
   | "--color-accent-blue"
   // Text colors
   | "--color-text-primary"

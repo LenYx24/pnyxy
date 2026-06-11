@@ -111,14 +111,14 @@ export function ForumExplorePage() {
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder={t("forum.searchPlaceholder")}
-              className="w-full rounded-lg border border-glass-border bg-glass-bg py-2 pl-9 pr-3 text-sm text-text-primary outline-none focus:border-accent-purple sm:w-64"
+              className="w-full rounded-lg border border-glass-border bg-glass-bg py-2 pl-9 pr-3 text-sm text-text-primary outline-none focus:border-accent sm:w-64"
             />
           </div>
         </div>
 
         {isLoading && communities.length === 0 ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 size={24} className="animate-spin text-accent-purple" />
+            <Loader2 size={24} className="animate-spin text-accent" />
           </div>
         ) : filteredCommunities.length === 0 ? (
           <div className="py-12 text-center">

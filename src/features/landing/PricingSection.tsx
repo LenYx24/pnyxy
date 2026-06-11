@@ -60,10 +60,10 @@ export function PricingSection() {
         <GlassCard
           className={cn(
             "relative flex flex-col p-6",
-            "border-accent-purple/30",
+            "border-accent/30",
           )}
         >
-          <span className="absolute -top-3 right-4 flex items-center gap-1 rounded-full bg-accent-purple/20 px-3 py-1 text-xs font-medium text-accent-purple">
+          <span className="absolute -top-3 right-4 flex items-center gap-1 rounded-full bg-accent/20 px-3 py-1 text-xs font-medium text-accent">
             <Sparkles size={12} />
             {t("landing.pricing.premium.comingSoon")}
           </span>
@@ -105,7 +105,7 @@ function FeatureRow({ text, muted = false }: { text: string; muted?: boolean }) 
         size={16}
         className={cn(
           "mt-0.5 shrink-0",
-          muted ? "text-text-muted" : "text-accent-purple",
+          muted ? "text-text-muted" : "text-accent",
         )}
       />
       <span

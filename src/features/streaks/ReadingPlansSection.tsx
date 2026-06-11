@@ -115,7 +115,7 @@ export function ReadingPlansSection() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold text-text-primary">
-            <Calendar size={16} className="text-accent-purple" />
+            <Calendar size={16} className="text-accent" />
             {t("readingPlans.section.heading")}
           </h2>
           <p className="text-xs text-text-muted">
@@ -216,7 +216,7 @@ function PlanCard({
         "relative cursor-pointer rounded-xl border-l-4 border p-4 transition-colors hover:bg-glass-hover",
         colorClasses.border,
         isCompleted
-          ? "border-green-500/30 bg-green-500/5"
+          ? "border-success/30 bg-success/5"
           : cn("border-glass-border", colorClasses.bg || "bg-glass-bg/40"),
       )}
     >
@@ -226,11 +226,11 @@ function PlanCard({
             {plan.plan.title}
           </h3>
           {plan.plan.description && (
-            <p className="mt-0.5 line-clamp-2 text-[11px] text-text-secondary">
+            <p className="mt-0.5 line-clamp-2 text-2xs text-text-secondary">
               {plan.plan.description}
             </p>
           )}
-          <p className="mt-0.5 text-[11px] text-text-muted">
+          <p className="mt-0.5 text-2xs text-text-muted">
             {plan.plan.start_date} → {plan.plan.end_date}
             {plan.plan.ignore_weekends &&
               ` · ${t("readingPlans.card.weekdaysOnly")}`}
@@ -242,7 +242,7 @@ function PlanCard({
               onClick={stopAndCall(onComplete)}
               aria-label={t("readingPlans.card.markComplete")}
               title={t("readingPlans.card.markComplete")}
-              className="rounded-md p-1.5 text-green-400 transition-colors hover:bg-glass-hover cursor-pointer"
+              className="rounded-md p-1.5 text-success transition-colors hover:bg-glass-hover cursor-pointer"
             >
               <CheckCircle2 size={14} />
             </button>
@@ -251,7 +251,7 @@ function PlanCard({
             onClick={stopAndCall(onDelete)}
             aria-label={t("readingPlans.card.delete")}
             title={t("readingPlans.card.delete")}
-            className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-red-400 cursor-pointer"
+            className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-danger cursor-pointer"
           >
             <Trash2 size={14} />
           </button>
@@ -273,7 +273,7 @@ function PlanCard({
           <div
             className={cn(
               "h-full rounded-full transition-all duration-300",
-              isDone ? "bg-green-500" : "bg-accent-purple",
+              isDone ? "bg-success" : "bg-accent",
             )}
             style={{
               width: `${Math.min(100, Math.max(0, progress.completion * 100))}%`,
@@ -286,8 +286,8 @@ function PlanCard({
       {!isCompleted && progress.totalPages > 0 && !loadingProgress && (
         <p
           className={cn(
-            "mt-2 text-[11px]",
-            ahead >= 0 ? "text-green-400" : "text-amber-400",
+            "mt-2 text-2xs",
+            ahead >= 0 ? "text-success" : "text-warning",
           )}
         >
           {ahead >= 0
@@ -300,7 +300,7 @@ function PlanCard({
       )}
 
       {/* Books list */}
-      <ul className="mt-3 space-y-1 text-[11px]">
+      <ul className="mt-3 space-y-1 text-2xs">
         {plan.items.map((it) => {
           const bookId = it.book_id ?? it.catalog_book_id;
           const total = bookId ? lookup.getTotalPages(bookId) ?? 0 : 0;

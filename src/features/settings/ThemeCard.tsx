@@ -28,7 +28,7 @@ export function ThemeCard({ theme, isActive, onApply, onUninstall }: ThemeCardPr
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-xl border transition-colors",
         isActive
-          ? "border-accent-purple ring-2 ring-accent-purple/30"
+          ? "border-accent ring-2 ring-accent/30"
           : "border-glass-border hover:border-glass-border/80",
       )}
     >
@@ -40,7 +40,7 @@ export function ThemeCard({ theme, isActive, onApply, onUninstall }: ThemeCardPr
         <div className="flex items-center gap-1.5">
           <span
             className="inline-block h-3 w-3 rounded-full"
-            style={{ background: tokens["--color-accent-purple"] }}
+            style={{ background: tokens["--color-accent"] }}
           />
           <span
             className="inline-block h-3 w-3 rounded-full"
@@ -69,7 +69,7 @@ export function ThemeCard({ theme, isActive, onApply, onUninstall }: ThemeCardPr
           <p className="text-sm font-medium text-text-primary truncate">
             {theme.name}
           </p>
-          <p className="text-[11px] text-text-muted truncate">
+          <p className="text-2xs text-text-muted truncate">
             {theme.author}
             {!isCore && " · community"}
           </p>
@@ -80,7 +80,7 @@ export function ThemeCard({ theme, isActive, onApply, onUninstall }: ThemeCardPr
               type="button"
               onClick={onUninstall}
               title="Uninstall theme"
-              className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-red-500/10 hover:text-red-400 cursor-pointer"
+              className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-danger/10 hover:text-danger cursor-pointer"
             >
               <Trash2 size={14} />
             </button>
@@ -92,7 +92,7 @@ export function ThemeCard({ theme, isActive, onApply, onUninstall }: ThemeCardPr
             className={cn(
               "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
               isActive
-                ? "bg-accent-purple/20 text-accent-purple cursor-default"
+                ? "bg-accent/20 text-accent cursor-default"
                 : "bg-glass-bg text-text-secondary hover:bg-glass-hover hover:text-text-primary cursor-pointer",
             )}
           >

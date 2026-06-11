@@ -102,17 +102,17 @@ export function LibraryWhiteboardCard({
       <div
         className={cn(
           "group relative",
-          selected && "ring-2 ring-accent-purple rounded-md",
+          selected && "ring-2 ring-accent rounded-md",
           isDragging && "opacity-50",
         )}
       >
         <div onClick={handleClick} title={title} className="cursor-pointer">
           {/* Icon "cover" — a shapes glyph on a tinted tile, sized like
               the book covers so the grid stays even. */}
-          <div className="relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-gradient-to-br from-emerald-400/20 to-accent-blue/20 shadow-sm transition-shadow group-hover:shadow-md">
+          <div className="relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-gradient-to-br from-success/20 to-accent-blue/20 shadow-sm transition-shadow group-hover:shadow-md">
             <Shapes
               size={Math.round(Math.min(Math.max(coverHeight * 0.32, 24), 48))}
-              className="text-emerald-400/80"
+              className="text-success/80"
             />
 
             {onToggleSelect && (
@@ -135,7 +135,7 @@ export function LibraryWhiteboardCard({
             )}
 
             <span
-              className="absolute bottom-1.5 left-1.5 rounded bg-bg-primary/80 p-0.5 text-emerald-400 backdrop-blur-sm"
+              className="absolute bottom-1.5 left-1.5 rounded bg-bg-primary/80 p-0.5 text-success backdrop-blur-sm"
               title={t("library.allBooks.whiteboardLabel")}
             >
               <PenLine size={10} />
@@ -154,7 +154,7 @@ export function LibraryWhiteboardCard({
             <p
               className={cn(
                 "truncate leading-tight text-text-muted",
-                compact ? "text-[10px]" : "text-xs",
+                compact ? "text-2xs" : "text-xs",
               )}
             >
               {t("library.allBooks.whiteboardLabel")}
@@ -225,7 +225,7 @@ export function LibraryWhiteboardCard({
                 setMenuOpen(false);
                 deleteWhiteboard(whiteboard.id);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 transition-colors hover:bg-glass-hover cursor-pointer"
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger transition-colors hover:bg-glass-hover cursor-pointer"
             >
               <Trash2 size={14} />
               {t("common.delete")}

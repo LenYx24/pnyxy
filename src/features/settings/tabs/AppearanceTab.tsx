@@ -47,7 +47,7 @@ export function AppearanceTab() {
   return (
     <section className="space-y-4 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
       <div className="flex items-center gap-2">
-        <Palette size={18} className="text-accent-purple" />
+        <Palette size={18} className="text-accent" />
         <h2 className="text-lg font-semibold text-text-primary">
           {t("settings.appearanceSection.heading")}
         </h2>
@@ -108,7 +108,7 @@ export function AppearanceTab() {
 
       <div className="border-t border-glass-border pt-4">
         <div className="mb-2 flex items-center gap-2">
-          <LibraryIcon size={16} className="text-accent-purple" />
+          <LibraryIcon size={16} className="text-accent" />
           <h3 className="text-sm font-semibold text-text-primary">
             {t("settings.appearanceSection.library.heading")}
           </h3>
@@ -131,12 +131,12 @@ export function AppearanceTab() {
       {/* Custom CSS — power-user escape hatch. Rules go into a
           single <style> tag in <head> on every page load. Tailwind
           utility classes are stable selectors; the CSS variables
-          on :root (--accent-purple, --bg-primary, …) are the
+          on :root (--accent, --bg-primary, …) are the
           friendlier surface to override. Stored to localStorage
           per-device. */}
       <div className="border-t border-glass-border pt-4">
         <div className="mb-2 flex items-center gap-2">
-          <Code2 size={16} className="text-accent-purple" />
+          <Code2 size={16} className="text-accent" />
           <h3 className="text-sm font-semibold text-text-primary">
             {t("settings.appearanceSection.customCss.heading")}
           </h3>
@@ -149,7 +149,7 @@ export function AppearanceTab() {
           onChange={(e) => handleCssChange(e.target.value)}
           placeholder={t("settings.appearanceSection.customCss.placeholder")}
           spellCheck={false}
-          className="block min-h-[140px] w-full rounded-lg border border-glass-border bg-bg-secondary p-3 font-mono text-xs text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-accent-purple/50"
+          className="block min-h-[140px] w-full rounded-lg border border-glass-border bg-bg-secondary p-3 font-mono text-xs text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-accent/50"
         />
         <div className="mt-2 flex justify-end">
           <button

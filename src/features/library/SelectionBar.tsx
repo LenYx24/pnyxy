@@ -37,7 +37,7 @@ export function SelectionBar({ count, onMove, onDelete, onClear }: SelectionBarP
 
           <Button
             variant="ghost"
-            className="gap-1.5 px-3 py-2 text-xs text-red-400 hover:text-red-300"
+            className="gap-1.5 px-3 py-2 text-xs text-danger hover:text-danger"
             onClick={onDelete}
           >
             <Trash2 size={14} />

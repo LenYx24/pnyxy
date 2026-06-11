@@ -52,7 +52,7 @@ export function TagPickerDropdown({
       onClose={onClose}
       className="w-56"
     >
-      <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+      <div className="px-3 py-1.5 text-2xs font-semibold uppercase tracking-wider text-text-muted">
         Reading Status
       </div>
       {ALL_STATUS_TAGS.map((tag) => {
@@ -65,7 +65,7 @@ export function TagPickerDropdown({
             className={cn(
               "flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-glass-hover cursor-pointer",
               active
-                ? "text-accent-purple"
+                ? "text-accent"
                 : "text-text-secondary hover:text-text-primary",
             )}
           >
@@ -73,7 +73,7 @@ export function TagPickerDropdown({
               className={cn(
                 "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
                 active
-                  ? "border-accent-purple bg-accent-purple"
+                  ? "border-accent bg-accent"
                   : "border-glass-border",
               )}
             >
@@ -88,7 +88,7 @@ export function TagPickerDropdown({
 
       <div className="my-1 border-t border-glass-border" />
 
-      <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+      <div className="px-3 py-1.5 text-2xs font-semibold uppercase tracking-wider text-text-muted">
         Custom Tags
       </div>
 
@@ -102,7 +102,7 @@ export function TagPickerDropdown({
               {label}
               <button
                 onClick={() => removeCustomTag(item, label)}
-                className="rounded-full p-0.5 text-text-muted transition-colors hover:bg-red-500/10 hover:text-red-400 cursor-pointer"
+                className="rounded-full p-0.5 text-text-muted transition-colors hover:bg-danger/10 hover:text-danger cursor-pointer"
                 aria-label={`Remove tag ${label}`}
               >
                 <X size={10} />
@@ -125,13 +125,13 @@ export function TagPickerDropdown({
             }
           }}
           placeholder="Add tag…"
-          className="w-full rounded-md border border-glass-border bg-bg-primary/50 px-2 py-1 text-xs text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50"
+          className="w-full rounded-md border border-glass-border bg-bg-primary/50 px-2 py-1 text-xs text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50"
           maxLength={CUSTOM_TAG_MAX_LENGTH}
         />
         <button
           onClick={handleAddCustom}
           disabled={!draft.trim()}
-          className="shrink-0 rounded-md bg-accent-purple/15 p-1 text-accent-purple transition-colors hover:bg-accent-purple/25 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          className="shrink-0 rounded-md bg-accent/15 p-1 text-accent transition-colors hover:bg-accent/25 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           aria-label="Add custom tag"
         >
           <Plus size={12} />

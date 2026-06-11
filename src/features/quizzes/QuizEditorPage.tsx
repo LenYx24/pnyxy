@@ -381,7 +381,7 @@ export function QuizEditorPage() {
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t("quizzes.editor.titlePlaceholder")}
             maxLength={140}
-            className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple/50"
+            className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent/50"
           />
         </div>
         <div>
@@ -394,7 +394,7 @@ export function QuizEditorPage() {
             onChange={(e) => setDescription(e.target.value)}
             placeholder={t("quizzes.editor.descriptionPlaceholder")}
             maxLength={500}
-            className="w-full resize-none rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple/50"
+            className="w-full resize-none rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent/50"
           />
         </div>
         <div className="flex items-center justify-between rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2">
@@ -414,7 +414,7 @@ export function QuizEditorPage() {
         <div className="flex items-center justify-between rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2">
           <div className="min-w-0 pr-2">
             <p className="flex items-center gap-1.5 text-sm font-medium text-text-primary">
-              <Shuffle size={14} className="text-accent-purple" />
+              <Shuffle size={14} className="text-accent" />
               {t("quizzes.editor.randomizeQuestionsLabel")}
             </p>
             <p className="text-xs text-text-muted">
@@ -429,7 +429,7 @@ export function QuizEditorPage() {
         <div className="flex items-center justify-between rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2">
           <div className="min-w-0 pr-2">
             <p className="flex items-center gap-1.5 text-sm font-medium text-text-primary">
-              <Shuffle size={14} className="text-accent-purple" />
+              <Shuffle size={14} className="text-accent" />
               {t("quizzes.editor.randomizeOptionsLabel")}
             </p>
             <p className="text-xs text-text-muted">
@@ -477,7 +477,7 @@ export function QuizEditorPage() {
               <Button
                 variant="ghost"
                 onClick={deleteSelected}
-                className="gap-1 px-2.5 py-1 text-xs text-red-400 hover:bg-red-500/10"
+                className="gap-1 px-2.5 py-1 text-xs text-danger hover:bg-danger/10"
               >
                 <Trash2 size={14} />
                 <span>
@@ -533,7 +533,7 @@ export function QuizEditorPage() {
       </section>
 
       {error && (
-        <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
+        <p className="rounded-lg bg-danger/10 p-3 text-sm text-danger">
           {error}
         </p>
       )}
@@ -610,8 +610,8 @@ function SortableQuestionCard({
       {...attributes}
       className={cn(
         "space-y-3 rounded-xl border border-glass-border bg-glass-bg/40 p-4",
-        isDragging && "opacity-60 ring-2 ring-accent-purple",
-        selected && "ring-1 ring-accent-purple/60",
+        isDragging && "opacity-60 ring-2 ring-accent",
+        selected && "ring-1 ring-accent/60",
       )}
     >
       <div className="flex items-start gap-2">
@@ -633,7 +633,7 @@ function SortableQuestionCard({
         {total > 1 && (
           <button
             onClick={onRemove}
-            className="rounded-md p-1 text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+            className="rounded-md p-1 text-text-muted hover:text-danger hover:bg-danger/10 transition-colors cursor-pointer"
             aria-label={t("quizzes.editor.removeQuestion")}
             title={t("quizzes.editor.removeQuestion")}
           >
@@ -649,7 +649,7 @@ function SortableQuestionCard({
         value={q.question_text}
         onChange={(e) => onPatch({ question_text: e.target.value })}
         placeholder={t("quizzes.editor.questionPlaceholder")}
-        className="w-full resize-none rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple/50"
+        className="w-full resize-none rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent/50"
       />
 
       {q.kind === "mcq4" && (
@@ -663,7 +663,7 @@ function SortableQuestionCard({
                   className={cn(
                     "flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-colors",
                     isCorrect
-                      ? "border-green-500/50 bg-green-500/5"
+                      ? "border-success/50 bg-success/5"
                       : "border-glass-border bg-bg-primary/40",
                   )}
                 >
@@ -672,8 +672,8 @@ function SortableQuestionCard({
                     className={cn(
                       "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors cursor-pointer",
                       isCorrect
-                        ? "border-green-500 bg-green-500 text-white"
-                        : "border-text-muted/40 text-text-muted hover:border-accent-purple",
+                        ? "border-success bg-success text-white"
+                        : "border-text-muted/40 text-text-muted hover:border-accent",
                     )}
                     aria-label={t("quizzes.editor.markCorrect")}
                     title={
@@ -685,7 +685,7 @@ function SortableQuestionCard({
                     {isCorrect ? (
                       <Check size={12} />
                     ) : (
-                      <span className="text-[10px] font-semibold">
+                      <span className="text-2xs font-semibold">
                         {"ABCD"[idx]}
                       </span>
                     )}
@@ -721,8 +721,8 @@ function SortableQuestionCard({
                 className={cn(
                   "flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
                   isCorrect
-                    ? "border-green-500/60 bg-green-500/10 text-green-300"
-                    : "border-glass-border bg-bg-primary/40 text-text-secondary hover:border-accent-purple/40",
+                    ? "border-success/60 bg-success/10 text-success"
+                    : "border-glass-border bg-bg-primary/40 text-text-secondary hover:border-accent/40",
                 )}
               >
                 {isCorrect && <Check size={14} />}
@@ -735,16 +735,16 @@ function SortableQuestionCard({
 
       {q.kind === "short_answer" && (
         <div>
-          <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-text-muted">
+          <label className="mb-1 block text-2xs font-medium uppercase tracking-wider text-text-muted">
             {t("quizzes.editor.correctAnswerLabel")}
           </label>
           <input
             value={q.correct_text}
             onChange={(e) => onPatch({ correct_text: e.target.value })}
             placeholder={t("quizzes.editor.correctAnswerPlaceholder")}
-            className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple/50"
+            className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent/50"
           />
-          <p className="mt-1 text-[11px] text-text-muted">
+          <p className="mt-1 text-2xs text-text-muted">
             {t("quizzes.editor.correctAnswerHint")}
           </p>
         </div>
@@ -754,7 +754,7 @@ function SortableQuestionCard({
         value={q.explanation ?? ""}
         onChange={(e) => onPatch({ explanation: e.target.value })}
         placeholder={t("quizzes.editor.explanationPlaceholder")}
-        className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2 text-xs text-text-primary outline-none focus:border-accent-purple/50"
+        className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2 text-xs text-text-primary outline-none focus:border-accent/50"
       />
     </div>
   );
@@ -782,7 +782,7 @@ function KindTabs({
           className={cn(
             "flex flex-1 min-w-[6.5rem] items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors cursor-pointer",
             value === kind
-              ? "bg-accent-purple/15 text-accent-purple"
+              ? "bg-accent/15 text-accent"
               : "text-text-muted hover:text-text-primary",
           )}
         >

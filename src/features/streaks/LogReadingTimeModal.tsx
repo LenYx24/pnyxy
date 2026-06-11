@@ -128,7 +128,7 @@ export function LogReadingTimeModal({
               setSelectedDate(e.target.value);
               setError(null);
             }}
-            className="w-full rounded-md border border-glass-border bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple"
+            className="w-full rounded-md border border-glass-border bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
           >
             {options.map((o, idx) => (
               <option key={o.value} value={o.value}>
@@ -151,17 +151,17 @@ export function LogReadingTimeModal({
               setMinutes(e.target.value);
               setError(null);
             }}
-            className="w-full rounded-md border border-glass-border bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple"
+            className="w-full rounded-md border border-glass-border bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
           />
         </label>
 
         {error && (
-          <p className="mb-2 text-xs text-red-400" role="alert">
+          <p className="mb-2 text-xs text-danger" role="alert">
             {error}
           </p>
         )}
 
-        <p className="mb-4 text-[11px] text-text-muted">
+        <p className="mb-4 text-2xs text-text-muted">
           {t("streaks.log.leaderboardNote")}
         </p>
 
@@ -171,7 +171,7 @@ export function LogReadingTimeModal({
           </Button>
           <button
             type="submit"
-            className="cursor-pointer rounded-lg bg-accent-purple/20 px-4 py-2 text-sm font-medium text-accent-purple transition-colors hover:bg-accent-purple/30"
+            className="cursor-pointer rounded-lg bg-accent/20 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/30"
           >
             {t("streaks.log.submit")}
           </button>

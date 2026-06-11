@@ -21,7 +21,7 @@ export function PanelShell({
       {onClose && (
         <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
           <div className="flex items-center gap-2">
-            <BotMessageSquare size={16} className="text-accent-purple" />
+            <BotMessageSquare size={16} className="text-accent" />
             <span className="text-sm font-medium text-text-primary">
               {t("reader.aiChat.title")}
             </span>

@@ -70,7 +70,7 @@ export function QuizAttemptReviewPage() {
         </p>
         <Link
           to={`/quizzes/${quizId ?? ""}`}
-          className="mt-3 inline-block text-sm text-accent-purple hover:underline"
+          className="mt-3 inline-block text-sm text-accent hover:underline"
         >
           {t("quizzes.take.backToQuiz")}
         </Link>
@@ -105,10 +105,10 @@ export function QuizAttemptReviewPage() {
             className={cn(
               "font-semibold tabular-nums",
               pct >= 80
-                ? "text-green-400"
+                ? "text-success"
                 : pct >= 50
-                  ? "text-amber-400"
-                  : "text-red-400",
+                  ? "text-warning"
+                  : "text-danger",
             )}
           >
             {attempt.score}/{attempt.total} ({pct}%)

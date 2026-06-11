@@ -42,7 +42,7 @@ export function RoadmapEditorPage() {
         <p className="text-text-secondary">{t("roadmaps.notFound")}</p>
         <Link
           to="/roadmaps"
-          className="mt-3 inline-flex items-center gap-1.5 text-sm text-accent-purple"
+          className="mt-3 inline-flex items-center gap-1.5 text-sm text-accent"
         >
           <ArrowLeft size={14} />
           {t("roadmaps.backToList")}
@@ -108,7 +108,7 @@ export function RoadmapEditorPage() {
           </button>
           <button
             onClick={handleAddNode}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent-purple px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
           >
             <Plus size={14} />
             {t("roadmaps.addNode")}
@@ -133,7 +133,7 @@ export function RoadmapEditorPage() {
                 </p>
                 <button
                   onClick={handleAddNode}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-accent-purple px-3 py-1.5 text-sm font-medium text-white"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white"
                 >
                   <Plus size={14} />
                   {t("roadmaps.addFirstNode")}
@@ -196,7 +196,7 @@ export function RoadmapEditorPage() {
                   }
                   rows={4}
                   placeholder={t("roadmaps.descriptionPlaceholder")}
-                  className="mt-1 w-full resize-y rounded-md border border-glass-border bg-bg-secondary px-3 py-2 text-sm outline-none focus:border-accent-purple"
+                  className="mt-1 w-full resize-y rounded-md border border-glass-border bg-bg-secondary px-3 py-2 text-sm outline-none focus:border-accent"
                 />
               </div>
             </div>
@@ -226,7 +226,7 @@ function NodeEditor({
         <input
           value={node.title}
           onChange={(e) => onChange({ title: e.target.value })}
-          className="mt-1 w-full rounded-md border border-glass-border bg-bg-secondary px-3 py-2 text-sm outline-none focus:border-accent-purple"
+          className="mt-1 w-full rounded-md border border-glass-border bg-bg-secondary px-3 py-2 text-sm outline-none focus:border-accent"
         />
       </div>
       <div>
@@ -237,7 +237,7 @@ function NodeEditor({
           value={node.description}
           onChange={(e) => onChange({ description: e.target.value })}
           rows={4}
-          className="mt-1 w-full resize-y rounded-md border border-glass-border bg-bg-secondary px-3 py-2 text-sm outline-none focus:border-accent-purple"
+          className="mt-1 w-full resize-y rounded-md border border-glass-border bg-bg-secondary px-3 py-2 text-sm outline-none focus:border-accent"
         />
       </div>
       <NumberInput
@@ -252,7 +252,7 @@ function NodeEditor({
       />
       <button
         onClick={onDelete}
-        className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-400 hover:bg-red-500/20"
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger hover:bg-danger/20"
       >
         <Trash2 size={14} />
         {t("roadmaps.deleteNode")}

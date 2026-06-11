@@ -33,8 +33,8 @@ export function FeaturesSection() {
         {features.map(({ icon: Icon, key }, i) => (
           <Reveal key={key} delay={i * 80}>
             <GlassCard className="p-6">
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-accent-purple/15">
-                <Icon size={20} className="text-accent-purple" />
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-accent/15">
+                <Icon size={20} className="text-accent" />
               </div>
               <h3 className="mb-2 text-lg font-semibold text-text-primary">
                 {t(`landing.features.${key}.title`)}

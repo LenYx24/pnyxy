@@ -118,9 +118,9 @@ export function MobileReaderBottomBar({
               aria-label={label}
               title={label}
               className={cn(
-                "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-medium transition-colors touch-target",
+                "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-2xs font-medium transition-colors touch-target",
                 active
-                  ? "text-accent-purple"
+                  ? "text-accent"
                   : "text-text-muted hover:text-text-primary",
               )}
             >

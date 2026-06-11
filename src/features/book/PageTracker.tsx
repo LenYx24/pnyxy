@@ -77,8 +77,8 @@ export function PageTracker({ docId, pageCount }: PageTrackerProps) {
   if (loading) return null;
 
   return (
-    <div className="flex items-center gap-1.5 rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1 text-[11px] text-text-secondary">
-      <Bookmark size={11} className="text-accent-purple" />
+    <div className="flex items-center gap-1.5 rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1 text-2xs text-text-secondary">
+      <Bookmark size={11} className="text-accent" />
       {editing ? (
         <>
           <input
@@ -92,7 +92,7 @@ export function PageTracker({ docId, pageCount }: PageTrackerProps) {
             }}
             min={1}
             max={pageCount ?? undefined}
-            className="w-12 rounded border border-glass-border bg-bg-primary px-1 py-0.5 text-[11px] text-text-primary outline-none focus:border-accent-purple"
+            className="w-12 rounded border border-glass-border bg-bg-primary px-1 py-0.5 text-2xs text-text-primary outline-none focus:border-accent"
           />
           {pageCount && (
             <span className="text-text-muted">/ {pageCount}</span>
@@ -100,7 +100,7 @@ export function PageTracker({ docId, pageCount }: PageTrackerProps) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="ml-1 rounded p-0.5 text-green-400 hover:bg-glass-hover cursor-pointer disabled:opacity-50"
+            className="ml-1 rounded p-0.5 text-success hover:bg-glass-hover cursor-pointer disabled:opacity-50"
             aria-label={t("common.save")}
           >
             <Check size={11} />

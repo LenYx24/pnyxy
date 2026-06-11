@@ -5,9 +5,9 @@ import { useAdminStore } from "@/stores/admin-store";
 
 const cards = [
   { key: "totalUsers" as const, label: "Total Users", Icon: Users, color: "text-blue-400" },
-  { key: "pendingReports" as const, label: "Pending Reports", Icon: AlertTriangle, color: "text-amber-400" },
-  { key: "pendingBooks" as const, label: "Pending Books", Icon: BookOpen, color: "text-green-400" },
-  { key: "activeBans" as const, label: "Active Bans", Icon: ShieldBan, color: "text-red-400" },
+  { key: "pendingReports" as const, label: "Pending Reports", Icon: AlertTriangle, color: "text-warning" },
+  { key: "pendingBooks" as const, label: "Pending Books", Icon: BookOpen, color: "text-success" },
+  { key: "activeBans" as const, label: "Active Bans", Icon: ShieldBan, color: "text-danger" },
 ];
 
 export function DashboardTab() {
@@ -20,7 +20,7 @@ export function DashboardTab() {
   if (statsLoading && !stats) {
     return (
       <div className="flex h-40 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-accent-purple" />
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
       </div>
     );
   }

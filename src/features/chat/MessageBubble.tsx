@@ -137,7 +137,7 @@ export function MessageBubble({
           // fill. The hairline border gives the glass an edge.
           "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm backdrop-blur-md",
           isUser
-            ? "bg-accent-purple/20 text-text-primary rounded-br-md"
+            ? "bg-accent/20 text-text-primary rounded-br-md"
             : "border border-glass-border bg-glass-bg text-text-secondary rounded-bl-md",
           // Slightly taller while still empty so the typing indicator
           // sits comfortably; collapses back to py-2 once content is
@@ -179,9 +179,9 @@ export function MessageBubble({
                   }
                 }}
                 rows={Math.min(8, Math.max(2, msg.content.split("\n").length))}
-                className="block w-full resize-none rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1.5 text-sm text-text-primary outline-none focus:border-accent-purple/60"
+                className="block w-full resize-none rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60"
               />
-              <div className="flex justify-end gap-1.5 text-[11px]">
+              <div className="flex justify-end gap-1.5 text-2xs">
                 <button
                   type="button"
                   onClick={() => {
@@ -209,7 +209,7 @@ export function MessageBubble({
                     !editText.trim() ||
                     editText.trim() === msg.content.trim()
                   }
-                  className="rounded bg-accent-purple/80 px-2 py-0.5 font-medium text-white transition-colors hover:bg-accent-purple disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
+                  className="rounded bg-accent/80 px-2 py-0.5 font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
                 >
                   {t("chat.editSaveAndSend")}
                 </button>
@@ -298,7 +298,7 @@ export function MessageBubble({
         {/* Actions: visible on hover or when there are branches */}
         <div
           className={cn(
-            "mt-1.5 flex items-center gap-2 text-[10px] text-text-muted transition-opacity",
+            "mt-1.5 flex items-center gap-2 text-2xs text-text-muted transition-opacity",
             branches > 1 || showBranches
               ? "opacity-100"
               : "opacity-0 group-hover:opacity-100",
@@ -339,7 +339,7 @@ export function MessageBubble({
             <button
               onClick={onDelete}
               disabled={streamingMessageId !== null}
-              className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+              className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-danger disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
               title={t("chat.deleteMessage", {
                 defaultValue: "Delete message + descendants",
               })}
@@ -405,7 +405,7 @@ export function MessageBubble({
               }}
               className={cn(
                 "inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary cursor-pointer",
-                tts.speakingId === msg.id && "text-accent-purple",
+                tts.speakingId === msg.id && "text-accent",
               )}
               title={
                 tts.speakingId === msg.id
@@ -455,10 +455,10 @@ export function MessageBubble({
                   key={child.id}
                   onClick={() => onPickBranch(child.id)}
                   className={cn(
-                    "rounded border px-2 py-0.5 text-[10px] transition-colors cursor-pointer",
+                    "rounded border px-2 py-0.5 text-2xs transition-colors cursor-pointer",
                     isActiveChild
-                      ? "border-accent-purple bg-accent-purple/15 text-accent-purple"
-                      : "border-glass-border text-text-muted hover:border-accent-purple/40 hover:text-text-primary",
+                      ? "border-accent bg-accent/15 text-accent"
+                      : "border-glass-border text-text-muted hover:border-accent/40 hover:text-text-primary",
                   )}
                   title={child.content.slice(0, 80)}
                 >
@@ -486,7 +486,7 @@ export function MessageBubble({
                   key={i}
                   onClick={() => onPickSuggestion(q)}
                   disabled={streamingMessageId !== null}
-                  className="inline-flex items-center rounded-full border border-glass-border bg-glass-bg/40 px-2.5 py-1 text-[11px] text-text-secondary transition-colors hover:border-accent-purple/50 hover:bg-accent-purple/10 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
+                  className="inline-flex items-center rounded-full border border-glass-border bg-glass-bg/40 px-2.5 py-1 text-2xs text-text-secondary transition-colors hover:border-accent/50 hover:bg-accent/10 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
                 >
                   {q}
                 </button>

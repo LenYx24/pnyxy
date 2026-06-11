@@ -61,7 +61,7 @@ export function CommentsSidebar() {
                 className={cn(
                   "w-full text-left px-3 py-2.5 border-b border-glass-border transition-colors cursor-pointer",
                   isSelected
-                    ? "bg-accent-purple/10"
+                    ? "bg-accent/10"
                     : "hover:bg-glass-hover",
                   comment.resolved && "opacity-60",
                 )}
@@ -77,12 +77,12 @@ export function CommentsSidebar() {
                     </p>
                     <div className="flex items-center gap-2 mt-1">
                       {comment.messages.length > 1 && (
-                        <span className="text-[10px] text-text-muted">
+                        <span className="text-2xs text-text-muted">
                           {comment.messages.length} messages
                         </span>
                       )}
                       {comment.resolved && (
-                        <span className="flex items-center gap-0.5 text-[10px] text-green-400">
+                        <span className="flex items-center gap-0.5 text-2xs text-success">
                           <Check size={10} /> Resolved
                         </span>
                       )}

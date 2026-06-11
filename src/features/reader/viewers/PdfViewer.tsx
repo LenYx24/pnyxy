@@ -1390,7 +1390,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
           </div>
         }
         error={
-          <div className="text-red-400 text-sm p-4 text-center">
+          <div className="text-danger text-sm p-4 text-center">
             Failed to load PDF. The file may be corrupted.
           </div>
         }

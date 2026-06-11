@@ -450,7 +450,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           <button
             type="button"
             onClick={() => navigate("/auth")}
-            className="rounded-full bg-accent-purple px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-purple/80 cursor-pointer"
+            className="rounded-full bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent/80 cursor-pointer"
           >
             {t("chat.signInRequired")}
           </button>
@@ -519,7 +519,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                   setIsEditingTitle(false);
                 }
               }}
-              className="min-w-0 flex-1 rounded border border-glass-border bg-glass-bg px-2 py-0.5 text-sm font-medium text-text-primary outline-none focus:border-accent-purple"
+              className="min-w-0 flex-1 rounded border border-glass-border bg-glass-bg px-2 py-0.5 text-sm font-medium text-text-primary outline-none focus:border-accent"
               autoFocus
             />
           ) : (
@@ -528,7 +528,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                 "min-w-0 flex-1 truncate text-sm font-medium text-text-primary",
                 activeIsForThisDoc &&
                   activeConversation &&
-                  "cursor-text hover:text-accent-purple",
+                  "cursor-text hover:text-accent",
               )}
               title={
                 activeIsForThisDoc
@@ -552,7 +552,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             <button
               type="button"
               onClick={handleDeleteActive}
-              className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:text-red-400 cursor-pointer"
+              className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:text-danger cursor-pointer"
               title={t("reader.aiChat.deleteConversation")}
               aria-label={t("reader.aiChat.deleteConversation")}
             >
@@ -750,7 +750,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             instead of appending to the leaf. X dismisses the
             pending branch. Same UX as /chat. */}
         {branchFromId && messages.get(branchFromId) && (
-          <div className="flex items-center justify-between gap-2 rounded-md border border-accent-purple/30 bg-accent-purple/10 px-2 py-1.5 text-xs text-accent-purple">
+          <div className="flex items-center justify-between gap-2 rounded-md border border-accent/30 bg-accent/10 px-2 py-1.5 text-xs text-accent">
             <span className="flex items-center gap-1.5 min-w-0">
               <GitBranch size={12} className="shrink-0" />
               <span className="truncate">
@@ -765,7 +765,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             </span>
             <button
               onClick={() => setBranchFromId(null)}
-              className="shrink-0 rounded p-0.5 hover:bg-accent-purple/20 cursor-pointer"
+              className="shrink-0 rounded p-0.5 hover:bg-accent/20 cursor-pointer"
               aria-label={t("common.cancel")}
             >
               <X size={12} />
@@ -810,7 +810,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           <button
             type="button"
             onClick={handleNewConversation}
-            className="flex h-11 w-11 items-center justify-center rounded-md text-accent-purple transition-colors hover:bg-glass-hover cursor-pointer"
+            className="flex h-11 w-11 items-center justify-center rounded-md text-accent transition-colors hover:bg-glass-hover cursor-pointer"
             title={t("reader.aiChat.newConversationForDoc")}
             aria-label={t("reader.aiChat.newConversationForDoc")}
           >
@@ -836,7 +836,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                     className={cn(
                       "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors cursor-pointer",
                       c.id === activeConversationId
-                        ? "bg-accent-purple/15 text-text-primary"
+                        ? "bg-accent/15 text-text-primary"
                         : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
                     )}
                   >

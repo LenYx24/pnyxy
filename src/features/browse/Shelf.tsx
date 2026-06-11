@@ -75,7 +75,7 @@ export function Shelf({
           {seeAllHref && (
             <Link
               to={seeAllHref}
-              className="mr-1 text-xs font-medium text-text-muted hover:text-accent-purple"
+              className="mr-1 text-xs font-medium text-text-muted hover:text-accent"
             >
               {seeAllLabel}
             </Link>

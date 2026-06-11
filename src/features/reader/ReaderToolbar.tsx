@@ -119,7 +119,7 @@ function ZoomInput({
           if (e.key === "Enter") handleSubmit();
           if (e.key === "Escape") setEditing(false);
         }}
-        className="w-12 rounded border border-glass-border bg-glass-bg px-1 py-0.5 text-center text-xs text-text-primary outline-none focus:border-accent-purple"
+        className="w-12 rounded border border-glass-border bg-glass-bg px-1 py-0.5 text-center text-xs text-text-primary outline-none focus:border-accent"
         autoFocus
       />
     );
@@ -528,7 +528,7 @@ export function ReaderToolbar({
                 setIsEditingTitle(false);
               }
             }}
-            className="w-full bg-glass-bg border border-glass-border rounded px-2 py-0.5 text-sm text-text-primary outline-none focus:border-accent-purple"
+            className="w-full bg-glass-bg border border-glass-border rounded px-2 py-0.5 text-sm text-text-primary outline-none focus:border-accent"
             autoFocus
           />
         ) : (
@@ -605,7 +605,7 @@ export function ReaderToolbar({
               }
             }}
             className={cn(
-              "rounded border border-glass-border bg-glass-bg px-1.5 py-0.5 text-center font-semibold text-text-primary outline-none focus:border-accent-purple",
+              "rounded border border-glass-border bg-glass-bg px-1.5 py-0.5 text-center font-semibold text-text-primary outline-none focus:border-accent",
               isMobile ? "w-10 text-xs" : "w-12 text-sm",
             )}
           />
@@ -726,7 +726,7 @@ export function ReaderToolbar({
               className={cn(
                 "rounded-md p-1.5 transition-colors cursor-pointer",
                 zoomMode !== "custom"
-                  ? "text-accent-purple bg-accent-purple/10"
+                  ? "text-accent bg-accent/10"
                   : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
               )}
               title={t("reader.toolbar.toggleFitMode")}
@@ -768,7 +768,7 @@ export function ReaderToolbar({
                 className={cn(
                   "rounded-md p-1.5 transition-colors cursor-pointer",
                   isDrawMode
-                    ? "text-accent-purple bg-accent-purple/10"
+                    ? "text-accent bg-accent/10"
                     : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
                 )}
                 title={isDrawMode ? t("reader.toolbar.backToPdf") : t("reader.toolbar.drawOnPdf")}
@@ -861,7 +861,7 @@ export function ReaderToolbar({
               className={cn(
                 "rounded-md p-1.5 transition-colors cursor-pointer",
                 zoomMode !== "custom"
-                  ? "text-accent-purple bg-accent-purple/10"
+                  ? "text-accent bg-accent/10"
                   : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
               )}
               title={t("reader.toolbar.toggleFitMode")}
@@ -904,7 +904,7 @@ export function ReaderToolbar({
                 className={cn(
                   "rounded-md p-1.5 transition-colors cursor-pointer",
                   isDrawMode
-                    ? "text-accent-purple bg-accent-purple/10"
+                    ? "text-accent bg-accent/10"
                     : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
                 )}
                 title={isDrawMode ? t("reader.toolbar.backToPdf") : t("reader.toolbar.drawOnPdf")}
@@ -942,7 +942,7 @@ export function ReaderToolbar({
               className={cn(
                 "rounded-md p-1.5 transition-colors cursor-pointer",
                 secondaryPanelOpen
-                  ? "text-accent-purple bg-accent-purple/10"
+                  ? "text-accent bg-accent/10"
                   : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
               )}
               title={t(
@@ -987,7 +987,7 @@ export function ReaderToolbar({
                 className={cn(
                   "rounded-md p-1.5 transition-colors cursor-pointer flex items-center gap-1.5",
                   pdfReflowMode
-                    ? "text-accent-purple bg-accent-purple/10"
+                    ? "text-accent bg-accent/10"
                     : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
                 )}
                 title={

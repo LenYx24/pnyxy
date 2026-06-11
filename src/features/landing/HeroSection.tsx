@@ -12,9 +12,9 @@ export function HeroSection() {
     <section className="relative flex min-h-screen flex-col items-center justify-center px-6 text-center">
       {/* Floating geometric shapes (hidden on mobile) */}
       <div className="pointer-events-none absolute inset-0 hidden overflow-hidden sm:block">
-        <div className="absolute left-[15%] top-[20%] h-24 w-24 rotate-45 rounded-lg border border-accent-purple/20 animate-[float_6s_ease-in-out_infinite]" />
+        <div className="absolute left-[15%] top-[20%] h-24 w-24 rotate-45 rounded-lg border border-accent/20 animate-[float_6s_ease-in-out_infinite]" />
         <div className="absolute right-[20%] top-[30%] h-16 w-16 rounded-full border border-accent-blue/20 animate-[float_8s_ease-in-out_infinite_1s]" />
-        <div className="absolute bottom-[25%] left-[25%] h-20 w-20 rotate-12 border border-accent-purple/15 animate-[float_7s_ease-in-out_infinite_2s]" />
+        <div className="absolute bottom-[25%] left-[25%] h-20 w-20 rotate-12 border border-accent/15 animate-[float_7s_ease-in-out_infinite_2s]" />
         <div className="absolute bottom-[30%] right-[15%] h-12 w-12 rotate-45 rounded-lg border border-accent-blue/15 animate-[float_9s_ease-in-out_infinite_0.5s]" />
       </div>
 

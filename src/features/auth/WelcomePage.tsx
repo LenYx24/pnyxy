@@ -20,7 +20,7 @@ export function WelcomePage() {
         <MeshBackground />
         <div className="relative z-10 w-full max-w-md rounded-xl border border-glass-border bg-glass-bg p-8 text-center backdrop-blur-xl">
           <h1 className="text-3xl font-bold">
-            <span className="bg-gradient-to-r from-accent-purple to-accent-blue bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-accent to-accent-blue bg-clip-text text-transparent">
               {t("auth.welcome.title")}
             </span>
           </h1>
@@ -69,13 +69,13 @@ export function WelcomePage() {
 
       <div className="relative z-10 w-full max-w-md rounded-xl border border-glass-border bg-glass-bg p-8 text-center backdrop-blur-xl">
         <div className="mb-6 flex justify-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15">
-            <CheckCircle2 size={36} className="text-emerald-400" />
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/15">
+            <CheckCircle2 size={36} className="text-success" />
           </div>
         </div>
 
         <h1 className="text-3xl font-bold">
-          <span className="bg-gradient-to-r from-accent-purple to-accent-blue bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-accent to-accent-blue bg-clip-text text-transparent">
             {t("auth.welcome.title")}
           </span>
         </h1>

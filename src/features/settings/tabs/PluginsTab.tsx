@@ -34,7 +34,7 @@ export function PluginsTab() {
   return (
     <section className="space-y-4 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
       <div className="flex items-center gap-2">
-        <Puzzle size={18} className="text-accent-purple" />
+        <Puzzle size={18} className="text-accent" />
         <h2 className="text-lg font-semibold text-text-primary">
           {t("settings.pluginsSection.heading")}
         </h2>
@@ -91,7 +91,7 @@ export function PluginsTab() {
                 <button
                   type="button"
                   onClick={() => setBrowseOpen(true)}
-                  className="mt-2 inline-flex items-center gap-1 text-xs text-accent-purple hover:underline cursor-pointer"
+                  className="mt-2 inline-flex items-center gap-1 text-xs text-accent hover:underline cursor-pointer"
                 >
                   <Plus size={12} />
                   {t("settings.pluginsSection.browseCommunity")}

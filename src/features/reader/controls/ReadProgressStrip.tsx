@@ -43,11 +43,11 @@ export function ReadProgressStrip() {
       aria-hidden="true"
     >
       <div
-        className="absolute left-0 right-0 top-0 bg-accent-purple/25 transition-[height] duration-200 ease-out"
+        className="absolute left-0 right-0 top-0 bg-accent/25 transition-[height] duration-200 ease-out"
         style={{ height: `${fillPct}%` }}
       />
       <div
-        className="absolute left-0 right-0 h-0.5 bg-accent-purple transition-[top] duration-150 ease-out"
+        className="absolute left-0 right-0 h-0.5 bg-accent transition-[top] duration-150 ease-out"
         style={{ top: `calc(${cursorPct}% - 1px)` }}
       />
     </div>

@@ -40,7 +40,7 @@ export function TutorialPage() {
       <header className="mb-8">
         <div className="mb-2 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-glass-bg">
-            <Compass size={20} className="text-accent-purple" />
+            <Compass size={20} className="text-accent" />
           </div>
           <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">
             {t("static.tutorial.title")}
@@ -84,7 +84,7 @@ export function TutorialPage() {
               GitHub link in the site footer for issue reports. */}
           <section className="rounded-xl border border-glass-border bg-glass-bg/50 p-5 text-sm leading-relaxed text-text-secondary">
             <div className="mb-2 flex items-center gap-2">
-              <HelpCircle size={16} className="text-accent-purple" />
+              <HelpCircle size={16} className="text-accent" />
               <h2 className="text-base font-semibold text-text-primary">
                 {t("static.tutorial.footer.title")}
               </h2>
@@ -93,7 +93,7 @@ export function TutorialPage() {
               {t("static.tutorial.footer.bodyPrefix")}
               <Link
                 to="/help"
-                className="text-accent-purple hover:underline"
+                className="text-accent hover:underline"
               >
                 {t("static.tutorial.footer.helpLink")}
               </Link>
@@ -133,7 +133,7 @@ function TutorialSection({ section }: { section: Section }) {
         <div
           className={cn(
             "flex h-9 w-9 items-center justify-center rounded-lg",
-            "bg-accent-purple/10 text-accent-purple",
+            "bg-accent/10 text-accent",
           )}
         >
           <Icon size={18} />

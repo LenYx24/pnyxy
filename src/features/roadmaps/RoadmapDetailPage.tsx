@@ -100,7 +100,7 @@ export function RoadmapDetailPage() {
         <p className="text-text-secondary">{t("roadmaps.notFound")}</p>
         <Link
           to="/roadmaps"
-          className="mt-3 inline-flex items-center gap-1.5 text-sm text-accent-purple"
+          className="mt-3 inline-flex items-center gap-1.5 text-sm text-accent"
         >
           <ArrowLeft size={14} />
           {t("roadmaps.backToList")}
@@ -158,13 +158,13 @@ export function RoadmapDetailPage() {
               <div className="hidden items-center gap-2 sm:flex">
                 <div className="h-1.5 w-32 overflow-hidden rounded-full bg-glass-bg">
                   <div
-                    className="h-full rounded-full bg-accent-purple transition-all"
+                    className="h-full rounded-full bg-accent transition-all"
                     style={{ width: `${pct}%` }}
                   />
                 </div>
                 <span className="text-xs text-text-secondary">
                   {pct === 100 ? (
-                    <span className="inline-flex items-center gap-1 text-yellow-400">
+                    <span className="inline-flex items-center gap-1 text-warning">
                       <Trophy size={12} />
                       {t("roadmaps.complete")}
                     </span>
@@ -187,7 +187,7 @@ export function RoadmapDetailPage() {
             <button
               disabled={roadmap.nodes.length === 0}
               onClick={() => setEnrollDialogOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md bg-accent-purple px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
             >
               <Play size={14} />
               {t("roadmaps.startLearning")}
@@ -202,7 +202,7 @@ export function RoadmapDetailPage() {
           </Link>
           <button
             onClick={handleDelete}
-            className="inline-flex items-center gap-1.5 rounded-md border border-glass-border px-2.5 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
+            className="inline-flex items-center gap-1.5 rounded-md border border-glass-border px-2.5 py-1.5 text-xs text-danger hover:bg-danger/10"
           >
             <Trash2 size={14} />
           </button>
@@ -219,7 +219,7 @@ export function RoadmapDetailPage() {
                 </p>
                 <Link
                   to={`/roadmaps/${roadmap.id}/edit`}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-accent-purple px-3 py-1.5 text-sm font-medium text-white"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white"
                 >
                   <Pencil size={14} />
                   {t("roadmaps.startBuilding")}
@@ -281,7 +281,7 @@ export function RoadmapDetailPage() {
                           e.target.value || null,
                         )
                       }
-                      className="w-full rounded-md border border-glass-border bg-bg-secondary px-3 py-2 text-sm outline-none focus:border-accent-purple"
+                      className="w-full rounded-md border border-glass-border bg-bg-secondary px-3 py-2 text-sm outline-none focus:border-accent"
                     />
                     {selectedSchedule.manual && (
                       <button
@@ -292,7 +292,7 @@ export function RoadmapDetailPage() {
                             null,
                           )
                         }
-                        className="text-xs text-accent-purple hover:underline"
+                        className="text-xs text-accent hover:underline"
                       >
                         {t("roadmaps.resetSchedule")}
                       </button>
@@ -394,11 +394,11 @@ function NodeProgressPanel({
         step={5}
         value={manualPct}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-accent-purple"
+        className="w-full accent-accent"
         aria-label={t("roadmaps.nodeProgressManual")}
       />
       {autoWins && (
-        <div className="flex items-center gap-1.5 text-[11px] text-accent-purple">
+        <div className="flex items-center gap-1.5 text-2xs text-accent">
           <Sparkles size={11} />
           <span>{t("roadmaps.autoProgressBadge", { pct: autoPct })}</span>
         </div>
@@ -409,7 +409,7 @@ function NodeProgressPanel({
           "w-full rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
           display >= 100
             ? "border border-glass-border bg-glass-bg text-text-secondary hover:bg-glass-hover"
-            : "bg-accent-purple text-white hover:opacity-90",
+            : "bg-accent text-white hover:opacity-90",
         )}
       >
         {display >= 100
@@ -454,7 +454,7 @@ function ReferenceRow({ refItem }: { refItem: ResourceRef }) {
       className={cn(
         "rounded-md border px-2.5 py-2 text-xs transition-colors",
         matched
-          ? "border-accent-purple/30 bg-accent-purple/5 hover:bg-accent-purple/10"
+          ? "border-accent/30 bg-accent/5 hover:bg-accent/10"
           : "border-glass-border bg-glass-bg/40 text-text-muted",
       )}
     >
@@ -463,7 +463,7 @@ function ReferenceRow({ refItem }: { refItem: ResourceRef }) {
           size={11}
           className={cn(
             "mt-0.5 shrink-0",
-            matched ? "text-accent-purple" : "text-text-muted",
+            matched ? "text-accent" : "text-text-muted",
           )}
         />
         <div className="min-w-0 flex-1">
@@ -471,12 +471,12 @@ function ReferenceRow({ refItem }: { refItem: ResourceRef }) {
             {refItem.title}
           </p>
           {refItem.author && (
-            <p className="truncate text-[11px] text-text-muted">
+            <p className="truncate text-2xs text-text-muted">
               {refItem.author}
             </p>
           )}
           {(refItem.pageRange || refItem.section) && (
-            <p className="mt-0.5 text-[11px] text-text-muted">
+            <p className="mt-0.5 text-2xs text-text-muted">
               {refItem.pageRange
                 ? t("roadmaps.refPageRange", {
                     from: refItem.pageRange.from,
@@ -486,12 +486,12 @@ function ReferenceRow({ refItem }: { refItem: ResourceRef }) {
             </p>
           )}
           {!matched && refItem.match?.source === "none" && (
-            <p className="mt-1 text-[10px] uppercase tracking-wide text-text-muted">
+            <p className="mt-1 text-2xs uppercase tracking-wide text-text-muted">
               {t("roadmaps.refNotInLibrary")}
             </p>
           )}
           {matched && (
-            <p className="mt-1 inline-flex items-center gap-0.5 text-[11px] text-accent-purple">
+            <p className="mt-1 inline-flex items-center gap-0.5 text-2xs text-accent">
               <ExternalLink size={9} />
               {refItem.match?.source === "library"
                 ? t("roadmaps.refOpenLibrary")

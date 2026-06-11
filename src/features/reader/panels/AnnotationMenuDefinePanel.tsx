@@ -132,7 +132,7 @@ export function AnnotationMenuDefinePanel({ selectedText, onBack }: Props) {
   return (
     <div className="flex flex-col gap-2 p-1 w-64">
       <div className="flex items-center gap-1.5">
-        <BookOpen size={14} className="text-accent-purple" />
+        <BookOpen size={14} className="text-accent" />
         <span className="text-xs font-medium text-text-primary">
           {t("reader.annotationMenu.definePanelTitle")}
         </span>
@@ -160,14 +160,14 @@ export function AnnotationMenuDefinePanel({ selectedText, onBack }: Props) {
               href={`https://en.wiktionary.org/wiki/${encodeURIComponent(selectedText.trim())}`}
               target="_blank"
               rel="noreferrer"
-              className="block text-accent-purple hover:underline"
+              className="block text-accent hover:underline"
             >
               {t("reader.annotationMenu.defineTryWiktionary")}
             </a>
           </div>
         )}
         {error === "connect_failed" && (
-          <span className="text-red-400">
+          <span className="text-danger">
             {t("reader.annotationMenu.defineConnectFailed")}
           </span>
         )}
@@ -178,7 +178,7 @@ export function AnnotationMenuDefinePanel({ selectedText, onBack }: Props) {
                 {definition.word}
               </span>
               {definition.phonetic && (
-                <span className="text-[11px] text-text-muted">
+                <span className="text-2xs text-text-muted">
                   {definition.phonetic}
                 </span>
               )}
@@ -186,7 +186,7 @@ export function AnnotationMenuDefinePanel({ selectedText, onBack }: Props) {
             {definition.meanings.map((m, i) => (
               <div key={i} className="space-y-1">
                 {m.partOfSpeech && (
-                  <span className="text-[10px] uppercase tracking-wide text-accent-purple">
+                  <span className="text-2xs uppercase tracking-wide text-accent">
                     {m.partOfSpeech}
                   </span>
                 )}
@@ -195,7 +195,7 @@ export function AnnotationMenuDefinePanel({ selectedText, onBack }: Props) {
                     <li key={j} className="pl-1">
                       {d.definition}
                       {d.example && (
-                        <div className="mt-0.5 pl-3 text-[11px] italic text-text-muted">
+                        <div className="mt-0.5 pl-3 text-2xs italic text-text-muted">
                           "{d.example}"
                         </div>
                       )}
@@ -210,10 +210,10 @@ export function AnnotationMenuDefinePanel({ selectedText, onBack }: Props) {
 
       <div className="flex items-center justify-between">
         {capturedVocabId ? (
-          <div className="flex items-center gap-2 text-[11px] text-text-muted">
+          <div className="flex items-center gap-2 text-2xs text-text-muted">
             <span>{t("reader.annotationMenu.savedToVocab")}</span>
             <button
-              className="text-accent-purple hover:underline cursor-pointer"
+              className="text-accent hover:underline cursor-pointer"
               onClick={handleUndoCapture}
             >
               {t("reader.annotationMenu.undo")}

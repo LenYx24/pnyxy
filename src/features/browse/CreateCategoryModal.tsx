@@ -74,7 +74,7 @@ export function CreateCategoryModal({ open, onClose }: CreateCategoryModalProps)
 
         <div className="space-y-3 p-4">
           {error && (
-            <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+            <p className="rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">
               {error}
             </p>
           )}
@@ -84,13 +84,13 @@ export function CreateCategoryModal({ open, onClose }: CreateCategoryModalProps)
             placeholder="Category name *"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
+            className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
           />
 
           <select
             value={parentId}
             onChange={(e) => setParentId(e.target.value)}
-            className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary focus:border-accent-purple/50 focus:outline-none"
+            className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary focus:border-accent/50 focus:outline-none"
           >
             <option value="">No parent (top-level)</option>
             {categories.map((cat) => (
@@ -105,7 +105,7 @@ export function CreateCategoryModal({ open, onClose }: CreateCategoryModalProps)
             rows={2}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none resize-none"
+            className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none resize-none"
           />
 
           <Button onClick={handleSubmit} disabled={submitting} className="w-full">

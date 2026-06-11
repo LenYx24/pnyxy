@@ -130,7 +130,7 @@ export function SaveAsFlashcardsModal({
       <div className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl border border-glass-border bg-bg-secondary/95 backdrop-blur-xl">
         <div className="flex items-center justify-between border-b border-glass-border px-5 py-3">
           <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-accent-purple" />
+            <Sparkles size={16} className="text-accent" />
             <h2 className="text-lg font-semibold text-text-primary">
               {t("chat.flashcards.title")}
             </h2>
@@ -156,18 +156,18 @@ export function SaveAsFlashcardsModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={140}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple"
+              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
             />
           </div>
 
           {/* Cards / loading / error */}
           {extracting ? (
             <div className="flex items-center gap-2 py-6 text-sm text-text-muted">
-              <Loader2 size={16} className="animate-spin text-accent-purple" />
+              <Loader2 size={16} className="animate-spin text-accent" />
               {t("chat.flashcards.extracting")}
             </div>
           ) : error ? (
-            <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">
+            <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
               {error}
             </p>
           ) : (
@@ -181,7 +181,7 @@ export function SaveAsFlashcardsModal({
                   className="space-y-2 rounded-lg border border-glass-border bg-glass-bg/40 p-3"
                 >
                   <div className="flex items-start gap-2">
-                    <span className="mt-1.5 shrink-0 rounded bg-accent-purple/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-accent-purple">
+                    <span className="mt-1.5 shrink-0 rounded bg-accent/15 px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wider text-accent">
                       Q
                     </span>
                     <textarea
@@ -191,11 +191,11 @@ export function SaveAsFlashcardsModal({
                         updateCard(i, { question: e.target.value })
                       }
                       placeholder={t("chat.flashcards.questionPlaceholder")}
-                      className="min-h-[2rem] flex-1 resize-none rounded border border-glass-border bg-bg-primary/50 px-2 py-1 text-sm text-text-primary outline-none focus:border-accent-purple"
+                      className="min-h-[2rem] flex-1 resize-none rounded border border-glass-border bg-bg-primary/50 px-2 py-1 text-sm text-text-primary outline-none focus:border-accent"
                     />
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="mt-1.5 shrink-0 rounded bg-green-500/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-green-400">
+                    <span className="mt-1.5 shrink-0 rounded bg-success/15 px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wider text-success">
                       A
                     </span>
                     <textarea
@@ -205,11 +205,11 @@ export function SaveAsFlashcardsModal({
                         updateCard(i, { answer: e.target.value })
                       }
                       placeholder={t("chat.flashcards.answerPlaceholder")}
-                      className="min-h-[2rem] flex-1 resize-none rounded border border-glass-border bg-bg-primary/50 px-2 py-1 text-sm text-text-primary outline-none focus:border-accent-purple"
+                      className="min-h-[2rem] flex-1 resize-none rounded border border-glass-border bg-bg-primary/50 px-2 py-1 text-sm text-text-primary outline-none focus:border-accent"
                     />
                     <button
                       onClick={() => removeCard(i)}
-                      className="shrink-0 rounded p-1 text-text-muted transition-colors hover:bg-red-500/10 hover:text-red-400 cursor-pointer"
+                      className="shrink-0 rounded p-1 text-text-muted transition-colors hover:bg-danger/10 hover:text-danger cursor-pointer"
                       aria-label={t("chat.flashcards.removeCard")}
                     >
                       <Trash2 size={14} />
@@ -221,7 +221,7 @@ export function SaveAsFlashcardsModal({
                 onClick={addCard}
                 className={cn(
                   "flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-glass-border bg-glass-bg/30 py-2 text-xs text-text-muted transition-colors cursor-pointer",
-                  "hover:border-accent-purple/40 hover:bg-glass-hover hover:text-text-primary",
+                  "hover:border-accent/40 hover:bg-glass-hover hover:text-text-primary",
                 )}
               >
                 <Plus size={12} />

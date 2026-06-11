@@ -169,7 +169,7 @@ export function EpubSelectionPopover({
       {(translated || translateError) && (
         <div className="mt-2 max-h-32 overflow-auto rounded-lg bg-bg-primary/40 px-2 py-1.5 text-xs text-text-secondary">
           {translateError ? (
-            <span className="text-red-400">{translateError}</span>
+            <span className="text-danger">{translateError}</span>
           ) : (
             translated
           )}

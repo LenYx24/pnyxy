@@ -145,7 +145,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
             className={cn(
               "flex items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer",
               mode === "hours"
-                ? "bg-accent-purple/20 text-accent-purple"
+                ? "bg-accent/20 text-accent"
                 : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
             )}
           >
@@ -160,7 +160,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
             className={cn(
               "flex items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer",
               mode === "deadline"
-                ? "bg-accent-purple/20 text-accent-purple"
+                ? "bg-accent/20 text-accent"
                 : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
             )}
           >
@@ -195,7 +195,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
                 onChange={(e) =>
                   setPrefs((p) => ({ ...p, workOnWeekends: e.target.checked }))
                 }
-                className="h-4 w-4 accent-accent-purple"
+                className="h-4 w-4 accent-accent"
               />
             </label>
 
@@ -243,12 +243,12 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
                 value={targetEndDate}
                 min={todayYmd}
                 onChange={(e) => setTargetEndDate(e.target.value)}
-                className="w-full rounded-md border border-glass-border bg-bg-secondary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple"
+                className="w-full rounded-md border border-glass-border bg-bg-secondary px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
               />
             </label>
 
             <div>
-              <label className="flex items-center justify-between text-[11px] text-text-secondary">
+              <label className="flex items-center justify-between text-2xs text-text-secondary">
                 <span>
                   {t("roadmaps.enroll.weekendMultiplier", {
                     defaultValue: "Weekend vs weekday pace",
@@ -265,12 +265,12 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
                 step={0.1}
                 value={weekendMultiplier}
                 onChange={(e) => setWeekendMultiplier(Number(e.target.value))}
-                className="mt-1 w-full accent-accent-purple"
+                className="mt-1 w-full accent-accent"
                 aria-label={t("roadmaps.enroll.weekendMultiplier", {
                   defaultValue: "Weekend vs weekday pace",
                 })}
               />
-              <p className="mt-1 text-[10px] text-text-muted">
+              <p className="mt-1 text-2xs text-text-muted">
                 {weekendMultiplier === 0
                   ? t("roadmaps.enroll.weekendMultiplierZeroHint", {
                       defaultValue:
@@ -285,7 +285,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
             </div>
 
             {deadlineDerivation && (
-              <div className="rounded-lg bg-glass-bg/50 p-3 text-[11px]">
+              <div className="rounded-lg bg-glass-bg/50 p-3 text-2xs">
                 {deadlineDerivation.feasible ? (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
@@ -325,7 +325,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-start gap-1.5 text-yellow-400">
+                  <div className="flex items-start gap-1.5 text-warning">
                     <AlertTriangle size={12} className="mt-0.5 shrink-0" />
                     <span>
                       {t("roadmaps.deadline.infeasible", {
@@ -350,7 +350,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
           <button
             onClick={handleEnroll}
             disabled={!deadlineFeasible}
-            className="rounded-md bg-accent-purple px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:bg-accent-purple/85 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:bg-accent/85 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t("roadmaps.enroll.confirm")}
           </button>

@@ -1,8 +1,8 @@
 // User-supplied CSS overrides. Power users paste rules into a
 // textarea in Settings → Appearance and they're injected into a
 // single <style> tag in <head> on every page load. Tailwind utility
-// classes (.bg-accent-purple, .text-text-muted, etc.) and the
-// theme CSS variables (--accent-purple, --bg-primary, …) are the
+// classes (.bg-accent, .text-text-muted, etc.) and the
+// theme CSS variables (--accent, --bg-primary, …) are the
 // intended stable surface to target.
 
 const STORAGE_KEY = "pnyxy-user-css";

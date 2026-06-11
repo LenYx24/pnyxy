@@ -133,7 +133,7 @@ export function RelatedToBook() {
         {quizzes.map((q) => (
           <RelatedRow
             key={`quiz:${q.id}`}
-            icon={<ListChecks size={14} className="text-amber-400/80" />}
+            icon={<ListChecks size={14} className="text-warning/80" />}
             label={q.title || t("library.allBooks.untitledQuiz")}
             kind={t("library.allBooks.quizLabel")}
             onClick={() => navigate(`/quizzes/${q.id}`)}
@@ -151,7 +151,7 @@ export function RelatedToBook() {
         {relatedWhiteboards.map((w) => (
           <RelatedRow
             key={`whiteboard:${w.id}`}
-            icon={<Shapes size={14} className="text-emerald-400/80" />}
+            icon={<Shapes size={14} className="text-success/80" />}
             label={w.title || t("library.allBooks.untitledWhiteboard")}
             kind={t("library.allBooks.whiteboardLabel")}
             onClick={() => navigate(`/whiteboards/${w.id}`)}
@@ -194,7 +194,7 @@ function RelatedRow({
       <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
         {label}
       </span>
-      <span className="shrink-0 text-[11px] uppercase tracking-wide text-text-muted">
+      <span className="shrink-0 text-2xs uppercase tracking-wide text-text-muted">
         {kind}
       </span>
     </button>

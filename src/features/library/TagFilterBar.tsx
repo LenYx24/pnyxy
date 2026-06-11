@@ -28,7 +28,7 @@ export function TagFilterBar({ activeTag, onTagChange }: TagFilterBarProps) {
         className={cn(
           "rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap",
           activeTag === null
-            ? "bg-accent-purple/15 text-accent-purple"
+            ? "bg-accent/15 text-accent"
             : "bg-glass-bg text-text-muted hover:text-text-primary border border-glass-border",
         )}
       >

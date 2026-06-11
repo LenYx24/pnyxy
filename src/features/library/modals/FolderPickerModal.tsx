@@ -33,7 +33,7 @@ export function FolderPickerModal({
           className={cn(
             "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors cursor-pointer",
             selected === folder.id
-              ? "bg-accent-purple/15 text-accent-purple"
+              ? "bg-accent/15 text-accent"
               : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
           )}
           style={{ paddingLeft: `${12 + depth * 16}px` }}
@@ -74,7 +74,7 @@ export function FolderPickerModal({
             className={cn(
               "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors cursor-pointer",
               selected === null
-                ? "bg-accent-purple/15 text-accent-purple"
+                ? "bg-accent/15 text-accent"
                 : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
             )}
           >

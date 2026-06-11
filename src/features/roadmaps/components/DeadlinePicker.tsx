@@ -80,7 +80,7 @@ export function DeadlinePicker({
         {targetEndDate && (
           <button
             onClick={handleClear}
-            className="text-[11px] text-accent-purple hover:underline"
+            className="text-2xs text-accent hover:underline"
           >
             {t("roadmaps.deadline.clear")}
           </button>
@@ -92,11 +92,11 @@ export function DeadlinePicker({
         value={targetEndDate}
         min={todayYmd}
         onChange={(e) => handleDateChange(e.target.value)}
-        className="w-full rounded-md border border-glass-border bg-bg-secondary px-3 py-2 text-sm outline-none focus:border-accent-purple"
+        className="w-full rounded-md border border-glass-border bg-bg-secondary px-3 py-2 text-sm outline-none focus:border-accent"
       />
 
       <div>
-        <label className="flex items-center justify-between text-[11px] text-text-secondary">
+        <label className="flex items-center justify-between text-2xs text-text-secondary">
           <span>{t("roadmaps.deadline.weekendMultiplier")}</span>
           <span className="font-mono text-text-primary">
             {multiplier.toFixed(1)}×
@@ -110,10 +110,10 @@ export function DeadlinePicker({
           value={multiplier}
           onChange={(e) => handleMultiplierChange(Number(e.target.value))}
           disabled={!targetEndDate}
-          className="mt-1 w-full accent-accent-purple disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-1 w-full accent-accent disabled:cursor-not-allowed disabled:opacity-50"
           aria-label={t("roadmaps.deadline.weekendMultiplier")}
         />
-        <p className="mt-1 text-[10px] text-text-muted">
+        <p className="mt-1 text-2xs text-text-muted">
           {multiplier === 0
             ? t("roadmaps.deadline.weekendMultiplierZeroHint")
             : t("roadmaps.deadline.weekendMultiplierHint", {
@@ -123,7 +123,7 @@ export function DeadlinePicker({
       </div>
 
       {derived && (
-        <div className="rounded-md bg-glass-bg/60 p-2.5 text-[11px]">
+        <div className="rounded-md bg-glass-bg/60 p-2.5 text-2xs">
           {derived.feasible ? (
             <div className="space-y-1">
               <div className="flex items-center justify-between">
@@ -153,7 +153,7 @@ export function DeadlinePicker({
               </div>
             </div>
           ) : (
-            <div className="flex items-start gap-1.5 text-yellow-400">
+            <div className="flex items-start gap-1.5 text-warning">
               <AlertTriangle size={12} className="mt-0.5 shrink-0" />
               <span>{t("roadmaps.deadline.infeasible")}</span>
             </div>

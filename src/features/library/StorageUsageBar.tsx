@@ -44,7 +44,7 @@ export function StorageUsageBar({
         <div
           className={cn(
             "h-full rounded-full transition-all",
-            isHigh ? "bg-red-500" : "bg-accent-purple",
+            isHigh ? "bg-danger" : "bg-accent",
           )}
           style={{ width: `${Math.min(pct, 100)}%` }}
         />

@@ -900,7 +900,7 @@ export function ChatPage() {
         <div className="flex flex-col gap-1.5">
           <button
             onClick={handleNew}
-            className="flex items-center justify-center gap-2 rounded-md bg-accent-purple/15 px-3 py-2 text-xs font-medium text-accent-purple transition-colors hover:bg-accent-purple/25 cursor-pointer"
+            className="flex items-center justify-center gap-2 rounded-md bg-accent/15 px-3 py-2 text-xs font-medium text-accent transition-colors hover:bg-accent/25 cursor-pointer"
           >
             <Plus size={14} strokeWidth={2.5} />
             {t("chat.newConversation")}
@@ -964,7 +964,7 @@ export function ChatPage() {
               value={conversationSearch}
               onChange={(e) => setConversationSearch(e.target.value)}
               placeholder={t("chat.searchPlaceholder")}
-              className="w-full rounded-md border border-glass-border bg-glass-bg/50 px-2 py-1.5 pl-7 pr-7 text-xs text-text-primary outline-none focus:border-accent-purple/60 placeholder:text-text-muted"
+              className="w-full rounded-md border border-glass-border bg-glass-bg/50 px-2 py-1.5 pl-7 pr-7 text-xs text-text-primary outline-none focus:border-accent/60 placeholder:text-text-muted"
             />
             {conversationSearch && (
               <button
@@ -1036,10 +1036,10 @@ export function ChatPage() {
               when nothing is being dragged. */}
           <DragOverlay dropAnimation={null}>
             {activeDragConv && (
-              <div className="pointer-events-none flex items-center gap-2 rounded-md border border-accent-purple/60 bg-bg-secondary/95 px-3 py-1.5 text-xs text-text-primary shadow-lg backdrop-blur-md">
+              <div className="pointer-events-none flex items-center gap-2 rounded-md border border-accent/60 bg-bg-secondary/95 px-3 py-1.5 text-xs text-text-primary shadow-lg backdrop-blur-md">
                 <MessagesSquare
                   size={12}
-                  className="shrink-0 text-accent-purple"
+                  className="shrink-0 text-accent"
                 />
                 <span className="truncate max-w-[200px]">
                   {activeDragConv.title || t("chat.untitled")}
@@ -1047,10 +1047,10 @@ export function ChatPage() {
               </div>
             )}
             {activeDragFolder && (
-              <div className="pointer-events-none flex items-center gap-2 rounded-md border border-accent-purple/60 bg-bg-secondary/95 px-3 py-1.5 text-xs text-text-primary shadow-lg backdrop-blur-md">
+              <div className="pointer-events-none flex items-center gap-2 rounded-md border border-accent/60 bg-bg-secondary/95 px-3 py-1.5 text-xs text-text-primary shadow-lg backdrop-blur-md">
                 <FolderIcon
                   size={12}
-                  className="shrink-0 text-accent-purple"
+                  className="shrink-0 text-accent"
                 />
                 <span className="truncate max-w-[200px]">
                   {activeDragFolder.name}
@@ -1071,7 +1071,7 @@ export function ChatPage() {
             aria-label={t("chat.sidebar.resize", {
               defaultValue: "Resize sidebar",
             })}
-            className="absolute inset-y-0 right-0 z-10 hidden w-1 cursor-col-resize bg-transparent transition-colors hover:bg-accent-purple/40 sm:block"
+            className="absolute inset-y-0 right-0 z-10 hidden w-1 cursor-col-resize bg-transparent transition-colors hover:bg-accent/40 sm:block"
           />
         )}
       </aside>
@@ -1089,7 +1089,7 @@ export function ChatPage() {
           className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
         >
           <div
-            className="chat-aurora__blob h-[34rem] w-[34rem] -left-32 -top-40 bg-accent-purple/20"
+            className="chat-aurora__blob h-[34rem] w-[34rem] -left-32 -top-40 bg-accent/20"
             style={{ animation: "aurora-a 24s ease-in-out infinite" }}
           />
           <div
@@ -1097,7 +1097,7 @@ export function ChatPage() {
             style={{ animation: "aurora-b 31s ease-in-out infinite" }}
           />
           <div
-            className="chat-aurora__blob h-[32rem] w-[32rem] bottom-[-12rem] left-1/3 bg-accent-purple/15"
+            className="chat-aurora__blob h-[32rem] w-[32rem] bottom-[-12rem] left-1/3 bg-accent/15"
             style={{ animation: "aurora-c 27s ease-in-out infinite" }}
           />
         </div>
@@ -1229,7 +1229,7 @@ export function ChatPage() {
               </p>
               <button
                 onClick={handleNew}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-accent-purple px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-purple/80 cursor-pointer"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent/80 cursor-pointer"
               >
                 <Plus size={14} />
                 {t("chat.newConversation")}
@@ -1252,7 +1252,7 @@ export function ChatPage() {
                 >
                   <Loader2
                     size={28}
-                    className="animate-spin text-accent-purple/80"
+                    className="animate-spin text-accent/80"
                   />
                 </div>
               )}
@@ -1377,7 +1377,7 @@ export function ChatPage() {
                   conversation is tied to a roadmap. The AI has tool
                   access; tool calls render as quoted lines inline. */}
               {targetRoadmapId && (
-                <div className="mx-auto mb-2 flex w-full max-w-3xl items-center gap-2 rounded-md border border-accent-purple/30 bg-accent-purple/10 px-2 py-1.5 text-xs text-accent-purple">
+                <div className="mx-auto mb-2 flex w-full max-w-3xl items-center gap-2 rounded-md border border-accent/30 bg-accent/10 px-2 py-1.5 text-xs text-accent">
                   <MapIcon size={12} />
                   <span className="min-w-0 flex-1 truncate">
                     {t("chat.editingRoadmap", {
@@ -1392,7 +1392,7 @@ export function ChatPage() {
                       e.preventDefault();
                       navigate(`/roadmaps/${targetRoadmapId}/edit`);
                     }}
-                    className="rounded px-1.5 py-0.5 text-[11px] underline-offset-2 hover:bg-accent-purple/20 hover:underline cursor-pointer"
+                    className="rounded px-1.5 py-0.5 text-2xs underline-offset-2 hover:bg-accent/20 hover:underline cursor-pointer"
                   >
                     {t("chat.openInEditor")}
                   </a>
@@ -1431,7 +1431,7 @@ export function ChatPage() {
                           }`,
                         );
                       }}
-                      className="rounded px-1.5 py-0.5 text-[11px] underline-offset-2 hover:bg-accent-blue/20 hover:underline cursor-pointer"
+                      className="rounded px-1.5 py-0.5 text-2xs underline-offset-2 hover:bg-accent-blue/20 hover:underline cursor-pointer"
                     >
                       {t("chat.openInReader")}
                     </a>
@@ -1452,7 +1452,7 @@ export function ChatPage() {
                   </div>
                 )}
               {branchParent && (
-                <div className="mx-auto mb-2 flex w-full max-w-3xl items-center justify-between gap-2 rounded-md border border-accent-purple/30 bg-accent-purple/10 px-2 py-1.5 text-xs text-accent-purple">
+                <div className="mx-auto mb-2 flex w-full max-w-3xl items-center justify-between gap-2 rounded-md border border-accent/30 bg-accent/10 px-2 py-1.5 text-xs text-accent">
                   <span className="flex items-center gap-1.5">
                     <GitBranch size={12} />
                     {t("chat.branchingFrom", {
@@ -1463,7 +1463,7 @@ export function ChatPage() {
                   </span>
                   <button
                     onClick={() => setBranchFromId(null)}
-                    className="rounded p-0.5 hover:bg-accent-purple/20 cursor-pointer"
+                    className="rounded p-0.5 hover:bg-accent/20 cursor-pointer"
                     aria-label={t("common.cancel")}
                   >
                     <X size={12} />

@@ -147,20 +147,20 @@ export function ChatTree(props: ChatTreeProps) {
         // Faint outline when the pointer is in tree-root catchment
         // and nothing more specific is matched — gives the user a
         // "this drop will go to root" hint without a giant banner.
-        rootDroppable.isOver && "ring-1 ring-accent-purple/30",
+        rootDroppable.isOver && "ring-1 ring-accent/30",
       )}
     >
       {/* Quick chats — virtual top-level folder grouping every loose
           (folder_id = null) conversation. Always pinned at the top
           and tinted with the accent color so it stays distinct from
           the user's organized folders. */}
-      <div className="rounded-md bg-accent-purple/[0.06]">
+      <div className="rounded-md bg-accent/[0.06]">
         <div className="group flex items-stretch">
           <IndentGuides depth={0} />
           <div className="flex flex-1 items-center gap-1.5 py-1.5 pr-2 min-w-0">
             <button
               onClick={() => props.onToggleFolder(QUICK_CHATS_KEY)}
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-accent-purple/80 transition-colors hover:text-accent-purple cursor-pointer"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-accent/80 transition-colors hover:text-accent cursor-pointer"
               aria-label={
                 quickChatsCollapsed
                   ? t("common.expand")
@@ -175,15 +175,15 @@ export function ChatTree(props: ChatTreeProps) {
             </button>
             <MessagesSquare
               size={12}
-              className="shrink-0 text-accent-purple/80"
+              className="shrink-0 text-accent/80"
             />
             <button
               onClick={() => props.onToggleFolder(QUICK_CHATS_KEY)}
-              className="min-w-0 flex-1 truncate text-left text-xs font-semibold text-accent-purple/90 cursor-pointer"
+              className="min-w-0 flex-1 truncate text-left text-xs font-semibold text-accent/90 cursor-pointer"
             >
               {t("chat.sidebar.quickChats", { defaultValue: "Quick chats" })}
               {rootConvs.length > 0 && (
-                <span className="ml-1.5 text-[10px] font-normal text-accent-purple/60">
+                <span className="ml-1.5 text-2xs font-normal text-accent/60">
                   {rootConvs.length}
                 </span>
               )}
@@ -206,7 +206,7 @@ export function ChatTree(props: ChatTreeProps) {
             {hiddenRootCount > 0 && (
               <button
                 onClick={() => setQuickChatsShowAll((v) => !v)}
-                className="flex w-full items-center justify-center gap-1.5 rounded-md py-1.5 text-[11px] text-accent-purple/70 transition-colors hover:bg-accent-purple/10 hover:text-accent-purple cursor-pointer"
+                className="flex w-full items-center justify-center gap-1.5 rounded-md py-1.5 text-2xs text-accent/70 transition-colors hover:bg-accent/10 hover:text-accent cursor-pointer"
                 style={{ paddingLeft: 8 + 1 * 12 }}
               >
                 <MoreHorizontal size={12} />
@@ -220,7 +220,7 @@ export function ChatTree(props: ChatTreeProps) {
               rootConvs.length > QUICK_CHATS_VISIBLE_LIMIT && (
                 <button
                   onClick={() => setQuickChatsShowAll(false)}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-md py-1.5 text-[11px] text-accent-purple/70 transition-colors hover:bg-accent-purple/10 hover:text-accent-purple cursor-pointer"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-md py-1.5 text-2xs text-accent/70 transition-colors hover:bg-accent/10 hover:text-accent cursor-pointer"
                   style={{ paddingLeft: 8 + 1 * 12 }}
                 >
                   <ChevronDown size={12} className="rotate-180" />
@@ -376,7 +376,7 @@ const FolderRow = memo(function FolderRow({
         className={cn(
           "group relative flex items-stretch rounded-md text-text-secondary transition-colors cursor-grab active:cursor-grabbing",
           showNestHighlight
-            ? "bg-accent-purple/20 ring-1 ring-accent-purple/60"
+            ? "bg-accent/20 ring-1 ring-accent/60"
             : "hover:bg-glass-hover hover:text-text-primary",
           sortable.isDragging && "opacity-40",
         )}
@@ -387,7 +387,7 @@ const FolderRow = memo(function FolderRow({
             showNestHighlight above. */}
         {showDropLine && (
           <div
-            className="pointer-events-none absolute left-0 right-0 top-0 z-10 h-0.5 rounded-full bg-accent-purple"
+            className="pointer-events-none absolute left-0 right-0 top-0 z-10 h-0.5 rounded-full bg-accent"
             aria-hidden="true"
           />
         )}
@@ -413,7 +413,7 @@ const FolderRow = memo(function FolderRow({
               e.stopPropagation();
               void rest.onNewInFolder(folder.id);
             }}
-            className="rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-accent-purple group-hover:opacity-100 cursor-pointer"
+            className="rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-accent group-hover:opacity-100 cursor-pointer"
             aria-label={t("chat.sidebar.newInFolder", {
               defaultValue: "New conversation here",
             })}
@@ -432,7 +432,7 @@ const FolderRow = memo(function FolderRow({
           </button>
           <button
             onClick={() => rest.onRequestDeleteFolder(folder.id, folder.name)}
-            className="rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-red-400 group-hover:opacity-100 cursor-pointer"
+            className="rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-danger group-hover:opacity-100 cursor-pointer"
             aria-label={t("chat.folders.delete")}
           >
             <Trash2 size={10} />
@@ -606,7 +606,7 @@ const ConversationRow = memo(function ConversationRow({
         // Active row gets a stronger fill + left accent bar so the
         // current conversation pops at a glance.
         isActive
-          ? "bg-accent-purple/20 text-accent-purple before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent-purple"
+          ? "bg-accent/20 text-accent before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent"
           : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
       )}
     >
@@ -616,7 +616,7 @@ const ConversationRow = memo(function ConversationRow({
           visible even on the active (highlighted) row. */}
       {showDropLine && (
         <div
-          className="pointer-events-none absolute left-0 right-0 top-0 z-10 h-0.5 rounded-full bg-accent-purple"
+          className="pointer-events-none absolute left-0 right-0 top-0 z-10 h-0.5 rounded-full bg-accent"
           aria-hidden="true"
         />
       )}
@@ -632,11 +632,11 @@ const ConversationRow = memo(function ConversationRow({
                 if (e.key === "Enter") onSaveTitle(conversation.id);
                 if (e.key === "Escape") onCancelEdit();
               }}
-              className="flex-1 min-w-0 rounded border border-glass-border bg-bg-primary/50 px-1.5 py-0.5 text-xs text-text-primary outline-none focus:border-accent-purple"
+              className="flex-1 min-w-0 rounded border border-glass-border bg-bg-primary/50 px-1.5 py-0.5 text-xs text-text-primary outline-none focus:border-accent"
             />
             <button
               onClick={() => onSaveTitle(conversation.id)}
-              className="rounded p-1 text-green-400 hover:bg-glass-hover cursor-pointer"
+              className="rounded p-1 text-success hover:bg-glass-hover cursor-pointer"
             >
               <Check size={12} />
             </button>
@@ -725,7 +725,7 @@ const ConversationRow = memo(function ConversationRow({
           </button>
           <button
             onClick={() => onDelete(conversation.id)}
-            className="rounded p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-red-400 cursor-pointer"
+            className="rounded p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-danger cursor-pointer"
             aria-label={t("chat.delete")}
           >
             <Trash2 size={11} />
@@ -754,10 +754,10 @@ export function RootDropZone({ label }: { label: string }) {
       className={cn(
         "transition-all",
         dragging
-          ? "mb-1.5 flex items-center justify-center rounded-md border border-dashed py-1.5 text-[11px]"
+          ? "mb-1.5 flex items-center justify-center rounded-md border border-dashed py-1.5 text-2xs"
           : "h-0 overflow-hidden",
         isOver
-          ? "border-accent-purple bg-accent-purple/15 text-accent-purple"
+          ? "border-accent bg-accent/15 text-accent"
           : "border-glass-border text-text-muted",
       )}
     >

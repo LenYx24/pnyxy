@@ -37,7 +37,7 @@ export function BrowseBookCard({ book, onClick }: BrowseBookCardProps) {
             loading="lazy"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-purple/25 to-accent-blue/25">
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent/25 to-accent-blue/25">
             <BookOpen size={36} className="text-white/20" />
           </div>
         )}

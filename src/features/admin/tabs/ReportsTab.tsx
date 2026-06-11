@@ -51,7 +51,7 @@ export function ReportsTab() {
   if (reportsLoading && reports.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-accent-purple" />
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
       </div>
     );
   }
@@ -87,7 +87,7 @@ export function ReportsTab() {
                 className={cn(
                   "rounded-full px-2.5 py-0.5 text-xs font-medium",
                   isPending
-                    ? "bg-amber-500/15 text-amber-400"
+                    ? "bg-warning/15 text-warning"
                     : "bg-glass-hover text-text-muted",
                 )}
               >
@@ -128,7 +128,7 @@ export function ReportsTab() {
                       [report.id]: e.target.value,
                     }))
                   }
-                  className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple focus:outline-none"
+                  className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
                 />
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -176,7 +176,7 @@ export function ReportsTab() {
                           [report.id]: Number(e.target.value),
                         }))
                       }
-                      className="w-16 rounded-lg border border-glass-border bg-glass-bg px-2 py-1.5 text-center text-sm text-text-primary focus:border-accent-purple focus:outline-none"
+                      className="w-16 rounded-lg border border-glass-border bg-glass-bg px-2 py-1.5 text-center text-sm text-text-primary focus:border-accent focus:outline-none"
                     />
                     <span className="text-xs text-text-muted">days</span>
                   </div>
@@ -196,7 +196,7 @@ export function ReportsTab() {
                   </Button>
 
                   {acting === report.id && (
-                    <Loader2 size={16} className="animate-spin text-accent-purple" />
+                    <Loader2 size={16} className="animate-spin text-accent" />
                   )}
                 </div>
               </div>

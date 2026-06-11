@@ -124,7 +124,7 @@ export function BookPage() {
                     className="h-20 w-14 rounded-md object-cover shadow-md"
                   />
                 ) : (
-                  <div className="flex h-20 w-14 items-center justify-center rounded-md bg-gradient-to-br from-accent-purple/30 to-accent-blue/30 shadow-md">
+                  <div className="flex h-20 w-14 items-center justify-center rounded-md bg-gradient-to-br from-accent/30 to-accent-blue/30 shadow-md">
                     <BookOpen size={20} className="text-white/20" />
                   </div>
                 )}
@@ -152,11 +152,11 @@ export function BookPage() {
                     {title}
                   </h1>
                 )}
-                <p className="line-clamp-1 text-[11px] text-text-muted">
+                <p className="line-clamp-1 text-2xs text-text-muted">
                   {authors}
                 </p>
                 {data.source === "uploaded" && (
-                  <span className="mt-1 inline-flex items-center gap-1 rounded bg-accent-purple/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-accent-purple">
+                  <span className="mt-1 inline-flex items-center gap-1 rounded bg-accent/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-accent">
                     {t("book.uploadedBadge")}
                   </span>
                 )}

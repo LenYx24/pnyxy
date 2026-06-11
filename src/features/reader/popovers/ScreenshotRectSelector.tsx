@@ -91,7 +91,7 @@ export function ScreenshotRectSelector({
       {rect && (
         <>
           <div
-            className="pointer-events-none absolute border-2 border-accent-purple bg-accent-purple/10"
+            className="pointer-events-none absolute border-2 border-accent bg-accent/10"
             style={{
               left: rect.left,
               top: rect.top,

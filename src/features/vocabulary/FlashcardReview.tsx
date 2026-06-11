@@ -32,16 +32,16 @@ function escapeRegex(s: string): string {
 }
 
 const RATINGS: { key: VocabRating; tone: string }[] = [
-  { key: "again", tone: "bg-red-500/20 text-red-400 hover:bg-red-500/30" },
+  { key: "again", tone: "bg-danger/20 text-danger hover:bg-danger/30" },
   {
     key: "hard",
     tone: "bg-orange-500/20 text-orange-400 hover:bg-orange-500/30",
   },
   {
     key: "good",
-    tone: "bg-accent-purple/20 text-accent-purple hover:bg-accent-purple/30",
+    tone: "bg-accent/20 text-accent hover:bg-accent/30",
   },
-  { key: "easy", tone: "bg-green-500/20 text-green-400 hover:bg-green-500/30" },
+  { key: "easy", tone: "bg-success/20 text-success hover:bg-success/30" },
 ];
 
 export function FlashcardReview({
@@ -114,7 +114,7 @@ export function FlashcardReview({
             </h2>
             {cram && (
               <span
-                className="rounded-full bg-orange-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-300"
+                className="rounded-full bg-orange-500/20 px-2 py-0.5 text-2xs font-semibold uppercase tracking-wide text-orange-300"
                 title={t("vocabulary.review.cramHint", {
                   defaultValue:
                     "Cram mode — ratings don't change the FSRS schedule",
@@ -160,7 +160,7 @@ export function FlashcardReview({
               {revealed && current && (
                 <div className="mt-1 space-y-2 border-t border-glass-border pt-3">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-xl font-semibold text-accent-purple">
+                    <span className="text-xl font-semibold text-accent">
                       {current.word}
                     </span>
                   </div>

@@ -25,7 +25,7 @@ export const CORE_THEMES = {
       // longer reads as "default Tailwind purple". Cyan/icy palette
       // over a neutral dark surface. Accent is darker than Midnight's
       // to stay legible with white text on top (≥4.5:1 contrast).
-      "--color-accent-purple": "#0891b2",
+      "--color-accent": "#0891b2",
       "--color-accent-blue": "#60a5fa",
       // Text contrast retuned 2026-05: secondary lifted from #9aa9c9
       // to #c8d3ee (~11:1 on bg-primary, was ~7:1) and muted lifted
@@ -56,7 +56,7 @@ export const CORE_THEMES = {
       "--color-bg-primary": "#0a0a0f",
       "--color-bg-secondary": "#111118",
       "--color-bg-tertiary": "#1a1a24",
-      "--color-accent-purple": "#22d3ee",
+      "--color-accent": "#22d3ee",
       "--color-accent-blue": "#93c5fd",
       "--color-text-primary": "#ffffff",
       "--color-text-secondary": "#e0e8f7",
@@ -77,7 +77,7 @@ export const CORE_THEMES = {
       "--color-bg-primary": "#f7f5f0",
       "--color-bg-secondary": "#ffffff",
       "--color-bg-tertiary": "#ece8df",
-      "--color-accent-purple": "#7c3aed",
+      "--color-accent": "#7c3aed",
       "--color-accent-blue": "#2563eb",
       "--color-text-primary": "#1c1b22",
       "--color-text-secondary": "#4a4956",
@@ -101,7 +101,7 @@ export const CORE_THEMES = {
       "--color-bg-secondary": "#ebe2cc",
       "--color-bg-tertiary": "#d8cdb3",
       // Warm-amber accent so links/buttons sit naturally on parchment.
-      "--color-accent-purple": "#a85a1f",
+      "--color-accent": "#a85a1f",
       "--color-accent-blue": "#7c5b2a",
       // Dark sepia text instead of black — lowers contrast just enough
       // to reduce strain without losing legibility (≥7:1 on bg-primary).
@@ -128,7 +128,7 @@ export const CORE_THEMES = {
       "--color-bg-secondary": "#251a10",
       "--color-bg-tertiary": "#322415",
       // Amber + warm gold accents; deliberately no blue.
-      "--color-accent-purple": "#d4923a",
+      "--color-accent": "#d4923a",
       "--color-accent-blue": "#e8b663",
       // Warm cream text — soft on dark warm bg.
       "--color-text-primary": "#f0e2c8",
@@ -150,7 +150,7 @@ export const CORE_THEMES = {
       "--color-bg-primary": "#06091a",
       "--color-bg-secondary": "#0c1228",
       "--color-bg-tertiary": "#141d3a",
-      "--color-accent-purple": "#22d3ee",
+      "--color-accent": "#22d3ee",
       "--color-accent-blue": "#60a5fa",
       "--color-text-primary": "#eaf2ff",
       "--color-text-secondary": "#9aa9c9",
@@ -171,7 +171,7 @@ export const CORE_THEMES = {
       "--color-bg-primary": "#0c0814",
       "--color-bg-secondary": "#161122",
       "--color-bg-tertiary": "#241b36",
-      "--color-accent-purple": "#ff6b9d",
+      "--color-accent": "#ff6b9d",
       "--color-accent-blue": "#ffc857",
       "--color-text-primary": "#faf0f2",
       "--color-text-secondary": "#b8a0ad",
@@ -192,7 +192,7 @@ export const CORE_THEMES = {
       "--color-bg-primary": "#040712",
       "--color-bg-secondary": "#0c1328",
       "--color-bg-tertiary": "#17243f",
-      "--color-accent-purple": "#64ffda",
+      "--color-accent": "#64ffda",
       "--color-accent-blue": "#b5a6ff",
       "--color-text-primary": "#e6fbf3",
       "--color-text-secondary": "#8fa8bc",
@@ -213,7 +213,7 @@ export const CORE_THEMES = {
       "--color-bg-primary": "#0e0a18",
       "--color-bg-secondary": "#1a152a",
       "--color-bg-tertiary": "#2a2443",
-      "--color-accent-purple": "#e0916f",
+      "--color-accent": "#e0916f",
       "--color-accent-blue": "#91c7e3",
       "--color-text-primary": "#f5ede5",
       "--color-text-secondary": "#b0a598",
@@ -234,7 +234,7 @@ export const CORE_THEMES = {
       "--color-bg-primary": "#100608",
       "--color-bg-secondary": "#1c0c10",
       "--color-bg-tertiary": "#2b1318",
-      "--color-accent-purple": "#ff8b3d",
+      "--color-accent": "#ff8b3d",
       "--color-accent-blue": "#ffd76b",
       "--color-text-primary": "#fff0e6",
       "--color-text-secondary": "#c4a094",

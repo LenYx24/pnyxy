@@ -77,7 +77,7 @@ export function ReportUserModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-glass-border px-6 py-4">
           <div className="flex items-center gap-2">
-            <Flag size={18} className="text-red-400" />
+            <Flag size={18} className="text-danger" />
             <h2 className="text-lg font-semibold text-text-primary">
               Report User
             </h2>
@@ -92,7 +92,7 @@ export function ReportUserModal({
 
         <div className="p-6">
           {success ? (
-            <p className="text-center text-green-400">
+            <p className="text-center text-success">
               Report submitted. Thank you.
             </p>
           ) : (
@@ -109,7 +109,7 @@ export function ReportUserModal({
                     className={cn(
                       "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer",
                       selected.includes(value)
-                        ? "border-accent-purple bg-accent-purple/15 text-accent-purple"
+                        ? "border-accent bg-accent/15 text-accent"
                         : "border-glass-border bg-glass-bg text-text-secondary hover:bg-glass-hover",
                     )}
                   >
@@ -123,11 +123,11 @@ export function ReportUserModal({
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Additional details (optional)"
                 rows={3}
-                className="mb-4 w-full resize-none rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple focus:outline-none"
+                className="mb-4 w-full resize-none rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
               />
 
               {error && (
-                <p className="mb-3 text-sm text-red-400">{error}</p>
+                <p className="mb-3 text-sm text-danger">{error}</p>
               )}
 
               <div className="flex justify-end gap-2">

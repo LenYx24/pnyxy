@@ -240,7 +240,7 @@ export function ImportCatalogPage() {
           onChange={(e) => handleQueryChange(e.target.value)}
           placeholder={t("catalogImport.searchPlaceholder")}
           autoFocus
-          className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2 pl-9 text-sm text-text-primary backdrop-blur-md placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
+          className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2 pl-9 text-sm text-text-primary backdrop-blur-md placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
         />
         {anyLoading && (
           <Loader2
@@ -310,7 +310,7 @@ function ResultRow({
             loading="lazy"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-purple/25 to-accent-blue/25">
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent/25 to-accent-blue/25">
             <BookOpen size={20} className="text-white/25" />
           </div>
         )}
@@ -337,15 +337,15 @@ function ResultRow({
           {result.authors.join(", ")}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
-          <span className="rounded bg-accent-purple/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-purple">
+          <span className="rounded bg-accent/15 px-1.5 py-0.5 text-2xs font-medium text-accent">
             {t(`catalogImport.sources.${camelSource(result.sourceId)}.name`)}
           </span>
           {result.downloadUrl ? (
-            <span className="text-[10px] text-green-400">
+            <span className="text-2xs text-success">
               {t("catalogImport.hasFile")}
             </span>
           ) : (
-            <span className="text-[10px] text-text-muted">
+            <span className="text-2xs text-text-muted">
               {t("catalogImport.metadataOnly")}
             </span>
           )}

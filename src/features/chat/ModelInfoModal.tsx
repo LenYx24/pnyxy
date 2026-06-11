@@ -43,8 +43,8 @@ export function ModelInfoModal({ open, onClose }: ModelInfoModalProps) {
       <div className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-glass-border bg-bg-secondary/95 backdrop-blur-xl sm:max-h-[85vh]">
         <div className="flex items-center justify-between border-b border-glass-border p-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-purple/15">
-              <Bot size={16} className="text-accent-purple" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15">
+              <Bot size={16} className="text-accent" />
             </div>
             <h2 className="text-lg font-semibold text-text-primary">
               {t("chat.modelHelp.title", {
@@ -95,11 +95,11 @@ export function ModelCard({ model }: { model: ModelInfo }) {
           <h3 className="text-sm font-semibold text-text-primary">
             {model.displayName}
           </h3>
-          <p className="font-mono text-[10px] text-text-muted truncate">
+          <p className="font-mono text-2xs text-text-muted truncate">
             {model.modelId}
           </p>
         </div>
-        <span className="shrink-0 rounded-full border border-glass-border bg-bg-primary/40 px-2 py-0.5 text-[10px] font-medium text-text-muted">
+        <span className="shrink-0 rounded-full border border-glass-border bg-bg-primary/40 px-2 py-0.5 text-2xs font-medium text-text-muted">
           {model.routingNote}
         </span>
       </header>
@@ -109,20 +109,20 @@ export function ModelCard({ model }: { model: ModelInfo }) {
       </p>
 
       <div className="mb-3">
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+        <p className="mb-1 text-2xs font-semibold uppercase tracking-wider text-text-muted">
           {t("chat.modelHelp.bestFor", { defaultValue: "Mire jó" })}
         </p>
         <ul className="space-y-0.5 text-xs text-text-secondary">
           {model.bestFor.map((b, i) => (
             <li key={i} className="flex gap-2">
-              <span className="text-accent-purple">•</span>
+              <span className="text-accent">•</span>
               <span>{b}</span>
             </li>
           ))}
         </ul>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 text-[11px] sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 text-2xs sm:grid-cols-3">
         <Pill
           icon={Zap}
           label={t("chat.modelHelp.speed", { defaultValue: "Sebesség" })}
@@ -147,7 +147,7 @@ export function ModelCard({ model }: { model: ModelInfo }) {
       </div>
 
       <div className="mt-3 rounded-md bg-bg-primary/40 p-3">
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+        <p className="mb-1 text-2xs font-semibold uppercase tracking-wider text-text-muted">
           {t("chat.modelHelp.tokens", {
             defaultValue: "Átlagos token-költség egy fordulóra",
           })}
@@ -162,7 +162,7 @@ export function ModelCard({ model }: { model: ModelInfo }) {
           </strong>{" "}
           / forduló
         </p>
-        <p className="mt-2 text-[11px] text-text-muted">{model.costNotes}</p>
+        <p className="mt-2 text-2xs text-text-muted">{model.costNotes}</p>
       </div>
     </article>
   );
@@ -183,7 +183,7 @@ function Pill({
         "flex items-center gap-1.5 rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1.5",
       )}
     >
-      <Icon size={12} className="text-accent-purple/80 shrink-0" />
+      <Icon size={12} className="text-accent/80 shrink-0" />
       <div className="min-w-0">
         <p className="text-[9px] uppercase tracking-wider text-text-muted">
           {label}

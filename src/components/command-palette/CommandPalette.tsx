@@ -228,7 +228,7 @@ export function CommandPalette() {
           ) : (
             grouped.map((section) => (
               <div key={section.category} className="py-1">
-                <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                <div className="px-3 pb-1 pt-2 text-2xs font-semibold uppercase tracking-wider text-text-muted">
                   {t(`commandPalette.section.${section.category}`)}
                 </div>
                 {section.items.map((cmd) => {
@@ -244,7 +244,7 @@ export function CommandPalette() {
                       className={cn(
                         "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors cursor-pointer",
                         active
-                          ? "bg-accent-purple/15 text-accent-purple"
+                          ? "bg-accent/15 text-accent"
                           : "text-text-secondary hover:bg-glass-hover",
                       )}
                     >
@@ -265,7 +265,7 @@ export function CommandPalette() {
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-3 border-t border-glass-border px-3 py-1.5 text-[10px] text-text-muted">
+        <div className="flex items-center justify-end gap-3 border-t border-glass-border px-3 py-1.5 text-2xs text-text-muted">
           <span>
             <kbd className="rounded border border-glass-border bg-glass-bg px-1">
               ↑↓

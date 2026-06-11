@@ -101,7 +101,7 @@ export function TtsMiniPlayer() {
           type="button"
           onClick={isPlaying ? pause : resume}
           aria-label={isPlaying ? t("tts.pause") : t("tts.resume")}
-          className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-purple/20 text-accent-purple transition-colors hover:bg-accent-purple/30 cursor-pointer"
+          className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/20 text-accent transition-colors hover:bg-accent/30 cursor-pointer"
         >
           {isPlaying ? <Pause size={16} /> : <Play size={16} />}
         </button>
@@ -119,12 +119,12 @@ export function TtsMiniPlayer() {
           type="button"
           onClick={stop}
           aria-label={t("tts.stop")}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-red-500/10 hover:text-red-400 cursor-pointer"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger cursor-pointer"
         >
           <Square size={14} />
         </button>
 
-        <div className="flex-1 truncate px-1 text-[11px] text-text-muted">
+        <div className="flex-1 truncate px-1 text-2xs text-text-muted">
           {progressLabel}
         </div>
 
@@ -146,7 +146,7 @@ export function TtsMiniPlayer() {
             <div className="mb-2">
               <label
                 htmlFor="tts-voice"
-                className="mb-1 block text-[11px] uppercase tracking-wide text-text-muted"
+                className="mb-1 block text-2xs uppercase tracking-wide text-text-muted"
               >
                 {t("tts.voice")}
               </label>
@@ -154,7 +154,7 @@ export function TtsMiniPlayer() {
                 id="tts-voice"
                 value={voiceUri ?? ""}
                 onChange={(e) => setVoiceUri(e.target.value || null)}
-                className="w-full cursor-pointer rounded border border-glass-border bg-glass-bg px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-purple"
+                className="w-full cursor-pointer rounded border border-glass-border bg-glass-bg px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent"
               >
                 <option value="">{t("tts.voiceDefault")}</option>
                 {voices.map((v) => (
@@ -164,7 +164,7 @@ export function TtsMiniPlayer() {
                 ))}
               </select>
               {voices.length === 0 && (
-                <p className="mt-1 text-[10px] text-text-muted">
+                <p className="mt-1 text-2xs text-text-muted">
                   {t("tts.noVoices")}
                 </p>
               )}
@@ -174,11 +174,11 @@ export function TtsMiniPlayer() {
               <div className="mb-1 flex items-center justify-between">
                 <label
                   htmlFor="tts-rate"
-                  className="text-[11px] uppercase tracking-wide text-text-muted"
+                  className="text-2xs uppercase tracking-wide text-text-muted"
                 >
                   {t("tts.rate")}
                 </label>
-                <span className="text-[11px] text-text-secondary">
+                <span className="text-2xs text-text-secondary">
                   {rate.toFixed(2)}x
                 </span>
               </div>
@@ -190,7 +190,7 @@ export function TtsMiniPlayer() {
                 step={0.05}
                 value={rate}
                 onChange={(e) => setRate(Number(e.target.value))}
-                className="w-full accent-accent-purple"
+                className="w-full accent-accent"
               />
             </div>
           </div>

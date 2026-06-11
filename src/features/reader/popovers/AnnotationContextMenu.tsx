@@ -348,7 +348,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
             {hasHighlight && (
               <button
                 onClick={handleRemoveHighlight}
-                className="ml-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-transparent bg-red-500/15 text-red-400 transition-colors cursor-pointer hover:border-red-400/60 hover:bg-red-500/25 hover:scale-110"
+                className="ml-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-transparent bg-danger/15 text-danger transition-colors cursor-pointer hover:border-danger/60 hover:bg-danger/25 hover:scale-110"
                 title={t("reader.annotationMenu.removeHighlight")}
                 aria-label={t("reader.annotationMenu.removeHighlight")}
               >
@@ -495,7 +495,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
             onChange={(e) => setCommentText(e.target.value)}
             onKeyDown={handleCommentKeyDown}
             placeholder={t("reader.annotationMenu.commentPlaceholder")}
-            className="w-48 h-16 rounded border border-glass-border bg-glass-bg px-2 py-1.5 text-xs text-text-primary outline-none resize-none focus:border-accent-purple"
+            className="w-48 h-16 rounded border border-glass-border bg-glass-bg px-2 py-1.5 text-xs text-text-primary outline-none resize-none focus:border-accent"
           />
           <div className="flex justify-end gap-1">
             <button
@@ -505,7 +505,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
               {t("common.cancel")}
             </button>
             <button
-              className="rounded bg-accent-purple/20 px-2 py-1 text-xs text-accent-purple hover:bg-accent-purple/30 transition-colors cursor-pointer disabled:opacity-40"
+              className="rounded bg-accent/20 px-2 py-1 text-xs text-accent hover:bg-accent/30 transition-colors cursor-pointer disabled:opacity-40"
               disabled={!commentText.trim()}
               onClick={handleSubmitComment}
             >

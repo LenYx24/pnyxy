@@ -182,7 +182,7 @@ export function LibraryBookCard({
       <div
         className={cn(
           "group relative",
-          selected && "ring-2 ring-accent-purple rounded-md",
+          selected && "ring-2 ring-accent rounded-md",
           isDragging && "opacity-50",
         )}
       >
@@ -222,7 +222,7 @@ export function LibraryBookCard({
                 fallbackLetter={title.charAt(0)}
               />
             ) : (
-              <div className="flex h-full items-center justify-center bg-gradient-to-br from-accent-purple/25 to-accent-blue/25">
+              <div className="flex h-full items-center justify-center bg-gradient-to-br from-accent/25 to-accent-blue/25">
                 <span
                   className={cn(
                     "font-bold text-white/20",
@@ -258,7 +258,7 @@ export function LibraryBookCard({
                 card's metadata-only icon. */}
             {entry.source === "uploaded" && (
               <span
-                className="absolute bottom-1.5 left-1.5 rounded bg-bg-primary/80 p-0.5 text-accent-purple backdrop-blur-sm"
+                className="absolute bottom-1.5 left-1.5 rounded bg-bg-primary/80 p-0.5 text-accent backdrop-blur-sm"
                 title="Uploaded file"
               >
                 <Upload size={10} />
@@ -271,7 +271,7 @@ export function LibraryBookCard({
                 the always-visible checkbox at the same spot. */}
             {isInProgress && !selectionActive && !selected && (
               <span
-                className="absolute left-1.5 top-1.5 rounded-full bg-accent-purple/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur-sm sm:opacity-100 sm:group-hover:opacity-0"
+                className="absolute left-1.5 top-1.5 rounded-full bg-accent/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur-sm sm:opacity-100 sm:group-hover:opacity-0"
                 title={t("library.reading")}
               >
                 {t("library.reading")}
@@ -290,7 +290,7 @@ export function LibraryBookCard({
                 }}
                 aria-label={t("library.actions.openInReader")}
                 title={t("library.actions.openInReader")}
-                className="absolute bottom-1.5 right-1.5 z-10 rounded-lg bg-accent-purple/90 p-1.5 text-white shadow-md backdrop-blur-sm transition-colors hover:bg-accent-purple cursor-pointer"
+                className="absolute bottom-1.5 right-1.5 z-10 rounded-lg bg-accent/90 p-1.5 text-white shadow-md backdrop-blur-sm transition-colors hover:bg-accent cursor-pointer"
               >
                 <BookOpen size={14} />
               </button>
@@ -328,7 +328,7 @@ export function LibraryBookCard({
             <p
               className={cn(
                 "truncate leading-tight text-text-muted",
-                compact ? "text-[10px]" : "text-xs",
+                compact ? "text-2xs" : "text-xs",
               )}
             >
               {author}
@@ -341,7 +341,7 @@ export function LibraryBookCard({
                 {customTags.slice(0, 3).map((label) => (
                   <span
                     key={label}
-                    className="inline-flex items-center rounded-full border border-glass-border bg-glass-bg px-1.5 py-0.5 text-[10px] text-text-secondary"
+                    className="inline-flex items-center rounded-full border border-glass-border bg-glass-bg px-1.5 py-0.5 text-2xs text-text-secondary"
                     title={label}
                   >
                     {label}
@@ -457,7 +457,7 @@ export function LibraryBookCard({
                 setMenuOpen(false);
                 onRemove(entry);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 transition-colors hover:bg-glass-hover cursor-pointer"
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger transition-colors hover:bg-glass-hover cursor-pointer"
             >
               <Trash2 size={14} />
               {entry.source === "uploaded" ? "Delete" : "Remove from Library"}

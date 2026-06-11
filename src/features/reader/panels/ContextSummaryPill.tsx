@@ -75,7 +75,7 @@ export function ContextSummaryPill({
         : t("reader.aiChat.contextEmpty");
     return (
       <div className="px-3">
-        <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
+        <div className="flex items-center gap-1.5 text-2xs text-text-muted">
           <FileText size={11} />
           <span className="truncate">{summary}</span>
         </div>
@@ -103,7 +103,7 @@ export function ContextSummaryPill({
         onClick={pickPages}
         role="button"
         tabIndex={-1}
-        className="flex w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-md px-1.5 py-1 text-[10px] text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+        className="flex w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-md px-1.5 py-1 text-2xs text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
         title={t("reader.aiChat.customizeContext", {
           defaultValue: "Customize what pages get sent to the AI",
         })}
@@ -156,7 +156,7 @@ export function ContextSummaryPill({
               e.stopPropagation();
               openEditor();
             }}
-            className="ml-auto shrink-0 rounded text-[10px] text-text-muted underline decoration-dotted underline-offset-2 transition-colors hover:text-text-primary cursor-pointer"
+            className="ml-auto shrink-0 rounded text-2xs text-text-muted underline decoration-dotted underline-offset-2 transition-colors hover:text-text-primary cursor-pointer"
           >
             {t("reader.aiChat.customizeContextAction", {
               defaultValue: "Customize",
@@ -164,7 +164,7 @@ export function ContextSummaryPill({
           </button>
         )}
         {showSidebarEditor && !onPickPages && (
-          <span className="ml-auto shrink-0 text-[10px] text-text-muted">
+          <span className="ml-auto shrink-0 text-2xs text-text-muted">
             {t("reader.aiChat.customizeContextAction", {
               defaultValue: "Customize",
             })}

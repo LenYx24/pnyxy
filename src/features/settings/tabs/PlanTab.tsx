@@ -49,8 +49,8 @@ export function PlanTab() {
     <div className="space-y-6">
       <section className="space-y-4 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-purple/10">
-            <Sparkles size={20} className="text-accent-purple" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10">
+            <Sparkles size={20} className="text-accent" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-text-primary">
@@ -66,7 +66,7 @@ export function PlanTab() {
             className={cn(
               "ml-auto rounded-full px-3 py-1 text-xs font-semibold",
               isPremium
-                ? "bg-accent-purple/15 text-accent-purple"
+                ? "bg-accent/15 text-accent"
                 : "bg-glass-bg text-text-secondary",
             )}
           >
@@ -88,7 +88,7 @@ export function PlanTab() {
                   key={key}
                   className="flex items-start gap-2 text-sm text-text-secondary"
                 >
-                  <Check size={16} className="mt-0.5 shrink-0 text-accent-purple" />
+                  <Check size={16} className="mt-0.5 shrink-0 text-accent" />
                   {t(`settings.plan_section.features.${key}`)}
                 </li>
               ))}
@@ -99,7 +99,7 @@ export function PlanTab() {
                 href={checkoutUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg bg-accent-purple px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
               >
                 <Sparkles size={15} />
                 {t("settings.plan_section.upgradeButton")}

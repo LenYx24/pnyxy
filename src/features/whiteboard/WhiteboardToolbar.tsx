@@ -74,7 +74,7 @@ export function WhiteboardToolbar() {
           className={cn(
             "rounded-lg p-1.5 transition-colors cursor-pointer",
             activeTool === tool
-              ? "bg-accent-purple/20 text-accent-purple"
+              ? "bg-accent/20 text-accent"
               : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
           )}
         >
@@ -94,7 +94,7 @@ export function WhiteboardToolbar() {
           className={cn(
             "h-5 w-5 rounded-full border-2 transition-transform cursor-pointer",
             strokeColor === color
-              ? "border-accent-purple scale-110"
+              ? "border-accent scale-110"
               : color === "#000000"
                 ? "border-glass-border hover:scale-110"
                 : "border-transparent hover:scale-110",
@@ -110,7 +110,7 @@ export function WhiteboardToolbar() {
         className={cn(
           "relative h-5 w-5 rounded-full border-2 transition-transform cursor-pointer overflow-hidden",
           !COLORS.includes(strokeColor)
-            ? "border-accent-purple scale-110"
+            ? "border-accent scale-110"
             : "border-transparent hover:scale-110",
         )}
         style={{
@@ -141,7 +141,7 @@ export function WhiteboardToolbar() {
           className={cn(
             "flex items-center justify-center rounded-lg p-1.5 transition-colors cursor-pointer",
             strokeWidth === w
-              ? "bg-accent-purple/20 text-accent-purple"
+              ? "bg-accent/20 text-accent"
               : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
           )}
         >
@@ -164,7 +164,7 @@ export function WhiteboardToolbar() {
         className={cn(
           "rounded-lg p-1.5 transition-colors cursor-pointer",
           background === "grid"
-            ? "bg-accent-purple/20 text-accent-purple"
+            ? "bg-accent/20 text-accent"
             : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
         )}
       >

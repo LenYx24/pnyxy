@@ -937,14 +937,14 @@ export function AllBooksTab({
           <DragOverlay dropAnimation={dropAnimation}>
             {activeDragFolder && (
               <div style={{ width: cardSize }} className="pointer-events-none">
-                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent-purple">
+                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
                   <div
                     className="flex w-full items-center justify-center"
                     style={{ height: coverHeight }}
                   >
                     <Folder
                       size={Math.round(Math.min(Math.max(coverHeight * 0.35, 24), 48))}
-                      className="text-accent-purple/60"
+                      className="text-accent/60"
                     />
                   </div>
                   <div className={coverHeight < 100 ? "p-2" : "p-3"}>
@@ -954,7 +954,7 @@ export function AllBooksTab({
                       {activeDragFolder.name}
                     </h3>
                     <p
-                      className={`truncate text-text-muted ${coverHeight < 100 ? "text-[10px]" : "text-xs"}`}
+                      className={`truncate text-text-muted ${coverHeight < 100 ? "text-2xs" : "text-xs"}`}
                     >
                       {t("library.allBooks.folderLabel")}
                     </p>
@@ -964,7 +964,7 @@ export function AllBooksTab({
             )}
             {activeDragBook && (
               <div style={{ width: cardSize }} className="pointer-events-none">
-                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent-purple">
+                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
                   <div className="flex items-center gap-3 p-3">
                     <span className="text-sm font-medium text-text-primary truncate">
                       {activeDragBook.source === "catalog"
@@ -977,7 +977,7 @@ export function AllBooksTab({
             )}
             {activeDragNote && (
               <div style={{ width: cardSize }} className="pointer-events-none">
-                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent-purple">
+                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
                   <div className="flex items-center gap-3 p-3">
                     <FileText size={16} className="shrink-0 text-accent-blue/70" />
                     <span className="text-sm font-medium text-text-primary truncate">
@@ -990,9 +990,9 @@ export function AllBooksTab({
             )}
             {activeDragWhiteboard && (
               <div style={{ width: cardSize }} className="pointer-events-none">
-                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent-purple">
+                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
                   <div className="flex items-center gap-3 p-3">
-                    <Shapes size={16} className="shrink-0 text-emerald-400/80" />
+                    <Shapes size={16} className="shrink-0 text-success/80" />
                     <span className="text-sm font-medium text-text-primary truncate">
                       {activeDragWhiteboard.title.trim() ||
                         t("library.allBooks.untitledWhiteboard")}
@@ -1003,9 +1003,9 @@ export function AllBooksTab({
             )}
             {activeDragQuiz && (
               <div style={{ width: cardSize }} className="pointer-events-none">
-                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent-purple">
+                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
                   <div className="flex items-center gap-3 p-3">
-                    <ListChecks size={16} className="shrink-0 text-amber-400/80" />
+                    <ListChecks size={16} className="shrink-0 text-warning/80" />
                     <span className="text-sm font-medium text-text-primary truncate">
                       {activeDragQuiz.title.trim() ||
                         t("library.allBooks.untitledQuiz")}
@@ -1016,7 +1016,7 @@ export function AllBooksTab({
             )}
             {activeDragChat && (
               <div style={{ width: cardSize }} className="pointer-events-none">
-                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent-purple">
+                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
                   <div className="flex items-center gap-3 p-3">
                     <MessageSquare size={16} className="shrink-0 text-sky-400/80" />
                     <span className="text-sm font-medium text-text-primary truncate">
@@ -1067,7 +1067,7 @@ export function AllBooksTab({
               </Button>
               <button
                 onClick={confirmDeleteFolder}
-                className="cursor-pointer rounded-lg bg-red-500/20 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/30"
+                className="cursor-pointer rounded-lg bg-danger/20 px-4 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/30"
               >
                 {t("library.allBooks.deleteFolder.action")}
               </button>
@@ -1163,9 +1163,9 @@ function UploadGhostRow({
       className={cn(
         "flex items-center gap-3 rounded-lg border bg-glass-bg/40 px-3 py-2 transition-colors",
         isError
-          ? "border-red-500/30"
+          ? "border-danger/30"
           : isSuccess
-            ? "border-emerald-500/30"
+            ? "border-success/30"
             : "border-glass-border",
       )}
     >
@@ -1173,10 +1173,10 @@ function UploadGhostRow({
         className={cn(
           "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
           isError
-            ? "bg-red-500/15 text-red-400"
+            ? "bg-danger/15 text-danger"
             : isSuccess
-              ? "bg-emerald-500/15 text-emerald-400"
-              : "bg-accent-purple/15 text-accent-purple",
+              ? "bg-success/15 text-success"
+              : "bg-accent/15 text-accent",
         )}
       >
         {isError ? (
@@ -1193,16 +1193,16 @@ function UploadGhostRow({
         {job.status === "uploading" ? (
           <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-glass-bg">
             <div
-              className="h-full rounded-full bg-accent-purple transition-[width] duration-200"
+              className="h-full rounded-full bg-accent transition-[width] duration-200"
               style={{ width: `${job.progress}%` }}
             />
           </div>
         ) : isError ? (
-          <p className="truncate text-[11px] text-red-400">
+          <p className="truncate text-2xs text-danger">
             {job.error ?? t("library.upload.failed")}
           </p>
         ) : (
-          <p className="text-[11px] text-emerald-400">
+          <p className="text-2xs text-success">
             {t("library.upload.success")}
           </p>
         )}
@@ -1249,12 +1249,12 @@ function CreateFolderTile({ onClick }: { onClick: () => void }) {
         className={cn(
           "relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md",
           "border-2 border-dashed border-glass-border bg-glass-bg/30",
-          "transition-colors group-hover:border-accent-purple/60 group-hover:bg-accent-purple/5",
+          "transition-colors group-hover:border-accent/60 group-hover:bg-accent/5",
         )}
       >
         <FolderPlus
           size={28}
-          className="text-text-muted transition-colors group-hover:text-accent-purple"
+          className="text-text-muted transition-colors group-hover:text-accent"
         />
       </div>
       <div className="mt-2 min-w-0">
@@ -1291,7 +1291,7 @@ function BreadcrumbDropTarget({
       className={cn(
         "shrink-0 rounded px-1.5 py-0.5 cursor-pointer transition-colors",
         isOver
-          ? "bg-accent-purple/20 text-accent-purple ring-1 ring-accent-purple/60"
+          ? "bg-accent/20 text-accent ring-1 ring-accent/60"
           : "text-text-muted hover:text-text-primary hover:bg-glass-hover",
       )}
     >

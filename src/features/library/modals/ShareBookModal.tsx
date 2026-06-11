@@ -123,7 +123,7 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-glass-border p-4">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-text-primary">
-            <Share2 size={18} className="text-accent-purple" />
+            <Share2 size={18} className="text-accent" />
             Share with community
           </h2>
           <button
@@ -138,8 +138,8 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {submitted ? (
             <div className="flex flex-col items-center gap-3 py-8">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/20">
-                <Check size={24} className="text-green-400" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-success/20">
+                <Check size={24} className="text-success" />
               </div>
               <p className="text-center text-sm text-text-primary">
                 Submitted for review
@@ -171,10 +171,10 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
+                  className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
                 />
                 {titleFlagged && (
-                  <p className="mt-1 text-xs text-amber-400">
+                  <p className="mt-1 text-xs text-warning">
                     Title contains disallowed language.
                   </p>
                 )}
@@ -188,10 +188,10 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
                   type="text"
                   value={authors}
                   onChange={(e) => setAuthors(e.target.value)}
-                  className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
+                  className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
                 />
                 {authorsFlagged && (
-                  <p className="mt-1 text-xs text-amber-400">
+                  <p className="mt-1 text-xs text-warning">
                     Authors field contains disallowed language.
                   </p>
                 )}
@@ -206,10 +206,10 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="A short summary to help others decide if they want to read it."
-                  className="w-full resize-none rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
+                  className="w-full resize-none rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
                 />
                 {descriptionFlagged && (
-                  <p className="mt-1 text-xs text-amber-400">
+                  <p className="mt-1 text-xs text-warning">
                     Description contains disallowed language.
                   </p>
                 )}
@@ -223,7 +223,7 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
                   type="text"
                   value={isbn}
                   onChange={(e) => setIsbn(e.target.value)}
-                  className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple/50 focus:outline-none"
+                  className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
                 />
               </div>
 
@@ -242,7 +242,7 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
                         className={cn(
                           "rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
                           selectedCategoryIds.has(cat.id)
-                            ? "bg-accent-purple/15 text-accent-purple"
+                            ? "bg-accent/15 text-accent"
                             : "bg-glass-bg text-text-muted hover:text-text-primary border border-glass-border",
                         )}
                       >
@@ -257,7 +257,7 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
               )}
 
               {error && (
-                <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                <p className="rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">
                   {error}
                 </p>
               )}

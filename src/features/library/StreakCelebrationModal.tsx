@@ -143,7 +143,7 @@ export function StreakCelebrationModal() {
               {t("library.celebration.body")}
             </p>
             {streak > 1 && (
-              <p className="mt-1 text-xs font-medium text-accent-purple">
+              <p className="mt-1 text-xs font-medium text-accent">
                 {t("library.celebration.streak", { count: streak })}
               </p>
             )}
@@ -157,7 +157,7 @@ export function StreakCelebrationModal() {
           <button
             type="button"
             onClick={markCelebrationShown}
-            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/25 cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-md bg-success/15 px-3 py-1.5 text-xs font-medium text-success transition-colors hover:bg-success/25 cursor-pointer"
           >
             <Check size={14} strokeWidth={2.5} />
             {t("library.celebration.acknowledge", { defaultValue: "Got it" })}

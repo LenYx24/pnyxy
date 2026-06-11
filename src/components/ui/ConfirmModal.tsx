@@ -15,7 +15,7 @@ interface ConfirmModalProps {
   cancelLabel?: string;
   confirmLabel?: string;
   /** When true, the confirm button uses the danger style (red bg).
-   *  Set this for destructive actions; the rest stay accent-purple. */
+   *  Set this for destructive actions; the rest stay accent. */
   danger?: boolean;
   onClose: () => void;
   onConfirm: () => void;
@@ -87,8 +87,8 @@ export function ConfirmModal({
             className={cn(
               "cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition-colors",
               danger
-                ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                : "bg-accent-purple/20 text-accent-purple hover:bg-accent-purple/30",
+                ? "bg-danger/20 text-danger hover:bg-danger/30"
+                : "bg-accent/20 text-accent hover:bg-accent/30",
             )}
           >
             {confirmLabel ?? t("common.ok")}

@@ -75,8 +75,8 @@ export function ResizableHeader({
             "absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize select-none",
             "before:absolute before:left-1/2 before:top-1 before:-translate-x-1/2",
             "before:h-[calc(100%-0.5rem)] before:w-px before:bg-glass-border",
-            "hover:before:bg-accent-purple/70",
-            dragging && "before:bg-accent-purple",
+            "hover:before:bg-accent/70",
+            dragging && "before:bg-accent",
           )}
           aria-hidden="true"
         />

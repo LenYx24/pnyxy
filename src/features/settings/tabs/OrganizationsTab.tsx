@@ -88,12 +88,12 @@ export function OrganizationsTab() {
       <p className="text-xs text-text-muted">
         {t("settings.organizationsSection.description")}
       </p>
-      <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-300/90">
+      <p className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning/90">
         {t("settings.organizationsSection.scopingNotice")}
       </p>
 
       {error && (
-        <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">
+        <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
           {error}
         </p>
       )}
@@ -131,7 +131,7 @@ export function OrganizationsTab() {
               placeholder={t("settings.organizationsSection.namePlaceholder")}
               maxLength={60}
               autoFocus
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple"
+              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent"
             />
           </div>
           <div>
@@ -197,7 +197,7 @@ export function OrganizationsTab() {
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="cursor-pointer rounded-lg bg-red-500/20 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                className="cursor-pointer rounded-lg bg-danger/20 px-4 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/30 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {deleting
                   ? t("common.deleting")
@@ -273,7 +273,7 @@ function OrgRow({
         compact
       />
       {org.is_default ? (
-        <span className="shrink-0 rounded-full bg-glass-bg px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-text-muted">
+        <span className="shrink-0 rounded-full bg-glass-bg px-2 py-0.5 text-2xs font-medium uppercase tracking-wider text-text-muted">
           {t("settings.organizationsSection.defaultBadge")}
         </span>
       ) : (
@@ -282,7 +282,7 @@ function OrgRow({
           onClick={onDelete}
           aria-label={t("settings.organizationsSection.deleteOrg")}
           title={t("settings.organizationsSection.deleteOrg")}
-          className="shrink-0 rounded p-1.5 text-text-muted transition-colors hover:bg-red-500/10 hover:text-red-400 cursor-pointer"
+          className="shrink-0 rounded p-1.5 text-text-muted transition-colors hover:bg-danger/10 hover:text-danger cursor-pointer"
         >
           <Trash2 size={14} />
         </button>

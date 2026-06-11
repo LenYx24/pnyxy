@@ -68,7 +68,7 @@ export function MenuItem({
       }}
       className={cn(
         "flex w-full items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-glass-hover cursor-pointer",
-        danger ? "text-red-400" : "text-text-secondary hover:text-text-primary",
+        danger ? "text-danger" : "text-text-secondary hover:text-text-primary",
       )}
     >
       <Icon size={14} />

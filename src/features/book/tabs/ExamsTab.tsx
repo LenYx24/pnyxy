@@ -418,7 +418,7 @@ export function ExamsTab() {
       </header>
 
       {error && (
-        <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-300">
+        <div className="flex items-start gap-2 rounded-lg border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <span className="break-all">{error}</span>
         </div>
@@ -507,7 +507,7 @@ function ExamRow({
   return (
     <li className="rounded-xl border border-glass-border bg-glass-bg/30 p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-purple/15 text-accent-purple">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
           <FileText size={18} />
         </div>
         <button
@@ -515,7 +515,7 @@ function ExamRow({
           onClick={onOpen}
           className="min-w-0 flex-1 text-left cursor-pointer"
         >
-          <p className="truncate text-sm font-medium text-text-primary hover:text-accent-purple">
+          <p className="truncate text-sm font-medium text-text-primary hover:text-accent">
             {exam.name}
           </p>
           <p className="truncate text-xs text-text-muted">{meta}</p>
@@ -576,7 +576,7 @@ function ExamRow({
         <button
           type="button"
           onClick={onDelete}
-          className="shrink-0 rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-red-400 cursor-pointer"
+          className="shrink-0 rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-danger cursor-pointer"
           title={t("common.delete", { defaultValue: "Delete" })}
           aria-label={t("common.delete", { defaultValue: "Delete" })}
         >
@@ -586,14 +586,14 @@ function ExamRow({
 
       {exam.ai_status === "done" && exam.ai_topics && exam.ai_topics.length > 0 && (
         <div className="mt-3 border-t border-glass-border pt-3">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+          <p className="mb-2 text-2xs font-semibold uppercase tracking-wider text-text-muted">
             {t("book.exams.topics", { defaultValue: "Topics covered" })}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {exam.ai_topics.map((topic, i) => (
               <span
                 key={i}
-                className="rounded-full border border-accent-purple/30 bg-accent-purple/10 px-2 py-0.5 text-[11px] text-text-primary"
+                className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-2xs text-text-primary"
               >
                 {topic}
               </span>
@@ -603,7 +603,7 @@ function ExamRow({
       )}
       {exam.ai_status === "done" &&
         (!exam.ai_topics || exam.ai_topics.length === 0) && (
-          <p className="mt-2 text-[11px] text-text-muted">
+          <p className="mt-2 text-2xs text-text-muted">
             {t("book.exams.topicsEmpty", {
               defaultValue:
                 "AI couldn't identify clear topics — the PDF may be too short or not a typical exam.",
@@ -611,7 +611,7 @@ function ExamRow({
           </p>
         )}
       {exam.ai_status === "failed" && (
-        <p className="mt-2 text-[11px] text-red-400">
+        <p className="mt-2 text-2xs text-danger">
           {t("book.exams.aiFailed", {
             defaultValue: "Analyse failed:",
           })}{" "}

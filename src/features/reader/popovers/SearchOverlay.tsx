@@ -107,7 +107,7 @@ export function SearchOverlay() {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleFindKey}
           placeholder="Find"
-          className="min-w-0 flex-1 rounded border border-glass-border bg-glass-bg px-2 py-1 text-sm text-text-primary outline-none focus:border-accent-purple placeholder:text-text-muted"
+          className="min-w-0 flex-1 rounded border border-glass-border bg-glass-bg px-2 py-1 text-sm text-text-primary outline-none focus:border-accent placeholder:text-text-muted"
         />
         <OptionButton
           label="Match case"
@@ -135,7 +135,7 @@ export function SearchOverlay() {
         <span
           className={cn(
             "mx-1 min-w-[4rem] text-right font-mono text-xs",
-            error ? "text-red-400" : "text-text-muted",
+            error ? "text-danger" : "text-text-muted",
           )}
         >
           {error ?? counter}
@@ -159,7 +159,7 @@ export function SearchOverlay() {
             onChange={(e) => setReplacement(e.target.value)}
             onKeyDown={handleReplaceKey}
             placeholder="Replace"
-            className="min-w-0 flex-1 rounded border border-glass-border bg-glass-bg px-2 py-1 text-sm text-text-primary outline-none focus:border-accent-purple placeholder:text-text-muted"
+            className="min-w-0 flex-1 rounded border border-glass-border bg-glass-bg px-2 py-1 text-sm text-text-primary outline-none focus:border-accent placeholder:text-text-muted"
           />
           <IconButton
             label="Replace (Enter)"
@@ -222,7 +222,7 @@ function OptionButton({
       className={cn(
         "rounded p-1 transition-colors cursor-pointer",
         active
-          ? "bg-accent-purple/20 text-accent-purple"
+          ? "bg-accent/20 text-accent"
           : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
       )}
     >

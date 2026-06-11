@@ -90,7 +90,7 @@ export function PostComposer() {
             className={cn(
               "flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors cursor-pointer",
               kind === key
-                ? "bg-accent-purple/15 text-accent-purple"
+                ? "bg-accent/15 text-accent"
                 : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
             )}
           >
@@ -101,7 +101,7 @@ export function PostComposer() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+        <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
           {error}
         </div>
       )}
@@ -117,7 +117,7 @@ export function PostComposer() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="An interesting title..."
-            className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2.5 text-sm text-text-primary outline-none focus:border-accent-purple"
+            className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2.5 text-sm text-text-primary outline-none focus:border-accent"
             autoFocus
           />
         </div>
@@ -132,7 +132,7 @@ export function PostComposer() {
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
               placeholder="https://..."
-              className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2.5 text-sm text-text-primary outline-none focus:border-accent-purple"
+              className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2.5 text-sm text-text-primary outline-none focus:border-accent"
             />
           </div>
         )}
@@ -145,7 +145,7 @@ export function PostComposer() {
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Write your thoughts... (Markdown supported)"
-            className="h-48 w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2.5 text-sm text-text-primary outline-none resize-y focus:border-accent-purple"
+            className="h-48 w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2.5 text-sm text-text-primary outline-none resize-y focus:border-accent"
           />
         </div>
       </div>
@@ -157,7 +157,7 @@ export function PostComposer() {
         <button
           onClick={handleSubmit}
           disabled={!title.trim() || submitting}
-          className="rounded-lg bg-accent-purple px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-purple/80 disabled:opacity-40 cursor-pointer"
+          className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent/80 disabled:opacity-40 cursor-pointer"
         >
           {submitting ? "Posting..." : "Post"}
         </button>

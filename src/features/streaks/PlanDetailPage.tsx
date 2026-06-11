@@ -283,7 +283,7 @@ export function PlanDetailPage() {
         <p className="text-text-muted">{t("readingPlans.detail.notFound")}</p>
         <button
           onClick={() => navigate("/streaks")}
-          className="mt-3 inline-block text-sm text-accent-purple hover:underline"
+          className="mt-3 inline-block text-sm text-accent hover:underline"
         >
           {t("readingPlans.detail.backToList")}
         </button>
@@ -489,7 +489,7 @@ export function PlanDetailPage() {
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t("readingPlans.detail.titlePlaceholder")}
             maxLength={120}
-            className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple"
+            className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent"
           />
         </div>
 
@@ -503,7 +503,7 @@ export function PlanDetailPage() {
             onChange={(e) => setDescription(e.target.value)}
             placeholder={t("readingPlans.detail.descriptionPlaceholder")}
             maxLength={500}
-            className="w-full resize-none rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple"
+            className="w-full resize-none rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent"
           />
         </div>
 
@@ -520,7 +520,7 @@ export function PlanDetailPage() {
               className={cn(
                 "inline-flex h-7 w-7 items-center justify-center rounded-full border-2 transition-colors cursor-pointer",
                 color === null
-                  ? "border-accent-purple"
+                  ? "border-accent"
                   : "border-glass-border hover:border-text-muted/60",
               )}
             >
@@ -559,7 +559,7 @@ export function PlanDetailPage() {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple"
+              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
             />
           </div>
           <div>
@@ -571,7 +571,7 @@ export function PlanDetailPage() {
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               min={startDate}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple"
+              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
             />
           </div>
         </div>
@@ -628,7 +628,7 @@ export function PlanDetailPage() {
       </section>
 
       {error && (
-        <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
+        <p className="rounded-lg bg-danger/10 p-3 text-sm text-danger">
           {error}
         </p>
       )}
@@ -639,7 +639,7 @@ export function PlanDetailPage() {
             <Button
               variant="secondary"
               onClick={handleMarkComplete}
-              className="gap-2 text-green-400"
+              className="gap-2 text-success"
             >
               <CheckCircle2 size={14} />
               {t("readingPlans.detail.markComplete")}
@@ -649,7 +649,7 @@ export function PlanDetailPage() {
             <Button
               variant="ghost"
               onClick={() => setConfirmDelete(true)}
-              className="gap-2 text-red-400 hover:bg-red-500/10"
+              className="gap-2 text-danger hover:bg-danger/10"
               disabled={deleting}
             >
               <Trash2 size={14} />
@@ -709,7 +709,7 @@ export function PlanDetailPage() {
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="cursor-pointer rounded-lg bg-red-500/20 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                className="cursor-pointer rounded-lg bg-danger/20 px-4 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/30 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {deleting ? (
                   <span className="inline-flex items-center gap-1">
@@ -770,7 +770,7 @@ function PlanItemRow({
         <select
           value={item.bookKey}
           onChange={(e) => onPickBook(e.target.value)}
-          className="min-w-0 flex-1 rounded border border-glass-border bg-bg-primary/50 px-2 py-1 text-sm text-text-primary outline-none focus:border-accent-purple"
+          className="min-w-0 flex-1 rounded border border-glass-border bg-bg-primary/50 px-2 py-1 text-sm text-text-primary outline-none focus:border-accent"
         >
           <option value="">{t("readingPlans.detail.pickBook")}</option>
           {books.map((b) => (
@@ -783,7 +783,7 @@ function PlanItemRow({
         <button
           onClick={onRemove}
           aria-label={t("common.remove")}
-          className="rounded p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-red-400 cursor-pointer"
+          className="rounded p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-danger cursor-pointer"
         >
           <Trash2 size={14} />
         </button>
@@ -802,7 +802,7 @@ function PlanItemRow({
                   endPage: e.target.checked ? item.totalPages ?? null : null,
                 })
               }
-              className="cursor-pointer accent-accent-purple"
+              className="cursor-pointer accent-accent"
             />
             {t("readingPlans.detail.useRange")}
           </label>
@@ -810,7 +810,7 @@ function PlanItemRow({
           {item.useRange && (
             <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-center text-xs">
               <div>
-                <label className="block text-[10px] text-text-muted">
+                <label className="block text-2xs text-text-muted">
                   {t("readingPlans.detail.startPage")}
                 </label>
                 <input
@@ -825,11 +825,11 @@ function PlanItemRow({
                         : null,
                     })
                   }
-                  className="w-full rounded border border-glass-border bg-bg-primary/50 px-2 py-1 text-sm text-text-primary outline-none focus:border-accent-purple"
+                  className="w-full rounded border border-glass-border bg-bg-primary/50 px-2 py-1 text-sm text-text-primary outline-none focus:border-accent"
                 />
               </div>
               <div>
-                <label className="block text-[10px] text-text-muted">
+                <label className="block text-2xs text-text-muted">
                   {t("readingPlans.detail.endPage")}
                 </label>
                 <input
@@ -842,11 +842,11 @@ function PlanItemRow({
                       endPage: e.target.value ? Number(e.target.value) : null,
                     })
                   }
-                  className="w-full rounded border border-glass-border bg-bg-primary/50 px-2 py-1 text-sm text-text-primary outline-none focus:border-accent-purple"
+                  className="w-full rounded border border-glass-border bg-bg-primary/50 px-2 py-1 text-sm text-text-primary outline-none focus:border-accent"
                 />
               </div>
               {item.totalPages && (
-                <span className="text-[10px] text-text-muted sm:self-end sm:pb-1">
+                <span className="text-2xs text-text-muted sm:self-end sm:pb-1">
                   {t("readingPlans.detail.totalPages", {
                     total: item.totalPages,
                   })}

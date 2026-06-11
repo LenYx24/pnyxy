@@ -52,7 +52,7 @@ export function CommunityPage() {
   if (!currentCommunity && isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-accent-purple" />
+        <Loader2 size={24} className="animate-spin text-accent" />
       </div>
     );
   }
@@ -83,7 +83,7 @@ export function CommunityPage() {
         <div className="rounded-xl border border-glass-border bg-glass-bg p-6 backdrop-blur-md">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-accent-purple/20 text-accent-purple font-bold text-xl">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-accent/20 text-accent font-bold text-xl">
                 {currentCommunity.name.charAt(0).toUpperCase()}
               </div>
               <div>
@@ -115,7 +115,7 @@ export function CommunityPage() {
               {user && !isMember && (
                 <button
                   onClick={() => joinCommunity(currentCommunity.id)}
-                  className="flex items-center gap-1.5 rounded-lg bg-accent-purple px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-purple/80 cursor-pointer"
+                  className="flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/80 cursor-pointer"
                 >
                   <LogIn size={14} />
                   Join
@@ -138,7 +138,7 @@ export function CommunityPage() {
       {/* Posts feed */}
       {isLoading && posts.length === 0 ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 size={24} className="animate-spin text-accent-purple" />
+          <Loader2 size={24} className="animate-spin text-accent" />
         </div>
       ) : posts.length === 0 ? (
         <div className="py-12 text-center">

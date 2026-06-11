@@ -132,7 +132,7 @@ export function LibraryListView({
       {/* Column headers — Author/Size/Added each carry a right-edge
           resize handle when `setColumnWidth` is wired. Mouse-only;
           mobile hides these columns anyway. */}
-      <div className="flex items-center border-b border-glass-border bg-glass-bg px-2 py-1.5 text-[11px] font-medium uppercase tracking-wider text-text-muted sm:px-3">
+      <div className="flex items-center border-b border-glass-border bg-glass-bg px-2 py-1.5 text-2xs font-medium uppercase tracking-wider text-text-muted sm:px-3">
         <div className="mr-1 w-4 shrink-0" /> {/* drag handle spacer */}
         <div className="mr-1.5 w-7 shrink-0 sm:mr-2" />
         <div className="mr-1 hidden w-[26px] sm:block" />
@@ -390,7 +390,7 @@ function CreateFolderRow({ onClick }: { onClick: () => void }) {
     >
       <FolderPlus
         size={16}
-        className="text-text-muted group-hover:text-accent-purple"
+        className="text-text-muted group-hover:text-accent"
       />
       <span>{t("library.allBooks.newFolder")}</span>
     </button>

@@ -73,7 +73,7 @@ export function LibraryToolbar({
         className={cn(
           "rounded-md p-1.5 transition-colors cursor-pointer",
           viewMode === "grid"
-            ? "bg-accent-purple/15 text-accent-purple"
+            ? "bg-accent/15 text-accent"
             : "text-text-muted hover:text-text-primary",
         )}
         title={t("library.toolbar.gridView")}
@@ -85,7 +85,7 @@ export function LibraryToolbar({
         className={cn(
           "rounded-md p-1.5 transition-colors cursor-pointer",
           viewMode === "list"
-            ? "bg-accent-purple/15 text-accent-purple"
+            ? "bg-accent/15 text-accent"
             : "text-text-muted hover:text-text-primary",
         )}
         title={t("library.toolbar.listView")}
@@ -123,7 +123,7 @@ export function LibraryToolbar({
       className={cn(
         "shrink-0 rounded-lg border p-1.5 transition-colors cursor-pointer",
         controlsExpanded
-          ? "border-accent-purple/40 bg-accent-purple/10 text-accent-purple"
+          ? "border-accent/40 bg-accent/10 text-accent"
           : "border-glass-border bg-glass-bg text-text-muted hover:bg-glass-hover hover:text-text-primary",
       )}
     >
@@ -156,8 +156,8 @@ export function LibraryToolbar({
             )}
           >
             {searchActive ? (
-              <div className="flex w-full items-center gap-2 rounded-lg border border-accent-purple/40 bg-bg-secondary px-3 py-1.5 shadow-sm shadow-accent-purple/10">
-                <Search size={14} className="shrink-0 text-accent-purple" />
+              <div className="flex w-full items-center gap-2 rounded-lg border border-accent/40 bg-bg-secondary px-3 py-1.5 shadow-sm shadow-accent/10">
+                <Search size={14} className="shrink-0 text-accent" />
                 <input
                   ref={inputRef}
                   type="text"

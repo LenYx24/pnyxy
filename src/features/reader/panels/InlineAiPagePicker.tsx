@@ -129,7 +129,7 @@ export function InlineAiPagePicker({ onClose }: { onClose: () => void }) {
   return (
     <div className="border-t border-glass-border bg-bg-secondary/95 backdrop-blur-md">
       <div className="flex items-center justify-between gap-2 px-3 py-1.5">
-        <span className="truncate text-[10px] text-text-muted">
+        <span className="truncate text-2xs text-text-muted">
           {selectedCount > 0
             ? t("reader.aiChat.pickPagesSelected", { count: selectedCount })
             : t("reader.aiChat.pickPagesEmpty")}
@@ -139,7 +139,7 @@ export function InlineAiPagePicker({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               onClick={() => clearAiPages()}
-              className="rounded px-1.5 py-0.5 text-[10px] text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              className="rounded px-1.5 py-0.5 text-2xs text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
             >
               {t("common.clear", { defaultValue: "Clear" })}
             </button>
@@ -148,7 +148,7 @@ export function InlineAiPagePicker({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={() => void handleSelectAll()}
             disabled={allSelected}
-            className="rounded px-1.5 py-0.5 text-[10px] text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-muted"
+            className="rounded px-1.5 py-0.5 text-2xs text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-muted"
             title={t("reader.sidebar.aiSelectAll", {
               defaultValue: "Select all pages",
             })}
@@ -266,15 +266,15 @@ function PickerTile({
       className={cn(
         "relative flex shrink-0 flex-col items-center gap-1 rounded-md p-1 transition-colors cursor-pointer",
         isSelected
-          ? "ring-2 ring-emerald-400 bg-emerald-400/10"
+          ? "ring-2 ring-success bg-success/10"
           : isActive
-            ? "ring-1 ring-accent-purple/60 bg-accent-purple/5"
+            ? "ring-1 ring-accent/60 bg-accent/5"
             : "hover:bg-glass-hover",
       )}
     >
       {isSelected && (
         <div
-          className="absolute right-1 top-1 z-10 flex h-4 w-4 items-center justify-center rounded border border-emerald-400 bg-emerald-400 text-bg-primary"
+          className="absolute right-1 top-1 z-10 flex h-4 w-4 items-center justify-center rounded border border-success bg-success text-bg-primary"
           aria-hidden="true"
         >
           <Check size={10} strokeWidth={3} />
@@ -301,8 +301,8 @@ function PickerTile({
       )}
       <span
         className={cn(
-          "text-[10px]",
-          isActive ? "text-accent-purple font-medium" : "text-text-muted",
+          "text-2xs",
+          isActive ? "text-accent font-medium" : "text-text-muted",
         )}
       >
         {pageNum}

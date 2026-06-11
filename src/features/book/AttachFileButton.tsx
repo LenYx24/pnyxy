@@ -165,7 +165,7 @@ export function AttachFileButton({ bookId, onAttached }: AttachFileButtonProps) 
         className="hidden"
         onChange={handleFile}
       />
-      {error && <p className="text-[11px] text-red-400">{error}</p>}
+      {error && <p className="text-2xs text-danger">{error}</p>}
     </div>
   );
 }

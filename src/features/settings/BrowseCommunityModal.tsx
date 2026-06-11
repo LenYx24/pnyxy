@@ -91,7 +91,7 @@ export function BrowseCommunityModal({ mode, onClose }: BrowseCommunityModalProp
           <div>
             <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
             {status.offline && (
-              <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-amber-400">
+              <p className="mt-0.5 inline-flex items-center gap-1 text-2xs text-warning">
                 <WifiOff size={11} />
                 Offline — showing bundled fallback registry
               </p>
@@ -113,7 +113,7 @@ export function BrowseCommunityModal({ mode, onClose }: BrowseCommunityModalProp
               <span className="ml-2 text-sm">Loading registry…</span>
             </div>
           ) : error ? (
-            <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+            <div className="rounded-lg border border-danger/40 bg-danger/10 p-3 text-sm text-danger">
               {error}
             </div>
           ) : entries.length === 0 ? (
@@ -133,12 +133,12 @@ export function BrowseCommunityModal({ mode, onClose }: BrowseCommunityModalProp
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-text-primary">
                         {entry.name}
-                        <span className="ml-2 text-[10px] font-mono text-text-muted">
+                        <span className="ml-2 text-2xs font-mono text-text-muted">
                           v{entry.version}
                         </span>
                       </p>
                       {entry.author && (
-                        <p className="text-[11px] text-text-muted">
+                        <p className="text-2xs text-text-muted">
                           by {entry.author}
                         </p>
                       )}
@@ -155,7 +155,7 @@ export function BrowseCommunityModal({ mode, onClose }: BrowseCommunityModalProp
                       className={cn(
                         "inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
                         installed
-                          ? "bg-accent-purple/20 text-accent-purple cursor-default"
+                          ? "bg-accent/20 text-accent cursor-default"
                           : "bg-glass-bg text-text-secondary hover:bg-glass-hover hover:text-text-primary cursor-pointer",
                         inFlight && "opacity-60",
                       )}
@@ -179,7 +179,7 @@ export function BrowseCommunityModal({ mode, onClose }: BrowseCommunityModalProp
             href="https://github.com/LenYx24/pnyxy-community"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-accent-purple"
+            className="inline-flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-accent"
           >
             <ExternalLink size={12} />
             Submit your own {mode === "themes" ? "theme" : "plugin"} on GitHub

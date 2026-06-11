@@ -38,10 +38,10 @@ function HighlightRow({ h }: { h: Highlight }) {
   return (
     <div className="rounded-lg border border-glass-border bg-glass-bg/40 p-3 transition-colors hover:bg-glass-hover">
       <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-text-muted">
+        <span className="inline-flex items-center gap-1 text-2xs font-medium uppercase tracking-wide text-text-muted">
           <Highlighter size={12} /> {pageLabel}
         </span>
-        <span className="text-[10px] text-text-muted">
+        <span className="text-2xs text-text-muted">
           {formatDate(h.createdAt)}
         </span>
       </div>
@@ -58,11 +58,11 @@ function CommentRow({ c }: { c: Comment }) {
   return (
     <div className="rounded-lg border border-glass-border bg-glass-bg/40 p-3 transition-colors hover:bg-glass-hover">
       <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-text-muted">
+        <span className="inline-flex items-center gap-1 text-2xs font-medium uppercase tracking-wide text-text-muted">
           <MessageSquare size={12} /> p. {pageNum}
-          {c.resolved && <span className="ml-1 text-green-400">✓</span>}
+          {c.resolved && <span className="ml-1 text-success">✓</span>}
         </span>
-        <span className="text-[10px] text-text-muted">
+        <span className="text-2xs text-text-muted">
           {formatDate(c.createdAt)}
         </span>
       </div>
@@ -109,7 +109,7 @@ function NoteEditor({
   };
 
   return (
-    <div className="rounded-lg border border-accent-purple/40 bg-glass-bg/60 p-3">
+    <div className="rounded-lg border border-accent/40 bg-glass-bg/60 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <input
           autoFocus
@@ -124,7 +124,7 @@ function NoteEditor({
             save();
             onClose();
           }}
-          className="rounded p-1 text-green-400 hover:bg-glass-hover cursor-pointer"
+          className="rounded p-1 text-success hover:bg-glass-hover cursor-pointer"
           title={t("common.save")}
         >
           <Check size={14} />
@@ -143,7 +143,7 @@ function NoteEditor({
         onBlur={save}
         placeholder={t("book.notes.contentPlaceholder")}
         rows={6}
-        className="block w-full resize-y rounded border border-glass-border bg-bg-primary/50 px-2 py-1.5 text-sm text-text-secondary outline-none placeholder:text-text-muted focus:border-accent-purple/60"
+        className="block w-full resize-y rounded border border-glass-border bg-bg-primary/50 px-2 py-1.5 text-sm text-text-secondary outline-none placeholder:text-text-muted focus:border-accent/60"
       />
     </div>
   );
@@ -307,20 +307,20 @@ export function NotesTab() {
       />
       {ocrBusy && (
         <p
-          className="rounded-lg border border-accent-purple/30 bg-accent-purple/10 px-3 py-2 text-xs text-accent-purple"
+          className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-accent"
           role="status"
         >
           {t("book.overview.ocr.processing")}
         </p>
       )}
       {ocrError && (
-        <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
           <span>{ocrError}</span>
           <button
             type="button"
             onClick={() => setOcrError(null)}
             aria-label={t("common.close")}
-            className="shrink-0 rounded p-0.5 text-amber-300/80 transition-colors hover:bg-amber-500/15 hover:text-amber-200 cursor-pointer"
+            className="shrink-0 rounded p-0.5 text-warning/80 transition-colors hover:bg-warning/15 hover:text-warning cursor-pointer"
           >
             <X size={12} />
           </button>
@@ -346,7 +346,7 @@ export function NotesTab() {
       {!loading && highlights.length > 0 && (
         <section className="space-y-2">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-text-primary">
-            <Highlighter size={14} className="text-yellow-400" />
+            <Highlighter size={14} className="text-warning" />
             {t("book.notes.highlights")}
             <span className="text-xs font-normal text-text-muted">
               ({highlights.length})
@@ -369,7 +369,7 @@ export function NotesTab() {
       {!loading && comments.length > 0 && (
         <section className="space-y-2">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-text-primary">
-            <MessageSquare size={14} className="text-accent-purple" />
+            <MessageSquare size={14} className="text-accent" />
             {t("book.notes.comments")}
             <span className="text-xs font-normal text-text-muted">
               ({comments.length})
@@ -399,7 +399,7 @@ export function NotesTab() {
                 ({notes.length})
               </span>
             </h3>
-            <span className="text-[10px] text-text-muted">
+            <span className="text-2xs text-text-muted">
               {t("book.notes.notesGlobal")}
             </span>
           </div>
@@ -426,7 +426,7 @@ export function NotesTab() {
                       {n.content || t("book.notes.emptyNote")}
                     </p>
                   </div>
-                  <span className="shrink-0 text-[10px] text-text-muted">
+                  <span className="shrink-0 text-2xs text-text-muted">
                     {formatDate(n.updatedAt)}
                   </span>
                   <button
@@ -438,7 +438,7 @@ export function NotesTab() {
                   </button>
                   <button
                     onClick={() => handleDelete(n.id)}
-                    className="rounded p-1 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-red-400 group-hover:opacity-100 cursor-pointer"
+                    className="rounded p-1 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-danger group-hover:opacity-100 cursor-pointer"
                     aria-label={t("common.delete")}
                   >
                     <Trash2 size={12} />

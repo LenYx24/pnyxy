@@ -31,9 +31,9 @@ interface PlanColorClasses {
 
 const COLORS: Record<PlanColorKey, PlanColorClasses> = {
   purple: {
-    swatch: "bg-accent-purple",
-    border: "border-l-accent-purple",
-    bg: "bg-accent-purple/5",
+    swatch: "bg-accent",
+    border: "border-l-accent",
+    bg: "bg-accent/5",
   },
   blue: {
     swatch: "bg-accent-blue",

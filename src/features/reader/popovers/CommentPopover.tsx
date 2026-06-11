@@ -188,7 +188,7 @@ export function CommentPopover() {
             >
               {msg.text}
             </p>
-            <span className="text-[10px] text-text-muted">
+            <span className="text-2xs text-text-muted">
               {formatTime(msg.createdAt)}
             </span>
           </div>
@@ -204,11 +204,11 @@ export function CommentPopover() {
             onChange={(e) => setReplyText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Reply..."
-            className="w-full h-12 rounded border border-glass-border bg-glass-bg px-2 py-1.5 text-xs text-text-primary outline-none resize-none focus:border-accent-purple"
+            className="w-full h-12 rounded border border-glass-border bg-glass-bg px-2 py-1.5 text-xs text-text-primary outline-none resize-none focus:border-accent"
           />
           <div className="flex justify-end mt-1">
             <button
-              className="rounded bg-accent-purple/20 px-2 py-1 text-xs text-accent-purple hover:bg-accent-purple/30 transition-colors cursor-pointer disabled:opacity-40"
+              className="rounded bg-accent/20 px-2 py-1 text-xs text-accent hover:bg-accent/30 transition-colors cursor-pointer disabled:opacity-40"
               disabled={!replyText.trim()}
               onClick={handleSubmitReply}
             >
@@ -224,7 +224,7 @@ export function CommentPopover() {
           className={cn(
             "flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors cursor-pointer",
             comment.resolved
-              ? "text-green-400 bg-green-400/10 hover:bg-green-400/20"
+              ? "text-success bg-success/10 hover:bg-success/20"
               : "text-text-muted hover:text-text-secondary hover:bg-glass-hover",
           )}
           onClick={() => resolveComment(comment.id)}
@@ -235,7 +235,7 @@ export function CommentPopover() {
         </button>
         <div className="flex-1" />
         <button
-          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-red-400/60 hover:text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer"
+          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-danger/60 hover:text-danger hover:bg-danger/10 transition-colors cursor-pointer"
           onClick={() => removeComment(comment.id)}
           title="Delete comment"
         >

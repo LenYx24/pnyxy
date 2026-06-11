@@ -22,11 +22,11 @@ export function StarRatingDisplay({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 text-[11px] text-text-secondary",
+        "inline-flex items-center gap-1 text-2xs text-text-secondary",
         className,
       )}
     >
-      <Star size={size} className="fill-yellow-400 text-yellow-400" />
+      <Star size={size} className="fill-warning text-warning" />
       <span className="font-medium">{avg.toFixed(1)}</span>
       <span className="text-text-muted">·</span>
       <span className="text-text-muted">{count}</span>
@@ -91,7 +91,7 @@ export function StarRatingInput({
               className={cn(
                 "transition-colors",
                 filled
-                  ? "fill-yellow-400 text-yellow-400"
+                  ? "fill-warning text-warning"
                   : "fill-transparent text-text-muted",
               )}
             />

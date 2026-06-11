@@ -37,11 +37,11 @@ const KIND_META: Record<
   ResourceKind,
   { icon: typeof Video; label: string; tone: string }
 > = {
-  video: { icon: Video, label: "Video", tone: "text-red-400" },
+  video: { icon: Video, label: "Video", tone: "text-danger" },
   course: {
     icon: GraduationCap,
     label: "Course",
-    tone: "text-amber-400",
+    tone: "text-warning",
   },
   article: { icon: Newspaper, label: "Article", tone: "text-blue-400" },
   document: { icon: FileText, label: "Document", tone: "text-violet-400" },
@@ -301,7 +301,7 @@ export function ResourcesTab() {
               value={formUrl}
               onChange={(e) => setFormUrl(e.target.value)}
               placeholder="https://www.youtube.com/watch?v=..."
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
+              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
               disabled={adding}
               autoFocus
               autoComplete="off"
@@ -324,13 +324,13 @@ export function ResourcesTab() {
               placeholder={t("book.resources.titlePlaceholder", {
                 defaultValue: "Auto-detected from URL if blank",
               })}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
+              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
               disabled={adding}
               autoComplete="off"
             />
           </div>
           {error && (
-            <p className="text-xs text-red-400">{error}</p>
+            <p className="text-xs text-danger">{error}</p>
           )}
           <div className="flex justify-end gap-2 pt-1">
             <Button
@@ -421,7 +421,7 @@ function ResourceRow({
         className="min-w-0 flex-1 cursor-pointer"
         title={resource.title ?? resource.url}
       >
-        <p className="truncate text-sm font-medium text-text-primary group-hover:text-accent-purple">
+        <p className="truncate text-sm font-medium text-text-primary group-hover:text-accent">
           {resource.title || resource.url}
         </p>
         <p className="truncate text-xs text-text-muted">{resource.url}</p>
@@ -441,7 +441,7 @@ function ResourceRow({
       <button
         type="button"
         onClick={onDelete}
-        className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-red-400 cursor-pointer"
+        className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-danger cursor-pointer"
         title={t("common.delete", { defaultValue: "Delete" })}
         aria-label={t("common.delete", { defaultValue: "Delete" })}
       >

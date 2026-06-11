@@ -65,7 +65,7 @@ export function QuizzesPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("quizzes.search")}
-            className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2 pl-9 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50"
+            className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2 pl-9 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50"
           />
         </div>
         <div className="flex rounded-lg border border-glass-border bg-glass-bg p-0.5">
@@ -82,7 +82,7 @@ export function QuizzesPage() {
               className={cn(
                 "rounded-md px-3 py-1 text-xs font-medium transition-colors cursor-pointer",
                 filter === tab.key
-                  ? "bg-accent-purple/15 text-accent-purple"
+                  ? "bg-accent/15 text-accent"
                   : "text-text-muted hover:text-text-primary",
               )}
             >
@@ -138,9 +138,9 @@ function QuizGrid({
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {quizzes.map((q) => (
         <Link key={q.id} to={`/quizzes/${q.id}`} className="block">
-          <GlassCard className="h-full cursor-pointer p-4 transition-colors hover:border-accent-purple/40">
+          <GlassCard className="h-full cursor-pointer p-4 transition-colors hover:border-accent/40">
             <div className="flex items-start gap-2">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-purple/15 text-accent-purple">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
                 <FileQuestion size={16} />
               </div>
               <div className="min-w-0 flex-1">
@@ -152,7 +152,7 @@ function QuizGrid({
                 </p>
               </div>
               {showVisibility && q.visibility === "private" && (
-                <span className="shrink-0 rounded bg-text-muted/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-muted">
+                <span className="shrink-0 rounded bg-text-muted/15 px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wide text-text-muted">
                   {t("quizzes.private")}
                 </span>
               )}

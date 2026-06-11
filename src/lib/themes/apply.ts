@@ -9,7 +9,7 @@ const ALL_TOKEN_KEYS: ThemeTokenKey[] = [
   "--color-bg-primary",
   "--color-bg-secondary",
   "--color-bg-tertiary",
-  "--color-accent-purple",
+  "--color-accent",
   "--color-accent-blue",
   "--color-text-primary",
   "--color-text-secondary",

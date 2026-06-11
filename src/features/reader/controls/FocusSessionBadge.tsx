@@ -27,7 +27,7 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
  *   - A sprout icon sits at the centre; past 60% completion it
  *     swaps for a deciduous tree — a soft "your effort is growing
  *     into something" cue without being preachy about it.
- *   - The whole badge has a slow accent-purple glow that breathes
+ *   - The whole badge has a slow accent glow that breathes
  *     in and out (custom CSS keyframes — `animate-pulse` is too
  *     aggressive for a calm focus mode).
  */
@@ -71,7 +71,7 @@ export function FocusSessionBadge() {
       role="status"
       aria-live="polite"
       className={cn(
-        "fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-accent-purple/40 bg-bg-secondary/95 px-3 py-1.5 text-sm shadow-lg backdrop-blur-md",
+        "fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-accent/40 bg-bg-secondary/95 px-3 py-1.5 text-sm shadow-lg backdrop-blur-md",
         // Slow ambient glow — a 4s pulse on the box-shadow rather
         // than the pre-baked Tailwind animate-pulse, which is way
         // too snappy for a focus mode meant to feel calm.
@@ -100,7 +100,7 @@ export function FocusSessionBadge() {
             cx="24"
             cy="24"
             r={RING_RADIUS}
-            className="fill-none stroke-accent-purple transition-[stroke-dashoffset] duration-1000 ease-linear"
+            className="fill-none stroke-accent transition-[stroke-dashoffset] duration-1000 ease-linear"
             strokeWidth="3"
             strokeLinecap="round"
             strokeDasharray={RING_CIRCUMFERENCE}
@@ -111,14 +111,14 @@ export function FocusSessionBadge() {
           <TreeDeciduous
             size={18}
             className={cn(
-              "absolute text-green-500 transition-all duration-700",
+              "absolute text-success transition-all duration-700",
               ringProgress >= 0.95 && "scale-110",
             )}
           />
         ) : (
           <Sprout
             size={16}
-            className="absolute text-green-400/80 transition-all duration-700"
+            className="absolute text-success/80 transition-all duration-700"
             // Scale grows from 0.7 → 1.0 as we approach the 60% swap
             // so the sprout looks like it's actually maturing.
             style={{ transform: `scale(${0.7 + ringProgress * 0.5})` }}
@@ -130,7 +130,7 @@ export function FocusSessionBadge() {
           <span className="font-mono tabular-nums text-text-primary">
             {pagesRead ?? 0} / {pagesGoal} oldal
           </span>
-          <span className="font-mono tabular-nums text-[10px] text-text-muted">
+          <span className="font-mono tabular-nums text-2xs text-text-muted">
             {formatTime(remainingMs)}
           </span>
         </div>
@@ -149,7 +149,7 @@ export function FocusSessionBadge() {
       </button>
       <button
         onClick={cancel}
-        className="flex items-center rounded-md p-1 text-text-muted transition-colors hover:bg-red-500/10 hover:text-red-400 cursor-pointer"
+        className="flex items-center rounded-md p-1 text-text-muted transition-colors hover:bg-danger/10 hover:text-danger cursor-pointer"
         title="End focus session"
         aria-label="End focus session"
       >

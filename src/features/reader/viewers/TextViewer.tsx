@@ -135,7 +135,7 @@ export function TextViewer({ documentId }: TextViewerProps) {
             "--tw-prose-captions": palette.textMuted,
           } as React.CSSProperties
         }
-        className="prose mx-auto max-w-3xl leading-relaxed [&_mark[data-search-match]]:bg-yellow-400/40 [&_mark[data-search-match]]:text-inherit [&_mark[data-search-match][data-current=true]]:bg-orange-400/70"
+        className="prose mx-auto max-w-3xl leading-relaxed [&_mark[data-search-match]]:bg-warning/40 [&_mark[data-search-match]]:text-inherit [&_mark[data-search-match][data-current=true]]:bg-orange-400/70"
       />
       {allowAnnotations && (
         <>

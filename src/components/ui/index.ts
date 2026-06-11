@@ -1,4 +1,7 @@
 export { Button } from "./Button";
+export type { ButtonVariant, ButtonSize } from "./Button";
+export { IconButton } from "./IconButton";
+export type { IconButtonVariant, IconButtonSize } from "./IconButton";
 export { Checkbox } from "./Checkbox";
 export { ConfirmModal } from "./ConfirmModal";
 export { ContextMenu } from "./ContextMenu";

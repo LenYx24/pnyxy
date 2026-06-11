@@ -135,8 +135,8 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
       <div className="relative z-10 w-full max-w-md rounded-xl border border-glass-border bg-bg-secondary/95 backdrop-blur-xl">
         <div className="flex items-center justify-between border-b border-glass-border p-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-purple/15">
-              <BookPlus size={16} className="text-accent-purple" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15">
+              <BookPlus size={16} className="text-accent" />
             </div>
             <h2 className="text-lg font-semibold text-text-primary">
               {t("library.addManual.title")}
@@ -169,7 +169,7 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={500}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
+              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
             />
           </div>
 
@@ -183,7 +183,7 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
               value={author}
               onChange={(e) => setAuthor(e.target.value)}
               maxLength={500}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
+              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
             />
           </div>
 
@@ -197,7 +197,7 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
               value={coverUrl}
               onChange={(e) => setCoverUrl(e.target.value)}
               placeholder="https://..."
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
+              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
             />
           </div>
 
@@ -212,7 +212,7 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
                 value={isbn}
                 onChange={(e) => setIsbn(e.target.value)}
                 placeholder="978…"
-                className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
+                className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
               />
             </div>
             <div>
@@ -226,7 +226,7 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
                 min={0}
                 value={pages}
                 onChange={(e) => setPages(e.target.value)}
-                className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
+                className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
               />
             </div>
           </div>
@@ -241,12 +241,12 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               maxLength={4000}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/25"
+              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
             />
           </div>
 
           {error && (
-            <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+            <p className="rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">
               {error}
             </p>
           )}

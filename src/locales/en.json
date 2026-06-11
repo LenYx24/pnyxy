@@ -216,8 +216,8 @@
       },
       "customCss": {
         "heading": "Custom CSS",
-        "help": "Paste CSS rules to override the app's styles. Tailwind utility classes (e.g. .bg-accent-purple, .text-text-muted) and the theme variables on :root (--accent-purple, --bg-primary, …) are the stable selectors to target. Changes apply live and persist on this device.",
-        "placeholder": ":root { --accent-purple: #ff7eb6; }\n\n/* Hide the streak pill */\n.streak-pill { display: none; }",
+        "help": "Paste CSS rules to override the app's styles. Tailwind utility classes (e.g. .bg-accent, .text-text-muted) and the theme variables on :root (--color-accent, --bg-primary, …) are the stable selectors to target. Changes apply live and persist on this device.",
+        "placeholder": ":root { --color-accent: #ff7eb6; }\n\n/* Hide the streak pill */\n.streak-pill { display: none; }",
         "reset": "Reset"
       }
     },

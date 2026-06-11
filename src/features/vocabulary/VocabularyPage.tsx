@@ -118,7 +118,7 @@ export function VocabularyPage() {
     <div className="mx-auto w-full max-w-6xl space-y-5 p-4 sm:p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-purple/15 text-accent-purple">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/15 text-accent">
             <BookMarked size={20} />
           </div>
           <div>
@@ -177,7 +177,7 @@ export function VocabularyPage() {
       {/* Stats strip */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <GlassCard className="p-3 sm:p-4">
-          <p className="text-[10px] sm:text-xs uppercase tracking-wide text-text-muted">
+          <p className="text-2xs sm:text-xs uppercase tracking-wide text-text-muted">
             {t("vocabulary.stats.total")}
           </p>
           <p className="text-xl sm:text-2xl font-bold text-text-primary">
@@ -185,15 +185,15 @@ export function VocabularyPage() {
           </p>
         </GlassCard>
         <GlassCard className="p-3 sm:p-4">
-          <p className="text-[10px] sm:text-xs uppercase tracking-wide text-text-muted">
+          <p className="text-2xs sm:text-xs uppercase tracking-wide text-text-muted">
             {t("vocabulary.stats.dueNow")}
           </p>
-          <p className="text-xl sm:text-2xl font-bold text-accent-purple">
+          <p className="text-xl sm:text-2xl font-bold text-accent">
             {dueCount}
           </p>
         </GlassCard>
         <GlassCard className="p-3 sm:p-4">
-          <p className="text-[10px] sm:text-xs uppercase tracking-wide text-text-muted">
+          <p className="text-2xs sm:text-xs uppercase tracking-wide text-text-muted">
             {t("vocabulary.stats.learning")}
           </p>
           <p className="text-xl sm:text-2xl font-bold text-text-primary">
@@ -213,7 +213,7 @@ export function VocabularyPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("vocabulary.search")}
-            className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2 pl-9 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent-purple/50"
+            className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2 pl-9 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50"
           />
         </div>
         <div className="flex rounded-lg border border-glass-border bg-glass-bg p-0.5 text-xs">
@@ -224,7 +224,7 @@ export function VocabularyPage() {
               className={cn(
                 "rounded-md px-2.5 py-1.5 transition-colors cursor-pointer",
                 filter === key
-                  ? "bg-accent-purple/20 text-accent-purple"
+                  ? "bg-accent/20 text-accent"
                   : "text-text-muted hover:text-text-primary",
               )}
             >
@@ -236,7 +236,7 @@ export function VocabularyPage() {
           <select
             value={sourceFilter}
             onChange={(e) => setSourceFilter(e.target.value)}
-            className="rounded-lg border border-glass-border bg-glass-bg px-2 py-2 text-xs text-text-primary outline-none focus:border-accent-purple/50 cursor-pointer"
+            className="rounded-lg border border-glass-border bg-glass-bg px-2 py-2 text-xs text-text-primary outline-none focus:border-accent/50 cursor-pointer"
           >
             <option value="all">{t("vocabulary.allBooks")}</option>
             {bookOptions.map(([id, title]) => (
@@ -308,9 +308,9 @@ function VocabRow({
           <span className="font-semibold text-text-primary">{entry.word}</span>
           <span
             className={cn(
-              "rounded-full px-2 py-0.5 text-[10px]",
+              "rounded-full px-2 py-0.5 text-2xs",
               isDue
-                ? "bg-accent-purple/20 text-accent-purple"
+                ? "bg-accent/20 text-accent"
                 : "bg-glass-bg text-text-muted",
             )}
           >
@@ -321,7 +321,7 @@ function VocabRow({
           {entry.definition}
         </p>
         {entry.sourceTitle && (
-          <p className="mt-1 truncate text-[11px] text-text-muted">
+          <p className="mt-1 truncate text-2xs text-text-muted">
             {entry.sourceTitle}
             {entry.sourcePage != null
               ? ` · ${t("vocabulary.page", { page: entry.sourcePage })}`
@@ -332,7 +332,7 @@ function VocabRow({
       <button
         onClick={() => onRemove(entry.id)}
         aria-label={t("common.delete")}
-        className="shrink-0 rounded-md p-1.5 text-text-muted transition-colors hover:bg-red-500/10 hover:text-red-400 cursor-pointer"
+        className="shrink-0 rounded-md p-1.5 text-text-muted transition-colors hover:bg-danger/10 hover:text-danger cursor-pointer"
       >
         <Trash2 size={16} />
       </button>

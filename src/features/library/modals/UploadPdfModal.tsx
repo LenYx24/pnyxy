@@ -270,7 +270,7 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
                 className={cn(
                   "flex flex-col items-center gap-3 rounded-lg border-2 border-dashed p-8 transition-colors",
                   dragOver
-                    ? "border-accent-purple bg-accent-purple/10"
+                    ? "border-accent bg-accent/10"
                     : "border-glass-border",
                 )}
               >
@@ -302,9 +302,9 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
                 </p>
               </div>
               {rejectedExts.length > 0 && (
-                <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-500/10 p-3">
-                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-400" />
-                  <p className="text-xs text-amber-300">
+                <div className="mt-3 flex items-start gap-2 rounded-lg bg-warning/10 p-3">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warning" />
+                  <p className="text-xs text-warning">
                     {t("library.upload.unsupportedFormat", {
                       formats: rejectedExts.join(", "),
                     })}
@@ -312,9 +312,9 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
                 </div>
               )}
               {notice && (
-                <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-500/10 p-3">
-                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-400" />
-                  <p className="text-xs text-amber-300">{notice}</p>
+                <div className="mt-3 flex items-start gap-2 rounded-lg bg-warning/10 p-3">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warning" />
+                  <p className="text-xs text-warning">{notice}</p>
                 </div>
               )}
             </>
@@ -351,18 +351,18 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
               </div>
 
               {notice && (
-                <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 p-3">
-                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-400" />
-                  <p className="text-xs text-amber-300">{notice}</p>
+                <div className="flex items-start gap-2 rounded-lg bg-warning/10 p-3">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warning" />
+                  <p className="text-xs text-warning">{notice}</p>
                 </div>
               )}
 
               {/* Storage warning — synchronous pre-check so the user
                   sees this *here*, not on doomed ghost cards. */}
               {wouldExceed && (
-                <div className="flex items-start gap-2 rounded-lg bg-red-500/10 p-3">
-                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-red-400" />
-                  <p className="text-xs text-red-400">
+                <div className="flex items-start gap-2 rounded-lg bg-danger/10 p-3">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-danger" />
+                  <p className="text-xs text-danger">
                     {t("library.uploadModal.wouldExceed")}
                   </p>
                 </div>
@@ -383,7 +383,7 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
                     key={item.key}
                     className="flex items-center gap-3 border-b border-glass-border px-3 py-2 last:border-b-0"
                   >
-                    <FileText size={18} className="shrink-0 text-accent-purple" />
+                    <FileText size={18} className="shrink-0 text-accent" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-text-primary">
                         {item.file.name}

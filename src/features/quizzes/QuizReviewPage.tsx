@@ -100,7 +100,7 @@ export function QuizReviewPage() {
     return (
       <div className="mx-auto w-full max-w-xl space-y-5 p-4 sm:p-6 text-center">
         <div className="flex justify-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-purple/15 text-accent-purple">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/15 text-accent">
             <PartyPopper size={24} />
           </div>
         </div>
@@ -195,7 +195,7 @@ export function QuizReviewPage() {
         </p>
         <div className="h-1 w-full rounded-full bg-glass-bg">
           <div
-            className="h-full rounded-full bg-accent-purple transition-all"
+            className="h-full rounded-full bg-accent transition-all"
             style={{ width: `${(index / queue.length) * 100}%` }}
           />
         </div>

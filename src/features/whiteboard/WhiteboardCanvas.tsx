@@ -967,7 +967,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
 
       {pdfLoading && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-bg-primary/80 backdrop-blur-sm">
-          <Loader2 size={32} className="animate-spin text-accent-purple mb-3" />
+          <Loader2 size={32} className="animate-spin text-accent mb-3" />
           <p className="text-sm text-text-secondary">{pdfLoadProgress}</p>
         </div>
       )}

@@ -77,11 +77,11 @@ export function RoadmapNodeCard({
       className={cn(
         "relative w-60 rounded-xl border px-3 py-2.5 text-left transition-all",
         completed
-          ? "border-emerald-500/40 bg-emerald-500/10"
+          ? "border-success/40 bg-success/10"
           : d.locked
             ? "border-glass-border/60 bg-glass-bg/40"
             : "border-glass-border bg-glass-bg",
-        selected && "ring-2 ring-accent-purple",
+        selected && "ring-2 ring-accent",
         !d.editMode && d.locked && "opacity-70",
         !d.editMode && completed && "opacity-90",
       )}
@@ -94,7 +94,7 @@ export function RoadmapNodeCard({
       {d.isGoal && (
         <Trophy
           size={14}
-          className="absolute -right-1.5 -top-1.5 rounded-full bg-bg-secondary p-0.5 text-yellow-400"
+          className="absolute -right-1.5 -top-1.5 rounded-full bg-bg-secondary p-0.5 text-warning"
           aria-label="Goal"
         />
       )}
@@ -103,10 +103,10 @@ export function RoadmapNodeCard({
           className={cn(
             "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
             completed
-              ? "bg-emerald-500 text-white"
+              ? "bg-success text-white"
               : d.locked
                 ? "bg-glass-bg text-text-muted"
-                : "bg-accent-purple/15 text-accent-purple",
+                : "bg-accent/15 text-accent",
           )}
         >
           {completed ? (
@@ -134,8 +134,8 @@ export function RoadmapNodeCard({
           {ref && (
             <div
               className={cn(
-                "mt-1 flex items-center gap-1 truncate text-[11px]",
-                refMatched ? "text-accent-purple" : "text-text-muted",
+                "mt-1 flex items-center gap-1 truncate text-2xs",
+                refMatched ? "text-accent" : "text-text-muted",
               )}
               title={
                 ref.author ? `${ref.author} — ${ref.title}` : ref.title
@@ -150,7 +150,7 @@ export function RoadmapNodeCard({
               )}
             </div>
           )}
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-text-muted">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-text-muted">
             <MinutesPill
               roadmapId={d.roadmapId}
               nodeId={d.nodeId}
@@ -173,7 +173,7 @@ export function RoadmapNodeCard({
           {partial && !d.editMode && (
             <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-glass-bg">
               <div
-                className="h-full rounded-full bg-accent-purple transition-[width] duration-200 ease-out"
+                className="h-full rounded-full bg-accent transition-[width] duration-200 ease-out"
                 style={{ width: `${d.progress}%` }}
                 aria-label={`${d.progress}% complete`}
               />
@@ -258,7 +258,7 @@ function MinutesPill({
             cancel();
           }
         }}
-        className="nodrag nopan w-14 rounded border border-accent-purple/60 bg-bg-secondary px-1 py-0.5 text-[11px] outline-none"
+        className="nodrag nopan w-14 rounded border border-accent/60 bg-bg-secondary px-1 py-0.5 text-2xs outline-none"
         aria-label="Estimated minutes"
       />
     );

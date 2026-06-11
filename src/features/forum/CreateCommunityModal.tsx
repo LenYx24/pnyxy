@@ -84,7 +84,7 @@ export function CreateCommunityModal({
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+          <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
             {error}
           </div>
         )}
@@ -99,7 +99,7 @@ export function CreateCommunityModal({
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
               placeholder="e.g. Linear Algebra"
-              className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple"
+              className="w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
             />
           </div>
 
@@ -117,7 +117,7 @@ export function CreateCommunityModal({
                   setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
                 }}
                 placeholder="linear-algebra"
-                className="flex-1 rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-purple"
+                className="flex-1 rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
               />
             </div>
           </div>
@@ -130,7 +130,7 @@ export function CreateCommunityModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What is this community about?"
-              className="h-20 w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary outline-none resize-none focus:border-accent-purple"
+              className="h-20 w-full rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary outline-none resize-none focus:border-accent"
             />
           </div>
         </div>
@@ -142,7 +142,7 @@ export function CreateCommunityModal({
           <button
             onClick={handleSubmit}
             disabled={!name.trim() || loading}
-            className="rounded-lg bg-accent-purple px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-purple/80 disabled:opacity-40 cursor-pointer"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/80 disabled:opacity-40 cursor-pointer"
           >
             {loading ? "Creating..." : "Create"}
           </button>

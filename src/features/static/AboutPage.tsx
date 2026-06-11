@@ -7,7 +7,7 @@ export function AboutPage() {
     <div className="mx-auto w-full max-w-3xl space-y-6 p-4 sm:p-6">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-glass-bg">
-          <Info size={20} className="text-accent-purple" />
+          <Info size={20} className="text-accent" />
         </div>
         <h1 className="text-2xl font-bold text-text-primary">
           {t("static.about.title")}

@@ -100,16 +100,16 @@ function RecentlyAddedCard({
             fallbackLetter={title.charAt(0)}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-purple/25 to-accent-blue/25">
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent/25 to-accent-blue/25">
             <BookOpen size={28} className="text-white/20" />
           </div>
         )}
       </div>
       <div className="mt-1.5 flex h-9 min-w-0 flex-col overflow-hidden">
-        <h3 className="truncate text-[11px] font-semibold leading-tight text-text-primary">
+        <h3 className="truncate text-2xs font-semibold leading-tight text-text-primary">
           {title}
         </h3>
-        <p className="truncate text-[10px] leading-tight text-text-muted">
+        <p className="truncate text-2xs leading-tight text-text-muted">
           {author || "—"}
         </p>
       </div>

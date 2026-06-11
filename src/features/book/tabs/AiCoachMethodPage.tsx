@@ -91,7 +91,7 @@ export function AiCoachMethodPage() {
         <p className="text-text-muted">Unknown learning method.</p>
         <Link
           to={`/books/${bookId}/learn`}
-          className="mt-4 inline-flex items-center gap-2 text-sm text-accent-purple hover:underline"
+          className="mt-4 inline-flex items-center gap-2 text-sm text-accent hover:underline"
         >
           <ArrowLeft size={14} />
           Back to Learn hub
@@ -113,7 +113,7 @@ export function AiCoachMethodPage() {
       </Link>
 
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-purple/15 text-accent-purple">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent">
           <Icon size={20} />
         </div>
         <div>
@@ -135,12 +135,12 @@ export function AiCoachMethodPage() {
         <button
           type="button"
           onClick={handleStart}
-          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-accent-purple px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-purple/90 cursor-pointer"
+          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90 cursor-pointer"
         >
           <MessagesSquare size={14} />
           Start in chat
         </button>
-        <p className="mt-2 text-[10px] text-text-muted">
+        <p className="mt-2 text-2xs text-text-muted">
           Opens a fresh conversation tied to this book. The first
           message is pre-drafted with the methodology — you finish
           the sentence and hit send.
@@ -151,7 +151,7 @@ export function AiCoachMethodPage() {
           asked for these three to feel grouped together so flipping
           between them takes one click. */}
       <div className="rounded-xl border border-dashed border-glass-border bg-glass-bg/20 p-3">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+        <p className="text-2xs font-medium uppercase tracking-wide text-text-muted">
           Other coaching styles
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -167,12 +167,12 @@ export function AiCoachMethodPage() {
                   to={`/books/${bookId}/learn/${slug}`}
                   onMouseEnter={() => setHoverSlug(slug)}
                   onMouseLeave={() => setHoverSlug(null)}
-                  className="flex items-center gap-2 rounded-lg border border-glass-border bg-bg-primary/30 px-3 py-1.5 text-xs text-text-secondary transition-colors hover:border-accent-purple/40 hover:text-text-primary"
+                  className="flex items-center gap-2 rounded-lg border border-glass-border bg-bg-primary/30 px-3 py-1.5 text-xs text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
                 >
                   <MIcon size={12} />
                   {m.label}
                   {hoverSlug === slug && (
-                    <span className="text-[10px] text-text-muted">
+                    <span className="text-2xs text-text-muted">
                       — {m.tagline}
                     </span>
                   )}

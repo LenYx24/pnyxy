@@ -18,7 +18,7 @@ export function CommunityCard({ community }: CommunityCardProps) {
       onClick={() => navigate(`/forum/c/${community.slug}`)}
     >
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-purple/20 text-accent-purple font-bold text-sm">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent/20 text-accent font-bold text-sm">
           {community.name.charAt(0).toUpperCase()}
         </div>
 

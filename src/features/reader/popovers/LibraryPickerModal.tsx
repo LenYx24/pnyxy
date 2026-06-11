@@ -138,7 +138,7 @@ export function LibraryPickerModal({ onClose }: LibraryPickerModalProps) {
         </div>
 
         <div className="border-b border-glass-border px-4 py-2">
-          <div className="flex items-center gap-2 rounded-md border border-glass-border bg-bg-secondary px-3 py-1.5 focus-within:border-accent-purple">
+          <div className="flex items-center gap-2 rounded-md border border-glass-border bg-bg-secondary px-3 py-1.5 focus-within:border-accent">
             <Search size={14} className="text-text-muted" />
             <input
               autoFocus
@@ -199,11 +199,11 @@ export function LibraryPickerModal({ onClose }: LibraryPickerModalProps) {
                           className="animate-spin text-text-muted"
                         />
                       ) : alreadyOpen ? (
-                        <span className="text-[11px] text-text-muted">
+                        <span className="text-2xs text-text-muted">
                           {t("reader.libraryPicker.alreadyOpen")}
                         </span>
                       ) : !row.hasFile ? (
-                        <span className="text-[11px] text-text-muted">
+                        <span className="text-2xs text-text-muted">
                           {t("reader.libraryPicker.noFile")}
                         </span>
                       ) : null}

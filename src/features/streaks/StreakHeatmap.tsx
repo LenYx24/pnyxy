@@ -26,10 +26,10 @@ interface HeatmapCell {
  *  contributions chart: empty → faint → light → medium → strong. */
 const INTENSITY_CLASSES: Record<IntensityLevel, string> = {
   0: "bg-glass-bg/40 border-glass-border",
-  1: "bg-green-500/20 border-green-500/30",
-  2: "bg-green-500/40 border-green-500/50",
-  3: "bg-green-500/65 border-green-500/70",
-  4: "bg-green-500 border-green-500",
+  1: "bg-success/20 border-success/30",
+  2: "bg-success/40 border-success/50",
+  3: "bg-success/65 border-success/70",
+  4: "bg-success border-success",
 };
 
 function dateKey(d: Date): string {
@@ -149,7 +149,7 @@ export function StreakHeatmap({
           ))}
         </div>
       </div>
-      <div className="flex items-center gap-2 text-[10px] text-text-muted">
+      <div className="flex items-center gap-2 text-2xs text-text-muted">
         <span>{t("streaks.heatmap.less")}</span>
         {([0, 1, 2, 3, 4] as IntensityLevel[]).map((lvl) => (
           <span

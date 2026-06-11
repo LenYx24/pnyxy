@@ -96,7 +96,7 @@ export function AnnotationMenuExplainPanel({ selectedText, onBack }: Props) {
   return (
     <div className="flex w-72 flex-col gap-2 p-1">
       <div className="flex items-center gap-1.5">
-        <Sparkles size={14} className="text-accent-purple" />
+        <Sparkles size={14} className="text-accent" />
         <span className="text-xs font-medium text-text-primary">
           {t("reader.annotationMenu.explainPanelTitle")}
         </span>
@@ -116,7 +116,7 @@ export function AnnotationMenuExplainPanel({ selectedText, onBack }: Props) {
           </span>
         )}
         {error && !text && (
-          <span className="text-red-400">
+          <span className="text-danger">
             {t("reader.annotationMenu.explainFailed")}
           </span>
         )}
@@ -136,7 +136,7 @@ export function AnnotationMenuExplainPanel({ selectedText, onBack }: Props) {
         </button>
         {text && !loading && (
           <button
-            className="rounded bg-accent-purple/20 px-2 py-1 text-xs text-accent-purple transition-colors hover:bg-accent-purple/30 cursor-pointer"
+            className="rounded bg-accent/20 px-2 py-1 text-xs text-accent transition-colors hover:bg-accent/30 cursor-pointer"
             onClick={() => {
               navigator.clipboard.writeText(text);
               hideContextMenu();

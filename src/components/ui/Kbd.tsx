@@ -20,7 +20,7 @@ export function Kbd({ shortcut, className }: KbdProps) {
   return (
     <kbd
       className={cn(
-        "inline-flex items-center rounded border border-glass-border bg-bg-primary/60 px-1 py-0.5 text-[10px] font-mono text-text-secondary",
+        "inline-flex items-center rounded border border-glass-border bg-bg-primary/60 px-1 py-0.5 text-2xs font-mono text-text-secondary",
         className,
       )}
     >

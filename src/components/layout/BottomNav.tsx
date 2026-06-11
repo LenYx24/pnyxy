@@ -40,8 +40,8 @@ export function BottomNav() {
             to={to}
             className={({ isActive }) =>
               cn(
-                "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-medium transition-colors touch-target",
-                isActive ? "text-accent-purple" : "text-text-muted",
+                "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-2xs font-medium transition-colors touch-target",
+                isActive ? "text-accent" : "text-text-muted",
               )
             }
           >
@@ -53,7 +53,7 @@ export function BottomNav() {
       <button
         type="button"
         onClick={() => setMobileSidebarOpen(true)}
-        className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-medium text-text-muted transition-colors touch-target hover:text-text-primary cursor-pointer"
+        className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-2xs font-medium text-text-muted transition-colors touch-target hover:text-text-primary cursor-pointer"
         aria-label={t("sidebar.more", { defaultValue: "More" })}
       >
         <Menu size={18} />

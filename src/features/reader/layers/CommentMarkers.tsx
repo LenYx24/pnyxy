@@ -53,10 +53,10 @@ export function CommentMarkers({ pageNum }: CommentMarkersProps) {
               className={cn(
                 "absolute pointer-events-auto cursor-pointer rounded-full p-1 transition-all",
                 isSelected
-                  ? "bg-accent-purple text-white shadow-lg scale-110"
+                  ? "bg-accent text-white shadow-lg scale-110"
                   : comment.resolved
                     ? "bg-glass-bg text-text-muted hover:bg-glass-hover"
-                    : "bg-accent-purple/20 text-accent-purple hover:bg-accent-purple/30",
+                    : "bg-accent/20 text-accent hover:bg-accent/30",
               )}
               style={{
                 right: -28,

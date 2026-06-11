@@ -60,7 +60,7 @@ export function StreakCard() {
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <Trophy size={16} className="text-yellow-400" />
+            <Trophy size={16} className="text-warning" />
             <span className="text-sm font-medium text-text-secondary">
               {longestStreak}
             </span>
@@ -84,8 +84,8 @@ export function StreakCard() {
           <div
             className={`h-full rounded-full transition-all duration-500 ${
               today.goalCompleted
-                ? "bg-green-500"
-                : "bg-accent-purple"
+                ? "bg-success"
+                : "bg-accent"
             }`}
             style={{ width: `${progress * 100}%` }}
           />
