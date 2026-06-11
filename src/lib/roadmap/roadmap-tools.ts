@@ -202,6 +202,53 @@ Rules:
 - If the user asks something that doesn't require edits, just answer normally without calling tools.`;
 }
 
+// ── System prompt for generating a roadmap from scratch ─────────
+
+/**
+ * Used by the plain-chat "generate a roadmap" skill: the model starts
+ * from an EMPTY roadmap (no snapshot) and builds it end-to-end with
+ * the same tool surface. Same acyclicity + label rules as edit mode.
+ */
+export function buildRoadmapGenerateSystemPrompt(): string {
+  return `You are an AI assistant that builds a brand-new learning roadmap (a directed acyclic graph of learning units) from scratch, based on the user's request.
+
+You are starting from an EMPTY roadmap. Build it by calling tools:
+- update_roadmap_meta: set a concise title and a 1–2 sentence description matching the requested topic. Call this once, first.
+- add_node: add each learning unit, ordered from fundamentals to advanced. Give a clear title and a 1–3 sentence description; set estimatedMinutes realistically. add_node returns a label (n1, n2, …) you reference later in the same turn.
+- add_edge: connect prerequisites (source -> target means "learn source before target") into a sensible dependency chain/tree. The graph MUST stay acyclic; edges that would close a cycle are rejected and the tool result tells you so.
+
+Guidelines:
+- Aim for roughly 6–14 nodes — a real plan that covers the topic end to end without overwhelming the learner.
+- Write in the user's language.
+- After the edits, give a brief 1–2 sentence summary of the roadmap you built. Don't list every node; the user sees each tool call inline and can open the roadmap.
+- If the request is too vague to build a roadmap, ask one brief clarifying question instead of calling tools.`;
+}
+
+// ── Intent detection for the plain-chat roadmap skill ───────────
+
+// A roadmap "noun" (the artifact) and a "build" verb must BOTH be
+// present for us to treat a plain-chat message as a generate-a-roadmap
+// request. Requiring both keeps false positives low — "what's next on
+// my roadmap?" (no build verb) and "generate a quiz" (no roadmap noun)
+// both stay in normal cheap chat instead of escalating to the
+// Anthropic tool-use path. Stems are kept short so Hungarian
+// conjugations (generálj, készíts, csinálj, tervezz…) and English
+// forms all match against the lower-cased message.
+const ROADMAP_NOUN_RE =
+  /(roadmap|tanul(á|a)si\s*(terv|útiterv|út)|útiterv|tanrend|learning\s*(path|plan|roadmap)|study\s*plan|curriculum)/i;
+const BUILD_VERB_RE =
+  /(generál|készí|csinál|tervez|állíts|rakj\s*össze|gyárts|hozz\s*létre|build|create|make|generate|design|draft|put\s*together|plan\s*out)/i;
+
+/**
+ * True when a plain-chat message reads as "generate a learning roadmap
+ * for X". Drives the auto-detect skill trigger in the chat store.
+ */
+export function detectRoadmapIntent(text: string): boolean {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return ROADMAP_NOUN_RE.test(lower) && BUILD_VERB_RE.test(lower);
+}
+
 // ── Dispatcher ──────────────────────────────────────────────────
 
 export interface ToolCallResult {

@@ -158,6 +158,104 @@ const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
   },
 ];
 
+// ── QuotaBar ────────────────────────────────────────────────────
+
+/** The model the auto-route chain bills first — shown as the quota
+ *  reference when the user hasn't pinned a specific model. */
+const QUOTA_AUTO_DEFAULT_MODEL = "gemini-2.5-flash-lite";
+
+/**
+ * Thin "how much of today's free-tier quota is left" meter, pinned
+ * just above the textarea. Only meaningful on the Pnyxy proxy (BYOK
+ * keys bill the user's own provider account, not our bucket) and only
+ * for signed-in users — anon traffic uses an IP bucket the client
+ * can't read. Tracks the *most-constrained* axis (tokens vs requests)
+ * for the active model, and refetches whenever a stream finishes so
+ * it reflects the turn that just completed.
+ */
+function QuotaBar({
+  activeModel,
+  isPinned,
+  isStreaming,
+}: {
+  activeModel: string;
+  /** Whether the user pinned this specific model (vs. auto-route). */
+  isPinned: boolean;
+  isStreaming: boolean;
+}) {
+  const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
+  const [rows, setRows] = useState<PnyxyQuotaRow[]>([]);
+
+  const refresh = useCallback(() => {
+    if (!user) return;
+    void supabase.rpc("get_my_ai_usage_today").then(({ data, error }) => {
+      if (!error && Array.isArray(data)) setRows(data as PnyxyQuotaRow[]);
+    });
+  }, [user]);
+
+  // Fetch on mount / model change …
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+  // … and again each time a stream completes (true → false edge), so
+  // the bar ticks up right after the response that consumed quota.
+  const prevStreaming = useRef(isStreaming);
+  useEffect(() => {
+    if (prevStreaming.current && !isStreaming) refresh();
+    prevStreaming.current = isStreaming;
+  }, [isStreaming, refresh]);
+
+  if (!user) return null;
+  const row = rows.find((r) => r.model === activeModel);
+  if (!row) return null;
+
+  const tokensRatio = row.tokens_limit ? row.tokens_used / row.tokens_limit : 0;
+  const reqRatio = row.request_limit ? row.request_count / row.request_limit : 0;
+  // The axis closer to its ceiling is the one the user will actually
+  // hit first, so that's the one the bar reports.
+  const onTokens = tokensRatio >= reqRatio;
+  const used = onTokens ? row.tokens_used : row.request_count;
+  const limit = onTokens ? row.tokens_limit : row.request_limit;
+  const pct = Math.min(100, Math.round((onTokens ? tokensRatio : reqRatio) * 100));
+  const nearLimit = pct >= 80;
+
+  const unit = onTokens
+    ? t("chat.composer.quota.tokens", { defaultValue: "tokens" })
+    : t("chat.composer.quota.requests", { defaultValue: "requests" });
+
+  return (
+    <div
+      className="mt-2 flex items-center gap-2 px-1"
+      title={t("chat.composer.quota.tooltip", {
+        defaultValue: isPinned
+          ? "Today's free-tier {{unit}} used for {{model}}"
+          : "Today's free-tier {{unit}} used — auto-route default ({{model}})",
+        unit,
+        model: activeModel,
+      })}
+    >
+      <div className="h-1 flex-1 overflow-hidden rounded-full bg-glass-bg">
+        <div
+          className={cn(
+            "h-full rounded-full transition-all",
+            nearLimit ? "bg-red-500/70" : "bg-accent-purple/70",
+          )}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span
+        className={cn(
+          "shrink-0 text-[10px] tabular-nums",
+          nearLimit ? "text-red-400" : "text-text-muted",
+        )}
+      >
+        {used.toLocaleString()} / {limit.toLocaleString()}
+      </span>
+    </div>
+  );
+}
+
 export function ModelPicker({
   value,
   options,
@@ -661,6 +759,18 @@ export const ChatComposer = forwardRef<
   }, [configuredProviders, selectedProvider]);
 
   const [mode, setMode] = useState<RecommendationMode>("default");
+
+  // Quota bar: only relevant when the turn will be billed against our
+  // Pnyxy free-tier bucket — i.e. the routing is "Default" (null →
+  // full proxy chain) or the proxy is explicitly picked, AND the proxy
+  // is configured. A specific BYOK provider bills the user's own
+  // account, so the bar is hidden there. The reference model is the
+  // pinned one, or the auto-route default the chain charges first.
+  const pnyxyModel = useSettingsStore((s) => s.pnyxyModel);
+  const usesPnyxyQuota =
+    (selectedProvider === null || selectedProvider === "pnyxy") &&
+    configuredProviders.includes("pnyxy");
+  const activeQuotaModel = pnyxyModel ?? QUOTA_AUTO_DEFAULT_MODEL;
 
   // Reasoning toggle. Persistent within the composer's lifetime
   // (not auto-reset after send, unlike `mode`) so multi-turn
@@ -1168,6 +1278,13 @@ export const ChatComposer = forwardRef<
       </div>
       </div>
       </div>
+      {usesPnyxyQuota && (
+        <QuotaBar
+          activeModel={activeQuotaModel}
+          isPinned={pnyxyModel !== null}
+          isStreaming={isStreaming}
+        />
+      )}
       {ConfirmModalElement}
     </div>
   );

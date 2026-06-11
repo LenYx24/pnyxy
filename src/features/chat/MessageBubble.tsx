@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   Check,
@@ -130,10 +131,14 @@ export function MessageBubble({
     >
       <div
         className={cn(
-          "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm",
+          // backdrop-blur frosts whatever drifts behind (the chat
+          // aurora) so text stays legible and the bubble reads as a
+          // pane of glass floating over the light rather than a flat
+          // fill. The hairline border gives the glass an edge.
+          "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm backdrop-blur-md",
           isUser
             ? "bg-accent-purple/20 text-text-primary rounded-br-md"
-            : "bg-glass-bg text-text-secondary rounded-bl-md",
+            : "border border-glass-border bg-glass-bg text-text-secondary rounded-bl-md",
           // Slightly taller while still empty so the typing indicator
           // sits comfortably; collapses back to py-2 once content is
           // streaming.
@@ -517,6 +522,7 @@ const AssistantContent = memo(function AssistantContent({
   handleCitationClick: (e: React.MouseEvent<HTMLElement>) => void;
 }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   // While streaming, throttle the value we actually render. State
   // updates batch into ~60ms windows; once streaming stops the
   // effect's dependency flip flushes the final content immediately.
@@ -560,6 +566,16 @@ const AssistantContent = memo(function AssistantContent({
           const aiLink = detectAiLinkClick(e);
           if (aiLink) {
             void promptOpenAiLink(aiLink, confirm, t);
+            return;
+          }
+          // Relative in-app links (e.g. the "Open the generated
+          // roadmap" link a roadmap-skill turn appends) navigate
+          // through the SPA router instead of triggering a full reload.
+          const anchor = (e.target as HTMLElement)?.closest?.("a");
+          const href = anchor?.getAttribute("href");
+          if (href && href.startsWith("/") && !href.startsWith("//")) {
+            e.preventDefault();
+            navigate(href);
             return;
           }
           handleCitationClick(e);

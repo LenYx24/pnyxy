@@ -101,6 +101,57 @@
   }
 }
 
+/*
+ * Chat "aurora" backdrop. A few oversized, heavily-blurred colour
+ * blobs that drift on long, offset cycles behind the message thread —
+ * the result is a slow, abstract shift of light rather than a flat
+ * fill. Each blob has its own keyframe + period so they never line up
+ * into an obvious loop. Colours come from the accent tokens via
+ * Tailwind classes in the markup, so the effect re-tints with the
+ * user's theme. Kept low-opacity and parked toward the edges so the
+ * central reading column stays calm and legible.
+ */
+@keyframes aurora-a {
+  0%,
+  100% {
+    transform: translate(-6%, -4%) scale(1);
+  }
+  50% {
+    transform: translate(7%, 6%) scale(1.18);
+  }
+}
+@keyframes aurora-b {
+  0%,
+  100% {
+    transform: translate(8%, 3%) scale(1.12);
+  }
+  50% {
+    transform: translate(-5%, -7%) scale(0.94);
+  }
+}
+@keyframes aurora-c {
+  0%,
+  100% {
+    transform: translate(3%, 8%) scale(0.98);
+  }
+  50% {
+    transform: translate(-6%, -4%) scale(1.22);
+  }
+}
+.chat-aurora__blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  will-change: transform;
+}
+/* Respect users who ask for less motion — keep the colour wash, drop
+   the drift. */
+@media (prefers-reduced-motion: reduce) {
+  .chat-aurora__blob {
+    animation: none !important;
+  }
+}
+
 @layer base {
   html {
     /* Tells the browser our page is dark so native form-control popups

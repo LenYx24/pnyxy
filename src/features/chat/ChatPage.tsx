@@ -882,7 +882,11 @@ export function ChatPage() {
         // edge instead of the chat page's right edge.
         className={cn(
           "fixed inset-y-0 left-0 z-30 flex w-72 max-w-[80vw] shrink-0 flex-col gap-3 border-r border-glass-border bg-bg-secondary p-3 transition-transform duration-200",
-          "sm:relative sm:translate-x-0 sm:bg-glass-bg/40",
+          // Desktop: trade the flat slab + hard divider for a frosted
+          // vertical-gradient pane with a hairline border, so the
+          // sidebar reads as glass in the same family as the message
+          // bubbles and aurora rather than a heavy block bolted on.
+          "sm:relative sm:translate-x-0 sm:border-glass-border/60 sm:bg-gradient-to-b sm:from-bg-secondary/70 sm:to-bg-secondary/30 sm:backdrop-blur-xl",
           mobileListOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -1073,7 +1077,30 @@ export function ChatPage() {
       </aside>
 
       {/* Main pane */}
-      <main className="relative flex min-w-0 flex-1 flex-col">
+      <main className="relative isolate flex min-w-0 flex-1 flex-col">
+        {/* Aurora backdrop — slow, abstract drift of accent-tinted
+            light behind the thread. `isolate` on <main> contains the
+            -z-10 layer so it sits behind the messages but in front of
+            the page base; pointer-events-none keeps it inert. Blobs
+            are parked toward the corners so colour lives in the
+            gutters, not under the reading column. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+        >
+          <div
+            className="chat-aurora__blob h-[34rem] w-[34rem] -left-32 -top-40 bg-accent-purple/20"
+            style={{ animation: "aurora-a 24s ease-in-out infinite" }}
+          />
+          <div
+            className="chat-aurora__blob h-[30rem] w-[30rem] -right-28 top-1/4 bg-accent-blue/15"
+            style={{ animation: "aurora-b 31s ease-in-out infinite" }}
+          />
+          <div
+            className="chat-aurora__blob h-[32rem] w-[32rem] bottom-[-12rem] left-1/3 bg-accent-purple/15"
+            style={{ animation: "aurora-c 27s ease-in-out infinite" }}
+          />
+        </div>
         {/* Desktop overflow — mobile has its own header with the menu
             so this is hidden below sm. Floats so it doesn't push the
             messages area down on desktop where there's no header. */}
@@ -1345,7 +1372,7 @@ export function ChatPage() {
                 the screen bottom. The composer's flush variant
                 breaks out of the px-3 horizontally with a negative
                 margin. */}
-            <div className="bg-bg-primary/30 px-3 pb-0 pt-3 sm:pb-6">
+            <div className="bg-bg-primary/30 px-3 pb-0 pt-3 backdrop-blur-md sm:pb-6">
               {/* Roadmap edit-mode pill — present when this
                   conversation is tied to a roadmap. The AI has tool
                   access; tool calls render as quoted lines inline. */}

@@ -650,71 +650,88 @@ const ConversationRow = memo(function ConversationRow({
         ) : (
           <>
             <span className="w-5 shrink-0" aria-hidden="true" />
+            {/* The title claims the FULL row width and only truncates
+                against the row edge — the action icons no longer
+                reserve layout space, so short titles read in full and
+                long ones use every available pixel. The icons live in
+                an absolutely-positioned overlay (below) that fades in
+                on hover/focus, sliding over the title's tail. */}
             <button
               onClick={() => onOpen(conversation.id)}
               className="flex-1 min-w-0 truncate text-left text-xs cursor-pointer"
             >
               {conversation.title || t("chat.untitled")}
             </button>
+          </>
+        )}
+      </div>
+
+      {/* Hover/focus action overlay. Pinned to the right edge and
+          absolutely positioned so it takes no layout space — that's
+          what lets the title above fill the whole row until the user
+          actually reaches for an action. A solid chip behind the icons
+          cleanly covers the title's tail (no gradient fade).
+          `group-focus-within` keeps it keyboard-reachable. */}
+      {!isEditing && (
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] flex items-center gap-0.5 rounded-r-md bg-bg-secondary pl-2 pr-1.5 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+          <button
+            ref={moveBtnRef}
+            onClick={() => setShowMove((v) => !v)}
+            className="rounded p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            aria-label={t("chat.folders.moveTo")}
+            title={t("chat.folders.moveTo")}
+          >
+            <FolderInput size={10} />
+          </button>
+          <FloatingMenu
+            open={showMove}
+            anchorRef={moveBtnRef}
+            onClose={() => setShowMove(false)}
+            className="w-48"
+          >
             <button
-              ref={moveBtnRef}
-              onClick={() => setShowMove((v) => !v)}
-              className="rounded p-1 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-text-primary group-hover:opacity-100 cursor-pointer"
-              aria-label={t("chat.folders.moveTo")}
-              title={t("chat.folders.moveTo")}
+              onClick={() => {
+                onMove(conversation.id, null);
+                setShowMove(false);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
             >
-              <FolderInput size={10} />
+              <FolderIcon size={12} className="text-text-muted" />
+              {t("chat.folders.root")}
             </button>
-            <FloatingMenu
-              open={showMove}
-              anchorRef={moveBtnRef}
-              onClose={() => setShowMove(false)}
-              className="w-48"
-            >
+            {folders.length > 0 && (
+              <div className="my-0.5 h-px bg-glass-border" />
+            )}
+            {folders.map((f) => (
               <button
+                key={f.id}
                 onClick={() => {
-                  onMove(conversation.id, null);
+                  onMove(conversation.id, f.id);
                   setShowMove(false);
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
               >
                 <FolderIcon size={12} className="text-text-muted" />
-                {t("chat.folders.root")}
+                {f.name}
               </button>
-              {folders.length > 0 && (
-                <div className="my-0.5 h-px bg-glass-border" />
-              )}
-              {folders.map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => {
-                    onMove(conversation.id, f.id);
-                    setShowMove(false);
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-                >
-                  <FolderIcon size={12} className="text-text-muted" />
-                  {f.name}
-                </button>
-              ))}
-            </FloatingMenu>
-            <button
-              onClick={() => onStartEdit(conversation.id, conversation.title)}
-              className="rounded p-1 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-text-primary group-hover:opacity-100 cursor-pointer"
-              aria-label={t("chat.rename")}
-            >
-              <Pencil size={11} />
-            </button>
-            <button
-              onClick={() => onDelete(conversation.id)}
-              className="rounded p-1 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-red-400 group-hover:opacity-100 cursor-pointer"
-              aria-label={t("chat.delete")}
-            >
-              <Trash2 size={11} />
-            </button>
-          </>
-        )}
-      </div>
+            ))}
+          </FloatingMenu>
+          <button
+            onClick={() => onStartEdit(conversation.id, conversation.title)}
+            className="rounded p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            aria-label={t("chat.rename")}
+          >
+            <Pencil size={11} />
+          </button>
+          <button
+            onClick={() => onDelete(conversation.id)}
+            className="rounded p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-red-400 cursor-pointer"
+            aria-label={t("chat.delete")}
+          >
+            <Trash2 size={11} />
+          </button>
+        </div>
+      )}
     </div>
   );
 });

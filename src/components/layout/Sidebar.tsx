@@ -163,15 +163,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         />
       ))}
 
-      {/* Profile row + settings gear. The two are siblings so the
-          gear stays visible (and clickable) even when the avatar
-          row's NavLink is the active route. When collapsed only the
-          avatar shows — the gear is reachable via the command palette
-          or by expanding the sidebar. */}
+      {/* Profile row + settings gear. The two are siblings so the gear
+          stays visible (and clickable) even when the avatar row's
+          NavLink is the active route. When the rail is collapsed they
+          stack vertically — avatar on top, gear below — so the gear
+          stays reachable as an icon instead of disappearing. */}
       {user ? (
         <div
           className={cn(
-            "flex items-center gap-1 border-t border-glass-border px-2 py-2",
+            "flex gap-1 border-t border-glass-border px-2 py-2",
+            collapsed ? "flex-col items-center" : "items-center",
           )}
         >
           <NavLink
@@ -179,7 +180,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             onClick={onNavigate}
             className={({ isActive }) =>
               cn(
-                "flex min-w-0 flex-1 items-center rounded-lg px-1.5 py-1.5 transition-colors",
+                "flex items-center rounded-lg px-1.5 py-1.5 transition-colors",
+                collapsed ? "w-full justify-center" : "min-w-0 flex-1",
                 isActive
                   ? "bg-accent-purple/15 text-accent-purple"
                   : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
@@ -197,24 +199,22 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               </span>
             </SidebarLabel>
           </NavLink>
-          {!collapsed && (
-            <NavLink
-              to="/settings"
-              onClick={onNavigate}
-              title={t("sidebar.settings")}
-              aria-label={t("sidebar.settings")}
-              className={({ isActive }) =>
-                cn(
-                  "rounded-md p-1.5 transition-colors",
-                  isActive
-                    ? "bg-accent-purple/15 text-accent-purple"
-                    : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
-                )
-              }
-            >
-              <SettingsIcon size={16} />
-            </NavLink>
-          )}
+          <NavLink
+            to="/settings"
+            onClick={onNavigate}
+            title={t("sidebar.settings")}
+            aria-label={t("sidebar.settings")}
+            className={({ isActive }) =>
+              cn(
+                "shrink-0 rounded-md p-1.5 transition-colors",
+                isActive
+                  ? "bg-accent-purple/15 text-accent-purple"
+                  : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
+              )
+            }
+          >
+            <SettingsIcon size={16} />
+          </NavLink>
         </div>
       ) : (
         <NavLink

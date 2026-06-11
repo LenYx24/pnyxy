@@ -16,6 +16,8 @@ import {
   LabelMap,
   formatRoadmapSnapshot,
   buildRoadmapEditSystemPrompt,
+  buildRoadmapGenerateSystemPrompt,
+  detectRoadmapIntent,
   dispatchRoadmapTool,
 } from "@/lib/roadmap/roadmap-tools";
 import { useRoadmapStore } from "@/stores/roadmap-store";
@@ -1294,6 +1296,18 @@ async function sendOrBranch(
         patchAssistant,
         signal,
       );
+    } else if (detectRoadmapIntent(trimmed)) {
+      // Plain-chat "generate a roadmap" skill — auto-detected from the
+      // message text. Routes this turn through the Anthropic tool-use
+      // path (the only branch wired for tools), builds a fresh roadmap,
+      // and links it inline. Normal chat turns never hit this and stay
+      // on the cheap auto-route.
+      acc = await runRoadmapGenerateLoop(
+        promptMessages,
+        preferredProvider,
+        patchAssistant,
+        signal,
+      );
     } else {
       // Smooth the on-screen reveal. Providers (and the SSE proxy)
       // often hand us deltas in big bursts — whole sentences or
@@ -1502,7 +1516,72 @@ async function runRoadmapAgenticLoop(
   const labels = new LabelMap(roadmap.nodes);
   const snapshot = formatRoadmapSnapshot(roadmap, labels);
   const systemPrompt = buildRoadmapEditSystemPrompt(snapshot);
+  return runRoadmapToolLoop(
+    roadmapId,
+    labels,
+    systemPrompt,
+    history,
+    preferredProvider,
+    patchAssistant,
+    signal,
+  );
+}
 
+/**
+ * Plain-chat "generate a roadmap" skill. Spins up a fresh, empty
+ * roadmap, lets the model populate it from scratch via the same tool
+ * loop, then appends an inline link to open it. If the model ends up
+ * adding nothing (vague request it chose to answer in prose, or an
+ * abort before any node landed), the throwaway empty roadmap is rolled
+ * back so it doesn't litter the user's roadmap list.
+ */
+async function runRoadmapGenerateLoop(
+  history: Array<{ role: "user" | "assistant"; content: string }>,
+  preferredProvider: AiProvider | undefined,
+  patchAssistant: (content: string) => void,
+  signal: AbortSignal,
+): Promise<string> {
+  const store = useRoadmapStore.getState();
+  // Empty title — the model sets a real one via update_roadmap_meta.
+  const roadmap = store.createRoadmap("");
+  const labels = new LabelMap(roadmap.nodes);
+  const systemPrompt = buildRoadmapGenerateSystemPrompt();
+
+  const body = await runRoadmapToolLoop(
+    roadmap.id,
+    labels,
+    systemPrompt,
+    history,
+    preferredProvider,
+    patchAssistant,
+    signal,
+  );
+
+  const built = useRoadmapStore.getState().roadmaps.get(roadmap.id);
+  if (!built || built.nodes.length === 0) {
+    // Nothing was built — drop the empty shell and just return prose.
+    store.deleteRoadmap(roadmap.id);
+    return body;
+  }
+  // Append an inline link; relative-link clicks are intercepted in the
+  // message body and routed through the SPA router.
+  return `${body}\n\n**[Open the generated roadmap →](/roadmaps/${roadmap.id}/edit)**`;
+}
+
+/**
+ * Shared agentic tool loop for both editing an existing roadmap and
+ * generating a fresh one — the only differences are the seed roadmap,
+ * its label map, and the system prompt, all passed in by the callers.
+ */
+async function runRoadmapToolLoop(
+  roadmapId: string,
+  labels: LabelMap,
+  systemPrompt: string,
+  history: Array<{ role: "user" | "assistant"; content: string }>,
+  preferredProvider: AiProvider | undefined,
+  patchAssistant: (content: string) => void,
+  signal: AbortSignal,
+): Promise<string> {
   const toolMessages: ToolMessage[] = history.map((m) => ({
     role: m.role,
     content: m.content,

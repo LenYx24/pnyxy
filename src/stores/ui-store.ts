@@ -94,7 +94,10 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
-  sidebarCollapsed: false,
+  // Start collapsed by default — the nav rail spends most of its time
+  // out of the way; users expand it (Menu button / Ctrl+B) when they
+  // need labels. Not persisted, so every load opens collapsed.
+  sidebarCollapsed: true,
   readerSidebarCollapsed: false,
   isLoadingDocument: false,
   loadingMessage: "",
