@@ -18,7 +18,7 @@ import {
   useRoadmap,
   useRoadmapStore,
 } from "@/stores/roadmap-store";
-import { ConfirmModal } from "@/components/ui";
+import { Button, ConfirmModal } from "@/components/ui";
 import { RoadmapGraph } from "./components/RoadmapGraph";
 import { DeadlinePicker } from "./components/DeadlinePicker";
 import { EnrollDialog } from "./EnrollDialog";
@@ -184,14 +184,14 @@ export function RoadmapDetailPage() {
               </button>
             </>
           ) : (
-            <button
+            <Button
+              size="sm"
               disabled={roadmap.nodes.length === 0}
               onClick={() => setEnrollDialogOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
             >
               <Play size={14} />
               {t("roadmaps.startLearning")}
-            </button>
+            </Button>
           )}
           <Link
             to={`/roadmaps/${roadmap.id}/edit`}

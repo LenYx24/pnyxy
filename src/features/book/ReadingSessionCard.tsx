@@ -14,6 +14,7 @@ import {
   type BookReadingStats,
 } from "@/lib/book-reading-stats";
 import { cn } from "@/lib/cn";
+import { Button } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
 
 interface Props {
@@ -120,28 +121,31 @@ export function ReadingSessionCard({ docId, pageCount }: Props) {
             sized hit area; the chip-style buttons sit on a high-
             contrast background so they read on the dark surface. */}
         {isActiveForThisBook ? (
-          <button
+          <Button
             type="button"
+            variant="danger"
+            size="sm"
             onClick={handleStopClick}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-danger/40 bg-danger/15 px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/25 cursor-pointer"
+            className="shrink-0 border border-danger/40"
           >
             <Square size={12} fill="currentColor" />
             {t("book.overview.session.stop")}
-          </button>
+          </Button>
         ) : isActiveForOtherBook ? (
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-3 py-1.5 text-xs text-warning">
             <Clock size={12} />
             {t("book.overview.session.running")}
           </span>
         ) : (
-          <button
+          <Button
             type="button"
+            size="sm"
             onClick={handleStart}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent/80 cursor-pointer"
+            className="shrink-0"
           >
             <Play size={12} fill="currentColor" />
             {t("book.overview.session.start")}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -340,21 +344,17 @@ function StopSessionModal({
           )}
         </div>
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onSkip}
-            className="rounded-md px-3 py-1.5 text-xs text-text-muted hover:text-text-primary cursor-pointer"
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={onSkip}>
             {t("book.overview.session.stopSkip")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            size="sm"
             onClick={onConfirm}
             disabled={!draft.trim()}
-            className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent/80 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t("book.overview.session.stopConfirm")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

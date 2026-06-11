@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { ArrowLeft, MessagesSquare } from "lucide-react";
+import { Button } from "@/components/ui";
 import { useChatStore } from "@/stores/chat-store";
 import { useBook } from "../BookPageContext";
 import { LEARN_METHODS } from "../LEARN_METHODS";
@@ -132,14 +133,10 @@ export function AiCoachMethodPage() {
         <p className="text-xs leading-relaxed text-text-muted">
           {config.example}
         </p>
-        <button
-          type="button"
-          onClick={handleStart}
-          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90 cursor-pointer"
-        >
+        <Button type="button" onClick={handleStart} className="mt-4">
           <MessagesSquare size={14} />
           Start in chat
-        </button>
+        </Button>
         <p className="mt-2 text-2xs text-text-muted">
           Opens a fresh conversation tied to this book. The first
           message is pre-drafted with the methodology — you finish

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, CalendarClock, Clock } from "lucide-react";
-import { NumberInput } from "@/components/ui";
+import { Button, NumberInput } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useRoadmapStore } from "@/stores/roadmap-store";
 import type { Roadmap, SchedulePrefs } from "@/types/roadmap";
@@ -341,19 +341,12 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
         )}
 
         <div className="mt-4 flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-glass-hover cursor-pointer"
-          >
+          <Button variant="ghost" size="sm" onClick={onClose}>
             {t("common.cancel")}
-          </button>
-          <button
-            onClick={handleEnroll}
-            disabled={!deadlineFeasible}
-            className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:bg-accent/85 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-          >
+          </Button>
+          <Button size="sm" onClick={handleEnroll} disabled={!deadlineFeasible}>
             {t("roadmaps.enroll.confirm")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

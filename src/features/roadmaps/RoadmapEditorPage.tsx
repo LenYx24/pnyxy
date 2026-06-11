@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Eye, Plus, Sparkles, Trash2 } from "lucide-react";
-import { NumberInput } from "@/components/ui";
+import { Button, NumberInput } from "@/components/ui";
 import { useRoadmap, useRoadmapStore } from "@/stores/roadmap-store";
 import { useChatStore } from "@/stores/chat-store";
 import type { RoadmapNode } from "@/types/roadmap";
@@ -106,13 +106,10 @@ export function RoadmapEditorPage() {
             <Sparkles size={14} />
             <span className="hidden sm:inline">{t("roadmaps.editWithAi")}</span>
           </button>
-          <button
-            onClick={handleAddNode}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
-          >
+          <Button size="sm" onClick={handleAddNode}>
             <Plus size={14} />
             {t("roadmaps.addNode")}
-          </button>
+          </Button>
           <button
             onClick={() => navigate(`/roadmaps/${roadmap.id}`)}
             className="inline-flex items-center gap-1.5 rounded-md border border-glass-border px-2.5 py-1.5 text-xs text-text-secondary hover:bg-glass-hover"
@@ -131,13 +128,10 @@ export function RoadmapEditorPage() {
                 <p className="text-sm text-text-secondary">
                   {t("roadmaps.editorEmpty")}
                 </p>
-                <button
-                  onClick={handleAddNode}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white"
-                >
+                <Button size="sm" onClick={handleAddNode} className="mt-3">
                   <Plus size={14} />
                   {t("roadmaps.addFirstNode")}
-                </button>
+                </Button>
               </div>
             </div>
           ) : (

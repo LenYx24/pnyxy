@@ -154,13 +154,9 @@ export function PostComposer() {
         <Button variant="secondary" onClick={() => navigate(`/forum/c/${slug}`)}>
           Cancel
         </Button>
-        <button
-          onClick={handleSubmit}
-          disabled={!title.trim() || submitting}
-          className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent/80 disabled:opacity-40 cursor-pointer"
-        >
+        <Button onClick={handleSubmit} disabled={!title.trim() || submitting}>
           {submitting ? "Posting..." : "Post"}
-        </button>
+        </Button>
       </div>
     </div>
   );

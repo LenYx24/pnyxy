@@ -139,13 +139,9 @@ export function CreateCommunityModal({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <button
-            onClick={handleSubmit}
-            disabled={!name.trim() || loading}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/80 disabled:opacity-40 cursor-pointer"
-          >
+          <Button onClick={handleSubmit} disabled={!name.trim() || loading}>
             {loading ? "Creating..." : "Create"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
