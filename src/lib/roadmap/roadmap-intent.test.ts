@@ -20,6 +20,18 @@ describe("detectRoadmapIntent", () => {
     expect(detectRoadmapIntent("generate a study plan for the GRE")).toBe(true);
   });
 
+  it("fires on request / desire framings, not just creation verbs", () => {
+    // HU desire/request phrasings that the strict creation-verb list missed.
+    expect(detectRoadmapIntent("szeretnék egy roadmapet a React tanulásához")).toBe(true);
+    expect(detectRoadmapIntent("kéne egy tanulási terv a vizsgához")).toBe(true);
+    expect(detectRoadmapIntent("adj egy roadmapet a Python tanuláshoz")).toBe(true);
+    expect(detectRoadmapIntent("legyen egy roadmap a gépi tanulásról")).toBe(true);
+    // EN equivalents.
+    expect(detectRoadmapIntent("I'd like a roadmap for machine learning")).toBe(true);
+    expect(detectRoadmapIntent("give me a study plan for the exam")).toBe(true);
+    expect(detectRoadmapIntent("I want a learning path for SQL")).toBe(true);
+  });
+
   it("stays off when only the noun is present (no build verb)", () => {
     expect(detectRoadmapIntent("what's next on my roadmap?")).toBe(false);
     expect(detectRoadmapIntent("hol tartok a tanulási tervemben?")).toBe(false);

@@ -157,7 +157,7 @@ export function ChatTree(props: ChatTreeProps) {
       <div className="rounded-md bg-accent/[0.06]">
         <div className="group flex items-stretch">
           <IndentGuides depth={0} />
-          <div className="flex flex-1 items-center gap-1.5 py-1.5 pr-2 min-w-0">
+          <div className="flex flex-1 items-center gap-1.5 py-2 pr-2 min-w-0">
             <button
               onClick={() => props.onToggleFolder(QUICK_CHATS_KEY)}
               className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-accent/80 transition-colors hover:text-accent cursor-pointer"
@@ -179,7 +179,7 @@ export function ChatTree(props: ChatTreeProps) {
             />
             <button
               onClick={() => props.onToggleFolder(QUICK_CHATS_KEY)}
-              className="min-w-0 flex-1 truncate text-left text-xs font-semibold text-accent/90 cursor-pointer"
+              className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-accent/90 cursor-pointer"
             >
               {t("chat.sidebar.quickChats", { defaultValue: "Quick chats" })}
               {rootConvs.length > 0 && (
@@ -392,7 +392,7 @@ const FolderRow = memo(function FolderRow({
           />
         )}
         <IndentGuides depth={depth} />
-        <div className="flex flex-1 items-center gap-1.5 py-1.5 pr-2 min-w-0">
+        <div className="flex flex-1 items-center gap-1.5 py-2 pr-2 min-w-0">
           <button
             onClick={() => rest.onToggleFolder(folder.id)}
             className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:text-text-primary cursor-pointer"
@@ -403,7 +403,7 @@ const FolderRow = memo(function FolderRow({
           <FolderIcon size={12} className="shrink-0 text-text-muted" />
           <button
             onClick={() => rest.onToggleFolder(folder.id)}
-            className="min-w-0 flex-1 truncate text-left text-xs font-medium cursor-pointer"
+            className="min-w-0 flex-1 truncate text-left text-sm font-medium cursor-pointer"
             title={folder.name}
           >
             {folder.name}
@@ -621,7 +621,7 @@ const ConversationRow = memo(function ConversationRow({
         />
       )}
       <IndentGuides depth={depth} />
-      <div className="flex flex-1 items-center gap-1.5 py-1.5 pr-2 min-w-0">
+      <div className="flex flex-1 items-center gap-1.5 py-2 pr-2 min-w-0">
         {isEditing ? (
           <>
             <input
@@ -632,7 +632,7 @@ const ConversationRow = memo(function ConversationRow({
                 if (e.key === "Enter") onSaveTitle(conversation.id);
                 if (e.key === "Escape") onCancelEdit();
               }}
-              className="flex-1 min-w-0 rounded border border-glass-border bg-bg-primary/50 px-1.5 py-0.5 text-xs text-text-primary outline-none focus:border-accent"
+              className="flex-1 min-w-0 rounded border border-glass-border bg-bg-primary/50 px-1.5 py-0.5 text-sm text-text-primary outline-none focus:border-accent"
             />
             <button
               onClick={() => onSaveTitle(conversation.id)}
@@ -658,7 +658,7 @@ const ConversationRow = memo(function ConversationRow({
                 on hover/focus, sliding over the title's tail. */}
             <button
               onClick={() => onOpen(conversation.id)}
-              className="flex-1 min-w-0 truncate text-left text-xs cursor-pointer"
+              className="flex-1 min-w-0 truncate text-left text-sm font-medium cursor-pointer"
             >
               {conversation.title || t("chat.untitled")}
             </button>

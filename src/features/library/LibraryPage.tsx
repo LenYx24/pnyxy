@@ -2,15 +2,17 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   FilePlus,
+  FolderPlus,
   FolderSearch,
   Upload,
   UploadCloud,
   Link as LinkIcon,
   BookPlus,
-  Plus,
   AlertTriangle,
 } from "lucide-react";
-import { Button, FloatingMenu } from "@/components/ui";
+import { Button } from "@/components/ui";
+import { useContextMenu } from "@/hooks/use-context-menu";
+import { CreateFolderModal } from "./modals/CreateFolderModal";
 import { cn } from "@/lib/cn";
 import { useOpenDocument } from "@/hooks/use-open-document";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
@@ -58,6 +60,8 @@ export function LibraryPage() {
   const fetchFolders = useLibraryStore((s) => s.fetchFolders);
   const fetchInProgress = useLibraryStore((s) => s.fetchInProgress);
   const currentFolderId = useLibraryStore((s) => s.currentFolderId);
+  const folderPath = useLibraryStore((s) => s.folderPath);
+  const createFolderPath = useLibraryStore((s) => s.createFolderPath);
 
   const storageUsage = useUploadStore((s) => s.storageUsage);
   const fetchStorageUsage = useUploadStore((s) => s.fetchStorageUsage);
@@ -170,6 +174,7 @@ export function LibraryPage() {
   const [scanModalOpen, setScanModalOpen] = useState(false);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
   const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
 
   // Shared dispatcher used by both URL-import and drag-drop: PDFs go to
   // the cloud library (when signed in); other formats just open in the
@@ -515,6 +520,60 @@ export function LibraryPage() {
 
   const isUploaded = removeEntry?.source === "uploaded";
 
+  const handleNewFolder = useCallback(() => setNewFolderOpen(true), []);
+  const handleConfirmNewFolder = useCallback(
+    async (name: string) => {
+      // Lands in whatever folder the user is currently viewing.
+      await createFolderPath(name, currentFolderId);
+    },
+    [createFolderPath, currentFolderId],
+  );
+
+  // Right-click anywhere in the library content area: create a folder
+  // or reach any of the upload/import entry points. Mirrors the header
+  // buttons so the actions are available without travelling to the
+  // top-right. Desktop-only (onContextMenu); touch users get the
+  // header buttons + "+" menu.
+  const libraryMenu = useContextMenu(() => [
+    {
+      id: "new-folder",
+      label: t("library.allBooks.newFolder"),
+      icon: FolderPlus,
+      onClick: handleNewFolder,
+    },
+    { id: "div-upload", divider: true },
+    {
+      id: "upload",
+      label: t("library.actions.upload"),
+      icon: Upload,
+      onClick: () => setUploadModalOpen(true),
+    },
+    {
+      id: "open-file",
+      label: t("library.actions.open"),
+      icon: FilePlus,
+      onClick: triggerFilePicker,
+    },
+    {
+      id: "scan",
+      label: t("library.actions.scan"),
+      icon: FolderSearch,
+      onClick: openScanModal,
+    },
+    {
+      id: "from-url",
+      label: t("library.actions.fromUrl"),
+      icon: LinkIcon,
+      onClick: () => setUrlModalOpen(true),
+    },
+    {
+      id: "manual",
+      label: t("library.actions.manual"),
+      icon: BookPlus,
+      onClick: () => setManualModalOpen(true),
+    },
+  ]);
+
   return (
     // flex-col + min-h-full lets the mini-footer's `mt-auto` push
     // it to the bottom of the available height — content stays at
@@ -597,41 +656,10 @@ export function LibraryPage() {
           side on mid-sizes. We previously switched at sm, then lg —
           both left crowded windows where buttons overlapped the
           title. xl is the first width with comfortable room for both. */}
-      <div className="mb-6 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-bold text-text-primary">
-              {t("library.yourLibrary")}
-            </h2>
-            <StreakPill />
-          </div>
-        </div>
-        {/* Action row — primary "Upload" lives at the top level
-            because that's the high-frequency action; the rest
-            (scan, open file, from URL, manual) sit behind a single
-            "+" overflow to keep the header from feeling busy.
-            Per-book "Open in reader" buttons inside the grid/list
-            replace the standalone "Open" header button for the
-            common case of "I want to read a book that's already in
-            my library". */}
-        <LibraryAddMenu
-          onUpload={() => setUploadModalOpen(true)}
-          onScan={openScanModal}
-          onOpenFile={triggerFilePicker}
-          onFromUrl={() => setUrlModalOpen(true)}
-          onManual={() => setManualModalOpen(true)}
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf,.epub,.txt,.md,.markdown"
-          className="hidden"
-          onChange={handleFileSelect}
-        />
-      </div>
-
-      {/* Toolbar: search + view toggle. Cover size moved to
-          Settings → Appearance to keep the toolbar focused. */}
+      {/* Single header line: title · controls (toggle / search /
+          refresh / view) · actions (Upload / New folder). The import
+          options that used to hang off a "+" overflow now live in the
+          right-click context menu. */}
       <LibraryToolbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -641,6 +669,47 @@ export function LibraryPage() {
         isRefreshing={isLoading}
         controlsExpanded={controlsExpanded}
         onToggleControls={() => setControlsExpanded(!controlsExpanded)}
+        leading={
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-text-primary">
+              {t("library.yourLibrary")}
+            </h2>
+            <StreakPill />
+          </div>
+        }
+        trailing={
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              variant="primary"
+              onClick={() => setUploadModalOpen(true)}
+              title={t("library.actions.upload")}
+              className="px-3 py-1.5 sm:px-4 sm:py-2"
+            >
+              <Upload size={18} />
+              <span className="hidden sm:inline">
+                {t("library.actions.upload")}
+              </span>
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleNewFolder}
+              title={t("library.allBooks.newFolder")}
+              className="px-3 py-1.5 sm:px-4 sm:py-2"
+            >
+              <FolderPlus size={18} />
+              <span className="hidden sm:inline">
+                {t("library.allBooks.newFolder")}
+              </span>
+            </Button>
+          </div>
+        }
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.epub,.txt,.md,.markdown"
+        className="hidden"
+        onChange={handleFileSelect}
       />
 
       {/* Tag filter bar — collapses with the rest of the search /
@@ -668,6 +737,7 @@ export function LibraryPage() {
         listColumnWidths={listColumnWidths}
         setListColumnWidth={setListColumnWidth}
         isLoading={isLoading}
+        onContextMenu={libraryMenu.onContextMenu}
       />
 
       {/* Guarantees a gap between the last row of covers and the
@@ -728,6 +798,19 @@ export function LibraryPage() {
       <AddManualBookModal
         open={manualModalOpen}
         onClose={() => setManualModalOpen(false)}
+      />
+
+      {/* New folder modal — driven by the header button + the
+          right-click context menu. Creates in the current folder. */}
+      <CreateFolderModal
+        open={newFolderOpen}
+        onClose={() => setNewFolderOpen(false)}
+        onCreate={handleConfirmNewFolder}
+        parentFolderName={
+          folderPath.length > 0
+            ? folderPath[folderPath.length - 1].name
+            : null
+        }
       />
 
       {/* Move single item to folder */}
@@ -791,137 +874,3 @@ export function LibraryPage() {
   );
 }
 
-/**
- * The compact "Add" cluster: a primary "Upload" button next to a
- * secondary "+" overflow that opens a small menu with the rarer
- * sources (scan, open file, from URL, manual). Replaces the old row
- * of five equal-weight buttons that the user found busy.
- */
-function AddMenuItem({
-  icon: Icon,
-  label,
-  onClick,
-}: {
-  icon: typeof FolderSearch;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-secondary hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-    >
-      <Icon size={14} className="shrink-0" />
-      <span>{label}</span>
-    </button>
-  );
-}
-
-function LibraryAddMenu({
-  onUpload,
-  onScan,
-  onOpenFile,
-  onFromUrl,
-  onManual,
-}: {
-  onUpload: () => void;
-  onScan: () => void;
-  onOpenFile: () => void;
-  onFromUrl: () => void;
-  onManual: () => void;
-}) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  // FloatingMenu anchors to whichever element this ref points at;
-  // a wrapping span keeps the ref typing simple (the underlying
-  // Button component doesn't forward refs).
-  const triggerRef = useRef<HTMLSpanElement>(null);
-  // Hover-open with a small grace period so the cursor can travel
-  // from trigger → portaled menu without dropping out. Touch devices
-  // (no hover capability) fall back to the click toggle below.
-  const closeTimerRef = useRef<number | null>(null);
-
-  const close = () => setOpen(false);
-  const wrap = (fn: () => void) => () => {
-    fn();
-    close();
-  };
-
-  const cancelClose = () => {
-    if (closeTimerRef.current !== null) {
-      window.clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-  };
-  const scheduleClose = () => {
-    cancelClose();
-    closeTimerRef.current = window.setTimeout(() => setOpen(false), 150);
-  };
-
-  // Skip hover-open on touch-only devices — fingers don't hover, and
-  // a touch on the trigger would otherwise both open *and* immediately
-  // dispatch a click, causing the menu to flicker.
-  const hoverEnabled =
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(hover: hover)").matches;
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      <Button
-        variant="primary"
-        onClick={onUpload}
-        title={t("library.actions.upload")}
-        className="px-3 py-1.5 sm:px-5 sm:py-2.5"
-      >
-        <Upload size={18} />
-        <span className="hidden sm:inline">{t("library.actions.upload")}</span>
-      </Button>
-      <span
-        ref={triggerRef}
-        className="inline-flex"
-        onMouseEnter={hoverEnabled ? () => { cancelClose(); setOpen(true); } : undefined}
-        onMouseLeave={hoverEnabled ? scheduleClose : undefined}
-      >
-        <Button
-          variant="secondary"
-          onClick={() => setOpen((v) => !v)}
-          title={t("library.actions.more")}
-          aria-label={t("library.actions.more")}
-          className="px-3 py-1.5 sm:px-3 sm:py-2.5"
-        >
-          <Plus size={18} />
-        </Button>
-      </span>
-      <FloatingMenu
-        open={open}
-        anchorRef={triggerRef}
-        onClose={close}
-        onMouseEnter={hoverEnabled ? cancelClose : undefined}
-        onMouseLeave={hoverEnabled ? scheduleClose : undefined}
-      >
-        <AddMenuItem
-          icon={FilePlus}
-          label={t("library.actions.open")}
-          onClick={wrap(onOpenFile)}
-        />
-        <AddMenuItem
-          icon={FolderSearch}
-          label={t("library.actions.scan")}
-          onClick={wrap(onScan)}
-        />
-        <AddMenuItem
-          icon={LinkIcon}
-          label={t("library.actions.fromUrl")}
-          onClick={wrap(onFromUrl)}
-        />
-        <AddMenuItem
-          icon={BookPlus}
-          label={t("library.actions.manual")}
-          onClick={wrap(onManual)}
-        />
-      </FloatingMenu>
-    </div>
-  );
-}

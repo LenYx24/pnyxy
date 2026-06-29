@@ -33,6 +33,7 @@ import { TagPickerDropdown } from "./TagPickerDropdown";
 import { ShareBookModal } from "./modals/ShareBookModal";
 import { BookInfoModal } from "./modals/BookInfoModal";
 import { cn } from "@/lib/cn";
+import { formatAuthors } from "@/lib/library/format-authors";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 
 interface LibraryBookCardProps {
@@ -130,8 +131,8 @@ export function LibraryBookCard({
     entry.source === "catalog" ? entry.catalog_book.title : entry.book.title;
   const author =
     entry.source === "catalog"
-      ? entry.catalog_book.authors?.join(", ") || "Unknown author"
-      : entry.book.author || "Unknown author";
+      ? formatAuthors(entry.catalog_book.authors) || "Unknown author"
+      : formatAuthors(entry.book.authors, entry.book.author) || "Unknown author";
   const coverUrl =
     entry.source === "catalog" ? entry.catalog_book.cover_url : entry.book.cover_url;
 
@@ -222,7 +223,7 @@ export function LibraryBookCard({
                 fallbackLetter={title.charAt(0)}
               />
             ) : (
-              <div className="flex h-full items-center justify-center bg-gradient-to-br from-accent/25 to-accent-blue/25">
+              <div className="flex h-full items-center justify-center bg-accent/10">
                 <span
                   className={cn(
                     "font-bold text-white/20",

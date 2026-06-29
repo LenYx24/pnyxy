@@ -160,7 +160,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         .order("added_at", { ascending: false }),
       supabase
         .from("books")
-        .select("id, title, author, cover_url, page_count, format, file_hash, folder_id, created_at, book_files(storage_path, file_name, size_bytes)")
+        .select("id, title, authors, author, cover_url, page_count, format, file_hash, folder_id, created_at, metadata, book_files(storage_path, file_name, size_bytes)")
         .eq("user_id", user.id)
         .eq("org_id", orgId)
         .order("created_at", { ascending: false }),
@@ -187,9 +187,18 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase join response is dynamically shaped
     const uploadedItems: UploadedLibraryItem[] = ((uploadedRes.data ?? []) as any[])
-      .filter((row) => row.book_files && row.book_files.length > 0)
+      // Keep books that have a file, plus manually-added "shell" books
+      // (metadata.manual_entry) which intentionally have no book_files
+      // row. The file check still filters out books mid-upload (the
+      // books row is inserted before its book_files row), so half-
+      // uploaded books don't flash into the grid.
+      .filter(
+        (row) =>
+          (row.book_files && row.book_files.length > 0) ||
+          row.metadata?.manual_entry === true,
+      )
       .map((row) => {
-        const file = row.book_files[0];
+        const file = row.book_files?.[0];
         return {
           source: "uploaded" as const,
           id: row.id,
@@ -198,14 +207,15 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           book: {
             id: row.id,
             title: row.title,
+            authors: row.authors ?? [],
             author: row.author,
             cover_url: row.cover_url,
             page_count: row.page_count,
             format: row.format,
             file_hash: row.file_hash,
-            storage_path: file.storage_path,
-            size_bytes: file.size_bytes,
-            file_name: file.file_name,
+            storage_path: file?.storage_path ?? null,
+            size_bytes: file?.size_bytes ?? null,
+            file_name: file?.file_name ?? null,
           },
         };
       });
@@ -569,7 +579,9 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       id: entry.id,
       source: entry.source,
       storage_path:
-        entry.source === "uploaded" ? entry.book.storage_path : undefined,
+        entry.source === "uploaded"
+          ? (entry.book.storage_path ?? undefined)
+          : undefined,
     });
   },
 

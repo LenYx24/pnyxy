@@ -37,8 +37,8 @@
      src/lib/themes/core.ts — these are the initial @theme defaults
      before user-selected theme tokens are applied at runtime. */
   --color-text-primary: #eaf2ff;
-  --color-text-secondary: #c8d3ee;
-  --color-text-muted: #9da9c8;
+  --color-text-secondary: #d8e1f5;
+  --color-text-muted: #b0bbd8;
 
   /* Glass/border */
   --color-glass-bg: rgba(255, 255, 255, 0.05);

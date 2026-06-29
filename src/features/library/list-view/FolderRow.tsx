@@ -1,15 +1,13 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ChevronRight,
   Folder,
   FolderOpen,
   FolderPlus,
-  GripVertical,
   Pencil,
   Trash2,
 } from "lucide-react";
-import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { useDndContext, useDraggable, useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox, PromptModal } from "@/components/ui";
@@ -138,6 +136,15 @@ export function FolderRow({
         transition: sortable.transition,
       }
     : undefined;
+
+  // content-visibility:auto skips off-screen rows for scroll perf, but
+  // it collapses their measured rects — which breaks dnd-kit's collision
+  // detection during a drag (the drop target resolves to the dragged row
+  // itself, so nothing reorders). Disable it while any drag is in flight.
+  const dragActive = useDndContext().active != null;
+  const cvStyle = dragActive
+    ? null
+    : { contentVisibility: "auto" as const, containIntrinsicSize: "auto 48px" };
   const showDropTargetHighlight = nest.isOver;
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -209,8 +216,7 @@ export function FolderRow({
       ref={setNodeRef}
       style={{
         ...style,
-        contentVisibility: "auto",
-        containIntrinsicSize: "auto 48px",
+        ...cvStyle,
       }}
       {...attributes}
     >
@@ -218,9 +224,9 @@ export function FolderRow({
         {...contextHandlers}
         {...listeners}
         className={cn(
-          // Subtle purple tint on folder rows so they read as distinct
-          // containers in the mixed file/folder list (Nextcloud-style).
-          "group relative flex select-none items-center border-b border-glass-border/30 bg-accent/[0.04] px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
+          // Folders share the same row background as files (Nextcloud-
+          // style); the folder icon is the only distinguishing cue.
+          "group relative flex select-none items-center border-b border-glass-border/30 px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
           density.py,
           selected && "bg-accent/10",
           isDragging && "opacity-50",
@@ -239,12 +245,6 @@ export function FolderRow({
           className="pointer-events-none absolute inset-x-0"
           style={{ top: 6, bottom: 6 }}
         />
-        {/* Drag handle — kept as a visual cue. The whole row is
-            draggable; the icon is just an affordance. */}
-        <div className="mr-1 shrink-0 text-text-muted/50" aria-hidden="true">
-          <GripVertical size={14} />
-        </div>
-
         {/* Checkbox */}
         <div
           className={cn(
@@ -263,34 +263,13 @@ export function FolderRow({
           />
         </div>
 
-        {/* Expand/Collapse chevron */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleExpand(folder.id);
-          }}
-          className="mr-1 shrink-0 cursor-pointer rounded p-1 text-text-muted transition-colors hover:text-text-primary"
-        >
-          <ChevronRight
-            size={density.icon}
-            className={cn(
-              "transition-transform duration-150",
-              expanded && "rotate-90",
-            )}
-          />
-        </button>
-
-        {/* Folder icon — chunky tinted square so "this is a folder"
-            reads unmistakably in a list of book rows. */}
-        <div
-          className="mr-2 flex shrink-0 items-center justify-center rounded-md bg-accent/15"
-          style={{
-            width: density.icon + 12,
-            height: density.icon + 12,
-          }}
-        >
+        {/* Icon — bare folder glyph, no tinted tile. Inline expand was
+            removed (folders open by navigation); the toggle plumbing is
+            kept for later re-enable. Fixed-height box keeps rows equal
+            height and aligns the name column across types. */}
+        <div className="mr-2.5 flex h-8 w-7 shrink-0 items-center justify-center sm:h-9">
           <Folder
-            size={density.icon}
+            size={density.icon + 4}
             className="text-accent"
             strokeWidth={1.5}
           />
@@ -306,10 +285,34 @@ export function FolderRow({
           {folder.name}
         </span>
 
-        {/* Item count — aligns under the Author column on md+. */}
+        {/* Menu — placed right after the name (Nextcloud puts row
+            actions here), not at the far edge. */}
+        <div className="relative mr-2 shrink-0">
+          <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
+            <MenuItem
+              icon={Pencil}
+              label="Rename"
+              onClick={() => {
+                setMenuOpen(false);
+                setRenameOpen(true);
+              }}
+            />
+            <MenuItem
+              icon={Trash2}
+              label="Delete"
+              danger
+              onClick={() => {
+                setMenuOpen(false);
+                onDelete(folder.id);
+              }}
+            />
+          </ContextMenu>
+        </div>
+
+        {/* Size column → item count for folders (Nextcloud-style). */}
         <span
-          className="mr-4 hidden shrink-0 truncate text-xs text-text-muted md:block"
-          style={{ width: columnWidths.author }}
+          className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
+          style={{ width: columnWidths.size }}
         >
           {childFolders.length +
             childBooks.length +
@@ -320,41 +323,13 @@ export function FolderRow({
           items
         </span>
 
-        {/* Spacer matching the BookRow's Size column. */}
-        <span
-          className="mr-2 hidden shrink-0 lg:block"
-          style={{ width: columnWidths.size }}
-          aria-hidden="true"
-        />
-
         {/* Date */}
         <span
-          className="mr-2 hidden shrink-0 truncate text-xs text-text-muted lg:block"
+          className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
           style={{ width: columnWidths.added }}
         >
           {formatDate(folder.created_at)}
         </span>
-
-        {/* Menu */}
-        <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
-          <MenuItem
-            icon={Pencil}
-            label="Rename"
-            onClick={() => {
-              setMenuOpen(false);
-              setRenameOpen(true);
-            }}
-          />
-          <MenuItem
-            icon={Trash2}
-            label="Delete"
-            danger
-            onClick={() => {
-              setMenuOpen(false);
-              onDelete(folder.id);
-            }}
-          />
-        </ContextMenu>
       </div>
 
       {/* Expanded children */}

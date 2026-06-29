@@ -116,7 +116,7 @@ export function LibraryQuizCard({
         )}
       >
         <div onClick={handleClick} title={title} className="cursor-pointer">
-          <div className="relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-gradient-to-br from-warning/20 to-accent/20 shadow-sm transition-shadow group-hover:shadow-md">
+          <div className="relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-warning/10 shadow-sm transition-shadow group-hover:shadow-md">
             <ListChecks
               size={Math.round(Math.min(Math.max(coverHeight * 0.32, 24), 48))}
               className="text-warning/80"

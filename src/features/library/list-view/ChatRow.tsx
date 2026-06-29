@@ -4,11 +4,10 @@ import { useTranslation } from "react-i18next";
 import {
   Download,
   FolderInput,
-  GripVertical,
   MessageSquare,
   Trash2,
 } from "lucide-react";
-import { useDraggable } from "@dnd-kit/core";
+import { useDndContext, useDraggable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox } from "@/components/ui";
@@ -81,6 +80,15 @@ export function ChatRow({
     transition,
   };
 
+  // content-visibility:auto skips off-screen rows for scroll perf, but
+  // it collapses their measured rects — which breaks dnd-kit's collision
+  // detection during a drag (the drop target resolves to the dragged row
+  // itself, so nothing reorders). Disable it while any drag is in flight.
+  const dragActive = useDndContext().active != null;
+  const cvStyle = dragActive
+    ? null
+    : { contentVisibility: "auto" as const, containIntrinsicSize: "auto 48px" };
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
 
@@ -149,8 +157,7 @@ export function ChatRow({
       ref={setNodeRef}
       style={{
         ...style,
-        contentVisibility: "auto",
-        containIntrinsicSize: "auto 48px",
+        ...cvStyle,
       }}
       {...attributes}
     >
@@ -166,10 +173,6 @@ export function ChatRow({
         style={{ paddingLeft: 8 + indent }}
         onClick={handleClick}
       >
-        <div className="mr-1 shrink-0 text-text-muted/50" aria-hidden="true">
-          <GripVertical size={14} />
-        </div>
-
         <div
           className={cn(
             "mr-1.5 flex shrink-0 items-center transition-opacity sm:mr-2",
@@ -187,14 +190,13 @@ export function ChatRow({
           />
         </div>
 
-        <div className="mr-1 hidden w-[26px] sm:block" />
-
-        <div className="mr-2.5 flex aspect-[5/7] h-8 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-gradient-to-br from-sky-400/20 to-accent/20 sm:h-9">
-          <MessageSquare size={14} className="text-sky-400/80" />
+        {/* Icon — bare chat glyph, no tinted tile. */}
+        <div className="mr-2.5 flex h-8 w-7 shrink-0 items-center justify-center sm:h-9">
+          <MessageSquare size={density.icon + 4} className="text-sky-400" />
         </div>
 
         <span
-          className={cn("min-w-0 flex-1 truncate text-text-primary", density.text)}
+          className={cn("min-w-0 flex-1 truncate font-medium text-text-primary", density.text)}
           title={title}
         >
           {title}
@@ -205,68 +207,65 @@ export function ChatRow({
           {t("library.allBooks.chatLabel")}
         </span>
 
-        {/* Author column → source doc title for chats, when set. */}
-        <span
-          className="mr-4 hidden shrink-0 truncate text-xs text-text-muted md:block"
-          style={{ width: columnWidths.author }}
-          title={conversation.source_doc_title ?? undefined}
-        >
-          {conversation.source_doc_title ?? ""}
-        </span>
+        {/* Menu — placed right after the name (Nextcloud puts row
+            actions here), not at the far edge. */}
+        <div className="relative mr-2 shrink-0">
+          <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
+            <MenuItem
+              icon={MessageSquare}
+              label={t("library.allBooks.openChat")}
+              onClick={() => {
+                setMenuOpen(false);
+                open();
+              }}
+            />
+            <MenuItem
+              icon={FolderInput}
+              label={t("library.actions.moveToFolder")}
+              onClick={() => {
+                setMenuOpen(false);
+                setMoveOpen(true);
+              }}
+            />
+            <MenuItem
+              icon={Download}
+              label={t("library.actions.exportMarkdown")}
+              onClick={() => {
+                setMenuOpen(false);
+                void downloadConversationMarkdownById(conversation).catch(
+                  (err) => logError("library:exportChat", err),
+                );
+              }}
+            />
+            <MenuItem
+              icon={Trash2}
+              label={t("common.delete")}
+              danger
+              onClick={() => {
+                setMenuOpen(false);
+                void deleteConversation(conversation.id).catch((err) =>
+                  logError("library:deleteChat", err),
+                );
+              }}
+            />
+          </ContextMenu>
+        </div>
 
+        {/* Size — n/a for chats. */}
         <span
-          className="mr-2 hidden shrink-0 truncate text-xs text-text-muted lg:block"
+          className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
           style={{ width: columnWidths.size }}
         >
           —
         </span>
 
+        {/* Date */}
         <span
-          className="mr-2 hidden shrink-0 truncate text-xs text-text-muted lg:block"
+          className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
           style={{ width: columnWidths.added }}
         >
           {formatDate(conversation.updated_at)}
         </span>
-
-        <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
-          <MenuItem
-            icon={MessageSquare}
-            label={t("library.allBooks.openChat")}
-            onClick={() => {
-              setMenuOpen(false);
-              open();
-            }}
-          />
-          <MenuItem
-            icon={FolderInput}
-            label={t("library.actions.moveToFolder")}
-            onClick={() => {
-              setMenuOpen(false);
-              setMoveOpen(true);
-            }}
-          />
-          <MenuItem
-            icon={Download}
-            label={t("library.actions.exportMarkdown")}
-            onClick={() => {
-              setMenuOpen(false);
-              void downloadConversationMarkdownById(conversation).catch((err) =>
-                logError("library:exportChat", err),
-              );
-            }}
-          />
-          <MenuItem
-            icon={Trash2}
-            label={t("common.delete")}
-            danger
-            onClick={() => {
-              setMenuOpen(false);
-              void deleteConversation(conversation.id).catch((err) =>
-                logError("library:deleteChat", err),
-              );
-            }}
-          />
-        </ContextMenu>
       </div>
 
       <FolderPickerModal

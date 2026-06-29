@@ -6,7 +6,24 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { getTracker, type TrackerContext } from "@/lib/reading-trackers";
 import { hostEventBus } from "@/lib/plugins/api/events";
 
-export type ZoomMode = "fit-width" | "fit-page" | "custom";
+// "auto"   = page width, but never enlarged past actual size (the
+//            pdf.js / Google PDF viewer "Automatic Zoom" behaviour).
+// "actual" = the page's intrinsic size (≈ Google "Actual Size" / 100%).
+// Both are resolved to a concrete scale inside PdfViewer, which is the
+// only place that knows each page's intrinsic dimensions.
+export type ZoomMode =
+  | "fit-width"
+  | "fit-page"
+  | "auto"
+  | "actual"
+  | "custom";
+
+// View modes (everything except the typed "custom" level) are persisted
+// per-document and restored on open.
+const FIT_MODES: ZoomMode[] = ["fit-width", "fit-page", "auto", "actual"];
+function isFitMode(m: unknown): m is ZoomMode {
+  return typeof m === "string" && FIT_MODES.includes(m as ZoomMode);
+}
 
 const ZOOM_STEP = 15;
 const ZOOM_MIN = 25;
@@ -331,7 +348,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     try {
       stored = await loadDocumentMeta(meta.id);
       if (stored?.customTitle) customTitle = stored.customTitle;
-      if (stored?.zoomMode === "fit-width" || stored?.zoomMode === "fit-page") {
+      if (isFitMode(stored?.zoomMode)) {
         zoomMode = stored.zoomMode;
       }
       if (typeof stored?.lastPosition === "number") {

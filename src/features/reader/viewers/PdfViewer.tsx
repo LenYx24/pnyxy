@@ -1220,6 +1220,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     level: number;
     baselineWidth: number;
     containerHeight: number;
+    page1Width: number;
   } | null>(null);
   useLayoutEffect(() => {
     const containerEl = containerRef.current;
@@ -1228,10 +1229,21 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     if (!containerEl || !sizerEl || !trayEl) return;
     if (containerWidth === 0 || baselineWidth <= 0) return;
 
+    // Page-1 intrinsic width (in tray-local units). At scale 1 the page
+    // is laid out at `baselineWidth`, so `page1Width / baselineWidth` is
+    // the scale that renders it at its actual size — the basis for the
+    // "actual" and "auto" zoom modes.
+    const page1Dims = dimensions.get(1);
+    const page1Width =
+      page1Dims && Number.isFinite(page1Dims.width) && page1Dims.width > 0
+        ? page1Dims.width
+        : 0;
+
     const last = lastAppliedRef.current;
     // For fit-width: targetScale = 1 always — depends on nothing.
     // For custom: targetScale = level/100 — depends only on zoomLevel.
     // For fit-page: depends on baselineWidth, containerHeight, page-1 dims.
+    // For auto/actual: depends on baselineWidth + page-1 width.
     //
     // The bug we're squashing: when the user wheel-zooms slightly past
     // fit-width (say to scale=1.003), scheduleStoreCommit's 0.5%
@@ -1250,7 +1262,16 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
         last.baselineWidth === baselineWidth &&
         last.containerHeight === containerHeight;
     }
+    if (sameIntent && last !== null && (zoomMode === "auto" || zoomMode === "actual")) {
+      // Recompute once page-1 dims arrive or the container width changes.
+      sameIntent =
+        last.baselineWidth === baselineWidth && last.page1Width === page1Width;
+    }
     if (sameIntent) return;
+
+    // Actual-size scale (page rendered at its intrinsic dimensions).
+    // Falls back to fit-width (1) until page-1 dimensions are known.
+    const actualScale = page1Width > 0 ? page1Width / baselineWidth : 1;
 
     let targetScale: number;
     if (zoomMode === "fit-width") {
@@ -1259,6 +1280,12 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       const pageH = getPageHeight(1);
       const usableH = containerHeight - 24;
       targetScale = pageH > 0 ? usableH / pageH : 1;
+    } else if (zoomMode === "actual") {
+      targetScale = actualScale;
+    } else if (zoomMode === "auto") {
+      // Page width, but never blown up past actual size (Google
+      // "Automatic Zoom"): min(fit-width=1, actual).
+      targetScale = Math.min(1, actualScale);
     } else {
       targetScale = zoomLevel / 100;
     }
@@ -1269,6 +1296,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       level: zoomLevel,
       baselineWidth,
       containerHeight,
+      page1Width,
     };
 
     if (Math.abs(targetScale - liveScaleRef.current) < 0.005) {
@@ -1295,6 +1323,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     containerWidth,
     applyScale,
     getPageHeight,
+    dimensions,
   ]);
 
   const handlePageRenderSuccess = useCallback((pageNum: number) => {

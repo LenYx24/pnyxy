@@ -1,4 +1,5 @@
 import type { UnifiedLibraryItem } from "@/types/catalog";
+import { formatAuthors } from "@/lib/library/format-authors";
 
 export function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -29,8 +30,8 @@ export function getTitle(entry: UnifiedLibraryItem): string {
 
 export function getAuthor(entry: UnifiedLibraryItem): string {
   return entry.source === "catalog"
-    ? entry.catalog_book.authors?.join(", ") || "Unknown author"
-    : entry.book.author || "Unknown author";
+    ? formatAuthors(entry.catalog_book.authors) || "Unknown author"
+    : formatAuthors(entry.book.authors, entry.book.author) || "Unknown author";
 }
 
 export function getRowDensity(cardSize: number) {

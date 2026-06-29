@@ -35,9 +35,19 @@ export const DEFAULT_LIST_COLUMN_WIDTHS: ListColumnWidths = {
   added: 80,
 };
 
+// Compact, Nextcloud-style tiles by default — the old 200px tiles read
+// as oversized for a file-manager grid. 150 keeps covers legible while
+// fitting more per row; the size slider still spans 140–320.
+const DEFAULT_CARD_SIZE = 150;
+// The previous default. Clients that never touched the size slider have
+// this value baked into their persisted prefs (savePrefs writes the
+// whole object), so we treat a stored 200 as "unset" and nudge it to
+// the new default — without stomping a size the user deliberately set.
+const LEGACY_CARD_SIZE = 200;
+
 const DEFAULT_PREFS: LibraryPrefs = {
   viewMode: "grid",
-  cardSize: 200,
+  cardSize: DEFAULT_CARD_SIZE,
   controlsExpanded: true,
   listColumnWidths: DEFAULT_LIST_COLUMN_WIDTHS,
 };
@@ -61,7 +71,18 @@ function loadPrefs(): LibraryPrefs {
         ...DEFAULT_LIST_COLUMN_WIDTHS,
         ...(parsed.listColumnWidths ?? {}),
       };
-      return { ...DEFAULT_PREFS, ...parsed, controlsExpanded, listColumnWidths };
+      // Migrate the legacy 200px default down to the new compact one.
+      const cardSize =
+        parsed.cardSize == null || parsed.cardSize === LEGACY_CARD_SIZE
+          ? DEFAULT_CARD_SIZE
+          : parsed.cardSize;
+      return {
+        ...DEFAULT_PREFS,
+        ...parsed,
+        controlsExpanded,
+        listColumnWidths,
+        cardSize,
+      };
     }
   } catch {
     // ignore

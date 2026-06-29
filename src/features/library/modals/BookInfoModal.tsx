@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import type { UnifiedLibraryItem } from "@/types/catalog";
+import { formatAuthors } from "@/lib/library/format-authors";
 
 interface BookInfoModalProps {
   open: boolean;
@@ -30,8 +31,8 @@ export function BookInfoModal({ open, onClose, entry }: BookInfoModalProps) {
   const isUploaded = entry.source === "uploaded";
   const title = isUploaded ? entry.book.title : entry.catalog_book.title;
   const author = isUploaded
-    ? entry.book.author || "Unknown"
-    : entry.catalog_book.authors?.join(", ") || "Unknown";
+    ? formatAuthors(entry.book.authors, entry.book.author) || "Unknown"
+    : formatAuthors(entry.catalog_book.authors) || "Unknown";
   const pageCount = isUploaded
     ? entry.book.page_count
     : entry.catalog_book.page_count;

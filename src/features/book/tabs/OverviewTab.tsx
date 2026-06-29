@@ -570,6 +570,7 @@ function UploadedOverview({
           book: {
             id: book.id,
             title: book.title,
+            authors: book.authors,
             author: book.author,
             cover_url: book.cover_url,
             page_count: book.page_count,
@@ -771,8 +772,11 @@ function CatalogUploadOwnCopyButton({
       // missing. Best-effort: a failure here doesn't roll back the
       // upload — the file is already attached and openable.
       try {
-        const patch: Record<string, string> = { title: fallbackTitle };
-        if (fallbackAuthor) patch.author = fallbackAuthor;
+        const patch: Record<string, unknown> = { title: fallbackTitle };
+        if (fallbackAuthor) {
+          patch.author = fallbackAuthor;
+          patch.authors = [fallbackAuthor];
+        }
         await supabase.from("books").update(patch).eq("id", bookId);
       } catch (err) {
         logError("CatalogUploadOwnCopyButton:patch", err);

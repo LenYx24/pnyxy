@@ -67,6 +67,9 @@ export interface Book {
   id: string;
   user_id: string;
   title: string;
+  /** Structured author list (migration 00048) — source of truth. */
+  authors: string[];
+  /** Legacy joined display string, kept in sync with `authors`. */
   author: string | null;
   format: DocumentFormat;
   page_count: number | null;
@@ -83,6 +86,7 @@ export interface Book {
 export interface BookInsert {
   title: string;
   format?: DocumentFormat;
+  authors?: string[];
   author?: string | null;
   page_count?: number | null;
   cover_url?: string | null;
@@ -95,6 +99,7 @@ export interface BookInsert {
 
 export interface BookUpdate {
   title?: string;
+  authors?: string[];
   author?: string | null;
   format?: DocumentFormat;
   page_count?: number | null;

@@ -11,6 +11,7 @@ import { trackRecentlyViewed } from "@/features/browse/recently-viewed";
 import { bookIdSegment, parseBookIdSegment } from "@/lib/slugify";
 import { useLibraryStore } from "@/stores/library-store";
 import { containsProfanity } from "@/lib/profanity-filter";
+import { formatAuthors } from "@/lib/library/format-authors";
 import { logError } from "@/lib/logger";
 import type { UploadedLibraryItem } from "@/types/catalog";
 
@@ -82,8 +83,8 @@ export function BookPage() {
   const unknownAuthor = t("book.unknownAuthor");
   const authors =
     data.source === "catalog"
-      ? data.book.authors.join(", ") || unknownAuthor
-      : data.book.author || unknownAuthor;
+      ? formatAuthors(data.book.authors) || unknownAuthor
+      : formatAuthors(data.book.authors, data.book.author) || unknownAuthor;
   const coverUrl = data.book.cover_url;
 
   return (
@@ -218,6 +219,7 @@ export function BookPage() {
               book: {
                 id: data.book.id,
                 title: data.book.title,
+                authors: data.book.authors,
                 author: data.book.author,
                 cover_url: data.book.cover_url,
                 page_count: data.book.page_count,

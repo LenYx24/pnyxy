@@ -5,11 +5,10 @@ import {
   Download,
   FileText,
   FolderInput,
-  GripVertical,
   Pencil,
   Trash2,
 } from "lucide-react";
-import { useDraggable } from "@dnd-kit/core";
+import { useDndContext, useDraggable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox } from "@/components/ui";
@@ -84,6 +83,15 @@ export function NoteRow({
     transition,
   };
 
+  // content-visibility:auto skips off-screen rows for scroll perf, but
+  // it collapses their measured rects — which breaks dnd-kit's collision
+  // detection during a drag (the drop target resolves to the dragged row
+  // itself, so nothing reorders). Disable it while any drag is in flight.
+  const dragActive = useDndContext().active != null;
+  const cvStyle = dragActive
+    ? null
+    : { contentVisibility: "auto" as const, containIntrinsicSize: "auto 48px" };
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
 
@@ -138,8 +146,7 @@ export function NoteRow({
       ref={setNodeRef}
       style={{
         ...style,
-        contentVisibility: "auto",
-        containIntrinsicSize: "auto 48px",
+        ...cvStyle,
       }}
       {...attributes}
     >
@@ -155,11 +162,6 @@ export function NoteRow({
         style={{ paddingLeft: 8 + indent }}
         onClick={handleClick}
       >
-        {/* Drag handle */}
-        <div className="mr-1 shrink-0 text-text-muted/50" aria-hidden="true">
-          <GripVertical size={14} />
-        </div>
-
         {/* Checkbox */}
         <div
           className={cn(
@@ -178,18 +180,15 @@ export function NoteRow({
           />
         </div>
 
-        {/* Spacer matching the chevron column in folder rows */}
-        <div className="mr-1 hidden w-[26px] sm:block" />
-
-        {/* Icon "cover" — note glyph in a tinted 5:7 tile, same footprint
-            as BookRow's mini-cover so titles align across row types. */}
-        <div className="mr-2.5 flex aspect-[5/7] h-8 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-gradient-to-br from-accent-blue/20 to-accent/20 sm:h-9">
-          <FileText size={14} className="text-accent-blue/70" />
+        {/* Icon — bare note glyph, no tinted tile. Fixed-height box keeps
+            rows equal height and the name column aligned across types. */}
+        <div className="mr-2.5 flex h-8 w-7 shrink-0 items-center justify-center sm:h-9">
+          <FileText size={density.icon + 4} className="text-accent-blue" />
         </div>
 
         {/* Title */}
         <span
-          className={cn("min-w-0 flex-1 truncate text-text-primary", density.text)}
+          className={cn("min-w-0 flex-1 truncate font-medium text-text-primary", density.text)}
           title={title}
         >
           {title}
@@ -201,16 +200,49 @@ export function NoteRow({
           {t("library.allBooks.noteLabel")}
         </span>
 
-        {/* Author column — notes have no author. */}
-        <span
-          className="mr-4 hidden shrink-0 truncate text-xs text-text-muted md:block"
-          style={{ width: columnWidths.author }}
-          aria-hidden="true"
-        />
+        {/* Menu — placed right after the name (Nextcloud puts row
+            actions here), not at the far edge. */}
+        <div className="relative mr-2 shrink-0">
+          <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
+            <MenuItem
+              icon={Pencil}
+              label={t("library.allBooks.openNote")}
+              onClick={() => {
+                setMenuOpen(false);
+                open();
+              }}
+            />
+            <MenuItem
+              icon={FolderInput}
+              label={t("library.actions.moveToFolder")}
+              onClick={() => {
+                setMenuOpen(false);
+                setMoveOpen(true);
+              }}
+            />
+            <MenuItem
+              icon={Download}
+              label={t("library.actions.exportMarkdown")}
+              onClick={() => {
+                setMenuOpen(false);
+                downloadNoteMarkdown(note);
+              }}
+            />
+            <MenuItem
+              icon={Trash2}
+              label={t("common.delete")}
+              danger
+              onClick={() => {
+                setMenuOpen(false);
+                deleteNote(note.id);
+              }}
+            />
+          </ContextMenu>
+        </div>
 
-        {/* Size column — n/a for notes. */}
+        {/* Size — n/a for notes. */}
         <span
-          className="mr-2 hidden shrink-0 truncate text-xs text-text-muted lg:block"
+          className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
           style={{ width: columnWidths.size }}
         >
           —
@@ -218,48 +250,11 @@ export function NoteRow({
 
         {/* Date — last updated. */}
         <span
-          className="mr-2 hidden shrink-0 truncate text-xs text-text-muted lg:block"
+          className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
           style={{ width: columnWidths.added }}
         >
           {formatDate(new Date(note.updatedAt).toISOString())}
         </span>
-
-        {/* Menu */}
-        <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
-          <MenuItem
-            icon={Pencil}
-            label={t("library.allBooks.openNote")}
-            onClick={() => {
-              setMenuOpen(false);
-              open();
-            }}
-          />
-          <MenuItem
-            icon={FolderInput}
-            label={t("library.actions.moveToFolder")}
-            onClick={() => {
-              setMenuOpen(false);
-              setMoveOpen(true);
-            }}
-          />
-          <MenuItem
-            icon={Download}
-            label={t("library.actions.exportMarkdown")}
-            onClick={() => {
-              setMenuOpen(false);
-              downloadNoteMarkdown(note);
-            }}
-          />
-          <MenuItem
-            icon={Trash2}
-            label={t("common.delete")}
-            danger
-            onClick={() => {
-              setMenuOpen(false);
-              deleteNote(note.id);
-            }}
-          />
-        </ContextMenu>
       </div>
 
       <FolderPickerModal

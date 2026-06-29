@@ -4,12 +4,11 @@ import { useTranslation } from "react-i18next";
 import {
   Download,
   FolderInput,
-  GripVertical,
   ListChecks,
   Pencil,
   Trash2,
 } from "lucide-react";
-import { useDraggable } from "@dnd-kit/core";
+import { useDndContext, useDraggable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox } from "@/components/ui";
@@ -79,6 +78,15 @@ export function QuizRow({
     transform: CSS.Transform.toString(transform),
     transition,
   };
+
+  // content-visibility:auto skips off-screen rows for scroll perf, but
+  // it collapses their measured rects — which breaks dnd-kit's collision
+  // detection during a drag (the drop target resolves to the dragged row
+  // itself, so nothing reorders). Disable it while any drag is in flight.
+  const dragActive = useDndContext().active != null;
+  const cvStyle = dragActive
+    ? null
+    : { contentVisibility: "auto" as const, containIntrinsicSize: "auto 48px" };
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -154,8 +162,7 @@ export function QuizRow({
       ref={setNodeRef}
       style={{
         ...style,
-        contentVisibility: "auto",
-        containIntrinsicSize: "auto 48px",
+        ...cvStyle,
       }}
       {...attributes}
     >
@@ -171,10 +178,6 @@ export function QuizRow({
         style={{ paddingLeft: 8 + indent }}
         onClick={handleClick}
       >
-        <div className="mr-1 shrink-0 text-text-muted/50" aria-hidden="true">
-          <GripVertical size={14} />
-        </div>
-
         <div
           className={cn(
             "mr-1.5 flex shrink-0 items-center transition-opacity sm:mr-2",
@@ -192,14 +195,13 @@ export function QuizRow({
           />
         </div>
 
-        <div className="mr-1 hidden w-[26px] sm:block" />
-
-        <div className="mr-2.5 flex aspect-[5/7] h-8 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-gradient-to-br from-warning/20 to-accent/20 sm:h-9">
-          <ListChecks size={14} className="text-warning/80" />
+        {/* Icon — bare quiz glyph, no tinted tile. */}
+        <div className="mr-2.5 flex h-8 w-7 shrink-0 items-center justify-center sm:h-9">
+          <ListChecks size={density.icon + 4} className="text-warning" />
         </div>
 
         <span
-          className={cn("min-w-0 flex-1 truncate text-text-primary", density.text)}
+          className={cn("min-w-0 flex-1 truncate font-medium text-text-primary", density.text)}
           title={title}
         >
           {title}
@@ -210,71 +212,69 @@ export function QuizRow({
           {t("library.allBooks.quizLabel")}
         </span>
 
-        {/* Author column → question count for quizzes. */}
+        {/* Menu — placed right after the name (Nextcloud puts row
+            actions here), not at the far edge. */}
+        <div className="relative mr-2 shrink-0">
+          <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
+            <MenuItem
+              icon={ListChecks}
+              label={t("library.allBooks.openQuiz")}
+              onClick={() => {
+                setMenuOpen(false);
+                open();
+              }}
+            />
+            <MenuItem
+              icon={Pencil}
+              label={t("library.actions.rename", { defaultValue: "Edit" })}
+              onClick={() => {
+                setMenuOpen(false);
+                navigate(`/quizzes/${quiz.id}/edit`);
+              }}
+            />
+            <MenuItem
+              icon={FolderInput}
+              label={t("library.actions.moveToFolder")}
+              onClick={() => {
+                setMenuOpen(false);
+                setMoveOpen(true);
+              }}
+            />
+            <MenuItem
+              icon={Download}
+              label={t("library.actions.exportGift")}
+              onClick={() => {
+                setMenuOpen(false);
+                void handleExport();
+              }}
+            />
+            <MenuItem
+              icon={Trash2}
+              label={t("common.delete")}
+              danger
+              onClick={() => {
+                setMenuOpen(false);
+                void deleteQuiz(quiz.id);
+              }}
+            />
+          </ContextMenu>
+        </div>
+
+        {/* Size column → question count for quizzes. */}
         <span
-          className="mr-4 hidden shrink-0 truncate text-xs text-text-muted md:block"
-          style={{ width: columnWidths.author }}
+          className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
+          style={{ width: columnWidths.size }}
         >
           {t("library.allBooks.quizQuestionCount", { count: quiz.question_count })}
         </span>
 
+        {/* Date */}
         <span
-          className="mr-2 hidden shrink-0 truncate text-xs text-text-muted lg:block"
-          style={{ width: columnWidths.size }}
-        >
-          —
-        </span>
-
-        <span
-          className="mr-2 hidden shrink-0 truncate text-xs text-text-muted lg:block"
+          className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
           style={{ width: columnWidths.added }}
         >
           {formatDate(quiz.updated_at)}
         </span>
-
-        <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
-          <MenuItem
-            icon={ListChecks}
-            label={t("library.allBooks.openQuiz")}
-            onClick={() => {
-              setMenuOpen(false);
-              open();
-            }}
-          />
-          <MenuItem
-            icon={Pencil}
-            label={t("library.actions.rename", { defaultValue: "Edit" })}
-            onClick={() => {
-              setMenuOpen(false);
-              navigate(`/quizzes/${quiz.id}/edit`);
-            }}
-          />
-          <MenuItem
-            icon={FolderInput}
-            label={t("library.actions.moveToFolder")}
-            onClick={() => {
-              setMenuOpen(false);
-              setMoveOpen(true);
-            }}
-          />
-          <MenuItem
-            icon={Download}
-            label={t("library.actions.exportGift")}
-            onClick={() => {
-              setMenuOpen(false);
-              void handleExport();
-            }}
-          />
-          <MenuItem
-            icon={Trash2}
-            label={t("common.delete")}
-            danger
-            onClick={() => {
-              setMenuOpen(false);
-              void deleteQuiz(quiz.id);
-            }}
-          />
-        </ContextMenu>
       </div>
 
       <FolderPickerModal

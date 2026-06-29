@@ -127,8 +127,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                     />
                   )}
                 </button>
-                {studyOpen && !collapsed && (
-                  <div className="mt-1 space-y-1 pl-3">
+                {/* When the rail is collapsed there's no room for the
+                    indented inline list, but the items must stay
+                    reachable — so we render them as icon-only rows in
+                    the rail (matching the primary items) instead of
+                    unmounting them. Expanded keeps the indented list. */}
+                {studyOpen && (
+                  <div
+                    className={cn("mt-1 space-y-1", !collapsed && "pl-3")}
+                  >
                     {studyItems.map((studyItem) => (
                       <SidebarNavItem
                         key={studyItem.to}

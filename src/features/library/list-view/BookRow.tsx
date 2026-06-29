@@ -5,7 +5,6 @@ import {
   BookOpen,
   Download,
   FolderInput,
-  GripVertical,
   Info,
   Pencil,
   Share2,
@@ -13,7 +12,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { useDraggable } from "@dnd-kit/core";
+import { useDndContext, useDraggable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox, PromptModal, TagBadge } from "@/components/ui";
@@ -111,6 +110,15 @@ export function BookRow({
     transform: CSS.Transform.toString(transform),
     transition,
   };
+
+  // content-visibility:auto skips off-screen rows for scroll perf, but
+  // it collapses their measured rects — which breaks dnd-kit's collision
+  // detection during a drag (the drop target resolves to the dragged row
+  // itself, so nothing reorders). Disable it while any drag is in flight.
+  const dragActive = useDndContext().active != null;
+  const cvStyle = dragActive
+    ? null
+    : { contentVisibility: "auto" as const, containIntrinsicSize: "auto 48px" };
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
@@ -261,8 +269,7 @@ export function BookRow({
       ref={setNodeRef}
       style={{
         ...style,
-        contentVisibility: "auto",
-        containIntrinsicSize: "auto 48px",
+        ...cvStyle,
       }}
       {...attributes}
     >
@@ -278,11 +285,6 @@ export function BookRow({
         style={{ paddingLeft: 8 + indent }}
         onClick={handleClick}
       >
-        {/* Drag handle — visual cue; the entire row is draggable. */}
-        <div className="mr-1 shrink-0 text-text-muted/50" aria-hidden="true">
-          <GripVertical size={14} />
-        </div>
-
         {/* Checkbox */}
         <div
           className={cn(
@@ -301,33 +303,31 @@ export function BookRow({
           />
         </div>
 
-        {/* Spacer matching chevron in folder rows */}
-        <div className="mr-1 hidden w-[26px] sm:block" />
-
-        {/* Cover thumbnail — 5:7 mini-cover. Falls back to a gradient
-            tile with the first letter when no cover is available. */}
-        <div className="mr-2.5 aspect-[5/7] h-8 shrink-0 overflow-hidden rounded-sm bg-glass-bg sm:h-9">
+        {/* Icon — no tinted tile. A fixed-height box keeps every row the
+            same height and aligns the name column across types. Books keep
+            their real cover art when present; otherwise a plain book glyph. */}
+        <div className="mr-2.5 flex h-8 w-7 shrink-0 items-center justify-center sm:h-9">
           {coverUrl ? (
             <img
               src={coverUrl}
               alt=""
               aria-hidden="true"
-              className="h-full w-full object-cover object-top"
+              className="h-full w-auto max-w-full rounded-sm object-contain"
               loading="lazy"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent/25 to-accent-blue/25">
-              <span className="text-xs font-bold text-white/30">
-                {title.charAt(0).toUpperCase()}
-              </span>
-            </div>
+            <BookOpen
+              size={density.icon + 4}
+              className="text-accent"
+              strokeWidth={1.5}
+            />
           )}
         </div>
 
         {/* Title */}
         <span
           className={cn(
-            "min-w-0 flex-1 truncate text-text-primary",
+            "min-w-0 flex-1 truncate font-medium text-text-primary",
             density.text,
           )}
           title={`${title}${author ? " — " + author : ""}`}
@@ -366,30 +366,6 @@ export function BookRow({
           </span>
         )}
 
-        {/* Author */}
-        <span
-          className="mr-4 hidden shrink-0 truncate text-xs text-text-muted md:block"
-          style={{ width: columnWidths.author }}
-        >
-          {author}
-        </span>
-
-        {/* Size */}
-        <span
-          className="mr-2 hidden shrink-0 truncate text-xs text-text-muted lg:block"
-          style={{ width: columnWidths.size }}
-        >
-          {getFileSize(entry) ?? "—"}
-        </span>
-
-        {/* Date */}
-        <span
-          className="mr-2 hidden shrink-0 truncate text-xs text-text-muted lg:block"
-          style={{ width: columnWidths.added }}
-        >
-          {formatDate(entry.added_at)}
-        </span>
-
         {entry.source === "uploaded" && (
           <button
             onClick={(e) => {
@@ -404,8 +380,9 @@ export function BookRow({
           </button>
         )}
 
-        {/* Menu */}
-        <div ref={tagAnchorRef} className="relative">
+        {/* Menu — placed right after the name (Nextcloud puts row
+            actions here), not at the far edge. */}
+        <div ref={tagAnchorRef} className="relative mr-2 shrink-0">
           <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
             <MenuItem
               icon={Info}
@@ -479,6 +456,22 @@ export function BookRow({
             />
           )}
         </div>
+
+        {/* Size — real file size, larger + higher contrast. */}
+        <span
+          className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
+          style={{ width: columnWidths.size }}
+        >
+          {getFileSize(entry) ?? "—"}
+        </span>
+
+        {/* Date */}
+        <span
+          className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
+          style={{ width: columnWidths.added }}
+        >
+          {formatDate(entry.added_at)}
+        </span>
       </div>
       {entry.source === "uploaded" && (
         <ShareBookModal

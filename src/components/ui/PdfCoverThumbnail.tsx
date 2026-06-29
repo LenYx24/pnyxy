@@ -15,7 +15,8 @@ const signedUrlCache = new Map<string, string>();
 const coverDataUrlCache = new Map<string, string>();
 
 interface PdfCoverThumbnailProps {
-  storagePath: string;
+  /** Null for file-less "shell" books — renders the letter fallback. */
+  storagePath: string | null;
   className?: string;
   fallbackLetter?: string;
 }
@@ -38,15 +39,16 @@ export function PdfCoverThumbnail({
   fallbackLetter = "?",
 }: PdfCoverThumbnailProps) {
   const [url, setUrl] = useState<string | null>(
-    signedUrlCache.get(storagePath) ?? null,
+    signedUrlCache.get(storagePath ?? "") ?? null,
   );
   const [error, setError] = useState(false);
   const [dataUrl, setDataUrl] = useState<string | null>(
-    coverDataUrlCache.get(storagePath) ?? null,
+    coverDataUrlCache.get(storagePath ?? "") ?? null,
   );
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!storagePath) return;
     if (url) return;
     if (coverDataUrlCache.has(storagePath)) return;
 
@@ -84,6 +86,7 @@ export function PdfCoverThumbnail({
   // don't need. Failures are silently ignored — worst case, the next
   // mount re-renders via react-pdf as it does today.
   const handlePageRenderSuccess = useCallback(() => {
+    if (!storagePath) return;
     if (coverDataUrlCache.has(storagePath)) return;
     const canvas = containerRef.current?.querySelector("canvas");
     if (!canvas) return;
@@ -97,6 +100,23 @@ export function PdfCoverThumbnail({
       // toDataURL can throw on tainted canvases — bail silently
     }
   }, [storagePath]);
+
+  // Shell book with no uploaded file — there's no PDF to rasterize,
+  // so render the letter fallback directly.
+  if (!storagePath) {
+    return (
+      <div
+        className={cn(
+          "flex h-full w-full items-center justify-center bg-bg-tertiary",
+          className,
+        )}
+      >
+        <span className="text-4xl font-bold text-white/20">
+          {fallbackLetter}
+        </span>
+      </div>
+    );
+  }
 
   // Fast path: a previous render already cached a data URL. Skip
   // react-pdf entirely and serve a plain <img>.
@@ -117,7 +137,7 @@ export function PdfCoverThumbnail({
     return (
       <div
         className={cn(
-          "flex h-full w-full items-center justify-center bg-gradient-to-br from-accent/30 to-accent-blue/30",
+          "flex h-full w-full items-center justify-center bg-bg-tertiary",
           className,
         )}
       >
@@ -147,7 +167,7 @@ export function PdfCoverThumbnail({
       error={
         <div
           className={cn(
-            "flex h-full w-full items-center justify-center bg-gradient-to-br from-accent/30 to-accent-blue/30",
+            "flex h-full w-full items-center justify-center bg-bg-tertiary",
             className,
           )}
         >

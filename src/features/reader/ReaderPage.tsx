@@ -258,6 +258,7 @@ export function ReaderPage() {
   const toggleZenMode = useUIStore((s) => s.toggleZenMode);
   const libraryPickerOpen = useUIStore((s) => s.libraryPickerOpen);
   const setLibraryPickerOpen = useUIStore((s) => s.setLibraryPickerOpen);
+  const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
 
 
   const dockviewApiRef = useRef<DockviewApi | null>(null);
@@ -283,8 +284,8 @@ export function ReaderPage() {
   // splitter and that lands back here on close (see line ~1564).
   const aiChatWidthRef = useRef<number>(
     typeof window !== "undefined" && window.innerWidth < 1280
-      ? Math.max(360, Math.min(620, Math.floor(window.innerWidth * 0.5)))
-      : 360,
+      ? Math.max(300, Math.min(500, Math.floor(window.innerWidth * 0.42)))
+      : 320,
   );
   // Monotonically-increasing token bumped at the start of every
   // cold-path recovery. The async finally only clears the global
@@ -837,17 +838,12 @@ export function ReaderPage() {
   const toggleSidebar = useCallback(() => {
     const api = dockviewApiRef.current;
     if (!api) return;
-    // Snapshot the viewer ↔ AI-chat ratio BEFORE the toggle.
-    // Dockview's add/removePanel redistributes the freed/required
-    // space proportionally across remaining siblings, but in some
-    // configurations the redistribution lands on a 50/50 split
-    // instead of preserving the prior ratio — that was the bug: a
-    // 60/40 reader-to-chat layout collapsed to 50/50 every time the
-    // user toggled the submenu. We capture the widths up front and
-    // restore the ratio in an rAF after the dockview commit.
-    const viewerBefore = api.getPanel("viewer");
+    // Snapshot the AI-chat panel's pixel width BEFORE the toggle.
+    // Dockview redistributes the freed/required space proportionally
+    // across siblings, which made the chat panel grow/shrink every
+    // time the TOC opened or closed. We instead keep the chat at its
+    // exact prior width and let the *viewer* absorb the TOC's space.
     const aiChatBefore = api.getPanel("aiChat");
-    const viewerW = viewerBefore?.api.width ?? null;
     const aiChatW = aiChatBefore?.api.width ?? null;
 
     const tocPanel = api.getPanel("toc");
@@ -865,25 +861,55 @@ export function ReaderPage() {
       });
     }
 
-    // Restore the viewer/aiChat ratio after dockview has settled.
-    // Only proceed if both panels existed before and after — when
-    // the user has the chat closed, there's nothing to balance.
-    if (viewerW != null && aiChatW != null && viewerW + aiChatW > 0) {
-      const prevRatio = viewerW / (viewerW + aiChatW);
+    // Restore the AI chat to its exact prior width after dockview has
+    // settled. Setting the chat's size makes dockview pull the
+    // complementary delta from the viewer (its splitview sibling), so
+    // the chat stays put and the viewer takes the hit. Skipped when
+    // the chat is closed — nothing to preserve.
+    if (aiChatW != null && aiChatW > 0) {
       requestAnimationFrame(() => {
-        const v = api.getPanel("viewer");
         const c = api.getPanel("aiChat");
-        if (!v || !c) return;
-        const available = v.api.width + c.api.width;
-        if (available <= 0) return;
-        const targetViewer = Math.round(available * prevRatio);
-        // setSize on the viewer panel — dockview pulls the
-        // complementary delta from its splitview sibling (the
-        // AI chat), which is exactly what we want.
-        v.api.setSize({ width: targetViewer });
+        if (c && Math.abs(c.api.width - aiChatW) > 1) {
+          c.api.setSize({ width: aiChatW });
+        }
       });
     }
   }, []);
+
+  // Keep the AI chat panel at a constant pixel width while the app
+  // sidebar collapses/expands. That toggle animates the <main> margin
+  // (~200ms), resizing the dockview container; without pinning,
+  // dockview redistributes the delta proportionally and the chat panel
+  // visibly grows/shrinks. We pin its width across the transition so
+  // the *viewer* absorbs the change instead. No-op when chat is closed.
+  useEffect(() => {
+    const api = dockviewApiRef.current;
+    if (!api) return;
+    const chat = api.getPanel("aiChat");
+    if (!chat) return;
+    const target = chat.api.width;
+    if (target <= 0) return;
+    let raf = 0;
+    let cancelled = false;
+    const startedAt = performance.now();
+    const pin = () => {
+      if (cancelled) return;
+      const c = api.getPanel("aiChat");
+      if (c && Math.abs(c.api.width - target) > 1) {
+        c.api.setSize({ width: target });
+      }
+      // Re-pin across the whole 200ms margin transition (+ a little
+      // slack) so the panel never visibly drifts mid-animation.
+      if (performance.now() - startedAt < 320) {
+        raf = requestAnimationFrame(pin);
+      }
+    };
+    raf = requestAnimationFrame(pin);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+    };
+  }, [sidebarCollapsed]);
 
   useKeyboardShortcut({
     id: "reader:toggle-toc",

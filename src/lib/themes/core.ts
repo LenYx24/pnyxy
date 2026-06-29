@@ -27,16 +27,17 @@ export const CORE_THEMES = {
       // to stay legible with white text on top (≥4.5:1 contrast).
       "--color-accent": "#0891b2",
       "--color-accent-blue": "#60a5fa",
-      // Text contrast retuned 2026-05: secondary lifted from #9aa9c9
-      // to #c8d3ee (~11:1 on bg-primary, was ~7:1) and muted lifted
-      // from #5e6c8a to #9da9c8 (~6:1, was ~3:1). The previous muted
-      // was failing WCAG AA on bg-tertiary surfaces (LLM bubbles,
-      // sidebar metadata). High-contrast variant is available as a
-      // separate theme (pnyxy-dark-high-contrast) for users who want
-      // even more headroom.
+      // Text contrast retuned 2026-05 (secondary #9aa9c9→#c8d3ee,
+      // muted #5e6c8a→#9da9c8 to clear WCAG AA), then lifted again
+      // 2026-06 for crisper hierarchy/readability: secondary
+      // #c8d3ee→#d8e1f5 (~12:1) and muted #9da9c8→#b0bbd8 (~7:1).
+      // Hierarchy now leans on weight/size too, not brightness alone.
+      // Keep in sync with @theme defaults in styles/index.css. The
+      // high-contrast variant (pnyxy-dark-high-contrast) is there for
+      // users who want even more headroom.
       "--color-text-primary": "#eaf2ff",
-      "--color-text-secondary": "#c8d3ee",
-      "--color-text-muted": "#9da9c8",
+      "--color-text-secondary": "#d8e1f5",
+      "--color-text-muted": "#b0bbd8",
       // Glass stays neutral (no blue tint) so it sits naturally on
       // the true-black background.
       "--color-glass-bg": "rgba(255, 255, 255, 0.05)",

@@ -33,7 +33,8 @@ export interface DownloadAction {
  * we can't lawfully serve — those skip the menu item.
  */
 export function canDownloadEntry(entry: UnifiedLibraryItem): boolean {
-  if (entry.source === "uploaded") return true;
+  // Manually-added shell books have no file to download.
+  if (entry.source === "uploaded") return !!entry.book.storage_path;
   return !!(entry.catalog_book.ia_id || entry.catalog_book.download_url);
 }
 
@@ -93,6 +94,9 @@ export function canDownloadCatalogBook(book: CatalogBook): boolean {
 
 async function downloadUploaded(entry: UploadedLibraryItem): Promise<void> {
   const { storage_path, file_name, title, format } = entry.book;
+  if (!storage_path) {
+    throw new Error("This book has no file to download.");
+  }
   const { data, error } = await supabase.storage
     .from("book-files")
     .download(storage_path);

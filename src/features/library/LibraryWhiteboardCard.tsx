@@ -17,6 +17,7 @@ import { useLibraryStore } from "@/stores/library-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import { downloadWhiteboardJson } from "@/lib/library/export-whiteboard";
 import type { WhiteboardData } from "@/types/whiteboard";
+import { WhiteboardThumbnail } from "../whiteboard/WhiteboardThumbnail";
 import { FolderPickerModal } from "./modals/FolderPickerModal";
 
 interface LibraryWhiteboardCardProps {
@@ -107,13 +108,22 @@ export function LibraryWhiteboardCard({
         )}
       >
         <div onClick={handleClick} title={title} className="cursor-pointer">
-          {/* Icon "cover" — a shapes glyph on a tinted tile, sized like
-              the book covers so the grid stays even. */}
-          <div className="relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-gradient-to-br from-success/20 to-accent-blue/20 shadow-sm transition-shadow group-hover:shadow-md">
-            <Shapes
-              size={Math.round(Math.min(Math.max(coverHeight * 0.32, 24), 48))}
-              className="text-success/80"
-            />
+          {/* Cover — a live mini-render of the board's own strokes when
+              it has any, falling back to a small shapes glyph for an
+              empty board. The small corner badge below still marks the
+              item type. */}
+          <div className="relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-success/10 shadow-sm transition-shadow group-hover:shadow-md">
+            {whiteboard.elements.length > 0 ? (
+              <WhiteboardThumbnail
+                elements={whiteboard.elements}
+                className="absolute inset-0 h-full w-full p-2"
+              />
+            ) : (
+              <Shapes
+                size={Math.round(Math.min(Math.max(coverHeight * 0.32, 24), 48))}
+                className="text-success/80"
+              />
+            )}
 
             {onToggleSelect && (
               <div

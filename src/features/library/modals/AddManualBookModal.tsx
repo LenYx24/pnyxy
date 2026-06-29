@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useOrgStore } from "@/stores/org-store";
+import { parseAuthorsInput } from "@/lib/library/format-authors";
 import { logError } from "@/lib/logger";
 
 interface AddManualBookModalProps {
@@ -72,12 +73,14 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
       return;
     }
     const trimmedTitle = title.trim();
-    const trimmedAuthor = author.trim();
+    // Authors are comma-separated; store the structured list and keep
+    // the joined string in `author` for legacy readers.
+    const parsedAuthors = parseAuthorsInput(author);
     if (!trimmedTitle) {
       setError(t("library.addManual.titleRequired"));
       return;
     }
-    if (!trimmedAuthor) {
+    if (parsedAuthors.length === 0) {
       setError(t("library.addManual.authorRequired"));
       return;
     }
@@ -102,7 +105,8 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
         // is currently looking at, mirroring the upload behaviour.
         folder_id: currentFolderId ?? null,
         title: trimmedTitle,
-        author: trimmedAuthor,
+        authors: parsedAuthors,
+        author: parsedAuthors.join(", "),
         cover_url: coverUrl.trim() || null,
         page_count: parsedPages,
         metadata: {
@@ -182,6 +186,7 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
               type="text"
               value={author}
               onChange={(e) => setAuthor(e.target.value)}
+              placeholder={t("library.addManual.authorsPlaceholder")}
               maxLength={500}
               className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
             />

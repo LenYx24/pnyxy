@@ -236,8 +236,18 @@ Guidelines:
 // forms all match against the lower-cased message.
 const ROADMAP_NOUN_RE =
   /(roadmap|tanul(á|a)si\s*(terv|útiterv|út)|útiterv|tanrend|learning\s*(path|plan|roadmap)|study\s*plan|curriculum)/i;
+// Verbs / framings that read as "make me one". Kept deliberately broad
+// — especially on the HU side, where conjugations vary a lot
+// (generálj, készíts, csinálj, szeretnék, kéne, adj…) — because the
+// roadmap-NOUN gate above is what actually keeps false positives down:
+// a turn only escalates if it ALSO names a roadmap / learning path /
+// study plan. This includes request/desire framings ("szeretnék egy
+// roadmapet", "kéne egy tanulási terv", "I'd like a roadmap") that the
+// earlier strict-creation-verb list missed. The trade-off is that a
+// view-intent like "szeretném látni a roadmapem" can also match; we
+// accept that since the cost is just one turn on the pricier tool path.
 const BUILD_VERB_RE =
-  /(generál|készí|csinál|tervez|állíts|rakj\s*össze|gyárts|hozz\s*létre|build|create|make|generate|design|draft|put\s*together|plan\s*out)/i;
+  /(generál|készí|csinál|tervez|állíts|rakj|gyárts|hozz\s*létre|alkoss|vázol|dolgozz\s*ki|szeretn|kéne|kellene|kérek|kérn|adj|adn(á|a)l|legyen|build|create|make|generate|design|draft|put\s*together|plan\s*out|lay\s*out|outline|sketch|map\s*out|want|would\s*like|i'?d\s*like|give\s*me|need)/i;
 
 /**
  * True when a plain-chat message reads as "generate a learning roadmap

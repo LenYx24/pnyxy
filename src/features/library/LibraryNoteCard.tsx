@@ -18,6 +18,23 @@ import { useNoteStore, type Note } from "@/stores/note-store";
 import { downloadNoteMarkdown } from "@/lib/library/export-note";
 import { FolderPickerModal } from "./modals/FolderPickerModal";
 
+/** Strip the markdown down to a plain-text snippet for the card
+ *  preview — drops code/links/heading markers but keeps line breaks so
+ *  the thumbnail reads like a page of text. */
+function noteSnippet(md: string, max = 300): string {
+  return md
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^[#>\s|-]+/gm, "")
+    .replace(/[*_~]/g, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, max);
+}
+
 interface LibraryNoteCardProps {
   note: Note;
   sortableId?: string;
@@ -67,6 +84,7 @@ export function LibraryNoteCard({
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const title = note.title.trim() || t("library.allBooks.untitledNote");
+  const notePreview = note.content ? noteSnippet(note.content) : "";
   const selKey = `note:${note.id}`;
   const compact = coverHeight < 100;
   const intrinsicHeight = coverHeight + 80;
@@ -106,13 +124,21 @@ export function LibraryNoteCard({
         )}
       >
         <div onClick={handleClick} title={title} className="cursor-pointer">
-          {/* Icon "cover" — notes have no artwork, so a tinted tile with
-              a document glyph stands in, sized like the book covers. */}
-          <div className="relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-gradient-to-br from-accent-blue/20 to-accent/20 shadow-sm transition-shadow group-hover:shadow-md">
-            <FileText
-              size={Math.round(Math.min(Math.max(coverHeight * 0.32, 24), 48))}
-              className="text-accent-blue/70"
-            />
+          {/* Cover — a faint snippet of the note's own text reads as a
+              document preview when there's content, falling back to a
+              small glyph for an empty note. The corner badge below
+              still marks the item type. */}
+          <div className="relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-accent-blue/10 shadow-sm transition-shadow group-hover:shadow-md">
+            {notePreview ? (
+              <p className="absolute inset-0 overflow-hidden whitespace-pre-wrap break-words p-2 text-left text-[8px] leading-snug text-text-secondary/70">
+                {notePreview}
+              </p>
+            ) : (
+              <FileText
+                size={Math.round(Math.min(Math.max(coverHeight * 0.32, 24), 48))}
+                className="text-accent-blue/70"
+              />
+            )}
 
             {onToggleSelect && (
               <div

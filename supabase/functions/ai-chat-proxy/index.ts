@@ -240,6 +240,7 @@ function buildSystemPrompt(
   documentTitle: string,
   pageContext: string,
   hasImages: boolean,
+  canSearchWeb = false,
 ): string {
   // No source document → standalone /chat page brief. Mirror of the
   // expanded prompt in `src/lib/ai-client.ts`; both branches need
@@ -261,7 +262,11 @@ Formatting:
 - Keep paragraphs short.
 
 When you don't know something or have ambiguous context, say so and ask a clarifying question instead of guessing. If a question has multiple reasonable interpretations, name them briefly before answering. Concise > exhaustive; the user can always ask for more.
-
+${
+  canSearchWeb
+    ? `\nYou have Google Search available and can look things up on the web. When the user asks about current events, recent releases, prices, dates, or anything you're unsure about or that may have changed since your training, search and base your answer on the results. Never claim you can't access the internet — you can.\n`
+    : ""
+}
 When you write mathematical expressions, wrap inline math in single-dollar delimiters ($x^2$) and display equations in double-dollar delimiters ($$\\sum_{i=1}^n i$$). The chat UI renders these as proper formulas via KaTeX.`;
   }
 
@@ -487,9 +492,34 @@ Deno.serve(async (req) => {
         Array.isArray(m.content) &&
         m.content.some((block) => block.type === "image"),
     );
+  // ── Web-search grounding (standalone /chat only) ───────────────
+  //
+  // Google Search grounding is only available on Gemini 3+ via the
+  // OpenAI-compat endpoint, so enabling it forces the request onto the
+  // (pricier) Gemini-3 model. We scope it to the standalone chat —
+  // detected by an empty documentTitle, i.e. the /chat page rather than
+  // reader Q&A — so high-volume, already-context-grounded reader
+  // questions stay on the cheap Flash-Lite tier. Respect an explicit
+  // model pin: only auto-route (no pin) or an explicit Gemini-3 pin opt
+  // into grounding; a user who pinned a cheaper model keeps it.
+  const preferredModel = body.preferredModel ?? null;
+  const groundingModelAvailable = openAiCompatChain.some(
+    (p) => p.model === GEMINI_3_FLASH_MODEL,
+  );
+  const useGrounding =
+    !toolMode &&
+    !(body.documentTitle ?? "").trim() &&
+    (preferredModel === null || preferredModel === GEMINI_3_FLASH_MODEL) &&
+    groundingModelAvailable;
+
   const systemPrompt =
     body.systemPromptOverride ??
-    buildSystemPrompt(body.documentTitle, body.pageContext, hasImages);
+    buildSystemPrompt(
+      body.documentTitle,
+      body.pageContext,
+      hasImages,
+      useGrounding,
+    );
 
   // ── Tool mode: Anthropic only (passes through all SSE events) ──
   if (toolMode) {
@@ -538,8 +568,8 @@ Deno.serve(async (req) => {
   // chain to a single model when the user picked one explicitly.
   // An unknown value falls back to the full chain so a stale client
   // can't break itself by sending a model id the server doesn't
-  // recognize yet.
-  const preferredModel = body.preferredModel ?? null;
+  // recognize yet. (`preferredModel` computed above with the
+  // grounding gate.)
   const knownCompatModels = new Set(
     OPENAI_COMPATIBLE_PROVIDERS.map((p) => p.model),
   );
@@ -560,8 +590,34 @@ Deno.serve(async (req) => {
     preferredModel !== ANTHROPIC_MODEL &&
     knownCompatModels.has(preferredModel);
 
+  // Ordered list of upstream attempts, each tagged with whether to
+  // turn on Google Search grounding. When grounding is wanted we put
+  // the grounded Gemini-3 attempt first, then the rest of the chain as
+  // a no-grounding fallback so an exhausted Gemini-3 bucket still
+  // answers (just without web access) instead of bouncing a 429.
+  type Attempt = {
+    provider: (typeof filteredCompatChain)[number];
+    grounding: boolean;
+  };
+  let attempts: Attempt[];
+  if (skipCompatChain) {
+    attempts = [];
+  } else if (useGrounding) {
+    const g3 =
+      filteredCompatChain.find((p) => p.model === GEMINI_3_FLASH_MODEL) ??
+      openAiCompatChain.find((p) => p.model === GEMINI_3_FLASH_MODEL)!;
+    attempts = [
+      { provider: g3, grounding: true },
+      ...filteredCompatChain
+        .filter((p) => p.model !== GEMINI_3_FLASH_MODEL)
+        .map((p) => ({ provider: p, grounding: false })),
+    ];
+  } else {
+    attempts = filteredCompatChain.map((p) => ({ provider: p, grounding: false }));
+  }
+
   let lastQuotaFailure: QuotaResult | null = null;
-  for (const provider of skipCompatChain ? [] : filteredCompatChain) {
+  for (const { provider, grounding } of attempts) {
     const billed = await checkAndRecord(provider.model);
     if ("rpcError" in billed && billed.rpcError) {
       return jsonError(500, "quota_check_failed", billed.rpcError);
@@ -581,6 +637,7 @@ Deno.serve(async (req) => {
       body.messages,
       maxOutputTokens,
       provider.name,
+      grounding,
     );
     if (stream) {
       return new Response(stream, { headers: sseHeaders });
@@ -641,6 +698,7 @@ async function tryOpenAiCompatible(
   messages: ChatRequestBody["messages"],
   maxOutputTokens: number,
   providerName: string,
+  enableGrounding = false,
 ): Promise<ReadableStream<Uint8Array> | null> {
   let upstream: Response;
   try {
@@ -654,6 +712,14 @@ async function tryOpenAiCompatible(
         model,
         max_tokens: maxOutputTokens,
         stream: true,
+        // Google Search grounding. On Gemini's OpenAI-compat endpoint
+        // this is passed as the SDK's `extra_body` content flattened to
+        // the request body — a top-level `google` object. Only Gemini
+        // 3+ honours it; other upstreams ignore the unknown field. See
+        // https://ai.google.dev/gemini-api/docs/openai
+        ...(enableGrounding
+          ? { google: { tools: [{ google_search: {} }] } }
+          : {}),
         messages: [
           { role: "system", content: systemPrompt },
           // Convert any image blocks from Anthropic-shape (what

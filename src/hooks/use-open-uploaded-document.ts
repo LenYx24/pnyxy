@@ -109,6 +109,10 @@ export function useOpenUploadedDocument() {
 
       try {
         const { storage_path, file_name } = entry.book;
+        // Shell books (manual entries) have no file to open.
+        if (!storage_path || !file_name) {
+          throw new Error("This book has no file to open.");
+        }
 
         // Check cache first
         let blob = blobCache.get(storage_path);

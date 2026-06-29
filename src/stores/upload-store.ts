@@ -262,6 +262,7 @@ async function runUploadJob(
     // 1. Extract metadata via PDF adapter.
     const adapter = createPdfAdapter();
     let title: string;
+    let authors: string[];
     let author: string | null;
     let pageCount: number | null;
     let fileHash: string;
@@ -272,7 +273,13 @@ async function runUploadJob(
       // stale, or generic ("Microsoft Word - untitled"), whereas the
       // filename is what the user recognises.
       title = file.name.replace(/\.pdf$/i, "").trim() || meta.title;
-      author = meta.author || null;
+      // Document metadata uses ";" as the multi-author separator (a
+      // comma would clash with "Last, First" names), so split on that.
+      authors = (meta.author ?? "")
+        .split(";")
+        .map((a) => a.trim())
+        .filter(Boolean);
+      author = authors.length > 0 ? authors.join(", ") : null;
       pageCount = meta.totalPages;
       fileHash = meta.id; // pdf-adapter uses the file hash as id
     } catch (err) {
@@ -326,6 +333,7 @@ async function runUploadJob(
         user_id: user.id,
         org_id: orgId,
         title,
+        authors,
         author,
         format: "pdf" as const,
         page_count: pageCount,

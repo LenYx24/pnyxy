@@ -31,7 +31,6 @@ import {
 } from "@/lib/dnd-modifiers";
 import {
   ChevronRight,
-  FolderPlus,
   ArrowUp,
   BookOpen,
   Folder,
@@ -65,7 +64,6 @@ import { LibraryNoteCard } from "./LibraryNoteCard";
 import { LibraryWhiteboardCard } from "./LibraryWhiteboardCard";
 import { LibraryQuizCard } from "./LibraryQuizCard";
 import { LibraryChatCard } from "./LibraryChatCard";
-import { NewItemMenu } from "./NewItemMenu";
 import { LibraryListView } from "./LibraryListView";
 import { CreateFolderModal } from "./modals/CreateFolderModal";
 import { BookCardSkeleton } from "./BookCardSkeleton";
@@ -95,6 +93,10 @@ interface AllBooksTabProps {
   listColumnWidths: ListColumnWidths;
   setListColumnWidth: (key: keyof ListColumnWidths, width: number) => void;
   isLoading?: boolean;
+  /** Right-click handler for the whole library area (new folder +
+   *  upload entry points). Built in LibraryPage where the upload
+   *  handlers live. */
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 export function AllBooksTab({
@@ -112,6 +114,7 @@ export function AllBooksTab({
   listColumnWidths,
   setListColumnWidth,
   isLoading = false,
+  onContextMenu,
 }: AllBooksTabProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -651,7 +654,7 @@ export function AllBooksTab({
   };
 
   return (
-    <div>
+    <div onContextMenu={onContextMenu}>
       <DndContext
         sensors={sensors}
         collisionDetection={collisionDetection}
@@ -718,16 +721,6 @@ export function AllBooksTab({
               </span>
             </Button>
           )}
-
-          {/* "New ▸" — create a note / whiteboard / quiz / chat (or
-              folder) directly into the folder being viewed, then open
-              its editor. Items are born where they live instead of
-              created elsewhere and dragged in. Folder creation also
-              still has its inline tile/row + Ctrl+Shift+F shortcut. */}
-          <NewItemMenu
-            currentFolderId={currentFolderId}
-            onNewFolder={handleCreateFolder}
-          />
         </div>
       </div>
 
@@ -815,7 +808,6 @@ export function AllBooksTab({
                 onMoveBook={onMoveBook}
                 onRemoveBook={onRemoveBook}
                 onCreateSubfolder={handleCreateSubfolder}
-                onCreateRootFolder={handleCreateFolder}
                 cardSize={cardSize}
                 columnWidths={listColumnWidths}
                 setColumnWidth={setListColumnWidth}
@@ -829,13 +821,6 @@ export function AllBooksTab({
                   gridTemplateColumns: `repeat(auto-fill, minmax(min(${effectiveCardSize}px, 100%), 1fr))`,
                 }}
               >
-                {/* Persistent "create folder" affordance — sits at
-                    the head of the grid as a dashed-border tile,
-                    same dimensions as the surrounding cards. Not
-                    part of the SortableContext: it's a stable
-                    action, not a draggable item. */}
-                <CreateFolderTile onClick={handleCreateFolder} />
-
                 {/* Render in orderedKeys order so a DnD reorder (which may
                     interleave folders and books) is reflected visually. */}
                 {orderedKeys.map((key) => {
@@ -1230,39 +1215,6 @@ function UploadGhostRow({
         </button>
       )}
     </div>
-  );
-}
-
-function CreateFolderTile({ onClick }: { onClick: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={t("library.allBooks.newFolder")}
-      className={cn(
-        "group flex w-full flex-col text-left transition-transform",
-        "cursor-pointer focus:outline-none",
-      )}
-    >
-      <div
-        className={cn(
-          "relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md",
-          "border-2 border-dashed border-glass-border bg-glass-bg/30",
-          "transition-colors group-hover:border-accent/60 group-hover:bg-accent/5",
-        )}
-      >
-        <FolderPlus
-          size={28}
-          className="text-text-muted transition-colors group-hover:text-accent"
-        />
-      </div>
-      <div className="mt-2 min-w-0">
-        <h3 className="truncate text-sm font-medium text-text-secondary group-hover:text-text-primary">
-          {t("library.allBooks.newFolder")}
-        </h3>
-      </div>
-    </button>
   );
 }
 

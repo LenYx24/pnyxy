@@ -91,14 +91,20 @@ export interface UploadedLibraryItem {
   book: {
     id: string;
     title: string;
+    /** Structured author list (migration 00048) — source of truth. */
+    authors: string[];
+    /** Legacy joined display string, kept in sync with `authors`. */
     author: string | null;
     cover_url: string | null;
     page_count: number | null;
     format: string;
     file_hash: string | null;
-    storage_path: string;
+    // Null for manually-added "shell" books that have no uploaded
+    // file (metadata.manual_entry). Consumers must gate file actions
+    // (Read / download / open) on storage_path being present.
+    storage_path: string | null;
     size_bytes: number | null;
-    file_name: string;
+    file_name: string | null;
   };
 }
 

@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { Search, LayoutGrid, List, X, RefreshCw, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -17,6 +23,12 @@ interface LibraryToolbarProps {
    *  useLibraryPrefs, so the user's pick survives reloads. */
   controlsExpanded?: boolean;
   onToggleControls?: () => void;
+  /** Rendered at the very start of the toolbar row — the page title
+   *  lives here so the whole header is a single line. */
+  leading?: ReactNode;
+  /** Rendered at the very end of the row — the Upload / New-folder
+   *  actions sit here. */
+  trailing?: ReactNode;
 }
 
 export function LibraryToolbar({
@@ -28,6 +40,8 @@ export function LibraryToolbar({
   isRefreshing,
   controlsExpanded = true,
   onToggleControls,
+  leading,
+  trailing,
 }: LibraryToolbarProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -140,9 +154,12 @@ export function LibraryToolbar({
   return (
     <div className="mb-4">
       <div className="flex flex-wrap items-center gap-2">
-        {/* Disclosure toggle leads the row so it's the first
-            interactive element the eye lands on — clicking it shows
-            the search/filter chrome below. */}
+        {/* Page title (and anything else the parent leads with) sits
+            first so the header reads as one line. */}
+        {leading}
+
+        {/* Disclosure toggle — clicking it shows the search/filter
+            chrome below. */}
         {toggleControlsButton}
 
         {/* Search — only rendered when the panel is expanded.
@@ -217,6 +234,10 @@ export function LibraryToolbar({
             {viewToggle}
           </>
         )}
+
+        {/* Upload / New folder (and anything else the parent trails
+            with) close out the row on the right. */}
+        {trailing}
       </div>
 
       {/* Mobile-only secondary row inside the expander. The parent

@@ -1,9 +1,4 @@
 import { useCallback, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { FolderPlus } from "lucide-react";
-import { cn } from "@/lib/cn";
-import { useContextMenu } from "@/hooks/use-context-menu";
-import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import type { Folder as FolderType } from "@/types/database";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import type { Note } from "@/stores/note-store";
@@ -62,9 +57,6 @@ interface LibraryListViewProps {
   onRemoveBook: (entry: UnifiedLibraryItem) => void;
   /** "New subfolder" — wired through to FolderRow's context menu. */
   onCreateSubfolder?: (parentFolderId: string) => void;
-  /** "New folder" — fired by the empty-area right-click on the list
-   *  container, creating a folder at the currently-viewed level. */
-  onCreateRootFolder?: () => void;
   cardSize?: number;
   /** Per-column widths in pixels for the resizable columns. Defaults
    *  to DEFAULT_LIST_COLUMN_WIDTHS when omitted (e.g. preview/test
@@ -98,7 +90,6 @@ export function LibraryListView({
   onMoveBook,
   onRemoveBook,
   onCreateSubfolder,
-  onCreateRootFolder,
   cardSize = 200,
   columnWidths = DEFAULT_LIST_COLUMN_WIDTHS,
   setColumnWidth,
@@ -128,24 +119,16 @@ export function LibraryListView({
     return null;
 
   return (
-    <LibraryListContainer onCreateRootFolder={onCreateRootFolder}>
-      {/* Column headers — Author/Size/Added each carry a right-edge
-          resize handle when `setColumnWidth` is wired. Mouse-only;
-          mobile hides these columns anyway. */}
-      <div className="flex items-center border-b border-glass-border bg-glass-bg px-2 py-1.5 text-2xs font-medium uppercase tracking-wider text-text-muted sm:px-3">
-        <div className="mr-1 w-4 shrink-0" /> {/* drag handle spacer */}
-        <div className="mr-1.5 w-7 shrink-0 sm:mr-2" />
-        <div className="mr-1 hidden w-[26px] sm:block" />
-        <div className="mr-2 w-4 shrink-0" />
+    <LibraryListContainer>
+      {/* Column headers — Size/Added carry a right-edge resize handle
+          when `setColumnWidth` is wired. Mouse-only; mobile hides these
+          columns anyway. No background fill so the header reads as part
+          of the same surface as the rows (Nextcloud-style). */}
+      <div className="flex items-center border-b border-glass-border px-2 py-1.5 text-2xs font-medium uppercase tracking-wider text-text-muted sm:px-3">
+        <div className="mr-1.5 w-7 shrink-0 sm:mr-2" /> {/* checkbox spacer */}
+        <div className="mr-2.5 w-7 shrink-0" /> {/* icon spacer */}
         <div className="min-w-0 flex-1">Name</div>
-        <ResizableHeader
-          label="Author"
-          width={columnWidths.author}
-          onResize={
-            setColumnWidth ? (w) => setColumnWidth("author", w) : undefined
-          }
-          className="mr-4 hidden md:flex"
-        />
+        <div className="mr-2 w-7 shrink-0" /> {/* actions (⋮) spacer */}
         <ResizableHeader
           label="Size"
           width={columnWidths.size}
@@ -162,13 +145,7 @@ export function LibraryListView({
           }
           className="mr-2 hidden lg:flex"
         />
-        <div className="w-7 shrink-0" />
       </div>
-
-      {/* "+ New folder" row — sits at the head of the list as the
-          inline create affordance, matching the dashed tile in the
-          grid view. */}
-      {onCreateRootFolder && <CreateFolderRow onClick={onCreateRootFolder} />}
 
       {/* Render rows in `orderedKeys` order when supplied — interleaved
           folders/books so SortableContext index positions match the
@@ -338,61 +315,13 @@ export function LibraryListView({
   );
 }
 
-// Wraps the list with the original styling + the empty-area context
-// menu. Using a sub-component because `useContextMenu` is a hook and
-// has to live inside its own component to keep call-order stable.
-function LibraryListContainer({
-  children,
-  onCreateRootFolder,
-}: {
-  children: React.ReactNode;
-  onCreateRootFolder?: () => void;
-}) {
-  // The hook spreads `onContextMenu` (which calls stopPropagation),
-  // so right-clicks on rows that already have their own menu won't
-  // bubble up to this container — only clicks on empty space do.
-  const containerCtx = useContextMenu((): ContextMenuEntry[] =>
-    onCreateRootFolder
-      ? [
-          {
-            id: "new-folder-here",
-            label: "New folder",
-            icon: FolderPlus,
-            onClick: () => onCreateRootFolder(),
-          },
-        ]
-      : [],
-  );
+// Wraps the list with the original styling. Folder-create + upload
+// now live in the library-wide right-click menu (attached in
+// AllBooksTab) and the header buttons, so this is a plain container.
+function LibraryListContainer({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      {...containerCtx}
-      className="overflow-x-auto overflow-y-hidden rounded-lg border border-glass-border"
-    >
+    <div className="overflow-x-auto overflow-y-hidden rounded-lg border border-glass-border">
       {children}
     </div>
-  );
-}
-
-/**
- * Inline "create folder" row — the list-view counterpart to the
- * dashed tile in the grid view. Same affordance, different layout.
- */
-function CreateFolderRow({ onClick }: { onClick: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={t("library.allBooks.newFolder")}
-      className={cn(
-        "group flex w-full items-center gap-2 border-b border-dashed border-glass-border px-2 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer sm:px-3",
-      )}
-    >
-      <FolderPlus
-        size={16}
-        className="text-text-muted group-hover:text-accent"
-      />
-      <span>{t("library.allBooks.newFolder")}</span>
-    </button>
   );
 }
