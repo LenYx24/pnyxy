@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, Map as MapIcon, Plus, Sparkles, Trophy } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { datedDefaultTitle } from "@/lib/entity-title";
 import { Button } from "@/components/ui";
 import { useRoadmapStore } from "@/stores/roadmap-store";
 import { progressFraction } from "./lib/scheduler";
@@ -56,7 +57,7 @@ export function RoadmapsPage() {
 
   const handleCreate = () => {
     const title = newTitle.trim();
-    const r = createRoadmap(title || t("roadmaps.untitled"));
+    const r = createRoadmap(title || datedDefaultTitle(t, "roadmap"));
     setCreating(false);
     setNewTitle("");
     navigate(`/roadmaps/${r.id}/edit`);

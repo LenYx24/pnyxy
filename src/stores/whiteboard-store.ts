@@ -157,7 +157,12 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   createWhiteboard(opts?: { bookId?: string; title?: string; folderId?: string | null }) {
     const wb: WhiteboardData = {
       id: crypto.randomUUID(),
-      title: opts?.title ?? "Untitled Whiteboard",
+      // Left blank on purpose: the display name is derived from the
+      // first text element on the canvas (or a date stamp) by
+      // whiteboardDisplayTitle, so identical placeholders never pile
+      // up in the library. Whiteboards have no rename UI, so nothing
+      // relies on this being non-empty.
+      title: opts?.title ?? "",
       elements: [],
       background: "solid",
       createdAt: Date.now(),
@@ -229,7 +234,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     const existing = whiteboards.find((w) => w.id === activeWhiteboardId);
     const wb: WhiteboardData = {
       id: activeWhiteboardId,
-      title: existing?.title ?? "Untitled Whiteboard",
+      title: existing?.title ?? "",
       elements,
       background,
       createdAt: existing?.createdAt ?? Date.now(),

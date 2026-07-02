@@ -135,7 +135,11 @@ export function MessageBubble({
           // aurora) so text stays legible and the bubble reads as a
           // pane of glass floating over the light rather than a flat
           // fill. The hairline border gives the glass an edge.
-          "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm backdrop-blur-md",
+          // min-w-0 lets the bubble shrink below its content's intrinsic
+          // width (flex items default to min-width:auto). Without it a wide
+          // code block or table forces the bubble past max-w-[85%] and the
+          // whole conversation scrolls sideways on mobile.
+          "min-w-0 max-w-[85%] rounded-2xl px-3.5 py-2 text-sm backdrop-blur-md",
           isUser
             ? "bg-accent/20 text-text-primary rounded-br-md"
             : "border border-glass-border bg-glass-bg text-text-secondary rounded-bl-md",

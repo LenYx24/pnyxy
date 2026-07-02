@@ -7,6 +7,7 @@ import {
 } from "@/lib/wikipedia";
 import { isAbortError } from "@/lib/ai/ai-client";
 import { detectSourceLang } from "@/lib/lang-detect";
+import { cn } from "@/lib/cn";
 
 interface Props {
   /** Initial term to look up — pre-filled from the user's text
@@ -14,8 +15,12 @@ interface Props {
    *  extractions ("colourised" → "colorized") without re-selecting. */
   initialQuery: string;
   /** Dismiss the panel and return to the main action list. The parent
-   *  owns the menu's overall visibility; this only closes the panel. */
-  onBack: () => void;
+   *  owns the menu's overall visibility; this only closes the panel.
+   *  Omitted in the persistent reader-tools side panel. */
+  onBack?: () => void;
+  /** Stretch to the container width instead of the popover's fixed
+   *  `w-72`. Set when hosted in the reader-tools side panel. */
+  fullWidth?: boolean;
 }
 
 /**
@@ -26,7 +31,11 @@ interface Props {
  * useState bag. On mount the panel auto-runs the first lookup with
  * a language detected from the source text.
  */
-export function AnnotationMenuWikiPanel({ initialQuery, onBack }: Props) {
+export function AnnotationMenuWikiPanel({
+  initialQuery,
+  onBack,
+  fullWidth = false,
+}: Props) {
   const { t } = useTranslation();
   const [query, setQuery] = useState(initialQuery);
   const [lang, setLang] = useState<string>("");
@@ -80,7 +89,7 @@ export function AnnotationMenuWikiPanel({ initialQuery, onBack }: Props) {
   }, [initialQuery, runLookup]);
 
   return (
-    <div className="flex w-72 flex-col gap-2 p-1">
+    <div className={cn("flex flex-col gap-2 p-1", fullWidth ? "w-full" : "w-72")}>
       <div className="flex items-center gap-1.5">
         <Globe size={14} className="text-accent" />
         <span className="text-xs font-medium text-text-primary">
@@ -181,14 +190,16 @@ export function AnnotationMenuWikiPanel({ initialQuery, onBack }: Props) {
         )}
       </div>
 
-      <div className="flex justify-end">
-        <button
-          className="rounded px-2 py-1 text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
-          onClick={onBack}
-        >
-          {t("reader.annotationMenu.back")}
-        </button>
-      </div>
+      {onBack && (
+        <div className="flex justify-end">
+          <button
+            className="rounded px-2 py-1 text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
+            onClick={onBack}
+          >
+            {t("reader.annotationMenu.back")}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

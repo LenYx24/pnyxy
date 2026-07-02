@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useReadAloud } from "@/hooks/use-read-aloud";
 import {
@@ -16,7 +16,7 @@ import {
   MessagesSquare,
   MoreVertical,
   Gauge,
-  Plus,
+  SquarePen,
   Loader2,
   GitBranch,
   X,
@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { ConfirmModal, FloatingMenu, PromptModal } from "@/components/ui";
 import { useIsMobile } from "@/hooks/use-media-query";
+import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { buildRecommendationSystemPrompt } from "@/lib/ai/recommendation-prompts";
 import { ChatComposer, type ChatComposerSubmitPayload } from "./ChatComposer";
 import { MessageBubble } from "./MessageBubble";
@@ -55,6 +56,7 @@ import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { restrictToWindowEdges } from "@/lib/dnd-modifiers";
 import { cn } from "@/lib/cn";
 import { useAuthStore } from "@/stores/auth-store";
+import { useUIStore } from "@/stores/ui-store";
 import {
   useChatStore,
   pathFromRoot,
@@ -84,6 +86,10 @@ export function ChatPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  // Opens the global app-nav Sidebar overlay (Library / Profile /
+  // Settings / …). Surfaced inside the chat's conversation drawer since
+  // the global MobileTopBar is hidden on /chat.
+  const setMobileSidebarOpen = useUIStore((s) => s.setMobileSidebarOpen);
 
   const conversations = useChatStore((s) => s.conversations);
   const activeId = useChatStore((s) => s.activeConversationId);
@@ -405,6 +411,12 @@ export function ChatPage() {
   const SIDEBAR_MAX = 480;
   const SIDEBAR_STORAGE_KEY = "pnyxy-chat-sidebar-width";
   const isMobile = useIsMobile();
+  // Height the soft keyboard covers, so we can lift the composer above
+  // it on mobile (visualViewport-backed). 0 on desktop. Mirrors the
+  // reader's AiChatPanel, which already does this — the standalone chat
+  // page was relying on `100dvh` alone, whose lag/inconsistency on
+  // Android made the composer jump out from under the keyboard.
+  const keyboardInset = useKeyboardInset();
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     try {
       const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
@@ -847,7 +859,7 @@ export function ChatPage() {
   const branchParent = branchFromId ? messages.get(branchFromId) : null;
 
   return (
-    <div className="relative flex h-[calc(100dvh-3.5rem-var(--spacing-safe-bottom,0px))] w-full p-0 sm:h-screen">
+    <div className="relative flex h-[100dvh] w-full p-0">
       {/* Mobile-only backdrop. Tapping it closes the drawer. Hidden
           on desktop where the aside is a permanent column. */}
       {mobileListOpen && (
@@ -890,19 +902,48 @@ export function ChatPage() {
           mobileListOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        {/* Top action row. Obsidian-style: primary "New conversation"
-            button is full-width and filled (no dashed border) — it's
-            the highest-frequency action in this sidebar, so it should
-            look like one. Secondary actions sit in a smaller row of
-            icon-only buttons below: New folder + Collapse/Expand all.
+        {/* Mobile drawer header — the global MobileTopBar is hidden on
+            /chat (one contextual top bar per screen), so this row keeps
+            app-level navigation one tap away: a nav trigger that opens
+            the global Sidebar overlay (Library / Profile / Settings) and
+            the brand/home link. Desktop already shows the global Sidebar
+            as a column, so this is mobile-only. */}
+        <div
+          className="flex items-center gap-1.5 sm:hidden"
+          style={{ marginTop: "var(--spacing-safe-top, 0px)" }}
+        >
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen(true)}
+            aria-label={t("sidebar.openNav", {
+              defaultValue: "Open navigation",
+            })}
+            className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+          >
+            <Menu size={18} />
+          </button>
+          <Link
+            to="/"
+            aria-label="Pnyxy home"
+            className="flex items-center"
+          >
+            <img src="/logo.svg" alt="Pnyxy" className="h-6 w-auto" />
+          </Link>
+        </div>
+
+        {/* Top action row. Primary "New conversation" is a full-width
+            ghost/outline button with a compose glyph — the highest-
+            frequency action, styled as the primary without the heavy
+            filled accent block. Secondary actions sit in a smaller row
+            of icon-only buttons below: New folder + Collapse/Expand all.
             The collapse toggle's icon flips based on whether every
             existing folder is already collapsed. */}
         <div className="flex flex-col gap-1.5">
           <button
             onClick={handleNew}
-            className="flex items-center justify-center gap-2 rounded-md bg-accent/15 px-3 py-2 text-xs font-medium text-accent transition-colors hover:bg-accent/25 cursor-pointer"
+            className="flex items-center justify-center gap-2 rounded-md border border-glass-border bg-transparent px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:border-accent/40 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
           >
-            <Plus size={14} strokeWidth={2.5} />
+            <SquarePen size={14} className="text-accent" />
             {t("chat.newConversation")}
           </button>
           <div className="flex items-center gap-1">
@@ -1077,7 +1118,12 @@ export function ChatPage() {
       </aside>
 
       {/* Main pane */}
-      <main className="relative isolate flex min-w-0 flex-1 flex-col">
+      <main
+        className="relative isolate flex min-w-0 flex-1 flex-col transition-[padding] duration-150 ease-out"
+        style={{
+          paddingBottom: keyboardInset > 0 ? keyboardInset : undefined,
+        }}
+      >
         {/* Aurora backdrop — slow, abstract drift of accent-tinted
             light behind the thread. `isolate` on <main> contains the
             -z-10 layer so it sits behind the messages but in front of
@@ -1145,11 +1191,16 @@ export function ChatPage() {
             </button>
           </FloatingMenu>
         </div>
-        {/* Mobile header — hamburger opens the conversation rail
-            drawer so the user can switch chats without losing their
-            place. The old "back to list" pattern is gone now that
-            the rail is always one tap away. */}
-        <div className="flex items-center gap-2 border-b border-glass-border bg-bg-primary/40 px-3 py-2 sm:hidden">
+        {/* Mobile header — the single contextual top bar for /chat now
+            that the global MobileTopBar is suppressed here. Hamburger
+            opens the conversation rail drawer (which also carries the
+            global-nav trigger); title; overflow; new-chat. Owns the
+            safe-area top inset the global bar used to provide, so the
+            row doesn't slide under the notch/status bar. */}
+        <div
+          className="flex items-center gap-2 border-b border-glass-border bg-bg-primary/40 px-3 pb-2 sm:hidden"
+          style={{ paddingTop: "calc(0.5rem + var(--spacing-safe-top, 0px))" }}
+        >
           <button
             onClick={() => setMobileListOpen(true)}
             className="rounded-md p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
@@ -1203,10 +1254,10 @@ export function ChatPage() {
           </FloatingMenu>
           <button
             onClick={handleNew}
-            className="rounded-md p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            className="rounded-md p-1 text-accent transition-colors hover:bg-glass-hover cursor-pointer"
             aria-label={t("chat.newConversation")}
           >
-            <Plus size={16} />
+            <SquarePen size={18} />
           </button>
         </div>
 
@@ -1231,7 +1282,7 @@ export function ChatPage() {
                 onClick={handleNew}
                 className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent/80 cursor-pointer"
               >
-                <Plus size={14} />
+                <SquarePen size={14} />
                 {t("chat.newConversation")}
               </button>
             </div>
@@ -1243,8 +1294,8 @@ export function ChatPage() {
             and centered, regardless of how wide the main pane is. */}
         {activeId && (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex-1 overflow-y-auto p-3 sm:p-4">
-              <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4">
+              <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-3">
               {isLoading && threadPath.length === 0 && (
                 <div
                   className="flex items-center justify-center py-16"

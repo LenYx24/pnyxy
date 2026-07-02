@@ -162,10 +162,12 @@ export function LibraryToolbar({
             chrome below. */}
         {toggleControlsButton}
 
-        {/* Search — only rendered when the panel is expanded.
-            Collapsed users get the search button back the moment
-            they tap the chevron. */}
-        {controlsExpanded && (
+        {/* Search — always visible on desktop (it's a primary
+            affordance; hiding it behind the disclosure added friction).
+            On mobile it stays behind the chevron so the collapsed
+            toolbar keeps a tight single row; the tag filter + storage
+            bar remain gated by `controlsExpanded` in either case. */}
+        {(controlsExpanded || !isMobile) && (
           <div
             className={cn(
               "relative flex items-center transition-all duration-200",
@@ -220,11 +222,9 @@ export function LibraryToolbar({
         )}
 
         {/* Spacer pushes view/refresh controls to the far right
-            whenever the search field isn't already stretching to
-            fill (i.e. either collapsed, or search-input collapsed). */}
-        {(!controlsExpanded || !searchActive) && (
-          <div className="flex-1" />
-        )}
+            whenever the search field isn't stretching to fill
+            (i.e. the search input isn't active/expanded). */}
+        {!searchActive && <div className="flex-1" />}
 
         {isMobile ? (
           viewToggle

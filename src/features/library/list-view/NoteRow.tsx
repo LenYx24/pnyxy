@@ -13,6 +13,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { noteDisplayTitle } from "@/lib/entity-title";
 import { useLibraryStore } from "@/stores/library-store";
 import { useNoteStore, type Note } from "@/stores/note-store";
 import { downloadNoteMarkdown } from "@/lib/library/export-note";
@@ -96,7 +97,7 @@ export function NoteRow({
   const [moveOpen, setMoveOpen] = useState(false);
 
   const selKey = `note:${note.id}`;
-  const title = note.title.trim() || t("library.allBooks.untitledNote");
+  const title = noteDisplayTitle(note, t);
   const indent = Math.min(depth * 20, 80);
 
   const open = () => navigate(`/notes/${note.id}`);

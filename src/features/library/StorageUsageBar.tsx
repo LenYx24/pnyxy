@@ -23,29 +23,42 @@ export function StorageUsageBar({
 }: StorageUsageBarProps) {
   const { t } = useTranslation();
   const pct = limitBytes > 0 ? (usedBytes / limitBytes) * 100 : 0;
+  // Three-step escalation instead of a single accent→danger flip: an
+  // amber warning band gives the user a heads-up before they hit the
+  // wall, and `over` (at/above the limit) surfaces an explicit label.
+  const isOver = pct >= 100;
   const isHigh = pct > 80;
+  const isWarn = pct > 65;
+  const barColor = isHigh || isOver ? "bg-danger" : isWarn ? "bg-warning" : "bg-accent";
   const tierLabel =
     tier === "premium"
       ? t("library.storage.tierPremium")
       : t("library.storage.tierFree");
+  const usedLabel = t("library.storage.used", {
+    used: formatBytes(usedBytes),
+    limit: formatBytes(limitBytes),
+  });
 
   return (
     <div className={cn("space-y-1", className)}>
       <div className="flex items-center justify-between text-xs">
-        <span className="text-text-muted">
-          {t("library.storage.used", {
-            used: formatBytes(usedBytes),
-            limit: formatBytes(limitBytes),
-          })}
+        <span className={cn(isOver ? "text-danger" : "text-text-muted")}>
+          {isOver
+            ? `${t("library.storage.overLimit")} · ${usedLabel}`
+            : usedLabel}
         </span>
         <span className="text-text-muted">{tierLabel}</span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-glass-border">
+      <div
+        className="h-2 w-full overflow-hidden rounded-full bg-glass-border"
+        role="progressbar"
+        aria-valuenow={Math.round(Math.min(pct, 100))}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={usedLabel}
+      >
         <div
-          className={cn(
-            "h-full rounded-full transition-all",
-            isHigh ? "bg-danger" : "bg-accent",
-          )}
+          className={cn("h-full rounded-full transition-all", barColor)}
           style={{ width: `${Math.min(pct, 100)}%` }}
         />
       </div>

@@ -25,4 +25,10 @@ cpSync(join(pdfjsDir, "cmaps"), join(dest, "cmaps"), { recursive: true });
 cpSync(join(pdfjsDir, "standard_fonts"), join(dest, "standard_fonts"), {
   recursive: true,
 });
+// wasm holds the WebAssembly image decoders pdf.js 5 loads on demand:
+// openjpeg.wasm (JPEG2000 / JPX images) and qcms_bg.wasm (ICC colour
+// management). Without these served + `wasmUrl` pointing here, any PDF
+// with JPX-encoded images fails with "JpxError: OpenJPEG failed to
+// initialize" and those pages render blank white.
+cpSync(join(pdfjsDir, "wasm"), join(dest, "wasm"), { recursive: true });
 console.log("Copied pdf.js assets to public/pdf-assets");

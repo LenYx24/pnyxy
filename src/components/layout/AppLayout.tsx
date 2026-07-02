@@ -135,8 +135,13 @@ export function AppLayout() {
   // Mobile-only top bar carries the brand + the avatar/profile menu
   // (Profile, Settings, Sign-out). Hidden on the reader since
   // ReaderToolbar already occupies that space, and during a focus
-  // session for an uninterrupted reading surface.
-  const showMobileTopBar = !isReaderRoute && !focusActive && !showFooter;
+  // session for an uninterrupted reading surface. Also hidden on chat:
+  // /chat is a full-screen feature route whose own header IS the single
+  // contextual top bar (HIG/M3: one bar per screen, not two stacked).
+  // The chat's conversation drawer carries a nav trigger so the global
+  // Sidebar overlay (Library / Profile / Settings) stays one tap away.
+  const showMobileTopBar =
+    !isReaderRoute && !isChatRoute && !focusActive && !showFooter;
   const sidebarMargin = showSidebar && isDesktop;
 
   return (

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { noteDisplayTitle, whiteboardDisplayTitle } from "@/lib/entity-title";
 import { useNoteStore } from "@/stores/note-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 
@@ -199,7 +200,7 @@ export function WorkspacePage() {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-text-primary">
-                      {n.title || t("book.notes.untitled")}
+                      {noteDisplayTitle(n, t)}
                     </p>
                     <p className="line-clamp-2 text-xs text-text-muted">
                       {n.content || t("book.notes.emptyNote")}
@@ -273,7 +274,7 @@ export function WorkspacePage() {
                   <Pencil size={14} className="shrink-0 text-accent" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-text-primary">
-                      {wb.title || t("workspace.whiteboards.untitled")}
+                      {whiteboardDisplayTitle(wb, t)}
                     </p>
                     <p className="text-2xs text-text-muted">
                       {t("workspace.whiteboards.updated", {

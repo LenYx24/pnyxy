@@ -139,14 +139,6 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const sourceDocId = activeConversation?.source_doc_id ?? null;
 
   const [input, setInput] = useState("");
-  // Track every change to `input` so we can see if setInput(draft.text)
-  // landed and whether anything later overwrites it. Logs the new
-  // value's length + a preview — short enough to fit in one line.
-  useEffect(() => {
-    console.log(
-      `[input-state] len=${input.length} preview="${input.slice(0, 80)}"`,
-    );
-  }, [input]);
   const [listOpen, setListOpen] = useState(false);
   // Inline page-picker visibility. Toggled from the ContextSummaryPill;
   // resets on doc change so re-opening a different book doesn't show

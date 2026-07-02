@@ -12,6 +12,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { conversationDisplayTitle } from "@/lib/entity-title";
 import { logError } from "@/lib/logger";
 import { useLibraryStore } from "@/stores/library-store";
 import { useChatStore } from "@/stores/chat-store";
@@ -93,7 +94,7 @@ export function ChatRow({
   const [moveOpen, setMoveOpen] = useState(false);
 
   const selKey = `chat:${conversation.id}`;
-  const title = conversation.title.trim() || t("library.allBooks.untitledChat");
+  const title = conversationDisplayTitle(conversation, t);
   const indent = Math.min(depth * 20, 80);
 
   const open = () => {

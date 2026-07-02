@@ -700,6 +700,7 @@
       "newFolder": "New Folder",
       "newFolderTitle": "Create a folder ({{shortcut}})",
       "noSearchResults": "No results for \"{{query}}\"",
+      "noTagResults": "No items match this filter",
       "emptyFolder": "This folder is empty",
       "emptyRootHint": "Browse the catalog to add books, or create a folder to organize them.",
       "browseCatalog": "Browse Catalog",
@@ -719,6 +720,13 @@
       "untitledChat": "Untitled chat",
       "openChat": "Open chat",
       "chatFromSource": "From {{source}}",
+      "derivedTitle": {
+        "note": "Note · {{date}}",
+        "whiteboard": "Whiteboard · {{date}}",
+        "quiz": "Quiz · {{date}}",
+        "roadmap": "Roadmap · {{date}}",
+        "chat": "Chat · {{date}}"
+      },
       "new": "New",
       "deleteFolder": {
         "title": "Delete Folder",
@@ -735,7 +743,8 @@
     "storage": {
       "used": "{{used}} / {{limit}} used",
       "tierFree": "Free tier",
-      "tierPremium": "Premium tier"
+      "tierPremium": "Premium tier",
+      "overLimit": "Storage full"
     },
     "streak": {
       "dayStreak_one": "day streak",
@@ -1671,6 +1680,17 @@
       "exitZen": "Exit zen mode",
       "exitZenTitle": "Exit zen mode (Esc)",
       "loadingDocumentMessage": "Loading book…"
+    },
+    "tools": {
+      "tabChat": "AI Chat",
+      "tabDictionary": "Dictionary",
+      "tabWikipedia": "Wikipedia",
+      "tabTranslate": "Translate",
+      "search": "Search",
+      "dictionaryPlaceholder": "Look up a word…",
+      "translatePlaceholder": "Text to translate…",
+      "emptyDictionary": "Type a word above to see its definition.",
+      "emptyTranslate": "Type text above to translate it."
     },
     "toolbar": {
       "backToLibrary": "Back to library",

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Checkbox, FloatingMenu } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { conversationDisplayTitle } from "@/lib/entity-title";
 import { logError } from "@/lib/logger";
 import { useLibraryStore } from "@/stores/library-store";
 import { useChatStore } from "@/stores/chat-store";
@@ -68,7 +69,7 @@ export function LibraryChatCard({
   const [moveOpen, setMoveOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  const title = conversation.title.trim() || t("library.allBooks.untitledChat");
+  const title = conversationDisplayTitle(conversation, t);
   const subtitle = conversation.source_doc_title?.trim()
     ? t("library.allBooks.chatFromSource", {
         source: conversation.source_doc_title,
@@ -121,10 +122,10 @@ export function LibraryChatCard({
         )}
       >
         <div onClick={handleClick} title={title} className="cursor-pointer">
-          <div className="relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-sky-400/10 shadow-sm transition-shadow group-hover:shadow-md">
+          <div className="relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border bg-accent-blue/10 shadow-sm transition-shadow group-hover:shadow-md">
             <MessageSquare
               size={Math.round(Math.min(Math.max(coverHeight * 0.32, 24), 48))}
-              className="text-sky-400/80"
+              className="text-accent-blue/80"
             />
 
             {onToggleSelect && (
@@ -147,7 +148,7 @@ export function LibraryChatCard({
             )}
 
             <span
-              className="absolute bottom-1.5 left-1.5 rounded bg-bg-primary/80 p-0.5 text-sky-400 backdrop-blur-sm"
+              className="absolute bottom-1.5 left-1.5 rounded bg-bg-primary/80 p-0.5 text-accent-blue backdrop-blur-sm"
               title={t("library.allBooks.chatLabel")}
             >
               <MessageSquare size={10} />

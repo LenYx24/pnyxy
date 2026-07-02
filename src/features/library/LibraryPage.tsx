@@ -585,6 +585,13 @@ export function LibraryPage() {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      // Whole-page right-click target so the import/new-folder menu is
+      // reachable from the empty areas too — the footer, the storage
+      // bar, the spacer, header whitespace — not just the grid. Rows and
+      // AllBooksTab's own handler call stopPropagation, so their
+      // right-clicks still show their own menu; only events that reach
+      // here (the chrome around the grid) open the library menu.
+      onContextMenu={libraryMenu.onContextMenu}
     >
       {/* Pull-to-refresh indicator (mobile only). Fades in as the
           user pulls; spins while refreshing. */}
@@ -746,18 +753,18 @@ export function LibraryPage() {
           so this spacer collapses harmlessly there. */}
       <div aria-hidden className="h-8 shrink-0" />
 
-      {/* Bottom info row — book count + storage usage. Pinned to
-          the bottom of the viewport on desktop via `sm:sticky` so
-          the storage gauge is always glanceable while scrolling
-          long libraries. Mobile keeps the in-flow `mt-auto`
-          placement (sticky chrome competes with the bottom nav
-          there) and gates the storage bar behind `controlsExpanded`
-          so a first-time phone user isn't greeted with extra
-          chrome. Background + blur lets content scroll
-          underneath without a hard cut. */}
-      <div className="sm:sticky sm:bottom-0 sm:bg-bg-primary/85 sm:backdrop-blur-md sm:px-1 sm:pb-2 sm:z-10 mt-auto flex flex-col gap-1.5 border-t border-glass-border pt-3 text-xs text-text-muted">
+      {/* Bottom info row — book count + storage usage. Sticks to the
+          bottom of the viewport on every breakpoint so the storage
+          gauge stays glanceable while scrolling long libraries. On
+          desktop it pins to `bottom-0`; on mobile/tablet it pins just
+          above the fixed bottom nav (whose height is
+          `3.5rem + safe-bottom`, `md:hidden`), so the two never
+          overlap. Background + blur lets content scroll underneath
+          without a hard cut. `mt-auto` still parks it at the bottom on
+          short pages where there's nothing to scroll. */}
+      <div className="sticky bottom-[calc(3.5rem+var(--spacing-safe-bottom,0px))] z-10 mt-auto flex flex-col gap-1.5 border-t border-glass-border bg-bg-primary/85 px-1 pb-2 pt-3 text-xs text-text-muted backdrop-blur-md md:bottom-0">
         <p>{t("library.bookCount", { count: books.length })}</p>
-        {storageUsage && (!isMobile || controlsExpanded) && (
+        {storageUsage && (
           <StorageUsageBar
             usedBytes={storageUsage.usedBytes}
             limitBytes={storageUsage.limitBytes}

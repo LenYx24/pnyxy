@@ -700,6 +700,7 @@
       "newFolder": "Új mappa",
       "newFolderTitle": "Mappa létrehozása ({{shortcut}})",
       "noSearchResults": "Nincs találat erre: „{{query}}”",
+      "noTagResults": "Nincs a szűrőnek megfelelő elem",
       "emptyFolder": "Ez a mappa üres",
       "emptyRootHint": "Böngéssz a katalógusban, hogy könyveket adj hozzá, vagy hozz létre egy mappát a rendszerezéshez.",
       "browseCatalog": "Katalógus böngészése",
@@ -719,6 +720,13 @@
       "untitledChat": "Névtelen beszélgetés",
       "openChat": "Beszélgetés megnyitása",
       "chatFromSource": "Forrás: {{source}}",
+      "derivedTitle": {
+        "note": "Jegyzet · {{date}}",
+        "whiteboard": "Tábla · {{date}}",
+        "quiz": "Kvíz · {{date}}",
+        "roadmap": "Útvonal · {{date}}",
+        "chat": "Beszélgetés · {{date}}"
+      },
       "new": "Új",
       "deleteFolder": {
         "title": "Mappa törlése",
@@ -735,7 +743,8 @@
     "storage": {
       "used": "{{used}} / {{limit}} használva",
       "tierFree": "Ingyenes csomag",
-      "tierPremium": "Prémium csomag"
+      "tierPremium": "Prémium csomag",
+      "overLimit": "Betelt a tárhely"
     },
     "streak": {
       "dayStreak_one": "napos sorozat",
@@ -1671,6 +1680,17 @@
       "exitZen": "Zen mód bezárása",
       "exitZenTitle": "Zen mód bezárása (Esc)",
       "loadingDocumentMessage": "Könyv betöltése…"
+    },
+    "tools": {
+      "tabChat": "AI Chat",
+      "tabDictionary": "Szótár",
+      "tabWikipedia": "Wikipédia",
+      "tabTranslate": "Fordító",
+      "search": "Keresés",
+      "dictionaryPlaceholder": "Szó keresése…",
+      "translatePlaceholder": "Fordítandó szöveg…",
+      "emptyDictionary": "Írj be egy szót fentre a definícióhoz.",
+      "emptyTranslate": "Írj be szöveget fentre a fordításhoz."
     },
     "toolbar": {
       "backToLibrary": "Vissza a könyvtárba",

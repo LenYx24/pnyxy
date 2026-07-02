@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Checkbox, FloatingMenu } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { whiteboardDisplayTitle } from "@/lib/entity-title";
 import { useLibraryStore } from "@/stores/library-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import { downloadWhiteboardJson } from "@/lib/library/export-whiteboard";
@@ -68,7 +69,7 @@ export function LibraryWhiteboardCard({
   const [moveOpen, setMoveOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  const title = whiteboard.title.trim() || t("library.allBooks.untitledWhiteboard");
+  const title = whiteboardDisplayTitle(whiteboard, t);
   const selKey = `whiteboard:${whiteboard.id}`;
   const compact = coverHeight < 100;
   const intrinsicHeight = coverHeight + 80;

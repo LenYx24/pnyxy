@@ -17,7 +17,7 @@ import { MobileReaderBottomBar } from "./MobileReaderBottomBar";
 import { ActiveViewer } from "./viewers/ActiveViewer";
 import { SearchOverlay } from "./popovers/SearchOverlay";
 import { CommentsSidebar } from "./panels/CommentsSidebar";
-import { AiChatPanelContent } from "./panels/AiChatPanel";
+import { ReaderToolsPanelContent } from "./panels/ReaderToolsPanel";
 import {
   useMobileReaderGestures,
   type PinchEvent,
@@ -401,7 +401,7 @@ export function MobileReaderLayout({
         )}
       >
         {mobileReaderPanel === "aiChat" && (
-          <AiChatPanelContent onClose={() => setMobileReaderPanel("none")} />
+          <ReaderToolsPanelContent onClose={() => setMobileReaderPanel("none")} />
         )}
       </div>
 

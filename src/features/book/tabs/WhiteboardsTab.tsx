@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui";
+import { whiteboardDisplayTitle } from "@/lib/entity-title";
 import { useBook } from "../BookPageContext";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 
@@ -95,7 +96,7 @@ export function WhiteboardsTab() {
                 <Pencil size={14} className="shrink-0 text-accent" />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-text-primary">
-                    {wb.title || t("book.whiteboards.untitled")}
+                    {whiteboardDisplayTitle(wb, t)}
                   </p>
                   <p className="text-2xs text-text-muted">
                     {t("book.whiteboards.updated", {

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { BookOpen, Loader2 } from "lucide-react";
 import { useReaderStore } from "@/stores/reader-store";
 import { useVocabStore } from "@/stores/vocab-store";
+import { cn } from "@/lib/cn";
 
 interface DictionaryEntry {
   word: string;
@@ -49,7 +50,13 @@ async function fetchDefinition(word: string): Promise<DictionaryEntry | null> {
 
 interface Props {
   selectedText: string;
-  onBack: () => void;
+  /** Return to the annotation menu's action list. Omitted when the
+   *  panel is embedded in the persistent reader-tools side panel,
+   *  where there's no "back" to go to. */
+  onBack?: () => void;
+  /** Stretch to the container width instead of the popover's fixed
+   *  `w-64`. Set when hosted in the wide reader-tools side panel. */
+  fullWidth?: boolean;
 }
 
 /**
@@ -58,7 +65,11 @@ interface Props {
  * Multi-word selections are shown but not auto-saved (would pollute
  * the flashcard deck). Capture is best-effort; failures are silent.
  */
-export function AnnotationMenuDefinePanel({ selectedText, onBack }: Props) {
+export function AnnotationMenuDefinePanel({
+  selectedText,
+  onBack,
+  fullWidth = false,
+}: Props) {
   const { t } = useTranslation();
   const [definition, setDefinition] = useState<DictionaryEntry | null>(null);
   const [defining, setDefining] = useState(false);
@@ -130,7 +141,7 @@ export function AnnotationMenuDefinePanel({ selectedText, onBack }: Props) {
   }, [capturedVocabId, removeVocabEntry]);
 
   return (
-    <div className="flex flex-col gap-2 p-1 w-64">
+    <div className={cn("flex flex-col gap-2 p-1", fullWidth ? "w-full" : "w-64")}>
       <div className="flex items-center gap-1.5">
         <BookOpen size={14} className="text-accent" />
         <span className="text-xs font-medium text-text-primary">
@@ -222,12 +233,14 @@ export function AnnotationMenuDefinePanel({ selectedText, onBack }: Props) {
         ) : (
           <span />
         )}
-        <button
-          className="rounded px-2 py-1 text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
-          onClick={onBack}
-        >
-          {t("reader.annotationMenu.back")}
-        </button>
+        {onBack && (
+          <button
+            className="rounded px-2 py-1 text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
+            onClick={onBack}
+          >
+            {t("reader.annotationMenu.back")}
+          </button>
+        )}
       </div>
     </div>
   );

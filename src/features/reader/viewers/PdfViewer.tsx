@@ -13,6 +13,7 @@ import "react-pdf/dist/Page/TextLayer.css";
 import { useReaderStore, useDocumentState } from "@/stores/reader-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { getReaderPalette } from "@/lib/reader-themes";
+import { logError } from "@/lib/logger";
 import { useTextSelection } from "@/hooks/use-text-selection";
 import { HighlightLayer } from "../layers/HighlightLayer";
 import { AiCitationLayer } from "../layers/AiCitationLayer";
@@ -43,6 +44,10 @@ interface PageSlotProps {
   renderWidth: number;
   rotation: 0 | 90 | 180 | 270;
   onRenderSuccess: (pageNum: number) => void;
+  /** Called when react-pdf fails to rasterize this page (corrupt page
+   *  stream, unsupported filter, etc.) so the parent can log it. The
+   *  slot itself shows a visible placeholder instead of blank white. */
+  onRenderError: (pageNum: number, error: Error) => void;
 }
 
 // Renders one virtualized page + its overlay layers. The Page is
@@ -61,6 +66,7 @@ const PageSlot = memo(function PageSlot({
   renderWidth,
   rotation,
   onRenderSuccess,
+  onRenderError,
 }: PageSlotProps) {
   // Effective render width — fall back to display width on the very
   // first frame before the parent has computed the session's render
@@ -121,7 +127,21 @@ const PageSlot = memo(function PageSlot({
             loading={
               <div style={{ height: pageHeight, width: effectiveRenderW }} />
             }
+            // A per-page failure used to render as blank white with no
+            // signal (react-pdf's Page has no default error UI and the
+            // document-level `error` only fires on a total load failure).
+            // Show a visible placeholder AND log the real cause so an
+            // "all-white PDF" becomes diagnosable instead of silent.
+            error={
+              <div
+                style={{ height: pageHeight, width: effectiveRenderW }}
+                className="flex items-center justify-center p-2 text-center text-2xs text-danger"
+              >
+                Page {pageNum} couldn't be displayed.
+              </div>
+            }
             onRenderSuccess={() => onRenderSuccess(pageNum)}
+            onRenderError={(error) => onRenderError(pageNum, error)}
           />
           <HighlightLayer pageNum={pageNum} />
           <AiCitationLayer pageNum={pageNum} />
@@ -288,6 +308,43 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     expiresAt: number;
   } | null>(null);
 
+  // The page + in-page fraction currently pinned to the viewport TOP,
+  // refreshed on every *user* scroll. Width-independent (page index +
+  // fraction, not pixels), so it survives a panel resize: after the
+  // pages reflow to the new width we restore scrollTop so this exact
+  // point stays at the top of the panel — Google-PDF behaviour. The
+  // persisted currentPage/scrollOffset can't drive this because they're
+  // viewport-CENTRE based, so anchoring them to the top shifts the view
+  // by ~half a panel on every resize.
+  const topAnchorRef = useRef<{ page: number; fraction: number } | null>(
+    null,
+  );
+
+  // True once the user drives the scroll themselves (wheel or scrollbar
+  // drag). This permanently disarms the resume re-snap for the current
+  // view so it can't yank the viewport back to the open/TOC position
+  // mid-scroll. It's gated on *input intent*, not scroll-position
+  // matching, because during a scroll the re-snap's own programmatic
+  // write can land last within a frame — the coalesced scroll event then
+  // matches the programmatic marker and `handleScroll` mis-reads the
+  // user's scroll as "ours", so `resumeTargetRef` never clears and the
+  // re-snap fights the user for the whole 5 s window. Reset to false by
+  // the scroll-to-page effect below (the single legitimate re-arm point:
+  // doc open, TOC / search / citation jump).
+  const userScrolledRef = useRef(false);
+
+  // The exact scrollTop the resume system last wrote. A native scrollbar
+  // drag fires NO wheel/pointer event we can catch, and — because our
+  // re-snap can overwrite the dragged position within the same frame —
+  // the coalesced scroll event `handleScroll` sees is our target, not the
+  // user's, so the userScrolledRef signal above never trips for a drag.
+  // The reliable tell is drift: if on a re-snap tick el.scrollTop differs
+  // from what we last wrote, something OTHER than us moved the scroll
+  // between writes = the user is dragging. (Pages are absolutely
+  // positioned in a fixed-height tray, so layout reflow never moves
+  // scrollTop — any drift is genuinely the user.)
+  const lastResumeWriteRef = useRef<number | null>(null);
+
   const prevRotationRef = useRef(rotation);
   useLayoutEffect(() => {
     if (prevRotationRef.current === rotation) return;
@@ -298,8 +355,18 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     setDimensions(new Map());
   }, [rotation]);
 
-  // Track container size — debounced to prevent flicker during panel resize
-  const resizeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Track container size — rAF-throttled (NOT debounced). The old 150ms
+  // debounce existed because renderWidth used to track the display
+  // width, so every resize step re-rasterized → flicker, and deferring
+  // to one trailing fire hid most of it. But that also froze the page
+  // at its old size during the whole drag and then SNAPPED to the new
+  // layout on release — the jarring "blink + a dark gap before the page
+  // repaints" the user sees. Now that renderWidth is window-based and
+  // constant (see below), a resize step is pure CSS (page width →
+  // per-slot scale, tray width, offsets) with NO re-rasterize, so we
+  // can update live and let the page track the divider smoothly. rAF
+  // coalesces the ResizeObserver burst to one update per frame.
+  const resizeRafRef = useRef<number>(0);
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -310,17 +377,17 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;
-      clearTimeout(resizeTimerRef.current);
-      resizeTimerRef.current = setTimeout(() => {
+      if (resizeRafRef.current) cancelAnimationFrame(resizeRafRef.current);
+      resizeRafRef.current = requestAnimationFrame(() => {
         setContainerWidth(entry.contentRect.width);
         setContainerHeight(entry.contentRect.height);
-      }, 150);
+      });
     });
 
     observer.observe(el);
     return () => {
       observer.disconnect();
-      clearTimeout(resizeTimerRef.current);
+      if (resizeRafRef.current) cancelAnimationFrame(resizeRafRef.current);
     };
   }, []);
 
@@ -348,7 +415,21 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   const [renderWidth, setRenderWidth] = useState(0);
   useLayoutEffect(() => {
     if (baselineWidth <= 0) return;
-    const target = Math.min(baselineWidth * RENDER_GROWTH_HEADROOM, RENDER_WIDTH_CAP);
+    // Rasterize at the WIDEST the panel could plausibly reach (the
+    // window width), NOT the current panel width. A panel can't grow
+    // past the window, so dragging a side-panel divider never pushes
+    // the display beyond the canvas we already have — which is exactly
+    // what used to re-rasterize every page mid-drag and produce the
+    // resize "blink" (react-pdf swaps the canvas for an empty loading
+    // box while it re-renders). Basing the target on the window means a
+    // single rasterize covers every panel size, so panel resizes only
+    // CSS-scale and never blink. Still grow-only + capped, so memory
+    // stays bounded; only a window-resize-up (rare) re-rasterizes.
+    const maxDisplay = Math.max(
+      baselineWidth,
+      typeof window !== "undefined" ? window.innerWidth : baselineWidth,
+    );
+    const target = Math.min(maxDisplay * RENDER_GROWTH_HEADROOM, RENDER_WIDTH_CAP);
     setRenderWidth((prev) => (target > prev ? target : prev));
   }, [baselineWidth]);
 
@@ -818,6 +899,13 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
 
     const handleWheel = (e: WheelEvent) => {
       if (!e.ctrlKey && !e.metaKey) {
+        // Any wheel scroll is unambiguous user intent — kill the resume
+        // re-snap synchronously (before the smooth-scroll write) so it
+        // can never fight this gesture, even if a re-snap write would
+        // otherwise land last within the frame and be mis-read as ours.
+        userScrolledRef.current = true;
+        resumeTargetRef.current = null;
+
         // Scroll dampens with zoom-in (less detent → less travel) but
         // is capped at 1× when zoomed out — without the cap, at 50 %
         // zoom each detent moved 2× the visual distance, which felt
@@ -1020,20 +1108,30 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     const el = containerRef.current;
     if (!el) return;
 
+    // Identify our own programmatic write by matching the current scroll
+    // against the most recent target. A match consumes the marker
+    // (single-shot per write) so the NEXT event reads as user-initiated.
+    //
+    // This MUST run synchronously on the raw scroll event, NOT inside the
+    // rAF below. A genuine user scroll (scrollbar drag, wheel) has to
+    // cancel an in-flight resume anchor immediately — before the re-snap
+    // layout effect can re-apply the old target. When this lived in the
+    // rAF, the re-snap fired in the gap, wrote the scroll back to the
+    // resume spot *programmatically*, and the deferred check then read
+    // THAT value as "programmatic" and never cleared the resume — so
+    // dragging the scrollbar snapped straight back to the open position
+    // every time.
+    const isProgrammatic = consumeProgrammaticScroll(el);
+    lastScrollWasProgrammaticRef.current = isProgrammatic;
+    if (!isProgrammatic) {
+      userScrolledRef.current = true;
+      resumeTargetRef.current = null;
+    }
+
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       const st = el.scrollTop;
       setScrollTop(st);
-
-      // Identify our own programmatic write by matching the current
-      // scroll values against the most recent target. A match
-      // consumes the marker (single-shot per write) so the NEXT
-      // event will correctly read as user-initiated.
-      const isProgrammatic = consumeProgrammaticScroll(el);
-      lastScrollWasProgrammaticRef.current = isProgrammatic;
-      if (!isProgrammatic) {
-        resumeTargetRef.current = null;
-      }
 
       const now = performance.now();
       const prev = lastScrollSampleRef.current;
@@ -1077,6 +1175,20 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       }
 
       setCurrentPage(closestPage, docId ?? undefined);
+
+      // Capture what's at the viewport TOP (not centre) so a later panel
+      // resize can pin it back to the top. Width-independent page +
+      // fraction; recomputed cheaply from the same tray-local math.
+      const viewportTopTrayY = st / scale;
+      const topIdx = Math.max(0, upperBound(pageOffsets, viewportTopTrayY) - 1);
+      const topPageTop = pageOffsets[topIdx];
+      const topPageHeight = getPageHeight(topIdx + 1);
+      const topFraction =
+        topPageHeight > 0 ? (viewportTopTrayY - topPageTop) / topPageHeight : 0;
+      topAnchorRef.current = {
+        page: topIdx + 1,
+        fraction: Math.min(1, Math.max(0, topFraction)),
+      };
     });
   }, [containerHeight, pageOffsets, getPageHeight, setCurrentPage, docId]);
 
@@ -1096,6 +1208,13 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
 
     const offset =
       useReaderStore.getState().documents.get(docId ?? "")?.scrollOffset ?? 0;
+    // A fresh scroll-to-page (doc open, TOC / search / citation jump) is
+    // the one legitimate re-arm point for the resume re-snap: re-enable
+    // it even if the user had scrolled the previous view.
+    userScrolledRef.current = false;
+    // Fresh arming — forget the previous view's last write so the first
+    // re-snap tick below doesn't mistake it for user drift.
+    lastResumeWriteRef.current = null;
     resumeTargetRef.current = {
       page: scrollToPage,
       offset,
@@ -1111,6 +1230,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     const targetOffset = (pageTop + offset * pageHeight) * scale;
 
     writeProgrammaticScroll(el, targetOffset);
+    lastResumeWriteRef.current = el.scrollTop;
     setScrollTop(targetOffset);
 
     clearScrollRequest(docId ?? undefined);
@@ -1124,32 +1244,55 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   useLayoutEffect(() => {
     const target = resumeTargetRef.current;
     if (!target) return;
+    // The user took over the scroll — drop the resume anchor instead of
+    // re-pinning against them. (handleScroll/handleWheel already null it,
+    // but this guards the frame where a layout-settle commit runs before
+    // the scroll event is processed.)
+    if (userScrolledRef.current) {
+      resumeTargetRef.current = null;
+      return;
+    }
     if (Date.now() > target.expiresAt) {
       resumeTargetRef.current = null;
       return;
     }
     const el = containerRef.current;
     if (!el || pageOffsets.length === 0) return;
+    // Drift since our last write means the user grabbed the scrollbar
+    // (a drag we can't otherwise detect) — stop re-pinning against them.
+    const lastWrite = lastResumeWriteRef.current;
+    if (lastWrite !== null && Math.abs(el.scrollTop - lastWrite) > 1) {
+      userScrolledRef.current = true;
+      resumeTargetRef.current = null;
+      return;
+    }
     const pageTop = pageOffsets[target.page - 1];
     if (pageTop === undefined) return;
     const pageHeight = getPageHeight(target.page);
     const desired = (pageTop + target.offset * pageHeight) * liveScaleRef.current;
     if (Math.abs(el.scrollTop - desired) <= 1) return;
     writeProgrammaticScroll(el, desired);
+    lastResumeWriteRef.current = el.scrollTop;
     setScrollTop(desired);
   }, [pageOffsets, getPageHeight]);
 
-  // Re-anchor to the current page when the container WIDTH changes
-  // (e.g. dragging a side-panel divider). In fit-width / custom modes
-  // every page's tray-local width is `baselineWidth`, so a width change
-  // resizes all pages and shifts `pageOffsets` — a fixed scrollTop then
-  // lands on a different page and the reader "jumps". The store-sync
-  // effect below already re-anchors fit-page (whose scale depends on
-  // width), so we skip that mode here. Mirrors the resume re-snap
-  // above: same programmatic write, sourced from the persisted
-  // currentPage + scrollOffset (both width-independent). Pages above
-  // the current one are already measured (the user scrolled past them),
-  // so a single write holds — no settle loop needed.
+  // Re-anchor when the container WIDTH changes (e.g. dragging a side-
+  // panel divider). In fit-width / custom modes every page's tray-local
+  // width is `baselineWidth`, so a width change resizes all pages and
+  // shifts `pageOffsets` — a fixed scrollTop then lands on a different
+  // page and the reader "jumps". The store-sync effect below already
+  // re-anchors fit-page (whose scale depends on width), so we skip that
+  // mode here.
+  //
+  // We pin the page-position that was at the viewport TOP back to the
+  // top (offset 0 within the same page-fraction), which is what the
+  // user perceives as "the page stayed put" — matching Google's PDF
+  // viewer. `topAnchorRef` is page + fraction (width-independent), so
+  // after the reflow we just recompute the pixel target from the fresh
+  // `pageOffsets`/`getPageHeight`. Pages above the anchor are already
+  // measured (the user scrolled past them), so a single write holds —
+  // no settle loop needed. Falls back to the persisted currentPage top
+  // (fraction 0) before the user has scrolled.
   const lastAnchorWidthRef = useRef(baselineWidth);
   useLayoutEffect(() => {
     const prevWidth = lastAnchorWidthRef.current;
@@ -1160,13 +1303,22 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     const el = containerRef.current;
     if (!el || pageOffsets.length === 0) return;
 
-    const doc = useReaderStore.getState().documents.get(docId ?? "");
-    if (!doc) return;
-    const pageTop = pageOffsets[doc.currentPage - 1];
+    let page: number;
+    let fraction: number;
+    const anchor = topAnchorRef.current;
+    if (anchor) {
+      page = anchor.page;
+      fraction = anchor.fraction;
+    } else {
+      const doc = useReaderStore.getState().documents.get(docId ?? "");
+      if (!doc) return;
+      page = doc.currentPage;
+      fraction = 0;
+    }
+    const pageTop = pageOffsets[page - 1];
     if (pageTop === undefined) return;
-    const pageHeight = getPageHeight(doc.currentPage);
-    const desired =
-      (pageTop + doc.scrollOffset * pageHeight) * liveScaleRef.current;
+    const pageHeight = getPageHeight(page);
+    const desired = (pageTop + fraction * pageHeight) * liveScaleRef.current;
     if (Math.abs(el.scrollTop - desired) <= 1) return;
     writeProgrammaticScroll(el, desired);
     setScrollTop(desired);
@@ -1355,6 +1507,13 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     });
   }, []);
 
+  const handlePageRenderError = useCallback(
+    (pageNum: number, error: Error) => {
+      logError(`pdf:pageRenderError:page-${pageNum}:${docId ?? "?"}`, error);
+    },
+    [docId],
+  );
+
   const documentOptions = useMemo(
     () => ({
       // CJK character maps for PDFs that reference them.
@@ -1364,6 +1523,12 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       // these, PDFs that don't embed the base 14 fonts fall back
       // to a generic substitute and rendered text shifts noticeably.
       standardFontDataUrl: "/pdf-assets/standard_fonts/",
+      // WebAssembly image decoders (pdf.js 5). openjpeg.wasm decodes
+      // JPEG2000 / JPX images; qcms handles ICC colour. Without this
+      // pointing at the served .wasm files, JPX-image PDFs throw
+      // "JpxError: OpenJPEG failed to initialize" and render blank
+      // white. Copied into public/pdf-assets/wasm by copy-pdf-assets.mjs.
+      wasmUrl: "/pdf-assets/wasm/",
       // XFA forms — niche IRS/government forms feature. Disabling
       // skips parsing/rendering for the 99% of textbooks/novels
       // that don't use it and saves a bit of CPU on first parse.
@@ -1407,6 +1572,22 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       style={{
         touchAction: "pan-x pan-y",
         backgroundColor: getReaderPalette(readerTheme).pdfGutter,
+        // Use the STANDARD scrollbar properties here (not the global
+        // `*::-webkit-scrollbar` rule). The zoom tray's `transform: scale`
+        // promotes this container to a GPU-composited scroller, and during
+        // an active scroll Chrome paints its scrollbar on the compositor
+        // thread — which ignores the legacy ::-webkit-scrollbar pseudo and
+        // falls back to the fat OS-default bar, so the thumb visibly
+        // widened to grey the moment you started scrolling. `scrollbar-width`
+        // / `scrollbar-color` ARE honoured by the compositor, so the thin
+        // themed bar now stays consistent at rest and mid-scroll.
+        scrollbarWidth: "thin",
+        scrollbarColor: "var(--color-glass-border) transparent",
+        // Disable native scroll-anchoring: in a virtualized scroller
+        // where pages mount/unmount and resize as you scroll, Chrome's
+        // anchoring adjusts scrollTop to "keep content stable" and
+        // fights both the user's drag and our own scroll math.
+        overflowAnchor: "none",
       }}
       className="h-full w-full overflow-auto"
     >
@@ -1422,6 +1603,12 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
           <div className="text-danger text-sm p-4 text-center">
             Failed to load PDF. The file may be corrupted.
           </div>
+        }
+        onLoadError={(error) =>
+          logError(`pdf:documentLoadError:${docId ?? "?"}`, error)
+        }
+        onSourceError={(error) =>
+          logError(`pdf:documentSourceError:${docId ?? "?"}`, error)
         }
         options={documentOptions}
       >
@@ -1487,6 +1674,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
                   renderWidth={renderWidth}
                   rotation={rotation}
                   onRenderSuccess={handlePageRenderSuccess}
+                  onRenderError={handlePageRenderError}
                 />
               ))}
             </div>

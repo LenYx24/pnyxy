@@ -5,6 +5,7 @@ import { useUIStore } from "@/stores/ui-store";
 import { ThumbnailToc } from "./panels/ThumbnailToc";
 import { BookmarksPanel } from "./panels/BookmarksPanel";
 import { cn } from "@/lib/cn";
+import { noteDisplayTitle, whiteboardDisplayTitle } from "@/lib/entity-title";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 import { useNoteStore } from "@/stores/note-store";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -725,7 +726,7 @@ export function ReaderSidebarContent({
                   </div>
                   <StickyNote size={14} className="shrink-0" />
                   <span className="min-w-0 truncate flex-1">
-                    {note.title || t("reader.sidebar.untitledNote")}
+                    {noteDisplayTitle(note, t)}
                   </span>
                   {/* Quick delete */}
                   <button
@@ -792,7 +793,7 @@ export function ReaderSidebarContent({
                   </div>
                   <PenTool size={14} className="shrink-0" />
                   <span className="min-w-0 truncate flex-1">
-                    {wb.title || t("reader.sidebar.untitledWhiteboard")}
+                    {whiteboardDisplayTitle(wb, t)}
                   </span>
                   {/* Quick delete */}
                   <button

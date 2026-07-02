@@ -30,6 +30,11 @@ import {
   restrictToWindowEdges,
 } from "@/lib/dnd-modifiers";
 import {
+  conversationDisplayTitle,
+  noteDisplayTitle,
+  whiteboardDisplayTitle,
+} from "@/lib/entity-title";
+import {
   ChevronRight,
   ArrowUp,
   BookOpen,
@@ -43,7 +48,7 @@ import {
   Check,
   AlertTriangle,
 } from "lucide-react";
-import { Button, GlassCard } from "@/components/ui";
+import { Button, GlassCard, ConfirmModal } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useLibraryStore } from "@/stores/library-store";
 import { useNoteStore, type Note } from "@/stores/note-store";
@@ -663,7 +668,11 @@ export function AllBooksTab({
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-      {/* Toolbar: Breadcrumbs + Actions */}
+      {/* Toolbar: Breadcrumbs + Actions. Only rendered inside a
+          subfolder — at the library root the breadcrumb is redundant
+          (the page title already says "Library") and there's no
+          parent to go "Up" to, so the row would just be an empty gap. */}
+      {folderPath.length > 0 && (
       <div className="mb-4 flex items-center justify-between gap-2">
         {/* Breadcrumbs — only rendered when the user has navigated
             into a subfolder. At the library root the page title
@@ -723,6 +732,7 @@ export function AllBooksTab({
           )}
         </div>
       </div>
+      )}
 
       {/* In-flight upload strip — shows ghost rows for files the
           user just dropped/picked, so they can leave the modal /
@@ -753,7 +763,18 @@ export function AllBooksTab({
         />
       )}
 
-      {isEmpty && !query && !isLoading && (
+      {/* Tag-filter empty state — the folder isn't actually empty, an
+          active status-tag filter just hid everything. Distinct copy
+          (and no "Browse catalog") so it doesn't read as "no books". */}
+      {isEmpty && !query && !isLoading && activeTag && (
+        <div className="flex flex-col items-center gap-2 py-16 text-center">
+          <p className="text-sm text-text-muted">
+            {t("library.allBooks.noTagResults")}
+          </p>
+        </div>
+      )}
+
+      {isEmpty && !query && !isLoading && !activeTag && (
         <div className="flex flex-col items-center gap-4 py-16 text-center">
           <BookOpen size={48} className="text-text-muted/50" />
           <div>
@@ -921,7 +942,7 @@ export function AllBooksTab({
 
           <DragOverlay dropAnimation={dropAnimation}>
             {activeDragFolder && (
-              <div style={{ width: cardSize }} className="pointer-events-none">
+              <div style={{ width: effectiveCardSize }} className="pointer-events-none">
                 <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
                   <div
                     className="flex w-full items-center justify-center"
@@ -948,7 +969,7 @@ export function AllBooksTab({
               </div>
             )}
             {activeDragBook && (
-              <div style={{ width: cardSize }} className="pointer-events-none">
+              <div style={{ width: effectiveCardSize }} className="pointer-events-none">
                 <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
                   <div className="flex items-center gap-3 p-3">
                     <span className="text-sm font-medium text-text-primary truncate">
@@ -961,33 +982,31 @@ export function AllBooksTab({
               </div>
             )}
             {activeDragNote && (
-              <div style={{ width: cardSize }} className="pointer-events-none">
+              <div style={{ width: effectiveCardSize }} className="pointer-events-none">
                 <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
                   <div className="flex items-center gap-3 p-3">
                     <FileText size={16} className="shrink-0 text-accent-blue/70" />
                     <span className="text-sm font-medium text-text-primary truncate">
-                      {activeDragNote.title.trim() ||
-                        t("library.allBooks.untitledNote")}
+                      {noteDisplayTitle(activeDragNote, t)}
                     </span>
                   </div>
                 </GlassCard>
               </div>
             )}
             {activeDragWhiteboard && (
-              <div style={{ width: cardSize }} className="pointer-events-none">
+              <div style={{ width: effectiveCardSize }} className="pointer-events-none">
                 <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
                   <div className="flex items-center gap-3 p-3">
                     <Shapes size={16} className="shrink-0 text-success/80" />
                     <span className="text-sm font-medium text-text-primary truncate">
-                      {activeDragWhiteboard.title.trim() ||
-                        t("library.allBooks.untitledWhiteboard")}
+                      {whiteboardDisplayTitle(activeDragWhiteboard, t)}
                     </span>
                   </div>
                 </GlassCard>
               </div>
             )}
             {activeDragQuiz && (
-              <div style={{ width: cardSize }} className="pointer-events-none">
+              <div style={{ width: effectiveCardSize }} className="pointer-events-none">
                 <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
                   <div className="flex items-center gap-3 p-3">
                     <ListChecks size={16} className="shrink-0 text-warning/80" />
@@ -1000,13 +1019,12 @@ export function AllBooksTab({
               </div>
             )}
             {activeDragChat && (
-              <div style={{ width: cardSize }} className="pointer-events-none">
+              <div style={{ width: effectiveCardSize }} className="pointer-events-none">
                 <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
                   <div className="flex items-center gap-3 p-3">
-                    <MessageSquare size={16} className="shrink-0 text-sky-400/80" />
+                    <MessageSquare size={16} className="shrink-0 text-accent-blue/80" />
                     <span className="text-sm font-medium text-text-primary truncate">
-                      {activeDragChat.title.trim() ||
-                        t("library.allBooks.untitledChat")}
+                      {conversationDisplayTitle(activeDragChat, t)}
                     </span>
                   </div>
                 </GlassCard>
@@ -1029,48 +1047,21 @@ export function AllBooksTab({
         }
       />
 
-      {/* Confirm delete dialog */}
-      {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setConfirmDelete(null)}
-          />
-          <div className="relative z-10 w-full max-w-sm rounded-xl border border-glass-border bg-bg-secondary/95 p-6 backdrop-blur-xl">
-            <h3 className="mb-2 text-lg font-semibold text-text-primary">
-              {t("library.allBooks.deleteFolder.title")}
-            </h3>
-            <p className="mb-4 text-sm text-text-muted">
-              {t("library.allBooks.deleteFolder.body")}
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="secondary"
-                onClick={() => setConfirmDelete(null)}
-              >
-                {t("common.cancel")}
-              </Button>
-              <button
-                onClick={confirmDeleteFolder}
-                className="cursor-pointer rounded-lg bg-danger/20 px-4 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/30"
-              >
-                {t("library.allBooks.deleteFolder.action")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Confirm delete dialog — shared ConfirmModal (focus/Esc/portal
+          + backdrop handled once) instead of a hand-rolled overlay. */}
+      <ConfirmModal
+        open={!!confirmDelete}
+        title={t("library.allBooks.deleteFolder.title")}
+        body={t("library.allBooks.deleteFolder.body")}
+        confirmLabel={t("library.allBooks.deleteFolder.action")}
+        danger
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={confirmDeleteFolder}
+      />
     </div>
   );
 }
 
-/**
- * Grid-view "create folder" tile. Replaces the header button — the
- * action lives where the user is already looking. Same 2:3 aspect
- * + label block as the book/folder cards so it lays out cleanly in
- * the grid; dashed border hints at "tap to create" without trying
- * to imitate a real folder.
- */
 /**
  * Renders one row per in-flight (or just-finished) upload in the
  * current folder. Filters by `currentFolderId` so a user with two

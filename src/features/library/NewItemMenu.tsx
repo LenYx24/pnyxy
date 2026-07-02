@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button, FloatingMenu } from "@/components/ui";
 import { logError } from "@/lib/logger";
+import { datedDefaultTitle } from "@/lib/entity-title";
 import { useNoteStore } from "@/stores/note-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import { useQuizStore } from "@/stores/quiz-store";
@@ -76,10 +77,10 @@ export function NewItemMenu({ currentFolderId, onNewFolder }: NewItemMenuProps) 
       try {
         // createQuiz can't set a folder directly, so create the (empty)
         // quiz then move it into the current folder before opening the
-        // editor. Title is a placeholder the editor immediately lets
-        // the user replace.
+        // editor. A date-stamped default keeps new quizzes distinct in
+        // the library; the editor immediately lets the user replace it.
         const id = await createQuiz({
-          title: t("library.allBooks.untitledQuiz"),
+          title: datedDefaultTitle(t, "quiz"),
           description: null,
           visibility: "private",
           uploaded_book_id: null,

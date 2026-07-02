@@ -4,6 +4,7 @@ import { Languages, Loader2 } from "lucide-react";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { detectSourceLang } from "@/lib/lang-detect";
+import { cn } from "@/lib/cn";
 
 const TRANSLATE_LANGUAGES = [
   { code: "en", label: "English" },
@@ -30,7 +31,12 @@ const TRANSLATE_LANGUAGES = [
 
 interface Props {
   selectedText: string;
-  onBack: () => void;
+  /** Return to the annotation menu's action list. Omitted in the
+   *  persistent reader-tools side panel. */
+  onBack?: () => void;
+  /** Stretch to the container width instead of the popover's fixed
+   *  `w-72`. Set when hosted in the reader-tools side panel. */
+  fullWidth?: boolean;
 }
 
 interface MyMemoryResponse {
@@ -59,7 +65,11 @@ async function translateViaMyMemory(
  * fixed set persisted in settings-store. Re-translates on target
  * change so the user can flip langs without leaving the panel.
  */
-export function AnnotationMenuTranslatePanel({ selectedText, onBack }: Props) {
+export function AnnotationMenuTranslatePanel({
+  selectedText,
+  onBack,
+  fullWidth = false,
+}: Props) {
   const { t } = useTranslation();
   const targetLanguage = useSettingsStore((s) => s.translateTargetLanguage);
   const setTargetLanguage = useSettingsStore(
@@ -119,7 +129,7 @@ export function AnnotationMenuTranslatePanel({ selectedText, onBack }: Props) {
   );
 
   return (
-    <div className="flex w-72 flex-col gap-2 p-1">
+    <div className={cn("flex flex-col gap-2 p-1", fullWidth ? "w-full" : "w-72")}>
       <div className="flex items-center gap-1.5">
         <Languages size={14} className="text-accent" />
         <span className="text-xs font-medium text-text-primary">
@@ -175,12 +185,14 @@ export function AnnotationMenuTranslatePanel({ selectedText, onBack }: Props) {
 
       {/* Actions */}
       <div className="flex justify-end gap-1">
-        <button
-          className="rounded px-2 py-1 text-xs text-text-muted transition-colors hover:text-text-secondary cursor-pointer"
-          onClick={onBack}
-        >
-          {t("reader.annotationMenu.back")}
-        </button>
+        {onBack && (
+          <button
+            className="rounded px-2 py-1 text-xs text-text-muted transition-colors hover:text-text-secondary cursor-pointer"
+            onClick={onBack}
+          >
+            {t("reader.annotationMenu.back")}
+          </button>
+        )}
         {translated && (
           <button
             className="rounded bg-accent/20 px-2 py-1 text-xs text-accent transition-colors hover:bg-accent/30 cursor-pointer"

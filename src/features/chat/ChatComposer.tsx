@@ -813,19 +813,6 @@ export const ChatComposer = forwardRef<
   const readingContextBtnRef = useRef<HTMLButtonElement>(null);
   const [readingMenuOpen, setReadingMenuOpen] = useState(false);
 
-  // Diagnostic — log every time `value` changes, plus the textarea
-  // DOM's actual value. If state and DOM diverge, the textarea isn't
-  // honouring the controlled value prop (would point at a key
-  // remount or a parent intervening). Strip after debugging.
-  useEffect(() => {
-    const dom = textareaRef.current?.value ?? "<no-textarea>";
-    console.log(
-      `[composer-value] propLen=${value.length} domLen=${
-        typeof dom === "string" ? dom.length : 0
-      } domPreview="${typeof dom === "string" ? dom.slice(0, 60) : ""}"`,
-    );
-  }, [value]);
-
   const handleAddFiles = useCallback(
     async (files: FileList | File[]) => {
       setAttachmentError(null);
@@ -1001,7 +988,7 @@ export const ChatComposer = forwardRef<
   return (
     <div
       className={cn(
-        "border bg-bg-tertiary p-3 shadow-md transition-colors",
+        "border bg-bg-tertiary p-2 shadow-md transition-colors sm:p-3",
         // Mobile-flush variant: negative horizontal margin breaks
         // out of the parent's px-3 so the composer extends to the
         // viewport edges, side + bottom borders are dropped, and
@@ -1076,8 +1063,8 @@ export const ChatComposer = forwardRef<
             ? t("chat.composer.listeningPlaceholder")
             : t(placeholderKey)
         }
-        rows={2}
-        className="block min-h-[3rem] w-full resize-none bg-transparent px-1 text-sm text-text-primary placeholder:text-text-muted outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        rows={1}
+        className="block min-h-[2.25rem] w-full resize-none bg-transparent px-1 text-sm text-text-primary placeholder:text-text-muted outline-none sm:min-h-[3rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       />
       <input
         ref={fileInputRef}
@@ -1101,7 +1088,7 @@ export const ChatComposer = forwardRef<
           flatten back into a single flex row above the threshold;
           below, they stay as nested flex containers stacked by
           `flex-col`. */}
-      <div className="@container/cm mt-2">
+      <div className="@container/cm mt-1.5 sm:mt-2">
       <div className="flex flex-col gap-1.5 @[30rem]/cm:flex-row @[30rem]/cm:items-center">
       <div className="flex min-w-0 items-center gap-1.5 @[30rem]/cm:contents">
         <ModelPicker

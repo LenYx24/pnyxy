@@ -3,6 +3,10 @@ import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ListChecks, MessageSquare, Shapes, GraduationCap } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import {
+  conversationDisplayTitle,
+  whiteboardDisplayTitle,
+} from "@/lib/entity-title";
 import { logError } from "@/lib/logger";
 import { useChatStore } from "@/stores/chat-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
@@ -17,6 +21,7 @@ interface RelatedQuiz {
 interface RelatedChat {
   id: string;
   title: string;
+  created_at: string;
 }
 
 /**
@@ -84,7 +89,7 @@ export function RelatedToBook() {
         docId
           ? supabase
               .from("chat_conversations")
-              .select("id, title")
+              .select("id, title, created_at")
               .eq("user_id", user.id)
               .eq("source_doc_id", docId)
               .order("updated_at", { ascending: false })
@@ -143,7 +148,7 @@ export function RelatedToBook() {
           <RelatedRow
             key={`chat:${c.id}`}
             icon={<MessageSquare size={14} className="text-sky-400/80" />}
-            label={c.title || t("library.allBooks.untitledChat")}
+            label={conversationDisplayTitle(c, t)}
             kind={t("library.allBooks.chatLabel")}
             onClick={() => openChat(c.id)}
           />
@@ -152,7 +157,7 @@ export function RelatedToBook() {
           <RelatedRow
             key={`whiteboard:${w.id}`}
             icon={<Shapes size={14} className="text-success/80" />}
-            label={w.title || t("library.allBooks.untitledWhiteboard")}
+            label={whiteboardDisplayTitle(w, t)}
             kind={t("library.allBooks.whiteboardLabel")}
             onClick={() => navigate(`/whiteboards/${w.id}`)}
           />

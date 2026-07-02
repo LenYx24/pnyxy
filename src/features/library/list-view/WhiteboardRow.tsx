@@ -13,6 +13,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { whiteboardDisplayTitle } from "@/lib/entity-title";
 import { useLibraryStore } from "@/stores/library-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import { downloadWhiteboardJson } from "@/lib/library/export-whiteboard";
@@ -94,8 +95,7 @@ export function WhiteboardRow({
   const [moveOpen, setMoveOpen] = useState(false);
 
   const selKey = `whiteboard:${whiteboard.id}`;
-  const title =
-    whiteboard.title.trim() || t("library.allBooks.untitledWhiteboard");
+  const title = whiteboardDisplayTitle(whiteboard, t);
   const indent = Math.min(depth * 20, 80);
 
   const open = () => navigate(`/whiteboards/${whiteboard.id}`);

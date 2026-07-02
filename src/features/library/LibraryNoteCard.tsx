@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Checkbox, FloatingMenu } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { noteDisplayTitle } from "@/lib/entity-title";
 import { useLibraryStore } from "@/stores/library-store";
 import { useNoteStore, type Note } from "@/stores/note-store";
 import { downloadNoteMarkdown } from "@/lib/library/export-note";
@@ -83,7 +84,7 @@ export function LibraryNoteCard({
   const [moveOpen, setMoveOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  const title = note.title.trim() || t("library.allBooks.untitledNote");
+  const title = noteDisplayTitle(note, t);
   const notePreview = note.content ? noteSnippet(note.content) : "";
   const selKey = `note:${note.id}`;
   const compact = coverHeight < 100;
