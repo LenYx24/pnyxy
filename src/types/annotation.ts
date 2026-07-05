@@ -66,7 +66,7 @@ export interface Comment {
  * a popover that lists every conversation message the selection rode
  * along with.
  *
- * Only the "Send to chat" annotation flow creates these — typed or
+ * Only the "Send to chat" annotation flow creates these, typed or
  * copy-pasted quotes don't trigger one, since we can't reliably
  * recover the source rects from arbitrary text.
  */

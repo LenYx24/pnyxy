@@ -1,6 +1,6 @@
 /**
  * Pure-logic tests for the toggle tracker. It has no state of its
- * own — every decision is a function of the `TrackerContext` + the
+ * own, every decision is a function of the `TrackerContext` + the
  * event args.
  */
 import { describe, expect, it } from "vitest";

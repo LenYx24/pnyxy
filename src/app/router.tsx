@@ -1,22 +1,13 @@
-// This file is the route table — it exports `router`, a non-
-// component object, alongside many `const PageName = lazy(...)`
-// declarations the lint sees as components. react-refresh's
-// "only-export-components" rule then complains about mixed exports.
-// Fast refresh wouldn't be useful here anyway: HMR boundaries
-// belong on the lazy-loaded page components themselves, not on
-// the router config. Disable the rule file-wide.
+// router config exports non-components next to lazy() consts, which trips this rule
 /* eslint-disable react-refresh/only-export-components */
 import { Navigate, createBrowserRouter, redirect } from "react-router";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PublicLayout } from "@/components/layout/PublicLayout";
+import { isTauri } from "@/lib/tauri";
 import { RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { lazyWithRetry as lazy } from "@/lib/lazy-with-retry";
 
-// ── Eager routes ─────────────────────────────────────────────
-// These are kept in the main bundle because they're on the first-
-// paint path: landing for new visitors, auth for sign-in, home for
-// returning users. Together they're under 600 LOC; lazy-loading
-// them would just trade bundle size for a Suspense fallback flash
-// on the most common entry points.
+// Eager routes: on the first-paint path, keep them in the main bundle
 import { LandingPage } from "@/features/landing/LandingPage";
 import { HomePage } from "@/features/home/HomePage";
 import { AuthPage } from "@/features/auth/AuthPage";
@@ -24,12 +15,8 @@ import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
 import { WelcomePage } from "@/features/auth/WelcomePage";
 
-// ── Lazy routes ──────────────────────────────────────────────
-// Everything below splits into its own chunk via Vite's default
-// dynamic-import code-splitting. The Suspense fallback lives on
-// AppLayout's <Outlet />, so all child routes share one loading
-// state. Named exports are unwrapped via `.then(m => ({default: ...}))`
-// because React.lazy only accepts modules with a `default` export.
+// Lazy routes. Suspense fallback lives on AppLayout's <Outlet />.
+// .then unwraps named exports since React.lazy needs a default export.
 
 const BrowsePage = lazy(() =>
   import("@/features/browse/BrowsePage").then((m) => ({ default: m.BrowsePage })),
@@ -283,29 +270,17 @@ const DownloadPage = lazy(() =>
 
 export const router = createBrowserRouter([
   {
-    path: "/landing",
-    element: <LandingPage />,
+    // Public, pre-auth pages. PublicLayout forces the static dark
+    // marketing palette so none of them inherit the user's app theme.
+    element: <PublicLayout />,
     errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: "/auth",
-    element: <AuthPage />,
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: "/auth/forgot-password",
-    element: <ForgotPasswordPage />,
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: "/auth/reset-password",
-    element: <ResetPasswordPage />,
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: "/auth/welcome",
-    element: <WelcomePage />,
-    errorElement: <RouteErrorBoundary />,
+    children: [
+      { path: "/landing", element: <LandingPage /> },
+      { path: "/auth", element: <AuthPage /> },
+      { path: "/auth/forgot-password", element: <ForgotPasswordPage /> },
+      { path: "/auth/reset-password", element: <ResetPasswordPage /> },
+      { path: "/auth/welcome", element: <WelcomePage /> },
+    ],
   },
   {
     path: "/",
@@ -315,14 +290,19 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <HomePage />,
-        // First-time visitors land on /landing so they see the pitch
-        // before the catalog. The flag is set on the LandingPage
-        // mount, so subsequent visits go straight to browse — daily
-        // anonymous users aren't re-pitched every visit. Only the
-        // literal index path is gated; /browse/:id and other deep
-        // links stay reachable for shared URLs.
+        // first-time visitors get redirected to /landing; flag is set on LandingPage mount
         loader: () => {
           if (typeof window === "undefined") return null;
+          // Desktop (native app or a wide viewport) goes straight into the
+          // app; the landing stays a mobile/marketing entry. /landing is
+          // still reachable directly by URL.
+          try {
+            if (isTauri || window.matchMedia("(min-width: 768px)").matches) {
+              return null;
+            }
+          } catch {
+            return null;
+          }
           try {
             if (localStorage.getItem("pnyxy:has-seen-landing")) return null;
           } catch {

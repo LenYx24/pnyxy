@@ -7,7 +7,7 @@ import { useBackToClose } from "@/hooks/use-back-to-close";
 interface PromptModalProps {
   open: boolean;
   title: string;
-  /** Optional body copy shown above the input — context for the user. */
+  /** Optional body copy shown above the input, context for the user. */
   body?: React.ReactNode;
   /** Pre-fill the input. Use this for rename flows. */
   defaultValue?: string;
@@ -45,7 +45,7 @@ export function PromptModal({
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Reset whenever the modal opens — the same instance is re-used
+  // Reset whenever the modal opens, the same instance is re-used
   // for many flows (rename folder A, rename folder B), so without
   // this the second open would still show the first folder's name.
   // Using the "set state during render with a guard" pattern from

@@ -33,7 +33,7 @@ export class OcrUnavailableError extends Error {
 }
 
 /** Read a File as raw base64 (no data: prefix). Mirrors the chat
- *  composer helper — duplicated rather than imported to keep OCR
+ *  composer helper, duplicated rather than imported to keep OCR
  *  self-contained. */
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -53,10 +53,10 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 export interface OcrOptions {
-  /** Optional AbortSignal — wired to the underlying stream so the
+  /** Optional AbortSignal, wired to the underlying stream so the
    *  user can cancel a slow OCR call. */
   signal?: AbortSignal;
-  /** Streaming callback — useful so the UI can render partial text
+  /** Streaming callback, useful so the UI can render partial text
    *  as the model produces it instead of waiting for the full reply. */
   onDelta?: (delta: string) => void;
 }
@@ -94,7 +94,7 @@ export async function ocrImage(
     preferredProvider: visionProvider,
     systemPromptOverride: OCR_SYSTEM_PROMPT,
     signal: options.signal,
-    // OCR replies can be long for a dense page — let the model spend
+    // OCR replies can be long for a dense page, let the model spend
     // the tokens it needs instead of truncating mid-sentence.
     maxOutputTokens: 4000,
   })) {

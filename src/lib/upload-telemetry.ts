@@ -55,7 +55,7 @@ export interface LogUploadAttemptOptions {
 }
 
 /**
- * Fire-and-forget telemetry insert. Never throws — logging
+ * Fire-and-forget telemetry insert. Never throws, logging
  * failures must never break the upload flow. Returns a promise
  * so callers can `await` it during tests, but production callers
  * should ignore it.
@@ -81,7 +81,7 @@ export async function logUploadAttempt({
       client_platform: detectClientPlatform(),
     });
   } catch {
-    // Swallow — never break the upload flow because telemetry
+    // Swallow, never break the upload flow because telemetry
     // failed. There's nothing the user could do about it.
   }
 }

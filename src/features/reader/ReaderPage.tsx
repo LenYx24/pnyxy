@@ -2,7 +2,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import i18n from "@/lib/i18n";
-import { BookOpen, FilePlus, Loader2, PanelLeft, X } from "lucide-react";
+import {
+  BookOpen,
+  FilePlus,
+  Globe,
+  Library,
+  Loader2,
+  PanelLeft,
+  ScanLine,
+  Upload,
+  X,
+} from "lucide-react";
 import {
   DockviewReact,
   type DockviewReadyEvent,
@@ -13,6 +23,9 @@ import type { TextSelection } from "@/types/annotation";
 import { ReaderToolbar } from "./ReaderToolbar";
 import { DocumentTabs } from "./DocumentTabs";
 import { LibraryPickerModal } from "./popovers/LibraryPickerModal";
+import { OpenFromUrlModal } from "@/features/library/modals/OpenFromUrlModal";
+import { UploadPdfModal } from "@/features/library/modals/UploadPdfModal";
+import { DeviceBookScanModal } from "@/features/library/modals/DeviceBookScanModal";
 import { InlineDrawToolbar } from "./controls/InlineDrawToolbar";
 import { useInlineDrawStore } from "@/stores/inline-draw-store";
 import { MobileReaderLayout } from "./MobileReaderLayout";
@@ -44,32 +57,142 @@ import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
 import { createAdapterForFile } from "./adapters";
 import { useOpenDocument } from "@/hooks/use-open-document";
+import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
+import { useOpenCatalogBook } from "@/hooks/use-open-catalog-book";
+import { useLibraryStore } from "@/stores/library-store";
+import { loadLastOpenedBook } from "@/lib/last-opened-book";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { useIsMobile, useMediaQuery } from "@/hooks/use-media-query";
 import { Button } from "@/components/ui";
 import { saveDockviewLayout, loadDockviewLayout } from "@/stores/ui-store";
 import { loadTocWidth, saveTocWidth } from "@/lib/annotation-storage";
 import type { TocItem } from "@/types/document";
+import type {
+  CatalogLibraryItem,
+  UploadedLibraryItem,
+} from "@/types/catalog";
 
 function EmptyState() {
-  const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenDocument();
+  const { t } = useTranslation();
+  const { fileInputRef, triggerFilePicker, handleFileSelect, openFile } =
+    useOpenDocument();
+  const { openUploadedBook } = useOpenUploadedDocument();
+  const { openCatalogBook } = useOpenCatalogBook();
+
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [urlOpen, setUrlOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
+  // read once; a device only remembers its own last-opened book
+  const [lastOpened] = useState(loadLastOpenedBook);
+  const [resuming, setResuming] = useState(false);
+
+  // Re-resolve the remembered book from the library and re-open it. The
+  // page position then restores from the cross-device resume state, so
+  // this continues where any device left off.
+  const handleResume = async () => {
+    if (!lastOpened || resuming) return;
+    setResuming(true);
+    try {
+      await useLibraryStore.getState().fetchLibrary();
+      const books = useLibraryStore.getState().books;
+      if (lastOpened.source === "uploaded") {
+        const entry = books.find(
+          (e): e is UploadedLibraryItem =>
+            e.source === "uploaded" && e.id === lastOpened.id,
+        );
+        if (entry) await openUploadedBook(entry);
+      } else {
+        const entry = books.find(
+          (e): e is CatalogLibraryItem =>
+            e.source === "catalog" && e.catalog_book.id === lastOpened.id,
+        );
+        if (entry) await openCatalogBook(entry.catalog_book);
+      }
+    } finally {
+      setResuming(false);
+    }
+  };
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center text-center">
+    <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
       <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-glass-bg">
         <BookOpen size={32} className="text-text-muted" />
       </div>
       <h2 className="mb-2 text-xl font-semibold text-text-primary">
-        No book open
+        {t("reader.empty.title", { defaultValue: "No book open" })}
       </h2>
       <p className="mb-6 max-w-sm text-sm text-text-secondary">
-        Select a book from your library to start reading, or open a PDF,
-        EPUB, or text file directly.
+        {t("reader.empty.body", {
+          defaultValue:
+            "Upload a book or open a file to start reading — anything you open shows up in your library.",
+        })}
       </p>
-      <Button variant="secondary" onClick={triggerFilePicker}>
-        <FilePlus size={18} />
-        Open file
-      </Button>
+
+      {/* resume the last book this device had open */}
+      {lastOpened && (
+        <button
+          type="button"
+          onClick={handleResume}
+          disabled={resuming}
+          className="mb-6 flex w-full max-w-sm items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-left transition-colors hover:bg-accent/15 disabled:opacity-60 cursor-pointer"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent/20 text-accent">
+            {resuming ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <BookOpen size={18} />
+            )}
+          </span>
+          <span className="min-w-0">
+            <span className="block text-xs font-medium text-accent">
+              {t("reader.empty.continue", { defaultValue: "Continue reading" })}
+            </span>
+            <span className="block truncate text-sm font-semibold text-text-primary">
+              {lastOpened.title}
+            </span>
+          </span>
+        </button>
+      )}
+
+      {/* primary: get a book open right now */}
+      <div className="flex w-full max-w-sm flex-col gap-2">
+        <Button variant="primary" onClick={triggerFilePicker}>
+          <FilePlus size={18} />
+          {t("reader.empty.openFile", { defaultValue: "Open a file" })}
+        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" onClick={() => setPickerOpen(true)}>
+            <Library size={16} />
+            {t("reader.empty.fromLibrary", { defaultValue: "From library" })}
+          </Button>
+          <Button variant="secondary" onClick={() => setUrlOpen(true)}>
+            <Globe size={16} />
+            {t("library.actions.fromUrl", { defaultValue: "From URL" })}
+          </Button>
+        </div>
+      </div>
+
+      {/* secondary: bring more books into the library */}
+      <div className="mt-5 flex items-center gap-4 text-xs">
+        <button
+          type="button"
+          onClick={() => setUploadOpen(true)}
+          className="flex items-center gap-1.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+        >
+          <Upload size={14} />
+          {t("library.actions.upload", { defaultValue: "Upload to library" })}
+        </button>
+        <button
+          type="button"
+          onClick={() => setScanOpen(true)}
+          className="flex items-center gap-1.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+        >
+          <ScanLine size={14} />
+          {t("library.actions.scan", { defaultValue: "Scan device" })}
+        </button>
+      </div>
+
       <input
         ref={fileInputRef}
         type="file"
@@ -77,6 +200,18 @@ function EmptyState() {
         className="hidden"
         onChange={handleFileSelect}
       />
+
+      {pickerOpen && <LibraryPickerModal onClose={() => setPickerOpen(false)} />}
+      <OpenFromUrlModal
+        open={urlOpen}
+        onClose={() => setUrlOpen(false)}
+        onFile={(file) => {
+          setUrlOpen(false);
+          void openFile(file);
+        }}
+      />
+      <UploadPdfModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
+      <DeviceBookScanModal open={scanOpen} onClose={() => setScanOpen(false)} />
     </div>
   );
 }
@@ -100,27 +235,9 @@ function computeTocWidth(toc: TocItem[]): number {
   return Math.round(Math.min(Math.max(width, 180), 400));
 }
 
-/** Re-fetch a book's binary after the user refreshes /reader/<id> —
- *  the in-memory file-store Map is wiped on refresh, but the URL still
- *  identifies which book to open. Tries two paths:
- *
- *  1. Uploaded library: addDocument keys docs by `meta.id` (file
- *     hash for PDFs), and the books table stores that as `file_hash`.
- *     So `WHERE file_hash = bookId` returns the row whose
- *     `book_files.storage_path` we then download from.
- *  2. Catalog: catalog books are routed at `/reader/<catalog_book.id>`
- *     directly (no addDocument-derived hash). Look up by id, fetch
- *     the public download_url, fall back to the catalog-fetch edge
- *     function on CORS failure (same logic as use-open-catalog-book).
- *
- *  Returns the File on success, null on every failure path. The
- *  caller renders the existing "no document open" state on null —
- *  the user lands on the same UX they had before this recovery
- *  existed, so failure modes regress gracefully. */
+/** Re-fetch a book's binary from Supabase after a refresh wipes the file-store. Returns null on failure. */
 async function recoverBookFile(bookId: string): Promise<File | null> {
-  // 1. Uploaded books — by file_hash. Joining `book_files` gets us
-  // the storage path + filename in one round-trip; LIMIT 1 because
-  // file_hash is supposed to be unique per (user, file).
+  // uploaded books, keyed by file_hash
   try {
     const { data: uploaded, error } = await supabase
       .from("books")
@@ -149,11 +266,7 @@ async function recoverBookFile(bookId: string): Promise<File | null> {
     logError("reader:recover:uploaded", err);
   }
 
-  // 2. Catalog books — by id. download_url is a public link; try
-  // direct fetch first (works for hosts with permissive CORS) and
-  // fall back to the catalog-fetch edge function (auth-gated server
-  // proxy) for hosts that block the browser request. Same two-step
-  // strategy use-open-catalog-book uses on first open.
+  // catalog books, by id. Direct fetch, fall back to edge function for CORS-blocked hosts.
   try {
     const { data: catalog, error } = await supabase
       .from("catalog_books")
@@ -169,7 +282,6 @@ async function recoverBookFile(bookId: string): Promise<File | null> {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch (directErr) {
       logError("reader:recover:catalog:direct", directErr);
-      // Server-side proxy fallback for hosts that block CORS.
       const session = await supabase.auth.getSession();
       const accessToken = session.data.session?.access_token;
       if (!accessToken) return null;
@@ -188,10 +300,7 @@ async function recoverBookFile(bookId: string): Promise<File | null> {
       }
     }
     const blob = await res.blob();
-    // Re-derive a filename from the URL — the catalog row doesn't
-    // store one and the user never sees this string anyway, the
-    // adapter cares about the bytes + extension. Strip any query
-    // string and fall back to the book title if the URL is opaque.
+    // filename from the URL; adapter only needs bytes + extension
     const urlPath = url.toLowerCase().split("?")[0];
     const ext = urlPath.endsWith(".epub")
       ? ".epub"
@@ -214,22 +323,15 @@ export function ReaderPage() {
   const { t } = useTranslation();
   const { bookId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  // A typical phone in landscape (~667–915px wide) crosses out of the
-  // `max-width: 767px` mobile breakpoint and hits the Dockview layout,
-  // where the AI chat panel ends up cramped beside the viewer. Treat
-  // "short + touch" as compact too so landscape phones get the
-  // slide-over panel UX (full-width chat, TOC, comments) instead of a
-  // split-view that has nowhere near enough room. `(pointer: coarse)`
-  // gates this to actual touch devices so a short desktop window
-  // (developer-tools docked low) doesn't accidentally lose Dockview.
+  // Landscape phones dodge the 767px breakpoint but are too cramped for the
+  // Dockview split-view, so treat short + touch as compact.
   const isMobilePortrait = useIsMobile();
   const isLandscapePhone = useMediaQuery(
     "(max-height: 500px) and (pointer: coarse)",
   );
   const isMobile = isMobilePortrait || isLandscapePhone;
-  // Subscribe to derived booleans, not the documents Map itself —
-  // the Map gets a new reference on every pinch frame (live-zoom)
-  // and would re-render the whole reader 60×/sec.
+  // Subscribe to derived booleans, not the documents Map: it churns a new
+  // ref every pinch frame and would re-render the reader 60x/sec.
   const hasDocuments = useReaderStore((s) => s.documents.size > 0);
   const bookDocumentLoaded = useReaderStore((s) =>
     bookId ? s.documents.has(bookId) : false,
@@ -237,10 +339,7 @@ export function ReaderPage() {
   const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
   const addDocument = useReaderStore((s) => s.addDocument);
   const goToPage = useReaderStore((s) => s.goToPage);
-  // Bind the inline-draw store to the active doc so its localStorage
-  // strokes load on book-open and unload on close. Auto-deactivate
-  // when switching books to avoid the previous book's draw mode
-  // sticking around for the next one.
+  // Bind inline-draw to the active doc; deactivate on switch so draw mode doesn't carry over.
   const setInlineDrawBook = useInlineDrawStore((s) => s.setBook);
   const setInlineDrawActive = useInlineDrawStore((s) => s.setActive);
   useEffect(() => {
@@ -264,50 +363,25 @@ export function ReaderPage() {
   const dockviewApiRef = useRef<DockviewApi | null>(null);
   const layoutSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Comment-via-shortcut state. The Ctrl+Shift+M shortcut used to
-  // call window.prompt() inline; we now stash the active selection
-  // here and render a styled PromptModal at the bottom of the
-  // page, then commit the comment on submit.
+  // Comment-via-shortcut: stash the selection, render PromptModal, commit on submit.
   const [commentPromptSelection, setCommentPromptSelection] =
     useState<TextSelection | null>(null);
   const tocWidthRef = useRef<number>(256);
-  // Remembers the AI chat panel's width across close/reopen within
-  // the current ReaderPage mount. Reset to 360 on full reader unmount
-  // (i.e. closing and reopening the book) — that's the agreed scope:
-  // session-local memory, not per-doc persistence.
-  // Default chat panel width. On laptop/desktop the 360 px baseline
-  // leaves the PDF plenty of room; on a tablet in landscape (~1024–
-  // 1280 px) it leaves the chat itself cramped. Compute a width that
-  // claims roughly half the viewport on smaller screens, capped so a
-  // 1920+ px monitor still gets the slim 360 default. Refs survive
-  // panel close/reopen within the session — the user can drag the
-  // splitter and that lands back here on close (see line ~1564).
+  // Default AI chat panel width, remembered across close/reopen. Small screens
+  // take ~42% of viewport (capped 300-500); wide monitors get 320.
   const aiChatWidthRef = useRef<number>(
     typeof window !== "undefined" && window.innerWidth < 1280
       ? Math.max(300, Math.min(500, Math.floor(window.innerWidth * 0.42)))
       : 320,
   );
-  // Monotonically-increasing token bumped at the start of every
-  // cold-path recovery. The async finally only clears the global
-  // spinner when the token still matches — that way a successful
-  // load (which flips bookDocumentLoaded → effect cleanup → cancelled
-  // = true) still clears the spinner, while a cross-book navigation
-  // mid-recovery (new effect already setLoading(true) for the new
-  // book) keeps the new effect's spinner state. Replaces the
-  // cancelled-gated clear, which had the side-effect of leaving the
-  // spinner spinning forever after a normal post-refresh recovery.
+  // Bumped per cold-path recovery; the async finally only clears the spinner
+  // when the token still matches, so mid-recovery navigation keeps the newer state.
   const loadingTokenRef = useRef(0);
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Pinch-zoom on touch tablets/laptops that fall outside `isMobile`
-  // (iPad in landscape, Surface, etc.). MobileReaderLayout owns the
-  // full mobile gesture suite — swipe, tap-to-chrome, pinch — and we
-  // don't want to double-fire those on phones. The desktop branch
-  // here attaches gestures to the whole reader container with swipe
-  // disabled, leaving only pinch active and only when the device is
-  // touch-capable. `(pointer: coarse)` is the standard probe for
-  // "the user is touching, not mousing".
+  // Pinch-zoom for touch tablets/laptops outside `isMobile` (iPad landscape,
+  // Surface). Swipe off here to avoid double-firing the mobile gesture suite.
   const isTouch = useMediaQuery("(pointer: coarse)");
   useMobileReaderGestures({
     targetRef: readerContainerRef,
@@ -327,30 +401,20 @@ export function ReaderPage() {
   });
   const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenDocument();
 
-  // Load document from file registry if navigated directly. The
-  // registry is an in-memory Map so a hard refresh wipes it — in
-  // that case the bookId in the URL still tells us *which* book the
-  // user wanted, and we can re-fetch it from Supabase. Try the
-  // uploaded library first (books.file_hash = bookId, since
-  // addDocument's docId is the file hash), then fall back to the
-  // catalog (catalog_books.id = bookId, the catalog UUID).
+  // Load the document from the in-memory registry, or re-fetch from Supabase
+  // if a refresh wiped it.
   useEffect(() => {
     if (!bookId || bookDocumentLoaded) return;
     let cancelled = false;
     const file = getFile(bookId);
     if (file) {
-      // Hot-path: navigated from elsewhere in the app; file is
-      // already in memory.
+      // hot path: file already in memory
       const adapter = createAdapterForFile(file);
       void addDocument(adapter, file);
       return;
     }
-    // Cold-path: post-refresh recovery. Run async; `cancelled` gates
-    // applying the loaded document so a fast bookId change doesn't
-    // race two opens to completion. Spinner clearing uses a separate
-    // token gate (loadingTokenRef): a newer cold-path bumps the token
-    // and "owns" the spinner; older paths skip the clear so they
-    // can't wipe a fresh load's spinner.
+    // cold path: post-refresh recovery. `cancelled` gates applying the doc so a
+    // fast bookId change can't race two opens; the spinner uses loadingTokenRef.
     const setLoading = useUIStore.getState().setLoading;
     const token = ++loadingTokenRef.current;
     setLoading(true, t("reader.page.loadingDocumentMessage"));
@@ -370,7 +434,7 @@ export function ReaderPage() {
     };
   }, [bookId, bookDocumentLoaded, addDocument, t]);
 
-  // Load annotations + bookmarks when active document changes
+  // Load annotations + bookmarks for the active document
   useEffect(() => {
     if (activeDocumentId) {
       useAnnotationStore.getState().loadAnnotations(activeDocumentId);
@@ -382,15 +446,8 @@ export function ReaderPage() {
     };
   }, [activeDocumentId]);
 
-  // Jump to ?page= once the *right* doc is loaded — used by bookmarks,
-  // book-page deep-links, and chat citation "Open in reader" buttons.
-  // Consumes the param on read so a refresh doesn't re-snap the user
-  // back. Critical guard: only fire when the active doc actually
-  // matches the URL's bookId. Without this, navigating from /chat
-  // (where a previous reader visit left a different doc active) would
-  // call goToPage on the *previous* doc and then clear the param
-  // before the new one finishes loading — that's why a "Book p3" link
-  // used to land on p1.
+  // Jump to ?page= once the right doc is loaded, then consume the param. Guard
+  // on activeDocumentId matching bookId or a stale doc from /chat gets the jump.
   useEffect(() => {
     if (!activeDocumentId) return;
     if (bookId && activeDocumentId !== bookId) return;
@@ -399,12 +456,8 @@ export function ReaderPage() {
     const pageNum = Number.parseInt(pageParam, 10);
     if (!Number.isFinite(pageNum) || pageNum < 1) return;
     goToPage(pageNum);
-    // Companion `q=` payload from LLM citation chips with a quote.
-    // Arm the citation slot so CitationQuoteHighlightLayer picks it
-    // up once the page renders. In-reader clicks already armed it
-    // synchronously via use-page-citation; this branch handles the
-    // cross-page navigation case (clicking a citation from /chat
-    // when the reader wasn't mounted).
+    // Companion `q=` from citation chips: arm the citation slot so
+    // CitationQuoteHighlightLayer picks it up when the page renders.
     const quote = searchParams.get("q");
     if (quote) {
       useReaderStore.getState().setActiveCitation({
@@ -425,13 +478,12 @@ export function ReaderPage() {
     );
   }, [activeDocumentId, bookId, searchParams, setSearchParams, goToPage]);
 
-  // Load notes and whiteboards on mount
   useEffect(() => {
     useNoteStore.getState().loadNotes();
     useWhiteboardStore.getState().loadWhiteboards();
   }, []);
 
-  // Listen for fullscreen changes (e.g. user pressing Esc)
+  // Fullscreen can change externally (Esc key)
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -484,13 +536,8 @@ export function ReaderPage() {
     handler: useCallback(() => setZoomMode("fit-width"), [setZoomMode]),
   });
 
-  // Ctrl/Cmd + mouse-wheel zoom for non-PDF viewers (EPUB / text /
-  // markdown). PdfViewer owns its own Ctrl+wheel handler with proper
-  // pivot anchoring — keeping a second document-level handler that
-  // *also* fires discrete `store.zoomIn()` on every PDF zoom event
-  // caused the "page jumps on zoom" bug (two zoom paths racing,
-  // second one re-laid-out the page without anchoring). Skip the
-  // PDF viewer; let the others fall through.
+  // Ctrl/Cmd + wheel zoom for non-PDF viewers only. PdfViewer has its own
+  // pivot-anchored handler; a second one racing it causes page jumps.
   useEffect(() => {
     const onWheel = (e: WheelEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return;
@@ -516,18 +563,10 @@ export function ReaderPage() {
     if (activeDoc && activeDoc.currentPage < activeDoc.totalPages) goToPage(activeDoc.currentPage + 1);
   }, [goToPage]);
 
-  // Arrow up/down scroll the active PDF viewer by one line (~60 px).
-  // Left/Right binding moved below (depends on arrowLeftHandler /
-  // arrowRightHandler which read LINE_SCROLL_PX + horizScroll
-  // declared in this block). Native smooth-scroll is good enough
-  // here — no need to plumb through smoothScrollBy.
-  // Tuning dial: change LINE_SCROLL_PX below.
+  // Arrow up/down scroll the active PDF viewer one line.
   const LINE_SCROLL_PX = 60;
-  // The PdfViewer mounts in a separate React subtree (via dockview)
-  // so we can't share a ref directly. Look up by the marker
-  // attributes the viewer renders on its scrollable container.
-  // Cached as a single helper instead of three duplicated
-  // `document.querySelector` calls.
+  // PdfViewer lives in a separate dockview subtree, so find it by marker attrs
+  // instead of sharing a ref.
   const getActivePdfViewerEl = useCallback(
     (): HTMLElement | null =>
       document.querySelector<HTMLElement>(
@@ -548,11 +587,7 @@ export function ReaderPage() {
     [getActivePdfViewerEl],
   );
 
-  // When the page is zoomed enough that the viewer has a horizontal
-  // scrollbar, repurpose Left/Right arrows to pan the viewer
-  // horizontally instead of paging. Otherwise the user's natural
-  // "look at the rest of this page" gesture (tap right arrow)
-  // jumps them to the next page mid-paragraph.
+  // With a horizontal scrollbar, Left/Right pan instead of paging.
   const hasHorizontalOverflow = useCallback(() => {
     const el = getActivePdfViewerEl();
     if (!el) return false;
@@ -607,9 +642,8 @@ export function ReaderPage() {
     preventDefault: false,
   });
 
-  // vim-style hjkl mirrors the arrow keys: h=prev page, l=next page,
-  // j=line down, k=line up. Skip when an editable element is focused
-  // so typing into inputs / contenteditable doesn't trigger nav.
+  // vim hjkl: h=prev page, l=next page, j=line down, k=line up. Skip when an
+  // editable element is focused.
   const isEditableFocused = () => {
     const el = document.activeElement as HTMLElement | null;
     if (!el) return false;
@@ -661,20 +695,10 @@ export function ReaderPage() {
     }, [lineScroll]),
     preventDefault: false,
   });
-  // Suppress unused-var warning when only horizontal vim keys aren't
-  // wired yet — keeps the helper available for future tuning.
   void horizScroll;
 
-  // ── Power-user shortcuts added in the keyboard-nav pass ─────────
-  // The shortcut module already auto-skips for HTMLInputElement /
-  // HTMLTextAreaElement, but not for contenteditable (which the EPUB
-  // iframe and inline-edit pills use). `isEditableFocused` covers
-  // both — same gate the vim h/j/k/l bindings use above.
-
-  // 1–5: set the active highlight color. Mirrors VS Code-style
-  // "press a digit to change the active brush" — once a user has the
-  // mapping memorised, swapping colour while reading takes a single
-  // keystroke instead of a trip to the toolbar palette.
+  // 1-5: set the active highlight color. isEditableFocused also covers
+  // contenteditable (EPUB iframe, inline-edit pills) that the shortcut module skips.
   const setActiveHighlightColor = useAnnotationStore(
     (s) => s.setActiveHighlightColor,
   );
@@ -729,10 +753,7 @@ export function ReaderPage() {
     preventDefault: false,
   });
 
-  // n / Shift+N: jump between search matches. No-op when no search
-  // is active — searchStore.next/prev guard internally. Vim convention
-  // (n forward, N back) so the muscle-memory works for anyone
-  // coming from Vim or less.
+  // n / Shift+N: jump between search matches.
   useKeyboardShortcut({
     id: "reader:search-next",
     key: "n",
@@ -755,11 +776,8 @@ export function ReaderPage() {
     preventDefault: false,
   });
 
-  // Space / Shift+Space: page advance / back. Kindle convention.
-  // Bound explicitly (vs relying on browser's default Space=page-down
-  // on the scroll container) because the focused element isn't
-  // necessarily the viewer — the toolbar or sidebar might own focus
-  // and the user still expects Space to page through their book.
+  // Space / Shift+Space: page advance / back. Bound explicitly since focus
+  // may be on the toolbar or sidebar, not the viewer.
   useKeyboardShortcut({
     id: "reader:space-next",
     key: " ",
@@ -780,13 +798,7 @@ export function ReaderPage() {
     }, [prevPageHandler]),
   });
 
-  // Home / End: jump to the top / bottom of the active viewer. For
-  // PDF this means page 1 / the last page (because the viewer is one
-  // long scroll). For EPUB scrolled mode, the current spine item.
-  // EPUB paginated mode honours scrollTo on the rendition's iframe,
-  // which is close enough for now — proper "go to first / last
-  // chapter" would need epubjs `display(spine.first/last)` and
-  // belongs in a separate pass.
+  // Home / End: scroll to top / bottom of the active viewer.
   const getActiveViewerEl = useCallback(
     (): HTMLElement | null =>
       document.querySelector<HTMLElement>("[data-active-viewer]"),
@@ -813,10 +825,7 @@ export function ReaderPage() {
     }, [getActiveViewerEl]),
   });
 
-  // Ctrl+Shift+T: cycle reader theme (light → dark → sepia). Keyboard
-  // companion to the Palette entry in the toolbar overflow menu.
-  // Shift is needed because plain Ctrl+T is the browser's "new tab"
-  // and isn't ours to take.
+  // Ctrl+Shift+T: cycle reader theme. Shift because Ctrl+T is browser new-tab.
   useKeyboardShortcut({
     id: "reader:cycle-theme",
     key: "t",
@@ -838,11 +847,8 @@ export function ReaderPage() {
   const toggleSidebar = useCallback(() => {
     const api = dockviewApiRef.current;
     if (!api) return;
-    // Snapshot the AI-chat panel's pixel width BEFORE the toggle.
-    // Dockview redistributes the freed/required space proportionally
-    // across siblings, which made the chat panel grow/shrink every
-    // time the TOC opened or closed. We instead keep the chat at its
-    // exact prior width and let the *viewer* absorb the TOC's space.
+    // Snapshot the AI-chat width first. Dockview redistributes freed space
+    // proportionally, so pin the chat and let the viewer absorb the TOC's space.
     const aiChatBefore = api.getPanel("aiChat");
     const aiChatW = aiChatBefore?.api.width ?? null;
 
@@ -861,11 +867,7 @@ export function ReaderPage() {
       });
     }
 
-    // Restore the AI chat to its exact prior width after dockview has
-    // settled. Setting the chat's size makes dockview pull the
-    // complementary delta from the viewer (its splitview sibling), so
-    // the chat stays put and the viewer takes the hit. Skipped when
-    // the chat is closed — nothing to preserve.
+    // Restore chat width once dockview settles; the delta comes from the viewer sibling.
     if (aiChatW != null && aiChatW > 0) {
       requestAnimationFrame(() => {
         const c = api.getPanel("aiChat");
@@ -876,12 +878,8 @@ export function ReaderPage() {
     }
   }, []);
 
-  // Keep the AI chat panel at a constant pixel width while the app
-  // sidebar collapses/expands. That toggle animates the <main> margin
-  // (~200ms), resizing the dockview container; without pinning,
-  // dockview redistributes the delta proportionally and the chat panel
-  // visibly grows/shrinks. We pin its width across the transition so
-  // the *viewer* absorbs the change instead. No-op when chat is closed.
+  // Pin the AI chat width while the sidebar collapse/expand animates the <main>
+  // margin and resizes the dockview container, else the chat visibly jumps.
   useEffect(() => {
     const api = dockviewApiRef.current;
     if (!api) return;
@@ -898,8 +896,7 @@ export function ReaderPage() {
       if (c && Math.abs(c.api.width - target) > 1) {
         c.api.setSize({ width: target });
       }
-      // Re-pin across the whole 200ms margin transition (+ a little
-      // slack) so the panel never visibly drifts mid-animation.
+      // re-pin across the whole margin transition
       if (performance.now() - startedAt < 320) {
         raf = requestAnimationFrame(pin);
       }
@@ -948,7 +945,7 @@ export function ReaderPage() {
     handler: toggleZenMode,
   });
 
-  // Esc exits zen mode regardless of whether anything else is focused.
+  // Esc exits zen mode regardless of focus
   useEffect(() => {
     if (!zenMode) return;
     const onKey = (e: KeyboardEvent) => {
@@ -979,23 +976,8 @@ export function ReaderPage() {
     const api = dockviewApiRef.current;
     if (!api) return;
 
-    // Swap pattern: ADD the replacement panel into the SAME group as
-    // the panel we're replacing (`direction: "within"`), THEN remove
-    // the original. Doing the add first means the destination group
-    // keeps its existing proportions — dockview only redistributes
-    // space when a group becomes empty, which never happens here.
-    //
-    // This fixes two symptoms the old "remove first, then add" code
-    // produced:
-    //   1. Toggling on shrunk the reader area while the chat panel
-    //      took over its space (because the viewer's group went away,
-    //      then the new whiteboard was added with no position hint
-    //      and dockview picked a default tiny slot).
-    //   2. Toggling off collapsed the TOC into the top tab-bar
-    //      (because by the time the new pdfViewer was added, the TOC
-    //      group was the only target left and dockview slotted the
-    //      viewer in as a tab there).
-
+    // Add the replacement into the SAME group ("within") BEFORE removing the
+    // original, so the group never goes empty and dockview keeps its proportions.
     if (isDrawMode) {
       const wbPanel = api.getPanel("pdfCanvasWhiteboard");
       if (!wbPanel) {
@@ -1014,8 +996,7 @@ export function ReaderPage() {
       const activeDoc = useReaderStore.getState().getActiveDoc();
       if (!activeDoc?.meta?.fileUrl) return;
 
-      // Gate: whiteboard-on-document requires a paginated format unless
-      // the user has opted into the experimental multi-format toggle.
+      // whiteboard-on-document needs a paginated format unless the experimental toggle is on
       const allowAll = useSettingsStore.getState()
         .experimental_allowWhiteboardForAllFormats;
       if (!activeDoc.meta.capabilities.paginated && !allowAll) return;
@@ -1023,7 +1004,7 @@ export function ReaderPage() {
       const viewerPanel = api.getPanel("pdfViewer");
       if (!viewerPanel) return;
 
-      // Reuse existing whiteboard or create a new one
+      // reuse existing whiteboard or create one
       if (!drawWhiteboardIdRef.current) {
         const activeDocId =
           useReaderStore.getState().activeDocumentId ?? undefined;
@@ -1064,34 +1045,22 @@ export function ReaderPage() {
     }
   }, []);
 
-  // Print handler — defers to the browser's native print pipeline.
-  // Global @media print CSS (src/styles/index.css) hides everything
-  // except [data-active-viewer], so the browser rasterizes the PDF
-  // canvas + DOM overlays (highlights, comments, drawings) together.
+  // Global @media print CSS hides everything except [data-active-viewer], so
+  // the PDF canvas + overlays rasterize together.
   const handlePrint = useCallback(() => {
     window.print();
   }, []);
 
-  // Screenshot handlers — full viewer + interactive rectangle.
   const [rectScreenshotActive, setRectScreenshotActive] = useState(false);
-  // Same overlay UX but the captured PNG flows into the AI chat
-  // composer as an attachment instead of downloading + clipboard.
-  // Kept on its own flag (vs the download rect) so the two modes
-  // don't accidentally cross-wire when one is cancelled mid-drag.
+  // Separate flag from the download rect so the two capture modes don't cross-wire.
   const [rectToAiActive, setRectToAiActive] = useState(false);
 
   const saveCanvas = useCallback((canvas: HTMLCanvasElement) => {
-    // Trigger the file download as before…
     const link = document.createElement("a");
     link.download = `screenshot-${Date.now()}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
-    // …and also push the bitmap onto the clipboard so the user can
-    // immediately paste into chat / notes / Slack without juggling
-    // the saved file. ClipboardItem requires a Promise<Blob>, so we
-    // pass the toBlob callback inside one. Fail silently — clipboard
-    // permission may be denied (Safari < 13, http origins, focus
-    // missing) and that's OK: the file still downloaded.
+    // also copy to clipboard; fails silently if permission is denied (http origin, no focus)
     try {
       canvas.toBlob((blob) => {
         if (!blob || !navigator.clipboard?.write) return;
@@ -1100,7 +1069,7 @@ export function ReaderPage() {
           .catch(() => {});
       }, "image/png");
     } catch {
-      // ClipboardItem missing or blocked — nothing else to do.
+      // ClipboardItem missing or blocked
     }
   }, []);
 
@@ -1127,7 +1096,7 @@ export function ReaderPage() {
   const handleRectScreenshotCapture = useCallback(
     async (rect: ScreenshotRect) => {
       setRectScreenshotActive(false);
-      // Let the overlay unmount before rasterizing so it isn't captured.
+      // let the overlay unmount before rasterizing so it isn't captured
       await new Promise((resolve) => requestAnimationFrame(resolve));
       const { default: html2canvas } = await import("html2canvas-pro");
       const canvas = await html2canvas(document.body, {
@@ -1145,12 +1114,8 @@ export function ReaderPage() {
     [saveCanvas],
   );
 
-  // "Crop area for AI" flow. Same overlay + same html2canvas, but
-  // the resulting PNG goes into the chat composer's pending
-  // attachments instead of the file system + clipboard. Used when
-  // text selection isn't viable (scanned PDFs, math-heavy figures,
-  // image-only pages) and the user wants to ask the AI about
-  // something they're looking at right now.
+  // "Crop area for AI": overlay + html2canvas, but the PNG goes into the chat
+  // composer's pending attachments (scanned PDFs, figures, image-only pages).
   const handleRectToAiStart = useCallback(() => {
     setRectToAiActive(true);
   }, []);
@@ -1169,10 +1134,7 @@ export function ReaderPage() {
       width: rect.width,
       height: rect.height,
     });
-    // Encode as a base64 PNG — same shape as the user-uploaded
-    // image attachments, so the chat composer + provider-side
-    // multimodal converters render and ship it without any
-    // special-casing.
+    // base64 PNG, same shape as uploaded image attachments
     const dataUrl = canvas.toDataURL("image/png");
     const idx = dataUrl.indexOf(",");
     const data = idx === -1 ? dataUrl : dataUrl.slice(idx + 1);
@@ -1182,35 +1144,28 @@ export function ReaderPage() {
       data,
       name: `page-${Date.now()}.png`,
     });
-    // Open the AI chat panel so the user sees the attachment land.
-    // openReaderAiChat is null on the standalone /chat page where
-    // there's no reader to capture from, so this is harmless.
+    // open the chat panel so the attachment is visible (null on /chat)
     useUIStore.getState().openReaderAiChat?.();
   }, []);
 
-  // Search overlay toggle (VSCode-style find).
   const toggleSearch = useCallback(() => {
     const store = useSearchStore.getState();
     if (store.isOpen && store.mode === "find") store.close();
     else store.open("find");
   }, []);
 
-  // Replace overlay toggle (find+replace).
   const toggleReplace = useCallback(() => {
     const store = useSearchStore.getState();
     if (store.isOpen && store.mode === "replace") store.close();
     else store.open("replace");
   }, []);
 
-  // AI Chat toggle
   const toggleAiChat = useCallback(() => {
     const api = dockviewApiRef.current;
     if (!api) return;
     const panel = api.getPanel("aiChat");
     if (panel) {
-      // Capture the panel's current width before removal so the next
-      // open restores it. dockview's `panel.api.width` is the live
-      // measured width including any user drags on the splitter.
+      // capture width before removal so reopen restores it
       const currentWidth = panel.api.width;
       if (currentWidth > 0) aiChatWidthRef.current = currentWidth;
       api.removePanel(panel);
@@ -1225,14 +1180,9 @@ export function ReaderPage() {
     }
   }, []);
 
-  // Expose an OPEN-ONLY (never-toggle) entry point in the UI store so
-  // the annotation menu's "Send to AI" can ensure the panel is on
-  // screen without accidentally closing it if the user already had
-  // it open. Mobile and desktop have different chat surfaces, so the
-  // function picks the right one at call time. Lifecycle: register
-  // on mount, clear on unmount so callers outside the reader fall
-  // back to navigating to /chat. Re-runs on `isMobile` change so a
-  // mid-session resize swaps the implementation.
+  // Open-only entry point in the UI store so "Send to AI" can ensure the panel
+  // is on screen without toggling it closed. Cleared on unmount so callers
+  // outside the reader fall back to /chat.
   useEffect(() => {
     const open = () => {
       if (isMobile) {
@@ -1241,7 +1191,7 @@ export function ReaderPage() {
       }
       const api = dockviewApiRef.current;
       if (!api) return;
-      if (api.getPanel("aiChat")) return; // already open — no-op
+      if (api.getPanel("aiChat")) return; // already open
       api.addPanel({
         id: "aiChat",
         component: "aiChat",
@@ -1330,27 +1280,20 @@ export function ReaderPage() {
     }, []),
   });
 
-  // Dockview ready handler
   const handleDockviewReady = useCallback((event: DockviewReadyEvent) => {
     const api = event.api;
     dockviewApiRef.current = api;
 
-    // Track active panel to update activeDocumentId
     api.onDidActivePanelChange((e) => {
       if (!e) return;
       const panelId = e.id;
-      // If it's a viewer panel, extract the docId
       if (panelId.startsWith("viewer-")) {
         const docId = panelId.replace("viewer-", "");
         useReaderStore.getState().setActiveDocument(docId);
       } else if (panelId === "pdfViewer") {
-        // Default viewer panel has a single panel id regardless of
-        // which document is shown — the active document is tracked
-        // in the store, not in the panel id. If a doc is already
-        // active, leave it alone. Without this guard, toggling the
-        // submenu (add/remove "toc" panel) re-fires onDidActivePanelChange
-        // with `pdfViewer`, and we'd snap back to the first document
-        // even when the user was reading a different tab.
+        // The default viewer keeps one panel id regardless of which doc it
+        // shows; the active doc lives in the store. Guard against snapping back
+        // to the first doc when toggling the toc panel re-fires this.
         const state = useReaderStore.getState();
         if (state.activeDocumentId) return;
         if (state.documents.size > 0) {
@@ -1359,18 +1302,16 @@ export function ReaderPage() {
       }
     });
 
-    // Compute dynamic TOC width from active document's TOC entries
     const activeDoc = useReaderStore.getState().getActiveDoc();
     const dynamicWidth = activeDoc ? computeTocWidth(activeDoc.toc) : 256;
     tocWidthRef.current = dynamicWidth;
 
-    // Try loading saved width for this document, then set up layout
     const docId = useReaderStore.getState().activeDocumentId;
     const setupLayout = (resolvedWidth: number) => {
       tocWidthRef.current = resolvedWidth;
 
-      // Dockview distributes space equally when panels are added or removed.
-      // Defer setSize to next frame so it runs after the distribute completes.
+      // Dockview redistributes space equally on add/remove; defer setSize to
+      // next frame so it runs after that settles.
       const restoreTocWidth = () => {
         requestAnimationFrame(() => {
           try {
@@ -1392,22 +1333,16 @@ export function ReaderPage() {
         restoreTocWidth();
       });
 
-      // Try restoring saved layout
       const saved = loadDockviewLayout();
       if (saved) {
         try {
           api.fromJSON(saved as ReturnType<typeof api.toJSON>);
-          // After restoring layout, apply the correct TOC width
           restoreTocWidth();
-          // If the saved layout had the whiteboard active (the user
-          // closed the reader while in draw mode), reflect that in
-          // the local toggle state. Without this, the next press of
-          // the draw button would think the user is in viewer mode
-          // and try to add a duplicate whiteboard.
+          // Saved layout may have the whiteboard active (reader closed in draw
+          // mode); reflect it so the draw button doesn't add a duplicate.
           if (api.getPanel("pdfCanvasWhiteboard")) {
             setIsDrawMode(true);
           }
-          // Set up layout persistence after restoring
           setupLayoutPersistence();
           return;
         } catch {
@@ -1415,19 +1350,15 @@ export function ReaderPage() {
         }
       }
 
-      // Default layout: viewer only. The TOC submenu lives behind the
-      // floating-circle button at top-left of the reader area; users
-      // who want it always-on can pin it via that toggle and the
-      // saved layout persists across sessions.
+      // Default layout: viewer only. TOC is opened on demand via the
+      // floating-circle toggle and persists across sessions once pinned.
       api.addPanel({
         id: "pdfViewer",
         component: "pdfViewer",
         title: i18n.t("reader.page.panelDocument"),
       });
 
-      // Keep `resolvedWidth` referenced so the lint gate doesn't trip;
-      // it's still used by `toggleSidebar` via `tocWidthRef` when the
-      // user opens the TOC for the first time in this session.
+      // keep `resolvedWidth` referenced for the lint gate; toggleSidebar reads it via tocWidthRef
       void resolvedWidth;
 
       setupLayoutPersistence();
@@ -1442,7 +1373,7 @@ export function ReaderPage() {
         layoutSaveTimerRef.current = setTimeout(() => {
           saveDockviewLayout(api.toJSON());
 
-          // Persist TOC width per document
+          // persist TOC width per document
           const currentDocId = useReaderStore.getState().activeDocumentId;
           if (currentDocId) {
             try {
@@ -1471,10 +1402,8 @@ export function ReaderPage() {
     }
   }, []);
 
-  // Reading timer for streaks. Respects the active tracker's enabled
-  // flag so "shallow reading" (tracker toggled off) doesn't quietly
-  // accumulate streak time — the user explicitly said they're browsing
-  // casually and the streak shouldn't fill up.
+  // Reading timer for streaks. Respects the active tracker's enabled flag so a
+  // toggled-off tracker doesn't quietly accumulate streak time.
   useEffect(() => {
     if (!hasDocuments) return;
 
@@ -1487,10 +1416,8 @@ export function ReaderPage() {
       lastTick = now;
       if (accumulated >= 1) {
         const whole = Math.floor(accumulated);
-        // Shallow-reading guard: only credit time toward streak when
-        // the active tracker considers itself enabled. For the toggle
-        // tracker that's its own `enabled` flag; other trackers
-        // default to always-credit.
+        // Only credit streak time when the active tracker is enabled. Only the
+        // toggle tracker has an `enabled` flag; others always credit.
         const settingsState = useSettingsStore.getState();
         const activeId = settingsState.activeTrackerId;
         const activeSettings = settingsState.trackerSettings[activeId];
@@ -1530,13 +1457,8 @@ export function ReaderPage() {
   return (
     <div
       ref={readerContainerRef}
-      // Reader takes the full dynamic viewport on every breakpoint —
-      // the global BottomNav is now hidden on this route (it was
-      // competing with the MobileReaderBottomBar and the user's
-      // content for vertical real estate), so we no longer subtract
-      // its height. `100dvh` accounts for the URL-bar shrink/grow on
-      // mobile Safari; the reader's own bottom bar handles safe-area
-      // padding internally.
+      // Full dynamic viewport on every breakpoint. `100dvh` accounts for the
+      // URL-bar shrink/grow on mobile Safari; the bottom bar pads safe-area itself.
       className="relative flex h-[100dvh] flex-col bg-bg-primary md:h-screen"
     >
       {isLoadingDocument && (
@@ -1595,12 +1517,9 @@ export function ReaderPage() {
                 onReady={handleDockviewReady}
                 components={dockviewComponents}
               />
-              {/* Floating-circle button for the reader's own submenu
-                  (TOC / bookmarks / comments / AI chat). Sits below
-                  the toolbar's hamburger so the two are visually
-                  distinct: top-bar hamburger = global app sidebar,
-                  this circle = reading-context panel. Toggles the
-                  same Dockview "toc" panel that Ctrl+\\ binds. */}
+              {/* Floating-circle toggle for the reader's TOC panel (same one
+                  Ctrl+\\ binds). Distinct from the top-bar hamburger, which is
+                  the global app sidebar. */}
               <button
                 type="button"
                 onClick={toggleSidebar}
@@ -1610,12 +1529,8 @@ export function ReaderPage() {
               >
                 <PanelLeft size={16} />
               </button>
-              {/* SearchOverlay used to live here, at the Dockview
-                  outer container — but its `right-4` pinned to the
-                  whole-dockview right edge, overlapping the AI chat
-                  panel when open. It now lives inside ViewerPanel so
-                  the right edge stays aligned with the PDF viewer
-                  panel itself. */}
+              {/* SearchOverlay lives inside ViewerPanel, not here: its `right-4`
+                  would pin to the dockview edge and overlap the open AI chat panel. */}
             </div>
           </>
         )

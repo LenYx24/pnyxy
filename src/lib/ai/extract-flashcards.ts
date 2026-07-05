@@ -27,7 +27,7 @@ Rules:
  * Run the assistant message through an extractor LLM call and return
  * a structured list of flashcards. Fails-loudly on JSON parse errors
  * (callers show an error state); a retry helper is intentionally not
- * baked in — the UI can let the user click "try again".
+ * baked in, the UI can let the user click "try again".
  */
 export async function extractFlashcards(
   passage: string,

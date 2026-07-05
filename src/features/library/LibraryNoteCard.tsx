@@ -20,7 +20,7 @@ import { downloadNoteMarkdown } from "@/lib/library/export-note";
 import { FolderPickerModal } from "./modals/FolderPickerModal";
 
 /** Strip the markdown down to a plain-text snippet for the card
- *  preview — drops code/links/heading markers but keeps line breaks so
+ *  preview, drops code/links/heading markers but keeps line breaks so
  *  the thumbnail reads like a page of text. */
 function noteSnippet(md: string, max = 300): string {
   return md

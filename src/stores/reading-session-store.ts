@@ -9,7 +9,7 @@ import {
 import type { ReadingSession } from "@/types/database";
 
 /**
- * Per-book reading session timer — runtime state.
+ * Per-book reading session timer, runtime state.
  *
  * The DB is the source of truth (one row per session, partial
  * unique index gates one active per user). This store mirrors
@@ -32,7 +32,7 @@ interface ReadingSessionState {
   start: (docId: string, startPage: number | null) => Promise<ReadingSession | null>;
   stop: (endPage: number | null) => Promise<void>;
   /** Tick called from a single global rAF/interval. Recomputes
-   *  elapsed from started_at + Date.now() — drift-free. */
+   *  elapsed from started_at + Date.now(), drift-free. */
   tick: () => void;
 }
 
@@ -77,7 +77,7 @@ export const useReadingSessionStore = create<ReadingSessionState>((set, get) => 
     const row = get().active;
     if (!row) return;
     // Clear local state first so the UI snaps to idle even if
-    // the network call is slow — the DB write is best-effort.
+    // the network call is slow, the DB write is best-effort.
     set({ active: null, elapsedSeconds: 0 });
     await stopSession(row.id, row.started_at, endPage);
   },
@@ -90,9 +90,9 @@ export const useReadingSessionStore = create<ReadingSessionState>((set, get) => 
   },
 }));
 
-// ── One-time module-level wiring ───────────────────────────────
+// One-time module-level wiring
 // Tick the active session every second from a single shared
-// interval — cheaper than every consumer running its own setInterval.
+// interval, cheaper than every consumer running its own setInterval.
 if (typeof window !== "undefined") {
   setInterval(() => {
     if (useReadingSessionStore.getState().active) {
@@ -110,7 +110,7 @@ if (typeof window !== "undefined") {
   });
 }
 
-/** Format seconds as "1h 23m" / "23m" / "45s" — UI helper. */
+/** Format seconds as "1h 23m" / "23m" / "45s", UI helper. */
 export function formatSessionDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);

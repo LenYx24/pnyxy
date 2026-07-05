@@ -8,7 +8,7 @@ export async function loadAllWhiteboards(): Promise<WhiteboardData[]> {
     const db = await getDB();
     return await db.getAll(STORE);
   } catch (err) {
-    // Same defensive pattern as `annotation-storage`'s loaders — a
+    // Same defensive pattern as `annotation-storage`'s loaders, a
     // half-applied IDB upgrade shouldn't take down the reader sidebar
     // and the workspace's whiteboard list.
     if (

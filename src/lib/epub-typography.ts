@@ -2,7 +2,7 @@
  * Typography options for the EPUB reader. Kept categorical (not raw
  * numbers / CSS strings) so the UI is a small button group rather
  * than a freeform input and the persisted shape stays
- * forward-compatible — adding a new font preset later just appends
+ * forward-compatible, adding a new font preset later just appends
  * a key here and a row in the picker.
  *
  * Mapped to CSS only inside the viewer; the store stays string-only.
@@ -14,7 +14,7 @@ export type EpubColumnWidth = "full" | "wide" | "comfortable" | "narrow";
 
 /**
  * Resolved CSS `font-family` value for each preset. `null` for
- * `default` because we want to *not override* in that case — the
+ * `default` because we want to *not override* in that case, the
  * EPUB's own typography choices should win when the user hasn't
  * picked a preset.
  *
@@ -31,7 +31,7 @@ export const EPUB_FONT_FAMILY_CSS: Record<EpubFontFamily, string | null> = {
 /**
  * Resolved CSS `max-width` for each column preset. `null` for `full`
  * because that means "no override, let the iframe fill the
- * container" — the pre-feature behaviour for everyone, so existing
+ * container", the pre-feature behaviour for everyone, so existing
  * users who haven't picked a column width see no change.
  *
  * `ch` is the right unit here: it scales with font size, so the

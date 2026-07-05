@@ -3,10 +3,8 @@ import { persist } from "zustand/middleware";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
 
-// ── Remote sync (leaderboards) ──────────────────────────────
-// Local is source of truth; this is a cached rollup in Postgres
-// for fast leaderboard queries. Debounced so we're not writing
-// on every reading-timer tick.
+// Cached rollup in Postgres for leaderboard queries. Local is source of truth.
+// Debounced so we don't write on every timer tick.
 
 const SYNC_DEBOUNCE_MS = 30_000;
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -27,10 +25,7 @@ async function flushRemoteSync() {
     const state = useStreakStore.getState();
     const current = state.getCurrentStreak();
     const todayRec = state.getTodayRecord();
-    // Leaderboard total excludes manually-logged time. The user
-    // could otherwise rank themselves up by typing in big numbers
-    // — manual logging is a personal habit signal, not a public
-    // claim of in-app reading.
+    // exclude manual time so people can't inflate their leaderboard rank by typing numbers
     const totalSeconds = Object.values(state.dailyRecords).reduce(
       (sum, r) =>
         sum + Math.max(0, (r.seconds ?? 0) - (r.manualSeconds ?? 0)),
@@ -56,46 +51,31 @@ async function flushRemoteSync() {
 }
 
 export interface DailyRecord {
-  /** Total reading time for the day, auto-tracked + manually
-   *  logged combined. Used for the goal check + intensity tier. */
+  /** Total reading time for the day (auto + manual). */
   seconds: number;
-  /** Portion of `seconds` that came from manual logging (the
-   *  "I read on my physical book today" button). Excluded from
-   *  leaderboard totals so logging doesn't game the rankings.
-   *  Optional — pre-existing records have it undefined, treated
-   *  as 0. */
+  /** Portion of `seconds` from manual logging. Undefined = 0. */
   manualSeconds?: number;
   goalCompleted: boolean;
   celebrationShown: boolean;
 }
 
 export const GOAL_SECONDS = 300; // 5 minutes
-/** Limit how far back the user can backfill manual time. A week
- *  matches the "I forgot to log yesterday" use case without
- *  letting people invent months of fake history. */
+/** How far back manual backfill is allowed. */
 export const MANUAL_BACKFILL_DAYS = 7;
-/** Cap a single day's manual log so a typo can't crown someone
- *  king of the leaderboard (excluded from leaderboard anyway, but
- *  the streak heatmap also looks weird at 24h). */
+/** Cap per-day manual log so a typo can't fill the heatmap. */
 export const MAX_MANUAL_MINUTES_PER_DAY = 600; // 10 hours
 
-/**
- * GitHub-style activity intensity levels. 0 = nothing, 4 = great
- * day. Shared by the heatmap and any other surface that wants to
- * render an at-a-glance sense of how much was read on a given day.
- */
+/** GitHub-style activity intensity, 0 = none, 4 = 30min+. */
 export type IntensityLevel = 0 | 1 | 2 | 3 | 4;
 export function getDailyIntensity(seconds: number): IntensityLevel {
   if (seconds <= 0) return 0;
-  if (seconds < 5 * 60) return 1; // <5 min — short session
-  if (seconds < 15 * 60) return 2; // 5–15 min — solid
-  if (seconds < 30 * 60) return 3; // 15–30 min — strong
-  return 4; // 30+ min — great day
+  if (seconds < 5 * 60) return 1;
+  if (seconds < 15 * 60) return 2;
+  if (seconds < 30 * 60) return 3;
+  return 4;
 }
 
-/** UTC ISO date (YYYY-MM-DD), matching the existing todayKey()
- *  convention so manual entries land in the same record map as
- *  auto-tracked time without timezone-skew mismatches. */
+/** UTC ISO date (YYYY-MM-DD), must match todayKey() to avoid tz skew. */
 function dateKey(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
@@ -111,11 +91,7 @@ interface StreakState {
   longestAttentionSeconds: number;
 
   addReadingTime: (seconds: number) => void;
-  /** Manually log time the user spent reading away from the app
-   *  (physical book, ePub on another device, …). `dateIso` is a
-   *  YYYY-MM-DD string within the last MANUAL_BACKFILL_DAYS;
-   *  `seconds` is bounded by MAX_MANUAL_MINUTES_PER_DAY. Returns
-   *  true on success, false if rejected by validation. */
+  /** Log offline reading time. Returns false if validation rejects it. */
   addManualReadingTime: (dateIso: string, seconds: number) => boolean;
   recordAttentionSpan: (seconds: number) => void;
   getCurrentStreak: () => number;
@@ -160,7 +136,6 @@ export const useStreakStore = create<StreakState>()(
 
         const newRecords = { ...dailyRecords, [key]: updated };
 
-        // Recalculate longest streak if today just completed
         let newLongest = longestStreak;
         if (goalCompleted && !existing.goalCompleted) {
           const current = computeStreak(newRecords);
@@ -174,9 +149,7 @@ export const useStreakStore = create<StreakState>()(
       },
 
       addManualReadingTime(dateIso: string, seconds: number): boolean {
-        // Validate: shape, range, retroactive window. Reject silently
-        // (return false) so the caller can surface a localized error
-        // rather than the store itself owning the user-facing copy.
+        // caller surfaces the localized error, so just return false here
         if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return false;
         if (!Number.isFinite(seconds) || seconds <= 0) return false;
         const cappedSeconds = Math.min(
@@ -211,10 +184,7 @@ export const useStreakStore = create<StreakState>()(
 
         const newRecords = { ...dailyRecords, [dateIso]: updated };
 
-        // Manual entries can flip a past day into "completed" — that
-        // can extend the current streak retroactively. Re-derive
-        // longest from the updated map instead of just comparing
-        // against today, to capture this case.
+        // a backfilled day can extend the streak retroactively, so re-derive from the full map
         let newLongest = longestStreak;
         if (goalCompleted && !existing.goalCompleted) {
           const current = computeStreak(newRecords);
@@ -265,7 +235,7 @@ function computeStreak(records: Record<string, DailyRecord>): number {
   let streak = 0;
   const now = new Date();
 
-  // Start from today and walk backwards
+  // walk backwards from today
   for (let i = 0; i < 365; i++) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
@@ -275,7 +245,7 @@ function computeStreak(records: Record<string, DailyRecord>): number {
     if (record?.goalCompleted) {
       streak++;
     } else if (i === 0) {
-      // Today not yet completed is OK, continue checking from yesterday
+      // today not done yet is fine, keep the streak alive
       continue;
     } else {
       break;

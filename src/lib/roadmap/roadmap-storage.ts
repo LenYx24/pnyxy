@@ -5,7 +5,7 @@ import { getDB } from "../annotation-storage";
  * Lift any legacy `completedNodeIds: { [id]: true }` map into the
  * current `nodeProgress: { [id]: number }` shape, treating every
  * completed node as 100%. Untouched if `nodeProgress` is already
- * populated. Idempotent — safe to run on every load.
+ * populated. Idempotent, safe to run on every load.
  */
 function migrateEnrollment(raw: unknown): Enrollment {
   const obj = raw as Enrollment & {

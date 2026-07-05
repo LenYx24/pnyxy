@@ -5,6 +5,7 @@ import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui";
 import { whiteboardDisplayTitle } from "@/lib/entity-title";
 import { useBook } from "../BookPageContext";
+import { useIsBookInLibrary } from "../use-book-in-library";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 
 function formatDate(ts: number): string {
@@ -17,7 +18,7 @@ function formatDate(ts: number): string {
 
 /**
  * Lists whiteboards tied to the current book and lets the user
- * create a new empty one (no PDF page underneath — pure scratch
+ * create a new empty one (no PDF page underneath, pure scratch
  * canvas). The reader's draw-tool auto-create path leaves bookId
  * undefined, so those don't show up here; only whiteboards
  * deliberately associated with this book are listed.
@@ -27,6 +28,7 @@ export function WhiteboardsTab() {
   const navigate = useNavigate();
   const book = useBook();
   const bookId = book.book.id;
+  const inLibrary = useIsBookInLibrary();
 
   const whiteboards = useWhiteboardStore((s) => s.whiteboards);
   const loadWhiteboards = useWhiteboardStore((s) => s.loadWhiteboards);
@@ -46,6 +48,7 @@ export function WhiteboardsTab() {
   );
 
   const handleCreate = () => {
+    if (!inLibrary) return;
     const id = createWhiteboard({
       bookId,
       title: t("book.whiteboards.defaultTitle", { book: book.book.title }),
@@ -64,14 +67,23 @@ export function WhiteboardsTab() {
             {t("book.whiteboards.description")}
           </p>
         </div>
-        <Button
-          variant="primary"
-          onClick={handleCreate}
-          className="px-3 py-1.5 text-xs sm:text-sm"
-        >
-          <Plus size={14} />
-          {t("book.whiteboards.newEmpty")}
-        </Button>
+        {/* creating study tools requires the book to be in the library */}
+        {inLibrary ? (
+          <Button
+            variant="primary"
+            onClick={handleCreate}
+            className="px-3 py-1.5 text-xs sm:text-sm"
+          >
+            <Plus size={14} />
+            {t("book.whiteboards.newEmpty")}
+          </Button>
+        ) : (
+          <span className="text-xs text-text-muted">
+            {t("book.libraryRequired", {
+              defaultValue: "Add this book to your library first",
+            })}
+          </span>
+        )}
       </div>
 
       {tied.length === 0 ? (

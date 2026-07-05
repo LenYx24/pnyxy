@@ -16,7 +16,7 @@ import {
 import type { DocumentAdapter, DocumentMeta, TocItem } from "@/types/document";
 import type { loadDocumentMeta } from "@/lib/annotation-storage";
 
-// ── Mocks ───────────────────────────────────────────────────
+// Mocks
 
 const loadDocumentMetaMock = vi.fn<typeof loadDocumentMeta>();
 const saveDocumentMetaMock = vi.fn(async () => {});
@@ -39,7 +39,7 @@ vi.mock("@/stores/auth-store", () => ({
   useAuthStore: { getState: () => ({ user: null, profile: null }) },
 }));
 
-// ── Helpers ─────────────────────────────────────────────────
+// Helpers
 
 function makeAdapter(
   overrides: { id?: string; title?: string; totalPages?: number } = {},
@@ -89,7 +89,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ── Tests ───────────────────────────────────────────────────
+// Tests
 
 describe("addDocument", () => {
   it("loads the adapter, extracts toc, sets the doc as active, and emits book:opened", async () => {
@@ -524,7 +524,7 @@ describe("debounced progress persistence", () => {
     useReaderStore.getState().goToPage(3);
     useReaderStore.getState().goToPage(4);
 
-    // Before debounce flushes — no save.
+    // Before debounce flushes, no save.
     expect(saveDocumentMetaMock).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(900);

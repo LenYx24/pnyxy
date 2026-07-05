@@ -1,7 +1,7 @@
 import type { Modifier } from "@dnd-kit/core";
 
 /**
- * Pin the drag delta to the vertical axis only — useful for vertical
+ * Pin the drag delta to the vertical axis only, useful for vertical
  * sortable lists where horizontal drift is just visual noise. Handy
  * for the library's list view and the quiz question reorder, where
  * the user always means to move a row up or down.
@@ -16,7 +16,7 @@ export const restrictToVerticalAxis: Modifier = ({ transform }) => ({
 
 /**
  * Clamp the drag delta so the dragging node can't be flung off-screen
- * — especially useful on mobile, where a fast finger can carry the
+ *, especially useful on mobile, where a fast finger can carry the
  * overlay into the address bar / chrome and confuse drop targeting.
  */
 export const restrictToWindowEdges: Modifier = ({

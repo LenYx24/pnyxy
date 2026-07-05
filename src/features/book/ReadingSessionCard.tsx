@@ -18,7 +18,7 @@ import { Button } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
 
 interface Props {
-  /** Same id PageTracker uses — book uuid OR PDF hash. */
+  /** Same id PageTracker uses, book uuid OR PDF hash. */
   docId: string;
   pageCount: number | null;
 }
@@ -51,7 +51,7 @@ export function ReadingSessionCard({ docId, pageCount }: Props) {
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Stop-flow modal state. We prompt for current page on stop so
-  // pace math has fresh data — but it's skippable; pace just stays
+  // pace math has fresh data, but it's skippable; pace just stays
   // less accurate without it.
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [stopPageDraft, setStopPageDraft] = useState("");

@@ -25,9 +25,7 @@ interface AiUsageRow {
   request_limit: number;
 }
 
-// Display labels for the per-model bars. Falls back to the raw
-// model id if we don't have a friendlier name yet (so newly added
-// models still render usefully without a client redeploy).
+// Display labels for the per-model bars, falls back to raw model id.
 const MODEL_DISPLAY_NAMES: Record<string, string> = {
   "gemini-2.5-flash-lite": "Gemini 2.5 Flash-Lite",
   "gemini-2.5-flash": "Gemini 2.5 Flash",
@@ -36,7 +34,7 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   "claude-haiku-4-5": "Claude Haiku 4.5",
 };
 
-// Provider names themselves stay unlocalised (brand names).
+// brand names, not localised
 const PROVIDER_LABELS: Record<AiProvider, string> = {
   pnyxy: "Pnyxy",
   anthropic: "Anthropic",
@@ -44,11 +42,7 @@ const PROVIDER_LABELS: Record<AiProvider, string> = {
   local: "Local model",
 };
 
-// Compact comparison data. Kept inline (not from AI_MODEL_CATALOG)
-// because the table view wants short labels and price strings, while
-// the catalog stores rich Hungarian prose used by the chat
-// ModelInfoModal. The catalog is still the source of truth for the
-// "Learn more" details at the bottom of this tab.
+// short table labels, kept inline since AI_MODEL_CATALOG stores long prose
 type ModelRowStatus = "active" | "byok" | "local" | "soon";
 interface ComparisonRow {
   model: string;
@@ -174,11 +168,7 @@ export function AiTab() {
     (p) => !enabledProviders.includes(p),
   );
 
-  // No outer card chrome here on purpose. SettingsPage already gives
-  // us padding and a max-width; the previous nested
-  // section→ProviderRow→ByokQuotaInfo stack created the "card inside
-  // card inside card" stack the user pushed back on. Each major
-  // group below is a labeled block separated by spacing only.
+  // no outer card, SettingsPage handles padding/max-width. groups separated by spacing.
   return (
     <div className="space-y-8">
       <header className="space-y-1.5">
@@ -301,16 +291,8 @@ function SectionHeading({
   );
 }
 
-/**
- * Compact at-a-glance comparison of every model the user could pick.
- * Replaces the long text-heavy ModelCatalogSection at the top of the
- * tab. Detailed prose lives in the collapsible at the bottom for
- * users who want to read more.
- *
- * Table on sm+, stacked rows on mobile — a true `<table>` at 375px
- * wraps awkwardly even with overflow-x-auto. The mobile stack keeps
- * the same column ordering and label/value pairing.
- */
+// Model comparison. Real table on sm+, stacked rows on mobile since a
+// <table> wraps awkwardly at 375px even with overflow-x-auto.
 function ModelComparisonTable() {
   const { t } = useTranslation();
   return (
@@ -324,7 +306,7 @@ function ModelComparisonTable() {
         })}
       />
 
-      {/* Desktop: real table */}
+      {/* desktop */}
       <div className="hidden overflow-x-auto sm:block">
         <table className="w-full border-collapse text-xs">
           <thead>
@@ -375,7 +357,7 @@ function ModelComparisonTable() {
         </table>
       </div>
 
-      {/* Mobile: stacked rows. Same data, different presentation. */}
+      {/* mobile */}
       <div className="space-y-1.5 sm:hidden">
         {COMPARISON_ROWS.map((row) => (
           <div
@@ -440,11 +422,8 @@ function StatusBadge({ status }: { status: ModelRowStatus }) {
   );
 }
 
-/** Settings for what context the AI receives by default in chat —
- *  free-form persona / preferences, an "always include the TOC" flag
- *  for book chats, and the page count for the TOC's "select around
- *  current ±N" button. Each control persists immediately; the chat
- *  store reads them at send time. */
+// default chat context settings: persona text, attach-TOC flag, and
+// the ±N page count for the TOC selector. Each control persists immediately.
 function AiContextSection() {
   const { t } = useTranslation();
   const aiCustomDefaultContext = useSettingsStore(
@@ -766,10 +745,7 @@ function ApiKeyInput({
   show: boolean;
   onToggleShow: () => void;
   placeholder: string;
-  /** Optional "check usage at provider" deep link. Renders as a
-   *  small caption under the input — used to live inside its own
-   *  nested card, but that was the third level of card nesting on
-   *  the page. */
+  /** optional "check usage at provider" deep link, rendered as a caption under the input */
   consoleHref?: string;
   consoleLabel?: string;
 }) {

@@ -17,7 +17,7 @@ async function computeFileHash(file: File): Promise<string> {
 
 /**
  * Walk the markdown source line-by-line and build a nested heading
- * hierarchy (H1 → H2 → H3). Page index is always 0 — the viewer
+ * hierarchy (H1 → H2 → H3). Page index is always 0, the viewer
  * scrolls by heading id instead.
  */
 export function parseMarkdownHeadings(markdown: string): TocItem[] {

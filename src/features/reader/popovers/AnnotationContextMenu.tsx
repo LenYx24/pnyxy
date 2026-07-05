@@ -40,18 +40,9 @@ const COLORS: { color: HighlightColor; hex: string }[] = [
   { color: "orange", hex: "#fb923c" },
 ];
 
-/**
- * Which sub-view the menu is currently showing. `"none"` renders the
- * top-level action list (Define / Translate / Read aloud / Wikipedia
- * / Explain / Add comment / Send to chat / Copy / Share). `"comment"`
- * shows the inline reply textarea. The other four mount their own
- * panel components, each of which owns its data and abort state.
- *
- * Replacing the previous "five separate `showX` boolean useStates"
- * with a single tagged state lets us encode "only one panel open at
- * a time" structurally — no risk of two panels rendering due to a
- * missed reset.
- */
+// Active sub-view. "none" = action list, "comment" = inline textarea, the
+// rest each mount their own panel component. Single tagged state so only one
+// panel can be open at a time.
 type ActivePanel =
   | "none"
   | "comment"
@@ -60,14 +51,8 @@ type ActivePanel =
   | "wiki"
   | "explain";
 
-/**
- * Wrapped in `memo` because the menu is mounted under high-frequency
- * re-rendering ancestors (reader scroll, page virtualisation) but
- * takes no props of its own — every dynamic input comes from zustand
- * subscriptions. memo lets it skip re-renders on parent updates that
- * don't touch the menu's slice of the store, materially reducing
- * cost during PDF scroll.
- */
+// memo: mounted under the reader's high-frequency re-render tree but takes no
+// props, so it can skip parent updates that don't touch its store slice.
 export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -96,11 +81,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
   const hasHighlight = !!highlight;
   const trimmedSelected = selectedText.trim();
 
-  // Reset to the top-level action list whenever the menu opens for a
-  // new spot (different selection / right-click position). The
-  // panel sub-components unmount automatically when activePanel
-  // flips to "none", so their internal data + AbortControllers
-  // self-clean — no manual reset needed here.
+  // Reset to the action list whenever the menu reopens at a new spot.
   useEffect(() => {
     if (!contextMenu.visible) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot reset when the menu reopens for a new selection; can't cascade
@@ -108,10 +89,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
     setCommentText("");
   }, [contextMenu.visible, contextMenu.x, contextMenu.y]);
 
-  // Position the menu before paint so it never appears at the touch
-  // point and then jumps. useLayoutEffect runs after the ref is
-  // populated but before the browser paints — same effect as a
-  // requestAnimationFrame would give, but ~16ms faster perceived.
+  // Position before paint so the menu doesn't flash at the touch point and jump.
   useLayoutEffect(() => {
     if (!contextMenu.visible) return;
     const el = menuRef.current;
@@ -126,8 +104,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
     setMenuPos({ x: Math.max(8, x), y: Math.max(8, y) });
   }, [contextMenu.visible, contextMenu.x, contextMenu.y]);
 
-  // Re-clamp when the active panel changes (different panel = different
-  // menu size, e.g. Translate is taller than the action list).
+  // Re-clamp when the panel changes, since panels have different heights.
   useEffect(() => {
     if (!contextMenu.visible) return;
     requestAnimationFrame(() => {
@@ -165,9 +142,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
     const text = (selection?.text ?? "").trim();
     const doc = useReaderStore.getState().getActiveDoc();
     const openInReader = useUIStore.getState().openReaderAiChat;
-    // Diagnostic — flat string so Chrome doesn't collapse it on
-    // copy/paste. Strip once Send-to-AI-chat is reliably delivering
-    // the selection into the composer.
+    // TODO: drop this log once send-to-chat is reliable. flat string so Chrome doesn't collapse it.
     console.log(
       `[send-to-chat] textLen=${text.length} preview="${text.slice(
         0,
@@ -182,12 +157,8 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
       console.warn("[send-to-chat] early-return: no active doc");
       return;
     }
-    // Stash a draft. Either the reader's in-panel AiChatPanel or
-    // ChatPage will pick it up — both subscribe to pendingDraft and
-    // drain it into a fresh conversation prefilled with the quote.
-    // `selection` rides along so AiChatPanel can arm a citation that
-    // gets saved on the first send, letting us underline the source
-    // passage in the PDF.
+    // Stash a draft for AiChatPanel/ChatPage to drain into a new conversation.
+    // selection rides along so a citation can be saved on first send.
     useChatStore.getState().setPendingDraft({
       text: `> ${text.replace(/\n/g, "\n> ")}\n\n`,
       source: {
@@ -200,9 +171,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
     console.log("[send-to-chat] pendingDraft set");
     hideContextMenu();
     window.getSelection()?.removeAllRanges();
-    // Prefer the reader's side panel — keeps the user in their
-    // reading context. Fall back to /chat only if no reader is
-    // mounted (defensive; this menu only renders inside the reader).
+    // Prefer the reader side panel; fall back to /chat if it isn't registered.
     if (openInReader) {
       console.log("[send-to-chat] opening in-reader panel");
       openInReader();
@@ -237,13 +206,13 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
         hideContextMenu();
         return;
       } catch {
-        // User cancelled or share failed — fall through to clipboard.
+        // cancelled or failed, fall through to clipboard
       }
     }
     try {
       await navigator.clipboard.writeText(body);
     } catch {
-      // Clipboard may be blocked; nothing else we can do here.
+      // clipboard may be blocked
     }
     hideContextMenu();
     window.getSelection()?.removeAllRanges();
@@ -313,12 +282,8 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
       className="fixed z-50 flex flex-col gap-1 rounded-lg border border-glass-border bg-bg-secondary/95 backdrop-blur-md p-2 shadow-xl"
       style={{ left: menuPos.x, top: menuPos.y }}
     >
-      {/* Color row — for new selections, click a color to highlight;
-          for existing highlights, click to change color, click the
-          trailing X to remove. Keeping the picker and the remove
-          action in the same row means delete is one click from
-          where the user just set the highlight, instead of buried
-          three rows down in the menu. */}
+      {/* Color row: pick a color to highlight, or on an existing highlight
+          change its color / hit the trailing X to remove. */}
       {(hasSelection || hasHighlight) && activePanel === "none" && (
         <>
           <div className="flex items-center gap-1.5 px-1">

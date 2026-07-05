@@ -18,6 +18,7 @@ import { hitTest } from "./lib/hit-testing";
 import { bboxesIntersect, getElementBounds, screenToWorld } from "./lib/math-utils";
 import { applyResize, angleFromPointer } from "./lib/transforms";
 import { measureTextHeight, TEXT_LINE_HEIGHT } from "./lib/text-layout";
+import { registerBoardCanvas } from "./board-capture";
 
 const DEFAULT_TEXT_WIDTH = 240;
 const DEFAULT_TEXT_FONT_SIZE = 16;
@@ -32,6 +33,9 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
+  // last requested lazy-PDF window (comma-joined page numbers) so we only ask
+  // the store to (re)rasterize/evict when the visible page set actually changes
+  const pdfWindowRef = useRef<string>("");
   const isDrawingRef = useRef(false);
   const isPanningRef = useRef(false);
   const panStartRef = useRef<Point>({ x: 0, y: 0 });
@@ -42,25 +46,17 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
   const dragSnapshotsRef = useRef<Map<string, WhiteboardElement>>(new Map());
   const isDraggingSelectionRef = useRef(false);
 
-  // Transform-drag state. When the user grabs a resize/rotate handle
-  // on a single-selected element, we snapshot it once and re-derive
-  // the new geometry every pointermove. `kind` distinguishes resize
-  // vs rotate; `original` is the element as it was at the start of
-  // the drag (so we never accumulate floating-point error).
+  // handle-drag state: snapshot the element once, re-derive geometry each move so fp error doesn't accumulate
   const transformRef = useRef<{
     kind: ResizeHandle | "rotate";
     elementId: string;
     original: WhiteboardElement;
-    /** For rotate: radians offset between the snapshot rotation and
-     *  the angle from centre to pointer at drag start. */
+    // rotate: radians between snapshot rotation and centre->pointer angle at drag start
     angleOffset?: number;
     centre?: Point;
   } | null>(null);
 
-  // Marquee (rubber-band) selection state. While the user drags from
-  // an empty point with the select tool active, marqueeRef stores the
-  // start + end world-space corners so render() can draw the box and
-  // pointerup can finalise the selection.
+  // marquee selection: start/end world corners for the rubber-band box
   const marqueeRef = useRef<{
     startWorld: Point;
     endWorld: Point;
@@ -68,10 +64,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
     baseline: Set<string>;
   } | null>(null);
 
-  // Text-editing state. `editingId` is the id of the text element whose
-  // overlay is currently open; editingIdRef mirrors it so the render
-  // loop (which reads via ref, not reactive) can skip drawing that
-  // element while the HTML textarea is on top.
+  // editingIdRef mirrors editingId so the render loop (ref-only) can skip drawing the element under the textarea
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const editingIdRef = useRef<string | null>(null);
@@ -79,9 +72,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
     editingIdRef.current = editingId;
   }, [editingId]);
 
-  // Subscribe to pan/zoom/elements so the overlay follows the canvas
-  // transform — the canvas render itself reads via store.getState(), so
-  // these subscriptions are only here for the overlay.
+  // only the overlay needs these reactive; canvas render reads via store.getState()
   const editingPanX = useWhiteboardStore((s) => s.panX);
   const editingPanY = useWhiteboardStore((s) => s.panY);
   const editingZoom = useWhiteboardStore((s) => s.zoom);
@@ -97,6 +88,12 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
   useEffect(() => {
     store.getState().loadWhiteboardData(whiteboardId);
   }, [whiteboardId]);
+
+  // expose the canvas so the chat sidebar can snapshot the board for the AI
+  useEffect(() => {
+    registerBoardCanvas(canvasRef.current);
+    return () => registerBoardCanvas(null);
+  }, []);
 
   // Load PDF background if provided
   useEffect(() => {
@@ -144,16 +141,61 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
     // World transform
     ctx.setTransform(zoom * dpr, 0, 0, zoom * dpr, panX * dpr, panY * dpr);
 
-    // Draw PDF background pages
+    // Viewport in world space, used to cull offscreen drawing work.
+    const viewLeft = -panX / zoom;
+    const viewTop = -panY / zoom;
+    const viewRight = (w - panX) / zoom;
+    const viewBottom = (h - panY) / zoom;
+    const viewBounds = {
+      minX: viewLeft,
+      minY: viewTop,
+      maxX: viewRight,
+      maxY: viewBottom,
+    };
+
+    // Draw PDF background pages — lazily rasterized + windowed so a long book
+    // never holds every page's bitmap at once.
     const { pdfPages } = store.getState();
-    for (const page of pdfPages) {
-      ctx.drawImage(page.bitmap, 0, page.y, page.width, page.height);
+    if (pdfPages.length > 0) {
+      // one screen of margin each way keeps small scrolls within the window
+      const margin = viewBottom - viewTop;
+      const windowLo = viewTop - margin;
+      const windowHi = viewBottom + margin;
+      const windowNums: number[] = [];
+      for (const page of pdfPages) {
+        const pageBottom = page.y + page.height;
+        if (page.y < windowHi && pageBottom > windowLo) {
+          windowNums.push(page.pageNum);
+        }
+        // only draw pages actually in view
+        if (page.y < viewBottom && pageBottom > viewTop) {
+          if (page.bitmap) {
+            ctx.drawImage(page.bitmap, 0, page.y, page.width, page.height);
+          } else {
+            // placeholder while the page rasterizes
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, page.y, page.width, page.height);
+            ctx.strokeStyle = "rgba(0,0,0,0.1)";
+            ctx.lineWidth = 1 / zoom;
+            ctx.strokeRect(0, page.y, page.width, page.height);
+          }
+        }
+      }
+      // request the visible window (throttled: only when it changes). Deferred
+      // to a microtask so its store writes (eviction) don't re-enter render()
+      // while we're mid-draw.
+      const windowKey = windowNums.join(",");
+      if (windowKey !== pdfWindowRef.current) {
+        pdfWindowRef.current = windowKey;
+        queueMicrotask(() => store.getState().ensurePdfPages(windowNums));
+      }
     }
 
-    // Draw all elements, skipping whichever text is being edited (its
-    // HTML textarea overlay is the visible version).
+    // skip the text being edited; its textarea overlay is the visible version.
+    // Cull elements whose bounds fall entirely outside the viewport.
     for (const el of elements) {
       if (el.id === editingIdRef.current) continue;
+      if (!bboxesIntersect(getElementBounds(el), viewBounds)) continue;
       drawElement(ctx, el);
     }
 
@@ -258,10 +300,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
       const world = getWorldPoint(e);
 
       if (activeTool === "select") {
-        // First, if exactly one element is selected, see whether the
-        // pointer landed on one of its resize/rotate handles. This
-        // takes precedence over element hit-tests so users can grab a
-        // handle that's outside the element's outline.
+        // handle hit-test wins over element hit-test so a handle outside the outline is still grabbable
         if (selectedElementIds.size === 1) {
           const onlySelected = elements.find((el) =>
             selectedElementIds.has(el.id),
@@ -304,16 +343,8 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
 
         const hit = hitTest(elements, world, zoom);
 
-        // Obsidian-canvas behaviour: when there's already a selection
-        // and the user clicks INSIDE the selected element's visual
-        // rectangle (the same bbox-with-padding that
-        // `drawSelectionHandles` paints), treat it as a drag for the
-        // selection — even though `hitTest` returned no element
-        // because the click was on a transparent fill or in the gap
-        // between selected items. Without this, users have to aim at
-        // the actual stroke, which is fiddly for thin shapes.
-        // Skips when Ctrl/Cmd/Shift is held (those mean "extend
-        // selection" → marquee should still win).
+        // a click inside a selected element's bbox counts as a drag even when hitTest misses
+        // (transparent fill / gap between items). mod keys mean extend, so let marquee win there.
         const modKey = e.ctrlKey || e.metaKey || e.shiftKey;
         const HANDLE_PAD = 4 / zoom;
         const insideSelectionRect =
@@ -345,9 +376,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
           } else if (hit && !selectedElementIds.has(hit.id)) {
             store.getState().setSelection(new Set([hit.id]));
           }
-          // For `insideSelectionRect`-only (no hit), the existing
-          // selection is preserved as-is — that's the whole point.
-          // Start drag — snapshot all selected elements
+          // insideSelectionRect-only keeps the existing selection. start drag, snapshot selected
           const sel = store.getState().selectedElementIds;
           if (sel.size > 0) {
             isDraggingSelectionRef.current = true;
@@ -355,7 +384,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
             dragSnapshotsRef.current = new Map();
             for (const el of elements) {
               if (sel.has(el.id)) {
-                // Deep-clone pen points
+                // deep-clone pen points
                 dragSnapshotsRef.current.set(
                   el.id,
                   el.type === "pen"
@@ -364,13 +393,10 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
                 );
               }
             }
-            // Push undo before drag
             store.getState().pushUndo();
           }
         } else {
-          // Empty space → start a marquee selection. Shift/Ctrl makes
-          // it additive (existing selection preserved as a baseline);
-          // a plain drag clears existing selection on commit.
+          // empty space starts a marquee. shift/ctrl makes it additive (baseline preserved)
           const additive = e.shiftKey || e.ctrlKey || e.metaKey;
           marqueeRef.current = {
             startWorld: world,
@@ -379,7 +405,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
             baseline: new Set(selectedElementIds),
           };
           if (!additive) store.getState().clearSelection();
-          // Drive a rAF loop so the marquee box redraws while dragging.
+          // rAF loop redraws the marquee box while dragging
           const loop = () => {
             render();
             if (marqueeRef.current) {
@@ -400,9 +426,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
         return;
       }
 
-      // Text tool → click-place. No drag-to-size; the box grows with
-      // content as the user types. Existing overlay (if any) commits
-      // itself first via its own blur handler.
+      // text is click-placed; the box grows with content as you type
       if (activeTool === "text") {
         if (editingIdRef.current) return;
         const id = crypto.randomUUID();
@@ -609,9 +633,20 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
       if (!ip) return;
 
       switch (ip.type) {
-        case "pen":
-          ip.points.push(world);
+        case "pen": {
+          // decimate: skip points within ~2 screen px of the previous one so a
+          // long stroke doesn't bloat into thousands of near-duplicate points
+          const pts = ip.points;
+          const last = pts[pts.length - 1];
+          const minDist = 2 / store.getState().zoom;
+          if (
+            !last ||
+            Math.hypot(world.x - last.x, world.y - last.y) >= minDist
+          ) {
+            pts.push(world);
+          }
           break;
+        }
         case "rectangle": {
           const startX = ip.x;
           const startY = ip.y;
@@ -646,7 +681,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
 
       if (isDraggingSelectionRef.current) {
         isDraggingSelectionRef.current = false;
-        store.getState().saveCurrentWhiteboard();
+        store.getState().flushSave();
         return;
       }
 
@@ -654,14 +689,12 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
       if (transformRef.current) {
         transformRef.current = null;
         cancelAnimationFrame(rafRef.current);
-        store.getState().saveCurrentWhiteboard();
+        store.getState().flushSave();
         render();
         return;
       }
 
-      // Marquee finalize: collect every element whose bbox intersects
-      // the marquee rectangle and merge with the additive baseline if
-      // shift/ctrl was held when the marquee began.
+      // marquee finalize: select every element whose bbox intersects the rect
       if (marqueeRef.current) {
         const { startWorld, endWorld, additive, baseline } =
           marqueeRef.current;
@@ -670,9 +703,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
 
         const dx = Math.abs(endWorld.x - startWorld.x);
         const dy = Math.abs(endWorld.y - startWorld.y);
-        // A trivial drag (or just a click on empty space) shouldn't
-        // commit a marquee; clearSelection already happened on pointer-
-        // down for the non-additive case.
+        // ignore trivial drags / plain clicks (selection already cleared on pointerdown)
         if (dx >= 2 || dy >= 2) {
           const marqueeBbox = {
             minX: Math.min(startWorld.x, endWorld.x),
@@ -700,7 +731,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
       inProgressElementRef.current = null;
 
       if (ip) {
-        // Don't add degenerate shapes
+        // drop degenerate shapes
         let shouldAdd = true;
         if (ip.type === "pen" && ip.points.length === 0) shouldAdd = false;
         if (
@@ -723,15 +754,8 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
 
         if (shouldAdd) {
           store.getState().addElement(ip);
-          // Obsidian-canvas behaviour: after dropping a discrete
-          // shape (rectangle / ellipse / line / arrow), auto-select
-          // it and switch to the select tool. The user almost always
-          // wants to nudge or resize the shape they just placed; the
-          // current behaviour of staying in the shape tool meant
-          // they had to press `V` first, which felt clunky. Pen and
-          // text are excluded — pen is fluid sketching where the
-          // tool should stay sticky, and text drops straight into
-          // edit mode anyway.
+          // after dropping a discrete shape, auto-select it and switch to the select tool.
+          // pen stays sticky for fluid sketching; text goes straight to edit mode.
           if (
             ip.type === "rectangle" ||
             ip.type === "ellipse" ||
@@ -749,9 +773,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
     [render],
   );
 
-  // --- Wheel: pan by default, Ctrl+wheel zooms at cursor ---
-  // Trackpad pinch gestures arrive as wheel events with ctrlKey=true,
-  // so the ctrl branch also handles pinch-zoom naturally.
+  // wheel pans, ctrl+wheel zooms at cursor. trackpad pinch arrives as ctrlKey=true so it lands in the zoom branch too
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       e.preventDefault();
@@ -762,9 +784,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
         const screen = getScreenPoint(e);
         setZoom(zoom * delta, screen);
       } else {
-        // Shift+wheel → horizontal pan (classic trackpad convention).
-        // Lines of deltaX/deltaY on OS wheel lines are tiny; pixel
-        // mode (deltaMode=0) is what we care about.
+        // shift+wheel = horizontal pan
         const dx = e.shiftKey && e.deltaX === 0 ? e.deltaY : e.deltaX;
         const dy = e.shiftKey && e.deltaX === 0 ? 0 : e.deltaY;
         setPan(panX - dx, panY - dy);
@@ -819,13 +839,11 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
         return;
       }
 
-      // PDF-backed whiteboards: page navigation. When no PDF is loaded
-      // these keys fall through to the default page-scroll behavior.
+      // page navigation for PDF-backed whiteboards
       const { pdfPages, zoom, panY, setPan, panX } = store.getState();
       if (pdfPages.length > 0) {
         const currentPageIdx = (() => {
-          // The "current page" is whichever page's top is closest to
-          // but not past the screen center.
+          // page whose top is closest to but not past the screen center
           const screenY = (canvasRef.current?.clientHeight ?? 0) / 2;
           const worldY = (screenY - panY) / zoom;
           let idx = 0;
@@ -898,9 +916,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
     if (!el || el.type !== "text") return;
 
     if (editDraft.trim() === "") {
-      // Empty text → discard. If the element was freshly-created in
-      // this session its undo entry is already on the stack, so undo
-      // after removal still restores a sensible state.
+      // empty text: discard
       store.getState().removeElements([id]);
       return;
     }
@@ -950,9 +966,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
       />
       <WhiteboardToolbar />
 
-      {/* Text-edit overlay — positioned in screen space over the
-          text element being edited. Follows pan/zoom via the
-          subscribed panX/panY/zoom selectors fed in as props. */}
+      {/* text-edit overlay, positioned in screen space over the edited element */}
       {editingElement && (
         <TextEditOverlay
           element={editingElement}

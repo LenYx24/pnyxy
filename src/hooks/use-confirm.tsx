@@ -28,7 +28,7 @@ interface UseConfirmReturn {
  *
  * instead of hand-rolling open-state, an onConfirm callback, and a
  * separate JSX block per delete action. Each component gets its own
- * hook instance — there's no global queue.
+ * hook instance, there's no global queue.
  */
 export function useConfirm(): UseConfirmReturn {
   const [opts, setOpts] = useState<ConfirmOptions | null>(null);

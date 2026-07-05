@@ -25,7 +25,7 @@ export function AppearanceTab() {
   const [browseOpen, setBrowseOpen] = useState(false);
 
   // User-supplied CSS. Live-apply on every keystroke so the user
-  // sees changes immediately — broken CSS rules are silently
+  // sees changes immediately, broken CSS rules are silently
   // ignored by the browser, so there's no "syntax error" state to
   // guard against.
   const [customCss, setCustomCss] = useState<string>(() => getUserCss());

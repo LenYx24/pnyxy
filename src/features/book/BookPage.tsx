@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, BookOpen, Pencil } from "lucide-react";
@@ -21,39 +21,27 @@ export function BookPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // The :bookId URL param may include a decorative slug suffix
-  // ("voros-es-fekete--<uuid>"). Parse the real id out for the DB
-  // lookup; preserve the raw segment for the redirect comparison.
+  // bookId param may carry a slug suffix ("title--<uuid>"); strip to the real id.
   const { id: bookId } = useMemo(
     () => (rawBookId ? parseBookIdSegment(rawBookId) : { id: undefined, slug: null }),
     [rawBookId],
   );
 
   const { data, loading, notFound, patchUploadedBook } = useBookData(bookId);
-  // Rename modal lives at the BookPage level so the click target in
-  // the sidebar (the <h1>) can open it. Only uploaded books get the
-  // affordance — catalog titles are shared community metadata.
+  // rename lives here so the sidebar <h1> can open it. only uploaded books rename.
   const [renameOpen, setRenameOpen] = useState(false);
 
-  // Track catalog-book visits for the "Recently viewed" shelf (which
-  // will live on the future Home page). Non-catalog books are ignored.
   useEffect(() => {
     if (data?.source === "catalog" && data.book.id) {
       trackRecentlyViewed(data.book.id);
     }
   }, [data?.source, data?.book.id]);
 
-  // Canonicalize the URL once the book title is known. If the user
-  // landed on a bare `/books/<id>` link or a stale slug, swap it
-  // for `<slug>--<id>` via `replace` (no history entry, no flash).
-  // Sub-routes (notes, bookmarks, …) are preserved by inheriting
-  // whatever follows the bookId segment in the current pathname.
+  // canonicalize URL to `<slug>--<id>` once title is known, preserving sub-route tail.
   useEffect(() => {
     if (!data || !rawBookId) return;
     const canonical = bookIdSegment(bookId!, data.book.title);
     if (canonical === rawBookId) return;
-    // Replace the first path segment after `/books/` with the
-    // canonical value, leaving everything past it intact.
     const tail = location.pathname.replace(
       new RegExp(`^/books/${rawBookId}`),
       "",
@@ -89,20 +77,9 @@ export function BookPage() {
 
   return (
     <BookPageContext.Provider value={data}>
-      {/* Mobile keeps the older stacked layout (header + dropdown
-          nav + content). Desktop gets the chat-style two-pane: a
-          fixed-width left rail with a sticky sidebar nav, and the
-          remaining viewport for the active tab — books with a lot
-          of bookmarks / notes / whiteboards now use the screen
-          properly instead of being capped at max-w-6xl. */}
+      {/* mobile stacks; desktop is a two-pane rail + content */}
       <div className="flex min-h-full flex-col md:flex-row">
-        {/* Desktop sidebar follows the reader's TOC pattern: the
-            <aside> itself is sticky + viewport-height + overflow-y
-            auto, so its right border *always* reaches the bottom of
-            the viewport, regardless of how short or tall the main
-            pane is. Previously the border ended where the aside's
-            content ended, which looked truncated when the main pane
-            was longer than the nav. */}
+        {/* aside is sticky + full-height so its right border reaches the viewport bottom */}
         <aside className="md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:overflow-y-auto md:border-r md:border-glass-border md:bg-glass-bg/40">
           <div className="space-y-3 p-4 md:p-3">
             <button
@@ -113,9 +90,6 @@ export function BookPage() {
               {t("book.back")}
             </button>
 
-            {/* Compact book identity: cover + title stacked, just
-                enough to anchor the sidebar without shrinking the
-                main pane. */}
             <div className="flex items-start gap-3">
               <div className="shrink-0">
                 {coverUrl ? (
@@ -173,15 +147,19 @@ export function BookPage() {
               }
             />
 
-            {/* Sidebar links keep the slug-suffixed segment so
-                sub-tab clicks land on canonical URLs immediately
-                rather than going through a redirect bounce. */}
+            {/* pass slug-suffixed segment so sub-tab clicks avoid a redirect bounce */}
             <BookPageSidebar bookId={rawBookId ?? bookId} />
           </div>
         </aside>
 
         <main className="min-w-0 flex-1 p-4 sm:p-6 md:p-8">
-          <Outlet />
+          {/* Local Suspense so a lazy tab chunk only skeletons the
+              content area; without it the tab's chunk load bubbles to
+              AppLayout's Suspense and a full-page spinner wipes out the
+              book chrome + skeleton. */}
+          <Suspense fallback={<BookTabSkeleton />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
       {data.source === "uploaded" && (
@@ -206,11 +184,7 @@ export function BookPage() {
           }}
           onClose={() => setRenameOpen(false)}
           onSubmit={(value) => {
-            // Build the same UploadedLibraryItem shape the library
-            // surfaces use so the store's optimistic patch lands on
-            // the right row. file_name / storage_path are required
-            // by the type but renameBook only touches `book.title`,
-            // so falling back to empty strings here is safe.
+            // renameBook only touches book.title, so empty file_name/storage_path is fine.
             const entry: UploadedLibraryItem = {
               source: "uploaded",
               id: data.book.id,
@@ -230,11 +204,7 @@ export function BookPage() {
                 file_name: data.fileName ?? "",
               },
             };
-            // Patch local view first so the sidebar + URL slug update
-            // before the round-trip lands — same instant feel as a
-            // library-surface rename. The store also patches its own
-            // copy, so navigating back to /library shows the new
-            // title without a refetch.
+            // optimistic local patch so sidebar + URL slug update before the round-trip
             const trimmed = value.trim();
             patchUploadedBook({ title: trimmed });
             void useLibraryStore
@@ -242,8 +212,7 @@ export function BookPage() {
               .renameBook(entry, value)
               .catch((err) => {
                 logError("book:renameTitle", err);
-                // Revert the optimistic local patch on failure so the
-                // user doesn't see a title that didn't actually save.
+                // revert optimistic patch on failure
                 patchUploadedBook({ title: data.book.title });
               });
           }}
@@ -253,10 +222,30 @@ export function BookPage() {
   );
 }
 
-// Mirrors the loaded layout: sticky left rail (back link, cover,
-// title/author, page tracker, nav items) and a main pane with a
-// hero block and a couple of content rows. Same shapes/sizes as the
-// real page so when data resolves there's no jump.
+// Content-area skeleton shown while a lazy tab chunk loads, so the book
+// chrome stays put instead of a full-page spinner.
+function BookTabSkeleton() {
+  return (
+    <div className="animate-pulse space-y-6">
+      <div className="space-y-2">
+        <div className="h-6 w-2/5 rounded bg-bg-tertiary" />
+        <div className="h-3 w-4/5 rounded bg-bg-tertiary/70" />
+        <div className="h-3 w-3/5 rounded bg-bg-tertiary/70" />
+      </div>
+      <div className="flex gap-2">
+        <div className="h-9 w-28 rounded-lg bg-bg-tertiary/70" />
+        <div className="h-9 w-28 rounded-lg bg-bg-tertiary/70" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-24 rounded-lg bg-bg-tertiary/50" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// skeleton matches the loaded layout's shapes/sizes to avoid a jump on resolve
 function BookPageSkeleton() {
   return (
     <div className="flex min-h-full flex-col md:flex-row">

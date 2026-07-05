@@ -1,6 +1,6 @@
 /**
  * Tests for the VSCode-style search store. We don't stub the reader
- * store — instead we register a fake DocumentAdapter through
+ * store, instead we register a fake DocumentAdapter through
  * `useReaderStore.addDocument` so the store's existing
  * `getActiveDoc` / `requestScrollToPage` path runs as-is.
  */
@@ -13,7 +13,7 @@ import type {
   TocItem,
 } from "@/types/document";
 
-// ── Mocks (shared with the reader-store test pattern) ──────
+// Mocks (shared with the reader-store test pattern)
 
 const loadDocumentMetaMock = vi.fn(async () => undefined);
 const saveDocumentMetaMock = vi.fn(async () => {});
@@ -35,7 +35,7 @@ vi.mock("@/stores/auth-store", () => ({
   useAuthStore: { getState: () => ({ user: null, profile: null }) },
 }));
 
-// ── Helpers ────────────────────────────────────────────────
+// Helpers
 
 interface FakeAdapterOptions {
   id?: string;
@@ -118,7 +118,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ── Tests ──────────────────────────────────────────────────
+// Tests
 
 describe("open / close", () => {
   it("opens in find mode by default", async () => {

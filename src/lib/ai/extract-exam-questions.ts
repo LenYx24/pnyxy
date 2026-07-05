@@ -1,12 +1,12 @@
 import { aiJsonExtract } from "@/lib/ai/ai-json-extract";
 
 export interface ExtractedQuestion {
-  /** 1-based position in the exam — handy for "Question N of M" UI. */
+  /** 1-based position in the exam, handy for "Question N of M" UI. */
   id: number;
   text: string;
 }
 
-/** Soft cap. Exams are usually 5–12 questions; pull a few extra so the
+/** Soft cap. Exams are usually 5-12 questions; pull a few extra so the
  *  practice flow has enough material before re-extracting. */
 const MAX_QUESTIONS = 15;
 

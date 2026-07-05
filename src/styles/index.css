@@ -68,6 +68,62 @@
   --text-2xs--line-height: 1rem;
 }
 
+/* Static light theme for public pages (landing, auth). Scoped override
+   of the color tokens so every existing `text-text-*` / `bg-*` / `glass`
+   utility in the subtree flips to a light palette. Applied when a root
+   carries data-static-theme="light", making it independent of the
+   user's runtime app theme. */
+[data-static-theme="light"] {
+  color-scheme: light;
+  /* Warm off-white (studix-style), kept coherent rather than the
+     patchy varying white. Slight warmth reads softer than a cold
+     white and is easier on the eyes for a study product. */
+  --color-bg-primary: #f5f3f0;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #ecebe6;
+  --color-text-primary: #17140f;
+  --color-text-secondary: #45413a;
+  --color-text-muted: #736f66;
+  --color-glass-bg: rgba(23, 20, 15, 0.035);
+  --color-glass-border: rgba(23, 20, 15, 0.1);
+  --color-glass-hover: rgba(23, 20, 15, 0.06);
+  /* Pin the accents too so a user's global/reader theme can't bleed
+     an off-brand accent into the landing. */
+  --color-accent: #0891b2;
+  --color-accent-blue: #2563eb;
+}
+
+/* Static dark theme for public pages (landing dark mode + auth pages),
+   declared EXPLICITLY. The runtime theme system sets --color-* inline on
+   <html>; if the user picked a light/sepia app theme, these forced-dark
+   pages (dark mesh) would otherwise inherit dark text and vanish.
+   Re-declaring pnyxy-dark keeps them self-contained regardless of the
+   active app theme. */
+[data-static-theme="dark"] {
+  color-scheme: dark;
+  --color-bg-primary: #0a0a0f;
+  --color-bg-secondary: #111118;
+  --color-bg-tertiary: #1a1a24;
+  --color-text-primary: #eaf2ff;
+  --color-text-secondary: #d8e1f5;
+  --color-text-muted: #b0bbd8;
+  --color-glass-bg: rgba(255, 255, 255, 0.05);
+  --color-glass-border: rgba(255, 255, 255, 0.1);
+  --color-glass-hover: rgba(255, 255, 255, 0.08);
+  --color-accent: #0891b2;
+  --color-accent-blue: #60a5fa;
+}
+
+/* Custom title bar height. 0 in the browser so every calc()/offset that
+   references it is a no-op there; the native (Tauri) app sets 2rem via
+   the tauri-app class on <html> and renders its own CustomTitleBar. */
+:root {
+  --titlebar-h: 0px;
+}
+html.tauri-app {
+  --titlebar-h: 2rem;
+}
+
 @keyframes slide-up {
   from {
     opacity: 0;

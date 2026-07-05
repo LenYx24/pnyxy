@@ -39,7 +39,7 @@ const VIDEO_FENCE = /```pnyxy-videos\s*([\s\S]*?)```/gi;
  * parse them into structured arrays. Cleaned prose still goes through
  * the regular markdown renderer; the parsed lists become React cards.
  *
- * Mid-stream the JSON inside the fence may be incomplete — we
+ * Mid-stream the JSON inside the fence may be incomplete, we
  * silently swallow the parse error and just leave the fence stripped
  * (so half-finished JSON doesn't render in the prose). Once the
  * stream settles the next call parses successfully and the cards
@@ -60,7 +60,7 @@ export function extractRecommendations(content: string): ExtractResult {
         }
       }
     } catch {
-      // partial JSON during streaming — ignore
+      // partial JSON during streaming, ignore
     }
     return "";
   });

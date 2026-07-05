@@ -30,7 +30,7 @@ export function reviewCard(
 
 /**
  * Deserialize a Card from JSON (Supabase jsonb or IndexedDB). Date
- * fields come back as strings — the scheduler expects real Dates.
+ * fields come back as strings, the scheduler expects real Dates.
  */
 export function hydrateCard(raw: unknown): Card {
   const r = raw as Record<string, unknown>;

@@ -7,7 +7,7 @@ import { useActiveDocument } from "@/stores/reader-store";
 const MINUTE_PRESETS = [15, 30, 45, 60];
 const PAGE_PRESETS = [10, 20, 30, 50];
 /** When the user picks pages-only, the time bound becomes a generous safety
- *  cap — long enough for a slow reader, short enough that a forgotten session
+ *  cap, long enough for a slow reader, short enough that a forgotten session
  *  doesn't run forever. */
 const PAGES_MODE_TIME_CAP_MIN = 240;
 
@@ -27,7 +27,7 @@ export function FocusSessionControl({ compact = false }: { compact?: boolean }) 
   const [custom, setCustom] = useState("");
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  // Pages mode requires an open document — without one there's nothing to
+  // Pages mode requires an open document, without one there's nothing to
   // measure progress against. Keep the option visible but disabled so users
   // see it exists.
   const pagesAvailable = !!activeDoc && (activeDoc.totalPages ?? 0) > 0;

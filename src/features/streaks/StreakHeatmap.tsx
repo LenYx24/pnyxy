@@ -39,7 +39,7 @@ function dateKey(d: Date): string {
 /**
  * GitHub-style activity heatmap. 7 rows (one per weekday) × 12
  * columns (one per week). Newest week on the right, oldest on the
- * left — eyes naturally drift toward the active end. Empty days
+ * left, eyes naturally drift toward the active end. Empty days
  * stay visible so the user can see the gaps, not just the fills.
  */
 export function StreakHeatmap({

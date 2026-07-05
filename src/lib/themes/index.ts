@@ -24,7 +24,7 @@ export function getTheme(
 
 /**
  * Initial value for `installedThemes` in the settings store. Empty by
- * default — community themes are added via `installTheme()`. Exists
+ * default, community themes are added via `installTheme()`. Exists
  * mostly for symmetry with `buildDefaultPluginSettings()` and so the
  * settings migration has a single function to call.
  */

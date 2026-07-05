@@ -149,12 +149,12 @@ export function PdfReflowView({ documentId }: PdfReflowViewProps) {
         </div>
         {reflow.blocks.map((block, idx) => {
           // Page break appears whenever the page number changes between
-          // adjacent blocks — derived purely from the array, no mutable
+          // adjacent blocks, derived purely from the array, no mutable
           // state needed across iterations.
           const prevPageNum = idx === 0 ? -1 : reflow.blocks[idx - 1].pageNum;
           const showPageBreak = block.pageNum !== prevPageNum;
 
-          // Selectable text uses the body font — no per-block override
+          // Selectable text uses the body font, no per-block override
           // beyond size/weight so OS spell-check + accessibility tools
           // see a single coherent text flow.
           const heading1Style = {

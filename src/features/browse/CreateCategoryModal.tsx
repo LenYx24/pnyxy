@@ -35,7 +35,7 @@ export function CreateCategoryModal({ open, onClose }: CreateCategoryModalProps)
     } catch (err) {
       // Surface the underlying message so the user can act on it.
       // Common causes: slug collision (unique constraint on
-      // categories.slug — message contains "duplicate key"), empty
+      // categories.slug, message contains "duplicate key"), empty
       // slug after stripping non-alphanumerics, profanity filter,
       // or auth/RLS rejection.
       const msg =

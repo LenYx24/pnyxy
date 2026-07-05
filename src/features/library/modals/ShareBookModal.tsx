@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, Share2, Check, Loader2, Info } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -15,7 +16,7 @@ interface ShareBookModalProps {
 
 /**
  * Lets a signed-in user submit one of their uploaded books to the
- * community catalog. Only metadata is shared — the binary file stays
+ * community catalog. Only metadata is shared, the binary file stays
  * in the user's private storage until an admin approves and, if
  * applicable, mirrors it to a public download URL.
  */
@@ -113,7 +114,9 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
 
   if (!open) return null;
 
-  return (
+  // Portal to body: the card that hosts this modal uses content-visibility,
+  // which makes it a containing block for position:fixed, clipping the modal.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -290,6 +293,7 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

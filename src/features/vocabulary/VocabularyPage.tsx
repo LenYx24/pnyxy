@@ -93,7 +93,7 @@ export function VocabularyPage() {
       .sort((a, b) => a.dueAt - b.dueAt);
   }, [all, sourceFilter]);
 
-  // Cram queue — every visible card regardless of dueAt, shuffled
+  // Cram queue, every visible card regardless of dueAt, shuffled
   // so a back-to-back cram session doesn't always start with the
   // oldest entry. Used by the "Review all" button below; the
   // shuffle freshens on every modal open so two passes in a row

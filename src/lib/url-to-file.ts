@@ -1,17 +1,5 @@
-/**
- * Client-side URL → File loader for the Library "Open from URL" feature.
- *
- * Two-stage strategy:
- *   1. Direct browser fetch first. Fast, no server hop, works for any
- *      host that sends permissive CORS headers (most CDN-served PDFs).
- *   2. If the direct fetch fails on the network layer (CORS rejection
- *      or DNS / TCP error — the browser collapses both into a generic
- *      TypeError), retry through the `fetch-url-proxy` Supabase edge
- *      function. The proxy is server-side so CORS doesn't apply.
- *
- * The proxy requires auth, so anonymous users still get the direct-only
- * path and the original CORS error message if it fails.
- */
+// Client-side URL -> File loader. Direct fetch first, then the
+// fetch-url-proxy edge function (auth required) if CORS blocks us.
 
 import { supabase } from "./supabase";
 
@@ -37,7 +25,7 @@ function parseFilename(
   contentDisposition: string | null,
   url: URL,
 ): string {
-  // RFC 6266: filename* (UTF-8 / percent-encoded) takes precedence.
+  // RFC 6266: filename* takes precedence.
   if (contentDisposition) {
     const starMatch = contentDisposition.match(
       /filename\*\s*=\s*[^']*''([^;]+)/i,
@@ -73,12 +61,8 @@ export interface FetchUrlOptions {
   maxBytes?: number;
 }
 
-/**
- * Build a File from a Response that's already been validated for
- * size + filename + content-type. Shared between the direct and
- * proxy paths so the rest of the import pipeline (createAdapter,
- * uploadPdf) sees the same shape regardless of which one succeeded.
- */
+// Build a File, inferring the MIME from the extension when the
+// content-type isn't one we recognize.
 function finalizeFile(
   blob: Blob,
   filename: string,
@@ -110,8 +94,7 @@ async function tryDirect(
       credentials: "omit",
     });
   } catch {
-    // Network error or CORS preflight failure (browsers fold both
-    // into a generic TypeError). Caller will fall back to the proxy.
+    // Browsers fold CORS and network errors into one generic TypeError.
     return { networkError: true };
   }
 
@@ -167,8 +150,7 @@ async function tryProxy(
     data: { session },
   } = await supabase.auth.getSession();
   if (!session) {
-    // Anonymous users can't use the proxy — surface the original
-    // CORS-style error so they know what happened.
+    // no proxy for anon users, surface the CORS-style error
     throw new UrlFetchError(
       "Couldn't reach the URL. The site may block cross-origin requests; if you can download the file in your browser, try uploading it instead.",
     );
@@ -179,8 +161,7 @@ async function tryProxy(
   });
 
   if (error) {
-    // Try to extract the JSON error body the function emits. The
-    // SDK exposes the raw response on `context.response` for non-2xx.
+    // SDK exposes the raw response on context.response for non-2xx.
     const ctx = (error as unknown as { context?: { response?: Response } })
       .context;
     if (ctx?.response) {
@@ -191,7 +172,6 @@ async function tryProxy(
         if (body?.message) throw new UrlFetchError(body.message);
       } catch (e) {
         if (e instanceof UrlFetchError) throw e;
-        // Fall through to generic error.
       }
     }
     throw new UrlFetchError(
@@ -199,9 +179,8 @@ async function tryProxy(
     );
   }
 
-  // The Supabase SDK auto-parses JSON responses but our proxy returns a
-  // Blob with binary body — the SDK detects non-JSON and gives us the
-  // Blob directly via `data`. Defensive: also accept ArrayBuffer.
+  // Proxy returns a binary body, so the SDK hands back a Blob (or
+  // sometimes an ArrayBuffer) rather than parsed JSON.
   let blob: Blob;
   if (data instanceof Blob) {
     blob = data;
@@ -221,10 +200,8 @@ async function tryProxy(
     throw new UrlFetchError("The URL returned an empty response.");
   }
 
-  // Filename + content-type come back in custom headers. We can't read
-  // them from `data` (just the blob), so we fall back to the URL path
-  // and the Blob's own type. That's fine for our pipeline since
-  // finalizeFile will infer the MIME from the extension if needed.
+  // headers aren't reachable through data, so fall back to the URL path
+  // and the blob's own type
   const filename =
     opts.filename ?? parseFilename(null, url);
   const contentType = blob.type || "application/octet-stream";
@@ -232,12 +209,7 @@ async function tryProxy(
   return finalizeFile(blob, filename, contentType);
 }
 
-/**
- * Fetches a URL and returns it as a File suitable for openFile() /
- * uploadPdf() etc. Tries direct fetch first, then falls back to the
- * Pnyxy edge proxy if the direct fetch hit a network/CORS wall.
- * Throws UrlFetchError with a user-readable message on any failure.
- */
+/** Fetch a URL as a File. Throws UrlFetchError on any failure. */
 export async function fetchUrlAsFile(
   rawUrl: string,
   opts: FetchUrlOptions = {},
@@ -254,10 +226,7 @@ export async function fetchUrlAsFile(
     throw new UrlFetchError("That doesn't look like a valid URL.");
   }
 
-  // file:// URLs cannot be fetched from a web page — browsers block
-  // local-file access from any non-file origin for security. Give a
-  // specific, actionable error pointing to the drag-and-drop path
-  // instead of the generic "only http(s)" message.
+  // browsers block file:// reads from a web origin, point to drag-and-drop
   if (url.protocol === "file:") {
     throw new UrlFetchError(
       "The browser doesn't let web pages read local files via file:// URLs. Drag the file from your file manager onto the library, or use the Upload button.",
@@ -270,6 +239,5 @@ export async function fetchUrlAsFile(
   const direct = await tryDirect(url, opts);
   if ("file" in direct) return direct.file;
 
-  // Network / CORS error from the direct attempt — fall back to proxy.
   return tryProxy(url, opts);
 }

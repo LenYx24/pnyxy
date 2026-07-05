@@ -1,23 +1,6 @@
-// Builds the per-turn context pack the chat-store injects into the
-// system prompt. Three pieces:
-//
-//   1. Custom default context — free-form persona / preferences from
-//      Settings → AI. Always included if non-empty.
-//   2. TOC outline — the doc's table of contents, included when
-//      `aiAttachToc` is on and the doc actually has a toc.
-//   3. Page text — extracted via pdfjs from the user's currently-
-//      selected pages (TOC selection mode in ThumbnailToc) or empty
-//      if nothing is selected.
-//
-// Returned as two strings:
-//   - `customContext` becomes a "[User context]" section in the
-//     system prompt (separate from book content).
-//   - `pageContext` is the existing block buildSystemPrompt has
-//     always been wrapping in `---` after "Here is the text from
-//     the pages the user is currently viewing"; we now actually
-//     fill it. TOC + selected-page text both go in here, framed
-//     with "[Table of Contents]" / "[Page N]" markers so the model
-//     can see what's what.
+// Builds the per-turn context pack injected into the system prompt:
+// custom default context (persona/prefs from Settings), TOC outline,
+// and extracted text from the currently-selected pages.
 
 import { useReaderStore } from "@/stores/reader-store";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -30,15 +13,9 @@ export interface AiContextPack {
   customContext: string;
   /** Book-side context: TOC outline + selected-page text. May be empty. */
   pageContext: string;
-  /** Pages rendered as image attachments. Two ways this gets
-   *  populated:
-   *    1. The doc's `aiSendPagesAsImage` toggle is on (user
-   *       explicitly wants the model to see figures).
-   *    2. Auto-fallback: text extraction returned empty for an
-   *       image PDF — we render the selected pages so the model
-   *       isn't left guessing on a blank context.
-   *  Caller (chat-store) folds these into the outgoing user
-   *  message's `attachments` field before inserting the row. */
+  /** Pages rendered as image attachments, either because the
+   *  `aiSendPagesAsImage` toggle is on or as a fallback when text
+   *  extraction came back empty for an image PDF. */
   imageAttachments: ChatMessageAttachment[];
 }
 
@@ -55,16 +32,15 @@ interface FlatTocEntry {
   depth: number;
 }
 
-/** Flatten the TOC tree depth-first, preserving document order and
- *  nesting depth. Skips entries with an invalid pageIndex (phantom
- *  outline nodes some PDFs carry pointing at nonexistent pages). */
+/** Flatten the TOC tree depth-first. Skips entries with an invalid
+ *  pageIndex, some PDFs carry phantom outline nodes. */
 function flattenToc(
   toc: readonly TocItem[],
   depth: number,
   out: FlatTocEntry[],
 ): void {
   for (const item of toc) {
-    // pageIndex is 0-based in the model; users see 1-based labels.
+    // pageIndex is 0-based, page labels are 1-based.
     if (Number.isFinite(item.pageIndex) && item.pageIndex >= 0) {
       out.push({ title: item.title, page: item.pageIndex + 1, depth });
     }
@@ -72,24 +48,16 @@ function flattenToc(
   }
 }
 
-/** One indented outline line. Indentation = 2 spaces per level. */
+/** One outline line, 2 spaces of indent per level. */
 const tocLine = (e: FlatTocEntry) =>
   `${"  ".repeat(e.depth)}- ${e.title} (p.${e.page})`;
 
-/** Character budget for the TOC block (~1.5k tokens at 4 chars/token).
- *  Most books fit whole; only sprawling, deeply-nested textbook TOCs
- *  trip the cap. */
+/** ~1.5k tokens at 4 chars/token. */
 const TOC_CHAR_BUDGET = 6000;
 
-/** Render the TOC as an indented outline, bounded to TOC_CHAR_BUDGET.
- *  Small TOCs render in full — unchanged behavior. When a TOC is too
- *  big to send whole, we keep every top-level chapter (cheap, and it
- *  gives the model the whole-book map that "where do I find X"
- *  questions need) and spend the rest of the budget on the sub-section
- *  entries nearest the reader's current page (the local detail a
- *  "what does this section cover" question needs). Skipped runs
- *  collapse to a "  …" line so the model can tell the outline was
- *  abbreviated and ask for a chapter to be expanded. */
+/** Render the TOC as an indented outline within TOC_CHAR_BUDGET. When
+ *  over budget, keep every top-level chapter plus the sub-sections
+ *  nearest currentPage; skipped runs collapse to a "  …" line. */
 function renderTocWithinBudget(
   toc: readonly TocItem[],
   currentPage: number,
@@ -103,18 +71,17 @@ function renderTocWithinBudget(
     return { text: full, abbreviated: false };
   }
 
-  // Over budget — decide which entries to keep.
+  // Over budget: pick which entries to keep.
   const keep = new Set<number>();
   let size = 0;
-  // 1. Every top-level chapter: the global map, usually small.
+  // Keep every top-level chapter first.
   flat.forEach((e, i) => {
     if (e.depth === 0) {
       keep.add(i);
       size += tocLine(e).length + 1;
     }
   });
-  // 2. Fill the remaining budget with entries closest to the page the
-  //    reader is on, so nearby sub-sections survive the cut.
+  // Then fill the rest of the budget with entries closest to currentPage.
   const rest = flat
     .map((e, i) => ({ i, e }))
     .filter(({ i }) => !keep.has(i))
@@ -129,7 +96,7 @@ function renderTocWithinBudget(
     size += cost;
   }
 
-  // Emit in original document order; collapse skipped runs to "  …".
+  // Emit in document order, collapsing skipped runs to "  …".
   const lines: string[] = [];
   let skipping = false;
   flat.forEach((e, i) => {
@@ -146,11 +113,9 @@ function renderTocWithinBudget(
   return { text: lines.join("\n"), abbreviated: true };
 }
 
-/** Pull text for a sparse set of pages. Calls extractPdfText once
- *  per contiguous run so a 1,3,5,7 selection doesn't fire 4 separate
- *  pdfjs document loads — extractPdfText reopens the doc every call,
- *  so coalescing matters. The result is page-tagged either way
- *  ([Page N] markers come from extractPdfText). */
+/** Pull text for a sparse set of pages, calling extractPdfText once
+ *  per contiguous run. extractPdfText reopens the doc every call, so
+ *  coalescing runs avoids redundant loads. */
 async function extractSelectedPages(
   fileUrl: string,
   pages: readonly number[],
@@ -181,9 +146,7 @@ async function extractSelectedPages(
 }
 
 /** Build the AI context pack for `docId`. Returns empty strings when
- *  there's nothing to include — the chat-store's system-prompt
- *  builder treats both as optional, so an empty pack falls back to
- *  the existing generic-or-doc-aware behavior unchanged. */
+ *  there's nothing to include. */
 export async function buildAiContextPack(
   docId: string | null | undefined,
 ): Promise<AiContextPack> {
@@ -191,8 +154,7 @@ export async function buildAiContextPack(
   const customContext = settings.aiCustomDefaultContext.trim();
 
   if (!docId) {
-    // Plain chat — no source doc. We still surface the user persona
-    // so even an unattached chat respects "I'm a CS student" prefs.
+    // Plain chat, no source doc, but still surface the user persona.
     return { customContext, pageContext: "", imageAttachments: [] };
   }
 
@@ -203,8 +165,6 @@ export async function buildAiContextPack(
   const sections: string[] = [];
   let imageAttachments: ChatMessageAttachment[] = [];
 
-  // TOC: cheap to include, often the highest-leverage context for
-  // "what's this book about" / "where do I find X" questions.
   if (settings.aiAttachToc && doc.toc.length > 0) {
     const { text: tocText, abbreviated } = renderTocWithinBudget(
       doc.toc,
@@ -218,9 +178,7 @@ export async function buildAiContextPack(
     }
   }
 
-  // Selected pages: only PDFs have extractable text. Other formats
-  // would need their own adapter.getPageText path; out of scope for
-  // this pass.
+  // Selected pages: only PDFs have extractable text here.
   if (
     doc.aiSelectedPages.size > 0 &&
     doc.meta.format === "pdf" &&
@@ -229,8 +187,7 @@ export async function buildAiContextPack(
     const pages = Array.from(doc.aiSelectedPages);
     const forceImage = doc.aiSendPagesAsImage;
 
-    // Skip text extraction entirely when the user opted into image
-    // mode — saves a pdfjs pass on big selections.
+    // In image mode, skip text extraction to save a pdfjs pass.
     let pagesText = "";
     if (!forceImage) {
       try {
@@ -269,9 +226,7 @@ export async function buildAiContextPack(
   };
 }
 
-/** Safe entry point for non-PDF / no-doc paths. Mirrors the public
- *  shape so callers don't have to special-case "no context"
- *  themselves. */
+/** Empty pack for non-PDF / no-doc paths. */
 export function emptyAiContextPack(): AiContextPack {
   return EMPTY_PACK;
 }

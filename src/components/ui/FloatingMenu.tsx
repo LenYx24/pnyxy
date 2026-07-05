@@ -7,31 +7,17 @@ const MARGIN = 8;
 
 interface FloatingMenuProps {
   open: boolean;
-  /** Element the menu anchors to. The menu's right edge aligns with
-   *  the anchor's right edge and it appears just below the anchor.
-   *  When there's no room below, it flips above. */
+  /** Right-aligned to this element, placed below (flips above when no room). */
   anchorRef: RefObject<HTMLElement | null>;
   onClose: () => void;
   className?: string;
   children: ReactNode;
-  /** Hover handlers forwarded to the menu container. Lets a
-   *  hover-triggered parent track when the cursor enters/leaves the
-   *  portaled menu (since it's not a DOM child of the anchor). */
+  /** Forwarded to the menu container so hover-triggered parents can track the portaled menu. */
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
 }
 
-/**
- * Portal-rendered floating menu — escapes any clipping ancestor
- * (`overflow-hidden`, `overflow-x-auto`, etc.) by rendering directly
- * into `document.body`. Position is computed in a layout effect from
- * the anchor's bounding rect so the menu visually feels attached to
- * the trigger.
- *
- * Uses the same close-on-outside-pointerdown / Escape / scroll /
- * resize semantics as the global `ContextMenu` so the two feel
- * identical to the user.
- */
+/** Menu rendered into document.body to escape clipping ancestors; positioned from the anchor rect. */
 export function FloatingMenu({
   open,
   anchorRef,
@@ -48,12 +34,7 @@ export function FloatingMenu({
     maxHeight: number;
   } | null>(null);
 
-  // Position the menu relative to the anchor after both are mounted.
-  // Render off-screen on the first paint so the un-positioned default
-  // (top-left) doesn't briefly flash where the user isn't looking.
-  // The menu unmounts when `open` flips to false (we return null
-  // below), so leftover `pos` state doesn't matter — the next open
-  // re-runs this effect synchronously before paint and overwrites it.
+  // Render off-screen until positioned so the top-left default doesn't flash.
   useLayoutEffect(() => {
     if (!open) return;
     const anchor = anchorRef.current;
@@ -64,34 +45,24 @@ export function FloatingMenu({
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
-    // Right-align with the trigger and place just below.
+    // right-align with trigger, place below
     let left = a.right - m.width;
     let top = a.bottom + 4;
 
-    // Clamp inside the viewport.
+    // clamp inside viewport
     if (left < MARGIN) left = MARGIN;
     if (left + m.width > vw - MARGIN) left = vw - m.width - MARGIN;
 
-    // Decide below vs above based on which side has more room — the
-    // menu's natural height may be larger than the available space
-    // on either side, so we pick the bigger half and cap the menu
-    // there. Falling back to body-side scroll prevents the menu from
-    // visibly extending past the viewport edge (which used to clip
-    // the bottom rows because the menu container is overflow-hidden).
+    // pick the side with more room; cap height there so tall menus scroll instead of clipping
     const spaceBelow = vh - a.bottom - 4 - MARGIN;
     const spaceAbove = a.top - 4 - MARGIN;
     let maxHeight: number;
     if (m.height <= spaceBelow) {
-      // Fits below — use natural height.
       maxHeight = m.height;
     } else if (m.height <= spaceAbove) {
-      // Fits above — flip up.
       top = a.top - m.height - 4;
       maxHeight = m.height;
     } else if (spaceBelow >= spaceAbove) {
-      // Neither side fits the full menu; pick the larger half and
-      // cap the height there so the menu scrolls instead of getting
-      // clipped.
       maxHeight = Math.max(spaceBelow, 120);
     } else {
       top = MARGIN;
@@ -112,11 +83,7 @@ export function FloatingMenu({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
-    // Scrolling any ancestor would dislodge the menu's anchor — easiest
-    // to just close. But ignore scrolls that happen *inside* the menu
-    // itself; otherwise tall menus that need internal scrolling would
-    // immediately self-dismiss on the first wheel tick / touchmove,
-    // which read to users as "the menu closed when I tried to use it."
+    // close on ancestor scroll, but ignore scrolls inside the menu so tall menus can scroll internally
     const onScroll = (e: Event) => {
       const target = e.target as Node | null;
       if (target && menuRef.current?.contains(target)) return;
@@ -145,8 +112,7 @@ export function FloatingMenu({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       className={cn(
-        // overflow-y-auto + a maxHeight let tall menus scroll
-        // instead of being clipped by the rounded-corner clip.
+        // overflow-y-auto + maxHeight lets tall menus scroll instead of clipping
         "fixed z-[100] min-w-[11rem] overflow-x-hidden overflow-y-auto rounded-lg border border-glass-border bg-bg-secondary/95 py-1 shadow-xl backdrop-blur-xl",
         className,
       )}

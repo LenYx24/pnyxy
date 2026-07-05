@@ -1,18 +1,18 @@
 import { cn } from "@/lib/cn";
 
 /**
- * Three bouncing dots — the "AI is thinking" indicator. Used inside
+ * Three bouncing dots, the "AI is thinking" indicator. Used inside
  * empty assistant bubbles while waiting for the first delta to land,
  * and in the standalone "thinking" pill on chat surfaces. Replaces
  * the older `animate-pulse` on an empty rounded rectangle, which on
  * mobile rendered as a tiny ~28px-tall sliver that didn't read as
- * "loading" — just as misalignment.
+ * "loading", just as misalignment.
  *
  * Inherits `currentColor` so the dots blend with whatever bubble
  * tone they're inside (assistant message vs. side-panel pill etc.).
  */
 export function TypingIndicator({
-  /** Optional label rendered after the dots — e.g. "Thinking…". */
+  /** Optional label rendered after the dots, e.g. "Thinking…". */
   label,
   /** Dot size. `sm` for inline-in-bubble, `md` for the bigger
    *  standalone pill. Defaults to `sm`. */

@@ -15,13 +15,13 @@ export function LearnMethodPlaceholder() {
   const method = LEARN_METHODS.find((m) => m.slug === methodSlug);
 
   // The three AI-coaching styles (Feynman / ELI5 / Socratic) all
-  // share a single component — they only differ in the framing
+  // share a single component, they only differ in the framing
   // string used to seed the chat draft.
   if (isAiCoachSlug(methodSlug)) {
     return <AiCoachMethodPage />;
   }
 
-  // Quiz slug is live — render the book-scoped quiz list instead of
+  // Quiz slug is live, render the book-scoped quiz list instead of
   // the "coming soon" placeholder.
   if (methodSlug === "quiz" && method) {
     const Icon = method.icon;

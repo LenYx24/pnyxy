@@ -25,7 +25,7 @@ export function CommentMarkers({ pageNum }: CommentMarkersProps) {
           (r) => r.pageNum === pageNum && isFiniteRect(r),
         );
         // Skip a comment whose rects all got filtered out as NaN
-        // garbage — without this the `reduce` below throws on an
+        // garbage, without this the `reduce` below throws on an
         // empty array and breaks the whole layer render.
         if (pageRects.length === 0) return null;
         const topRect = pageRects.reduce((a, b) => (a.y < b.y ? a : b));

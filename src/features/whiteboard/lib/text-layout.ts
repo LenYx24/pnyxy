@@ -5,7 +5,7 @@ export const TEXT_FONT_FAMILY =
 /**
  * Word-wrap a block of text against a max pixel width using the given
  * 2D context. Respects hard newlines in the input. Words longer than
- * maxWidth fall onto their own line without further breaking — browser
+ * maxWidth fall onto their own line without further breaking, browser
  * behaviour for overflowing single tokens in a fixed-width container.
  */
 export function wrapText(

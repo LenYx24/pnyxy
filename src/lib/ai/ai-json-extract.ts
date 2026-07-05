@@ -16,7 +16,7 @@ import { streamChatResponse } from "@/lib/ai/ai-client";
  * extractors a ~20-line declarative spec.
  *
  * Errors are thrown as plain `Error(`<label>:<reason>`)` to keep the
- * existing call-site failure messages identical — the UI's modal
+ * existing call-site failure messages identical, the UI's modal
  * "couldn't parse the response, try again" wording reads the label
  * prefix.
  */
@@ -24,7 +24,7 @@ export interface AiJsonExtractOptions<T> {
   /** Source text the model reads. Trimmed before length-check and
    *  before being sent. */
   passage: string;
-  /** Full system prompt — what shape to output, what rules to follow.
+  /** Full system prompt, what shape to output, what rules to follow.
    *  Caller owns the prompt; this wrapper is shape-agnostic. */
   systemPrompt: string;
   /** Minimum trimmed input length to bother prompting at all. Below
@@ -32,7 +32,7 @@ export interface AiJsonExtractOptions<T> {
    *  extractor's original threshold). */
   minPassageLength?: number;
   /** Provider-side max output token cap. Defaults to 1500, which
-   *  comfortably covers 10–15 medium-sized JSON entries. */
+   *  comfortably covers 10-15 medium-sized JSON entries. */
   maxOutputTokens?: number;
   /** Pluck the array from the parsed root. Throw any Error if the
    *  shape doesn't match (the wrapper turns it into
@@ -42,10 +42,10 @@ export interface AiJsonExtractOptions<T> {
    */
   pickArray: (parsed: unknown) => unknown;
   /** Convert one raw element into a domain entity, or return null to
-   *  drop it. `index` is the position within the picked array — used
+   *  drop it. `index` is the position within the picked array, used
    *  e.g. by the exam-questions extractor to assign 1-based IDs. */
   coerce: (raw: unknown, index: number) => T | null;
-  /** Hard cap on returned entries — useful when the model
+  /** Hard cap on returned entries, useful when the model
    *  over-produces. Defaults to no cap (returns everything that
    *  passes `coerce`). */
   maxItems?: number;

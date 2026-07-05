@@ -27,14 +27,14 @@ interface NewItemMenuProps {
 /**
  * "New ▸" menu in the library toolbar. Creates a note / whiteboard /
  * quiz / chat directly into the folder the user is currently viewing,
- * then opens its editor — so items can be born where they live instead
+ * then opens its editor, so items can be born where they live instead
  * of created elsewhere and dragged in. Folder creation is included for
  * completeness (delegated to AllBooksTab's modal).
  */
 export function NewItemMenu({ currentFolderId, onNewFolder }: NewItemMenuProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  // FloatingMenu anchors to this span — the Button component doesn't
+  // FloatingMenu anchors to this span, the Button component doesn't
   // forward refs, so we wrap it (same pattern as LibraryAddMenu).
   const triggerRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);

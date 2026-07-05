@@ -1,14 +1,14 @@
 import { create } from "zustand";
 
 /**
- * "Dumbed down" inline draw — a lightweight doodle overlay on top of
+ * "Dumbed down" inline draw, a lightweight doodle overlay on top of
  * the reader's existing PDF page layout. The full whiteboard mode
  * (which swaps the viewer for a Tldraw canvas) is still there for
  * heavy use; this is the "I just want to circle something quickly"
  * pen.
  *
  * Design choices that keep this small on purpose:
- *   - SVG strokes, not raster — crisp at every zoom level, easy to
+ *   - SVG strokes, not raster, crisp at every zoom level, easy to
  *     undo / clear, easy to persist as JSON.
  *   - Coordinates are NORMALIZED to the page (0..1 along x, 0..1
  *     along y) so the same stroke draws correctly at any zoom level
@@ -23,7 +23,7 @@ import { create } from "zustand";
 export interface Stroke {
   /** Hex with optional alpha. */
   color: string;
-  /** Px at 1× zoom — applied via stroke-width on the SVG. */
+  /** Px at 1× zoom, applied via stroke-width on the SVG. */
   width: number;
   /** Normalised 0..1 coordinates relative to the page's natural box. */
   points: { x: number; y: number }[];
@@ -71,7 +71,7 @@ function saveToStorage(bookId: string, drawings: Map<number, Stroke[]>) {
     else idx.add(bookId);
     localStorage.setItem(STORAGE_VERSION_KEY, JSON.stringify([...idx]));
   } catch {
-    // quota / private mode — strokes stay in memory for the session
+    // quota / private mode, strokes stay in memory for the session
   }
 }
 
@@ -105,7 +105,7 @@ interface InlineDrawState {
   toggleActive: () => void;
   setColor: (color: string) => void;
   setTool: (tool: InlineDrawTool) => void;
-  /** Switch the active book — loads its drawings from localStorage,
+  /** Switch the active book, loads its drawings from localStorage,
    *  no-op if it's already the current book. */
   setBook: (bookId: string | null) => void;
   /** Commit a finished stroke to a page (called on pointer-up). */
@@ -113,19 +113,19 @@ interface InlineDrawState {
   /** Pop the last stroke on a page. Returns true if anything was
    *  removed (useful so the toolbar can disable the button). */
   undoStrokeOnPage: (page: number) => boolean;
-  /** Delete a specific stroke (by index) on a page — used by the
+  /** Delete a specific stroke (by index) on a page, used by the
    *  eraser tool when the user taps a stroke. */
   removeStrokeOnPage: (page: number, strokeIndex: number) => void;
   /** Wipe strokes on a single page. */
   clearPage: (page: number) => void;
-  /** Wipe all strokes across every page for the active book — used
+  /** Wipe all strokes across every page for the active book, used
    *  when the user wants a clean slate without flipping through each
    *  page to clear them individually. */
   clearAllPages: () => void;
-  /** Read-side helper — returns a stable ref-equal array per render
+  /** Read-side helper, returns a stable ref-equal array per render
    *  when the page hasn't changed. */
   strokesForPage: (page: number) => Stroke[];
-  /** Total stroke count for the active book — drives the toolbar's
+  /** Total stroke count for the active book, drives the toolbar's
    *  disabled state for the "Clear all" button. */
   totalStrokes: () => number;
 }

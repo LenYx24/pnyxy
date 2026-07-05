@@ -6,7 +6,7 @@ import type { ChatConversation, ChatMessage } from "@/types/chat";
 /**
  * Format a conversation's active-leaf path as portable Markdown the
  * user can paste into Obsidian / Notion / a thesis draft / wherever.
- * Pulls the visible thread only — branches not on the active leaf
+ * Pulls the visible thread only, branches not on the active leaf
  * are excluded by design (the user can branch-switch and re-export).
  *
  * Code blocks survive verbatim because we just inline `content`,
@@ -124,7 +124,7 @@ export function downloadMarkdown(filename: string, body: string): void {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  // Revoke a frame later — Safari occasionally races the download
+  // Revoke a frame later, Safari occasionally races the download
   // start against the revocation if it's truly synchronous.
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }

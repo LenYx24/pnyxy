@@ -14,18 +14,7 @@ interface AiCitationLayerProps {
   pageNum: number;
 }
 
-/**
- * Renders a thin dotted accent underline below every text rect
- * that was sent to the AI in a chat (recorded by chat-store when a
- * "Send to chat" hand-off submits). Clicking the underline opens a
- * floating popover listing every chat message the passage rode along
- * with — click an entry to switch the AI panel to that conversation.
- *
- * Visually distinct from highlights on purpose: highlights paint a
- * translucent block over the text (`mix-blend-multiply`), citations
- * draw a separate underline strip below the rect. The two can stack
- * on the same text without fighting.
- */
+/** Dotted underline under text sent to the AI; click opens a popover of the citing chats. */
 export function AiCitationLayer({ pageNum }: AiCitationLayerProps) {
   const { t } = useTranslation();
   const pageCitations = useAnnotationStore(
@@ -34,10 +23,7 @@ export function AiCitationLayer({ pageNum }: AiCitationLayerProps) {
   const openConversation = useChatStore((s) => s.openConversation);
   const openReaderAiChat = useUIStore((s) => s.openReaderAiChat);
 
-  // Group citations by their selection (same rects = same source
-  // passage); a passage sent twice should show as one underline with
-  // a count, not two stacked strips. Key by rects+text since the IDs
-  // differ per send.
+  // group by selection so a passage sent twice shows one underline with a count
   const groups = useMemo(() => groupBySelection(pageCitations), [pageCitations]);
 
   const [openGroupKey, setOpenGroupKey] = useState<string | null>(null);
@@ -47,25 +33,18 @@ export function AiCitationLayer({ pageNum }: AiCitationLayerProps) {
 
   const handleJump = async (citation: AiCitation) => {
     setOpenGroupKey(null);
-    // Surface the chat panel first (no-op if already visible) so the
-    // user lands on the conversation they just chose, not a blank
-    // reader. Then switch to the cited conversation.
     openReaderAiChat?.();
     try {
       await openConversation(citation.conversationId);
     } catch {
-      // Conversation may have been deleted since the citation was
-      // saved. The popover still serves as a record of "you asked
-      // about this passage on <date>". Nothing else to do here.
+      // conversation may have been deleted since the citation was saved
     }
   };
 
   return (
     <div
       className="absolute inset-0"
-      // pointer-events-auto on individual underlines below; this
-      // wrapper itself is transparent to clicks so the page text
-      // selection still works around the underlines.
+      // wrapper is click-transparent so text selection still works; underlines set pointer-events-auto
       style={{ zIndex: 4, pointerEvents: "none" }}
     >
       {groups.map((g) => {
@@ -84,10 +63,6 @@ export function AiCitationLayer({ pageNum }: AiCitationLayerProps) {
               e.stopPropagation();
               setOpenGroupKey(isOpen ? null : key);
             }}
-            // Sit the underline just below the text rect. 1.5px
-            // strip + dotted accent color reads as "marked" without
-            // shouting. Hover bumps the opacity so it's discoverable
-            // as interactive.
             className={cn(
               "absolute cursor-pointer transition-opacity",
               isOpen ? "opacity-100" : "opacity-70 hover:opacity-100",
@@ -103,9 +78,6 @@ export function AiCitationLayer({ pageNum }: AiCitationLayerProps) {
               backgroundRepeat: "repeat-x",
               backgroundPosition: "left center",
               pointerEvents: "auto",
-              // Translate up half-height so the strip overlaps the
-              // text baseline a hair — keeps it visually attached to
-              // the line above without colliding with the next line.
               transform: "translateY(-1px)",
             }}
             aria-label={t("reader.aiCitation.openPopoverAria", {
@@ -154,14 +126,12 @@ export function AiCitationLayer({ pageNum }: AiCitationLayerProps) {
 
 interface CitationGroup {
   key: string;
-  /** Rects from the first citation in the group — every citation in
-   *  the same group shares the same selection rects by construction. */
+  /** Shared selection rects for the group. */
   rects: AiCitation["selection"]["rects"];
   items: AiCitation[];
 }
 
-/** Group citations whose selection rects + text match — multiple
- *  sends of the same passage collapse into one underline. */
+/** Collapse citations with matching rects + text into one group. */
 function groupBySelection(citations: AiCitation[]): CitationGroup[] {
   const byKey = new Map<string, CitationGroup>();
   for (const c of citations) {
@@ -171,14 +141,12 @@ function groupBySelection(citations: AiCitation[]): CitationGroup[] {
     else
       byKey.set(key, {
         key,
-        // Drop NaN-coord rects so the render layer doesn't emit
-        // `top: NaN%` into the DOM (see PageRect.isFiniteRect docs).
+        // drop NaN-coord rects so we never emit `top: NaN%` into the DOM
         rects: c.selection.rects.filter(isFiniteRect),
         items: [c],
       });
   }
-  // Most-recent-first inside each group so the popover lists newest
-  // conversations at the top.
+  // most-recent first within each group
   for (const g of byKey.values()) {
     g.items.sort((a, b) => b.createdAt - a.createdAt);
   }
@@ -186,8 +154,7 @@ function groupBySelection(citations: AiCitation[]): CitationGroup[] {
 }
 
 function selectionKey(c: AiCitation): string {
-  // Rect coords are floats; round to 4dp so trivial pixel jitter
-  // between two sends of the same selection still groups together.
+  // round coords to 4dp so pixel jitter between two sends still groups
   const rectKey = c.selection.rects
     .map(
       (r) =>
@@ -209,10 +176,7 @@ function OccurrencePopover({
   onJump: (c: AiCitation) => void;
 }) {
   const { t } = useTranslation();
-  // Anchor to the right edge of the underline, sitting just below.
-  // Same approach as FloatingMenu — measured once on mount; if the
-  // user scrolls, the popover scrolls out of view (matches the
-  // user's mental model of "I clicked a thing in the document").
+  // measured once on mount; scrolling lets it scroll out of view
   const rect = anchor.getBoundingClientRect();
   const top = Math.min(rect.bottom + 6, window.innerHeight - 220);
   const left = Math.min(rect.left, window.innerWidth - 280);

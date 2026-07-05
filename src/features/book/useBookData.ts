@@ -18,14 +18,7 @@ export type ResolvedBook =
       categories: Category[];
     };
 
-// Session-lived cache of resolved book detail, keyed by bookId. Re-
-// opening a book you've already viewed this session paints instantly
-// from here instead of replaying the Supabase waterfall (the "why is
-// the description page so slow" complaint). Stale-while-revalidate:
-// the cached copy shows immediately, then a background refetch —
-// throttled by REVALIDATE_MS — refreshes it in place with no spinner.
-// Lives at module scope so it survives route unmount/remount; cleared
-// on a full page reload (fine — that's a fresh session).
+// module-scope stale-while-revalidate cache so re-opening a book paints instantly
 const bookDataCache = new Map<string, { data: ResolvedBook; fetchedAt: number }>();
 const REVALIDATE_MS = 60_000;
 
@@ -53,12 +46,8 @@ export function useBookData(bookId: string | undefined) {
   );
   const [notFound, setNotFound] = useState(() => !bookId);
 
-  // Adjust state during render when the book changes without a remount
-  // (React Router keeps this component across `:bookId` param changes).
-  // Doing it here — the documented "reset state when a prop changes"
-  // pattern — instead of in an effect means a cache hit paints its data
-  // on the same commit, with no spinner flash and no synchronous
-  // setState-in-effect cascade.
+  // reset state during render when bookId changes (router keeps this mounted across param changes)
+  // so a cache hit paints on the same commit with no spinner flash
   const [trackedBookId, setTrackedBookId] = useState(bookId);
   if (bookId !== trackedBookId) {
     setTrackedBookId(bookId);
@@ -68,12 +57,7 @@ export function useBookData(bookId: string | undefined) {
     setNotFound(!bookId);
   }
 
-  // Optimistic patch for the loaded uploaded-book row. Returned to
-  // callers so a rename-from-the-description-page can update the
-  // sidebar title + URL slug without a re-fetch round trip. The
-  // library-store is the source of truth on its own — this keeps both
-  // this page's local copy AND the session cache in sync so a remount
-  // doesn't resurrect the pre-rename title.
+  // patch the loaded uploaded-book row and the cache together so a remount doesn't resurrect the old title
   const patchUploadedBook = (patch: Partial<Book>) => {
     setData((d) => {
       if (d?.source !== "uploaded") return d;
@@ -92,10 +76,7 @@ export function useBookData(bookId: string | undefined) {
     if (!bookId) return;
     let cancelled = false;
 
-    // Initial data/loading/notFound state is already set (from the cache
-    // via useState init, or reset during render above). Here we only
-    // decide whether to hit the network: skip entirely when a cached
-    // copy is still fresh, otherwise cold-fetch or background-revalidate.
+    // skip the network entirely while the cached copy is still fresh
     const cached = bookDataCache.get(bookId);
     if (cached && Date.now() - cached.fetchedAt < REVALIDATE_MS) return;
 
@@ -163,8 +144,7 @@ export function useBookData(bookId: string | undefined) {
         return;
       }
 
-      // Genuinely gone (never existed, or deleted since we cached it).
-      // Drop any stale cache entry so a revalidation surfaces the 404.
+      // gone: drop the stale cache entry so revalidation surfaces the 404
       bookDataCache.delete(bookId);
       if (cancelled) return;
       setData(null);

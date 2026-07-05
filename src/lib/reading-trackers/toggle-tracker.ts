@@ -7,8 +7,8 @@ export interface ToggleTrackerSettings {
 /**
  * Simple on/off tracker:
  *   - When `enabled`, every page change advances `progressPage` (but
- *     only forward — it never decreases).
- *   - When disabled, page changes are ignored — you can browse
+ *     only forward, it never decreases).
+ *   - When disabled, page changes are ignored, you can browse
  *     freely without affecting your progress.
  *   - "Set as current progress" works regardless of the toggle so
  *     users can always correct the value manually.

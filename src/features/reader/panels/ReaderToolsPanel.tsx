@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { IDockviewPanelProps } from "dockview";
 import { useChatStore } from "@/stores/chat-store";
+import { useIsMobile } from "@/hooks/use-media-query";
 import { cn } from "@/lib/cn";
 import { AiChatPanelContent } from "./AiChatPanel";
 import { AnnotationMenuDefinePanel } from "./AnnotationMenuDefinePanel";
@@ -17,7 +18,7 @@ import { AnnotationMenuTranslatePanel } from "./AnnotationMenuTranslatePanel";
 import { AnnotationMenuWikiPanel } from "./AnnotationMenuWikiPanel";
 
 /**
- * The right-side reader panel — a tab switcher over the tools that fit
+ * The right-side reader panel, a tab switcher over the tools that fit
  * a persistent reading side panel: AI Chat plus manual-entry Dictionary,
  * Wikipedia, and Translate lookups (the same panel bodies the text-
  * selection popover uses, here fed by a typed query instead of a
@@ -26,7 +27,7 @@ import { AnnotationMenuWikiPanel } from "./AnnotationMenuWikiPanel";
  * slide-over, "Send to AI") keeps working under its old id.
  *
  * The AI Chat body stays mounted across tab switches (behind a `hidden`)
- * so it preserves conversation/scroll state and — critically — remains
+ * so it preserves conversation/scroll state and, critically, remains
  * the sink that drains "Send to AI" drafts even while the user is on a
  * lookup tab. The lookup tabs mount lazily; their fetch/abort state is
  * cheap to recreate on re-entry.
@@ -82,17 +83,18 @@ export function ReaderToolsPanelContent({
   onClose?: () => void;
 } = {}) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [tab, setTab] = useState<ToolTab>("chat");
 
   // Dictionary / Translate each keep a draft (the input) + a submitted
   // query. The lookup bodies fetch off their `selectedText` prop, so we
-  // only hand them the submitted value — typing doesn't fire requests.
+  // only hand them the submitted value, typing doesn't fire requests.
   const [dictDraft, setDictDraft] = useState("");
   const [dictQuery, setDictQuery] = useState("");
   const [transDraft, setTransDraft] = useState("");
   const [transQuery, setTransQuery] = useState("");
 
-  // A fresh "Send to AI" draft means the user expects the chat — snap to
+  // A fresh "Send to AI" draft means the user expects the chat, snap to
   // it so the drained quote is visible immediately (AiChatPanelContent
   // stays mounted below and does the actual draining).
   const pendingDraft = useChatStore((s) => s.pendingDraft);
@@ -128,8 +130,23 @@ export function ReaderToolsPanelContent({
     [transDraft],
   );
 
+  // Mobile: the AI chat is the app's headline feature, so give it the whole
+  // panel and drop the tab switcher. Dictionary / Wikipedia / Translate stay
+  // reachable from the text-selection popover; here they'd only eat height
+  // and add rarely-used chrome. AiChatPanelContent owns its own header (list
+  // toggle / new / overflow / close), so the close button still works.
+  if (isMobile) {
+    return (
+      <div className="flex h-full flex-col bg-bg-secondary">
+        <AiChatPanelContent onClose={onClose} />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-full flex-col bg-bg-secondary/50">
+    // opaque surface so the dark dockview backdrop can't bleed through and
+    // wash the panel gray in light theme
+    <div className="flex h-full flex-col bg-bg-secondary">
       {/* Tab bar */}
       <div className="flex items-center gap-1 border-b border-glass-border px-1.5 py-1">
         <div className="flex flex-1 items-center gap-0.5 overflow-x-auto">
@@ -146,7 +163,7 @@ export function ReaderToolsPanelContent({
               )}
               title={label}
             >
-              <Icon size={14} />
+              <Icon size={18} />
               <span className="hidden sm:inline">{label}</span>
             </button>
           ))}
@@ -158,7 +175,7 @@ export function ReaderToolsPanelContent({
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:text-text-primary cursor-pointer"
             aria-label={t("reader.aiChat.closeAria")}
           >
-            <X size={16} />
+            <X size={18} />
           </button>
         )}
       </div>

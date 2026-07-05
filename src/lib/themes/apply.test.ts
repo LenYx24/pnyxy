@@ -70,7 +70,7 @@ describe("applyTheme", () => {
     // Overridden by new theme:
     expect(root.style.getPropertyValue("--color-bg-primary")).toBe("#fff");
     expect(root.style.getPropertyValue("--color-text-primary")).toBe("#000");
-    // Not in new theme — must be cleared, not stale:
+    // Not in new theme, must be cleared, not stale:
     expect(root.style.getPropertyValue("--color-bg-secondary")).toBe("");
   });
 });

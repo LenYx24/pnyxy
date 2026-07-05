@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 
 /**
- * Inline brand glyphs — lucide-react doesn't ship GitHub/Twitter/
+ * Inline brand glyphs, lucide-react doesn't ship GitHub/Twitter/
  * Discord for trademark reasons, so we embed minimal SVGs to stay
  * dependency-light.
  */
@@ -50,7 +50,7 @@ function DiscordGlyph({ size = 16 }: { size?: number }) {
 
 /**
  * Site-wide footer. Rendered on all main app routes (not the reader).
- * Link targets for social media are placeholders — swap them for the
+ * Link targets for social media are placeholders, swap them for the
  * real handles when they exist.
  */
 export function Footer() {

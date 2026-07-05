@@ -15,7 +15,7 @@ export interface CorePluginEntry {
 
 /**
  * Built-in plugins. Each entry pairs a manifest with a freshly-built
- * module instance — modules carry private state, so we instantiate
+ * module instance, modules carry private state, so we instantiate
  * them lazily through factories invoked here at module load.
  *
  * To add a core plugin: implement `PluginModule` in a new file under
@@ -46,7 +46,7 @@ export function getPluginManifest(
 
 /**
  * Default `enabledPlugins` map used by the settings-store migration.
- * Most core plugins are **disabled by default** — users opt in via
+ * Most core plugins are **disabled by default**, users opt in via
  * Settings → Plugins. A plugin manifest can flip `defaultEnabled`
  * to ship turned on (e.g. the global `?` cheatsheet, which would
  * otherwise be invisible to anyone who never opens the plugin tab).

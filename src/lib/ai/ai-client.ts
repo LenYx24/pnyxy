@@ -7,16 +7,9 @@ import type { ChatMessageAttachment } from "@/types/chat";
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
-  /** Multimodal attachments (images today). Provider-side
-   *  conversion lives in this file: Anthropic gets a `{type:"image",
-   *  source:base64}` block per attachment, OpenAI gets
-   *  `{type:"image_url", image_url:{url:dataUri}}`, and the Pnyxy
-   *  proxy strips them (text-only until the edge function learns
-   *  how to forward multimodal content). */
+  /** Image attachments. */
   attachments?: ChatMessageAttachment[];
 }
-
-// ── Tool-use types ───────────────────────────────────────────
 
 export type TextBlock = { type: "text"; text: string };
 export type ToolUseBlock = {
@@ -57,10 +50,7 @@ export type ToolStreamEvent =
 
 export type AiErrorCode = "quota" | "auth" | "network" | "config" | "other";
 
-/**
- * Error thrown by a single provider attempt. The fallback runner uses
- * `code` to decide whether to swap to the next provider.
- */
+/** Per-attempt provider error. `code` decides whether fallback swaps providers. */
 export class AiProviderError extends Error {
   readonly code: AiErrorCode;
   readonly provider: AiProvider;
@@ -80,22 +70,18 @@ export class AiProviderError extends Error {
   }
 }
 
-// ── Provider configuration helpers ───────────────────────────
-
 export function isProviderConfigured(provider: AiProvider): boolean {
   const settings = useSettingsStore.getState();
   switch (provider) {
     case "pnyxy":
-      // Always available — anonymous users get a small per-IP quota.
+      // always available; anon users get a small per-IP quota
       return true;
     case "anthropic":
       return !!settings.anthropicApiKey.trim();
     case "openai":
       return !!settings.openaiApiKey.trim();
     case "local":
-      // Local needs both: an endpoint to hit AND a model name to
-      // request. The base URL has a sensible default (Ollama on
-      // localhost) but the model is user-specific so it's mandatory.
+      // needs both endpoint and model name
       return (
         !!settings.localBaseUrl.trim() && !!settings.localModel.trim()
       );
@@ -112,11 +98,7 @@ export function hasAnyConfiguredProvider(): boolean {
   return getConfiguredProviders().length > 0;
 }
 
-// ── PDF text extraction ──────────────────────────────────────
-
-/**
- * Extract text from a range of pages in a PDF.
- */
+/** Extract text from a range of PDF pages. */
 export async function extractPdfText(
   fileUrl: string,
   startPage: number,
@@ -143,30 +125,15 @@ export async function extractPdfText(
 }
 
 export interface RenderedPdfPage {
-  /** 1-based page number, matches what the user sees in the reader. */
+  /** 1-based page number. */
   page: number;
-  /** Raw base64 (no `data:` prefix). Same shape the proxy expects on
-   *  Anthropic-style image blocks. */
+  /** Raw base64, no `data:` prefix. */
   base64: string;
-  /** MIME type — always `image/jpeg` today (JPEG keeps payloads small
-   *  and Claude/GPT/Gemini all accept it). */
   mediaType: "image/jpeg";
 }
 
-/**
- * Render a sparse set of PDF pages to JPEG and return the base64
- * payloads. Used for two paths:
- *  - Auto-fallback when extractPdfText returns empty (image PDF with
- *    no text layer).
- *  - Explicit user toggle in TOC selection mode for figure-heavy
- *    pages where text alone misses the picture.
- *
- * Sizing tradeoff: `maxWidth` defaults to 1280 px. Higher than that
- * mostly adds bytes without helping the model (vision encoders down-
- * sample anyway). At JPEG q=0.85 that lands around 100–200 KB / page
- * — fine for ~5 pages on a single turn before the request body gets
- * heavy.
- */
+/** Render PDF pages to base64 JPEG for text-less image PDFs and figure pages.
+ *  maxWidth defaults to 1280; higher just adds bytes, vision encoders downsample. */
 export async function renderPdfPagesToImages(
   fileUrl: string,
   pages: readonly number[],
@@ -179,7 +146,7 @@ export async function renderPdfPagesToImages(
   const pdf = await pdfjs.getDocument(fileUrl).promise;
   const results: RenderedPdfPage[] = [];
 
-  // Dedupe + sort so we render each page once in natural order.
+  // dedupe + sort
   const unique = Array.from(new Set(pages)).sort((a, b) => a - b);
 
   for (const pageNum of unique) {
@@ -195,15 +162,11 @@ export async function renderPdfPagesToImages(
     const ctx = canvas.getContext("2d");
     if (!ctx) continue;
 
-    // White background — some PDFs render with transparent canvas,
-    // which JPEG (no alpha) flattens to black and confuses the
-    // model on text it expected to see on white paper.
+    // transparent canvas flattens to black under JPEG, so fill white first
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // pdfjs 5.x requires `canvas` alongside `canvasContext` and
-    // `viewport`. Older typings accepted just the latter two; the
-    // current RenderParameters type fails the build without it.
+    // pdfjs 5.x requires `canvas` alongside canvasContext/viewport
     await page.render({ canvas, canvasContext: ctx, viewport }).promise;
     const dataUrl = canvas.toDataURL("image/jpeg", quality);
     const base64 = dataUrl.replace(/^data:image\/jpeg;base64,/, "");
@@ -213,13 +176,7 @@ export async function renderPdfPagesToImages(
   return results;
 }
 
-// ── Multimodal converters ───────────────────────────────────
-//
-// A `ChatMessage` may carry image attachments. Anthropic and OpenAI
-// each have their own multimodal content shape; these helpers turn
-// our internal { content, attachments } into the right wire format.
-// When a message has no attachments we emit a plain string so the
-// older text-only request shape stays untouched.
+// convert { content, attachments } into each provider's content shape
 
 type AnthropicImageMediaType =
   | "image/jpeg"
@@ -237,9 +194,7 @@ const ANTHROPIC_IMAGE_TYPES = new Set<AnthropicImageMediaType>([
 function toAnthropicChatContent(message: ChatMessage) {
   const attachments = message.attachments ?? [];
   if (attachments.length === 0) return message.content;
-  // Anthropic accepts heterogeneous content blocks. Image blocks
-  // first so the model sees the visual context before the prompt
-  // (matches Anthropic's own example ordering).
+  // image blocks first, then the text prompt
   const blocks: Array<
     | {
         type: "image";
@@ -272,10 +227,7 @@ function toAnthropicChatContent(message: ChatMessage) {
 function toOpenAiChatContent(message: ChatMessage) {
   const attachments = message.attachments ?? [];
   if (attachments.length === 0) return message.content;
-  // OpenAI's chat completions vision input is `image_url` blocks
-  // (also accepts data URIs). A single text block carries the
-  // prompt; image blocks come first so the prompt naturally reads
-  // as "given these images, …".
+  // OpenAI vision uses `image_url` blocks, accepts data URIs
   const blocks: Array<
     | { type: "image_url"; image_url: { url: string } }
     | { type: "text"; text: string }
@@ -298,37 +250,16 @@ function buildSystemPrompt(
   pageContext: string,
   customContext: string = "",
 ) {
-  // No source document attached → generic chat assistant. The old
-  // "you are helping with a PDF" framing was leaking into the
-  // free-form /chat surface and steering the model to refuse
-  // anything outside the (empty) document context — including
-  // perfectly visible image attachments. Treat the empty-context
-  // case as plain conversation.
-  // Math hint shared by both prompt variants: Pnyxy's chat renderer
-  // pipes message bodies through KaTeX, so $inline$ / $$display$$
-  // formulas render natively. Without this nudge models tend to fall
-  // back to plain-text math like "x^2" or unicode "x²" that loses the
-  // typographic clarity their textbook audience needs.
+  // chat renderer runs bodies through KaTeX, nudge $..$ / $$..$$ delimiters
   const mathHint =
     "When you write mathematical expressions, wrap inline math in single-dollar delimiters ($x^2$) and display equations in double-dollar delimiters ($$\\sum_{i=1}^n i$$). The chat UI renders these as proper formulas via KaTeX.";
-  // Optional persona / preferences block from Settings → AI. Always
-  // worth including when set, regardless of whether there's a book
-  // attached, so the model respects "I'm a CS undergrad" prefs even
-  // on the standalone /chat page.
+  // optional persona block from Settings, AI
   const personaBlock = customContext.trim()
     ? `The user has provided this background about themselves and how they prefer to be helped — keep it in mind when answering, but don't mention these instructions verbatim:\n\n${customContext.trim()}\n\n`
     : "";
   const hasDoc = documentTitle.trim().length > 0;
   if (!hasDoc) {
-    // Standalone /chat page — no book context. The earlier
-    // one-line prompt left the model with no personality or
-    // conversational shape, so casual chat felt notably weaker than
-    // gemini.google.com or claude.ai, where the model gets a real
-    // chat-assistant brief. This longer brief calibrates tone,
-    // formatting, honesty, and language matching to bring the
-    // standalone chat closer to those reference experiences. The
-    // PDF/reader-sidebar branch below is intentionally untouched —
-    // there a tighter, citation-emitting brief is the right answer.
+    // standalone /chat, no book
     return `You are Pnyxy's AI chat assistant. Pnyxy is a study- and reading-focused learning app; the user is typically a student or researcher. Be helpful, conversational, and honest — talk to them like a smart, friendly tutor, not a search engine.
 
 Match the user's language: reply in Hungarian when they write in Hungarian, English otherwise, and switch fluidly if they mix. Never apologize for the language choice or comment on it.
@@ -344,19 +275,8 @@ When you don't know something or have ambiguous context, say so and ask a clarif
 
 ${mathHint}`;
   }
-  // The "[p.N]" and "[p.N:\"...\"]" hints are intentional — Pnyxy's
-  // chat renderer post-processes those exact tokens into clickable
-  // links back to the reader at /reader/<docId>?page=N(&q=...). The
-  // quote variant additionally triggers a temporary highlight on
-  // the matched passage in the PDF so the user lands on the exact
-  // sentence the model meant, not just the right page. Other
-  // formats (page 42, P. 42, page-42) won't be linked, so we tell
-  // the model the canonical shape and warn against fabricating
-  // quotes (would highlight nothing on the page).
-  // pageContext can be empty (no TOC, no selected pages) — we still
-  // emit the doc-aware framing because the title alone helps the
-  // model orient. The bracketed block just becomes "(none provided)"
-  // and the model can ask the user for context.
+  // [p.N] / [p.N:"..."] tokens are load-bearing: renderer turns these exact
+  // shapes into reader deep-links, quote variant highlights. Other formats won't link.
   const contextBody = pageContext.trim()
     ? pageContext
     : "(no excerpts attached — ask the user to attach pages from the TOC if you need quotes from the book)";
@@ -384,54 +304,22 @@ When you reference the book, cite it inline using one of these two formats:
 Only use the quote variant when the wording appears verbatim in the provided context; never fabricate a quote — it would highlight nothing and confuse the reader. Keep quotes under ~15 words. If the answer is not in the provided text, say so — and feel free to suggest which pages or chapters from the TOC would help, so the user can attach them. ${mathHint}`;
 }
 
-// ── Top-level streaming with provider fallback ──────────────
-
-/**
- * Stream a chat response, trying each enabled provider in priority
- * order. If a provider fails *before* yielding any tokens (typically
- * a quota / rate-limit / auth error), the next configured provider is
- * tried. Once a provider has started streaming, its errors are
- * surfaced — we cannot cleanly swap mid-response.
- *
- * Yields text deltas. The currently-active provider is exposed via
- * the second tuple value so callers can display it if they want.
- */
 export interface StreamOptions {
   /** Replaces the default Q&A system prompt (for quiz generation etc.). */
   systemPromptOverride?: string;
-  /** Free-form persona / preferences block injected into the default
-   *  system prompt — sourced from Settings → AI's
-   *  `aiCustomDefaultContext`. Ignored when `systemPromptOverride`
-   *  is set (callers in that path build their own prompt). Empty
-   *  string ≡ undefined. */
+  /** Persona block for the default prompt. Ignored when systemPromptOverride is set. */
   customContext?: string;
   /** Raises the per-request output cap; clamped server-side for Pnyxy. */
   maxOutputTokens?: number;
-  /** Strict mode: when set, ONLY this provider is tried. If it fails
-   *  (quota, auth, network), the error surfaces — no fallback to
-   *  other configured providers. The chat composer sets this when
-   *  the user explicitly picks a model from the dropdown.
-   *  When unset / null, the full configured chain is used in order
-   *  (the "Default" option in the model picker). */
+  /** Strict mode: only this provider is tried, no fallback. Unset = full chain. */
   preferredProvider?: AiProvider;
-  /** Reasoning-mode escape hatch. When true, the OpenAI provider
-   *  swaps `gpt-4o-mini` for `o3-mini` — same wire shape (chat
-   *  completions, OpenAI-compatible SSE) but step-by-step reasoning
-   *  for math/logic problems. Routes to OpenAI BYOK only today; the
-   *  Pnyxy proxy ignores this flag because reasoning models aren't
-   *  on the free tier (yet). UI surfaces this as a "Reasoning"
-   *  toggle next to the model picker. */
+  /** OpenAI BYOK only: swap gpt-4o-mini for o3-mini. Pnyxy proxy ignores it. */
   reasoning?: boolean;
-  /** When set and aborted, the underlying fetch / SDK call is
-   *  cancelled and the async generator throws an AbortError that the
-   *  caller is expected to swallow as "user stopped generation."
-   *  Threaded down to fetch / Anthropic SDK / OpenAI SSE alike. */
+  /** Abort throws AbortError from the generator. */
   signal?: AbortSignal;
 }
 
-/** True when a thrown error came from the user pressing "Stop." Used
- *  by the chat-store to silently keep partial output instead of
- *  treating it as a failed turn. */
+/** True when the error came from the user pressing "Stop." */
 export function isAbortError(err: unknown): boolean {
   if (!err) return false;
   if (err instanceof DOMException && err.name === "AbortError") return true;
@@ -453,11 +341,7 @@ export async function* streamChatResponse(
   options: StreamOptions = {},
 ): AsyncGenerator<{ delta: string; provider: AiProvider }, void, unknown> {
   const configured = getConfiguredProviders();
-  // Strict mode: an explicit preferredProvider runs alone with no
-  // fallback. Without one, we run the full configured chain and
-  // fall through quota/auth/network failures to the next entry —
-  // that's the "Default" UX where the user just wants a working
-  // reply and doesn't care which provider produced it.
+  // preferredProvider runs alone, else walk the chain falling through pre-yield failures
   const candidates =
     options.preferredProvider && configured.includes(options.preferredProvider)
       ? [options.preferredProvider]
@@ -486,18 +370,15 @@ export async function* streamChatResponse(
         yielded = true;
         yield { delta, provider };
       }
-      return; // success — done.
+      return;
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
-      // If we already streamed some tokens, surface the error — we
-      // can't cleanly start over with another provider.
+      // can't swap providers once tokens streamed
       if (yielded) throw error;
       lastError = error;
-      // Otherwise try the next provider in the chain.
     }
   }
 
-  // All providers failed before yielding anything.
   throw lastError ??
     new AiProviderError("All providers failed.", "other", candidates[0]);
 }
@@ -523,7 +404,7 @@ function streamForProvider(
 
 const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
 
-// ── Pnyxy provider (proxied via Supabase edge function) ──────
+// Pnyxy provider, proxied via Supabase edge function
 
 async function* streamPnyxy(
   messages: ChatMessage[],
@@ -543,33 +424,19 @@ async function* streamPnyxy(
     headers.Authorization = `Bearer ${accessToken}`;
   }
 
-  // Convert each message to its multimodal shape before posting so
-  // image attachments survive the trip through the proxy. Messages
-  // without attachments still serialize as plain strings (the
-  // converter returns m.content unchanged in that case), so the
-  // wire format stays backwards-compatible with older proxy
-  // deployments that haven't picked up multimodal support yet.
+  // multimodal shape so image attachments survive the proxy
   const proxyMessages = messages.map((m) => ({
     role: m.role,
     content: toAnthropicChatContent(m),
   }));
 
-  // Pnyxy edge function builds its own system prompt server-side and
-  // doesn't (yet) accept a separate customContext field, so we fold
-  // the user's persona block into pageContext before the trip. The
-  // proxy's prompt template then renders it inside the same `---`
-  // block as the rest of the book context. Direct Anthropic / OpenAI
-  // paths take the structured route via buildSystemPrompt.
+  // proxy has no customContext field, fold the persona block into pageContext
   const customContext = options.customContext?.trim() ?? "";
   const mergedPageContext = customContext
     ? `[About the user]\n${customContext}\n\n${pageContext}`
     : pageContext;
 
-  // Pnyxy free-tier model override. When the user has explicitly
-  // picked a model in the ModelPicker (anything other than the
-  // "Default (auto-routed)" option) the proxy pins that single
-  // model instead of walking the full chain. Null = auto, server
-  // walks Gemini → GPT-4o-mini → Haiku 4.5 as before.
+  // null = auto-route server-side, else pin the picked model
   const preferredModel = useSettingsStore.getState().pnyxyModel;
 
   let response: Response;
@@ -623,7 +490,7 @@ async function* streamPnyxy(
   yield* parseAnthropicSse(response.body);
 }
 
-// ── Anthropic provider (user-supplied key, browser-direct) ───
+// Anthropic provider, BYOK browser-direct
 
 async function* streamAnthropic(
   messages: ChatMessage[],
@@ -640,7 +507,7 @@ async function* streamAnthropic(
     );
   }
 
-  // Lazily import the SDK so it only loads when this provider is used.
+  // lazy import so the SDK only loads when this provider runs
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
 
@@ -648,12 +515,7 @@ async function* streamAnthropic(
     {
       model: "claude-sonnet-4-5-20250929",
       max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
-      // Cache the system prompt: it's the stable, token-heavy prefix
-      // (standalone brief, or book title + extracted page text) and
-      // it's identical across the turns of one reader session, so
-      // every follow-up question reuses it at ~10% of the input cost.
-      // Anthropic ignores the breakpoint below the model's minimum
-      // cacheable length, so the short standalone brief is a no-op.
+      // cache the stable system prompt, ~10% input cost on follow-ups
       system: [
         {
           type: "text",
@@ -686,7 +548,7 @@ async function* streamAnthropic(
   }
 }
 
-// ── OpenAI provider (user-supplied key, browser-direct) ──────
+// OpenAI provider, BYOK browser-direct
 
 async function* streamOpenAi(
   messages: ChatMessage[],
@@ -713,10 +575,7 @@ async function* streamOpenAi(
       },
       signal: options.signal,
       body: JSON.stringify({
-        // o3-mini for reasoning-mode chats (math, logic, multi-step
-        // problems where the model benefits from chain-of-thought).
-        // ~7× the per-token cost of gpt-4o-mini, so we only switch
-        // when the user opts in via the composer's reasoning toggle.
+        // o3-mini for reasoning mode, ~7x the cost, opt-in
         model: options.reasoning ? "o3-mini" : "gpt-4o-mini",
         max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
         stream: true,
@@ -771,17 +630,9 @@ async function* streamOpenAi(
   yield* parseOpenAiSse(response.body);
 }
 
-// ── Local LLM provider (Ollama / LM Studio / vLLM / etc.) ────
+// Local LLM provider (Ollama / LM Studio / vLLM / llama.cpp)
 
-/**
- * Stream chat completions from a user-run, OpenAI-compatible local
- * LLM. The wire format is identical to `streamOpenAi` — Ollama, LM
- * Studio, vLLM, and llama.cpp's HTTP server all expose
- * `/v1/chat/completions` with the same request/response shape. The
- * only differences are the base URL, the model name (which Ollama
- * derives from the user's local model registry, not OpenAI's), and
- * an optional bearer token for setups that gate access.
- */
+/** Stream from an OpenAI-compatible local LLM; wire format matches streamOpenAi. */
 async function* streamLocal(
   messages: ChatMessage[],
   documentTitle: string,
@@ -808,10 +659,7 @@ async function* streamLocal(
     );
   }
 
-  // Tolerate users typing the base URL with or without a trailing
-  // slash. Ollama's docs sometimes show `:11434` and sometimes
-  // `:11434/v1`, so normalize to "drop trailing slash, append the
-  // chat-completions path."
+  // tolerate a trailing slash on the base URL
   const endpoint = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
@@ -835,10 +683,7 @@ async function* streamLocal(
           },
           ...messages.map((m) => ({
             role: m.role,
-            // Reuse the OpenAI multimodal converter — most local
-            // models ignore image_url blocks gracefully, and the
-            // few that support vision (LLaVA, Llama 3.2 Vision via
-            // Ollama) understand the OpenAI shape.
+            // vision-capable local models read the image blocks, others ignore them
             content: toOpenAiChatContent(m),
           })),
         ],
@@ -846,9 +691,7 @@ async function* streamLocal(
     });
   } catch (err) {
     if (isAbortError(err)) throw err;
-    // Most common cause: the local server isn't running, or it's
-    // behind a firewall / wrong port. Classify as network so the
-    // chat composer's offline messaging surfaces sensibly.
+    // usually the local server isn't running
     throw new AiProviderError(
       err instanceof Error
         ? `Couldn't reach local LLM at ${baseUrl} — is it running?`
@@ -883,13 +726,9 @@ async function* streamLocal(
     );
   }
 
-  // Same SSE parser as OpenAI — Ollama, LM Studio, and vLLM all
-  // emit `data: {…}\n\n` chunks with the standard OpenAI schema
-  // (`choices[0].delta.content`).
+  // OpenAI SSE schema (choices[0].delta.content)
   yield* parseOpenAiSse(response.body);
 }
-
-// ── Error classification helpers ─────────────────────────────
 
 function classifyStatus(status: number): AiErrorCode {
   if (status === 429) return "quota";
@@ -900,7 +739,7 @@ function classifyStatus(status: number): AiErrorCode {
 
 function normalizeSdkError(err: unknown, provider: AiProvider): AiProviderError {
   if (err instanceof AiProviderError) return err;
-  // Anthropic SDK errors expose a `status` property.
+  // Anthropic SDK errors expose a `status`
   const anyErr = err as { status?: number; message?: string } | null;
   const status = anyErr?.status;
   const message =
@@ -911,7 +750,7 @@ function normalizeSdkError(err: unknown, provider: AiProvider): AiProviderError 
   return new AiProviderError(message, "other", provider);
 }
 
-// ── SSE parsers ──────────────────────────────────────────────
+// SSE parsers
 
 async function* readSseLines(
   body: ReadableStream<Uint8Array>,
@@ -980,26 +819,15 @@ async function* parseOpenAiSse(
   }
 }
 
-// ── Tool-use streaming (single provider round-trip) ──────────
-//
-// `streamChatWithTools` yields a normalized event stream — text
-// deltas, fully-assembled tool_call events, and a stop event with
-// the reason. The orchestrator (chat-store) handles the agentic
-// loop: collect tool_call events, dispatch them, append a user
-// message with tool_result blocks, and call this generator again
-// until stop.reason === "end_turn".
-//
-// Provider fallback applies the same way as text-only streaming:
-// if a provider fails before yielding, try the next one.
+// Tool-use streaming: yields normalized events (text deltas, tool_call, stop).
+// chat-store drives the agentic loop.
 
 export interface StreamWithToolsOptions {
   systemPrompt: string;
   tools: ToolDef[];
   maxOutputTokens?: number;
   preferredProvider?: AiProvider;
-  /** Same semantics as `StreamOptions.signal` — aborting cancels the
-   *  underlying transport and the generator throws AbortError that the
-   *  caller swallows as "user stopped generation." */
+  /** Abort cancels the transport; the generator throws AbortError. */
   signal?: AbortSignal;
 }
 
@@ -1008,9 +836,6 @@ export async function* streamChatWithTools(
   options: StreamWithToolsOptions,
 ): AsyncGenerator<ToolStreamEvent, void, unknown> {
   const configured = getConfiguredProviders();
-  // Same strict-mode semantics as streamChatResponse: explicit pick
-  // = only that provider, surface errors. No pick = full fallback
-  // chain.
   const candidates =
     options.preferredProvider && configured.includes(options.preferredProvider)
       ? [options.preferredProvider]
@@ -1058,11 +883,7 @@ function streamToolsForProvider(
     case "openai":
       return streamToolsOpenAi(messages, options);
     case "local":
-      // Tool use across OSS local models is inconsistent — Llama
-      // 3.1+ supports it, most older quants don't, and the wire
-      // formats diverge from OpenAI's strict schema. Surfacing a
-      // clear "use a cloud provider for tool-using features"
-      // error beats silent breakage in roadmap/quiz generation.
+      // local model tool use is too inconsistent to support
       return streamToolsNotSupported(provider);
   }
 }
@@ -1075,11 +896,11 @@ async function* streamToolsNotSupported(
     "config",
     provider,
   );
-  // Unreachable, but the function needs to be a generator for TS.
+  // unreachable, but TS needs this to be a generator
   yield { kind: "stop", reason: "other", provider };
 }
 
-// ── Anthropic tool use (browser-direct) ──────────────────────
+// Anthropic tool use, browser-direct
 
 async function* streamToolsAnthropic(
   messages: ToolMessage[],
@@ -1101,11 +922,7 @@ async function* streamToolsAnthropic(
     {
       model: "claude-sonnet-4-5-20250929",
       max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
-      // Cache both stable prefixes for the agentic loop: the system
-      // prompt and the (large) tool schemas are re-sent on every
-      // round-trip but never change within a generation, so a
-      // breakpoint on each lets the loop's follow-up calls reuse them
-      // from cache instead of re-billing the full prefix each hop.
+      // cache system prompt and tool schemas, re-sent every hop but never change
       system: [
         {
           type: "text",
@@ -1126,9 +943,7 @@ async function* streamToolsAnthropic(
     options.signal ? { signal: options.signal } : undefined,
   );
 
-  // Track partial tool_use blocks across content_block_delta events
-  // so we can yield a single tool_call event with the parsed input
-  // when the block stops.
+  // accumulate partial tool_use blocks, emit one tool_call on stop
   const partialTools = new Map<
     number,
     { id: string; name: string; jsonBuf: string }
@@ -1198,7 +1013,7 @@ async function* streamToolsAnthropic(
   }
 }
 
-// ── Pnyxy proxy tool use (Anthropic-shaped SSE) ──────────────
+// Pnyxy proxy tool use, Anthropic-shaped SSE
 
 async function* streamToolsPnyxy(
   messages: ToolMessage[],
@@ -1223,14 +1038,12 @@ async function* streamToolsPnyxy(
       headers,
       signal: options.signal,
       body: JSON.stringify({
-        // The proxy auto-detects tool-mode by the presence of `tools`
-        // on the request body and switches to a richer SSE stream.
+        // proxy switches to tool mode when `tools` is present
         toolMessages: messages,
         systemPromptOverride: options.systemPrompt,
         tools: options.tools,
         maxOutputTokens: options.maxOutputTokens,
-        // documentTitle/pageContext are unused in tool mode but the
-        // proxy still expects the keys for the input-token estimate.
+        // unused in tool mode but the proxy expects the keys
         documentTitle: "",
         pageContext: "",
         messages: [],
@@ -1271,8 +1084,7 @@ async function* streamToolsPnyxy(
   yield* parseAnthropicSseTools(response.body, "pnyxy");
 }
 
-// Same shape as the SDK loop above but operating on the raw
-// Anthropic SSE wire format that the Pnyxy proxy passes through.
+// tool-call assembly on the raw Anthropic SSE wire format
 async function* parseAnthropicSseTools(
   body: ReadableStream<Uint8Array>,
   provider: AiProvider,
@@ -1357,7 +1169,7 @@ async function* parseAnthropicSseTools(
   yield { kind: "stop", reason: stopReason, provider };
 }
 
-// ── OpenAI tool use (browser-direct) ─────────────────────────
+// OpenAI tool use, browser-direct
 
 async function* streamToolsOpenAi(
   messages: ToolMessage[],
@@ -1428,9 +1240,8 @@ async function* streamToolsOpenAi(
     );
   }
 
-  // OpenAI streams tool-call arguments as partial JSON keyed by
-  // `index`; the id/name show up on the first chunk for that slot
-  // and the last chunk carries `finish_reason`.
+  // OpenAI streams tool args as partial JSON keyed by `index`; id/name on
+  // the first chunk, finish_reason on the last
   const partialTools = new Map<
     number,
     { id: string; name: string; jsonBuf: string }
@@ -1489,8 +1300,7 @@ async function* streamToolsOpenAi(
     else if (choice.finish_reason === "length") stopReason = "max_tokens";
   }
 
-  // Flush completed tool calls. OpenAI doesn't have an analogue of
-  // content_block_stop, so we drain at end-of-stream.
+  // no content_block_stop here, so flush tool calls at end-of-stream
   for (const slot of partialTools.values()) {
     if (!slot.name) continue;
     let parsed: unknown = {};
@@ -1510,7 +1320,7 @@ async function* streamToolsOpenAi(
   yield { kind: "stop", reason: stopReason, provider: "openai" };
 }
 
-// ── Cross-provider message-shape converters ──────────────────
+// Cross-provider message-shape converters
 
 function toAnthropicMessage(m: ToolMessage): {
   role: "user" | "assistant";
@@ -1519,12 +1329,9 @@ function toAnthropicMessage(m: ToolMessage): {
   return { role: m.role, content: m.content };
 }
 
-/**
- * One Anthropic-style ToolMessage may explode into multiple OpenAI
- * messages: an assistant turn with tool_use blocks needs a single
- * `assistant` message carrying `tool_calls`, and a user turn with
- * tool_result blocks splits into one `tool` message per result.
- */
+/** One ToolMessage can expand into several OpenAI messages: an assistant turn
+ *  becomes one message with `tool_calls`, a user turn splits into one `tool`
+ *  message per tool_result. */
 function toOpenAiMessages(m: ToolMessage): Array<Record<string, unknown>> {
   if (typeof m.content === "string") {
     return [{ role: m.role, content: m.content }];
@@ -1552,9 +1359,8 @@ function toOpenAiMessages(m: ToolMessage): Array<Record<string, unknown>> {
     if (!msg.content && !msg.tool_calls) msg.content = "";
     return [msg];
   }
-  // User turn: text and tool_result blocks. Tool results go into
-  // `role: "tool"` messages addressed by tool_call_id; remaining
-  // text is sent as a normal user message before them.
+  // tool_result blocks become `role: "tool"` messages keyed by tool_call_id;
+  // any text goes as a user message before them
   const texts = m.content
     .filter((b): b is TextBlock => b.type === "text")
     .map((b) => b.text)

@@ -158,7 +158,7 @@ function validateQuestions(
             : null,
       });
     } else {
-      // short_answer — flashcard-style.
+      // short_answer, flashcard-style.
       if (
         !isNonEmptyString(entry.question_text) ||
         !isNonEmptyString(entry.correct_text)

@@ -15,7 +15,7 @@ const signedUrlCache = new Map<string, string>();
 const coverDataUrlCache = new Map<string, string>();
 
 interface PdfCoverThumbnailProps {
-  /** Null for file-less "shell" books — renders the letter fallback. */
+  /** Null for file-less "shell" books, renders the letter fallback. */
   storagePath: string | null;
   className?: string;
   fallbackLetter?: string;
@@ -24,11 +24,11 @@ interface PdfCoverThumbnailProps {
 /**
  * Renders the first page of a stored PDF as a cover thumbnail. The
  * component always fills its parent (h-full w-full) so the parent
- * controls sizing — drop it inside an `aspect-[5/7]` container and
+ * controls sizing, drop it inside an `aspect-[5/7]` container and
  * the thumbnail will sit flush at all card sizes.
  *
  * Three rendering paths in order of preference:
- *   1. Cached data URL (instant) — returned by every previous render.
+ *   1. Cached data URL (instant), returned by every previous render.
  *   2. <img> with cached data URL when this component re-mounts.
  *   3. react-pdf <Document>/<Page> first-time render; on success we
  *      snapshot the canvas to a JPEG data URL and seed the cache.
@@ -83,7 +83,7 @@ export function PdfCoverThumbnail({
   // Snapshot the rasterized canvas to a JPEG data URL once react-pdf
   // finishes drawing page 1. JPEG keeps the cache compact (covers are
   // photographic-ish at this size) and avoids the alpha channel we
-  // don't need. Failures are silently ignored — worst case, the next
+  // don't need. Failures are silently ignored, worst case, the next
   // mount re-renders via react-pdf as it does today.
   const handlePageRenderSuccess = useCallback(() => {
     if (!storagePath) return;
@@ -97,11 +97,11 @@ export function PdfCoverThumbnail({
         setDataUrl(url);
       }
     } catch {
-      // toDataURL can throw on tainted canvases — bail silently
+      // toDataURL can throw on tainted canvases, bail silently
     }
   }, [storagePath]);
 
-  // Shell book with no uploaded file — there's no PDF to rasterize,
+  // Shell book with no uploaded file, there's no PDF to rasterize,
   // so render the letter fallback directly.
   if (!storagePath) {
     return (
@@ -127,6 +127,9 @@ export function PdfCoverThumbnail({
           src={dataUrl}
           alt=""
           aria-hidden="true"
+          // See LibraryBookCard: native image drag would otherwise
+          // swallow dnd-kit's pointer stream and break card dragging.
+          draggable={false}
           className="h-full w-full object-cover object-top"
         />
       </div>

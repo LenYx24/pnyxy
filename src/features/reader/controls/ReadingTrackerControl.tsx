@@ -31,7 +31,7 @@ export function ReadingTrackerControl({ compact = false }: { compact?: boolean }
   const tracker = useMemo(() => getTracker(activeTrackerId), [activeTrackerId]);
   const settings = trackerSettings[activeTrackerId] ?? tracker.defaultSettings;
 
-  // Toggle-tracker convenience — only valid when that tracker is active.
+  // Toggle-tracker convenience, only valid when that tracker is active.
   const isToggleTracker = activeTrackerId === "toggle";
   const toggleEnabled = isToggleTracker
     ? (settings as unknown as ToggleTrackerSettings).enabled

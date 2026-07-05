@@ -339,7 +339,7 @@ export function PlanDetailPage() {
 
   const datesValid =
     !!startDate && !!endDate && endDate >= startDate;
-  // Allow plans with zero items — the user can attach books later.
+  // Allow plans with zero items, the user can attach books later.
   // Reject items that have been added but left without a book pick,
   // since those are user mistakes that the modal also caught.
   const itemsValid = items.every((it) => !!it.bookKey);

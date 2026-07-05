@@ -77,7 +77,7 @@ export function useReadAloud() {
 
 /**
  * Strip markdown syntax to plain text suitable for TTS. Best-effort
- * regex pass — keeps it cheap (called per click, not per render) and
+ * regex pass, keeps it cheap (called per click, not per render) and
  * doesn't try to be a full parser. Code blocks get dropped because
  * "tilde tilde tilde python def main" reads worse than skipping them
  * outright; inline math survives without the dollar delimiters.
@@ -95,8 +95,8 @@ export function markdownToSpeech(md: string): string {
     .replace(/(\*\*|__)(.+?)\1/g, "$2") // bold
     .replace(/(\*|_)(.+?)\1/g, "$2") // italic
     .replace(/~~(.+?)~~/g, "$1") // strikethrough
-    .replace(/\$\$[\s\S]*?\$\$/g, "") // display math — read-aloud rendering would be incoherent
-    .replace(/\$([^$]+)\$/g, "$1") // inline math — fall through as-is
+    .replace(/\$\$[\s\S]*?\$\$/g, "") // display math, read-aloud rendering would be incoherent
+    .replace(/\$([^$]+)\$/g, "$1") // inline math, fall through as-is
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }

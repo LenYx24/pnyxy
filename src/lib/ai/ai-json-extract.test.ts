@@ -34,14 +34,14 @@ describe("aiJsonExtract", () => {
   it("returns an empty array when the passage is below minPassageLength", async () => {
     await setStreamResponse('{"items":[{"x":1}]}'); // would parse fine
     const result = await aiJsonExtract<number>({
-      passage: "abc", // 3 chars — below the 40 default
+      passage: "abc", // 3 chars, below the 40 default
       systemPrompt: "ignored",
       errorLabel: "test",
       pickArray: (p) => (p as { items: unknown[] }).items,
       coerce: () => 1,
     });
     // Empty array means the wrapper short-circuited BEFORE invoking
-    // the stream — important because real callers won't pay tokens
+    // the stream, important because real callers won't pay tokens
     // for trivially-short input.
     expect(result).toEqual([]);
   });
@@ -97,7 +97,7 @@ describe("aiJsonExtract", () => {
         systemPrompt: "x",
         errorLabel: "myext",
         pickArray: (p) => {
-          // Caller signals "I can't find the array" by throwing —
+          // Caller signals "I can't find the array" by throwing -
           // the wrapper turns that into the standard label.
           if (!p || typeof p !== "object") throw new Error();
           const items = (p as { items?: unknown }).items;
@@ -146,7 +146,7 @@ describe("aiJsonExtract", () => {
       pickArray: (p) => (p as { items: unknown[] }).items,
       coerce: (v) => (typeof v === "number" ? v : null),
     });
-    // Cap stops the loop early — the wrapper doesn't even invoke
+    // Cap stops the loop early, the wrapper doesn't even invoke
     // coerce on the trailing 7 elements.
     expect(result).toEqual([1, 2, 3]);
   });

@@ -9,7 +9,7 @@ import type { VocabEntry, VocabRating } from "@/types/vocab";
 interface FlashcardReviewProps {
   queue: VocabEntry[];
   onClose: () => void;
-  /** Cram mode — review the queue without updating each card's
+  /** Cram mode, review the queue without updating each card's
    *  FSRS schedule. Used by the "Review all" entry point so a
    *  pre-exam pass through non-due cards doesn't trash the spaced-
    *  repetition curve. Rating buttons still render (the user
@@ -66,7 +66,7 @@ export function FlashcardReview({
   const handleRate = useCallback(
     async (rating: VocabRating) => {
       if (!current) return;
-      // In cram mode the rating is informational only — we don't
+      // In cram mode the rating is informational only, we don't
       // touch FSRS so a "review anyway" pass before an exam can't
       // pull the schedule forward or push it back unintentionally.
       if (!cram) await recordReview(current.id, rating);

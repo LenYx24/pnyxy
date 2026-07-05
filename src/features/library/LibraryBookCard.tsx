@@ -33,6 +33,7 @@ import { TagPickerDropdown } from "./TagPickerDropdown";
 import { ShareBookModal } from "./modals/ShareBookModal";
 import { BookInfoModal } from "./modals/BookInfoModal";
 import { cn } from "@/lib/cn";
+import { prefetchBookPage } from "@/features/book/prefetch";
 import { formatAuthors } from "@/lib/library/format-authors";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 
@@ -60,10 +61,7 @@ export function LibraryBookCard({
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { openUploadedBook } = useOpenUploadedDocument();
-  // Surface a small "Reading" pill on books the user has any saved
-  // resume position for. Reads from the library store's set of
-  // in-progress doc ids — populated once on Library mount, free to
-  // read per-card.
+  // "Reading" pill for books with a saved resume position
   const isInProgress = useLibraryStore((s) =>
     s.inProgressDocIds.has(entry.source === "catalog" ? entry.catalog_book_id : entry.book.id),
   );
@@ -89,9 +87,6 @@ export function LibraryBookCard({
   const [renameOpen, setRenameOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  // Download options: one item for uploaded books, up to three for
-  // public-domain catalog scans. Memoised so the menu doesn't
-  // rebuild closures on every hover.
   const downloadActions: DownloadAction[] = useMemo(
     () => (canDownloadEntry(entry) ? getDownloadActions(entry) : []),
     [entry],
@@ -149,8 +144,7 @@ export function LibraryBookCard({
       onToggleSelect?.(selKey, { ctrlKey: false, shiftKey: false });
       return;
     }
-    // Pre-bake the slug into the URL so first-click navigation
-    // skips the canonical-redirect bounce on the BookPage.
+    // bake the slug into the URL to skip the canonical-redirect bounce on BookPage
     if (entry.source === "catalog") {
       navigate(
         `/books/${bookIdSegment(entry.catalog_book_id, entry.catalog_book.title)}`,
@@ -160,14 +154,8 @@ export function LibraryBookCard({
     }
   };
 
-  // content-visibility: auto lets the browser skip layout/paint
-  // for offscreen cards entirely — same DOM, but rendering only
-  // happens once the card scrolls near the viewport. contain-
-  // intrinsic-size gives the browser a placeholder dimension so the
-  // scrollbar doesn't jump as cards materialize. The numbers come
-  // from coverHeight (aspect 5/7 → coverHeight × 7/5 wide) plus
-  // ~80px for the title/author block underneath. Cheap polyfill
-  // for true virtualization that keeps DnD + grid layout working.
+  // content-visibility:auto skips offscreen paint; intrinsic-size keeps the
+  // scrollbar stable. +80px is the title/author block under the cover.
   const intrinsicHeight = coverHeight + 80;
   return (
     <div
@@ -189,35 +177,26 @@ export function LibraryBookCard({
       >
         <div
           onClick={handleClick}
+          onMouseEnter={prefetchBookPage}
+          onPointerDown={prefetchBookPage}
           title={`${title}${author ? " — " + author : ""}`}
           className="cursor-pointer"
         >
-          {/* Cover — fixed 2:3 aspect so every library card is the
-              same visual size regardless of the actual cover image.
-              The tinted bg + soft border + shadow make the cover area
-              read as an intentional card even when a thumbnail
-              doesn't fill it (e.g. shorter PDF page rendered as a
-              cover). */}
+          {/* Cover, fixed 2:3 aspect so all cards match size */}
           <div className="relative aspect-[5/7] w-full overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
             {coverUrl ? (
               <img
                 src={coverUrl}
                 alt={title}
-                // loading=lazy: a 200-book library used to fire ~200
-                // simultaneous cover fetches the moment /library
-                // mounted, queue-blocking the above-the-fold ones.
-                // Now off-screen covers wait until the user scrolls
-                // them close. decoding=async keeps the decode off
-                // the main thread so even visible covers don't jank
-                // the scroll.
+                // lazy so a big library doesn't fire all cover fetches at once
                 loading="lazy"
                 decoding="async"
+                // native image drag hijacks the pointer stream and breaks dnd-kit
+                draggable={false}
                 className="h-full w-full object-cover object-top transition-transform group-hover:scale-[1.02]"
               />
             ) : entry.source === "uploaded" ? (
-              // Thumbnail fills the aspect-[5/7] parent — that's what
-              // makes uploaded covers actually cover the card on
-              // mobile, instead of a small block stranded at the top.
+              // fills the aspect-[5/7] parent so uploaded covers cover the card
               <PdfCoverThumbnail
                 storagePath={entry.book.storage_path}
                 fallbackLetter={title.charAt(0)}
@@ -235,8 +214,7 @@ export function LibraryBookCard({
               </div>
             )}
 
-            {/* Selection checkbox — sits on the cover so it's visible
-                on dark covers too. */}
+            {/* Selection checkbox */}
             {onToggleSelect && (
               <div
                 className={cn(
@@ -254,9 +232,7 @@ export function LibraryBookCard({
               </div>
             )}
 
-            {/* Subtle uploaded-source indicator. The full badge has
-                been downgraded to a corner glyph to match the catalog
-                card's metadata-only icon. */}
+            {/* uploaded-source corner glyph */}
             {entry.source === "uploaded" && (
               <span
                 className="absolute bottom-1.5 left-1.5 rounded bg-bg-primary/80 p-0.5 text-accent backdrop-blur-sm"
@@ -266,10 +242,8 @@ export function LibraryBookCard({
               </span>
             )}
 
-            {/* "Reading" pill — visible signal that the user has
-                already started this book. Top-left corner; hides
-                during selection mode so it doesn't overlap with
-                the always-visible checkbox at the same spot. */}
+            {/* "Reading" pill, hidden in selection mode so it doesn't
+                overlap the checkbox in the same corner */}
             {isInProgress && !selectionActive && !selected && (
               <span
                 className="absolute left-1.5 top-1.5 rounded-full bg-accent/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur-sm sm:opacity-100 sm:group-hover:opacity-0"
@@ -279,10 +253,8 @@ export function LibraryBookCard({
               </span>
             )}
 
-            {/* Quick "Open in reader" — only on uploaded books (the
-                only source with a file to render). One click straight
-                to the reader instead of the two-click default
-                (card → book page → Read). */}
+            {/* quick "Open in reader", uploaded books only. Enlarged so the
+                primary "start reading" action is an easy tap target on mobile. */}
             {entry.source === "uploaded" && (
               <button
                 onClick={(e) => {
@@ -291,13 +263,13 @@ export function LibraryBookCard({
                 }}
                 aria-label={t("library.actions.openInReader")}
                 title={t("library.actions.openInReader")}
-                className="absolute bottom-1.5 right-1.5 z-10 rounded-lg bg-accent/90 p-1.5 text-white shadow-md backdrop-blur-sm transition-colors hover:bg-accent cursor-pointer"
+                className="absolute bottom-2 right-2 z-10 rounded-xl bg-accent/90 p-2.5 text-white shadow-md backdrop-blur-sm transition-colors hover:bg-accent cursor-pointer"
               >
-                <BookOpen size={14} />
+                <BookOpen size={24} />
               </button>
             )}
 
-            {/* Favorite toggle — hover-reveal on desktop unless set. */}
+            {/* Favorite toggle, hover-reveal on desktop unless set */}
             <button
               onClick={toggleFavorite}
               aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
@@ -316,7 +288,7 @@ export function LibraryBookCard({
             </button>
           </div>
 
-          {/* Info — plain text below the cover, no card padding. */}
+          {/* Info block below the cover */}
           <div className={cn("mt-2 min-w-0", compact && "mt-1.5")}>
             <h3
               className={cn(
@@ -353,9 +325,7 @@ export function LibraryBookCard({
           </div>
         </div>
 
-        {/* 3-dot menu — positioned over the cover. The dropdown
-            itself is portal-rendered via FloatingMenu so it can't be
-            clipped by the card / grid container. */}
+        {/* 3-dot menu; dropdown is portal-rendered so the grid can't clip it */}
         <div className="absolute right-1.5 top-1.5">
           <button
             ref={triggerRef}
@@ -494,10 +464,7 @@ export function LibraryBookCard({
           })}
           defaultValue={entry.book.title}
           validate={(value) => {
-            // PromptModal trims + rejects empty before this runs.
-            // Length & profanity are surfaced inline so the user
-            // can fix without losing the modal context. The store
-            // re-validates as defence in depth.
+            // PromptModal already trims + rejects empty; store re-validates too
             if (value.length > 200) {
               return t("library.actions.renameTooLong", {
                 defaultValue: "Title is too long (max 200 characters).",

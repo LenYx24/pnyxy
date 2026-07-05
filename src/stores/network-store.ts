@@ -3,13 +3,13 @@ import { create } from "zustand";
 /**
  * Online/offline state for the whole app.
  *
- * `navigator.onLine` is the cheap signal — true when the browser
+ * `navigator.onLine` is the cheap signal, true when the browser
  * has any kind of connection. It's notoriously unreliable for "can
  * I actually reach Supabase?" though: a captive portal, a flaky
  * VPN, or a router with no upstream all flip onLine to true while
  * fetches still fail. The store therefore tracks two things:
  *
- *   - `browserOnline`: navigator.onLine — flips on the native
+ *   - `browserOnline`: navigator.onLine, flips on the native
  *     online/offline events. Source of truth for "the user's
  *     network adapter has a link."
  *   - `serverReachable`: did the most recent best-effort heartbeat
@@ -25,7 +25,7 @@ import { create } from "zustand";
 interface NetworkState {
   browserOnline: boolean;
   serverReachable: boolean | null;
-  /** Last time `markServerCheck` was called — used by the heartbeat
+  /** Last time `markServerCheck` was called, used by the heartbeat
    *  loop to throttle pings. */
   lastCheckedAt: number;
 
@@ -50,7 +50,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
   setBrowserOnline: (v) => {
     set({ browserOnline: v });
-    // Coming back online — clear the stale "unreachable" flag so
+    // Coming back online, clear the stale "unreachable" flag so
     // consumers retry instead of treating the page as offline until
     // the next heartbeat happens to run.
     if (v) set({ serverReachable: null });
@@ -60,7 +60,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     set({ serverReachable: reachable, lastCheckedAt: Date.now() }),
 }));
 
-// ── One-time module-level wiring ───────────────────────────────
+// One-time module-level wiring
 // Listen for the native online/offline events once. The store is a
 // singleton so this only runs once per page load.
 if (typeof window !== "undefined") {
@@ -72,7 +72,7 @@ if (typeof window !== "undefined") {
   );
 }
 
-/** Convenience hook — strongly preferred over reading the store
+/** Convenience hook, strongly preferred over reading the store
  *  directly because it subscribes to the right slice. */
 export function useIsOnline(): boolean {
   return useNetworkStore(

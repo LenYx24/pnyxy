@@ -48,7 +48,7 @@ export const NAV_ITEMS: NavItem[] = [
   // command palette so power users can jump there with Cmd+K.
   { to: "/", icon: Home, key: "home", group: "hidden" },
 
-  // Primary destinations — the everyday surfaces.
+  // Primary destinations, the everyday surfaces.
   { to: "/library", icon: LibraryIcon, key: "library", group: "primary" },
   { to: "/chat", icon: Bot, key: "chat", group: "primary" },
   { to: "/workspace", icon: Pencil, key: "workspace", group: "primary" },
@@ -65,7 +65,7 @@ export const NAV_ITEMS: NavItem[] = [
     visibleWhen: "hasActiveBook",
   },
 
-  // Study submenu — collapsed by default in the sidebar; flat in the
+  // Study submenu, collapsed by default in the sidebar; flat in the
   // command palette.
   { to: "/quizzes", icon: FileQuestion, key: "quizzes", group: "study" },
   { to: "/quizzes/review", icon: BrainCircuit, key: "review", group: "study" },

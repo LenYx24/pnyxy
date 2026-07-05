@@ -8,7 +8,7 @@ import { planColorClasses } from "@/lib/plan-colors";
 
 interface OrgSwitcherProps {
   /** When true, the switcher renders as a single icon-sized chip
-   *  with no label or chevron — matches the collapsed sidebar's
+   *  with no label or chevron, matches the collapsed sidebar's
    *  visual rhythm. */
   collapsed?: boolean;
   /** Called whenever the dropdown closes via a navigation. The
@@ -23,7 +23,7 @@ interface OrgSwitcherProps {
  * plus a link to the management tab in Settings.
  *
  * Renders nothing while orgs are still loading or when the user
- * has none — the auth lifecycle ensures every signed-in user has
+ * has none, the auth lifecycle ensures every signed-in user has
  * at least one (their auto-created "Personal" org).
  */
 export function OrgSwitcher({ collapsed, onNavigate }: OrgSwitcherProps) {

@@ -1,10 +1,10 @@
-// ── Forum enums ────────────────────────────────────────────
+// Forum enums
 
 export type CommunityKind = "topic";
 export type CommunityRole = "member" | "mod" | "owner";
 export type PostKind = "text" | "link";
 
-// ── Communities ────────────────────────────────────────────
+// Communities
 
 export interface Community {
   id: string;
@@ -26,7 +26,7 @@ export interface CommunityInsert {
   description?: string;
 }
 
-// ── Memberships ────────────────────────────────────────────
+// Memberships
 
 export interface CommunityMembership {
   user_id: string;
@@ -35,7 +35,7 @@ export interface CommunityMembership {
   joined_at: string;
 }
 
-// ── Posts ───────────────────────────────────────────────────
+// Posts
 
 export interface ForumPost {
   id: string;
@@ -70,7 +70,7 @@ export interface ForumPostWithAuthor extends ForumPost {
   community?: { slug: string; name: string } | null;
 }
 
-// ── Comments ───────────────────────────────────────────────
+// Comments
 
 export interface ForumComment {
   id: string;

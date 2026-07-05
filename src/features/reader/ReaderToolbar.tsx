@@ -11,8 +11,6 @@ import {
   Sun,
   Moon,
   RotateCw,
-  ZoomIn,
-  ZoomOut,
   Columns2,
   Minus,
   Plus,
@@ -90,9 +88,7 @@ function ZoomInput({
   const [inputValue, setInputValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Round for display only — the store keeps zoomLevel as a float so
-  // gesture commits round-trip exactly, but the toolbar shows whole
-  // percentages.
+  // display only; store keeps zoomLevel as a float
   const displayText =
     zoomMode === "custom"
       ? `${Math.round(zoomLevel)}%`
@@ -151,9 +147,7 @@ function ZoomInput({
   );
 }
 
-// Zoom control = the editable % box + a chevron that opens a list of
-// human-language presets, mirroring Chrome / Google's PDF viewer. The
-// box still accepts a typed custom %; the dropdown sets a named mode.
+// Editable % box + chevron dropdown of named presets.
 function ZoomSelect({
   zoomMode,
   zoomLevel,
@@ -176,7 +170,6 @@ function ZoomSelect({
     { mode: "fit-width", label: t("reader.toolbar.zoomPresetFitWidth", { defaultValue: "Page Width" }) },
   ];
 
-  // Common zoom levels, ascending, à la Chrome's PDF viewer.
   const ZOOM_LEVELS = [50, 75, 100, 125, 150, 200];
 
   const rowCls = (active: boolean) =>
@@ -257,9 +250,7 @@ interface ReaderToolbarProps {
   onToggleDrawMode?: () => void;
   onScreenshot?: () => void;
   onScreenshotRect?: () => void;
-  /** "Crop a region from the page and send it to the AI chat as
-   *  an image attachment" — the rect equivalent of the OCR /
-   *  send-to-chat flow for when text selection isn't viable. */
+  /** Crop a page region and send it to AI chat as an image attachment. */
   onRectToAi?: () => void;
   onPrint?: () => void;
   onToggleSearch?: () => void;
@@ -286,13 +277,7 @@ export function ReaderToolbar({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  // The opener (book detail, library, bookmarks, etc.) stashes its
-  // path in `location.state.from` when navigating to /reader.
-  // - state.from set → step back via history so we land on the exact
-  //   entry the user came from without leaving a duplicate in the
-  //   stack (otherwise browser-back would yo-yo back into /reader).
-  // - no state → user landed here from a direct URL or external link,
-  //   fall back to /library which was the old unconditional behavior.
+  // go back via history when we have an opener path, else fall back to /library
   const fromPath = (location.state as { from?: string } | null)?.from ?? null;
   const handleBack = useCallback(() => {
     if (fromPath) navigate(-1);
@@ -309,15 +294,8 @@ export function ReaderToolbar({
   const setZoomMode = useReaderStore((s) => s.setZoomMode);
   const setZoomLevel = useReaderStore((s) => s.setZoomLevel);
 
-  // Zoom buttons base their step off the LIVE visual scale rather
-  // than `doc.zoomLevel` from the store. Reason: when a page first
-  // mounts at fit-to-width the actual rendered scale can be e.g.
-  // 150% while the store still reads its initial 100%, so the
-  // first tap on zoom-in would jump back to 115%. Reading from the
-  // pinch-zoom-controller (which the PdfViewer mutates synchronously
-  // on every gesture / fit change) is the only source that's
-  // always in lockstep with what's on screen. Falls back to the
-  // store value when no viewer is mounted (e.g. EPUB/text reader).
+  // step off the live rendered scale, not doc.zoomLevel: at fit-to-width they
+  // differ and the first zoom would jump wrong. no viewer -> use the store.
   const handleZoomIn = useCallback(() => {
     const controls = getZoomControls();
     if (controls) {
@@ -355,11 +333,7 @@ export function ReaderToolbar({
     );
   }, [readerTheme, setReaderTheme]);
 
-  // Export highlights / comments / bookmarks for the active document.
-  // Reads each store's current state directly via getState() — no
-  // need to subscribe, this only fires on user click. The annotation
-  // and bookmark stores are already scoped to the active document
-  // (loaded by ReaderPage's mount effects), so .values() is safe.
+  // export highlights/comments/bookmarks for the active doc
   const exportHighlights = useCallback(
     (kind: "markdown" | "json") => {
       const doc = useReaderStore.getState().getActiveDoc();
@@ -393,12 +367,7 @@ export function ReaderToolbar({
   const setActiveHighlightColor = useAnnotationStore((s) => s.setActiveHighlightColor);
   const canUndo = useUndoStore((s) => s.stack.length > 0);
   const performUndo = useUndoStore((s) => s.performUndo);
-  // Page input mirrors the live currentPage as a real value (not a
-  // placeholder) so the caret doesn't blink on top of grayed-out
-  // digits. `pageInputFocused` gates the sync-from-store effect:
-  // while the user is typing we never overwrite their draft, but
-  // any external change (arrow keys, scroll-driven page tracking,
-  // bookmark jump) is reflected the moment focus leaves.
+  // gate the sync effect so it doesn't clobber the draft while typing
   const [pageInput, setPageInput] = useState("");
   const [pageInputFocused, setPageInputFocused] = useState(false);
   const currentPageForSync = activeDoc?.currentPage ?? 1;
@@ -407,23 +376,13 @@ export function ReaderToolbar({
   }, [currentPageForSync, pageInputFocused]);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
-  // The highlight-color picker (FloatingMenu) anchors to the ⋮ overflow
-  // button — that's where the Highlight action now lives. Portaling via
-  // FloatingMenu (z-[100] at the body level) escapes the toolbar's z-20
-  // stacking context, which the dockview PDF area would otherwise paint
-  // over.
+  // portaled to body so it escapes the toolbar's z-20 stacking context
   const overflowRef = useRef<HTMLDivElement>(null);
 
   const isMobile = useIsMobile();
-  // Persisted, user-customizable arrangement (Phase B). Renders the
-  // non-mobile bar; mobile keeps its own fixed layout.
+  // persisted arrangement that drives the non-mobile bar
   const { layout } = useToolbarLayout();
-  // The hamburger toggles different drawers per breakpoint: on
-  // desktop/tablet it expands the persistent app sidebar back into
-  // view (collapsed for reading by default), on mobile it slides in
-  // the global nav drawer instead. The global BottomNav is hidden on
-  // the reader route, so this button is the user's one path back to
-  // every other surface from inside a book.
+  // desktop expands the app sidebar, mobile opens the nav drawer
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const setMobileSidebarOpen = useUIStore((s) => s.setMobileSidebarOpen);
   const showAppSidebarToggle = isMobile || sidebarCollapsed;
@@ -437,9 +396,7 @@ export function ReaderToolbar({
     if (!isNaN(page)) {
       goToPage(page);
     }
-    // Don't clear; the focus/sync effect will pull the (possibly new)
-    // currentPage in once the input blurs — which also handles the
-    // "user typed garbage and submitted" case by reverting cleanly.
+    // don't clear; the sync effect pulls currentPage on blur
   };
 
   const handlePageSubmit = (e: React.FormEvent) => {
@@ -452,13 +409,13 @@ export function ReaderToolbar({
     addBookmark(activeDoc.currentPage);
   };
 
+  // Mobile-only overflow list (desktop uses the configurable overflowMenuSlots).
+  // Deliberately trimmed: bookmark / search / comments / AI already live in the
+  // bottom bar, and pinch-zoom replaces the zoom buttons — so those, plus rarely-
+  // used JSON export and print, are dropped here to cut the menu down.
   const overflowActions = [
-    { label: t("reader.toolbar.bookmarkPage"), icon: BookmarkPlus, onClick: handleBookmarkPage },
     {
-      // Cycles reader-content theme: light → dark → sepia → light.
-      // Label advertises the *next* theme so the user can predict the
-      // jump before clicking. A proper 3-way picker lives in the
-      // settings page; in-toolbar we keep it to one action.
+      // label shows the next theme in the light/dark/sepia cycle
       label: t("reader.toolbar.readerTheme", {
         next: t(`reader.toolbar.readerTheme_${nextReaderTheme(readerTheme)}`),
       }),
@@ -470,18 +427,8 @@ export function ReaderToolbar({
       icon: FileDown,
       onClick: () => exportHighlights("markdown"),
     },
-    {
-      label: t("reader.toolbar.exportHighlightsJson"),
-      icon: FileDown,
-      onClick: () => exportHighlights("json"),
-    },
-    { label: t("reader.toolbar.zoomIn"), icon: ZoomIn, onClick: handleZoomIn },
-    { label: t("reader.toolbar.zoomOut"), icon: ZoomOut, onClick: handleZoomOut },
     { label: t("reader.toolbar.fitMode"), icon: Columns2, onClick: () => setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width") },
-    // PDF-only actions: rotation cycles through 0/90/180/270 in 90°
-    // CW steps, night mode flips invert-colors. EPUB/markdown/text
-    // use their own theme tokens and don't have a rasterized canvas
-    // to rotate.
+    // PDF-only: rotate, night mode, reflow
     ...(isPdf
       ? [
           {
@@ -525,19 +472,12 @@ export function ReaderToolbar({
     ...(onRectToAi
       ? [{ label: t("reader.toolbar.rectToAi", { defaultValue: "Crop to AI" }), icon: BotMessageSquare, onClick: onRectToAi }]
       : []),
-    { label: t("reader.toolbar.print"), icon: Printer, onClick: onPrint },
-    { label: t("reader.toolbar.search"), icon: Search, onClick: onToggleSearch },
-    { label: t("reader.toolbar.comments"), icon: MessageSquare, onClick: onToggleComments },
-    { label: t("reader.toolbar.aiChat"), icon: BotMessageSquare, onClick: onToggleAiChat },
     ...(onToggleSidebar ? [{ label: t("reader.toolbar.toggleSidebar"), icon: PanelLeft, onClick: onToggleSidebar }] : []),
     { label: t("reader.toolbar.zenMode"), icon: Focus, onClick: onToggleZenMode },
     { label: isFullscreen ? t("reader.toolbar.exitFullscreen") : t("reader.toolbar.fullscreen"), icon: isFullscreen ? Minimize : Maximize, onClick: onToggleFullscreen },
   ];
 
-  // Navigate to the book's overview / description page. Replaces the
-  // old click-to-rename behaviour on the title — renaming now lives on
-  // the book page. `:bookId` in /books/:bookId is the same id the
-  // reader opened with (activeDoc.meta.id).
+  // open the book's overview page
   const goToDescription = () => {
     if (!activeDoc) return;
     navigate(`/books/${activeDoc.meta.id}`, {
@@ -545,15 +485,11 @@ export function ReaderToolbar({
     });
   };
 
-  // Mobile shrinks the toolbar's vertical footprint: smaller height,
-  // smaller icon set, tighter button padding, and a compact page
-  // input. Desktop keeps the original generous chrome. One source of
-  // truth so the three breakpoint branches below don't drift.
+  // mobile shrinks height, icons, and padding
   const iconSize = isMobile ? 14 : 16;
   const btnPad = isMobile ? "p-1" : "p-1.5";
 
-  // ---- Shared toolbar pieces (reused by the mobile + desktop layouts
-  //      so the page-nav form / title / menu button don't drift). ----
+  // shared by both layouts
   const iconBtnCls =
     "rounded-md text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer shrink-0";
 
@@ -570,19 +506,7 @@ export function ReaderToolbar({
     </button>
   ) : null;
 
-  const backButton = (
-    <button
-      onClick={handleBack}
-      className={cn(iconBtnCls, btnPad)}
-      title={t("reader.toolbar.backToLibrary")}
-    >
-      <ArrowLeft size={iconSize} />
-    </button>
-  );
-
-  // Title is now a link to the book's overview page (rename moved
-  // there). Small, truncates, and never grows wide enough to crowd the
-  // page-nav / zoom controls.
+  // title links to the book's overview page
   const titleEl = (
     <button
       onClick={goToDescription}
@@ -599,7 +523,7 @@ export function ReaderToolbar({
         onClick={() => prevPage()}
         disabled={currentPage <= 1}
         className={cn(
-          "rounded-md transition-colors cursor-pointer touch-target",
+          "inline-flex items-center justify-center rounded-md transition-colors cursor-pointer touch-target",
           btnPad,
           "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
           "disabled:opacity-30 disabled:cursor-not-allowed",
@@ -649,7 +573,7 @@ export function ReaderToolbar({
         onClick={() => nextPage()}
         disabled={currentPage >= totalPages}
         className={cn(
-          "rounded-md transition-colors cursor-pointer touch-target",
+          "inline-flex items-center justify-center rounded-md transition-colors cursor-pointer touch-target",
           btnPad,
           "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
           "disabled:opacity-30 disabled:cursor-not-allowed",
@@ -663,10 +587,7 @@ export function ReaderToolbar({
   const desktopIconBtn =
     "rounded-md p-1 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer";
 
-  // ---- Item registry (Phase B foundation) -------------------------
-  // The non-mobile bar renders from `layout` via this registry.
-  // Composite widgets (multi-control) are bar-only; icon items can sit
-  // in a bar zone OR the ⋮ overflow menu.
+  // composite widgets are bar-only; icon items can also go in the overflow menu
   const zoomEl = (
     <div className="flex items-center gap-1">
       <button onClick={handleZoomOut} className={desktopIconBtn} title={t("reader.toolbar.zoomOut")}>
@@ -824,8 +745,7 @@ export function ReaderToolbar({
   const renderZone = (zone: ToolbarZone) =>
     layout[zone].map((slotId) => renderBarItem(slotId));
 
-  // Overflow (⋮) renders only icon-items that are available, plus any
-  // separators (as thin menu dividers).
+  // overflow shows available icon-items plus separators as dividers
   const overflowMenuSlots = layout.overflow.filter(
     (id) => isSeparator(id) || (iconDefs[id] && isItemAvailable(id)),
   );
@@ -835,27 +755,36 @@ export function ReaderToolbar({
       <div
         className={cn(
           "flex items-center justify-between gap-2 px-2 sm:px-4",
-          isMobile ? "h-9" : "h-10",
+          isMobile ? "h-11" : "h-10",
         )}
       >
         {isMobile ? (
-          /* ------------------------- MOBILE ------------------------- */
+          /* MOBILE */
           <>
-            <div className="flex min-w-0 flex-1 items-center gap-1">
+            {/* left: just the app-nav hamburger. Back arrow + book title
+                removed on mobile — the hamburger opens full app nav, and the
+                title barely fit 3 chars anyway. */}
+            <div className="flex shrink-0 items-center gap-1">
               {menuButton}
-              {backButton}
-              <div className="min-w-0 flex-1">{titleEl}</div>
             </div>
-            <div className="flex items-center gap-1">{pageNavEl}</div>
+            <div className="flex min-w-0 flex-1 items-center justify-center gap-1">
+              {pageNavEl}
+            </div>
             <div className="flex flex-1 items-center justify-end gap-1">
               <ReadingTrackerControl compact />
               <FocusSessionControl compact />
               <div className="relative" ref={overflowRef}>
                 <button
                   onClick={() => setShowOverflowMenu(!showOverflowMenu)}
-                  className={cn(iconBtnCls, btnPad, "touch-target")}
+                  className={cn(
+                    iconBtnCls,
+                    "inline-flex h-9 w-9 items-center justify-center touch-target",
+                  )}
+                  aria-label={t("reader.toolbar.moreActions", {
+                    defaultValue: "More",
+                  })}
                 >
-                  <MoreVertical size={iconSize} />
+                  <MoreVertical size={20} />
                 </button>
               </div>
               <FloatingMenu
@@ -884,7 +813,7 @@ export function ReaderToolbar({
             </div>
           </>
         ) : (
-          /* ----------- DESKTOP / TABLET (Google-PDF layout) --------- */
+          /* DESKTOP / TABLET */
           <>
             {/* LEFT zone */}
             <div className="flex min-w-0 flex-1 items-center gap-1">
@@ -896,7 +825,7 @@ export function ReaderToolbar({
               {renderZone("center")}
             </div>
 
-            {/* RIGHT zone + the always-present ⋮ overflow trigger */}
+            {/* RIGHT zone + overflow trigger */}
             <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
               {renderZone("right")}
               <div className="relative" ref={overflowRef}>
@@ -909,10 +838,7 @@ export function ReaderToolbar({
                   <MoreVertical size={14} />
                 </button>
               </div>
-              {/* Portaled via FloatingMenu so it can't be painted over
-                  by the PDF dockview (the toolbar wrapper is its own
-                  z-20 stacking context — a plain `absolute z-50` here
-                  loses to anything the viewer stacks above z-20). */}
+              {/* portaled so the PDF dockview can't paint over it */}
               <FloatingMenu
                 open={showOverflowMenu}
                 anchorRef={overflowRef}
@@ -948,10 +874,7 @@ export function ReaderToolbar({
         )}
       </div>
 
-      {/* Highlight-color picker — anchored to the ⋮ overflow button on
-          every breakpoint (that's where the Highlight action lives
-          now). Portaled via FloatingMenu so it escapes the toolbar's
-          z-20 stacking context. */}
+      {/* highlight-color picker, anchored to the overflow button */}
       <FloatingMenu
         open={showColorPicker}
         anchorRef={overflowRef}

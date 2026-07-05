@@ -13,7 +13,7 @@ const QUESTIONS = [
 ] as const;
 
 /**
- * FAQ using native <details>/<summary> — no JS accordion, no library.
+ * FAQ using native <details>/<summary>, no JS accordion, no library.
  * Users can open multiple at once; ChevronDown rotates via the
  * [open] attribute group selector.
  */

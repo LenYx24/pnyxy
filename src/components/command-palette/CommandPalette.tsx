@@ -95,7 +95,7 @@ export function CommandPalette() {
         },
       }),
     );
-    // Only uploaded books — they have a real file to open. Catalog
+    // Only uploaded books, they have a real file to open. Catalog
     // entries route to `/books/<id>` (the metadata page) which we
     // can surface later as a separate "View" command.
     const bookCommands: PaletteCommand[] = books

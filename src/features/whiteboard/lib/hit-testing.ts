@@ -92,7 +92,7 @@ function hitTestElement(
     }
 
     case "text": {
-      // Text is hit as a solid rectangle — makes selection/drag cheap
+      // Text is hit as a solid rectangle, makes selection/drag cheap
       // and predictable. Fine for click targets; precise per-glyph
       // hit-testing isn't useful here.
       return (

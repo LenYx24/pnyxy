@@ -4,7 +4,7 @@ import { GlassCard } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
 /**
- * Pricing section. Free plan reflects today's reality — core
+ * Pricing section. Free plan reflects today's reality, core
  * features all free. Premium is a "coming soon" teaser listing the
  * features most likely to ship behind a subscription: AI quota
  * uplift, more storage, OCR, X-Ray, cross-device sync. No price is
@@ -72,7 +72,7 @@ export function PricingSection() {
               {t("landing.pricing.premium.name")}
             </h3>
             <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-3xl font-bold text-text-muted/70">
+              <span className="text-3xl font-bold text-text-secondary">
                 {t("landing.pricing.premium.price")}
               </span>
               <span className="text-sm text-text-muted">

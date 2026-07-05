@@ -6,12 +6,7 @@ export const MIN_ROADMAP_NODES = 3;
 export const MAX_ROADMAP_NODES = 20;
 export const DEFAULT_ROADMAP_NODES = 8;
 
-/**
- * One result of an AI generation pass: a set of nodes + edges ready
- * to drop into `useRoadmapStore.upsertNode` / `upsertEdge`. Both
- * have real UUIDs already (the AI's internal "n1", "n2" labels are
- * resolved into UUIDs here so callers don't have to rewrite ids).
- */
+/** Nodes + edges with real UUIDs, ready for upsertNode/upsertEdge. */
 export interface GeneratedRoadmap {
   nodes: RoadmapNode[];
   edges: RoadmapEdge[];
@@ -129,9 +124,7 @@ function stripCodeFences(text: string): string {
   if (out.startsWith("```")) {
     out = out.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
   }
-  // Defensive: if there's prose around the object, slice from the first
-  // `{` to the matching final `}` so a leading "Here's your roadmap:"
-  // doesn't break the parse.
+  // slice from first { to last } in case the model wraps the JSON in prose
   const first = out.indexOf("{");
   const last = out.lastIndexOf("}");
   if (first !== -1 && last !== -1 && last > first) {
@@ -157,10 +150,8 @@ interface ValidatedDraft {
   edges: Array<{ source: string; target: string }>;
 }
 
-/** Filter out malformed reference rows; keep a sane subset. Empty
- *  array on no input. References that survive carry the `pending`
- *  match marker so the UI can show "looking up…" before the post-
- *  generation lookup completes. */
+/** Drop malformed reference rows. Survivors carry a `pending` match
+ *  marker until the post-generation lookup resolves them. */
 function parseReferences(raw: unknown): ResourceRef[] {
   if (!Array.isArray(raw)) return [];
   const out: ResourceRef[] = [];
@@ -201,7 +192,7 @@ function parseReferences(raw: unknown): ResourceRef[] {
       url: isNonEmptyString(r.url) ? r.url.trim() : undefined,
       match: { source: "pending" },
     });
-    // Cap at 5 — chatty models occasionally pile on irrelevant cites.
+    // cap at 5 cites per node
     if (out.length >= 5) break;
   }
   return out;
@@ -252,7 +243,7 @@ function validateDraft(raw: unknown): ValidatedDraft {
       aiId: id,
       title: raw.title.trim(),
       description: isNonEmptyString(raw.description) ? raw.description.trim() : "",
-      // Clamp to a sane range. Models occasionally hand back hours-as-minutes.
+      // clamp; models sometimes return hours as minutes
       estimatedMinutes: Math.max(
         5,
         Math.min(600, Math.round(raw.estimatedMinutes)),
@@ -291,18 +282,12 @@ function validateDraft(raw: unknown): ValidatedDraft {
   };
 }
 
-/**
- * Drop any edge that would close a cycle, building the live graph
- * incrementally. Order-stable: earlier edges win, so the model's
- * intended sequencing survives. The result is guaranteed acyclic
- * even when the model occasionally produces a cycle.
- */
+/** Drop edges that would close a cycle. Order-stable: earlier edges win. */
 function dropCycles<T extends { source: string; target: string }>(
   edges: T[],
 ): T[] {
   const liveAdj = new Map<string, string[]>();
-  // "Would adding source → target close a cycle?" iff target can
-  // already reach source in the live graph. BFS from `target`.
+  // adding source->target closes a cycle iff target already reaches source
   const reaches = (from: string, target: string): boolean => {
     const visited = new Set<string>();
     const queue = [from];
@@ -325,11 +310,7 @@ function dropCycles<T extends { source: string; target: string }>(
   return accepted;
 }
 
-/**
- * Generate a roadmap draft from a topic. The result still needs to
- * be saved by the caller (createRoadmap + upsertNode + upsertEdge);
- * this function only handles "talk to the AI and parse the JSON".
- */
+/** Generate a roadmap draft from a topic. Caller is responsible for saving it. */
 export async function generateRoadmap({
   topic,
   maxNodes = DEFAULT_ROADMAP_NODES,
@@ -370,7 +351,7 @@ export async function generateRoadmap({
       "",
       {
         systemPromptOverride: buildRoadmapSystemPrompt(maxNodes),
-        // Plenty of headroom for a 20-node roadmap with descriptions.
+        // headroom for a 20-node roadmap
         maxOutputTokens: 4000,
       },
     )) {
@@ -411,15 +392,11 @@ export async function generateRoadmap({
   }
   const draft = validateDraft(parsed);
 
-  // Map AI ids ("n1", "n2", ...) → real UUIDs and rewrite edges.
+  // map AI ids (n1, n2, ...) to real UUIDs
   const idMap = new Map<string, string>();
   for (const n of draft.nodes) idMap.set(n.aiId, crypto.randomUUID());
 
-  // Run the resource lookup once across every node's references —
-  // a single ILIKE round-trip per side regardless of how many refs
-  // landed. Failures degrade silently (refs keep `match.source ===
-  // "pending"`, which the UI handles); the generation itself stays
-  // successful.
+  // one lookup across all refs; on failure mark them "none" and carry on
   const allRefs = draft.nodes.flatMap((n) => n.references);
   let matchedRefs: ResourceRef[];
   try {
@@ -430,9 +407,7 @@ export async function generateRoadmap({
       match: { source: "none" as const },
     }));
   }
-  // Re-distribute the matched refs back to their nodes, preserving
-  // per-node order. We compare references by their object identity in
-  // the flat list (same index), since each ref object is unique here.
+  // slice the flat matched list back out per node, in order
   let cursor = 0;
   const nodes: RoadmapNode[] = draft.nodes.map((n) => {
     const refsForNode = matchedRefs.slice(cursor, cursor + n.references.length);

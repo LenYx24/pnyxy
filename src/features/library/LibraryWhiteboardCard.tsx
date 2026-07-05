@@ -35,7 +35,7 @@ interface LibraryWhiteboardCardProps {
 
 /**
  * Grid card for a whiteboard in the library filetree. Same shape as
- * LibraryNoteCard — icon-tile "cover", label, 3-dot menu — but opens
+ * LibraryNoteCard, icon-tile "cover", label, 3-dot menu, but opens
  * the existing `/whiteboards/:id` canvas route. Export is JSON (the
  * whiteboard's native portable form); move / delete are self-contained.
  */

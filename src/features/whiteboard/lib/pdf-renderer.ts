@@ -7,52 +7,67 @@ export interface RenderedPage {
   height: number;
 }
 
+/** Cheap per-page geometry (no rasterization) used to lay the pages out
+ *  before any bitmap is rendered. */
+export interface PageLayout {
+  pageNum: number;
+  width: number;
+  height: number;
+}
+
 /**
- * Render a single PDF page to an ImageBitmap at the given scale.
+ * Open a PDF document. The caller owns the returned proxy and must
+ * `destroy()` it when done (see clearPdfBackground in the store).
  */
-async function renderPage(
+export async function loadPdfDocument(
+  fileUrl: string,
+): Promise<pdfjs.PDFDocumentProxy> {
+  return pdfjs.getDocument(fileUrl).promise;
+}
+
+/**
+ * Compute each page's dimensions at the given scale WITHOUT rasterizing —
+ * `getViewport` only reads the page's metadata, so this is cheap even for a
+ * few-hundred-page book. Lets us lay out the whole document up front and
+ * rasterize pages lazily as they scroll into view.
+ */
+export async function getPageLayouts(
+  pdfDoc: pdfjs.PDFDocumentProxy,
+  scale: number,
+): Promise<PageLayout[]> {
+  const layouts: PageLayout[] = [];
+  for (let i = 1; i <= pdfDoc.numPages; i++) {
+    const page = await pdfDoc.getPage(i);
+    const viewport = page.getViewport({ scale });
+    layouts.push({ pageNum: i, width: viewport.width, height: viewport.height });
+    // release the page's internal resources; we only needed the geometry
+    page.cleanup();
+  }
+  return layouts;
+}
+
+/**
+ * Rasterize a single PDF page to an ImageBitmap at the given scale.
+ * Used on-demand by the lazy windowing in the whiteboard store.
+ */
+export async function renderSinglePage(
   pdfDoc: pdfjs.PDFDocumentProxy,
   pageNum: number,
   scale: number,
-): Promise<RenderedPage> {
+): Promise<ImageBitmap> {
   const page = await pdfDoc.getPage(pageNum);
   const viewport = page.getViewport({ scale });
 
   const canvas = new OffscreenCanvas(viewport.width, viewport.height);
   const ctx = canvas.getContext("2d")!;
 
-  await page.render({ canvas: canvas as unknown as HTMLCanvasElement, canvasContext: ctx as unknown as CanvasRenderingContext2D, viewport }).promise;
+  await page.render({
+    canvas: canvas as unknown as HTMLCanvasElement,
+    canvasContext: ctx as unknown as CanvasRenderingContext2D,
+    viewport,
+  }).promise;
 
   const bitmap = await createImageBitmap(canvas);
-  return {
-    pageNum,
-    bitmap,
-    width: viewport.width,
-    height: viewport.height,
-  };
-}
-
-/**
- * Load a PDF and render all pages at the given scale.
- * Returns rendered bitmaps for each page.
- */
-export async function renderPdfPages(
-  fileUrl: string,
-  scale = 1.5,
-  onProgress?: (loaded: number, total: number) => void,
-): Promise<RenderedPage[]> {
-  const loadingTask = pdfjs.getDocument(fileUrl);
-  const pdfDoc = await loadingTask.promise;
-  const totalPages = pdfDoc.numPages;
-
-  const results: RenderedPage[] = [];
-
-  // Render pages sequentially to avoid memory spikes
-  for (let i = 1; i <= totalPages; i++) {
-    const rendered = await renderPage(pdfDoc, i, scale);
-    results.push(rendered);
-    onProgress?.(i, totalPages);
-  }
-
-  return results;
+  page.cleanup();
+  return bitmap;
 }

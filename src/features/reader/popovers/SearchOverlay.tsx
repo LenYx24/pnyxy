@@ -17,7 +17,7 @@ import { cn } from "@/lib/cn";
 /**
  * Floating VSCode-style find/replace overlay. Mounted once inside the
  * viewer area. Coordinates all format-specific rendering through the
- * `search-store` — no format-specific code lives here.
+ * `search-store`, no format-specific code lives here.
  */
 export function SearchOverlay() {
   const isOpen = useSearchStore((s) => s.isOpen);

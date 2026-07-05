@@ -35,6 +35,6 @@ export function trackRecentlyViewed(bookId: string): void {
     localStorage.setItem(KEY, JSON.stringify(next));
     window.dispatchEvent(new CustomEvent("pnyxy:recently-viewed-changed"));
   } catch {
-    // Storage blocked — silently drop; shelf just stays empty.
+    // Storage blocked, silently drop; shelf just stays empty.
   }
 }

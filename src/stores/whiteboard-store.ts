@@ -18,15 +18,39 @@ import {
   pullAllWhiteboards,
 } from "@/lib/whiteboard-sync";
 import { logError } from "@/lib/logger";
-import { renderPdfPages } from "@/features/whiteboard/lib/pdf-renderer";
+import { pdfjs } from "react-pdf";
+import {
+  loadPdfDocument,
+  getPageLayouts,
+  renderSinglePage,
+} from "@/features/whiteboard/lib/pdf-renderer";
 
 interface UndoEntry {
   elements: WhiteboardElement[];
   background: WhiteboardBackground;
 }
 
+// --- Lazy PDF background state (module scope: heavy, non-serializable) ---
+// The whole document is laid out up front but only pages near the viewport are
+// rasterized, and far ones evicted, so a 100+ page book never holds 100 full-
+// res bitmaps at once.
+let pdfDocRef: pdfjs.PDFDocumentProxy | null = null;
+let pdfScaleRef = 1.5;
+const pdfRenderInFlight = new Set<number>();
+const MAX_RENDERED_PAGES = 12;
+
+// Debounced persistence: dragging fires updateElement on every pointer-move,
+// and saving the whole board to IndexedDB + Supabase each time saturated the
+// write path. Coalesce those into one save shortly after the last change.
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+const SAVE_DEBOUNCE_MS = 400;
+
+const MAX_UNDO = 60;
+
 export interface PdfBackgroundPage {
-  bitmap: ImageBitmap;
+  pageNum: number;
+  /** null until the page is rasterized on demand (lazy windowing). */
+  bitmap: ImageBitmap | null;
   width: number;
   height: number;
   /** Y position in world space */
@@ -69,6 +93,9 @@ interface WhiteboardState {
   /** Pull whiteboards from Supabase, merge into local IDB + in-memory
    *  list. Called after sign-in. Cloud wins on conflict. */
   syncFromCloud: () => Promise<void>;
+  /** Drop the in-memory listing on sign-out so the next account never
+   *  sees the previous user's whiteboards. IDB is wiped separately. */
+  clearLocal: () => void;
   createWhiteboard: (opts?: { bookId?: string; title?: string; folderId?: string | null }) => string;
   /** Most recent cloud-sync error (quota, network). Cleared by the
    *  UI when acknowledged. */
@@ -79,6 +106,10 @@ interface WhiteboardState {
   moveWhiteboardToFolder: (id: string, folderId: string | null) => void;
   loadWhiteboardData: (id: string) => Promise<void>;
   saveCurrentWhiteboard: () => void;
+  /** Debounced save (coalesces rapid drag updates). */
+  scheduleSave: () => void;
+  /** Cancel any pending debounced save and persist immediately. */
+  flushSave: () => void;
 
   addElement: (el: WhiteboardElement) => void;
   updateElement: (id: string, patch: Partial<WhiteboardElement>) => void;
@@ -96,6 +127,8 @@ interface WhiteboardState {
   setZoom: (zoom: number, focalPoint?: Point) => void;
 
   loadPdfBackground: (fileUrl: string) => Promise<void>;
+  /** Rasterize the given (visible + margin) pages and evict far ones. */
+  ensurePdfPages: (pageNums: number[]) => void;
   clearPdfBackground: () => void;
 
   undo: () => void;
@@ -154,6 +187,10 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     }
   },
 
+  clearLocal() {
+    set({ whiteboards: [], activeWhiteboardId: null, elements: [] });
+  },
+
   createWhiteboard(opts?: { bookId?: string; title?: string; folderId?: string | null }) {
     const wb: WhiteboardData = {
       id: crypto.randomUUID(),
@@ -205,12 +242,14 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       whiteboards: s.whiteboards.map((w) => (w.id === id ? wb : w)),
     }));
     dbSaveWhiteboard(wb);
-    // Fire-and-forget cloud push — folder placement is a metadata
+    // Fire-and-forget cloud push, folder placement is a metadata
     // edit, so it can't trip the insert-only quota trigger.
     void pushWhiteboard(wb);
   },
 
   async loadWhiteboardData(id) {
+    // Persist any pending debounced changes to the previous board first.
+    get().flushSave();
     const wb = await loadWhiteboard(id);
     if (wb) {
       set({
@@ -241,7 +280,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       updatedAt: Date.now(),
       // Preserve scope: dropping bookId here would orphan a
       // book-scoped whiteboard back into the global workspace list
-      // on the very next save. Same for folderId — a save mustn't
+      // on the very next save. Same for folderId, a save mustn't
       // bounce the whiteboard out of its library folder.
       bookId: existing?.bookId,
       folderId: existing?.folderId ?? null,
@@ -263,12 +302,28 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     }));
   },
 
+  scheduleSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      get().saveCurrentWhiteboard();
+    }, SAVE_DEBOUNCE_MS);
+  },
+
+  flushSave() {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    get().saveCurrentWhiteboard();
+  },
+
   pushUndo() {
     const { elements, background, undoStack } = get();
-    set({
-      undoStack: [...undoStack, { elements: [...elements], background }],
-      redoStack: [],
-    });
+    const next = [...undoStack, { elements: [...elements], background }];
+    // Cap history so a long editing session can't grow memory unbounded.
+    if (next.length > MAX_UNDO) next.splice(0, next.length - MAX_UNDO);
+    set({ undoStack: next, redoStack: [] });
   },
 
   addElement(el) {
@@ -283,7 +338,8 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         el.id === id ? ({ ...el, ...patch } as WhiteboardElement) : el,
       ),
     }));
-    get().saveCurrentWhiteboard();
+    // Debounced: updateElement fires on every pointer-move during a drag.
+    get().scheduleSave();
   },
 
   removeElements(ids) {
@@ -349,21 +405,25 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   async loadPdfBackground(fileUrl) {
     set({ pdfLoading: true, pdfLoadProgress: "Loading PDF..." });
     try {
-      const pages = await renderPdfPages(fileUrl, 1.5, (loaded, total) => {
-        set({ pdfLoadProgress: `Rendering page ${loaded}/${total}...` });
-      });
+      const doc = await loadPdfDocument(fileUrl);
+      pdfDocRef = doc;
+      // Downscale long books a touch; combined with lazy windowing this keeps
+      // memory roughly flat regardless of page count.
+      pdfScaleRef = doc.numPages > 40 ? 1.0 : 1.5;
 
-      // Layout pages vertically with gap
+      // Lay out every page up front from cheap geometry (no rasterization).
+      const layouts = await getPageLayouts(doc, pdfScaleRef);
       const PAGE_GAP = 20;
       let yOffset = 0;
-      const pdfPages: PdfBackgroundPage[] = pages.map((p) => {
+      const pdfPages: PdfBackgroundPage[] = layouts.map((l) => {
         const page: PdfBackgroundPage = {
-          bitmap: p.bitmap,
-          width: p.width,
-          height: p.height,
+          pageNum: l.pageNum,
+          bitmap: null,
+          width: l.width,
+          height: l.height,
           y: yOffset,
         };
-        yOffset += p.height + PAGE_GAP;
+        yOffset += l.height + PAGE_GAP;
         return page;
       });
 
@@ -374,10 +434,56 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     }
   },
 
+  ensurePdfPages(pageNums) {
+    const doc = pdfDocRef;
+    if (!doc) return;
+    const keep = new Set(pageNums);
+    const pages = get().pdfPages;
+
+    // Rasterize requested pages that aren't ready (or already in flight).
+    for (const n of pageNums) {
+      const page = pages.find((p) => p.pageNum === n);
+      if (!page || page.bitmap || pdfRenderInFlight.has(n)) continue;
+      pdfRenderInFlight.add(n);
+      renderSinglePage(doc, n, pdfScaleRef)
+        .then((bitmap) => {
+          pdfRenderInFlight.delete(n);
+          // Board switched/closed mid-render — drop the orphan bitmap.
+          if (pdfDocRef !== doc) {
+            bitmap.close();
+            return;
+          }
+          set((s) => ({
+            pdfPages: s.pdfPages.map((p) =>
+              p.pageNum === n ? { ...p, bitmap } : p,
+            ),
+          }));
+        })
+        .catch(() => pdfRenderInFlight.delete(n));
+    }
+
+    // Evict rasterized pages outside the window once we exceed the cap.
+    const renderedCount = pages.filter((p) => p.bitmap).length;
+    if (renderedCount > MAX_RENDERED_PAGES) {
+      const evictable = pages.filter((p) => p.bitmap && !keep.has(p.pageNum));
+      if (evictable.length > 0) {
+        for (const p of evictable) p.bitmap?.close();
+        const evict = new Set(evictable.map((p) => p.pageNum));
+        set((s) => ({
+          pdfPages: s.pdfPages.map((p) =>
+            evict.has(p.pageNum) ? { ...p, bitmap: null } : p,
+          ),
+        }));
+      }
+    }
+  },
+
   clearPdfBackground() {
-    const { pdfPages } = get();
-    for (const p of pdfPages) {
-      p.bitmap.close();
+    for (const p of get().pdfPages) p.bitmap?.close();
+    pdfRenderInFlight.clear();
+    if (pdfDocRef) {
+      void pdfDocRef.destroy();
+      pdfDocRef = null;
     }
     set({ pdfPages: [] });
   },

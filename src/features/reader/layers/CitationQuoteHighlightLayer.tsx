@@ -9,24 +9,7 @@ interface CitationQuoteHighlightLayerProps {
   pageNum: number;
 }
 
-/**
- * Transient highlight for LLM citation chips with a quote payload
- * (`[p.N:"…"]`). When the user clicks the chip, the click
- * dispatcher writes a citation into `reader-store.activeCitation`;
- * this layer asks the active doc's adapter to search the quote on
- * its target page, then paints the matched rects with a pulsing
- * amber highlight that fades out after ~5s.
- *
- * Visually distinct from the regular `HighlightLayer` (user
- * highlights, multiply blend) and from `SearchHighlightLayer`
- * (search hit list) — it's a one-shot "the AI is pointing here"
- * marker, not persistent annotation.
- *
- * Off the active page → renders nothing. Wrong doc → nothing.
- * Quote not found → nothing (the page-jump itself already
- * happened in the dispatcher, so the user lands on the right page
- * regardless).
- */
+/** Transient amber highlight for a clicked citation chip's quote, fades out after ~5s. Renders nothing off the active page/doc or when the quote isn't found. */
 export function CitationQuoteHighlightLayer({
   pageNum,
 }: CitationQuoteHighlightLayerProps) {
@@ -46,9 +29,7 @@ export function CitationQuoteHighlightLayer({
 
   const [rects, setRects] = useState<PageRect[]>([]);
 
-  // Run the search whenever a fresh citation lands. Cancellable so
-  // a rapid second click on another chip doesn't paint stale rects
-  // from the first lookup.
+  // cancellable so a rapid second chip click doesn't paint stale rects
   useEffect(() => {
     if (!isForThisPage || !citation || !adapter?.search) {
       setRects([]);
@@ -63,9 +44,7 @@ export function CitationQuoteHighlightLayer({
           regex: false,
         });
         if (cancelled) return;
-        // Restrict to the cited page. The adapter may return matches
-        // from the whole doc (the search store usually wants that);
-        // here we only want the rects on the target page.
+        // adapter may return whole-doc matches; keep only the cited page's rects
         const pageRects: PageRect[] = [];
         for (const m of matches) {
           if (m.pageNum !== citation.page || !m.rects) continue;
@@ -75,10 +54,6 @@ export function CitationQuoteHighlightLayer({
         }
         setRects(pageRects);
       } catch {
-        // Adapter search can fail for malformed regex / unsupported
-        // queries — citations always go through as plain text, so
-        // this branch is mostly belt-and-suspenders. Land on the
-        // page without a highlight.
         if (!cancelled) setRects([]);
       }
     })();
@@ -87,11 +62,8 @@ export function CitationQuoteHighlightLayer({
     };
   }, [isForThisPage, citation, adapter]);
 
-  // Auto-clear the citation slot once the highlight has fully faded
-  // so a later doc-switch + chat-click doesn't briefly flash the
-  // previous quote. Tied to the citation timestamp rather than to
-  // this layer's mount so re-mounts (page virtualization) don't
-  // reset the timer.
+  // clear the citation once faded so a later doc-switch doesn't flash the old quote.
+  // timer keyed to citation.createdAt so page-virtualization remounts don't reset it
   useEffect(() => {
     if (!citation) return;
     const remaining =
@@ -104,11 +76,7 @@ export function CitationQuoteHighlightLayer({
     return () => clearTimeout(t);
   }, [citation, setActiveCitation]);
 
-  // CSS-driven fade: keyframes baked inline so the layer doesn't
-  // need a global stylesheet entry. The animation duration matches
-  // HIGHLIGHT_DURATION_MS; `forwards` keeps the final state (faded
-  // out) so a re-mount after the fade doesn't pop the highlight
-  // back to full brightness.
+  // `forwards` keeps the faded-out state so a remount after fade doesn't flash it back to full
   const fadeStyle = useMemo<React.CSSProperties>(() => {
     if (!citation) return {};
     const elapsed = Date.now() - citation.createdAt;

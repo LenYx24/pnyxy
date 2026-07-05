@@ -10,7 +10,7 @@ const BASE = "https://openlibrary.org";
 const COVERS = "https://covers.openlibrary.org";
 const IA_DOWNLOAD = "https://archive.org/download";
 
-// ── Cover URL builder ───────────────────────────────────────
+// Cover URL builder
 
 export function getCoverUrl(
   isbn: string,
@@ -26,7 +26,7 @@ export function getCoverUrlById(
   return `${COVERS}/b/id/${coverId}-${size}.jpg`;
 }
 
-// ── Internet Archive download URLs ──────────────────────────
+// Internet Archive download URLs
 
 export function getIADownloadUrl(
   iaId: string,
@@ -44,7 +44,7 @@ export function getDownloadOptions(iaId: string): DownloadOption[] {
   ];
 }
 
-// ── Search ──────────────────────────────────────────────────
+// Search
 
 export async function searchBooks(
   query: string,
@@ -64,7 +64,7 @@ export async function searchBooks(
   return res.json();
 }
 
-// ── ISBN lookup ─────────────────────────────────────────────
+// ISBN lookup
 
 export async function getBookByIsbn(
   isbn: string,
@@ -73,7 +73,7 @@ export async function getBookByIsbn(
   return result.docs[0] ?? null;
 }
 
-// ── Work details (for descriptions) ─────────────────────────
+// Work details (for descriptions)
 
 export async function getWorkDetails(
   workId: string,
@@ -86,7 +86,7 @@ export async function getWorkDetails(
   return res.json();
 }
 
-// ── Map Open Library doc → CatalogBookInsert ────────────────
+// Map Open Library doc → CatalogBookInsert
 
 function extractDescription(
   desc: string | { value: string } | undefined,

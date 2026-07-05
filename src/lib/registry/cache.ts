@@ -22,7 +22,7 @@ function write(map: CacheMap): void {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(map));
   } catch {
-    // quota or privacy-mode failure — best-effort cache only
+    // quota or privacy-mode failure, best-effort cache only
   }
 }
 

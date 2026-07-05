@@ -33,10 +33,7 @@ interface RoadmapGraphProps {
   enrollment?: Enrollment;
   mode: "view" | "edit";
   selectedNodeId?: string | null;
-  /** Per-node auto-detected progress (0–100). Composited with the
-   *  enrollment's manual progress; the higher of the two drives the
-   *  visual state. Optional — pass when the parent has fetched
-   *  `book_resume_state` for the matched book references. */
+  /** Per-node auto-detected progress (0-100). Higher of this and manual progress drives the visual state. */
   autoProgress?: Record<string, number>;
   onSelectNode?: (id: string | null) => void;
   onNodeClick?: (id: string) => void;
@@ -90,13 +87,9 @@ function RoadmapGraphInner({
     [roadmap.nodes, roadmap.edges],
   );
 
-  // Source-of-truth nodes derived from the roadmap + enrollment props.
-  // We DON'T feed this directly into ReactFlow — it would clobber the
-  // live drag position on every render, so the node visually snapped
-  // back to the original spot mid-drag instead of following the cursor.
-  // Instead, we mirror it into local state below and apply xyflow's
-  // change events ourselves; the parent only hears about position
-  // changes once the drag ends.
+  // Source-of-truth nodes. Not fed straight to ReactFlow: that would clobber the
+  // live drag position each render and snap the node back mid-drag. Mirrored into
+  // local state below instead; parent only hears position changes on drag end.
   const sourceNodes: RoadmapXyNode[] = useMemo(
     () =>
       positionedNodes.map((n) => {
@@ -141,19 +134,11 @@ function RoadmapGraphInner({
     ],
   );
 
-  // Local mirror that ReactFlow controls. `applyNodeChanges` updates
-  // it from xyflow's drag/select/etc. events, so the node visually
-  // tracks the cursor without waiting for the parent to round-trip
-  // a position update.
+  // Local mirror ReactFlow controls via applyNodeChanges, so nodes track the cursor.
   const [nodes, setNodes] = useState<RoadmapXyNode[]>(sourceNodes);
 
-  // Re-seed when the upstream source changes (new node added,
-  // enrollment progress changed, switched view↔edit mode, …).
-  // Deliberately not deduping by deep-equality — `sourceNodes` is
-  // already memoised on its real inputs, so identity changes only
-  // when something we actually want to reflect changed. During a
-  // drag, none of those inputs change, so this effect doesn't fire
-  // and the live drag state survives.
+  // Re-seed on source identity change. sourceNodes is memoised on real inputs, none
+  // of which change during a drag, so live drag state survives.
   useEffect(() => {
     setNodes(sourceNodes);
   }, [sourceNodes]);
@@ -167,12 +152,8 @@ function RoadmapGraphInner({
         source: e.source,
         target: e.target,
         markerEnd: { type: MarkerType.ArrowClosed },
-        // Highlight edges leading into the next-actionable nodes (not locked,
-        // not completed) — small affordance that suggests where to go next.
         style: {
-          // Edge colour cues "where to go next": grey when locked
-          // and source not yet complete, green once source is fully
-          // complete (>= 100), default otherwise.
+          // grey when target locked and source incomplete, green when source complete
           stroke:
             (nodeProgressMap[e.source] ?? 0) < 100 && lockedSet.has(e.target)
               ? "rgb(var(--color-text-muted-rgb,120 120 120))"
@@ -207,27 +188,21 @@ function RoadmapGraphInner({
 
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      // Even in view mode we let xyflow apply *non-position* changes
-      // (selection, dimensions) so the graph stays internally
-      // consistent — but we drop position changes since the node
-      // isn't draggable there.
+      // In view mode keep non-position changes (selection, dimensions) but drop
+      // position/remove since nodes aren't draggable there.
       const filtered =
         mode === "edit"
           ? changes
           : changes.filter((c) => c.type !== "position" && c.type !== "remove");
-      // Apply EVERY change to local state — including in-flight
-      // position changes (`dragging: true`). That's the bit that
-      // makes the node track the cursor; without it the prop stayed
-      // pinned to the source position and the node visually snapped.
+      // Apply every change, including in-flight position (dragging: true); that's
+      // what makes the node track the cursor.
       setNodes((prev) => applyNodeChanges(filtered, prev) as RoadmapXyNode[]);
 
       if (mode !== "edit") return;
       const removed: string[] = [];
       for (const c of changes) {
         if (c.type === "remove") removed.push(c.id);
-        // Only commit to the parent (and through it, to the DB) on
-        // drag end. Live mid-drag positions stay in local state to
-        // avoid spamming `setNodePosition` 60× per second.
+        // Only commit to the parent on drag end, to avoid spamming updates mid-drag.
         if (c.type === "position" && c.dragging === false && c.position) {
           onNodeDrag?.(c.id, c.position);
         }
@@ -253,9 +228,8 @@ function RoadmapGraphInner({
       nodesConnectable={mode === "edit"}
       nodesDraggable={mode === "edit"}
       elementsSelectable={true}
-      // Obsidian-style: drag empty pane = rectangle select, pan via
-      // middle (1) or right (2) mouse button. Edit mode only — in view
-      // mode left-drag still pans so reading feels natural.
+      // edit mode: drag empty pane = rectangle select, pan via middle/right button.
+      // view mode: left-drag pans.
       selectionOnDrag={mode === "edit"}
       panOnDrag={mode === "edit" ? [1, 2] : true}
       selectNodesOnDrag={false}

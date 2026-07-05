@@ -10,7 +10,7 @@ interface ShelfProps {
   seeAllHref?: string;
   seeAllLabel?: string;
   /** When empty, the shelf renders nothing (caller can just always
-   *  pass its list — empty lists hide the whole shelf, no placeholder
+   *  pass its list, empty lists hide the whole shelf, no placeholder
    *  noise for sections that happen to have no data yet). */
   children: ReactNode;
   /** The number of child items; needed to decide whether the shelf

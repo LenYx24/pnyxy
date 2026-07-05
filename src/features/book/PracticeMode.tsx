@@ -52,7 +52,7 @@ type Phase = "loading" | "ready" | "answering" | "feedback" | "done" | "error";
  * one question at a time, asks them to type an answer, then streams
  * Socratic feedback that points at gaps without spelling out the
  * full solution. The pedagogy here mirrors the GPT Tutor arm of the
- * Bastani PNAS 2025 study — productive struggle over crutch usage.
+ * Bastani PNAS 2025 study, productive struggle over crutch usage.
  */
 export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
   const { t } = useTranslation();
@@ -71,7 +71,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
   >(new Map());
 
   // Step 1: download the file, extract text, extract questions. All
-  // session-only — re-run if the user re-opens the modal. Cheap
+  // session-only, re-run if the user re-opens the modal. Cheap
   // enough for the typical 5-12 question exam, and sidesteps a
   // schema migration to cache the questions on the row.
   useEffect(() => {
@@ -181,7 +181,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
         setPhase("feedback");
       } catch (err) {
         if ((err as { name?: string })?.name === "AbortError") {
-          // User closed / advanced past — silently swallow.
+          // User closed / advanced past, silently swallow.
           return;
         }
         logError("PracticeMode:evaluate", err);

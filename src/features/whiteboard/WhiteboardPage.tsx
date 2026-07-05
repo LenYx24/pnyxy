@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, Bot, Trash2 } from "lucide-react";
 import { Button, ConfirmModal } from "@/components/ui";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
+import { whiteboardDisplayTitle } from "@/lib/entity-title";
 import { WhiteboardCanvas } from "./WhiteboardCanvas";
+import { WhiteboardChatPanel } from "./WhiteboardChatPanel";
 
 /**
- * Standalone whiteboard route — full-screen canvas with a back
+ * Standalone whiteboard route, full-screen canvas with a back
  * button. Lets users open any whiteboard outside the reader, which
  * is the only way shell books (no file) can use whiteboards: they
  * have nothing to open in the reader, so whiteboards are instead
@@ -27,7 +29,7 @@ export function WhiteboardPage() {
   const deleteWhiteboard = useWhiteboardStore((s) => s.deleteWhiteboard);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // Direct landing on /whiteboards/:id may hit an empty list — load
+  // Direct landing on /whiteboards/:id may hit an empty list, load
   // so the back-link can resolve the bookId and the delete handler
   // has something to find.
   useEffect(() => {
@@ -36,6 +38,13 @@ export function WhiteboardPage() {
 
   const whiteboard = whiteboards.find((w) => w.id === whiteboardId);
   const bookId = whiteboard?.bookId;
+
+  const [chatOpen, setChatOpen] = useState(false);
+  // Book-scoped when the board belongs to a book, else scoped to the board.
+  const scopeId = bookId ? `book:${bookId}` : `wb:${whiteboardId}`;
+  const scopeTitle = whiteboard
+    ? whiteboardDisplayTitle(whiteboard, t)
+    : "Whiteboard";
 
   const handleBack = () => {
     if (bookId) {
@@ -70,17 +79,40 @@ export function WhiteboardPage() {
           <ArrowLeft size={16} />
           {bookId ? t("whiteboard.backToBook") : t("common.back")}
         </Button>
-        <Button
-          variant="ghost"
-          onClick={() => setConfirmOpen(true)}
-          aria-label={t("whiteboard.delete")}
-        >
-          <Trash2 size={16} className="text-danger" />
-          <span className="hidden sm:inline">{t("whiteboard.delete")}</span>
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            onClick={() => setChatOpen((v) => !v)}
+            aria-label={t("whiteboard.chat.toggle", { defaultValue: "AI chat" })}
+          >
+            <Bot size={16} className={chatOpen ? "text-accent" : undefined} />
+            <span className="hidden sm:inline">
+              {t("whiteboard.chat.toggle", { defaultValue: "AI chat" })}
+            </span>
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setConfirmOpen(true)}
+            aria-label={t("whiteboard.delete")}
+          >
+            <Trash2 size={16} className="text-danger" />
+            <span className="hidden sm:inline">{t("whiteboard.delete")}</span>
+          </Button>
+        </div>
       </header>
-      <div className="relative flex-1 overflow-hidden rounded-lg border border-glass-border">
-        <WhiteboardCanvas whiteboardId={whiteboardId} />
+      <div className="relative flex flex-1 overflow-hidden rounded-lg border border-glass-border">
+        <div className="relative min-w-0 flex-1 overflow-hidden">
+          <WhiteboardCanvas whiteboardId={whiteboardId} />
+        </div>
+        {chatOpen && (
+          <div className="absolute inset-0 z-20 border-l border-glass-border bg-bg-secondary sm:static sm:z-auto sm:w-[340px] sm:shrink-0">
+            <WhiteboardChatPanel
+              scopeId={scopeId}
+              scopeTitle={scopeTitle}
+              onClose={() => setChatOpen(false)}
+            />
+          </div>
+        )}
       </div>
       <ConfirmModal
         open={confirmOpen}

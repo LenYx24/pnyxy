@@ -71,7 +71,7 @@ export function DownloadButton({
   }
 
   // Multi-format: a single visible affordance with a caret. The
-  // primary button text says "Download" — the format choice happens
+  // primary button text says "Download", the format choice happens
   // inside the menu so we don't crowd the action row with one CTA per
   // file type.
   return (

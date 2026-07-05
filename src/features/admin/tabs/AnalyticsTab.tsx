@@ -30,11 +30,11 @@ import {
   type AdminOverview,
 } from "@/stores/admin-analytics-store";
 
-// ── Cost estimate ────────────────────────────────────────────
+// Cost estimate
 //
 // We only store a per-day total token count (the worst-case quota
 // charge: input + max_output), not a real input/output split, so any
-// dollar figure here is a deliberately rough UPPER bound — blended
+// dollar figure here is a deliberately rough UPPER bound, blended
 // $/1M-token rates per model, applied to the worst-case token count.
 // Treat it as "ceiling on what this traffic could have cost," not the
 // invoice. Good enough to compare models and spot trends.
@@ -74,7 +74,7 @@ const tooltipStyle = {
   fontSize: 12,
 } as const;
 
-// ── small building blocks ────────────────────────────────────
+// small building blocks
 
 function ChartCard({
   title,
@@ -132,7 +132,7 @@ const KPIS: KpiDef[] = [
   { key: "total_conversations", label: "Chats", Icon: MessagesSquare, color: "text-indigo-400" },
 ];
 
-// ── main tab ─────────────────────────────────────────────────
+// main tab
 
 export function AnalyticsTab() {
   const {

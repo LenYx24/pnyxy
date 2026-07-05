@@ -34,16 +34,9 @@ interface LibraryState {
   isLoading: boolean;
   currentFolderId: string | null;
   folderPath: Folder[];
-  /** Set of doc_ids the user has any saved reading position for —
-   *  used to render a "Reading" pill on the matching library cards
-   *  so currently-active books pop visually. Populated by
-   *  fetchInProgress(). Starts empty so signed-out / pre-fetch
-   *  states render no pill rather than wrong pills. */
+  /** doc_ids with a saved reading position; drives the "Reading" pill. */
   inProgressDocIds: Set<string>;
-  /** Timestamps of the last successful fetch per resource. Used by
-   *  fetchLibrary/fetchFolders to skip a refetch when the user is
-   *  just bouncing between pages (e.g., /home → /library → /home).
-   *  Force=true on the refresh button bypasses the check. */
+  /** Last successful fetch time per resource, for the freshness skip. */
   lastFetchedAt: {
     books: number | null;
     folders: number | null;
@@ -54,17 +47,14 @@ interface LibraryState {
   fetchFolders: (force?: boolean) => Promise<void>;
   fetchInProgress: (force?: boolean) => Promise<void>;
   createFolder: (name: string, parentId: string | null) => Promise<Folder | null>;
-  /** Accepts a slash-separated path like "p1/p2/p3" and creates any
-   * missing ancestors, returning the deepest (last) folder. */
+  /** Creates any missing ancestors in a slash-separated path, returns the deepest folder. */
   createFolderPath: (path: string, parentId: string | null) => Promise<Folder | null>;
   renameFolder: (id: string, name: string) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
   navigateToFolder: (id: string | null) => void;
   moveBookToFolder: (entry: UnifiedLibraryItem, folderId: string | null) => Promise<void>;
   moveFolderToFolder: (folderId: string, newParentId: string | null) => Promise<void>;
-  /** Rename an uploaded book. Catalog titles aren't user-editable
-   *  (they live on the shared catalog_books row). Throws on empty,
-   *  too-long, or profane titles so callers can surface a toast. */
+  /** Rename an uploaded book (catalog titles aren't editable). Throws on empty/long/profane. */
   renameBook: (entry: UploadedLibraryItem, title: string) => Promise<void>;
   removeFromLibrary: (entry: UnifiedLibraryItem) => Promise<void>;
   getBooksInFolder: (folderId: string | null) => UnifiedLibraryItem[];
@@ -85,12 +75,7 @@ function buildFolderPath(folders: Folder[], targetId: string | null): Folder[] {
   return path;
 }
 
-// How long a successful fetch is considered "fresh enough" that a
-// remount-triggered refetch is skipped. 60s is short enough that
-// real changes (uploads, deletes, folder edits, signing in/out) get
-// surfaced quickly, long enough that bouncing between pages doesn't
-// hit the server every time. The toolbar Refresh button always
-// passes force=true to bypass this.
+// Skip a refetch if the last one was this recent. Refresh button passes force=true.
 const FRESH_FETCH_MS = 60_000;
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
@@ -137,11 +122,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    // No active org yet (e.g. orgs still hydrating after sign-in)
-    // — the org-store subscription below will retrigger this fetch
-    // as soon as currentOrgId becomes a real id, so just present an
-    // empty library in the meantime instead of leaking another
-    // org's contents.
+    // no active org: show empty rather than another org's contents (org-store sub retriggers once set)
     const orgId = useOrgStore.getState().currentOrgId;
     if (!orgId) {
       set({ books: [], isLoading: false });
@@ -150,7 +131,6 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
     set({ isLoading: true });
 
-    // Fetch catalog books and uploaded books in parallel
     const [catalogRes, uploadedRes] = await Promise.all([
       supabase
         .from("user_library")
@@ -187,11 +167,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase join response is dynamically shaped
     const uploadedItems: UploadedLibraryItem[] = ((uploadedRes.data ?? []) as any[])
-      // Keep books that have a file, plus manually-added "shell" books
-      // (metadata.manual_entry) which intentionally have no book_files
-      // row. The file check still filters out books mid-upload (the
-      // books row is inserted before its book_files row), so half-
-      // uploaded books don't flash into the grid.
+      // keep books with a file plus manual_entry shells; file check hides mid-upload rows
       .filter(
         (row) =>
           (row.book_files && row.book_files.length > 0) ||
@@ -220,7 +196,6 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         };
       });
 
-    // Merge and sort by date descending
     const all: UnifiedLibraryItem[] = [...catalogItems, ...uploadedItems].sort(
       (a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime(),
     );
@@ -231,10 +206,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       lastFetchedAt: { ...get().lastFetchedAt, books: Date.now() },
     });
 
-    // Snapshot per-folder counts to localStorage so the next mount
-    // can paint skeleton cards at the right count before this fetch
-    // resolves. Best-effort — failures here just degrade the next
-    // load back to a generic skeleton row.
+    // per-folder counts so the next mount sizes skeletons right
     const byFolder: Record<string, number> = {};
     for (const entry of all) {
       const k = entry.folder_id ?? ROOT_FOLDER_KEY;
@@ -242,11 +214,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     }
     writeBookCounts(orgId, { total: all.length, byFolder });
 
-    // Warm the browser HTTP cache for the most-recently-added covers.
-    // Same data drives Library + Home's RecentlyAddedShelf, so this
-    // one prefetch covers both surfaces. Capped to 16 inside the
-    // helper so a 500-book library doesn't fire 500 parallel image
-    // requests. Fire-and-forget — Image() is a side-effect-only call.
+    // warm the HTTP cache for recent covers (helper caps at 16)
     prefetchImages(
       all.map((entry) =>
         entry.source === "catalog"
@@ -255,7 +223,6 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       ),
     );
 
-    // Fetch user tags alongside library
     useTagStore.getState().fetchUserTags();
   },
 
@@ -263,10 +230,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     const last = get().lastFetchedAt.folders;
     if (!force && last !== null && Date.now() - last < FRESH_FETCH_MS) return;
 
-    // Cold-start hydration from IDB — populates the tree
-    // immediately even before (or instead of) the network round-
-    // trip resolves. Offline-first: the user sees their last-
-    // known library structure on app open with zero latency.
+    // hydrate from IDB so the tree paints before the network resolves
     if (get().folders.length === 0) {
       try {
         const local = await loadAllFolders<Folder>();
@@ -278,8 +242,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           });
         }
       } catch (err) {
-        // IDB unavailable (private mode, quota, …) — fall through
-        // to the network. Don't break library load over a cache miss.
+        // IDB unavailable (private mode, quota), fall through to network
         logError("library-store:fetchFolders:hydrate", err);
       }
     }
@@ -289,10 +252,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Offline: trust whatever's in state / just hydrated from IDB.
-    // The sync orchestrator will drain pending folder mutations
-    // when we're back online, and the next fetchFolders call will
-    // refresh against the canonical Supabase view.
+    // offline: trust IDB hydration, sync refreshes later
     if (!useNetworkStore.getState().online()) return;
 
     const orgId = useOrgStore.getState().currentOrgId;
@@ -317,8 +277,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     const folders = (data ?? []) as Folder[];
     const { currentFolderId } = get();
 
-    // Refresh the IDB mirror so the next cold start shows the
-    // canonical Supabase view, not stale optimistic edits.
+    // refresh IDB mirror so next cold start isn't stale optimistic edits
     void replaceAllFoldersLocal(folders);
 
     // If current folder was deleted, reset to root
@@ -351,12 +310,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       throw new Error("No active organization. Pick one from the sidebar.");
     }
 
-    // Optimistic local insert. The UUID is generated client-side so
-    // the same id can round-trip through the sync queue's INSERT
-    // and any subsequent rename/move/delete the user does while
-    // offline. Server enforces uniqueness — if a collision ever
-    // happens the queue dead-letters and the UI can show the
-    // dropped row.
+    // client-side UUID so the id round-trips the sync queue for offline rename/move/delete
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const folder: Folder = {
@@ -401,9 +355,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     let last: Folder | null = null;
 
     for (const part of parts) {
-      // Reuse an existing sibling folder with the same name rather
-      // than creating a duplicate. get().folders is kept fresh by
-      // createFolder's internal fetchFolders() call on every insert.
+      // reuse an existing same-name sibling instead of duplicating
       const existing = get().folders.find(
         (f) => f.parent_id === currentParent && f.name === part,
       );
@@ -427,10 +379,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         "Folder name contains disallowed language. Please choose another.",
       );
     }
-    // Optimistic — update state + IDB mirror, queue the Supabase
-    // patch. The user sees the rename land instantly; if it
-    // dead-letters server-side, the queue's dead-letter UI will
-    // surface it (TODO once that UI lands).
+    // optimistic: update state + IDB, queue the patch
     const updatedAt = new Date().toISOString();
     const nextFolders = get().folders.map((f) =>
       f.id === id ? { ...f, name, updated_at: updatedAt } : f,
@@ -445,12 +394,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   },
 
   deleteFolder: async (id) => {
-    // Optimistic delete from local state + IDB. Books that lived
-    // in this folder need their `folder_id` cleared on the
-    // Supabase side too — the existing flow relied on a server
-    // CASCADE / re-fetch to handle this; here we still refetch
-    // the library once online (best-effort), but the user-visible
-    // folder is gone immediately.
+    // optimistic delete. server CASCADE clears folder_id on contained books, so refetch once online
     const nextFolders = get().folders.filter((f) => f.id !== id);
     const currentFolderId =
       get().currentFolderId === id ? null : get().currentFolderId;
@@ -461,9 +405,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     });
     void deleteFolderLocal(id);
     void enqueueMutation<FolderSyncPayload>("folder", "delete", { id });
-    // Fire-and-forget refresh in case books moved to root. Gated
-    // on online so it doesn't error-log when offline; the next
-    // online fetch picks up the canonical state anyway.
+    // refresh in case books moved to root; gated on online to avoid error logs
     if (useNetworkStore.getState().online()) {
       void get().fetchLibrary(true);
     }
@@ -478,11 +420,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   },
 
   moveBookToFolder: async (entry, folderId) => {
-    // Optimistic — same shape as moveFolderToFolder: patch local
-    // state first, queue the Supabase mutation for the sync worker.
-    // Lets a drag-into-folder land instantly + survive offline, and
-    // also stops a failed Supabase call from silently swallowing the
-    // user's action behind a `void`-ed handler.
+    // optimistic: patch local state, queue the mutation
     set((state) => ({
       books: state.books.map((b) =>
         b.id === entry.id && b.source === entry.source
@@ -498,10 +436,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   },
 
   renameBook: async (entry, title) => {
-    // Sanitize first so a paste with control chars / runs of
-    // whitespace can't ship a janky title to Supabase. Mirrors the
-    // shape of renameFolder above — same profanity gate, same
-    // optimistic-then-queue rhythm.
+    // strip control chars and collapse whitespace
     const sanitized = title
       // eslint-disable-next-line no-control-regex
       .replace(/[\x00-\x1F\x7F]/g, "")
@@ -545,8 +480,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       return;
     }
 
-    // Optimistic — same shape as rename: patch local state + IDB,
-    // queue the parent_id update for sync.
+    // optimistic: patch state + IDB, queue the parent_id update
     const updatedAt = new Date().toISOString();
     const nextFolders = get().folders.map((f) =>
       f.id === folderId
@@ -566,10 +500,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   },
 
   removeFromLibrary: async (entry) => {
-    // Optimistic delete: drop the row locally, queue the Supabase
-    // side. For uploaded books we also pass storage_path so the
-    // worker removes the underlying file before the books row goes
-    // (the storage cleanup is idempotent — safe to retry).
+    // optimistic delete. for uploaded books pass storage_path so the worker removes the file
     set((state) => ({
       books: state.books.filter(
         (b) => !(b.id === entry.id && b.source === entry.source),
@@ -598,20 +529,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   },
 }));
 
-// Refetch library + folders whenever the active org changes (e.g. on
-// fresh hydration after sign-in, or when the user picks a new org
-// from the sidebar). Switching to a null org clears local state so
-// the previous org's contents don't leak into a signed-out view.
+// Refetch on org change; a null org clears state so contents don't leak.
 useOrgStore.subscribe((state, prev) => {
   if (state.currentOrgId === prev.currentOrgId) return;
   if (state.currentOrgId) {
-    // Org change is a real data invalidation — bypass the freshness
-    // check; otherwise switching to a different workspace within 60s
-    // would silently keep showing the previous org's books. The
-    // in-progress doc-id set is per-user, but the *visible* set is
-    // gated to the books we just fetched, so it has to be refetched
-    // in lockstep — otherwise the "Reading" pill keeps showing the
-    // previous org's doc ids until the next freshness window.
+    // real invalidation: force all three refetches or the old org's books/pills linger 60s
     void useLibraryStore.getState().fetchLibrary(true);
     void useLibraryStore.getState().fetchFolders(true);
     void useLibraryStore.getState().fetchInProgress(true);
@@ -619,9 +541,6 @@ useOrgStore.subscribe((state, prev) => {
     useLibraryStore.setState({
       books: [],
       folders: [],
-      // Clear the in-progress set too; an empty books list with a
-      // populated id set is harmless today but a stale invariant
-      // waiting to fire later.
       inProgressDocIds: new Set(),
       currentFolderId: null,
       folderPath: [],

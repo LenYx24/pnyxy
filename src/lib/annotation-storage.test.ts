@@ -3,7 +3,7 @@
  * `fake-indexeddb` (installed in src/test/setup.ts), so we exercise
  * the actual upgrade/index paths the app uses.
  *
- * Each test resets the IndexedDB factory to start with a fresh DB —
+ * Each test resets the IndexedDB factory to start with a fresh DB -
  * otherwise data accumulates across tests and breaks the assertions.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -66,7 +66,7 @@ describe("getDB", () => {
     const db = await getDB();
     expect(db.name).toBe("pnyxy-annotations");
     // v11: notes gained folderId/sortOrder for the library filetree
-    // (00044). No new object store — the bump is schema-version only.
+    // (00044). No new object store, the bump is schema-version only.
     expect(db.version).toBe(11);
     expect(Array.from(db.objectStoreNames).sort()).toEqual(
       [

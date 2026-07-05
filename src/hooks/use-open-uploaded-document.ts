@@ -5,6 +5,7 @@ import { createAdapterForFile } from "@/features/reader/adapters";
 import { useReaderStore } from "@/stores/reader-store";
 import { useUIStore } from "@/stores/ui-store";
 import { registerFile } from "@/lib/file-store";
+import { saveLastOpenedBook } from "@/lib/last-opened-book";
 import type { UploadedLibraryItem } from "@/types/catalog";
 
 // Module-level cache: once downloaded, re-opening is instant within session
@@ -20,7 +21,7 @@ const PREFETCH_MAX_BYTES = 50 * 1024 * 1024; // 50 MB
  * a later openUploadedBook() resolves instantly. Designed to be cheap:
  *
  *   - Runs only when the device is reasonably capable (>= 4 logical
- *     cores) — older phones / low-end laptops are skipped to avoid
+ *     cores), older phones / low-end laptops are skipped to avoid
  *     contention with the user's foreground work.
  *   - Cancellable via the returned cleanup function (typical use:
  *     useEffect → return cleanup → abort if user navigates away).
@@ -48,7 +49,7 @@ export function prefetchBookBlob(
       : 4;
   if (cores < 4) return () => {};
 
-  // Skip very large files — a 200MB blob shoved into RAM "for later"
+  // Skip very large files, a 200MB blob shoved into RAM "for later"
   // is exactly the kind of "lag the device" risk we want to avoid.
   if (opts.sizeBytes && opts.sizeBytes > PREFETCH_MAX_BYTES) {
     return () => {};
@@ -140,6 +141,11 @@ export function useOpenUploadedDocument() {
         const docId = await useReaderStore.getState().addDocument(adapter, file);
 
         registerFile(docId, file);
+        saveLastOpenedBook({
+          source: "uploaded",
+          id: entry.id,
+          title: entry.book.title,
+        });
         navigate(`/reader/${docId}`, { state: { from: openedFrom } });
       } finally {
         setLoading(false);

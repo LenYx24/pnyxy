@@ -13,7 +13,7 @@ export function WelcomePage() {
   const markOnboarded = useAuthStore((s) => s.markOnboarded);
   const [submitting, setSubmitting] = useState(false);
 
-  // Anonymous visitor — surface a sign-in CTA instead of a welcome.
+  // Anonymous visitor, surface a sign-in CTA instead of a welcome.
   if (!user) {
     return (
       <div className="relative flex min-h-screen items-center justify-center px-4">
@@ -37,7 +37,7 @@ export function WelcomePage() {
     );
   }
 
-  // Profile not hydrated yet — brief loading state to avoid a flash
+  // Profile not hydrated yet, brief loading state to avoid a flash
   // of the welcome card for returning users who'll be redirected.
   if (!profile) {
     return (
@@ -48,7 +48,7 @@ export function WelcomePage() {
     );
   }
 
-  // Returning user — already onboarded, skip straight to the app.
+  // Returning user, already onboarded, skip straight to the app.
   if (profile.onboarded) {
     return <Navigate to="/library" replace />;
   }

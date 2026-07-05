@@ -4,7 +4,7 @@ import type { WhiteboardElement } from "@/types/whiteboard";
 /**
  * Lightweight read-only thumbnail of a whiteboard: re-renders its
  * vector elements as a single SVG, auto-fitted to the elements'
- * bounding box. No canvas, no store — pure data → SVG, so it's cheap
+ * bounding box. No canvas, no store, pure data → SVG, so it's cheap
  * enough to drop into every library grid card. Rotation is ignored
  * (negligible at thumbnail scale). Returns null for an empty board so
  * callers can fall back to a placeholder icon.

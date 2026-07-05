@@ -16,7 +16,7 @@ const RPC_TIMEOUT_MS = 10000;
  * srcdoc bootstrap. The iframe creates a global `plugin` object that
  * proxies `PluginAPI` calls over MessageChannel using JSON-RPC. The
  * host injects the plugin bundle as inline `<script>` text via the
- * `run` message — required because `sandbox="allow-scripts"` without
+ * `run` message, required because `sandbox="allow-scripts"` without
  * `allow-same-origin` gives the iframe an opaque origin and forbids
  * cross-origin `fetch`.
  */
@@ -118,7 +118,7 @@ const SANDBOX_HTML = `<!doctype html><meta charset="utf-8"><script>
 
 /**
  * Cross-origin iframe sandbox runtime. Uses `sandbox="allow-scripts"`
- * (no `allow-same-origin`) so the iframe gets an opaque origin —
+ * (no `allow-same-origin`) so the iframe gets an opaque origin -
  * cannot read host cookies/localStorage/IndexedDB nor make
  * same-origin fetches against Supabase. Communication goes through
  * a single MessagePort handshake; every inbound RPC is dispatched

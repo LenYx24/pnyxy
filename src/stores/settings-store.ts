@@ -39,7 +39,7 @@ export const ALL_AI_PROVIDERS: readonly AiProvider[] = [
 
 export interface InstalledPluginPackage {
   manifest: PluginManifest;
-  /** Plain JS source. Stored locally for offline use; NEVER synced to Supabase. */
+  /** Plain JS source. Local-only, never synced to Supabase. */
   bundle: string;
 }
 
@@ -48,139 +48,67 @@ interface SettingsState {
   scrollAnimationDuration: number;
   defaultFitMode: FitMode;
   epubFlow: EpubFlow;
-  /**
-   * Multiplier applied to the EPUB body font size. 1.0 = the EPUB's
-   * own default, 0.7–1.6 covers the comfortable range without breaking
-   * line layout in epub.js.
-   */
+  /** Multiplier on EPUB body font size. 1.0 = EPUB default, clamped 0.7-1.6. */
   epubFontScale: number;
   /** Unitless CSS line-height applied inside the EPUB iframe. */
   epubLineHeight: number;
-  /**
-   * Preset font family applied to the EPUB body. `"default"` means
-   * no override — the EPUB's own font choices win, matching the
-   * pre-picker behaviour so an existing user's books still render
-   * the way they did before the setting existed.
-   */
+  /** Preset EPUB body font. "default" = no override, EPUB's own fonts win. */
   epubFontFamily: EpubFontFamily;
-  /**
-   * Column cap for prose. `"full"` = no constraint (full iframe
-   * width, the historical default). Narrower presets center the
-   * column with `margin: auto` so long-line eye fatigue on
-   * widescreen monitors goes away. Only applied in scrolled flow —
-   * paginated mode computes its own column widths from the
-   * iframe and would fight with this.
-   */
+  /** Prose column cap. "full" = no constraint. Scrolled flow only; paginated sets its own widths. */
   epubColumnWidth: EpubColumnWidth;
-  /**
-   * Reader-content theme — controls the *document* background and
-   * text colours (page, gutter, paragraph) but not the app chrome.
-   * Independent from `activeThemeId` so a user can read with a sepia
-   * page in a dark-chrome app, the way Kindle / iBooks have always
-   * separated the two. EPUB and TXT/MD honour all three palettes;
-   * PDF can only theme the gutter and (in dark mode) the canvas
-   * filter — the raster page itself stays as-rendered.
-   */
+  /** Reader content palette, independent of app chrome. PDF only themes the gutter + dark canvas filter. */
   readerTheme: ReaderTheme;
   tagColors: Partial<Record<BookStatusTag, ColorKey>>;
   enabledProviders: AiProvider[];
   anthropicApiKey: string;
   openaiApiKey: string;
-  /** When set, the Pnyxy proxy uses this specific model instead of
-   *  walking the full auto-routing chain. null = auto (default).
-   *  Surfaced via the chat composer's ModelPicker so users can
-   *  bias toward a particular cost / quality point — e.g. force
-   *  Gemini Flash for cheap-fast or Haiku 4.5 for higher quality. */
+  /** Force a specific model on the Pnyxy proxy instead of auto-routing. null = auto. */
   pnyxyModel: string | null;
-  /** Base URL for a user-run OpenAI-compatible local LLM. Default is
-   *  Ollama (http://localhost:11434/v1); LM Studio uses :1234/v1. The
-   *  field accepts any OpenAI-compatible endpoint so power users can
-   *  point at vLLM, llama.cpp's HTTP server, or a tailscale-tunneled
-   *  remote rig. */
+  /** Base URL for an OpenAI-compatible local LLM. Default is Ollama; LM Studio uses :1234/v1. */
   localBaseUrl: string;
-  /** Model name to send in the request body (e.g. "llama3.2",
-   *  "qwen2.5-coder:14b"). Required because local model registries
-   *  are user-managed — there's no sensible default. */
+  /** Model name sent in the request body (e.g. "llama3.2"). No default; registries are user-managed. */
   localModel: string;
-  /** Optional bearer for endpoints that gate access (LM Studio, vLLM
-   *  with --api-key, tailnet auth proxies). Ollama default is open
-   *  on localhost, so empty is fine for the default config. */
+  /** Optional bearer for gated endpoints (LM Studio, vLLM --api-key). Empty is fine for local Ollama. */
   localApiKey: string;
 
-  // ── AI context (chat-store reads these to build the system prompt) ──
-  /** Free-form notes the user always wants the AI to know about —
-   *  e.g. "I'm a CS undergrad cramming for an algorithms exam, prefer
-   *  worked examples over prose". Injected as a separate paragraph
-   *  in the system prompt for every chat turn. Empty = none. */
+  // AI context (chat-store reads these to build the system prompt)
+  /** Free-form notes injected as a paragraph in every chat turn's system prompt. Empty = none. */
   aiCustomDefaultContext: string;
-  /** When true, a chat conversation tied to a book auto-includes the
-   *  book's TOC in the system prompt. The TOC is the highest-leverage
-   *  context for "what does this book cover" without paying for full
-   *  page text. */
+  /** Book-tied chats auto-include the book's TOC in the system prompt. */
   aiAttachToc: boolean;
-  /** Default neighborhood size for the "select around current page"
-   *  TOC button. The user selects pages [current − N, current + N]
-   *  with one tap. */
+  /** Default N for the "select pages [current-N, current+N] around current" button. */
   aiSurroundingPagesCount: number;
 
   // Reading tracker config
   activeTrackerId: string;
   trackerSettings: Record<string, Record<string, unknown>>;
 
-  // ── Themes ──
+  // Themes
   activeThemeId: string;
   installedThemes: Record<string, Theme>;
 
-  // ── Plugins ──
+  // Plugins
   enabledPlugins: Record<string, boolean>;
   installedPlugins: Record<string, InstalledPluginPackage>;
   pluginSettings: Record<string, Record<string, unknown>>;
-  /**
-   * Per-plugin key/value storage backing `PluginAPI.storage`. Keys
-   * are namespaced as `plugin:<id>:<key>` by the host adapter.
-   */
+  /** Backs `PluginAPI.storage`. Keys namespaced `plugin:<id>:<key>` by the host adapter. */
   pluginStorage: Record<string, unknown>;
 
-  // ── Context-menu tools ──
+  // Context-menu tools
   translateTargetLanguage: string;
   setTranslateTargetLanguage: (v: string) => void;
 
-  // ── Experimental / developer toggles ──
-  /**
-   * When true, annotation UI (highlight, comment, context menu) is
-   * mounted on non-paginated formats (TXT/MD/EPUB). Off by default
-   * because persisted anchors for reflowable formats aren't modeled yet.
-   */
+  // Experimental / developer toggles
+  /** Mount annotation UI on reflowable formats (TXT/MD/EPUB). Off: anchors aren't modeled for reflow yet. */
   experimental_allowAnnotationsForAllFormats: boolean;
   /** When true, the whiteboard/draw-mode button is enabled for non-PDF docs. */
   experimental_allowWhiteboardForAllFormats: boolean;
 
-  /**
-   * Night-mode for PDFs. When on, the rendered canvas is
-   * CSS-filtered with `invert(1) hue-rotate(180deg)` so light pages
-   * become dark and image colors stay roughly correct (the hue
-   * rotation cancels the inversion's color shift). Per-user
-   * preference, persisted in localStorage; not cloud-synced (matches
-   * the other reader-display prefs above).
-   */
+  /** PDF night-mode: invert(1) hue-rotate(180deg). hue-rotate keeps image colors roughly right. Local-only. */
   pdfInvertColors: boolean;
-  /**
-   * Whether the reader's secondary action panel (the row below the
-   * main toolbar with rarely-used actions like Screenshot, Print,
-   * Reflow, Zen mode) is currently open. Persisted per-user so the
-   * choice survives reloads and cross-device. Desktop only — mobile
-   * and tablet keep their overflow-menu pattern.
-   */
+  /** Whether the reader's secondary action row is open. Desktop only; persisted per-user. */
   readerSecondaryPanelOpen: boolean;
-  /**
-   * Mobile reflow mode for PDFs. When on, the active PDF is
-   * re-rendered as flowing text (heading + paragraph blocks
-   * extracted via pdf.js's text layer) so the user doesn't have to
-   * pan horizontally on a phone. Off by default — original layout
-   * stays the canonical view for diagrams, citations and
-   * annotation work. Per-device only; not cloud-synced (matches the
-   * other reader-display prefs).
-   */
+  /** PDF reflow: render the pdf.js text layer as flowing text so phones don't pan sideways. Local-only. */
   pdfReflowMode: boolean;
 
   setPageScrollBehavior: (v: "smooth" | "instant") => void;
@@ -332,10 +260,7 @@ export const useSettingsStore = create<SettingsState>()(
       setLocalApiKey: (v) => set({ localApiKey: v }),
       setAiCustomDefaultContext: (v) => set({ aiCustomDefaultContext: v }),
       setAiAttachToc: (v) => set({ aiAttachToc: v }),
-      // Clamp 0..50: 0 means "selecting around does nothing"; 50 is a
-      // pragmatic ceiling — past that the user should be in custom
-      // selection mode anyway, and we don't want one careless click
-      // to flood the prompt with hundreds of pages of context.
+      // clamp 0..50 so one click can't flood the prompt with pages
       setAiSurroundingPagesCount: (v) =>
         set({ aiSurroundingPagesCount: Math.min(Math.max(Math.round(v), 0), 50) }),
       setActiveTracker: (id) => set({ activeTrackerId: id }),
@@ -347,7 +272,7 @@ export const useSettingsStore = create<SettingsState>()(
           },
         })),
 
-      // ── Themes ──
+      // Themes
       setActiveTheme: (id) => {
         set({ activeThemeId: id });
         void get().syncPreferences();
@@ -365,7 +290,7 @@ export const useSettingsStore = create<SettingsState>()(
           if (!(id in state.installedThemes)) return state;
           const { [id]: _removed, ...rest } = state.installedThemes;
           void _removed;
-          // Reset to default if the active theme was uninstalled.
+          // reset active theme if it was the one removed
           const activeThemeId =
             state.activeThemeId === id ? DEFAULT_THEME_ID : state.activeThemeId;
           queueMicrotask(() => {
@@ -374,7 +299,7 @@ export const useSettingsStore = create<SettingsState>()(
           return { installedThemes: rest, activeThemeId };
         }),
 
-      // ── Plugins ──
+      // Plugins
       setPluginEnabled: (id, enabled) => {
         set((state) => ({
           enabledPlugins: { ...state.enabledPlugins, [id]: enabled },
@@ -387,7 +312,7 @@ export const useSettingsStore = create<SettingsState>()(
             ...state.installedPlugins,
             [manifest.id]: { manifest, bundle },
           };
-          // Default to enabled (user installed it deliberately).
+          // enable on install
           const enabledPlugins = {
             ...state.enabledPlugins,
             [manifest.id]: true,
@@ -412,7 +337,7 @@ export const useSettingsStore = create<SettingsState>()(
           void _r;
           const { [id]: _e, ...enabledRest } = state.enabledPlugins;
           void _e;
-          // Drop any plugin storage scoped to this plugin.
+          // drop storage scoped to this plugin
           const prefix = `plugin:${id}:`;
           const cleanedStorage: Record<string, unknown> = {};
           for (const [k, v] of Object.entries(state.pluginStorage)) {
@@ -457,14 +382,12 @@ export const useSettingsStore = create<SettingsState>()(
       setPdfReflowMode: (v) => set({ pdfReflowMode: v }),
       setReaderSecondaryPanelOpen: (v) => set({ readerSecondaryPanelOpen: v }),
 
-      // ── Cloud sync ──
+      // Cloud sync
       syncPreferences: async () => {
         const auth = useAuthStore.getState();
         if (!auth.user) return;
         const state = get();
-        // Strip plugin bundles before syncing — bundles are large
-        // raw JS and are refetched from the registry on boot. Only
-        // manifests sync.
+        // strip bundles before syncing; they're large and refetched from the registry on boot
         const installedPluginManifests: Record<string, PluginManifest> = {};
         for (const [id, pkg] of Object.entries(state.installedPlugins)) {
           installedPluginManifests[id] = pkg.manifest;
@@ -481,7 +404,7 @@ export const useSettingsStore = create<SettingsState>()(
           },
         };
         try {
-          // Merge into existing preferences rather than overwriting.
+          // merge, don't overwrite existing preferences
           const existing = (auth.profile?.preferences ?? {}) as Record<
             string,
             unknown
@@ -493,7 +416,7 @@ export const useSettingsStore = create<SettingsState>()(
             .eq("id", auth.user.id);
           if (error) throw error;
         } catch (err) {
-          // Non-fatal: local state is the source of truth.
+          // non-fatal, local state is source of truth
           console.warn("[settings] syncPreferences failed:", err);
         }
       },
@@ -545,18 +468,11 @@ export const useSettingsStore = create<SettingsState>()(
               ...plugins.pluginSettings,
             };
           }
-          // Manifest-only sync: we record the manifest but mark the
-          // plugin as not-yet-installed locally (no bundle). The
-          // manager will surface an error until the user hits
-          // "Reinstall from registry" — a later iteration can do
-          // this automatically.
           if (
             plugins.installedPluginManifests &&
             typeof plugins.installedPluginManifests === "object"
           ) {
-            // For now, just keep local installs as the source of
-            // truth for bundles; remote manifests are informational.
-            // Intentionally not merged into installedPlugins.
+            // local installs stay the source of truth for bundles; remote manifests are informational
           }
         }
         if (Object.keys(patch).length > 0) {
@@ -568,13 +484,12 @@ export const useSettingsStore = create<SettingsState>()(
       name: "pnyxy-reader:settings",
       version: 11,
       partialize: (state) => {
-        // Persist everything; pluginStorage is local-only (stays in
-        // localStorage) and is intentionally NOT synced to Supabase.
+        // persist everything; pluginStorage stays local-only, never synced to Supabase
         return state;
       },
       migrate: (persistedState, version) => {
         const state = (persistedState ?? {}) as Record<string, unknown>;
-        // v0 → v1: convert single `aiProvider` to ordered `enabledProviders`.
+        // v1: single `aiProvider` -> ordered `enabledProviders`
         if (version < 1) {
           const legacy = state.aiProvider;
           if (
@@ -585,7 +500,7 @@ export const useSettingsStore = create<SettingsState>()(
           }
           delete state.aiProvider;
         }
-        // v1 → v2: seed reading tracker config.
+        // v2: seed reading tracker config
         if (version < 2) {
           if (typeof state.activeTrackerId !== "string") {
             state.activeTrackerId = DEFAULT_TRACKER_ID;
@@ -600,7 +515,7 @@ export const useSettingsStore = create<SettingsState>()(
           }
           state.trackerSettings = merged;
         }
-        // v2 → v3: seed themes + plugins.
+        // v3: seed themes + plugins
         if (version < 3) {
           if (typeof state.activeThemeId !== "string") {
             state.activeThemeId = DEFAULT_THEME_ID;
@@ -648,7 +563,7 @@ export const useSettingsStore = create<SettingsState>()(
             state.pluginStorage = {};
           }
         }
-        // v3 → v4: introduce experimental multi-format toggles (default off).
+        // v4: experimental multi-format toggles (default off)
         if (version < 4) {
           if (typeof state.experimental_allowAnnotationsForAllFormats !== "boolean") {
             state.experimental_allowAnnotationsForAllFormats = false;
@@ -657,17 +572,13 @@ export const useSettingsStore = create<SettingsState>()(
             state.experimental_allowWhiteboardForAllFormats = false;
           }
         }
-        // v4 → v5: seed EPUB flow preference. "scrolled" matches the
-        // pre-toggle behavior so existing readers don't see a sudden
-        // layout change after the upgrade.
+        // v5: seed EPUB flow, default "scrolled"
         if (version < 5) {
           if (state.epubFlow !== "scrolled" && state.epubFlow !== "paginated") {
             state.epubFlow = "scrolled";
           }
         }
-        // v5 → v6: seed EPUB typography knobs. Defaults match the
-        // EPUB's own intrinsic styling so existing readers don't see
-        // their books re-flow on upgrade.
+        // v6: seed EPUB typography knobs
         if (version < 6) {
           const fs = Number(state.epubFontScale);
           state.epubFontScale =
@@ -676,12 +587,8 @@ export const useSettingsStore = create<SettingsState>()(
           state.epubLineHeight =
             Number.isFinite(lh) && lh >= 1.0 && lh <= 2.2 ? lh : 1.5;
         }
-        // v6 → v7: pick up new plugin defaults. The earlier "all
-        // core plugins start disabled" rule meant the global ?
-        // cheatsheet was invisible to anyone who never opened the
-        // plugin tab. Plugins now opt-in to a true default via
-        // `defaultEnabled` on the manifest; flip them on for any
-        // existing user whose stored value is false.
+        // v7: pick up new plugin defaults. Manifests opt-in via `defaultEnabled`;
+        // flip those on even if a stored value is false.
         if (version < 7) {
           const pluginDefaults = buildDefaultPluginSettings();
           const existing =
@@ -693,9 +600,7 @@ export const useSettingsStore = create<SettingsState>()(
           }
           state.enabledPlugins = next;
         }
-        // v7 → v8: seed AI-context settings (custom default context,
-        // attach-TOC, surrounding-pages). All optional / additive;
-        // pre-upgrade users land on the same defaults as new installs.
+        // v8: seed AI-context settings (custom context, attach-TOC, surrounding-pages)
         if (version < 8) {
           if (typeof state.aiCustomDefaultContext !== "string") {
             state.aiCustomDefaultContext = "";
@@ -709,9 +614,7 @@ export const useSettingsStore = create<SettingsState>()(
               ? Math.min(Math.round(surrounding), 50)
               : 5;
         }
-        // v8 → v9: seed reader-content theme. Default "light" keeps
-        // the pre-upgrade visual exactly as it was (white EPUB page,
-        // app-chrome dark mode untouched).
+        // v9: seed reader-content theme, default "light"
         if (version < 9) {
           if (
             state.readerTheme !== "light" &&
@@ -721,9 +624,7 @@ export const useSettingsStore = create<SettingsState>()(
             state.readerTheme = "light";
           }
         }
-        // v9 → v10: seed EPUB typography presets. Both defaults
-        // resolve to "no override", so existing readers' books look
-        // identical until they actively pick a preset.
+        // v10: seed EPUB typography presets, both default to "no override"
         if (version < 10) {
           if (
             state.epubFontFamily !== "default" &&
@@ -742,9 +643,7 @@ export const useSettingsStore = create<SettingsState>()(
             state.epubColumnWidth = "full";
           }
         }
-        // v10 → v11: seed secondary action panel state. Closed by
-        // default so existing readers see the same toolbar after the
-        // upgrade — only opens when the user clicks the new chevron.
+        // v11: seed secondary action panel state, closed by default
         if (version < 11) {
           if (typeof state.readerSecondaryPanelOpen !== "boolean") {
             state.readerSecondaryPanelOpen = false;

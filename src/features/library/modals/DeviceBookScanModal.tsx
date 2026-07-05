@@ -56,10 +56,10 @@ function formatBytes(bytes: number): string {
 /**
  * Scans a folder selected by the user for book files (PDFs) and lets
  * the user pick which to upload. Renders the folder structure as a
- * checkable tree — toggling a folder cascades to all its descendants.
+ * checkable tree, toggling a folder cascades to all its descendants.
  *
  * Uses the non-standard but widely supported `webkitdirectory`
- * attribute so we don't need a native bridge — works in browsers and
+ * attribute so we don't need a native bridge, works in browsers and
  * Tauri's webview.
  */
 export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps) {
@@ -181,7 +181,7 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
     }
   }, []);
 
-  // Flatten helpers — used both to derive folder check-state and to
+  // Flatten helpers, used both to derive folder check-state and to
   // walk all file nodes during import.
   const allFiles: FileNode[] = useMemo(() => {
     const out: FileNode[] = [];
@@ -290,7 +290,7 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
     : Infinity;
   const wouldExceed = selectedBytes > remainingBytes;
 
-  // Update a single file's status — used during the import loop.
+  // Update a single file's status, used during the import loop.
   const updateFileStatus = useCallback(
     (id: string, patch: Partial<Pick<FileNode, "status" | "message">>) => {
       setTree((prev) => {

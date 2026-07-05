@@ -1,53 +1,35 @@
 import { useEffect, useRef } from "react";
 
 export interface PinchEvent {
-  /** Lifecycle phase. The controller only needs to set up styles on
-   *  start, apply the live transform on move, and commit on end. */
   phase: "start" | "move" | "end";
-  /** Current scale factor relative to pinch start (1.0 = no change,
-   *  <1.0 = pinch-in, >1.0 = pinch-out). */
+  /** scale relative to pinch start: <1 pinch-in, >1 pinch-out */
   scale: number;
-  /** Midpoint of the two fingers in viewport coords. Used as the
-   *  pivot/origin so the page expands from where the user pinched. */
+  /** finger midpoint in viewport coords, used as zoom origin */
   midX: number;
   midY: number;
 }
 
 export interface TapEvent {
-  /** Tap location in viewport coords. */
   x: number;
   y: number;
-  /** Element under the tap — consumers use this to skip taps on
-   *  interactive children (buttons, links, annotation popovers, etc.). */
+  /** element under the tap, so consumers can skip interactive children */
   target: EventTarget | null;
 }
 
 interface Options {
-  /** Target element to attach listeners to. */
   targetRef: React.RefObject<HTMLElement | null>;
 
-  /** Called when a swipe left → should go to the next page. */
   onSwipeLeft?: () => void;
-  /** Called when a swipe right → should go to the previous page. */
   onSwipeRight?: () => void;
 
-  /** Called on every pinch lifecycle event — start, move, end — so the
-   *  consumer can drive an imperative DOM transform instead of plumbing
-   *  React state through 60 frames per second. */
+  /** fires on every pinch phase so the consumer can drive an imperative transform */
   onPinch?: (event: PinchEvent) => void;
 
-  /** Single-tap (a brief, mostly-stationary touch). Fires *after* the
-   *  double-tap detection window has elapsed so a fast follow-up tap
-   *  fires onDoubleTap instead. Use it for "toggle chrome" UX that
-   *  shouldn't double-up when the user is double-tapping to zoom. */
+  /** fires after the double-tap window elapses, so a fast second tap becomes onDoubleTap */
   onSingleTap?: (event: TapEvent) => void;
-  /** Two taps in quick succession at roughly the same point. Use it
-   *  for "double-tap to zoom" UX. */
   onDoubleTap?: (event: TapEvent) => void;
 
-  /** Master switches. When false, the corresponding gesture is
-   *  ignored so non-paginated viewers (EPUB, markdown) keep native
-   *  scroll/selection behavior. */
+  /** off keeps native scroll/selection for non-paginated viewers (epub, markdown) */
   enableSwipe: boolean;
   enablePinch: boolean;
 }
@@ -59,44 +41,31 @@ interface TapRecord {
 }
 
 interface TouchState {
-  /** Time + position of the primary touchstart for the current gesture. */
   start: { x: number; y: number; t: number } | null;
-  /** Set once a second finger lands — blocks swipe detection for this gesture. */
+  /** true once a second finger lands, blocks swipe detection */
   multi: boolean;
-  /** Distance between the two fingers when pinch started. */
   pinchStartDist: number;
-  /** Most recent completed tap. The touchend handler compares against
-   *  this to detect double-taps. Cleared whenever the gesture isn't a
-   *  clean tap (swipe, pinch, long-press) so a stray earlier tap
-   *  doesn't pair up with the next one. */
+  /** last clean tap, compared against for double-tap detection */
   lastTap: TapRecord | null;
-  /** Pending single-tap timer. We delay onSingleTap by the double-tap
-   *  interval so we can promote it to a double-tap if a second tap
-   *  arrives. Cleared by the second tap or by any non-tap gesture. */
+  /** pending single-tap, delayed by the double-tap window so a second tap can promote it */
   singleTapTimer: ReturnType<typeof setTimeout> | null;
 }
 
 const SWIPE_MIN_DX = 50;
 const SWIPE_MAX_TIME_MS = 500;
-/** dx must be at least this many times dy for a swipe to count. Keeps
- *  vertical scrolls from accidentally turning pages. */
+/** dx must exceed dy by this factor so vertical scrolls don't turn pages */
 const SWIPE_RATIO = 2;
 
-/** A "tap" is a touch shorter than this and that didn't move much. */
 const TAP_MAX_TIME_MS = 250;
 const TAP_MAX_MOVEMENT = 10;
-/** Two taps within this window pair into a double-tap. Matches Google
- *  Chrome / Safari's native double-tap heuristics. */
 const DOUBLE_TAP_INTERVAL_MS = 300;
 const DOUBLE_TAP_MAX_DISTANCE = 30;
 
 /**
- * Touch gestures for the mobile reader: horizontal swipes (page
- * turns), two-finger pinch (zoom), single-tap (toggle chrome) and
- * double-tap (zoom toggle). Listeners are attached as native events
- * with `{ passive: false }` on touchmove so pinch can `preventDefault`
- * — React's synthetic event system uses passive listeners and would
- * silently ignore the call.
+ * Touch gestures for the mobile reader: swipe (page turn), pinch (zoom),
+ * single-tap (toggle chrome), double-tap (zoom toggle). Uses native listeners
+ * because touchmove needs passive:false to preventDefault, which React's
+ * synthetic events don't allow.
  */
 export function useMobileReaderGestures(opts: Options): void {
   const {
@@ -138,8 +107,7 @@ export function useMobileReaderGestures(opts: Options): void {
         state.start = { x: touch.clientX, y: touch.clientY, t: Date.now() };
         state.multi = false;
       } else if (e.touches.length === 2 && enablePinch) {
-        // Multi-touch starts → cancel any pending single-tap so the
-        // chrome doesn't toggle in the middle of a pinch.
+        // cancel pending single-tap so chrome doesn't toggle mid-pinch
         cancelPendingTap();
         state.multi = true;
         const t0 = e.touches[0];
@@ -165,7 +133,7 @@ export function useMobileReaderGestures(opts: Options): void {
         const midX = (t0.clientX + t1.clientX) / 2;
         const midY = (t0.clientY + t1.clientY) / 2;
         onPinch?.({ phase: "move", scale, midX, midY });
-        // Block native viewport pinch-zoom so our zoom is authoritative.
+        // block native viewport pinch-zoom
         e.preventDefault();
       }
     };
@@ -173,10 +141,7 @@ export function useMobileReaderGestures(opts: Options): void {
     const handleEnd = (e: TouchEvent) => {
       const state = stateRef.current;
       if (state.multi) {
-        // Use the touch that was lifted (or the last remaining one) as
-        // the reference midpoint — by the time touchend fires, fewer
-        // fingers are on screen, but the controller only needs *some*
-        // coords to trigger the end-phase teardown.
+        // fewer fingers remain by touchend; any coords are fine for end-phase teardown
         const ref = e.changedTouches[0] ?? e.touches[0];
         const midX = ref?.clientX ?? 0;
         const midY = ref?.clientY ?? 0;
@@ -198,8 +163,7 @@ export function useMobileReaderGestures(opts: Options): void {
       const startedAt = state.start;
       state.start = null;
 
-      // Swipe wins over tap when both criteria match (a flick has
-      // significant horizontal travel, a tap has nearly none).
+      // swipe wins over tap
       if (
         enableSwipe &&
         dt < SWIPE_MAX_TIME_MS &&
@@ -217,9 +181,7 @@ export function useMobileReaderGestures(opts: Options): void {
         Math.abs(dx) < TAP_MAX_MOVEMENT &&
         Math.abs(dy) < TAP_MAX_MOVEMENT;
       if (!isTap) {
-        // Long press / drag that wasn't a swipe — don't fire either
-        // tap callback, and clear any pending single-tap so it
-        // doesn't pair with whatever happens next.
+        // long press / drag: fire nothing, clear any pending tap
         cancelPendingTap();
         return;
       }
@@ -234,19 +196,15 @@ export function useMobileReaderGestures(opts: Options): void {
         Math.abs(end.clientX - last.x) < DOUBLE_TAP_MAX_DISTANCE &&
         Math.abs(end.clientY - last.y) < DOUBLE_TAP_MAX_DISTANCE
       ) {
-        // Second tap of a pair → fire double-tap, kill the queued
-        // single-tap from the first one.
+        // second tap of a pair: fire double-tap, drop the queued single-tap
         cancelPendingTap();
         onDoubleTap?.(tapEvent);
         return;
       }
 
-      // First tap (or a tap too far / too late from the previous one).
-      // Defer fire so a follow-up tap can promote it to a double-tap.
+      // first tap: defer so a follow-up can promote it to a double-tap
       state.lastTap = { x: end.clientX, y: end.clientY, t: now };
-      // `startedAt` is used here only to satisfy lint about unused
-      // captures; the timer fires after the double-tap window
-      // regardless of when the touch started.
+      // keep startedAt referenced to satisfy lint
       void startedAt;
       if (state.singleTapTimer !== null) clearTimeout(state.singleTapTimer);
       state.singleTapTimer = setTimeout(() => {
@@ -261,17 +219,9 @@ export function useMobileReaderGestures(opts: Options): void {
     el.addEventListener("touchend", handleEnd, { passive: true });
     el.addEventListener("touchcancel", handleEnd, { passive: true });
 
-    // iOS Safari fires legacy `gesturestart`/`gesturechange`/`gestureend`
-    // events for any 2-finger contact, *parallel* to the standard
-    // touch events. Even with `user-scalable=no` and
-    // `touch-action: pan-y` set, those legacy events can preempt
-    // `touchmove` delivery for the second finger if we don't claim
-    // them first — this was the smoking gun for "pinch on iPhone
-    // does literally nothing." Calling preventDefault() on
-    // gesturestart asserts our ownership of the multi-touch path
-    // and lets the touchmove handler above receive its 2-touch
-    // events as expected. No-op on Android / desktop (those don't
-    // fire `GestureEvent`s; the listener silently never triggers).
+    // iOS Safari: legacy gesture* events preempt 2-finger touchmove delivery
+    // unless we preventDefault them here. Without this pinch does nothing on
+    // iPhone. Never fires on Android/desktop.
     const handleGesture = (e: Event) => {
       if (enablePinch) e.preventDefault();
     };
@@ -279,10 +229,7 @@ export function useMobileReaderGestures(opts: Options): void {
     el.addEventListener("gesturechange", handleGesture, { passive: false });
     el.addEventListener("gestureend", handleGesture, { passive: false });
 
-    // Capture the state object at setup time so the cleanup uses the
-    // exact same instance the handlers wrote to. `useRef` returns a
-    // stable object across renders so this is purely to satisfy the
-    // react-hooks/exhaustive-deps lint without a disable comment.
+    // capture ref instance now so cleanup matches the handlers (keeps exhaustive-deps happy)
     const stateForCleanup = stateRef.current;
     return () => {
       el.removeEventListener("touchstart", handleStart);
@@ -292,7 +239,7 @@ export function useMobileReaderGestures(opts: Options): void {
       el.removeEventListener("gesturestart", handleGesture);
       el.removeEventListener("gesturechange", handleGesture);
       el.removeEventListener("gestureend", handleGesture);
-      // Drop any pending tap timer so it can't fire after unmount.
+      // drop pending tap timer so it can't fire after unmount
       if (stateForCleanup.singleTapTimer !== null) {
         clearTimeout(stateForCleanup.singleTapTimer);
         stateForCleanup.singleTapTimer = null;

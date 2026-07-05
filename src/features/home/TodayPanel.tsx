@@ -35,12 +35,12 @@ import { cn } from "@/lib/cn";
  * users. Pulls four signals from existing data sources and renders one
  * card per non-empty bucket:
  *
- *   1. Reading plans whose `todayTarget` is ahead of `pagesRead` — the
+ *   1. Reading plans whose `todayTarget` is ahead of `pagesRead`, the
  *      user has reading queued up for today.
  *   2. Roadmap nodes whose computed `dueDate` is today or earlier and
  *      whose progress is < 100.
  *   3. Quiz cards whose `due_at` is at or before now (spaced repetition).
- *   4. The most recently touched in-progress book — the obvious "pick
+ *   4. The most recently touched in-progress book, the obvious "pick
  *      up where you left off" CTA.
  *
  * The panel hides itself entirely when no card has content, so users
@@ -63,7 +63,7 @@ export function TodayPanel() {
 
   const books = useLibraryStore((s) => s.books);
 
-  // Reading-plan progress map — same query the streaks page does, kept
+  // Reading-plan progress map, same query the streaks page does, kept
   // local so the panel doesn't depend on whether the user has visited
   // that page yet.
   const [planProgressMap, setPlanProgressMap] = useState<BookProgressMap>(
@@ -129,7 +129,7 @@ export function TodayPanel() {
     };
   }, [books]);
 
-  // ─── Card 1: reading plans with pages-to-read today ──────
+  // Card 1: reading plans with pages-to-read today
   const plansWithTodayWork = useMemo(() => {
     const today = ymd(new Date());
     return plans
@@ -143,7 +143,7 @@ export function TodayPanel() {
       .slice(0, 3);
   }, [plans, planProgressMap, lookup]);
 
-  // ─── Card 2: roadmap nodes due today (or overdue) ────────
+  // Card 2: roadmap nodes due today (or overdue)
   const roadmapDueItems = useMemo(() => {
     const today = ymd(new Date());
     const items: Array<{
@@ -176,14 +176,14 @@ export function TodayPanel() {
         });
       }
     }
-    // Earliest-due first, then cap to 5 — anything more drowns out
+    // Earliest-due first, then cap to 5, anything more drowns out
     // the other cards on the page.
     items.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
     return items.slice(0, 5);
   }, [roadmaps, enrollments, t]);
 
-  // ─── Card 3: due quiz reviews ────────────────────────────
-  // The store has no in-memory cache for this — it's a server query
+  // Card 3: due quiz reviews
+  // The store has no in-memory cache for this, it's a server query
   // per call. We load once on mount and don't refetch; the count is
   // a glance signal, not a live counter.
   const [dueQuizCount, setDueQuizCount] = useState<number | null>(null);
@@ -202,7 +202,7 @@ export function TodayPanel() {
     };
   }, [user, fetchDueReviews]);
 
-  // ─── Card 4: continue reading (most recent in-progress) ──
+  // Card 4: continue reading (most recent in-progress)
   const [continueBook, setContinueBook] = useState<{
     docId: string;
     currentPage: number | null;
@@ -292,7 +292,7 @@ export function TodayPanel() {
   );
 }
 
-// ─── Cards ──────────────────────────────────────────────────
+// Cards
 
 interface PlanProgressEntry {
   plan: ReturnType<typeof useReadingPlanStore.getState>["plans"][number];
@@ -308,7 +308,7 @@ function ReadingPlanCard({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  // The plan's per-item book identity isn't surfaced here yet —
+  // The plan's per-item book identity isn't surfaced here yet -
   // showing just the plan title + "X of Y pages today" keeps the
   // card glanceable. Lookup is wired in so a future v2 can surface
   // "Crime and Punishment p.12-30" per plan without re-fetching.

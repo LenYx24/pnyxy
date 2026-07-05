@@ -64,7 +64,7 @@ export function ScreenshotRectSelector({
     // Only commit/cancel if this overlay actually owned the gesture
     // (we saw a pointerdown on it). When the overlay mounts in
     // response to a button tap, the user's finger is still on the
-    // screen — the pointerup that follows lands on the *overlay*
+    // screen, the pointerup that follows lands on the *overlay*
     // even though pointerdown landed on the button, so without the
     // `start` gate we'd treat it as a zero-size selection and fire
     // onCancel immediately. That cancel pops the back-sentinel and

@@ -45,7 +45,7 @@ export function autoLayout(
   });
 }
 
-/** Nodes with no outgoing edges — these are the "goal" nodes. */
+/** Nodes with no outgoing edges, these are the "goal" nodes. */
 export function findGoalNodeIds(
   nodes: RoadmapNode[],
   edges: RoadmapEdge[],
@@ -58,7 +58,7 @@ export function findGoalNodeIds(
 /**
  * Topological sort. Used by the scheduler so we walk nodes in dependency
  * order. Falls back to insertion order for cycles (shouldn't happen in a
- * DAG, but we don't enforce DAG-ness in the editor — yet).
+ * DAG, but we don't enforce DAG-ness in the editor, yet).
  */
 export function topologicalOrder(
   nodes: RoadmapNode[],
@@ -92,7 +92,7 @@ export function topologicalOrder(
       if (nd === 0) queue.push(next);
     }
   }
-  // If there's a cycle some nodes won't appear — append them in order to
+  // If there's a cycle some nodes won't appear, append them in order to
   // keep the scheduler robust.
   if (out.length < nodes.length) {
     const seen = new Set(out.map((n) => n.id));

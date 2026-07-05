@@ -38,7 +38,7 @@ export function DeadlinePicker({
   );
 
   // Current values. `weekendMultiplier === undefined` means "manual
-  // mode" — show 1 as the default the user can tweak; we only persist
+  // mode", show 1 as the default the user can tweak; we only persist
   // a real multiplier once they actually pick a date.
   const targetEndDate = enrollment.targetEndDate ?? "";
   const multiplier = enrollment.schedulePrefs.weekendMultiplier ?? 1;
@@ -61,7 +61,7 @@ export function DeadlinePicker({
   };
 
   const handleMultiplierChange = (next: number) => {
-    // Multiplier only takes effect once a date is set — but updating it
+    // Multiplier only takes effect once a date is set, but updating it
     // beforehand would silently lose the user's tweak. Persist it under
     // a date if one exists; otherwise just no-op until they pick a date.
     if (!targetEndDate) return;

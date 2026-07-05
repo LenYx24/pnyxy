@@ -7,7 +7,7 @@ import type { PluginHandle, PluginRuntime } from "./types";
  * boundary). Lifecycle calls go directly to the module's exports.
  *
  * Existence of this runtime keeps community and core plugins on the
- * same lifecycle/manager code path — only the call mechanism differs.
+ * same lifecycle/manager code path, only the call mechanism differs.
  */
 export class DirectRuntime implements PluginRuntime {
   readonly kind = "direct" as const;

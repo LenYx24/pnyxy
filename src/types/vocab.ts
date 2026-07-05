@@ -7,7 +7,7 @@ export type VocabRating = "again" | "hard" | "good" | "easy";
  * in the reader and persisted locally (IndexedDB) and remotely
  * (Supabase) for cross-device review.
  *
- * `fsrsCard` is owned by ts-fsrs — we pass it back through the
+ * `fsrsCard` is owned by ts-fsrs, we pass it back through the
  * scheduler untouched.
  */
 export interface VocabEntry {

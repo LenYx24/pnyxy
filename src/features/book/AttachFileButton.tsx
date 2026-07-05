@@ -17,7 +17,7 @@ interface AttachFileButtonProps {
 const MAX_BYTES = 100 * 1024 * 1024;
 
 /**
- * Attaches a real PDF to an existing placeholder book — the
+ * Attaches a real PDF to an existing placeholder book, the
  * upload-then-link path used after the user accepted an AI
  * recommendation as a metadata-only book and later got their hands
  * on the file.
@@ -89,7 +89,7 @@ export function AttachFileButton({ bookId, onAttached }: AttachFileButtonProps) 
 
       const storagePath = `${user.id}/${orgId}/${fileHash}.pdf`;
 
-      // 2. Upload bytes. `upsert: false` — if the same hash already
+      // 2. Upload bytes. `upsert: false`, if the same hash already
       //    sits in storage (e.g. user uploaded the same file before
       //    and is just reattaching), the storage call errors and we
       //    accept the existing object.
@@ -99,7 +99,7 @@ export function AttachFileButton({ bookId, onAttached }: AttachFileButtonProps) 
           contentType: "application/pdf",
           upsert: false,
         });
-      // Ignore "already exists" — we'll reuse the existing object.
+      // Ignore "already exists", we'll reuse the existing object.
       if (
         uploadError &&
         !uploadError.message.toLowerCase().includes("exists") &&

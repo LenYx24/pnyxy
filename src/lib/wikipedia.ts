@@ -1,5 +1,5 @@
 /**
- * Wikipedia REST API client — keyless, free, generous CORS.
+ * Wikipedia REST API client, keyless, free, generous CORS.
  *
  * Endpoint reference:
  *   https://{lang}.wikipedia.org/api/rest_v1/page/summary/{title}
@@ -25,7 +25,7 @@ export interface WikipediaSummary {
   title: string;
   /** Two-letter ISO code we queried (`hu`, `en`). */
   lang: string;
-  /** Page kind — disambiguation pages still return text, but the caller
+  /** Page kind, disambiguation pages still return text, but the caller
    *  may want to label the panel differently. */
   type: WikipediaPageType;
   /** Plain-text article extract (already stripped of HTML). */

@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { registerFile } from "@/lib/file-store";
+import { saveLastOpenedBook } from "@/lib/last-opened-book";
 import { logError } from "@/lib/logger";
 import { supabase } from "@/lib/supabase";
 import type { CatalogBook } from "@/types/catalog";
@@ -37,7 +38,7 @@ function mimeFor(ext: string): string {
  *      Gutenberg's EPUBs, archive.org).
  *
  *   2. On failure (CORS block, opaque response, network error), fall
- *      back to the `catalog-fetch` Supabase edge function — a
+ *      back to the `catalog-fetch` Supabase edge function, a
  *      whitelisted server-side proxy that strips CORS. Requires the
  *      user to be signed in (the edge function verifies their JWT).
  *
@@ -74,7 +75,7 @@ export function useOpenCatalogBook() {
   const location = useLocation();
   // Snapshot the entry pathname so the reader's back arrow can return
   // to wherever the user opened from. Same trick as
-  // useOpenUploadedDocument — see the comment there.
+  // useOpenUploadedDocument, see the comment there.
   const openedFrom = location.pathname + location.search;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +95,7 @@ export function useOpenCatalogBook() {
         const cached = blobCache.get(book.id);
         if (cached) {
           registerFile(book.id, cached);
+          saveLastOpenedBook({ source: "catalog", id: book.id, title: book.title });
           navigate(`/reader/${book.id}`, { state: { from: openedFrom } });
           return;
         }
@@ -103,12 +105,12 @@ export function useOpenCatalogBook() {
           res = await fetch(url, { mode: "cors" });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
         } catch (directErr) {
-          // Direct CORS failed — try the server-side proxy.
+          // Direct CORS failed, try the server-side proxy.
           logError("useOpenCatalogBook:direct", directErr);
           try {
             res = await fetchViaProxy(url);
           } catch (proxyErr) {
-            // Proxy failed too — usually because the user isn't
+            // Proxy failed too, usually because the user isn't
             // signed in. Last-resort fallback: new tab.
             logError("useOpenCatalogBook:proxy", proxyErr);
             window.open(url, "_blank", "noopener,noreferrer");
@@ -126,6 +128,7 @@ export function useOpenCatalogBook() {
 
         blobCache.set(book.id, file);
         registerFile(book.id, file);
+        saveLastOpenedBook({ source: "catalog", id: book.id, title: book.title });
         navigate(`/reader/${book.id}`, { state: { from: openedFrom } });
       } catch (err) {
         logError("useOpenCatalogBook", err);

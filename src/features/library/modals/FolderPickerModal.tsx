@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { X, Folder, Home } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -46,7 +47,9 @@ export function FolderPickerModal({
     ));
   }
 
-  return (
+  // Portal to body: host cards use content-visibility (a containing block
+  // for position:fixed), which would clip this modal inside the card.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -93,6 +96,7 @@ export function FolderPickerModal({
           <Button onClick={() => onSelect(selected)}>Move</Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

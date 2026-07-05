@@ -15,7 +15,7 @@ export { CompositeRegistry } from "./composite-registry";
 
 let cached: CompositeRegistry | null = null;
 
-/** Singleton composite registry — GitHub primary + bundled fallback. */
+/** Singleton composite registry, GitHub primary + bundled fallback. */
 export function getRegistry(): CompositeRegistry {
   if (!cached) {
     const primary: RegistryProvider = new GitHubRegistry();

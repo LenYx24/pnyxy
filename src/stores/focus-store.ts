@@ -13,7 +13,7 @@ interface PersistedSession {
 }
 
 export interface StartOptions {
-  /** Optional page goal — session completes early when reached. */
+  /** Optional page goal, session completes early when reached. */
   pagesGoal?: number;
   /** progressPage of the document at session start; pages read = current - this. */
   pagesAtStart?: number;
@@ -102,7 +102,7 @@ function persist(session: PersistedSession | null) {
 }
 
 /**
- * Play a short "ding" via WebAudio — no asset file needed, no
+ * Play a short "ding" via WebAudio, no asset file needed, no
  * dependency on user-gesture for playback once the session has been
  * started by a user gesture earlier in the tab.
  */
@@ -123,7 +123,7 @@ function playDing() {
     osc.stop(ctx.currentTime + 0.85);
     osc.onended = () => ctx.close();
   } catch {
-    // no audio permission or unsupported — non-fatal
+    // no audio permission or unsupported, non-fatal
   }
 }
 
@@ -285,7 +285,7 @@ export const useFocusStore = create<FocusState>((set, get) => ({
     const { active, currentSpanStartedAt, longestSpanMs } = get();
     if (!active) return;
     if (!visible && currentSpanStartedAt != null) {
-      // Span closed — record longest and clear the start.
+      // Span closed, record longest and clear the start.
       set({
         longestSpanMs: commitSpan(longestSpanMs, currentSpanStartedAt),
         currentSpanStartedAt: null,
@@ -296,7 +296,7 @@ export const useFocusStore = create<FocusState>((set, get) => ({
   },
 }));
 
-// One shared tick loop — driven by setInterval, self-regulating. The
+// One shared tick loop, driven by setInterval, self-regulating. The
 // store keeps .active accurate; the interval fires even while idle but
 // is cheap and keeps resume-after-refresh working without any mount.
 let tickHandle: ReturnType<typeof setInterval> | null = null;

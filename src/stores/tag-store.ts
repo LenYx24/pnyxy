@@ -8,7 +8,7 @@ const EMPTY_STATUS_TAGS: BookStatusTag[] = [];
 const EMPTY_CUSTOM_TAGS: string[] = [];
 
 /** Hard cap on custom-tag length. Mirrors the DB CHECK constraint
- *  (`label_length`) — keep these in sync if either side changes. */
+ *  (`label_length`), keep these in sync if either side changes. */
 export const CUSTOM_TAG_MAX_LENGTH = 50;
 
 export function bookKey(item: UnifiedLibraryItem): string {
@@ -174,7 +174,7 @@ export const useTagStore = create<TagState>((set, get) => ({
     if (!user) return;
 
     const key = bookKey(item);
-    // Local de-dup mirrors the unique constraint — avoid a redundant
+    // Local de-dup mirrors the unique constraint, avoid a redundant
     // round-trip + the resulting 23505 error toast.
     const existing = get().customTagsByBook.get(key) ?? [];
     if (existing.some((t) => t.toLowerCase() === trimmed.toLowerCase())) {

@@ -121,8 +121,8 @@ describe("fetchWikipediaSummary", () => {
     fetchMock.mockResolvedValueOnce(
       okJsonResponse({
         title: "Stub",
-        // No `type` field at all — coerceType falls back to "standard".
-        // No `extract` — should collapse to "".
+        // No `type` field at all, coerceType falls back to "standard".
+        // No `extract`, should collapse to "".
       }),
     );
     const result = await fetchWikipediaSummary("Stub", "en");

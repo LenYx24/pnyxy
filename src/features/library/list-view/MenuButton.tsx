@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 /**
  * 3-dot trigger + portal-rendered floating menu used by both
  * `FolderRow` and `BookRow`. Portal-mounted so the list container's
- * `overflow-x-auto` can't clip the dropdown — the bug this whole
+ * `overflow-x-auto` can't clip the dropdown, the bug this whole
  * detour fixes.
  */
 export function ContextMenu({

@@ -96,7 +96,7 @@ function loadLayout(): ToolbarLayout {
       }
     }
   } catch {
-    // ignore — fall back to default
+    // ignore, fall back to default
   }
   return cloneDefaultLayout();
 }

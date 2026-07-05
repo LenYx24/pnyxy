@@ -20,7 +20,7 @@ import {
 } from "@/lib/quiz/quiz-srs";
 
 interface QuizState {
-  /** Public browse feed — replaced on every fetchPublic call. */
+  /** Public browse feed, replaced on every fetchPublic call. */
   publicQuizzes: Quiz[];
   /** Quizzes the signed-in user owns. */
   myQuizzes: Quiz[];
@@ -374,7 +374,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     const sortUnchanged =
       sortOrder === undefined || current.sort_order === sortOrder;
     if (folderUnchanged && sortUnchanged) return;
-    // Optimistic patch with rollback on error — mirrors chat's
+    // Optimistic patch with rollback on error, mirrors chat's
     // moveConversationToFolder.
     const prevFolderId = current.folder_id;
     const prevSortOrder = current.sort_order;
@@ -497,7 +497,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       }
       // Fold the same answers into FSRS state so the question appears
       // on /quizzes/review on its scheduled cadence. Failure here is
-      // non-fatal for the attempt — the score is already saved.
+      // non-fatal for the attempt, the score is already saved.
       try {
         await get().recordReviewBatch(
           answers.map((a) => ({
@@ -557,7 +557,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     });
     if (error) {
       // `not_owner` / `not_authenticated` are expected for non-owner
-      // callers — just surface an empty list so the UI hides the panel.
+      // callers, just surface an empty list so the UI hides the panel.
       logError("quiz-store:fetchQuestionStats", error);
       return [];
     }

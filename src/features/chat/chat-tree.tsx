@@ -6,6 +6,8 @@ import {
   FilePlus2,
   Folder as FolderIcon,
   FolderInput,
+  FolderPlus,
+  Library,
   MessagesSquare,
   MoreHorizontal,
   Pencil,
@@ -25,35 +27,28 @@ import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { cn } from "@/lib/cn";
 import type { ChatConversation, ChatFolder } from "@/types/chat";
 
-// Cap on root-level conversations rendered inside Quick chats before
-// the user has to click "show more". Tuned for the median case: most
-// people accumulate dozens of loose chats; surfacing the latest 8
-// keeps the sidebar legible while still putting the recently-touched
-// ones in view.
+// root-level chats shown in Quick chats before the "show more" toggle
 const QUICK_CHATS_VISIBLE_LIMIT = 8;
 
 export interface ChatTreeProps {
   folders: ChatFolder[];
   conversations: ChatConversation[];
   activeId: string | null;
-  /** dnd-kit's `active.id` for the in-flight drag, if any. Used by
-   *  conversation rows to know whether to draw a drop-line. */
+  /** dnd-kit `active.id` for the in-flight drag. */
   activeDragId?: string | null;
-  /** dnd-kit's `over.id` for the in-flight drag. Conversation rows
-   *  whose id matches this draw a 2px accent line at their top edge
-   *  as an explicit "insert here" indicator on top of the natural
-   *  shift the sortable strategy already provides. */
+  /** dnd-kit `over.id`. Rows matching it draw the insert line. */
   overDragId?: string | null;
   editingId: string | null;
   editTitle: string;
-  /** Folder ids that are currently collapsed. Absence = expanded.
-   *  Lifted to ChatPage so the toolbar's Collapse-all / Expand-all
-   *  button can mutate every folder in one click. */
+  /** Collapsed folder ids (absence = expanded). */
   collapsedFolders: Set<string>;
   onToggleFolder: (id: string) => void;
-  /** Create a new conversation directly inside this folder. Skips
-   *  the old "create at root, then drag-drop" two-step. */
+  /** New conversation directly inside this folder. */
   onNewInFolder: (folderId: string) => void;
+  /** New folder nested under this one. */
+  onNewSubfolder: (parentFolderId: string) => void;
+  /** Chat folders share the library `folders` table, so the id maps over. */
+  onOpenFolderInLibrary: (folderId: string) => void;
   onOpen: (id: string) => void;
   onStartEdit: (id: string, title: string) => void;
   onCancelEdit: () => void;
@@ -61,21 +56,13 @@ export interface ChatTreeProps {
   onEditTitleChange: (s: string) => void;
   onDelete: (id: string) => void;
   onMove: (id: string, folderId: string | null) => void;
-  /** Bubble rename/delete intents up to ChatPage, where the actual
-   *  modal lives. The folder rows just gather (id, currentName) and
-   *  let the parent decide how to confirm. */
+  /** Confirm modal lives in ChatPage; rows just pass (id, name). */
   onRequestRenameFolder: (id: string, currentName: string) => void;
   onRequestDeleteFolder: (id: string, currentName: string) => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }
 
-/**
- * Per-depth left indent for sidebar rows. Renders one fixed-width
- * span per depth level (8px base gutter + 12px per step), each step
- * carrying a thin left border so the user sees a vertical guide line
- * from a folder header down to its children — same trick Obsidian's
- * file explorer uses.
- */
+/** Per-depth left indent (8px gutter + 12px/step) with a border per step for the guide line. */
 function IndentGuides({ depth }: { depth: number }) {
   return (
     <div className="flex shrink-0 self-stretch" aria-hidden="true">
@@ -89,17 +76,10 @@ function IndentGuides({ depth }: { depth: number }) {
 
 export function ChatTree(props: ChatTreeProps) {
   const { folders, conversations, t } = props;
-  // The whole tree is a "root" droppable so any drop that misses a
-  // folder or conv lands at root — fixes the prior bug where the
-  // thin RootDropZone strip was the only valid root target and was
-  // easy to miss. The collision detector prefers the smallest
-  // matching droppable, so nested folders/convs still win when the
-  // pointer is over them; this large wrapper just catches drops in
-  // the empty space between rows.
+  // whole tree is a root droppable so drops between rows land at root. collision
+  // detection prefers the smallest match, so nested rows still win.
   const rootDroppable = useDroppable({ id: "root" });
-  // Index conversations and child folders by parent for cheap lookup.
-  // Folder tree is flat-with-parent_id; we render recursively from
-  // the roots (parent_id === null) downward.
+  // index by parent_id, rendered recursively from parent_id === null
   const childFolders = useMemo(() => {
     const m = new Map<string | null, typeof folders>();
     for (const f of folders) {
@@ -120,10 +100,7 @@ export function ChatTree(props: ChatTreeProps) {
   }, [conversations]);
 
   const rootConvs = folderConversations.get(null) ?? [];
-  // Synthetic folder id used for the Quick chats section in the
-  // collapsedFolders set + the show-all toggle. Kept consistent
-  // between renders so the user's collapse state survives across
-  // reorderings.
+  // Synthetic folder id for the Quick chats section in collapsedFolders.
   const QUICK_CHATS_KEY = "__quick_chats__";
   const quickChatsCollapsed = props.collapsedFolders.has(QUICK_CHATS_KEY);
   const [quickChatsShowAll, setQuickChatsShowAll] = useState(false);
@@ -131,9 +108,7 @@ export function ChatTree(props: ChatTreeProps) {
     ? rootConvs
     : rootConvs.slice(0, QUICK_CHATS_VISIBLE_LIMIT);
   const hiddenRootCount = rootConvs.length - visibleRootConvs.length;
-  // Sortable item ids for the Quick chats context — used by the
-  // SortableContext wrapper so drag-over-sibling produces the
-  // standard "items shift to make room" feedback.
+  // Sortable ids for the Quick chats SortableContext.
   const rootConvIds = useMemo(
     () => rootConvs.map((c) => `conv:${c.id}`),
     [rootConvs],
@@ -144,16 +119,11 @@ export function ChatTree(props: ChatTreeProps) {
       ref={rootDroppable.setNodeRef}
       className={cn(
         "flex flex-col gap-0.5 transition-colors rounded-md",
-        // Faint outline when the pointer is in tree-root catchment
-        // and nothing more specific is matched — gives the user a
-        // "this drop will go to root" hint without a giant banner.
+        // faint outline hint when a drop will land at root
         rootDroppable.isOver && "ring-1 ring-accent/30",
       )}
     >
-      {/* Quick chats — virtual top-level folder grouping every loose
-          (folder_id = null) conversation. Always pinned at the top
-          and tinted with the accent color so it stays distinct from
-          the user's organized folders. */}
+      {/* Quick chats: virtual top-level group for loose (folder_id = null) convs. */}
       <div className="rounded-md bg-accent/[0.06]">
         <div className="group flex items-stretch">
           <IndentGuides depth={0} />
@@ -233,8 +203,7 @@ export function ChatTree(props: ChatTreeProps) {
         )}
       </div>
 
-      {/* Separator between Quick chats and the user's organized
-          folder tree. Renders only when there's at least one folder. */}
+      {/* Separator, only when there's at least one folder. */}
       {(childFolders.get(null) ?? []).length > 0 && (
         <div className="my-1 h-px bg-glass-border" />
       )}
@@ -271,8 +240,7 @@ interface FolderRowProps extends ChatTreeProps {
   folderConversations: Map<string | null, ChatConversation[]>;
 }
 
-// React.memo so the entire sidebar tree doesn't re-render every
-// time the user types a character into the composer below.
+// memo so the tree doesn't re-render on every composer keystroke
 const FolderRow = memo(function FolderRow({
   folder,
   depth,
@@ -280,8 +248,6 @@ const FolderRow = memo(function FolderRow({
   folderConversations,
   ...rest
 }: FolderRowProps) {
-  // Expanded state lifted to ChatPage so "Collapse all / Expand all"
-  // can write to every folder at once.
   const expanded = !rest.collapsedFolders.has(folder.id);
   const subFolders = childFolders.get(folder.id) ?? [];
   const subConversations = folderConversations.get(folder.id) ?? [];
@@ -294,31 +260,16 @@ const FolderRow = memo(function FolderRow({
     [subConversations],
   );
   const t = rest.t;
-  // Folders are now sortable: a single useSortable call gives us
-  // drag-source + drop-target on the same node, with the
-  // `folder:<id>` id used for both. The drag-end handler in ChatPage
-  // disambiguates "drop on folder" semantics by parent comparison —
-  // same-parent → reorder, different-parent → nest.
+  // drag source + drop target on one node. drag-end reads parent:
+  // same-parent = reorder, different-parent = nest.
   const sortable = useSortable({ id: `folder:${folder.id}` });
-  // Aliased back to the prior name so the rest of the function body
-  // (which referenced `draggable.*`) keeps working without churn.
-  // useSortable is a superset of the draggable + droppable hooks.
   const draggable = sortable;
 
-  // Visual feedback split. The folder row can be on the receiving
-  // end of two different intents at the same time:
-  //   - sibling reorder (active folder shares this folder's parent)
-  //   - nest into (active is a conv, or a folder from a different
-  //     parent — drop-into is the explicit "go inside" intent)
-  // The drop-line and the purple nest highlight should not BOTH
-  // fire on the same row, so we pick one based on the active drag's
-  // source. activeFolderParentId comes through rest because the row
-  // doesn't have direct access to the folders list.
+  // a row can mean two things at once (reorder vs nest-into), pick one indicator
   const activeDragId = rest.activeDragId ?? null;
   const overDragId = rest.overDragId ?? null;
   const isOver = overDragId === `folder:${folder.id}`;
-  // Identify whether the active drag is a sibling folder. We look it
-  // up in the rest.folders list rather than threading another prop.
+  // is the active drag a sibling folder?
   const activeFolderParentId = useMemo(() => {
     if (!activeDragId?.startsWith("folder:")) return undefined;
     const id = activeDragId.slice("folder:".length);
@@ -328,16 +279,12 @@ const FolderRow = memo(function FolderRow({
     activeFolderParentId !== undefined &&
     activeFolderParentId === folder.parent_id;
   const showDropLine = isOver && isActiveSibling && activeDragId !== `folder:${folder.id}`;
-  // Nest highlight stays on for conv drags and for non-sibling
-  // folder drags. Suppressed while THIS folder is being dragged so
-  // the source doesn't paint itself as a target.
+  // nest highlight for conv drags and non-sibling folder drags, not while dragging self
   const showNestHighlight =
     isOver &&
     !sortable.isDragging &&
     !isActiveSibling;
-  // Right-click on desktop, 500ms long-press on touch. Mirrors the
-  // hover icons so mobile users (no hover state) and trackpad users
-  // (no exposed hover) can still reach folder actions.
+  // right-click / long-press menu for touch + trackpad
   const ctxMenu = useContextMenu(() => [
     {
       id: "new",
@@ -346,6 +293,18 @@ const FolderRow = memo(function FolderRow({
       }),
       icon: FilePlus2,
       onClick: () => rest.onNewInFolder(folder.id),
+    },
+    {
+      id: "new-subfolder",
+      label: rest.t("chat.folders.newSubfolder"),
+      icon: FolderPlus,
+      onClick: () => rest.onNewSubfolder(folder.id),
+    },
+    {
+      id: "open-in-library",
+      label: rest.t("chat.folders.openInLibrary"),
+      icon: Library,
+      onClick: () => rest.onOpenFolderInLibrary(folder.id),
     },
     { id: "div-1", divider: true } as const,
     {
@@ -381,10 +340,7 @@ const FolderRow = memo(function FolderRow({
           sortable.isDragging && "opacity-40",
         )}
       >
-        {/* Sibling-reorder drop line — only renders when the active
-            drag is a folder sharing this folder's parent (i.e. a
-            sibling drop, not a nest-into). Mutually exclusive with
-            showNestHighlight above. */}
+        {/* Sibling-reorder drop line, mutually exclusive with showNestHighlight. */}
         {showDropLine && (
           <div
             className="pointer-events-none absolute left-0 right-0 top-0 z-10 h-0.5 rounded-full bg-accent"
@@ -422,6 +378,17 @@ const FolderRow = memo(function FolderRow({
             })}
           >
             <FilePlus2 size={11} />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              rest.onNewSubfolder(folder.id);
+            }}
+            className="rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:bg-glass-hover hover:text-accent group-hover:opacity-100 cursor-pointer"
+            aria-label={t("chat.folders.newSubfolder")}
+            title={t("chat.folders.newSubfolder")}
+          >
+            <FolderPlus size={11} />
           </button>
           <button
             onClick={() => rest.onRequestRenameFolder(folder.id, folder.name)}
@@ -502,38 +469,22 @@ const ConversationRow = memo(function ConversationRow({
   const isEditing = editingId === conversation.id;
   const moveBtnRef = useRef<HTMLButtonElement>(null);
   const [showMove, setShowMove] = useState(false);
-  // Conversations are sortable: they're both drag sources and drop
-  // targets for sibling reordering. useSortable combines useDraggable
-  // + useDroppable, registers the row in the surrounding
-  // SortableContext, and gives back a transform that makes sibling
-  // rows slide to create a gap at the insertion point — that gap is
-  // the natural "where it lands" feedback; the explicit purple line
-  // below is layered on top.
+  // sortable: drag source + drop target for sibling reordering
   const sortableId = `conv:${conversation.id}`;
   const sortable = useSortable({
     id: sortableId,
     disabled: isEditing,
   });
-  // Aliased back to `draggable` so the rest of the function (which
-  // previously used useDraggable) reads unchanged. useSortable's
-  // surface is a superset.
   const draggable = sortable;
 
-  // Drop-line indicator: purple 2px line at the top edge of this row
-  // when the active drag is hovering over it. Suppressed when the
-  // row is itself the drag source (you can't drop on yourself), and
-  // suppressed for non-conversation drag sources (folder drags go
-  // INTO folders, not between conversations).
+  // top-edge drop line while hovered, not on self, conv drags only (folders nest instead)
   const showDropLine =
     !!activeDragId &&
     activeDragId !== sortableId &&
     overDragId === sortableId &&
     activeDragId.startsWith("conv:");
 
-  // Build "Move to" entries: root (when the conversation isn't already
-  // at root) plus every folder except the one this conversation
-  // currently lives in. Inline rather than nested so the menu stays
-  // single-level — context-menu UI doesn't support submenus today.
+  // "Move to" entries: root (unless already there) plus every other folder
   const moveEntries = useMemo<ContextMenuEntry[]>(() => {
     const entries: ContextMenuEntry[] = [];
     if (conversation.folder_id !== null) {
@@ -560,8 +511,7 @@ const ConversationRow = memo(function ConversationRow({
   }, [conversation.folder_id, conversation.id, folders, onMove, t]);
 
   const ctxMenu = useContextMenu(() => {
-    // Editing the title is a focused interaction — opening a context
-    // menu mid-edit would steal focus from the inline input.
+    // a context menu mid-edit would steal focus from the inline input
     if (isEditing) return [];
     const items: ContextMenuEntry[] = [];
     if (moveEntries.length > 0) {
@@ -589,10 +539,7 @@ const ConversationRow = memo(function ConversationRow({
     <div
       ref={sortable.setNodeRef}
       style={{
-        // useSortable's transform + transition produce the
-        // "siblings slide to make room" feedback. Without applying
-        // them here the rows stay stuck while dragging and the user
-        // can't see where the drop will land.
+        // apply the sortable transform so siblings slide to make room
         transform: CSS.Transform.toString(sortable.transform),
         transition: sortable.transition,
       }}
@@ -603,17 +550,14 @@ const ConversationRow = memo(function ConversationRow({
         "group relative flex items-stretch rounded-md transition-colors",
         !isEditing && "cursor-grab active:cursor-grabbing",
         draggable.isDragging && "opacity-40",
-        // Active row gets a stronger fill + left accent bar so the
-        // current conversation pops at a glance.
+        // active row: stronger fill + left accent bar
         isActive
           ? "bg-accent/20 text-accent before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent"
           : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
       )}
     >
-      {/* Drop-line indicator. Sits flush against the top edge of the
-          row so it reads as "the dragged item will land ABOVE here".
-          Layered above the row content via z-10 so the accent stays
-          visible even on the active (highlighted) row. */}
+      {/* drop line at the top edge = "will land above here". z-10 so it stays
+          visible over the active row's highlight. */}
       {showDropLine && (
         <div
           className="pointer-events-none absolute left-0 right-0 top-0 z-10 h-0.5 rounded-full bg-accent"
@@ -650,12 +594,8 @@ const ConversationRow = memo(function ConversationRow({
         ) : (
           <>
             <span className="w-5 shrink-0" aria-hidden="true" />
-            {/* The title claims the FULL row width and only truncates
-                against the row edge — the action icons no longer
-                reserve layout space, so short titles read in full and
-                long ones use every available pixel. The icons live in
-                an absolutely-positioned overlay (below) that fades in
-                on hover/focus, sliding over the title's tail. */}
+            {/* title claims the full row width; action icons are an absolute
+                overlay (below) so they reserve no layout space. */}
             <button
               onClick={() => onOpen(conversation.id)}
               className="flex-1 min-w-0 truncate text-left text-sm font-medium cursor-pointer"
@@ -666,12 +606,8 @@ const ConversationRow = memo(function ConversationRow({
         )}
       </div>
 
-      {/* Hover/focus action overlay. Pinned to the right edge and
-          absolutely positioned so it takes no layout space — that's
-          what lets the title above fill the whole row until the user
-          actually reaches for an action. A solid chip behind the icons
-          cleanly covers the title's tail (no gradient fade).
-          `group-focus-within` keeps it keyboard-reachable. */}
+      {/* hover/focus action overlay, absolutely positioned so it takes no
+          layout space. solid bg chip covers the title's tail. */}
       {!isEditing && (
         <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] flex items-center gap-0.5 rounded-r-md bg-bg-secondary pl-2 pr-1.5 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
           <button
@@ -736,15 +672,9 @@ const ConversationRow = memo(function ConversationRow({
   );
 });
 
-// Slim drop strip pinned to the top of the conversation list. Drop
-// a conversation or folder onto it to send it back to the root
-// (folder_id / parent_id = null). Only visually announces itself
-// when there's an active drag — invisible the rest of the time so
-// it doesn't take up sidebar space when no one's reaching for it.
-//
-// Uses id="root-pin" rather than "root" because the outer ChatTree
-// wrapper now claims "root" as a catchall droppable. handleDragEnd
-// treats both ids the same way.
+// Slim drop strip at the top of the list: drop a conv/folder onto it to send it
+// back to root (folder_id / parent_id = null). Only visible during an active drag.
+// id="root-pin" not "root" (the ChatTree wrapper owns "root"); drag-end treats both alike.
 export function RootDropZone({ label }: { label: string }) {
   const { setNodeRef, isOver, active } = useDroppable({ id: "root-pin" });
   const dragging = !!active;

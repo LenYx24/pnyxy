@@ -1,7 +1,7 @@
 import type { pdfjs } from "react-pdf";
 
 /**
- * PDF reflow extractor — pure algorithm on top of `pdfjs.getTextContent()`.
+ * PDF reflow extractor, pure algorithm on top of `pdfjs.getTextContent()`.
  *
  * Goal: convert a fixed-layout PDF into a stream of `<heading>` /
  * `<paragraph>` blocks that can be re-rendered as flowing text on
@@ -9,20 +9,20 @@ import type { pdfjs } from "react-pdf";
  *
  * Heuristics (B-level scope agreed with the user):
  *
- *   1. **Line clustering** — items whose top-y agrees within
+ *   1. **Line clustering**, items whose top-y agrees within
  *      `LINE_Y_TOLERANCE` are the same visual line. The pdf.js text
  *      stream emits per-run items (sometimes a single word at a time)
  *      so this is required even on simple layouts.
  *
- *   2. **Column detection** — if a meaningful share of lines start
+ *   2. **Column detection**, if a meaningful share of lines start
  *      past the page midpoint, we treat the page as two-column and
  *      read left then right. Single-column otherwise.
  *
- *   3. **Paragraph breaks** — gap between consecutive line bottoms
+ *   3. **Paragraph breaks**, gap between consecutive line bottoms
  *      and the next line's top, compared to the page's median gap.
  *      A gap >= 1.5× median ends the paragraph.
  *
- *   4. **Heading detection** — line font size compared to the
+ *   4. **Heading detection**, line font size compared to the
  *      document-wide median. >= 1.5× median → h1, 1.25× → h2.
  *      Bold lines under 100 chars also get demoted to h2 even if the
  *      font size is normal.
@@ -50,7 +50,7 @@ export interface ExtractReflowOptions {
   signal?: AbortSignal;
 }
 
-/** @internal — exported so unit tests can pin the layout-extraction
+/** @internal, exported so unit tests can pin the layout-extraction
  *  internals (column split, paragraph grouping, heading classify)
  *  without going through a real pdf.js document. Not part of the
  *  module's public surface. */
@@ -64,7 +64,7 @@ export interface ProcessedItem {
   fontName: string;
 }
 
-/** @internal — exported for unit tests. See `ProcessedItem`. */
+/** @internal, exported for unit tests. See `ProcessedItem`. */
 export interface Line {
   items: ProcessedItem[];
   yTop: number;
@@ -155,7 +155,7 @@ async function extractPageLines(
     });
   }
 
-  // Sort by y first, then x — establishes reading order within a line.
+  // Sort by y first, then x, establishes reading order within a line.
   items.sort((a, b) => {
     if (Math.abs(a.y - b.y) > LINE_Y_TOLERANCE) return a.y - b.y;
     return a.x - b.x;
@@ -186,7 +186,7 @@ async function extractPageLines(
   return lines;
 }
 
-/** @internal — exported for unit tests. */
+/** @internal, exported for unit tests. */
 export function splitColumns(lines: Line[], pageWidth: number): Line[][] {
   if (lines.length < MIN_LINES_FOR_COLUMN_DETECT) return [lines];
 
@@ -199,7 +199,7 @@ export function splitColumns(lines: Line[], pageWidth: number): Line[][] {
   }
 
   // Only commit to a two-column read if both sides carry a fair share
-  // of the lines — otherwise the right-of-midpoint hits are likely
+  // of the lines, otherwise the right-of-midpoint hits are likely
   // wrap-around tails of single-column body text, not a column.
   const minSide = COLUMN_MIN_SIDE_SHARE * lines.length;
   if (right.length >= minSide && left.length >= minSide) {
@@ -208,7 +208,7 @@ export function splitColumns(lines: Line[], pageWidth: number): Line[][] {
   return [lines];
 }
 
-/** @internal — exported for unit tests. */
+/** @internal, exported for unit tests. */
 export function groupParagraphs(lines: Line[]): Line[][] {
   if (lines.length === 0) return [];
   // Compute median line-to-line gap to set a paragraph break threshold.
@@ -243,7 +243,7 @@ export function groupParagraphs(lines: Line[]): Line[][] {
   return groups;
 }
 
-/** @internal — exported for unit tests. */
+/** @internal, exported for unit tests. */
 export function classifyGroup(
   group: Line[],
   medianFontSize: number,
@@ -274,7 +274,7 @@ export async function extractReflowedDocument(
   const numPages = doc.numPages;
 
   // Pass 1: extract per-page lines with bounded concurrency. Eight
-  // workers mirror what `pdf-adapter.search` uses — comfortable for
+  // workers mirror what `pdf-adapter.search` uses, comfortable for
   // the pdf.js worker thread and well-tested on real documents.
   const CONCURRENCY = 8;
   const perPageLines: { pageNum: number; lines: Line[] }[] = new Array(numPages);

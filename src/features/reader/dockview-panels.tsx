@@ -13,7 +13,7 @@ import { SearchOverlay } from "./popovers/SearchOverlay";
 import { CommentsSidebar } from "./panels/CommentsSidebar";
 
 /**
- * Sidebar TOC panel — wired with the dockview container API so its
+ * Sidebar TOC panel, wired with the dockview container API so its
  * children (note / whiteboard launchers) can add and remove
  * dockview panels imperatively.
  */
@@ -83,7 +83,7 @@ export function TocPanel(props: IDockviewPanelProps) {
       return;
     }
     // Tag the new whiteboard with the active doc so the reader sidebar
-    // can filter to "this book only" — without it, every reader-created
+    // can filter to "this book only", without it, every reader-created
     // whiteboard would still show up across every other book.
     const activeDocId = useReaderStore.getState().activeDocumentId ?? undefined;
     const whiteboardId = useWhiteboardStore
@@ -140,7 +140,7 @@ export function TocPanel(props: IDockviewPanelProps) {
 }
 
 /**
- * The viewer dockview panel — wraps `ActiveViewer` with a `relative`
+ * The viewer dockview panel, wraps `ActiveViewer` with a `relative`
  * container and mounts the floating search overlay inside it so the
  * overlay's right edge stays aligned with the PDF viewer panel even
  * when AI chat / TOC panels are open beside it.

@@ -1,6 +1,6 @@
 /**
  * True for errors that are recoverable and unactionable from app
- * code — typically navigator.locks coordination races in dev mode
+ * code, typically navigator.locks coordination races in dev mode
  * (React StrictMode + Supabase gotrue-js's auth-token lock). The
  * SDK already retries internally, so the message is noise. Filtering
  * these out of `logError` keeps the dev console focused on real

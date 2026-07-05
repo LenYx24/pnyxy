@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // standardized `SpeechRecognition` (Firefox-flagged, others rolling
 // out) and the older `webkitSpeechRecognition` (Chrome/Edge/Safari).
 // Pick whichever the browser exposes, or null if neither is there
-// — that's our capability gate.
+// that's our capability gate.
 type SpeechRecognitionCtor = new () => SpeechRecognitionInstance;
 
 interface SpeechRecognitionInstance {
@@ -65,7 +65,7 @@ export interface SpeechRecognitionState {
 }
 
 interface UseSpeechRecognitionOptions {
-  /** Called with each new chunk of *finalized* transcript text — the
+  /** Called with each new chunk of *finalized* transcript text, the
    *  bits the engine has committed to. Use this to append to your
    *  textarea. Interim results stream live via `onInterim`. */
   onResult: (text: string) => void;
@@ -79,7 +79,7 @@ interface UseSpeechRecognitionOptions {
 
 /**
  * Wraps the Web Speech API into a hook that's safe to call
- * everywhere — it never throws on unsupported browsers (`supported`
+ * everywhere, it never throws on unsupported browsers (`supported`
  * just returns false). Designed for "press a mic button, dictate
  * into the chat composer" flows.
  *
@@ -100,8 +100,8 @@ export function useSpeechRecognition({
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-  // Stable callback refs so the recognition instance below — created
-  // once — always sees the latest handlers from the consumer.
+  // Stable callback refs so the recognition instance below, created
+  // once, always sees the latest handlers from the consumer.
   // The "assign during render" pattern is intentional and matches
   // React's recommended way to keep callback refs up-to-date without
   // re-creating the recognition instance on every callback identity
@@ -138,7 +138,7 @@ export function useSpeechRecognition({
     };
     instance.onerror = (event: SpeechRecognitionErrorEvent) => {
       // "no-speech" fires constantly when the mic picks up nothing
-      // — don't surface it as an error in the UI.
+      // don't surface it as an error in the UI.
       if (event.error !== "no-speech") setError(event.error);
     };
     instance.onend = () => {
@@ -164,7 +164,7 @@ export function useSpeechRecognition({
       instance.start();
       setListening(true);
     } catch {
-      // start() throws if called while already started — ignore.
+      // start() throws if called while already started, ignore.
     }
   }, [listening]);
 

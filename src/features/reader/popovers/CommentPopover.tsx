@@ -61,7 +61,7 @@ export function CommentPopover() {
 
   // Close on click outside. We identify "inside the popover" via the
   // `data-comment-popover` attribute on the root rather than by
-  // `popoverRef.current.contains(target)` — the ref-based check is
+  // `popoverRef.current.contains(target)`, the ref-based check is
   // sensitive to attachment timing (portal + React StrictMode double-
   // mount can leave `popoverRef.current` pointing at a stale node for
   // a frame, causing every click *inside* the popover to dismiss it).
@@ -74,7 +74,7 @@ export function CommentPopover() {
       if (target.closest("[data-comment-popover]")) return;
       if (target.closest("[data-annotation-context-menu]")) return;
       // Also leave the popover open when the click landed on a
-      // CommentMarker — toggling the same marker should dismiss it,
+      // CommentMarker, toggling the same marker should dismiss it,
       // but that path is handled by the marker's own onClick (which
       // calls setSelectedAnnotation(null) explicitly). For clicks on
       // *other* markers we let the normal dismissal happen so the

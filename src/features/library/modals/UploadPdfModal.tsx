@@ -23,7 +23,7 @@ const MAX_FILES = 1000;
 const MAX_SUBFOLDER_DEPTH = 1;
 
 interface StagedFile {
-  /** Dedupe key — same file picked twice (or via folder + files) collapses. */
+  /** Dedupe key, same file picked twice (or via folder + files) collapses. */
   key: string;
   file: File;
   /** Slash-separated folder path the book should land in, relative to the
@@ -42,13 +42,13 @@ function stagedKey(dirPath: string, file: File): string {
 }
 
 /**
- * Pick PDFs to upload — one file, several files, or a whole folder.
+ * Pick PDFs to upload, one file, several files, or a whole folder.
  *
  * Folders are scanned one level deep (see MAX_SUBFOLDER_DEPTH) and the
  * directory structure is recreated in the library: the picked folder
  * and its immediate subfolders become library folders, and each book
  * lands in the matching one. The actual byte upload runs in the
- * background via the upload store — on Upload we create the folders,
+ * background via the upload store, on Upload we create the folders,
  * enqueue every file, and close immediately; per-file progress shows
  * on ghost cards in the library grid.
  */
@@ -130,7 +130,7 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
   );
 
   // Folder pick: keep the structure, descend MAX_SUBFOLDER_DEPTH levels.
-  // Non-PDFs are skipped silently — a folder scan routinely turns up
+  // Non-PDFs are skipped silently, a folder scan routinely turns up
   // images, sidecar files, etc. that aren't a "format request" signal.
   const ingestFolder = useCallback(
     (files: FileList | null) => {
@@ -182,6 +182,10 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
+      // Stop the drop from also bubbling (through the React tree, even
+      // from this portaled modal) to the library page's global onDrop,
+      // which would enqueue the same files a second time.
+      e.stopPropagation();
       setDragOver(false);
       ingestFiles(e.dataTransfer.files);
     },

@@ -62,7 +62,7 @@ export interface QuizAttemptAnswer {
 }
 
 /** Input shape for creating/updating questions. Fields unused by the
- *  chosen kind can be left empty — the store normalises them to null. */
+ *  chosen kind can be left empty, the store normalises them to null. */
 export interface QuizQuestionDraft {
   id?: string;
   kind: QuizQuestionKind;

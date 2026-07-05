@@ -15,7 +15,7 @@ interface SaveAsFlashcardsModalProps {
   onClose: () => void;
   /** The assistant message text we're extracting from. */
   passage: string;
-  /** Default title for the saved quiz — the conversation title is a
+  /** Default title for the saved quiz, the conversation title is a
    *  good seed; user can edit before save. */
   defaultTitle: string;
 }

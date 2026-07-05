@@ -24,6 +24,9 @@ export interface Note {
 interface NoteState {
   notes: Note[];
   loadNotes: () => Promise<void>;
+  /** Drop the in-memory list on sign-out so the next account never
+   *  sees the previous user's notes. IDB is wiped separately. */
+  clearLocal: () => void;
   /** Create a note, optionally placed directly into a folder (used by
    *  the library's "New note here" action). Omit for a root note. */
   createNote: (folderId?: string | null) => string;
@@ -44,7 +47,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       id: s.id,
       title: s.title,
       content: s.content,
-      // Pre-00044 rows have no folderId/sortOrder — default to root / 0.
+      // Pre-00044 rows have no folderId/sortOrder, default to root / 0.
       folderId: s.folderId ?? null,
       sortOrder: s.sortOrder ?? 0,
       createdAt: s.createdAt,
@@ -52,6 +55,10 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     }));
     notes.sort((a, b) => b.updatedAt - a.updatedAt);
     set({ notes });
+  },
+
+  clearLocal() {
+    set({ notes: [] });
   },
 
   createNote(folderId = null) {
@@ -103,7 +110,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     next[idx] = updated;
     set({ notes: next });
     dbSaveNote(updated);
-    // The handler upserts the whole row, so always send every column —
+    // The handler upserts the whole row, so always send every column -
     // omitting folder_id/sort_order here would reset them to defaults.
     void enqueueMutation<NoteSyncPayload>("note", "update", {
       id: updated.id,
@@ -135,7 +142,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     next[idx] = updated;
     set({ notes: next });
     dbSaveNote(updated);
-    // Full-row upsert (see updateNote) — send content too so the move
+    // Full-row upsert (see updateNote), send content too so the move
     // doesn't blank the note's title/body on the server.
     void enqueueMutation<NoteSyncPayload>("note", "update", {
       id: updated.id,

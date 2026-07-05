@@ -17,10 +17,7 @@ import { useUIStore } from "@/stores/ui-store";
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf-assets/pdf.worker.min.mjs";
 
 const THUMB_WIDTH = 150;
-// A4 ratio as the placeholder height — most book PDFs are close
-// enough that the scroll geometry stays stable when the real page
-// renders. Wrong-aspect pages will adjust on render; the surrounding
-// layout doesn't depend on per-thumb height being exact.
+// A4 ratio placeholder; adjusts once the real page renders
 const THUMB_PLACEHOLDER_HEIGHT = THUMB_WIDTH * 1.4142;
 
 export function ThumbnailToc() {
@@ -46,22 +43,12 @@ export function ThumbnailToc() {
   const selectionAnchor = activeDoc?.aiSelectionAnchor ?? null;
   const sendAsImage = activeDoc?.aiSendPagesAsImage ?? false;
 
-  // Selection mode is lifted to the UI store so the "Customize
-  // context" button in the AI chat panel can flip it on remotely.
-  // Still session-scoped — not persisted across reloads — because
-  // landing in selection mode on every reader open would feel like
-  // a mode the user didn't ask for.
+  // In the UI store so the AI chat panel can flip it on. Session-scoped, not persisted.
   const selectionMode = useUIStore((s) => s.aiContextSelectionMode);
   const setSelectionMode = useUIStore((s) => s.setAiContextSelectionMode);
 
-  // First-entry into selection mode for this view: if no pages are
-  // selected yet, pre-fill with "current page ± aiSurroundingPagesCount".
-  // That's the user's stored default for the surrounding-window
-  // size; auto-applying it means the AI gets sensible context out
-  // of the box, and the user can still expand/contract from there.
-  // Guard with a per-mount ref so toggling selection mode off and
-  // back on within the same session doesn't blow away an empty
-  // selection the user deliberately cleared.
+  // On first entry to selection mode, pre-fill with the surrounding-page window if
+  // nothing is selected. Ref guards against re-filling a selection the user cleared.
   const autoSelectedRef = useRef(false);
   useEffect(() => {
     if (!selectionMode) {
@@ -84,11 +71,6 @@ export function ThumbnailToc() {
   );
 
   if (!meta) return null;
-
-  // PDF-only: TOC selection only makes sense when there are pages we
-  // can later extract text from. Other formats fall back to the
-  // navigation-only behavior — but the existing ThumbnailToc only
-  // renders for PDFs anyway via the meta-format check upstream.
 
   const handleThumbClick = (pageNum: number, e: React.MouseEvent) => {
     if (!selectionMode) {
@@ -115,8 +97,7 @@ export function ThumbnailToc() {
       }
       error={null}
     >
-      {/* z-20 so the per-thumbnail selection checkbox (z-10) scrolls
-          BENEATH this sticky bar instead of poking through it. */}
+      {/* z-20 so the thumbnail checkboxes (z-10) scroll beneath this sticky bar */}
       <div className="sticky top-0 z-20 flex flex-col gap-1 border-b border-glass-border bg-bg-secondary/95 backdrop-blur-md px-2 py-2">
         <div className="flex items-center justify-between gap-2">
           <button
@@ -174,11 +155,8 @@ export function ThumbnailToc() {
               <Crosshair size={12} />
               {t("reader.sidebar.aiSelectAround", { n: surroundingCount })}
             </button>
-            {/* "Send as images" — when ON the selected pages render
-                to JPEG and ride along as attachments instead of going
-                through text extraction. Useful for figure-heavy
-                pages where the words alone miss the diagrams. Also
-                what we silently fall back to for scanned PDFs. */}
+            {/* When on, selected pages go as JPEG attachments instead of extracted text.
+                Also the fallback for scanned PDFs. */}
             <button
               type="button"
               onClick={() => setAiSendPagesAsImage(!sendAsImage)}
@@ -224,17 +202,9 @@ export function ThumbnailToc() {
 const EMPTY_SET: ReadonlySet<number> = new Set();
 
 /**
- * Lazy-mounted thumbnail. Renders a placeholder skeleton until the
- * row scrolls into (or near) the viewport, then mounts the real
- * `<Page>` and keeps it mounted for the rest of the session — so
- * scrolling back up or quickly jumping around the TOC doesn't pay
- * the render cost again.
- *
- * Without this, opening the TOC on a 500-page PDF used to fire 500
- * concurrent thumbnail renders the moment the panel mounted; on
- * mid-tier hardware that froze the worker for several seconds. Now
- * only ~10 thumbnails (rootMargin overscan + visible) render up
- * front; the rest fill in as the user scrolls.
+ * Lazy-mounted thumbnail: renders a placeholder until the row nears the viewport,
+ * then mounts <Page> and keeps it mounted. Avoids rendering every page of a large
+ * PDF at once, which locks up the worker.
  */
 function ThumbnailItem({
   pageNum,
@@ -250,18 +220,14 @@ function ThumbnailItem({
   onClick: (e: React.MouseEvent) => void;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
-  // Once mounted, stay mounted. Re-rendering an already-rendered
-  // canvas is wasteful, and a TOC has finite vertical extent so
-  // memory growth is bounded by total pages × ~30 KB / canvas.
+  // Once mounted, stay mounted; re-rendering the canvas is wasteful.
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     if (mounted) return;
     const el = ref.current;
     if (!el) return;
-    // 400px above/below the panel's viewport — gives the worker a
-    // head start so thumbnails appear "ready" by the time the user
-    // scrolls them into actual view, instead of flashing in.
+    // 400px overscan so thumbnails render before scrolling into view
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -281,9 +247,7 @@ function ThumbnailItem({
       onClick={onClick}
       className={cn(
         "relative flex flex-col items-center gap-1 rounded-lg p-1.5 transition-colors cursor-pointer",
-        // Selection ring beats the active ring visually because the
-        // user has explicit intent ("I'm choosing what to send"); the
-        // page-they're-on highlight stays as a subtler purple.
+        // selection ring takes priority over the active-page ring
         isSelected
           ? "ring-2 ring-success bg-success/10"
           : isActive

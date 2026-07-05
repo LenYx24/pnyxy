@@ -6,7 +6,7 @@ import type {
 } from "@/types/roadmap";
 import { topologicalOrder } from "./auto-layout";
 
-/** YYYY-MM-DD in local time. Avoid Date.toISOString() — that uses UTC. */
+/** YYYY-MM-DD in local time. toISOString() would give UTC. */
 export function ymd(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -30,17 +30,15 @@ function hoursOnDate(d: Date, prefs: SchedulePrefs): number {
 }
 
 export interface NodeSchedule {
-  /** Date by which the user is projected to finish this node. */
   dueDate: string;
-  /** Whether the date came from a manual override (vs. computed). */
+  /** True when the date is a manual override rather than computed. */
   manual: boolean;
 }
 
 /**
- * Walks the roadmap in topological order and allocates each node's estimated
- * minutes against the daily hours budget. A node that exceeds the day's
- * remaining budget rolls into the next day. Manual overrides pin nodes
- * absolutely; we don't try to reflow around them — the user knows best.
+ * Allocates each node's estimated minutes against the daily hours budget in
+ * topological order, spilling into the next day when a node overruns. Manual
+ * overrides pin nodes and are not reflowed around.
  */
 export function computeSchedule(
   roadmap: Roadmap,
@@ -51,14 +49,14 @@ export function computeSchedule(
 
   let cursor = parseYmd(enrollment.startDate);
   let minutesLeftToday = hoursOnDate(cursor, enrollment.schedulePrefs) * 60;
-  // Don't let an empty schedule (0 weekday hours, no weekends) loop forever.
+  // guard against an all-zero budget looping forever
   const totalDailyMinutes =
     enrollment.schedulePrefs.weekdayHours * 60 +
     (enrollment.schedulePrefs.workOnWeekends
       ? enrollment.schedulePrefs.weekendHours * 60 * 2
       : 0);
   if (totalDailyMinutes <= 0) {
-    // No time allocated anywhere — pin everything to startDate.
+    // no time budget, pin everything to startDate
     const today = enrollment.startDate;
     for (const node of order) {
       result.set(node.id, {
@@ -105,10 +103,7 @@ export function totalEstimatedMinutes(roadmap: Roadmap): number {
   );
 }
 
-/** Estimated minutes credited toward completion, scaled by each
- *  node's `nodeProgress` percent (so a 50% node contributes half).
- *  Mirrors the user's intuition that partial progress should count
- *  partially when looking at "how much have I done?". */
+/** Estimated minutes done, scaled by each node's nodeProgress percent. */
 export function completedMinutes(
   roadmap: Roadmap,
   enrollment: Enrollment,
@@ -122,8 +117,7 @@ export function completedMinutes(
   return total;
 }
 
-/** Average of per-node percents across the roadmap, normalised to a
- *  0–1 fraction. Empty roadmap → 0. */
+/** Average per-node percent as a 0-1 fraction. Empty roadmap is 0. */
 export function progressFraction(
   roadmap: Roadmap,
   enrollment: Enrollment,
@@ -137,18 +131,15 @@ export function progressFraction(
 }
 
 /**
- * Soft-lock evaluation — a node is "locked" when at least one of its
- * direct predecessors isn't fully complete (< 100%). The UI surfaces
- * a lock icon but still lets the user click through (intentional,
- * per design).
+ * A node is locked when any direct predecessor is under 100%. Soft lock:
+ * the UI shows an icon but still allows click-through.
  */
 export function lockedNodeIds(
   roadmap: Roadmap,
   nodeProgress: Record<string, number>,
 ): Set<string> {
   const incomingDone = new Map<string, boolean>();
-  // Default everyone to unlocked, then mark locked when any
-  // predecessor isn't yet at 100%.
+  // start unlocked, flip when a predecessor is below 100%
   for (const n of roadmap.nodes) incomingDone.set(n.id, true);
   for (const e of roadmap.edges) {
     if ((nodeProgress[e.source] ?? 0) < 100) {
@@ -169,12 +160,7 @@ export function formatMinutes(mins: number, locale = "en"): string {
   return locale === "hu" ? `${h} ó ${rem} p` : `${h} h ${rem} min`;
 }
 
-/**
- * Sum of estimated minutes still owed across the roadmap, weighted by
- * each node's remaining percent. A node at 40% with a 60-minute estimate
- * counts as 36 minutes of remaining work. Mirrors `completedMinutes` —
- * remaining = total − completed, but computed in one pass.
- */
+/** Estimated minutes still owed, weighted by each node's remaining percent. */
 export function remainingEstimatedMinutes(
   roadmap: Roadmap,
   enrollment: Enrollment,
@@ -189,21 +175,13 @@ export function remainingEstimatedMinutes(
   return total;
 }
 
-/**
- * Counts available study days between `from` (inclusive, but only if
- * later than today's start) and `to` (inclusive). Splits the result
- * into weekday and weekend buckets so a deadline-mode calculator can
- * apply the weekend multiplier correctly.
- */
+/** Counts study days in [from, to] inclusive, split into weekday/weekend buckets. */
 export function countDaysInRange(
   from: Date,
   to: Date,
 ): { weekdays: number; weekends: number } {
   let weekdays = 0;
   let weekends = 0;
-  // Iterate by day; the spans the deadline UI cares about are short
-  // (weeks to months), so the naive loop is fine and avoids
-  // off-by-one bugs from DST boundaries.
   const cursor = new Date(from.getFullYear(), from.getMonth(), from.getDate());
   const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
   while (cursor.getTime() <= end.getTime()) {
@@ -215,30 +193,24 @@ export function countDaysInRange(
 }
 
 export interface DeadlineDerivation {
-  /** Computed hours per Mon–Fri. */
+  /** Computed hours per Mon-Fri. */
   weekdayHours: number;
-  /** Computed hours per Sat–Sun. 0 when multiplier is 0. */
+  /** Computed hours per Sat-Sun. 0 when multiplier is 0. */
   weekendHours: number;
   /** Whether weekend study is on (multiplier > 0). */
   workOnWeekends: boolean;
   /** Days available between today (inclusive) and the deadline (inclusive). */
   daysAvailable: { weekdays: number; weekends: number };
-  /** Total minutes that need to be allocated across those days. */
+  /** Total minutes to allocate across those days. */
   totalMinutes: number;
-  /**
-   * False when there are 0 effective days (deadline in the past,
-   * or only-weekend days remaining with multiplier=0). UI should
-   * warn the user instead of writing nonsense back to schedulePrefs.
-   */
+  /** False when 0 effective days (past deadline, or weekend-only with multiplier 0). */
   feasible: boolean;
 }
 
 /**
- * Inverts the scheduler: given remaining minutes and a target finish
- * date, returns the weekday/weekend hours the user would need to keep
- * to land on time. `weekendMultiplier` controls how weekend days are
- * weighted relative to weekdays (0 = no weekend work, 1 = equal,
- * 1.5 = half-again as much per weekend day, …).
+ * Inverse of the scheduler: from remaining minutes and a finish date, returns
+ * the weekday/weekend hours needed to land on time. weekendMultiplier weights
+ * weekend days vs weekdays (0 = none, 1 = equal, 1.5 = half again as much).
  */
 export function deriveHoursForDeadline(opts: {
   totalMinutes: number;
@@ -276,7 +248,7 @@ export function deriveHoursForDeadline(opts: {
   };
 }
 
-/** Tiny helper: fresh node skeleton for the editor. */
+/** Fresh blank node for the editor. */
 export function makeBlankNode(): RoadmapNode {
   return {
     id: crypto.randomUUID(),

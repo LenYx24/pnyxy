@@ -168,7 +168,7 @@ export function NotesTab() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // OCR capture state — single file input, single in-flight OCR
+  // OCR capture state, single file input, single in-flight OCR
   // run. Errors render as a dismissable banner under the action row.
   const ocrInputRef = useRef<HTMLInputElement>(null);
   const [ocrBusy, setOcrBusy] = useState(false);

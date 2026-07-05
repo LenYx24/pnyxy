@@ -25,7 +25,7 @@ export function emptyReviewState(now: Date = new Date()): ReviewState {
 }
 
 /** Grades an attempt answer. The simplified two-rating strategy (wrong
- *  => Again, right => Good) is intentional — finer ratings (Hard/Easy)
+ *  => Again, right => Good) is intentional, finer ratings (Hard/Easy)
  *  would need timing or self-report that we don't collect. */
 export function nextReviewState(
   current: ReviewState | null,

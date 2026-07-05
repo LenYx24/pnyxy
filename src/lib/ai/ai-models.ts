@@ -5,18 +5,18 @@
  *
  * Adding a new model means: extend `AI_MODEL_CATALOG`, then ensure
  * the matching provider key is wired up in `ai-client.ts`. Today
- * each provider is mapped to a single deployed model — multi-model
+ * each provider is mapped to a single deployed model, multi-model
  * selection per provider is a planned next iteration.
  */
 
 import type { AiProvider } from "@/stores/settings-store";
 
 export interface ModelInfo {
-  /** Provider identifier — drives routing through `ai-client.ts`. */
+  /** Provider identifier, drives routing through `ai-client.ts`. */
   provider: AiProvider;
   /** Human-readable model name shown in dropdown + modal. */
   displayName: string;
-  /** Underlying API model id (informational only — used for the
+  /** Underlying API model id (informational only, used for the
    *  "Model id" line in the help modal so users can verify what's
    *  actually being called). */
   modelId: string;
@@ -24,13 +24,13 @@ export interface ModelInfo {
    *  niche, and any notable trait. Plain prose, no headings. */
   description: string;
   /** Two-three concrete use cases the user will recognise.
-   *  Concise — they go into a bullet list under the description. */
+   *  Concise, they go into a bullet list under the description. */
   bestFor: string[];
   /** Subjective speed (relative to the other entries here). */
   speed: "fast" | "medium" | "slow";
   /** Subjective capability tier. */
   power: "basic" | "balanced" | "powerful";
-  /** Average tokens an in-app turn spends — informational, helps the
+  /** Average tokens an in-app turn spends, informational, helps the
    *  user estimate how many chats fit in the daily quota. */
   estimatedTokensPerTurn: {
     input: number;
@@ -41,7 +41,7 @@ export interface ModelInfo {
   costNotes: string;
   /** Marketing-grade context window (e.g. "200k tokens"). */
   contextWindow: string;
-  /** Where requests are routed — surfaced in the dropdown's subtitle. */
+  /** Where requests are routed, surfaced in the dropdown's subtitle. */
   routingNote: string;
 }
 
@@ -56,12 +56,12 @@ export const PNYXY_DAILY_REQUEST_QUOTA = 200;
 /**
  * Token-cost estimates for a *typical* reader-context turn:
  *  - system prompt: ~400 tokens
- *  - book/page RAG context: ~800–1500 tokens
- *  - user message: ~30–100 tokens
- *  - prior conversation: ~500–2000 tokens (grows over time)
+ *  - book/page RAG context: ~800-1500 tokens
+ *  - user message: ~30-100 tokens
+ *  - prior conversation: ~500-2000 tokens (grows over time)
  *  - assistant output: ~300 tokens (short explanation), up to ~1000
  *
- * The "average" we surface (~2500–3000 total) is a reasonable midpoint
+ * The "average" we surface (~2500-3000 total) is a reasonable midpoint
  * for "I quoted a paragraph and asked one follow-up." Long roleplays
  * and code generation can go several times higher; short clarifying
  * questions can be half this.
@@ -142,7 +142,7 @@ export const AI_MODEL_CATALOG: ModelInfo[] = [
   },
   {
     provider: "local",
-    // Display name is generic — the actual model is whatever the
+    // Display name is generic, the actual model is whatever the
     // user configured locally (llama3.2, qwen2.5-coder:14b, …). The
     // help modal shows their picked model id from settings.
     displayName: "Helyi modell (Ollama / LM Studio)",

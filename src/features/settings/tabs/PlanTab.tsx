@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 /**
  * Plan / billing tab.
  *
- * Shows the user's current tier and — for free users — an "Upgrade"
+ * Shows the user's current tier and, for free users, an "Upgrade"
  * button that opens the Lemon Squeezy hosted checkout. We attach the
  * user's id as `checkout[custom][user_id]` so the webhook
  * (supabase/functions/lemonsqueezy-webhook) can map the resulting

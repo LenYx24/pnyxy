@@ -82,7 +82,7 @@ export function ChatRow({
   };
 
   // content-visibility:auto skips off-screen rows for scroll perf, but
-  // it collapses their measured rects — which breaks dnd-kit's collision
+  // it collapses their measured rects, which breaks dnd-kit's collision
   // detection during a drag (the drop target resolves to the dragged row
   // itself, so nothing reorders). Disable it while any drag is in flight.
   const dragActive = useDndContext().active != null;

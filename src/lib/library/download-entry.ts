@@ -8,32 +8,18 @@ import type {
   UploadedLibraryItem,
 } from "@/types/catalog";
 
-/**
- * One menu item the library's per-book overflow can render. `format`
- * is just informational — UI uses it to pick the localized label
- * ("Download PDF" / "Download EPUB" / etc.) and falls back to a plain
- * "Download" for the single-file uploaded case.
- */
+/** One download menu item for a book. `format` is used by the UI to pick the label. */
 export interface DownloadAction {
   /** Stable key for React lists. */
   key: string;
-  /** Source format, surfaced so the UI can label & icon-pick. */
   format: DownloadFormat | "original";
-  /** Triggers the actual download. Throws on failure; callers
-   *  decide whether to toast or swallow. */
+  /** Runs the download. Throws on failure. */
   run: () => Promise<void>;
 }
 
-/**
- * Whether the entry exposes any download path at all. Uploaded books
- * the user uploaded themselves are always downloadable; catalog books
- * require either an Internet Archive id (public-domain scan, three
- * canonical formats) or an explicit `download_url` (community-supplied
- * single file). Catalog rows without either are commercial entries
- * we can't lawfully serve — those skip the menu item.
- */
+/** Catalog books need an ia_id or a download_url; commercial rows have neither. */
 export function canDownloadEntry(entry: UnifiedLibraryItem): boolean {
-  // Manually-added shell books have no file to download.
+  // shell books have no file
   if (entry.source === "uploaded") return !!entry.book.storage_path;
   return !!(entry.catalog_book.ia_id || entry.catalog_book.download_url);
 }
@@ -51,12 +37,7 @@ export function getDownloadActions(entry: UnifiedLibraryItem): DownloadAction[] 
   return getCatalogBookDownloadActions(entry.catalog_book);
 }
 
-/**
- * Same catalog-side actions, but addressable without a user_library
- * row. The Book description page (`/books/:id`) renders for users
- * who haven't added the book to their library too, so we can't make
- * them invent a library entry just to grab a download URL.
- */
+/** Catalog download actions without needing a user_library row (used by /books/:id). */
 export function getCatalogBookDownloadActions(
   book: CatalogBook,
 ): DownloadAction[] {
@@ -104,11 +85,7 @@ async function downloadUploaded(entry: UploadedLibraryItem): Promise<void> {
     logError("library:downloadUploaded", error ?? "no data");
     throw error ?? new Error("Could not download this book.");
   }
-  // file_name carries the original extension; prefer it so the
-  // downloaded file opens in the same app the user originally
-  // associated with the format. Fall back to a sanitized title +
-  // best-guess extension if file_name is somehow missing (older
-  // pre-rename uploads pre-dating this column).
+  // prefer file_name (has original extension); fall back to title + guessed ext
   const ext = inferExt(file_name, format);
   const fname =
     file_name && file_name.trim().length > 0
@@ -118,20 +95,14 @@ async function downloadUploaded(entry: UploadedLibraryItem): Promise<void> {
   try {
     triggerAnchor(href, fname);
   } finally {
-    // Hand the URL back to the GC after the browser has had time to
-    // start the download. The 60s slack is well past any realistic
-    // browser-side write delay.
+    // revoke after the browser has started the download
     setTimeout(() => URL.revokeObjectURL(href), 60_000);
   }
 }
 
 function triggerExternalDownload(url: string, suggestedName: string): void {
-  // Cross-origin URLs (Internet Archive, community CDN) generally
-  // honour `Content-Disposition: attachment`, so the `download`
-  // attribute is mostly a filename hint. We also open in a new tab
-  // — if the host responds with HTML instead of the file (e.g. a
-  // captcha / login wall), the user lands on it instead of having a
-  // silent no-op.
+  // cross-origin: download attr is only a filename hint; target=_blank so a
+  // captcha/login wall lands the user on the page instead of failing silently
   const a = document.createElement("a");
   a.href = url;
   a.target = "_blank";
@@ -180,12 +151,7 @@ function inferExt(
   return "pdf";
 }
 
-/**
- * OS-safe filename. Strips control chars + the characters Windows /
- * mac / linux refuse in path segments, collapses runs of whitespace,
- * trims, and caps length so a 5,000-character book title can't
- * generate a write-fail filename. Always returns at least "book".
- */
+/** OS-safe filename: strips illegal chars, caps length, never empty. */
 export function sanitizeFilename(name: string): string {
   const cleaned = name
     // eslint-disable-next-line no-control-regex

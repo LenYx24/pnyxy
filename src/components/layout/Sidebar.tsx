@@ -22,9 +22,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const { user, profile } = useAuthStore();
   const isDesktop = useIsDesktop();
-  // Reader item is conditional on there being a book to return to —
-  // this matches the user's mental model: "Reader" only makes sense
-  // as a destination if you have something open.
+  // Reader nav item only shows when there's an open book to return to
   const hasActiveBook = useReaderStore(
     (s) => s.activeDocumentId !== null && s.documents.has(s.activeDocumentId),
   );
@@ -37,9 +35,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const studyItems = allItems.filter((i) => i.group === "study");
   const profileGroupItems = allItems.filter((i) => i.group === "profile");
 
-  // Study submenu — collapsed by default, session-only state. The
-  // user said the goal is reduced clutter, so revealing 4 extra
-  // study links should be an explicit click each session.
+  // study submenu, collapsed by default, session-only
   const [studyOpen, setStudyOpen] = useState(false);
 
   const initial = (
@@ -54,8 +50,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           collapsed && "px-2",
         )}
       >
-        {/* Logo doubles as the home link — replacing the standalone
-            "Home" nav item we used to render separately. */}
+        {/* logo also acts as the home link */}
         <NavLink
           to="/"
           aria-label="Pnyxy home"
@@ -67,8 +62,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         >
           <img src="/logo.svg" alt="Pnyxy" className="h-10 w-auto" />
         </NavLink>
-        {/* Hamburger collapse toggle — desktop only (on tablet the
-            sidebar is an overlay closed via the X below). */}
+        {/* collapse toggle, desktop only (tablet closes via the X below) */}
         {isDesktop && (
           <button
             onClick={toggleSidebar}
@@ -101,10 +95,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               collapsed={collapsed}
               onNavigate={onNavigate}
             />
-            {/* Study submenu — collapsible group containing the
-                lower-traffic study tools (quizzes, review,
-                vocabulary, roadmaps). Anchored just below Chat so
-                related "thinking-mode" tools sit together. */}
+            {/* study submenu, anchored just below Chat */}
             {item.key === "chat" && studyItems.length > 0 && (
               <>
                 <button
@@ -127,11 +118,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                     />
                   )}
                 </button>
-                {/* When the rail is collapsed there's no room for the
-                    indented inline list, but the items must stay
-                    reachable — so we render them as icon-only rows in
-                    the rail (matching the primary items) instead of
-                    unmounting them. Expanded keeps the indented list. */}
+                {/* collapsed rail: icon-only rows; expanded: indented list */}
                 {studyOpen && (
                   <div
                     className={cn("mt-1 space-y-1", !collapsed && "pl-3")}
@@ -152,14 +139,12 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </nav>
 
-      {/* Org switcher — pinned above the profile row, Notion-style.
-          Only shown when there are orgs to pick from (i.e. when
-          signed in). */}
+      {/* org switcher, signed-in only */}
       {user && (
         <OrgSwitcher collapsed={collapsed} onNavigate={onNavigate} />
       )}
 
-      {/* Admin link, when present, sits above the profile block. */}
+      {/* admin link, sits above the profile block */}
       {profileGroupItems.map((item) => (
         <SidebarNavItem
           key={item.to}
@@ -170,11 +155,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         />
       ))}
 
-      {/* Profile row + settings gear. The two are siblings so the gear
-          stays visible (and clickable) even when the avatar row's
-          NavLink is the active route. When the rail is collapsed they
-          stack vertically — avatar on top, gear below — so the gear
-          stays reachable as an icon instead of disappearing. */}
+      {/* profile row + settings gear are siblings so the gear stays
+          clickable when the avatar NavLink is active. collapsed: stack. */}
       {user ? (
         <div
           className={cn(
@@ -246,13 +228,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-/**
- * One nav row. Layout stays identical between expanded and collapsed
- * — the icon is always at `px-3` and the label collapses *in place*
- * via max-width + opacity. This is what fixes the old "icons teleport
- * to centre" jank: nothing is unmounted, nothing toggles
- * `justify-center`, the row just narrows alongside the container.
- */
+// icon stays at px-3, label collapses in place via max-width+opacity so
+// nothing gets unmounted or re-justified (avoids the icon teleport jank).
 function SidebarNavItem({
   item,
   collapsed,
@@ -272,12 +249,8 @@ function SidebarNavItem({
       to={item.to}
       onClick={onNavigate}
       title={label}
-      // Exact match for every sidebar item — without `end`,
-      // NavLink does a prefix match, so `/quizzes` ended up
-      // co-highlighted whenever the user was on
-      // `/quizzes/review`. The sub-route already has its own
-      // entry in the Study submenu; the prefix-match was just
-      // double-painting the active state.
+      // exact match: without `end` NavLink prefix-matches and /quizzes
+      // stays highlighted on /quizzes/review
       end
       className={({ isActive }) =>
         cn(
@@ -295,13 +268,8 @@ function SidebarNavItem({
   );
 }
 
-/**
- * Wraps a label so it animates *in place* when the sidebar collapses
- * — the span keeps occupying its slot in the layout but its
- * max-width + opacity transition to zero, so the icon never jumps.
- * `whitespace-nowrap` + `overflow-hidden` keep mid-animation text
- * from wrapping into a second line as it clips.
- */
+// label animates its max-width+opacity to zero on collapse instead of
+// unmounting. nowrap+overflow-hidden stop the text wrapping mid-clip.
 function SidebarLabel({
   collapsed,
   children,
@@ -327,11 +295,7 @@ export function Sidebar() {
   const { sidebarCollapsed, mobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
   const isDesktop = useIsDesktop();
 
-  // Mobile + tablet: overlay sidebar with backdrop. Same drawer
-  // behaviour at both breakpoints — the BottomNav's "More" entry
-  // and the reader/chat toolbar buttons all toggle the same store
-  // flag (`mobileSidebarOpen`), so the drawer is the single
-  // "everything else" surface on smaller screens.
+  // mobile + tablet: overlay drawer toggled by the mobileSidebarOpen flag
   if (!isDesktop) {
     return (
       <>
@@ -344,8 +308,12 @@ export function Sidebar() {
         )}
         {/* Sidebar overlay */}
         <aside
+          style={{
+            top: "var(--titlebar-h)",
+            height: "calc(100dvh - var(--titlebar-h))",
+          }}
           className={cn(
-            "fixed left-0 top-0 z-50 flex h-[100dvh] w-sidebar-expanded max-w-[85vw] flex-col border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl",
+            "fixed left-0 top-0 z-50 flex w-sidebar-expanded max-w-[85vw] flex-col border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl",
             "transition-transform duration-300",
             mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
           )}
@@ -356,13 +324,17 @@ export function Sidebar() {
     );
   }
 
-  // Desktop: fixed sidebar (current behavior).
-  // transition-[width] (not transition-all) + overflow-hidden: width
-  // animates smoothly while inner text clips instead of reflowing.
+  // desktop: fixed sidebar. transition-[width] (not -all) + overflow-hidden
+  // so width animates while inner text clips instead of reflowing.
   return (
     <aside
+      // top/height offset by the title bar (0 in the browser)
+      style={{
+        top: "var(--titlebar-h)",
+        height: "calc(100vh - var(--titlebar-h))",
+      }}
       className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden border-r border-glass-border bg-bg-secondary/80 backdrop-blur-xl",
+        "fixed left-0 top-0 z-40 flex flex-col overflow-hidden border-r border-glass-border bg-bg-secondary/80 backdrop-blur-xl",
         "transition-[width] duration-200 ease-out",
         sidebarCollapsed ? "w-sidebar-collapsed" : "w-sidebar-expanded",
       )}

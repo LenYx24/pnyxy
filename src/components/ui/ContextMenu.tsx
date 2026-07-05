@@ -12,7 +12,7 @@ const MENU_MARGIN = 8;
 /**
  * Portal-rendered floating context menu. Reads its open state, position
  * and items from `useContextMenuStore`. Mount once at the app root
- * (AppLayout) — `useContextMenu()` opens it from anywhere.
+ * (AppLayout), `useContextMenu()` opens it from anywhere.
  */
 export function ContextMenu() {
   const { visible, x, y, items, close } = useContextMenuStore();

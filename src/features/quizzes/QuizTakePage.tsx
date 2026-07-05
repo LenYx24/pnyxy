@@ -11,7 +11,7 @@ import { gradeAnswer, type Quiz, type QuizQuestion } from "@/types/quiz";
 
 // Pairs each question with the order in which its options should be
 // displayed. For non-mcq4 kinds (or when randomize_options is off)
-// the order is identity [0,1,2,3] — the renderer can ignore the
+// the order is identity [0,1,2,3], the renderer can ignore the
 // distinction. For mcq4 with randomization enabled, the array is a
 // permutation. The user's pick is in *displayed-index space* and we
 // translate back via this array before storing the answer, so the
@@ -262,7 +262,7 @@ export function QuizTakePage() {
         <McqOptions
           // Permute the option strings into displayed order. The
           // `selected` and `correctIndex` props are also in displayed
-          // space — translate correct_index via optionOrder.indexOf.
+          // space, translate correct_index via optionOrder.indexOf.
           options={playItem.optionOrder.map(
             (origIdx) =>
               [q.option_a, q.option_b, q.option_c, q.option_d][origIdx],

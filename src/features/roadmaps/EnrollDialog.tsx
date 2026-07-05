@@ -29,7 +29,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
 
   // Two parallel input modes. "hours" is the original UX: pick your
   // weekday + weekend hours, finish date is shown as a preview. The
-  // new "deadline" mode flips the dependency — pick a finish date
+  // new "deadline" mode flips the dependency, pick a finish date
   // and a weekend-vs-weekday multiplier, and the system derives the
   // hours required to land on that date. The two modes share the
   // same total-minutes anchor so the math stays consistent across
@@ -38,7 +38,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
   const [prefs, setPrefs] = useState<SchedulePrefs>(DEFAULT_SCHEDULE_PREFS);
 
   // Deadline mode state. Default: 4 weeks out, 1× multiplier (treat
-  // weekends like weekdays). Picked as a sane starting point — the
+  // weekends like weekdays). Picked as a sane starting point, the
   // exact date barely matters because the user will adjust it before
   // confirming.
   const [targetEndDate, setTargetEndDate] = useState<string>(() => {
@@ -51,7 +51,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
   const totalMinutes = totalEstimatedMinutes(roadmap);
   const todayYmd = ymd(new Date());
 
-  // ─── Hours-mode preview: derived finish date ────────────
+  // Hours-mode preview: derived finish date
   const hoursModeFinish = useMemo(() => {
     if (mode !== "hours") return null;
     if (roadmap.nodes.length === 0) return null;
@@ -75,7 +75,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
     return last;
   }, [mode, roadmap, prefs]);
 
-  // ─── Deadline-mode preview: derived per-day hours ───────
+  // Deadline-mode preview: derived per-day hours
   const deadlineDerivation = useMemo(() => {
     if (mode !== "deadline") return null;
     if (!targetEndDate) return null;

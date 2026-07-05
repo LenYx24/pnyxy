@@ -60,7 +60,7 @@ async function translateViaMyMemory(
 }
 
 /**
- * Translate panel — MyMemory free API, source-language auto-detected
+ * Translate panel, MyMemory free API, source-language auto-detected
  * (Hungarian-flavour chars → "hu", else "en"), target picked from a
  * fixed set persisted in settings-store. Re-translates on target
  * change so the user can flip langs without leaving the panel.

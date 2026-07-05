@@ -1,6 +1,6 @@
 import type { BookStatusTag } from "@/types/database";
 
-// ─── Color palette (pure data — no store imports) ───────────
+// Color palette (pure data, no store imports)
 
 export type ColorKey =
   | "blue"

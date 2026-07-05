@@ -8,25 +8,10 @@ import { useFocusStore } from "@/stores/focus-store";
 import { logError } from "@/lib/logger";
 import { cn } from "@/lib/cn";
 
-/**
- * Lightweight, non-blocking feedback prompt that slides into the
- * bottom-right corner. UX shape:
- *
- *   1. "How's Pnyxy?"  + three sentiment buttons (love / fine /
- *      frustrated) + a small X.
- *   2. After a sentiment is picked: optional textarea + Send.
- *   3. After send: brief thank-you, then auto-dismiss.
- *
- * Frequency control (localStorage, per-device — deliberate so it
- * doesn't sync across devices and keep nagging from the cloud):
- *   - Never shown for the first 3 days after account creation.
- *   - Cooldown of 30 days after ANY interaction (X / sentiment /
- *     send).
- *   - Suppressed on routes where it would be intrusive (reader,
- *     auth, onboarding, focus session, static pages).
- *
- * Storage key shape:  pnyxy:feedback-prompt:v1 → `{ lastSeen: ISO }`
- */
+// Slide-in feedback prompt (bottom-right): sentiment buttons -> optional
+// textarea -> thank-you. Frequency gated in localStorage (per-device on
+// purpose): hidden for the first 3 days, 30-day cooldown after any
+// interaction, suppressed on reader/auth/static/focus routes.
 
 const STORAGE_KEY = "pnyxy:feedback-prompt:v1";
 const ACCOUNT_AGE_GATE_DAYS = 3;
@@ -67,7 +52,7 @@ function daysSince(iso: string | undefined): number {
 }
 
 function shouldShowFor(user: { created_at?: string } | null): boolean {
-  if (!user) return false; // anonymous users don't see this — they have no email to follow up on
+  if (!user) return false; // no email to follow up on
   if (daysSince(user.created_at) < ACCOUNT_AGE_GATE_DAYS) return false;
   if (daysSince(readState().lastSeen) < COOLDOWN_DAYS) return false;
   return true;
@@ -88,16 +73,13 @@ export function FeedbackPrompt() {
   const [error, setError] = useState<string | null>(null);
   const dismissTimerRef = useRef<number | null>(null);
 
-  // Suppress on focused / blocked routes. Computing these here
-  // (instead of unmounting from the parent) keeps the slide-out
-  // animation possible: when the user navigates into a blocked
-  // route, the toast slides off the screen instead of vanishing.
+  // computed here (not unmounted by parent) so navigating into a blocked
+  // route slides the toast off instead of vanishing mid-animation.
   const isReader = location.pathname.startsWith("/reader");
   const isAuth = location.pathname.startsWith("/auth");
   const isStatic = STATIC_PATHS.some((p) => location.pathname.startsWith(p));
   const blocked = isReader || isAuth || isStatic || focusActive;
 
-  // Initial gate. Runs once per signed-in mount; we don't poll.
   useEffect(() => {
     if (!user) return;
     if (!shouldShowFor(user)) return;
@@ -106,9 +88,7 @@ export function FeedbackPrompt() {
       setVisible(true);
     }, MOUNT_DELAY_MS);
     return () => window.clearTimeout(timer);
-    // Deliberately only re-runs on user change, not on every route
-    // change — once we've decided to show, we keep it shown until
-    // the user dismisses or the route blocks (handled below).
+    // only re-run on user change; route blocking is handled separately
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -161,13 +141,8 @@ export function FeedbackPrompt() {
         }),
       });
       if (!res.ok) {
-        // Read the body as text first so we can surface non-JSON
-        // responses (e.g., a 401 HTML page from the Supabase edge
-        // when the apikey/JWT check fails, or a Resend rate-limit
-        // text body) instead of silently throwing
-        // SyntaxError: Unexpected token at the JSON parse step. The
-        // generic "Couldn't send" toast left users unable to tell
-        // why their text was being rejected.
+        // read as text first: error responses may be non-JSON (401 HTML,
+        // rate-limit text) which would throw on JSON.parse.
         const bodyText = await res.text().catch(() => "");
         type ErrorPayload = { error?: { message?: string } };
         let parsed: ErrorPayload | null = null;
@@ -192,7 +167,6 @@ export function FeedbackPrompt() {
         );
       }
       setPhase("sent");
-      // Auto-dismiss after the thank-you sits long enough to be read.
       dismissTimerRef.current = window.setTimeout(() => {
         closeAndCooldown();
       }, 2200);
@@ -203,15 +177,10 @@ export function FeedbackPrompt() {
     }
   };
 
-  // Hide while blocked OR not yet visible. Don't unmount during the
-  // dismiss animation — let the slide-off finish first by gating on
-  // `visible` with a CSS transform.
   if (!user) return null;
   const onScreen = visible && !blocked;
 
-  // While not yet shown / fully off screen we don't render anything,
-  // saving the cost of the form on every page that doesn't surface
-  // the prompt.
+  // skip rendering entirely until first shown / after fully off screen
   if (!onScreen && phase === "prompt" && !sentiment) return null;
 
   return (
@@ -222,15 +191,11 @@ export function FeedbackPrompt() {
         defaultValue: "Feedback prompt",
       })}
       className={cn(
-        // Bottom-right by default, clears the mobile bottom nav (which
-        // is 3.5rem tall + safe-area). Doesn't intercept clicks on
-        // the page underneath because pointer-events-none on the
-        // wrapper, and the inner card opts back in.
+        // wrapper is pointer-events-none so it doesn't block the page; the
+        // inner card opts back in.
         "pointer-events-none fixed right-4 z-40 transition-all duration-200 ease-out",
-        // Sit above the global bottom nav on mobile; on desktop it
-        // can sit closer to the bottom edge.
+        // clear the mobile bottom nav
         "bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] md:bottom-4",
-        // Slide-in / slide-out by translating instead of unmounting.
         onScreen
           ? "translate-y-0 opacity-100"
           : "pointer-events-none translate-y-4 opacity-0",

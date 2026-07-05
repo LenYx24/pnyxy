@@ -1,5 +1,5 @@
 /**
- * Tests for windowChatHistory — the prompt-history sliding window.
+ * Tests for windowChatHistory, the prompt-history sliding window.
  * The load-bearing invariant is that the returned window always
  * starts with a user turn (Anthropic and the proxy's Anthropic
  * fallback reject a history that opens on an assistant message), so
@@ -29,7 +29,7 @@ describe("windowChatHistory", () => {
     const msgs = transcript(41);
     const out = windowChatHistory(msgs);
     expect(out.length).toBeLessThanOrEqual(16);
-    // The tail is preserved — the current user turn must survive the
+    // The tail is preserved, the current user turn must survive the
     // cut regardless of where the front boundary lands.
     expect(out[out.length - 1]).toEqual(msgs[msgs.length - 1]);
   });

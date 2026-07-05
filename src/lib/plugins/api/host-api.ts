@@ -22,7 +22,7 @@ export interface CommandRegistry {
   /** Register a plugin-owned command. The host stores `{pluginId, label}` and dispatches via `executeForPlugin`. */
   register(pluginId: string, commandId: string, label: string): void;
   unregisterAllForPlugin(pluginId: string): void;
-  /** Run any registered command (host-side dispatch — used by shortcuts/UI). */
+  /** Run any registered command (host-side dispatch, used by shortcuts/UI). */
   execute(commandId: string): Promise<void>;
   list(): Array<{ commandId: string; pluginId: string; label: string }>;
 }
@@ -49,7 +49,7 @@ export interface BuildHostApiOptions {
  * works in the sandboxed iframe and (future) native runtimes.
  *
  * Returns both the API and a `dispose` to be called when the plugin
- * is unloaded — releases event subscriptions and registered commands.
+ * is unloaded, releases event subscriptions and registered commands.
  */
 export function buildHostApi(opts: BuildHostApiOptions): {
   api: PluginAPI;

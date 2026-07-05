@@ -8,7 +8,7 @@ interface OpenFromUrlModalProps {
   onClose: () => void;
   /** Called once the URL has been fetched and converted to a File.
    * The caller decides whether to upload (signed-in PDF) or just open
-   * locally — same dispatch used by the drag-drop import path. */
+   * locally, same dispatch used by the drag-drop import path. */
   onFile: (file: File) => Promise<void> | void;
 }
 

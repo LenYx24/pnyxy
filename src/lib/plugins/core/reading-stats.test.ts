@@ -74,7 +74,7 @@ function buildFakeApi(): FakeApi {
   };
 
   // Patch listener after the plugin asks for the subscription so the
-  // helper can route into module.handleEvent — this is set up below
+  // helper can route into module.handleEvent, this is set up below
   // when we wire the module up.
   Object.defineProperty(fake, "_setListener", {
     value: (fn: (p: HostEvents["reader:page-change"]) => void) => {
@@ -163,7 +163,7 @@ describe("reading-stats — onUnload", () => {
 
     // After unload, further events should not affect output.
     // (The plugin has cleared its session map, so re-running the show
-    // command would say "no pages" — but it's been unloaded, so we
+    // command would say "no pages", but it's been unloaded, so we
     // just assert no errors happen.)
     expect(() =>
       fake.emitPageChange({ docId: "doc-a", page: 99, from: 1 }),

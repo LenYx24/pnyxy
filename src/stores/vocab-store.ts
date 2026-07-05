@@ -32,7 +32,7 @@ interface VocabState {
   recordReview: (id: string, rating: VocabRating) => Promise<void>;
   removeEntry: (id: string) => Promise<void>;
 
-  /** Pull-down + push-up on sign-in. Idempotent — safe to call repeatedly. */
+  /** Pull-down + push-up on sign-in. Idempotent, safe to call repeatedly. */
   syncOnSignIn: () => Promise<void>;
 
   /** Entries whose `dueAt` is in the past, sorted oldest-first. */
@@ -250,7 +250,7 @@ export const useVocabStore = create<VocabState>((set, get) => ({
     set({ entries: next });
     await dbSaveVocabEntry(serializeEntry(entry));
 
-    // Background cloud push (fire-and-forget — offline-first).
+    // Background cloud push (fire-and-forget, offline-first).
     if (user) {
       pushEntry(entry, user.id).catch((err) =>
         logError("vocab-store.captureFromLookup.push", err),

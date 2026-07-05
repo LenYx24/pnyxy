@@ -109,7 +109,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
   setOptions(patch) {
     set((s) => ({ options: { ...s.options, ...patch } }));
-    // Re-run the search immediately — toggles should feel instant.
+    // Re-run the search immediately, toggles should feel instant.
     void get().search();
   },
 
@@ -185,7 +185,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     if (current.sourceOffset === undefined) return;
 
     const content = await doc.adapter.getContent();
-    // Find the match bounds from the source offset — matchAll is the
+    // Find the match bounds from the source offset, matchAll is the
     // source of truth, but we already have the offset so use it.
     const regex = buildSearchRegex(query, options);
     if (!regex) return;

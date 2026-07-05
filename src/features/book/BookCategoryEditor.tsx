@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 
 /**
  * Inline category editor for the book overview. Uploaded books only
- * for now — catalog book categories are community-shared and editing
+ * for now, catalog book categories are community-shared and editing
  * them needs proper moderation, which is a separate feature.
  *
  * Loads the full category list from `category-store`, displays the

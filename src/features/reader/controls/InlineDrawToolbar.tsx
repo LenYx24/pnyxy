@@ -9,7 +9,7 @@ import { cn } from "@/lib/cn";
 
 /**
  * Tiny floating tool palette for the inline draw mode. Pinned to the
- * bottom-center of the reader area — out of the way of the page
+ * bottom-center of the reader area, out of the way of the page
  * content but reachable while drawing.
  *
  * 4 colours + pen/eraser toggle + undo + clear-page + clear-all +
@@ -30,7 +30,7 @@ export function InlineDrawToolbar() {
   const clearAllPages = useInlineDrawStore((s) => s.clearAllPages);
   const drawingsByPage = useInlineDrawStore((s) => s.drawingsByPage);
 
-  // Reader's current page — drives which page undo / clear act on.
+  // Reader's current page, drives which page undo / clear act on.
   const currentPage = useReaderStore(
     (s) => s.activeDocumentId
       ? s.documents.get(s.activeDocumentId)?.currentPage ?? 1

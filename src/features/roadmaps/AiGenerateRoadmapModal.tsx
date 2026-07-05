@@ -60,7 +60,7 @@ export function AiGenerateRoadmapModal({
   const abortRef = useRef<AbortController | null>(null);
   const topicRef = useRef<HTMLInputElement>(null);
 
-  // Reset on each open. Keeps state simple — the user gets a clean
+  // Reset on each open. Keeps state simple, the user gets a clean
   // slate even if they cancel mid-generation last time.
   useEffect(() => {
     if (!open) return;

@@ -22,13 +22,13 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
  *   - SVG ring around the countdown text fills as time elapses,
  *     so progress is readable at a glance without doing the mental
  *     math from "27:14 of how long?".
- *   - In pages-goal mode the ring tracks pages-progress instead —
+ *   - In pages-goal mode the ring tracks pages-progress instead -
  *     the time bound is just a 4h safety cap and would barely move.
  *   - A sprout icon sits at the centre; past 60% completion it
- *     swaps for a deciduous tree — a soft "your effort is growing
+ *     swaps for a deciduous tree, a soft "your effort is growing
  *     into something" cue without being preachy about it.
  *   - The whole badge has a slow accent glow that breathes
- *     in and out (custom CSS keyframes — `animate-pulse` is too
+ *     in and out (custom CSS keyframes, `animate-pulse` is too
  *     aggressive for a calm focus mode).
  */
 export function FocusSessionBadge() {
@@ -72,7 +72,7 @@ export function FocusSessionBadge() {
       aria-live="polite"
       className={cn(
         "fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-accent/40 bg-bg-secondary/95 px-3 py-1.5 text-sm shadow-lg backdrop-blur-md",
-        // Slow ambient glow — a 4s pulse on the box-shadow rather
+        // Slow ambient glow, a 4s pulse on the box-shadow rather
         // than the pre-baked Tailwind animate-pulse, which is way
         // too snappy for a focus mode meant to feel calm.
         "animate-[pnyxy-focus-glow_4s_ease-in-out_infinite]",

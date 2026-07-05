@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 
 interface PageTrackerProps {
   /** Same identifier the reader uses (uploaded book uuid OR catalog
-   *  uuid OR PDF hash) — keyed against book_resume_state.doc_id. */
+   *  uuid OR PDF hash), keyed against book_resume_state.doc_id. */
   docId: string;
   /** Total pages, when known. Catalog books often have this; manual
    *  shell entries might not. Hidden in the UI when null. */
@@ -16,7 +16,7 @@ interface PageTrackerProps {
 /**
  * Compact "Page X of N" widget for the book detail sidebar. Doubles
  * as a manual progress setter for physical-book / metadata-only
- * users — set it once, sync to cloud, see your progress next time.
+ * users, set it once, sync to cloud, see your progress next time.
  * Reuses the existing book_resume_state table the in-app reader
  * already syncs to, so a manual entry from the sidebar and the
  * reader's auto-tracked position live in the same place.
@@ -64,7 +64,7 @@ export function PageTracker({ docId, pageCount }: PageTrackerProps) {
       setEditing(false);
       return;
     }
-    // Clamp to total pages when we know it — catches typos like
+    // Clamp to total pages when we know it, catches typos like
     // "210" on a 200-page book without bothering the user.
     const clamped = pageCount ? Math.min(parsed, pageCount) : parsed;
     setSaving(true);
@@ -137,9 +137,11 @@ export function PageTracker({ docId, pageCount }: PageTrackerProps) {
               {t("book.pageTracker.currentOnly", { current: currentPage })}
             </span>
           )}
+          {/* always visible on touch (no hover to reveal it), so mobile
+              users can tell the page is tappable/editable */}
           <Pencil
             size={10}
-            className="opacity-0 transition-opacity group-hover:opacity-60"
+            className="opacity-60 transition-opacity sm:opacity-0 sm:group-hover:opacity-60"
           />
         </button>
       )}

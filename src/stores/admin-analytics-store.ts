@@ -1,8 +1,8 @@
-// Admin analytics store — drives the AdminPage "Analytics" tab.
+// Admin analytics store, drives the AdminPage "Analytics" tab.
 //
 // Each field maps 1:1 to a SECURITY DEFINER RPC from migration
 // 00047 (all gated behind is_admin()). The RPCs return only
-// aggregates — counts, sums, percentiles, histogram buckets — so
+// aggregates, counts, sums, percentiles, histogram buckets, so
 // nothing here exposes prompt/response content; the heavy-user
 // leaderboard is the only per-user row and is admin-only by design.
 //

@@ -29,6 +29,7 @@ import { extractExamTopics, extractPdfText } from "@/lib/ai/extract-exam-topics"
 import { generateQuizQuestions } from "@/lib/quiz/quiz-ai";
 import { useQuizStore } from "@/stores/quiz-store";
 import { useBook } from "../BookPageContext";
+import { useIsBookInLibrary } from "../use-book-in-library";
 
 type AiStatus = "idle" | "analyzing" | "done" | "failed";
 
@@ -46,11 +47,12 @@ interface ExamRow {
   created_at: string;
 }
 
-const MAX_PDF_BYTES = 25 * 1024 * 1024; // 25 MB — exams are small
+const MAX_PDF_BYTES = 25 * 1024 * 1024; // 25 MB, exams are small
 
 export function ExamsTab() {
   const { t } = useTranslation();
   const data = useBook();
+  const inLibrary = useIsBookInLibrary();
   const user = useAuthStore((s) => s.user);
   const { confirm, ConfirmModalElement } = useConfirm();
   const { openFile } = useOpenDocument();
@@ -148,7 +150,7 @@ export function ExamsTab() {
 
       // 2. Cheap-ish page count via pdfjs. The full text-extraction
       //    happens later, on demand, when the user runs "Identify
-      //    topics" — keeps the upload path snappy.
+      //    topics", keeps the upload path snappy.
       let pageCount: number | null = null;
       try {
         const { pdfjs } = await import("react-pdf");
@@ -212,7 +214,7 @@ export function ExamsTab() {
       const previous = exams;
       setExams((prev) => prev.filter((e) => e.id !== exam.id));
 
-      // Storage first, then row — if storage fails we still revert
+      // Storage first, then row, if storage fails we still revert
       // optimistic state and surface the error. If row delete fails
       // after storage succeeded, we leave the orphaned row to retry.
       const storageRes = await supabase.storage
@@ -262,7 +264,7 @@ export function ExamsTab() {
       setError(null);
       try {
         // 1. Get the exam text. Reuses the same extractor the topic-
-        //    identification pass uses — capped at 15 pages so the
+        //    identification pass uses, capped at 15 pages so the
         //    LLM call stays under provider token limits.
         const { data: blob, error: dlError } = await supabase.storage
           .from("book-files")
@@ -280,7 +282,7 @@ export function ExamsTab() {
 
         // 2. Generate via the existing quiz-ai pipeline. The framing
         //    is "questions in the same style as this exam, drawn
-        //    from its topics" — pedagogically the user practices on
+        //    from its topics", pedagogically the user practices on
         //    fresh items rather than memorising the original paper.
         const questions = await generateQuizQuestions({
           sourceText: text,
@@ -395,19 +397,28 @@ export function ExamsTab() {
             })}
           </p>
         </div>
-        <Button
-          variant="secondary"
-          onClick={handlePickFile}
-          disabled={uploading}
-          className="shrink-0"
-        >
-          {uploading ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            <Plus size={14} />
-          )}
-          {t("book.exams.upload", { defaultValue: "Upload PDF" })}
-        </Button>
+        {/* uploading exams requires the book to be in the library */}
+        {inLibrary ? (
+          <Button
+            variant="secondary"
+            onClick={handlePickFile}
+            disabled={uploading}
+            className="shrink-0"
+          >
+            {uploading ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Plus size={14} />
+            )}
+            {t("book.exams.upload", { defaultValue: "Upload PDF" })}
+          </Button>
+        ) : (
+          <span className="shrink-0 text-xs text-text-muted">
+            {t("book.libraryRequired", {
+              defaultValue: "Add this book to your library first",
+            })}
+          </span>
+        )}
         <input
           ref={fileInputRef}
           type="file"
@@ -622,7 +633,7 @@ function ExamRow({
   );
 }
 
-/** Cheap heuristic — strip the extension and hyphenate / underscore /
+/** Cheap heuristic, strip the extension and hyphenate / underscore /
  *  dot-separated tokens so an ugly filename comes in as a sane name.
  */
 function deriveExamName(filename: string): string {

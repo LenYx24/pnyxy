@@ -35,24 +35,12 @@ import type {
   ChatMessageAttachment,
 } from "@/types/chat";
 
-// ── Store ─────────────────────────────────────────────────
-
-/** Hand-off slot for the reader → chat flow and the editor → chat
- *  flow. Whichever upstream surface triggers a chat fills this and
- *  navigates the user to /chat; ChatPage drains it on mount and
- *  creates a fresh conversation with whichever fields are set. */
+/** Hand-off slot for reader/editor -> chat. Filled then /chat drains it on mount. */
 export interface ChatDraft {
   text: string;
-  /** Reader-side context: shows a "from <Book>, p.42" pill and lets
-   *  the assistant emit clickable [p.N] citations. */
   source?: ChatSourceContext | null;
-  /** Editor-side context: ties the conversation to an artifact the
-   *  AI is allowed to mutate via tool calls. */
   target?: { roadmapId?: string | null; quizId?: string | null } | null;
-  /** Selection rects from the reader — when set, the panel arms a
-   *  citation that will be saved once the user actually sends the
-   *  draft. Lets us draw dotted underlines on the source passage so
-   *  users can see which book quotes they've already asked about. */
+  /** When set, arms a citation saved once the draft is sent. */
   selection?: import("@/types/annotation").TextSelection | null;
 }
 
@@ -62,26 +50,12 @@ export interface ChatSourceContext {
   page: number | null;
 }
 
-/** Options the composer can pass with a single send to override
- *  prompt-time behaviour for that turn. Used by the topic-first
- *  recommendation modes — `systemPromptOverride` swaps the entire
- *  system prompt for a mode-specific one (book-recs / video-recs).
- *  When unset, the regular per-conversation system prompt is built
- *  from doc context + persona as before. */
+/** Per-send overrides. */
 export interface ChatSendOptions {
   systemPromptOverride?: string;
-  /** When true, the chat is routed through OpenAI's o3-mini for
-   *  step-by-step reasoning. Forwarded as a StreamOptions flag to
-   *  ai-client; only the OpenAI BYOK path honors it (other
-   *  providers ignore the flag). Composer surfaces this as a
-   *  "Reasoning" toggle next to the model picker. */
+  /** Routes through OpenAI o3-mini; ignored by other providers. */
   reasoning?: boolean;
-  /** Arm an AI citation for the source selection. When set, the
-   *  user message that gets inserted by this send is recorded in
-   *  the local ai_citations store so the reader can underline the
-   *  passage. Caller (AiChatPanel) populates this from a drained
-   *  ChatDraft.selection on the FIRST send after a "Send to chat"
-   *  hand-off, then clears it. */
+  /** Records the user message in ai_citations so the reader can underline the passage. */
   citation?: {
     documentId: string;
     selection: import("@/types/annotation").TextSelection;
@@ -91,21 +65,15 @@ export interface ChatSendOptions {
 interface ChatState {
   conversations: ChatConversation[];
   folders: ChatFolder[];
-  /** All messages for the currently-opened conversation, keyed by id. */
+  /** Messages for the open conversation, keyed by id. */
   messages: Map<string, ChatMessage>;
   activeConversationId: string | null;
-  /** The leaf the user is currently "at" — messages upstream of this
-   *  are the visible thread. */
+  /** Current leaf; messages upstream of it are the visible thread. */
   activeLeafId: string | null;
-  /** True while the assistant is streaming its reply into a message. */
   streamingMessageId: string | null;
   isLoading: boolean;
-  /** Pending hand-off from the reader. ChatPage consumes & clears it. */
   pendingDraft: ChatDraft | null;
-  /** Per-assistant-message follow-up suggestion chips. Populated by
-   *  a separate, low-token model call after each successful turn;
-   *  cleared per-conversation on openConversation. Ephemeral — not
-   *  persisted to Supabase. */
+  /** Follow-up chips per assistant message. Ephemeral, cleared on openConversation. */
   messageSuggestions: Map<string, string[]>;
 
   fetchConversations: () => Promise<void>;
@@ -113,76 +81,48 @@ interface ChatState {
     title?: string,
     folderId?: string | null,
     source?: ChatSourceContext | null,
-    /** Tie the conversation to an editable artifact. When set, the
-     *  AI gets tool-use access to mutate it live. */
+    /** Ties the conversation to an editable artifact for AI tool-use. */
     target?: { roadmapId?: string | null; quizId?: string | null } | null,
   ) => Promise<string | null>;
-  /** Reader-side: stash a draft + source context, then navigate. */
   setPendingDraft: (draft: ChatDraft | null) => void;
-  /** ChatPage-side: read & clear in one step (so the next mount
-   *  doesn't replay the same draft). */
+  /** Read and clear in one step so the next mount doesn't replay it. */
   consumePendingDraft: () => ChatDraft | null;
   openConversation: (conversationId: string) => Promise<void>;
   renameConversation: (id: string, title: string) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
-  /** Delete a single message and every descendant of it from the
-   *  conversation tree. Used by the message-bubble Delete action so
-   *  users can trim context they don't want re-sent on the next
-   *  turn. The active leaf is auto-rewound to the deleted node's
-   *  parent if it was inside the removed subtree. */
+  /** Delete a message and its whole subtree; leaf rewinds to parent if inside it. */
   deleteMessage: (messageId: string) => Promise<void>;
-  /** Fork the conversation from the given message (inclusive) into
-   *  a brand new conversation. Copies the message path from root
-   *  down to `fromMessageId`, opens the new conversation, and leaves
-   *  the original untouched. Matches the "branching = duplicate"
-   *  mental model some users expect. */
+  /** Fork the conversation from `fromMessageId` (inclusive) into a new one. */
   duplicateFromMessage: (fromMessageId: string) => Promise<string | null>;
-  /** Move a conversation into the given folder, or null to send it
-   *  back to the root. When `sortOrder` is provided, the same row
-   *  update also pins the conv's position — used by DnD reorder
-   *  flows where the user drops on a specific neighbour. */
+  /** Move a conversation to a folder (null = root); sortOrder pins position. */
   moveConversationToFolder: (
     id: string,
     folderId: string | null,
     sortOrder?: number,
   ) => Promise<void>;
-  /** Update only the sort_order — for same-folder drag reorder.
-   *  Single-row update; the optimistic patch flips the local row
-   *  before the round-trip and rolls back on error. */
+  /** Same-folder reorder. Optimistic, rolls back on error. */
   reorderConversation: (id: string, sortOrder: number) => Promise<void>;
   clearActive: () => void;
 
-  // ── Folders ─────────────────────────────────────────────────
+  // Folders
   fetchFolders: () => Promise<void>;
   createFolder: (name: string, parentId?: string | null) => Promise<string | null>;
   renameFolder: (id: string, name: string) => Promise<void>;
-  /** Deletes the folder and any nested subfolders (cascades), but
-   *  conversations inside are sent back to the root via the
-   *  `on delete set null` FK. */
+  /** Deletes folder + subfolders; conversations fall back to root via FK set null. */
   deleteFolder: (id: string) => Promise<void>;
-  /** Reparent a folder. `parentId = null` → top-level. Refuses to
-   *  set the folder as a descendant of itself (would orphan the
-   *  subtree from the user's view via the cycle). Optional
-   *  `sortOrder` pins the position inside the new parent so
-   *  drop-on-sibling DnD lands the folder where the line shows. */
+  /** Reparent a folder (null = top-level). Refuses to make a folder its own descendant. */
   moveFolderToParent: (
     id: string,
     parentId: string | null,
     sortOrder?: number,
   ) => Promise<void>;
-  /** Same-parent reorder. Single-row update, optimistic + rollback. */
+  /** Same-parent reorder. Optimistic, rolls back on error. */
   reorderFolder: (id: string, sortOrder: number) => Promise<void>;
 
-  /** Switch the active leaf without sending anything — used when the
-   *  user picks a different branch from the tree. */
+  /** Switch the active leaf without sending, for branch picking. */
   setActiveLeaf: (messageId: string) => Promise<void>;
 
-  /** Append a new user message to the current active leaf, then stream
-   *  the assistant's reply. Both are persisted. The optional
-   *  `preferredProvider` overrides the saved provider chain order
-   *  for this single message — used by the composer's model picker.
-   *  `attachments` are stored alongside the user message and sent as
-   *  multimodal content to providers that support vision. */
+  /** Append a user message to the active leaf then stream the reply. */
   sendMessage: (
     text: string,
     preferredProvider?: AiProvider,
@@ -190,11 +130,7 @@ interface ChatState {
     options?: ChatSendOptions,
   ) => Promise<void>;
 
-  /** Create a new user message whose parent is `parentMessageId` (can
-   *  be any message in the conversation — that's the "branch from
-   *  here" UX) or `null` for a fresh root-level branch (used by
-   *  Regenerate when the original user message had no parent).
-   *  Then stream the assistant's reply. */
+  /** New user message under `parentMessageId` (null = root branch), then stream reply. */
   branchFrom: (
     parentMessageId: string | null,
     text: string,
@@ -203,17 +139,10 @@ interface ChatState {
     options?: ChatSendOptions,
   ) => Promise<void>;
 
-  /** Cancel the in-flight streaming response, if any. The partial
-   *  assistant message that was already streamed is preserved (just
-   *  what the user saw on screen); no error toast — this is a
-   *  user-initiated stop, not a failure. No-op when nothing is
-   *  streaming. */
+  /** Cancel the in-flight stream, keeping the partial reply. */
   stopStreaming: () => void;
 
-  /** Image-generation submit. Mirrors `sendMessage` but routes the
-   *  prompt through the Images API (OpenAI direct) instead of a
-   *  chat completion. The assistant reply is a single message
-   *  carrying the generated PNG as a base64 attachment. */
+  /** Routes the prompt through the Images API; reply carries the PNG as a base64 attachment. */
   sendImageMessage: (prompt: string) => Promise<void>;
 }
 
@@ -251,9 +180,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         .from("chat_conversations")
         .select("*")
         .eq("user_id", user.id)
-        // Manual sort_order is the primary axis; updated_at acts as
-        // a tiebreaker so freshly-touched conversations with the
-        // same (default) sort_order still surface near the top.
+        // sort_order primary, updated_at tiebreaker
         .order("sort_order", { ascending: true })
         .order("updated_at", { ascending: false });
       if (error) throw error;
@@ -270,10 +197,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in to use chat.");
-    // New convs land at the top of their target context. We use
-    // `min(siblings.sort_order) - 1` so the new row's value is
-    // strictly below every existing sibling — no renumbering, no
-    // collisions with another tab's concurrent create.
+    // min(siblings) - 1 lands at top without renumbering or colliding with a concurrent create
     const siblingSorts = get()
       .conversations.filter((c) => c.folder_id === folderId)
       .map((c) => c.sort_order);
@@ -312,9 +236,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       activeConversationId: conversationId,
       messages: new Map(),
       activeLeafId: null,
-      // Drop suggestions: their keys are message ids from the
-      // previous conversation, which won't be in `messages` anymore.
-      // Holding onto them just bloats the Map indefinitely.
+      // suggestion keys are ids from the previous conversation
       messageSuggestions: new Map(),
       isLoading: true,
     });
@@ -338,8 +260,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const map = new Map<string, ChatMessage>();
       for (const m of msgs ?? []) map.set(m.id as string, m as ChatMessage);
 
-      // Pick the stored active_leaf_id if valid, otherwise fall back
-      // to the latest message (by created_at).
+      // stored active_leaf_id if valid, else newest message
       let leafId: string | null = null;
       if (conv.active_leaf_id && map.has(conv.active_leaf_id as string)) {
         leafId = conv.active_leaf_id as string;
@@ -403,10 +324,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const target = messages.get(messageId);
     if (!target) return;
 
-    // BFS through the local message map to collect every descendant
-    // of the target (plus the target itself). The chat_messages
-    // table doesn't have ON DELETE CASCADE on its self-FK, so we
-    // delete the whole subtree explicitly in a single round-trip.
+    // no ON DELETE CASCADE on the self-FK, so BFS the subtree and delete every id explicitly
     const toDelete = new Set<string>([messageId]);
     const queue: string[] = [messageId];
     while (queue.length > 0) {
@@ -432,18 +350,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((s) => {
       const next = new Map(s.messages);
       for (const id of ids) next.delete(id);
-      // If the user was looking at a leaf inside the deleted
-      // subtree, rewind to the deleted node's parent (or null when
-      // they nuked the whole conversation root). Without this they
-      // get stuck on a dangling activeLeafId.
+      // rewind to target's parent if the active leaf was in the deleted subtree
       const leafGone =
         s.activeLeafId !== null && toDelete.has(s.activeLeafId);
       const nextLeaf = leafGone ? target.parent_message_id ?? null : s.activeLeafId;
       return { messages: next, activeLeafId: nextLeaf };
     });
 
-    // Persist the new active leaf on the conversation row so a
-    // reload doesn't reset us to the old (now-deleted) tip.
+    // persist the new leaf so a reload doesn't reset to the deleted tip
     const { activeConversationId, activeLeafId } = get();
     if (activeConversationId) {
       await supabase
@@ -458,17 +372,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const target = state.messages.get(fromMessageId);
     if (!target) return null;
 
-    // Walk from root down to and including the target message. This
-    // becomes the prefix of the new conversation.
+    // root->target path becomes the prefix of the new conversation
     const path = pathFromRoot(state.messages, fromMessageId);
     const source = state.conversations.find(
       (c) => c.id === state.activeConversationId,
     );
     if (!source) return null;
 
-    // Create a new conversation, mirroring the source's
-    // folder placement + doc context. Title prefixed so the user
-    // can tell duplicates apart at a glance.
+    // new conversation keeps the source's folder + doc context
     const newTitle = source.title
       ? `${source.title} (copy)`
       : "(copy)";
@@ -491,10 +402,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     );
     if (!newId) return null;
 
-    // Insert the prefix path under the new conversation. Each
-    // message keeps its content/role/attachments but gets a fresh
-    // id from Supabase, with parent_message_id rewired to the new
-    // copy of its parent.
+    // re-insert the path, rewiring each parent_message_id to the copied parent's fresh id
     const idMap = new Map<string, string>();
     for (const m of path) {
       const newParentId = m.parent_message_id
@@ -513,19 +421,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
         .single();
       if (error || !data) {
         logError("chat:duplicateFromMessage:insert", error);
-        // Best-effort: try to clean up the half-built duplicate so
-        // the user doesn't have an empty stub conversation hanging
-        // around. Failures here aren't critical — the conversation
-        // still loads.
+        // clean up the half-built duplicate
         await supabase.from("chat_conversations").delete().eq("id", newId);
         throw error;
       }
       idMap.set(m.id, data.id);
     }
 
-    // Active leaf = the duplicated copy of the target message so
-    // when the user opens the new conversation, it lands on the
-    // same point they forked from.
+    // land on the copy of the forked-from message
     const newLeaf = idMap.get(fromMessageId) ?? null;
     if (newLeaf) {
       await supabase
@@ -587,10 +490,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   stopStreaming() {
-    // The controller lives at module scope (see below) so it survives
-    // store-state replacements. abort() triggers AbortError inside
-    // the streaming generator's underlying fetch / SDK call; sendOrBranch
-    // catches it and persists whatever was already streamed.
+    // controller is module-scoped so it survives state replacements; abort() makes
+    // sendOrBranch catch AbortError and persist whatever streamed so far
     streamAbortController?.abort();
     streamAbortController = null;
   },
@@ -601,9 +502,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const trimmed = prompt.trim();
     if (!trimmed) return;
 
-    // 1. Insert the user message — same shape as sendOrBranch so the
-    //    thread history looks consistent (it's still a user turn, even
-    //    though the response will be an image not text).
+    // 1. insert the user message
     const { data: userRow, error: userErr } = await supabase
       .from("chat_messages")
       .insert({
@@ -626,10 +525,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return { messages: next, activeLeafId: userMsg.id };
     });
 
-    // 2. Insert placeholder assistant message — UX equivalent of the
-    //    streaming spinner, but the body is "Generating image…" until
-    //    we get the PNG bytes. Setting `streamingMessageId` keeps
-    //    the typing indicator + stop button consistent.
+    // 2. placeholder assistant message; streamingMessageId keeps the typing indicator up
     const { data: asstRow, error: asstErr } = await supabase
       .from("chat_messages")
       .insert({
@@ -655,7 +551,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     });
 
-    // 3. Hit the Images API.
+    // 3. hit the Images API
     let attachment: ChatMessageAttachment | null = null;
     let errorText: string | null = null;
     try {
@@ -678,9 +574,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       logError("chat:sendImageMessage:generate", err);
     }
 
-    // 4. Patch the assistant message with either the image (on
-    //    success) or a one-line error (on failure). Either way we
-    //    clear `streamingMessageId` so the composer comes back.
+    // 4. patch the assistant message with the image or error, clear streamingMessageId
     const patch = attachment
       ? { content: "", attachments: [attachment] }
       : { content: errorText ?? "Image generation failed." };
@@ -707,20 +601,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   async moveConversationToFolder(id, folderId, sortOrder) {
-    // No-op guard: dropping a conversation onto its current folder
-    // with no sortOrder change is a frequent DnD overshoot — skip
-    // the round-trip. We do still proceed when sortOrder differs,
-    // since same-folder reorder reaches this method when DnD wants
-    // both a folder change AND a position pin (cross-folder drop on
-    // sibling conv).
+    // skip the round-trip on a drop onto the current folder with no sort change
     const current = get().conversations.find((c) => c.id === id);
     if (!current) return;
     const folderUnchanged = current.folder_id === folderId;
     const sortUnchanged =
       sortOrder === undefined || current.sort_order === sortOrder;
     if (folderUnchanged && sortUnchanged) return;
-    // Optimistic patch with rollback on error. Mirrors the
-    // moveFolderToParent flow below.
+    // optimistic patch, rolls back on error
     const previousFolderId = current.folder_id;
     const previousSortOrder = current.sort_order;
     const patch: Partial<ChatConversation> = { folder_id: folderId };
@@ -772,7 +660,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  // ── Folders ─────────────────────────────────────────────────
+  // Folders
 
   async fetchFolders() {
     const {
@@ -786,15 +674,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .from("folders")
       .select("*")
       .eq("user_id", user.id)
-      // sort_order asc with created_at as tiebreaker for two
-      // folders that ended up at the same fractional value.
+      // sort_order asc, created_at tiebreaker
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
     if (error) {
-      // The unified `folders` table has existed since the initial
-      // schema, so a relation-missing error here would mean the
-      // database is in an unexpectedly broken state — log it
-      // instead of swallowing.
       logError("chat:fetchFolders", error);
       return;
     }
@@ -808,17 +691,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return null;
-    // Chat folders live in the shared library `folders` table since
-    // 00036, where `org_id` is NOT NULL (00027) — so the insert must
-    // carry the active org or Postgres rejects it with a 400.
+    // folders.org_id is NOT NULL, so the insert must carry the active org
     const orgId = useOrgStore.getState().currentOrgId;
     if (!orgId) {
       logError("chat:createFolder", "No active organization");
       return null;
     }
-    // Same min-1 pattern as createConversation — new folders land
-    // at the top of their parent context. Scoped per (user, parent)
-    // because sort_order only meaningfully compares siblings.
+    // min(siblings) - 1 so new folders land at the top of their parent
     const siblingSorts = get()
       .folders.filter((f) => f.parent_id === parentId)
       .map((f) => f.sort_order);
@@ -868,26 +747,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
       logError("chat:deleteFolder", error);
       return;
     }
-    // Server cascaded subfolders and set folder_id=null on
-    // conversations — refresh both lists so the UI matches.
+    // server cascaded subfolders + nulled conversations, refresh both
     await Promise.all([get().fetchFolders(), get().fetchConversations()]);
   },
 
   async moveFolderToParent(id, parentId, sortOrder) {
     if (id === parentId) return;
-    // No-op guard for "drop onto current parent" — but only when the
-    // sort_order also isn't shifting. Cross-parent moves always
-    // proceed; same-parent calls without a sort change are skipped.
+    // skip a drop onto the current parent with no sort change
     const current = get().folders.find((f) => f.id === id);
     if (!current) return;
     const parentUnchanged = current.parent_id === parentId;
     const sortUnchanged =
       sortOrder === undefined || current.sort_order === sortOrder;
     if (parentUnchanged && sortUnchanged) return;
-    // Cycle guard: walk up from the proposed new parent — if we hit
-    // `id` somewhere in its ancestor chain, the move would orphan the
-    // subtree from the user's view (a folder can't be its own
-    // descendant). Bail silently in that case.
+    // cycle guard: bail if `id` is an ancestor of the new parent
     if (parentId !== null) {
       const folders = get().folders;
       let cursor: string | null = parentId;
@@ -897,11 +770,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         cursor = next?.parent_id ?? null;
       }
     }
-    // Optimistic patch with rollback on error, mirroring the
-    // conversation-move flow so dragged folders settle into their new
-    // home immediately instead of jumping after a round trip. Both
-    // parent_id and sort_order can shift in the same write; we pin
-    // sort_order only when the caller supplied one.
+    // optimistic patch, rolls back on error
     const previousParentId = current.parent_id;
     const previousSortOrder = current.sort_order;
     const patch: Partial<ChatFolder> = { parent_id: parentId };
@@ -954,27 +823,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 }));
 
-// ── Shared send implementation ─────────────────────────────
-
-/**
- * Ask the AI for a 3-5 word title summarising a user message,
- * apply it to the conversation row, and refresh the list. Best-
- * effort — failures are silent and the conversation stays
- * "Untitled" so the rest of the chat keeps working.
- *
- * Fired from `sendOrBranch` only when the conversation has no
- * title yet AND this is the first message in the tree (no
- * parent). That way long-running threads don't keep retitling
- * themselves on every send.
- */
-/** The currently in-flight assistant stream's AbortController, or
- *  null when nothing is streaming. Module-scoped (not store state)
- *  because AbortController isn't a value React or Zustand should
- *  serialize / diff — `stopStreaming` reads it imperatively, and
- *  `streamingMessageId` in the store is what consumers actually
- *  watch to decide whether the Stop button should be shown. */
+// In-flight stream's AbortController. Module-scoped (not store state) so Zustand
+// doesn't serialize it; stopStreaming reads it imperatively.
 let streamAbortController: AbortController | null = null;
 
+/** Ask the AI for a short title and apply it. Only on the first message of an untitled conv. */
 async function autoTitleConversation(
   conversationId: string,
   firstUserMessage: string,
@@ -1019,27 +872,14 @@ async function autoTitleConversation(
         c.id === conversationId ? { ...c, title } : c,
       ),
     }));
-    // Surface a no-op getter call to satisfy the linter that we
-    // intentionally read state — keeps the closure stable even if
-    // we extend this later to consult more conversation state.
-    void get;
+    void get; // keep param referenced for the linter
+
   } catch (err) {
     logError("chat:autoTitle:exception", err);
   }
 }
 
-/**
- * Ask the AI for 3 follow-up questions to display as chips below an
- * assistant message. Best-effort: any failure is swallowed silently,
- * the user just doesn't see chips. Costs an extra (small) model call
- * per turn — the prompt is tight, the output is capped at 200 tokens.
- *
- * The list is stored in `messageSuggestions` keyed by assistant
- * message id; it's ephemeral, not persisted. Cleared when the user
- * opens a different conversation (the entries become inaccessible
- * because the message ids aren't loaded anymore — keeping them
- * around just bloats the Map).
- */
+/** Ask the AI for 3 follow-up chips below an assistant message. Ephemeral, not persisted. */
 async function requestFollowupSuggestions(
   assistantMessageId: string,
   userText: string,
@@ -1047,9 +887,7 @@ async function requestFollowupSuggestions(
   preferredProvider: AiProvider | undefined,
   set: (partial: Partial<ChatState> | ((s: ChatState) => Partial<ChatState>)) => void,
 ) {
-  // Skip if the response was very short / errored — short replies
-  // usually don't have meaningful follow-ups, and the leading "⚠"
-  // marker is what `sendOrBranch` writes on failure.
+  // skip very short / errored replies ("⚠" marks a failure)
   if (assistantText.trim().length < 40) return;
   if (assistantText.startsWith("⚠")) return;
 
@@ -1105,12 +943,8 @@ async function sendOrBranch(
 ) {
   const trimmed = text.trim();
 
-  // Build the per-turn context pack BEFORE inserting the user row so
-  // any page-as-image attachments produced by buildAiContextPack
-  // (auto-fallback on image PDFs, or the user's explicit toggle) get
-  // saved on the message itself — re-streams and branches then pull
-  // them right back from the DB without re-rendering. Pre-locate the
-  // conversation so we know the source doc id to build for.
+  // Build the context pack before inserting the user row so page-as-image attachments
+  // get saved on the message; re-streams/branches then pull them from the DB.
   const convForBuild = get().conversations.find(
     (c) => c.id === conversationId,
   );
@@ -1123,23 +957,18 @@ async function sendOrBranch(
     contextPack = { customContext: "", pageContext: "", imageAttachments: [] };
   }
 
-  // Merge composer attachments + page-render attachments. Page
-  // images go first so the model sees the source pages before the
-  // user's own uploaded artwork — and so a single screenshot the
-  // user picked stays visually adjacent to their question.
+  // page images first so the model sees source pages before the user's uploads
   const composerAttachments = attachments ?? [];
   const mergedAttachments = [
     ...contextPack.imageAttachments,
     ...composerAttachments,
   ];
 
-  // A message is valid if it has either text OR at least one
-  // attachment — sending just an image with "describe this" worth
-  // of intent should work. Empty text + no attachments is a no-op.
+  // valid if there's text or at least one attachment
   const hasAttachments = mergedAttachments.length > 0;
   if (!trimmed && !hasAttachments) return;
 
-  // 1. Insert the user message.
+  // 1. insert the user message
   const { data: userRow, error: userErr } = await supabase
     .from("chat_messages")
     .insert({
@@ -1162,11 +991,7 @@ async function sendOrBranch(
     return { messages: next, activeLeafId: userMsg.id };
   });
 
-  // Citation hook — when this send was armed with a source selection
-  // (see options.citation; AiChatPanel sets this on the first send
-  // after a "Send to chat" hand-off), record an AI citation linking
-  // the inserted user message back to the originating PDF passage.
-  // Best-effort: failures don't block the actual chat turn.
+  // if armed with a source selection, record a citation linking the message to the PDF passage
   if (options?.citation) {
     const citationConv = get().conversations.find(
       (c) => c.id === conversationId,
@@ -1187,10 +1012,7 @@ async function sendOrBranch(
           conversationTitle: citationConv?.title ?? "",
           createdAt: Date.now(),
         });
-        // Pull the new citation into the annotation store so the
-        // reader's CitationLayer re-renders without waiting for a
-        // doc reopen. Lazy import — annotation-store would loop
-        // through chat-store otherwise.
+        // lazy import to avoid a chat-store <-> annotation-store cycle
         const { useAnnotationStore } = await import(
           "@/stores/annotation-store"
         );
@@ -1203,18 +1025,13 @@ async function sendOrBranch(
     })();
   }
 
-  // First message in a fresh conversation — fire an async title
-  // request. We don't await it because the user shouldn't have to
-  // wait for a name to start chatting; the sidebar updates when
-  // the title resolves.
+  // on the first message, fire the title request without awaiting
   const conv = get().conversations.find((c) => c.id === conversationId);
   if (parentId === null && conv && !conv.title.trim()) {
     void autoTitleConversation(conversationId, trimmed, preferredProvider, set, get);
   }
 
-  // 2. Build the prompt path from the root up to and including the new user msg.
-  // Carry attachments through on each user turn so older messages
-  // with images still send their images on a re-stream / branch.
+  // 2. build the prompt path root->new user msg, carrying attachments so old image turns resend
   const path = pathFromRoot(get().messages, userMsg.id);
   const promptMessages = windowChatHistory(
     path
@@ -1226,7 +1043,7 @@ async function sendOrBranch(
       })),
   );
 
-  // 3. Insert an empty assistant message we'll stream into.
+  // 3. insert an empty assistant message to stream into
   const { data: asstRow, error: asstErr } = await supabase
     .from("chat_messages")
     .insert({
@@ -1252,17 +1069,10 @@ async function sendOrBranch(
     };
   });
 
-  // 4. Stream the response, accumulating and patching the message.
-  // Branch on conversation type:
-  //   - target_roadmap_id set → agentic tool-use loop (AI edits roadmap live)
-  //   - source_doc_id set     → text stream with doc-title context + the
-  //                             user's TOC / page selections built into
-  //                             the system prompt
-  //   - otherwise             → plain text stream (still picks up the
-  //                             custom default context if set)
-  // `contextPack` was built at the top of this function (before user
-  // msg insert) so image attachments could be saved on the row. The
-  // pageContext text + customContext we use here are the same values.
+  // 4. stream the response, branching on conversation type:
+  //   - target_roadmap_id -> agentic tool-use loop (AI edits roadmap live)
+  //   - source_doc_id      -> text stream with doc-title + page-selection context
+  //   - otherwise          -> plain text stream
   const convForStream = get().conversations.find(
     (c) => c.id === conversationId,
   );
@@ -1276,10 +1086,7 @@ async function sendOrBranch(
       return { messages: next };
     });
 
-  // Fresh controller per turn — `stopStreaming()` aborts whatever's
-  // currently in flight, then clears the slot so a follow-up
-  // sendMessage starts clean. Cleared in the `finally` below too in
-  // case the stream completed normally.
+  // fresh controller per turn; abort any in-flight one first. Also cleared in finally below.
   if (streamAbortController) {
     streamAbortController.abort();
   }
@@ -1297,11 +1104,8 @@ async function sendOrBranch(
         signal,
       );
     } else if (detectRoadmapIntent(trimmed)) {
-      // Plain-chat "generate a roadmap" skill — auto-detected from the
-      // message text. Routes this turn through the Anthropic tool-use
-      // path (the only branch wired for tools), builds a fresh roadmap,
-      // and links it inline. Normal chat turns never hit this and stay
-      // on the cheap auto-route.
+      // "generate a roadmap" skill, auto-detected from the message. Routes this turn
+      // through the tool-use path (only branch wired for tools) and links the result inline.
       acc = await runRoadmapGenerateLoop(
         promptMessages,
         preferredProvider,
@@ -1309,15 +1113,9 @@ async function sendOrBranch(
         signal,
       );
     } else {
-      // Smooth the on-screen reveal. Providers (and the SSE proxy)
-      // often hand us deltas in big bursts — whole sentences or
-      // paragraphs — which makes the text pop in chunks. We keep
-      // appending raw deltas to `acc` as they land, but a separate
-      // rAF "pump" advances what's actually shown a little each frame
-      // so it types out smoothly regardless of network chunkiness.
-      // The step scales with the backlog, so a large burst drains
-      // quickly and the pump always catches up; we await it in the
-      // finally so the full text is shown before we persist.
+      // Providers often deliver deltas in big bursts. Raw deltas accumulate into `acc`,
+      // while a separate rAF pump reveals it a little each frame so it types out smoothly.
+      // Step scales with backlog so large bursts drain fast; awaited in finally before persist.
       let revealed = 0;
       let streamDone = false;
       const pump = (async () => {
@@ -1347,33 +1145,23 @@ async function sendOrBranch(
             preferredProvider,
             signal,
             customContext: contextPack.customContext,
-            // Per-turn override from the composer's mode picker
-            // (e.g. book / video recommendation modes). Skips the
-            // standard doc-context system prompt entirely for that
-            // turn — `customContext` is still threaded through for
-            // any vision / non-streaming code path that ignores the
-            // override.
+            // per-turn override from the composer's mode picker; skips the doc-context prompt
             systemPromptOverride: options?.systemPromptOverride,
-            // Reasoning-mode flip: ai-client's OpenAI branch reads
-            // this and swaps model to o3-mini. Other branches ignore
-            // it so it's safe to forward unconditionally.
+            // OpenAI branch swaps to o3-mini; other branches ignore it
             reasoning: options?.reasoning,
           },
         )) {
           acc += chunk.delta;
         }
       } finally {
-        // Stop the pump and let it flush the rest of `acc` before we
-        // fall through to persistence (the outer finally writes the
-        // full text anyway, so an aborted pump never truncates).
+        // stop the pump and let it flush the rest of `acc` before persistence
         streamDone = true;
         await pump;
       }
     }
   } catch (err) {
     if (isAbortError(err)) {
-      // User pressed Stop — keep whatever we already streamed; no
-      // error message, no log.
+      // user pressed Stop, keep whatever already streamed
     } else {
       logError("chat:sendMessage:stream", err);
       acc =
@@ -1384,7 +1172,7 @@ async function sendOrBranch(
     if (streamAbortController?.signal === signal) {
       streamAbortController = null;
     }
-    // 5. Persist the final content + mark as active leaf.
+    // 5. persist final content + mark as active leaf
     await supabase
       .from("chat_messages")
       .update({ content: acc })
@@ -1405,10 +1193,7 @@ async function sendOrBranch(
     });
   }
 
-  // Fire-and-forget follow-up suggestion request — runs after the
-  // main turn settles, doesn't block the UI, doesn't await. The
-  // helper short-circuits on errors / aborted-streams / very-short
-  // responses so we don't spend tokens on degenerate cases.
+  // fire-and-forget follow-up suggestions; the helper short-circuits on degenerate cases
   void requestFollowupSuggestions(
     asstMsg.id,
     trimmed,
@@ -1418,9 +1203,7 @@ async function sendOrBranch(
   );
 }
 
-// ── Pure tree helpers ──────────────────────────────────────
-
-/** Walk from a leaf up to the root and return the chain in root→leaf order. */
+/** Walk from a leaf up to the root, returned in root->leaf order. */
 export function pathFromRoot(
   messages: Map<string, ChatMessage>,
   leafId: string | null,
@@ -1436,18 +1219,9 @@ export function pathFromRoot(
   return path.reverse();
 }
 
-/** Cap the prompt history to the most recent turns. The full
- *  root→leaf path grows without bound as a conversation goes on, and
- *  we re-send the whole thing — text plus any image attachments on
- *  old user turns — on every send, so a long chat keeps re-billing
- *  the same early messages each turn. A reading-assistant chat almost
- *  never needs more than the last several exchanges to stay coherent
- *  (the document context lives in the system prompt, not the
- *  history), so we keep the tail and drop the rest.
- *
- *  Anthropic — and the proxy's Anthropic fallback — require the first
- *  message to be a user turn, so when the cut lands mid-turn on an
- *  assistant reply we drop that leading reply too. */
+// Cap prompt history to the most recent turns; the whole path is re-sent each turn so an
+// unbounded history keeps re-billing early messages (doc context lives in the system prompt).
+// Anthropic requires the first message to be a user turn, so drop a leading assistant reply.
 const MAX_HISTORY_MESSAGES = 16;
 
 export function windowChatHistory<T extends { role: "user" | "assistant" }>(
@@ -1459,8 +1233,7 @@ export function windowChatHistory<T extends { role: "user" | "assistant" }>(
   return windowed;
 }
 
-/** Given a message id, count the number of direct children it has —
- *  used to render a "N branches" badge. */
+/** Count direct children of a message, for the "N branches" badge. */
 export function countBranches(
   messages: Map<string, ChatMessage>,
   messageId: string,
@@ -1485,18 +1258,9 @@ export function childrenOf(
   return out;
 }
 
-// ── Roadmap agentic loop ───────────────────────────────────
-//
-// Runs streamChatWithTools, dispatching each tool_call live against
-// useRoadmapStore. After the model finishes a turn with stop_reason
-// "tool_use", appends the executed tool_use blocks + their results
-// and calls again. Loops until end_turn or the safety cap is hit.
-//
-// The visible chat content interleaves model text with one bullet
-// line per tool call ("✓ Added node n5: ..."), built up in the same
-// string the streaming UI is patching, so the user sees edits land
-// in real time.
-
+// Runs streamChatWithTools, dispatching each tool_call live against useRoadmapStore. On a
+// "tool_use" stop it appends the tool_use blocks + results and calls again, until end_turn
+// or the safety cap. Visible content interleaves model text with one bullet per tool call.
 const MAX_AGENTIC_ROUNDS = 8;
 
 async function runRoadmapAgenticLoop(
@@ -1510,9 +1274,7 @@ async function runRoadmapAgenticLoop(
   if (!roadmap) {
     return `⚠ Roadmap not found.`;
   }
-  // The label map is rebuilt fresh from the live state so the model
-  // sees stable n1..nN labels even if earlier turns added/removed
-  // nodes; add_node calls in the current turn extend it in-place.
+  // rebuilt from live state so the model sees stable n1..nN labels; add_node extends it in-place
   const labels = new LabelMap(roadmap.nodes);
   const snapshot = formatRoadmapSnapshot(roadmap, labels);
   const systemPrompt = buildRoadmapEditSystemPrompt(snapshot);
@@ -1528,12 +1290,8 @@ async function runRoadmapAgenticLoop(
 }
 
 /**
- * Plain-chat "generate a roadmap" skill. Spins up a fresh, empty
- * roadmap, lets the model populate it from scratch via the same tool
- * loop, then appends an inline link to open it. If the model ends up
- * adding nothing (vague request it chose to answer in prose, or an
- * abort before any node landed), the throwaway empty roadmap is rolled
- * back so it doesn't litter the user's roadmap list.
+ * "generate a roadmap" skill: create an empty roadmap, populate it via the tool loop, and
+ * append an inline link. If nothing gets added, the empty shell is rolled back.
  */
 async function runRoadmapGenerateLoop(
   history: Array<{ role: "user" | "assistant"; content: string }>,
@@ -1542,7 +1300,7 @@ async function runRoadmapGenerateLoop(
   signal: AbortSignal,
 ): Promise<string> {
   const store = useRoadmapStore.getState();
-  // Empty title — the model sets a real one via update_roadmap_meta.
+  // empty title; the model sets a real one via update_roadmap_meta
   const roadmap = store.createRoadmap("");
   const labels = new LabelMap(roadmap.nodes);
   const systemPrompt = buildRoadmapGenerateSystemPrompt();
@@ -1559,20 +1317,15 @@ async function runRoadmapGenerateLoop(
 
   const built = useRoadmapStore.getState().roadmaps.get(roadmap.id);
   if (!built || built.nodes.length === 0) {
-    // Nothing was built — drop the empty shell and just return prose.
+    // nothing was built, drop the empty shell and return prose
     store.deleteRoadmap(roadmap.id);
     return body;
   }
-  // Append an inline link; relative-link clicks are intercepted in the
-  // message body and routed through the SPA router.
+  // relative-link clicks in the message body are routed through the SPA router
   return `${body}\n\n**[Open the generated roadmap →](/roadmaps/${roadmap.id}/edit)**`;
 }
 
-/**
- * Shared agentic tool loop for both editing an existing roadmap and
- * generating a fresh one — the only differences are the seed roadmap,
- * its label map, and the system prompt, all passed in by the callers.
- */
+/** Shared tool loop for editing and generating; callers pass the seed roadmap, labels, prompt. */
 async function runRoadmapToolLoop(
   roadmapId: string,
   labels: LabelMap,
@@ -1620,9 +1373,7 @@ async function runRoadmapToolLoop(
           roadmapId,
           labels,
         );
-        // Insert as a markdown blockquote so the tool-call line
-        // renders visually offset from the model's prose. Adjacent
-        // blockquote lines collapse into a single quoted block.
+        // markdown blockquote so the tool-call line renders offset from the model's prose
         acc += (acc.endsWith("\n\n") || acc === "" ? "" : "\n\n") +
           `> ${result.summary}\n`;
         patchAssistant(acc);
@@ -1645,8 +1396,7 @@ async function runRoadmapToolLoop(
     }
 
     if (turnBlocks.length === 0) {
-      // Defensive: model returned nothing parseable. Avoid pushing an
-      // empty assistant message — the API rejects those.
+      // model returned nothing parseable; the API rejects empty assistant messages
       break;
     }
     toolMessages.push({ role: "assistant", content: turnBlocks });
@@ -1654,8 +1404,7 @@ async function runRoadmapToolLoop(
     if (stopReason !== "tool_use" || pendingResults.length === 0) break;
 
     toolMessages.push({ role: "user", content: pendingResults });
-    // Visual separator between rounds so the next text block starts
-    // on its own line rather than glued to the last bullet.
+    // separator so the next round's text starts on its own line
     if (!acc.endsWith("\n")) acc += "\n";
   }
 

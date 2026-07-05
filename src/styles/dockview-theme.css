@@ -1,41 +1,50 @@
-/* Dockview custom dark theme for pnyxy reader */
+/* Dockview theme for the pnyxy reader. Colors resolve from the app's
+   semantic tokens so the reader chrome (backgrounds, separators, tabs)
+   follows the active theme instead of staying hardcoded dark, which in
+   light mode showed up as a harsh near-black frame around the panels. */
 .pnyxy-dockview-theme {
   /* Base */
-  --dv-background-color: #0a0a0f;
-  --dv-paneview-header-border-color: rgba(255, 255, 255, 0.1);
+  --dv-background-color: var(--color-bg-primary);
+  --dv-paneview-header-border-color: var(--color-glass-border);
 
   /* Tabs */
-  --dv-tabs-and-actions-container-background-color: rgba(17, 17, 24, 0.6);
-  --dv-activegroup-visiblepanel-tab-background-color: rgba(139, 92, 246, 0.15);
-  --dv-activegroup-hiddenpanel-tab-background-color: rgba(255, 255, 255, 0.05);
-  --dv-inactivegroup-visiblepanel-tab-background-color: rgba(
-    139,
-    92,
-    246,
-    0.1
+  --dv-tabs-and-actions-container-background-color: color-mix(
+    in srgb,
+    var(--color-bg-secondary) 70%,
+    transparent
   );
-  --dv-inactivegroup-hiddenpanel-tab-background-color: rgba(
-    255,
-    255,
-    255,
-    0.05
+  --dv-activegroup-visiblepanel-tab-background-color: color-mix(
+    in srgb,
+    var(--color-accent) 15%,
+    transparent
   );
-  --dv-activegroup-visiblepanel-tab-color: #8b5cf6;
-  --dv-activegroup-hiddenpanel-tab-color: #a0a0b0;
-  --dv-inactivegroup-visiblepanel-tab-color: #8b5cf6;
-  --dv-inactivegroup-hiddenpanel-tab-color: #6b6b80;
-  --dv-tab-divider-color: rgba(255, 255, 255, 0.06);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--color-glass-bg);
+  --dv-inactivegroup-visiblepanel-tab-background-color: color-mix(
+    in srgb,
+    var(--color-accent) 10%,
+    transparent
+  );
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--color-glass-bg);
+  --dv-activegroup-visiblepanel-tab-color: var(--color-accent);
+  --dv-activegroup-hiddenpanel-tab-color: var(--color-text-muted);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--color-accent);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--color-text-muted);
+  --dv-tab-divider-color: var(--color-glass-border);
 
   /* Separator / sash */
-  --dv-separator-border: rgba(255, 255, 255, 0.1);
-  --dv-sash-hover-color: #8b5cf6;
+  --dv-separator-border: var(--color-glass-border);
+  --dv-sash-hover-color: var(--color-accent);
 
   /* Drag overlay */
-  --dv-drag-over-background-color: rgba(139, 92, 246, 0.1);
-  --dv-drag-over-border-color: #8b5cf6;
+  --dv-drag-over-background-color: color-mix(
+    in srgb,
+    var(--color-accent) 10%,
+    transparent
+  );
+  --dv-drag-over-border-color: var(--color-accent);
 
   /* Group */
-  --dv-group-view-background-color: #0a0a0f;
+  --dv-group-view-background-color: var(--color-bg-primary);
 }
 
 /* Glass effect on tab bar */
@@ -43,9 +52,9 @@
   backdrop-filter: blur(12px);
 }
 
-/* Glass border + rounded corners on panels */
+/* Themed border + rounded corners on panels */
 .pnyxy-dockview-theme .dv-groupview {
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--color-glass-border);
   border-radius: 0;
   overflow: hidden;
 }
@@ -59,7 +68,7 @@
 
 /* Active tab indicator */
 .pnyxy-dockview-theme .dv-tab.dv-active-tab {
-  border-bottom: 2px solid #8b5cf6;
+  border-bottom: 2px solid var(--color-accent);
 }
 
 /* Hide tab header row when a group has only one panel — the
@@ -71,10 +80,10 @@
 
 /* Panel content fills available space */
 .pnyxy-dockview-theme .dv-content-container {
-  background-color: #0a0a0f;
+  background-color: var(--color-bg-primary);
 }
 
 /* Prevent white flash in panel views during resize */
 .pnyxy-dockview-theme .dv-view {
-  background-color: #0a0a0f;
+  background-color: var(--color-bg-primary);
 }

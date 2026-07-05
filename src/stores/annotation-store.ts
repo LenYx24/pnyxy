@@ -100,7 +100,7 @@ interface AnnotationState {
   // mutation so visible pages can do O(1) lookup instead of O(N) filtering.
   highlightsByPage: Map<number, Highlight[]>;
   commentsByPage: Map<number, Comment[]>;
-  /** AI citations grouped per page — same shape as highlightsByPage.
+  /** AI citations grouped per page, same shape as highlightsByPage.
    *  Read-only from the reader's perspective; new citations land via
    *  `reloadCitations()` which the chat-store calls after a send. */
   citationsByPage: Map<number, AiCitation[]>;
@@ -176,7 +176,7 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   },
 
   async reloadCitations(documentId: string) {
-    // Skip if a different doc is now open — late writes from the
+    // Skip if a different doc is now open, late writes from the
     // previous doc's chat shouldn't repopulate after a doc switch.
     if (get().documentId !== documentId) return;
     const citations = await loadAiCitations(documentId);

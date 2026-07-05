@@ -25,7 +25,7 @@ interface RelatedChat {
 }
 
 /**
- * "Related in your library" — the second grouping axis (alongside the
+ * "Related in your library", the second grouping axis (alongside the
  * filetree's folder placement): everything ABOUT this book, regardless
  * of which folder it lives in. Aggregates by each type's existing book
  * link (no schema change):
@@ -35,7 +35,7 @@ interface RelatedChat {
  *   - flashcards  → vocab sourceDocumentId  (local store)
  *
  * Notes are intentionally absent: they carry no book link today (the
- * note sync always nulls book_id — notes are book-agnostic by design),
+ * note sync always nulls book_id, notes are book-agnostic by design),
  * so there's nothing to match until that's revisited.
  */
 export function RelatedToBook() {

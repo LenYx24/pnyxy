@@ -18,11 +18,11 @@ export interface BookReadingStats {
   percentComplete: number | null;
 }
 
-/** Window for pace calculation — recent enough to reflect current
+/** Window for pace calculation, recent enough to reflect current
  *  habits, long enough to absorb a skipped day or two. */
 const PACE_WINDOW_DAYS = 14;
 
-/** YYYY-MM-DD key in the user's local time zone — streaks read the
+/** YYYY-MM-DD key in the user's local time zone, streaks read the
  *  way humans do ("did I read today?"), not in UTC. */
 function localDateKey(date: Date): string {
   const y = date.getFullYear();
@@ -54,7 +54,7 @@ function computeStreaks(activeDayKeys: Set<string>, now: Date = new Date()): {
 } {
   if (activeDayKeys.size === 0) return { current: 0, longest: 0 };
 
-  // ── Current streak ───────────────────────────────────────────
+  // Current streak
   // Walk back from today; if today isn't there, allow yesterday
   // as the start (so the streak doesn't visibly break the moment
   // the clock rolls past midnight before the user reads).
@@ -63,7 +63,7 @@ function computeStreaks(activeDayKeys: Set<string>, now: Date = new Date()): {
   if (!activeDayKeys.has(cursor)) {
     cursor = yesterdayKey(now);
     if (!activeDayKeys.has(cursor)) {
-      // No activity today or yesterday — current streak is zero.
+      // No activity today or yesterday, current streak is zero.
       // Longest streak still computed below.
       current = 0;
     } else {
@@ -83,7 +83,7 @@ function computeStreaks(activeDayKeys: Set<string>, now: Date = new Date()): {
     }
   }
 
-  // ── Longest streak ───────────────────────────────────────────
+  // Longest streak
   // Sort keys, walk forward, find the longest run of consecutive
   // days. Day comparison via dateKeyMinusDays so DST/month-end
   // boundaries are handled the same way as the current-streak walk.
@@ -106,7 +106,7 @@ function computeStreaks(activeDayKeys: Set<string>, now: Date = new Date()): {
 /**
  * Reduce a list of closed sessions for one book + current
  * position into the derived stats the Overview tab renders. Pure
- * function — caller fetches the sessions and supplies `now` in
+ * function, caller fetches the sessions and supplies `now` in
  * tests for deterministic streak math.
  */
 export function computeBookReadingStats(

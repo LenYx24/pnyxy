@@ -15,7 +15,7 @@ type ConfirmFn = (opts: ConfirmOptions) => Promise<boolean>;
  * dialog. Surfaces the actual href so the user can spot obvious
  * problems (typosquats, unrelated domains, suspicious paths) before
  * any navigation happens. Used by both the ChatPage and the reader's
- * AiChatPanel — each passes their own `confirm` handle from
+ * AiChatPanel, each passes their own `confirm` handle from
  * `useConfirm()` and their own `t` from `useTranslation()`.
  */
 export async function promptOpenAiLink(

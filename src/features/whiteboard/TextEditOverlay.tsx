@@ -6,7 +6,7 @@ import { TEXT_FONT_FAMILY, TEXT_LINE_HEIGHT } from "./lib/text-layout";
  * single TextElement on the canvas. While this is mounted, the
  * canvas render loop skips drawing the underlying element so the
  * HTML <textarea> is the only visible representation. Pan / zoom
- * subscriptions live in the parent and feed in via props — that way
+ * subscriptions live in the parent and feed in via props, that way
  * the overlay follows the canvas transform without subscribing to
  * the whiteboard store itself.
  *

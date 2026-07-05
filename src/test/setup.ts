@@ -6,7 +6,7 @@
  *
  * Node 25+ ships its own stub `localStorage` / `sessionStorage` on the
  * global object. Without a `--localstorage-file=<path>` flag that stub
- * has no methods and only warns — it shadows happy-dom's real Storage
+ * has no methods and only warns, it shadows happy-dom's real Storage
  * inside Vitest workers. We replace both with an in-memory polyfill
  * that behaves like the real thing and is cleared between tests.
  */

@@ -32,7 +32,7 @@ export function getTagColor(tag: BookStatusTag): { bg: string; text: string; dot
   return COLOR_PALETTE[colorKey];
 }
 
-// ─── Component ──────────────────────────────────────────────
+// Component
 
 interface TagBadgeProps {
   tag: BookStatusTag;

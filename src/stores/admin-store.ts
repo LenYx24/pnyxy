@@ -52,7 +52,7 @@ interface AdminState {
 }
 
 export const useAdminStore = create<AdminState>((set, get) => ({
-  // ── Stats ──────────────────────────────────────────────────
+  // Stats
   stats: null,
   statsLoading: false,
 
@@ -79,7 +79,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
   },
 
-  // ── Reports ────────────────────────────────────────────────
+  // Reports
   reports: [],
   reportsLoading: false,
   reportsTotal: 0,
@@ -133,7 +133,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }));
   },
 
-  // ── Catalog ────────────────────────────────────────────────
+  // Catalog
   pendingBooks: [],
   catalogLoading: false,
 
@@ -187,7 +187,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     set((s) => ({ pendingBooks: s.pendingBooks.filter((b) => b.id !== id) }));
   },
 
-  // ── Users ──────────────────────────────────────────────────
+  // Users
   users: [],
   usersLoading: false,
   usersTotal: 0,

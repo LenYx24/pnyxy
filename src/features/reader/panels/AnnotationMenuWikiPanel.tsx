@@ -10,7 +10,7 @@ import { detectSourceLang } from "@/lib/lang-detect";
 import { cn } from "@/lib/cn";
 
 interface Props {
-  /** Initial term to look up — pre-filled from the user's text
+  /** Initial term to look up, pre-filled from the user's text
    *  selection. The input is editable so the user can fix PDF mis-
    *  extractions ("colourised" → "colorized") without re-selecting. */
   initialQuery: string;
@@ -25,7 +25,7 @@ interface Props {
 
 /**
  * Wikipedia summary panel for the annotation context menu. Owns its
- * own query / language / fetch state — extracted from the menu
+ * own query / language / fetch state, extracted from the menu
  * shell so the menu can render Wikipedia results without holding
  * the AbortController and intermediate states in its top-level
  * useState bag. On mount the panel auto-runs the first lookup with

@@ -1,7 +1,7 @@
 import type { Roadmap, RoadmapEdge, RoadmapNode } from "@/types/roadmap";
 import { useRoadmapStore } from "@/stores/roadmap-store";
 
-// ── Tool schemas (Anthropic / OpenAI compatible JSON schema) ────
+// Tool schemas
 
 export interface ToolDef {
   name: string;
@@ -106,12 +106,8 @@ export const ROADMAP_TOOLS: ToolDef[] = [
   },
 ];
 
-// ── Label mapping ───────────────────────────────────────────────
-// The model sees short labels (n1, n2, ...) instead of UUIDs so
-// tool inputs stay tight and reliable. Labels are derived from the
-// current node array order at the start of each agentic turn and
-// extended in-place as add_node executes.
-
+// Model sees short labels (n1, n2, ...) instead of UUIDs. Seeded from
+// node order at turn start, extended as add_node runs.
 export class LabelMap {
   private labelToId = new Map<string, string>();
   private idToLabel = new Map<string, string>();
@@ -150,8 +146,6 @@ export class LabelMap {
   }
 }
 
-// ── Snapshot formatter (for the system prompt) ──────────────────
-
 export function formatRoadmapSnapshot(
   roadmap: Roadmap,
   labels: LabelMap,
@@ -186,8 +180,6 @@ function truncate(s: string, max: number): string {
   return s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s;
 }
 
-// ── System prompt for roadmap-edit conversations ────────────────
-
 export function buildRoadmapEditSystemPrompt(snapshot: string): string {
   return `You are an AI assistant helping the user edit a learning roadmap (a directed acyclic graph of learning units).
 
@@ -202,13 +194,7 @@ Rules:
 - If the user asks something that doesn't require edits, just answer normally without calling tools.`;
 }
 
-// ── System prompt for generating a roadmap from scratch ─────────
-
-/**
- * Used by the plain-chat "generate a roadmap" skill: the model starts
- * from an EMPTY roadmap (no snapshot) and builds it end-to-end with
- * the same tool surface. Same acyclicity + label rules as edit mode.
- */
+/** System prompt for the "generate a roadmap" skill: model builds from an empty roadmap. */
 export function buildRoadmapGenerateSystemPrompt(): string {
   return `You are an AI assistant that builds a brand-new learning roadmap (a directed acyclic graph of learning units) from scratch, based on the user's request.
 
@@ -224,42 +210,22 @@ Guidelines:
 - If the request is too vague to build a roadmap, ask one brief clarifying question instead of calling tools.`;
 }
 
-// ── Intent detection for the plain-chat roadmap skill ───────────
-
-// A roadmap "noun" (the artifact) and a "build" verb must BOTH be
-// present for us to treat a plain-chat message as a generate-a-roadmap
-// request. Requiring both keeps false positives low — "what's next on
-// my roadmap?" (no build verb) and "generate a quiz" (no roadmap noun)
-// both stay in normal cheap chat instead of escalating to the
-// Anthropic tool-use path. Stems are kept short so Hungarian
-// conjugations (generálj, készíts, csinálj, tervezz…) and English
-// forms all match against the lower-cased message.
+// Intent detection: require BOTH a roadmap noun and a build verb before
+// escalating a plain-chat message to the tool-use path. Short stems so HU
+// conjugations and English forms all match.
 const ROADMAP_NOUN_RE =
   /(roadmap|tanul(á|a)si\s*(terv|útiterv|út)|útiterv|tanrend|learning\s*(path|plan|roadmap)|study\s*plan|curriculum)/i;
-// Verbs / framings that read as "make me one". Kept deliberately broad
-// — especially on the HU side, where conjugations vary a lot
-// (generálj, készíts, csinálj, szeretnék, kéne, adj…) — because the
-// roadmap-NOUN gate above is what actually keeps false positives down:
-// a turn only escalates if it ALSO names a roadmap / learning path /
-// study plan. This includes request/desire framings ("szeretnék egy
-// roadmapet", "kéne egy tanulási terv", "I'd like a roadmap") that the
-// earlier strict-creation-verb list missed. The trade-off is that a
-// view-intent like "szeretném látni a roadmapem" can also match; we
-// accept that since the cost is just one turn on the pricier tool path.
+// Broad on purpose (esp. HU): the noun gate above keeps false positives
+// down, so a stray view-intent match here only costs one tool-path turn.
 const BUILD_VERB_RE =
   /(generál|készí|csinál|tervez|állíts|rakj|gyárts|hozz\s*létre|alkoss|vázol|dolgozz\s*ki|szeretn|kéne|kellene|kérek|kérn|adj|adn(á|a)l|legyen|build|create|make|generate|design|draft|put\s*together|plan\s*out|lay\s*out|outline|sketch|map\s*out|want|would\s*like|i'?d\s*like|give\s*me|need)/i;
 
-/**
- * True when a plain-chat message reads as "generate a learning roadmap
- * for X". Drives the auto-detect skill trigger in the chat store.
- */
+/** True when a plain-chat message reads as "generate a roadmap for X". */
 export function detectRoadmapIntent(text: string): boolean {
   if (!text) return false;
   const lower = text.toLowerCase();
   return ROADMAP_NOUN_RE.test(lower) && BUILD_VERB_RE.test(lower);
 }
-
-// ── Dispatcher ──────────────────────────────────────────────────
 
 export interface ToolCallResult {
   ok: boolean;
@@ -449,9 +415,6 @@ function execAddEdge(
       modelOutput: "Error: self-loops are not allowed.",
     };
   }
-  // Cycle check against the *current* edge set (post any earlier
-  // tool calls in this turn). Pretend the new edge exists, BFS from
-  // target back toward source through forward edges.
   if (wouldCreateCycle(roadmap.edges, source, target)) {
     return {
       ok: false,
@@ -537,10 +500,7 @@ function execUpdateMeta(
   };
 }
 
-/**
- * BFS from `target` through forward edges. If we can reach `source`,
- * adding source → target would close a cycle.
- */
+// BFS from target through forward edges; reaching source means source -> target closes a cycle.
 function wouldCreateCycle(
   edges: RoadmapEdge[],
   source: string,

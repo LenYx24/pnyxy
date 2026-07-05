@@ -36,7 +36,7 @@ export interface ReadingPlanWithItems {
   items: ReadingPlanItem[];
 }
 
-/** Derived progress snapshot — not in the DB. */
+/** Derived progress snapshot, not in the DB. */
 export interface ReadingPlanProgress {
   /** Total pages targeted across all items. */
   totalPages: number;

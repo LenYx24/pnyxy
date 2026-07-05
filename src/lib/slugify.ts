@@ -4,7 +4,7 @@
  * gets stripped in the lookup. Empty-result fallback is "book" so
  * we never produce a bare trailing `/`.
  *
- * Hungarian text matters here — `Vörös és fekete` should yield
+ * Hungarian text matters here, `Vörös és fekete` should yield
  * `voros-es-fekete`, not be mangled to a hash. NFD decomposition +
  * stripping the combining marks (U+0300..U+036F) handles that for
  * any Latin-derived script. Cyrillic / CJK / Arabic source titles
@@ -32,7 +32,7 @@ export function slugify(text: string): string {
 /**
  * Encode a book id + slug into a single URL segment. Format is
  * `<slug>--<id>` so the recognizable part shows first when shared.
- * The double-dash is the delimiter — slugify() never emits `--`
+ * The double-dash is the delimiter, slugify() never emits `--`
  * (runs of non-alphanumerics collapse to a single `-`), and IDs
  * are UUIDs (single dashes only) or hex hashes (no dashes), so
  * `--` is unambiguous.

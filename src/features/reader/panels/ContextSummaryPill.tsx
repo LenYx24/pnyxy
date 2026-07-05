@@ -4,17 +4,9 @@ import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
 
 /**
- * Pill above the AI chat composer that summarises the context the
- * next message will carry. Mirrors the chat-store's send-time logic
- * (Settings → AI persona, the per-book TOC toggle, the user's
- * manually-selected pages from the TOC selection mode), so the user
- * can verify what's about to ship without reading our code.
- *
- * Doubles as a "Customize context" entry point — clicking it (or
- * the trailing pencil) opens the sidebar's thumbnail TOC in page-
- * selection mode. The opener function is registered by
- * `ReaderSidebar`; on surfaces where it's null (e.g. the standalone
- * `/chat` page) the pill stays as a passive label.
+ * Pill above the AI chat composer summarising the context the next message
+ * carries (persona, TOC toggle, selected pages). Clicking opens the page
+ * picker; when no opener is registered (e.g. /chat) it stays a passive label.
  */
 export function ContextSummaryPill({
   tocAvailable,
@@ -27,27 +19,15 @@ export function ContextSummaryPill({
   tocAttached: boolean;
   selectedPages: number;
   hasPersona: boolean;
-  /** When set, the pill body + "N pages" chip toggle this inline
-   *  picker instead of bouncing the user to the sidebar editor. The
-   *  trailing "Customize" link still routes to the sidebar (which
-   *  carries extras like select-all / send-as-image that don't live
-   *  in the inline picker). Passed by AiChatPanel for PDF docs; for
-   *  non-PDFs it's omitted and the sidebar editor remains the only
-   *  way to edit the selection. */
+  /** Inline page picker used by the pill body + chip (PDF docs). When
+   *  omitted the sidebar editor is the only way to edit the selection. */
   onPickPages?: () => void;
 }) {
   const { t } = useTranslation();
   const openAiContextEditor = useUIStore((s) => s.openAiContextEditor);
-  // Sidebar route — power-user editor with select-all / send-as-image,
-  // registered by ReaderSidebar. The trailing "Customize" link routes
-  // here when this is available.
+  // sidebar editor (select-all / send-as-image), registered by ReaderSidebar
   const showSidebarEditor = tocAvailable && !!openAiContextEditor;
-  // Pill is interactive if there's *any* way for the user to edit the
-  // selection — the inline picker counts even when the sidebar editor
-  // isn't registered (e.g. dockview layouts without the sidebar) and
-  // even when the doc has no TOC (the picker doesn't care). Without
-  // this, PDFs without a TOC fell into the static-fallback branch and
-  // the "N pages" text wasn't clickable at all.
+  // interactive if either the inline picker or sidebar editor can edit pages
   const interactive = !!onPickPages || showSidebarEditor;
 
   if (
@@ -59,9 +39,7 @@ export function ContextSummaryPill({
     return null;
   }
 
-  // Static-text fallback: nothing the user can do here (no sidebar
-  // editor registered AND no inline picker handler), so don't pretend
-  // to be a click target.
+  // static-text fallback: nothing editable, so not a click target
   if (!interactive) {
     const parts: string[] = [];
     if (tocAttached && tocAvailable) parts.push(t("reader.aiChat.contextToc"));
@@ -83,19 +61,9 @@ export function ContextSummaryPill({
     );
   }
 
-  // Interactive variant: each part is a discrete element so the
-  // "N pages" chip can read as the obvious entry point to the page
-  // picker. Previously the whole pill was one big button and users
-  // didn't realize the page count was the click target. Now the chip
-  // carries the accent color + dotted underline, the rest stays
-  // muted, and bare-space clicks still open the editor as a forgiving
-  // fallback.
+  // interactive variant: the "N pages" chip is the discrete page-picker target
   const openEditor = () => openAiContextEditor?.();
-  // Pill body + "N pages" chip prefer the inline picker (kept in
-  // the chat panel, where the user already is) when AiChatPanel
-  // supplied one. The trailing "Customize" link below always falls
-  // back to the sidebar editor — it's the escape hatch for the
-  // controls that don't live in the inline picker yet.
+  // prefer the inline picker; fall back to the sidebar editor
   const pickPages = onPickPages ?? openEditor;
   return (
     <div className="px-3">
@@ -143,12 +111,8 @@ export function ContextSummaryPill({
             <span className="truncate">{t("reader.aiChat.contextPersona")}</span>
           </>
         )}
-        {/* "Customize" escape — only shown when the sidebar editor is
-            registered AND distinct from the primary click action.
-            Without an inline picker, the whole pill already opens the
-            sidebar editor so a redundant label would just be noise;
-            with one, this gives access to extras (send-as-image,
-            select-all) that don't live in the inline picker. */}
+        {/* "Customize" link to the sidebar editor, only when it's distinct
+            from the primary click action (i.e. an inline picker exists) */}
         {showSidebarEditor && onPickPages && (
           <button
             type="button"

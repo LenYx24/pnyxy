@@ -36,7 +36,7 @@ import { cn } from "@/lib/cn";
  * Markdown note editor.
  *
  * Layout:
- *   - Desktop & wider tablet: split pane — textarea on the left,
+ *   - Desktop & wider tablet: split pane, textarea on the left,
  *     rendered preview on the right. Both scroll independently.
  *   - Narrow / mobile: single pane that toggles between edit and
  *     preview via the same view-mode segmented control.
@@ -44,7 +44,7 @@ import { cn } from "@/lib/cn";
  * Formatting toolbar at the top with the conventional keyboard
  * shortcuts (Ctrl+B / Ctrl+I / Ctrl+K / Ctrl+1/2 / Ctrl+E / Ctrl+L).
  * Insertion lives in plain string manipulation against the textarea
- * — no CodeMirror / Tiptap dependency, since the bar is for "I want
+ *, no CodeMirror / Tiptap dependency, since the bar is for "I want
  * to format this quickly" not full IDE-grade editing.
  *
  * Two book-aware extras:
@@ -54,7 +54,7 @@ import { cn } from "@/lib/cn";
  *     `renderMarkdown` (chat, etc.).
  *   - "Send selection to AI": stashes the selected text + book
  *     context into `chat-store.pendingDraft` and asks the reader's
- *     AI chat panel to open — same pipeline the highlight context
+ *     AI chat panel to open, same pipeline the highlight context
  *     menu uses.
  */
 interface NoteEditorProps {
@@ -81,7 +81,7 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Switch the default split→edit when the viewport drops to mobile
-  // and back. Doesn't fight an explicit user pick — once you've
+  // and back. Doesn't fight an explicit user pick, once you've
   // chosen, your pick sticks for the rest of the session.
   const explicitViewMode = useRef(false);
   useEffect(() => {
@@ -90,7 +90,7 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
   }, [isDesktop]);
 
   // Sync local state when switching to a different note. Don't depend
-  // on `note` directly — that would clobber unsaved edits on every
+  // on `note` directly, that would clobber unsaved edits on every
   // store ping.
   useEffect(() => {
     if (note) {
@@ -112,7 +112,7 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
 
   useEffect(() => () => clearTimeout(saveTimerRef.current), []);
 
-  // ─── Formatting primitives ─────────────────────────────────────
+  // Formatting primitives
 
   const applyChange = useCallback(
     (newContent: string, nextSelectionStart: number, nextSelectionEnd: number) => {
@@ -174,7 +174,7 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
   );
 
   /** Toggle a line-prefix marker (`# `, `- `, `> `, etc.) on the
-   *  current cursor line. Works against the whole selection — if you
+   *  current cursor line. Works against the whole selection, if you
    *  select 3 lines and hit list, all three get bulleted. */
   const togglePrefix = useCallback(
     (prefix: string) => {
@@ -237,7 +237,7 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
     applyChange(newContent, urlStart, urlEnd);
   }, [content, applyChange, t]);
 
-  // ─── Book-aware extras ─────────────────────────────────────────
+  // Book-aware extras
 
   const handleInsertPageLink = useCallback(() => {
     if (!activeDoc) return;
@@ -271,7 +271,7 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
     else navigate("/chat");
   }, [content, activeDoc, navigate]);
 
-  // ─── Keyboard shortcuts ────────────────────────────────────────
+  // Keyboard shortcuts
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -402,7 +402,7 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
   );
 }
 
-// ─── Toolbar ─────────────────────────────────────────────────────
+// Toolbar
 
 interface ToolbarProps {
   onBold: () => void;

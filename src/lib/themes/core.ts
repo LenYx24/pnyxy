@@ -2,7 +2,7 @@ import type { Theme } from "./types";
 
 /**
  * Built-in themes. `pnyxy-dark` reproduces the current `@theme` block
- * verbatim — switching to it is a no-op visually, but it lets us treat
+ * verbatim, switching to it is a no-op visually, but it lets us treat
  * themes uniformly in the registry.
  *
  * To add a core theme: add a new entry here. It immediately appears in
@@ -17,7 +17,7 @@ export const CORE_THEMES = {
     apiVersion: 1,
     variant: "dark",
     tokens: {
-      // Backgrounds: the original Pnyxy Dark — neutral near-black.
+      // Backgrounds: the original Pnyxy Dark, neutral near-black.
       "--color-bg-primary": "#0a0a0f",
       "--color-bg-secondary": "#111118",
       "--color-bg-tertiary": "#1a1a24",
@@ -104,7 +104,7 @@ export const CORE_THEMES = {
       // Warm-amber accent so links/buttons sit naturally on parchment.
       "--color-accent": "#a85a1f",
       "--color-accent-blue": "#7c5b2a",
-      // Dark sepia text instead of black — lowers contrast just enough
+      // Dark sepia text instead of black, lowers contrast just enough
       // to reduce strain without losing legibility (≥7:1 on bg-primary).
       "--color-text-primary": "#3a2e21",
       "--color-text-secondary": "#5c4a36",
@@ -123,7 +123,7 @@ export const CORE_THEMES = {
     apiVersion: 1,
     variant: "dark",
     tokens: {
-      // Very dark warm brown instead of cool black — fewer short-
+      // Very dark warm brown instead of cool black, fewer short-
       // wavelength photons, easier on circadian rhythm at night.
       "--color-bg-primary": "#1a120a",
       "--color-bg-secondary": "#251a10",
@@ -131,7 +131,7 @@ export const CORE_THEMES = {
       // Amber + warm gold accents; deliberately no blue.
       "--color-accent": "#d4923a",
       "--color-accent-blue": "#e8b663",
-      // Warm cream text — soft on dark warm bg.
+      // Warm cream text, soft on dark warm bg.
       "--color-text-primary": "#f0e2c8",
       "--color-text-secondary": "#bea886",
       "--color-text-muted": "#806a4f",

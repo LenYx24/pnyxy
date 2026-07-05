@@ -1,7 +1,7 @@
 import type { Quiz, QuizQuestion } from "@/types/quiz";
 
 /**
- * Serialize a quiz to GIFT — Moodle's plain-text quiz format, the most
+ * Serialize a quiz to GIFT, Moodle's plain-text quiz format, the most
  * widely-supported human-readable interchange format for quizzes. This
  * is the no-vendor-lock-in export: the `.gift` file opens in any text
  * editor and imports into Moodle/Canvas/etc.

@@ -109,7 +109,7 @@ export function QuizEditorPage() {
   const [loadingInitial, setLoadingInitial] = useState(!!quizId);
 
   // MouseSensor (not PointerSensor) so touch events go to
-  // TouchSensor only — otherwise PointerSensor's `distance: 8`
+  // TouchSensor only, otherwise PointerSensor's `distance: 8`
   // activation beat TouchSensor's 200ms delay on phones and a
   // scroll-swipe over a question row would start a drag. Keyboard
   // for a11y: Tab to a question, Space to pick up, arrows to move,
@@ -260,7 +260,7 @@ export function QuizEditorPage() {
     if (selected.size === 0) return;
     setItems((prev) => {
       const next = prev.filter((item) => !selected.has(item.key));
-      // Keep at least one card visible — empty editor with zero
+      // Keep at least one card visible, empty editor with zero
       // questions would be a confusing dead-end and save would fail
       // anyway with "needQuestion".
       return next.length === 0 ? [makeEditable()] : next;
@@ -448,7 +448,7 @@ export function QuizEditorPage() {
         uploadedBookId={uploadedBookId}
         catalogBookId={catalogBookId}
         // `?aiOpen=1` is the entry point used by the book Overview's
-        // "Generate quiz from this book" shortcut — start the panel
+        // "Generate quiz from this book" shortcut, start the panel
         // expanded so the user lands directly on the form.
         autoOpen={searchParams.get("aiOpen") === "1"}
         // `?kind=short_answer` flips the panel into flashcard mode

@@ -17,7 +17,7 @@ interface PickerRow {
   key: string;
   title: string;
   author: string | null;
-  // Identity used for "already open" detection — file_hash for uploads,
+  // Identity used for "already open" detection, file_hash for uploads,
   // catalog_book.id for catalog entries (the latter is what registerFile
   // uses on open).
   openHashOrId: string;

@@ -49,7 +49,7 @@ export function usePullToRefresh({ onRefresh, enabled }: Options): {
       if (!tracking || startY == null) return;
       const dy = e.touches[0].clientY - startY;
       if (dy <= 0) {
-        // User pulled up — abandon; let native scroll resume.
+        // User pulled up, abandon; let native scroll resume.
         tracking = false;
         setPullDistance(0);
         return;

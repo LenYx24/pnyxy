@@ -1,5 +1,5 @@
-// Live-tray zoom driver. PdfViewer owns the actual zoom — it mounts
-// the tray + sizer DOM and the per-frame math that mutates them — and
+// Live-tray zoom driver. PdfViewer owns the actual zoom, it mounts
+// the tray + sizer DOM and the per-frame math that mutates them, and
 // publishes a small set of imperative entry points here. ReaderPage's
 // mobile pinch handler and the desktop double-tap zoom call these
 // directly, so neither the touch path nor the wheel path has to know
@@ -8,7 +8,7 @@
 // Why module-level state: the gesture source (touch handler in
 // ReaderPage) and the state owner (PdfViewer's tray refs) live in
 // different React subtrees that don't share a context. A registration
-// pattern keeps them decoupled — PdfViewer fills these on mount,
+// pattern keeps them decoupled, PdfViewer fills these on mount,
 // ReaderPage calls them ignorant of mounting order.
 
 export interface ZoomGestureControls {

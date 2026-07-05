@@ -33,7 +33,7 @@ function slugify(name: string): string {
   // NFD splits accented letters into base + combining mark; the
   // diacritics regex then strips the marks. Without this step
   // Hungarian / accented names lose entire letters ("Művészet"
-  // became "mvszet" — not just ugly, sometimes empty).
+  // became "mvszet", not just ugly, sometimes empty).
   return name
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")

@@ -45,7 +45,7 @@ describe("nodePctFromPage", () => {
   });
 
   it("handles inverted ranges by treating them like single-pages", () => {
-    // If the AI returns from > to (malformed), don't NaN out — the
+    // If the AI returns from > to (malformed), don't NaN out, the
     // current implementation falls through the `to <= from` branch.
     const inverted = { from: 20, to: 10 };
     expect(nodePctFromPage(5, inverted)).toBe(0);

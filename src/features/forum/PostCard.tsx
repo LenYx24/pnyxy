@@ -8,7 +8,7 @@ interface PostCardProps {
   /**
    * The community slug. When omitted, a community badge is rendered
    * (used by the cross-community feed). When provided, we hide the
-   * badge — the user is already inside that community.
+   * badge, the user is already inside that community.
    */
   communitySlug?: string;
 }

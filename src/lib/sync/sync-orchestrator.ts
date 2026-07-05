@@ -21,7 +21,7 @@ import { logError } from "@/lib/logger";
  *
  * Concurrency: a single in-flight drain at a time, guarded by
  * `draining`. If a wake-up arrives mid-drain we set `wakeAgain`
- * and re-run after the current drain completes — newer rows queue
+ * and re-run after the current drain completes, newer rows queue
  * up during drain time and need a second pass to ship.
  */
 
@@ -74,7 +74,7 @@ export function startSyncOrchestrator(): void {
   if (started) return;
   started = true;
 
-  // Wake when a mutation is enqueued — first-write latency drops
+  // Wake when a mutation is enqueued, first-write latency drops
   // from "next poll tick" to "next event-loop tick."
   subscribeToQueueChanges(maybeDrain);
 
@@ -84,21 +84,21 @@ export function startSyncOrchestrator(): void {
   });
 
   // Wake when the user signs in. We don't drain for signed-out
-  // users because every Supabase mutation would 401 anyway — RLS
+  // users because every Supabase mutation would 401 anyway, RLS
   // policies require auth.uid().
   useAuthStore.subscribe((state, prev) => {
     if (state.user?.id && state.user.id !== prev.user?.id) maybeDrain();
   });
 
   // Safety-net poll: rows whose retryAfter just elapsed need
-  // someone to notice and re-attempt them. 30s is a balance —
+  // someone to notice and re-attempt them. 30s is a balance -
   // tighter than a typical transient blip, loose enough to not
   // burn battery polling.
   if (typeof window !== "undefined") {
     window.setInterval(maybeDrain, POLL_INTERVAL_MS);
   }
 
-  // First wake on boot — clear any backlog left over from the
+  // First wake on boot, clear any backlog left over from the
   // previous session before the user sees anything.
   maybeDrain();
 }

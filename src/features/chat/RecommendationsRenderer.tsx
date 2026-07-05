@@ -43,7 +43,7 @@ export function RecommendationCards({
   );
 }
 
-// ─── Book card with "Add to library" ──────────────────────────
+// Book card with "Add to library"
 
 function BookCard({ book }: { book: RecommendedBook }) {
   const { t } = useTranslation();
@@ -153,7 +153,7 @@ function BookCard({ book }: { book: RecommendedBook }) {
   );
 }
 
-// ─── Video / course card ──────────────────────────────────────
+// Video / course card
 
 function VideoCard({ video }: { video: RecommendedVideo }) {
   const { t } = useTranslation();

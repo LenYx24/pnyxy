@@ -12,7 +12,7 @@ interface Props {
 }
 
 /**
- * "Explain with AI" panel — streams a plain-text gloss / translation
+ * "Explain with AI" panel, streams a plain-text gloss / translation
  * via the existing LLM proxy. Cancellable mid-stream so a user who
  * navigates away doesn't keep burning quota. Auto-starts the
  * generation on mount (the menu's actions list is the only call
@@ -37,14 +37,14 @@ export function AnnotationMenuExplainPanel({ selectedText, onBack }: Props) {
     setText("");
     setError("");
 
-    // The user is reading on a specific page of a specific book —
+    // The user is reading on a specific page of a specific book -
     // surface that to the model so the explanation is rooted in the
     // actual study material, not generic encyclopedic prose.
     const activeDoc = useReaderStore.getState().getActiveDoc();
     const bookTitle = activeDoc?.customTitle ?? activeDoc?.meta.title ?? "";
     const sourceLang = detectSourceLang(passage);
     // Hungarian users get Hungarian explanations by default; everyone
-    // else gets English. Cheap heuristic — a real i18n-locale-aware
+    // else gets English. Cheap heuristic, a real i18n-locale-aware
     // pick would need to thread through `useTranslation`'s `i18n`
     // instance which isn't worth the extra dependency for an MVP.
     const replyLang = sourceLang === "hu" ? "Hungarian" : "English";

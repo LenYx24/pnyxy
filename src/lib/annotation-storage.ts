@@ -2,22 +2,10 @@ import { openDB, type IDBPDatabase } from "idb";
 import type { AiCitation, Highlight, Comment } from "@/types/annotation";
 
 const DB_NAME = "pnyxy-annotations";
-// Bump 10 → 11 for the notes folder-tree work (00044): StoredNote
-// gained `folderId` + `sortOrder`. No object-store change is needed —
-// the fields are plain properties on the existing `notes` keyPath:"id"
-// store, and pre-existing rows simply read back `undefined` (treated
-// as root placement / sort 0). The bump is here only so the version
-// number stays monotonic with the schema's conceptual evolution; the
-// upgrade callback remains fully idempotent.
 const DB_VERSION = 11;
 
-/**
- * Defensive wrapper: turn an IndexedDB `NotFoundError` (= the queried
- * object store doesn't exist) into an empty result. This stops a
- * half-applied migration from cascading into the whole annotation
- * subsystem — the doc loads, just without whatever the missing store
- * would have contained.
- */
+// A half-applied migration leaves a store missing; treat that as empty
+// rather than blowing up the whole annotation layer.
 function isMissingStoreError(err: unknown): boolean {
   return (
     err instanceof DOMException &&
@@ -33,8 +21,6 @@ async function loadOrEmpty<T>(
     return await fn();
   } catch (err) {
     if (isMissingStoreError(err)) {
-      // Visible warning so a broken upgrade is at least discoverable
-      // in DevTools; the user still gets a working app.
       console.warn(`[annotation-storage] missing store for ${label}; returning []`, err);
       return [];
     }
@@ -71,8 +57,7 @@ export function getDB(): Promise<IDBPDatabase> {
         }
         if (!db.objectStoreNames.contains("vocab")) {
           const vs = db.createObjectStore("vocab", { keyPath: "id" });
-          // Composite "user + word + lang" isn't expressible as an
-          // IDB index, so dedupe is enforced at the store layer.
+          // no composite user+word+lang index in IDB; dedupe happens in code
           vs.createIndex("dueAt", "dueAt");
           vs.createIndex("sourceDocumentId", "sourceDocumentId");
         }
@@ -85,16 +70,11 @@ export function getDB(): Promise<IDBPDatabase> {
           });
           es.createIndex("roadmapId", "roadmapId");
         }
-        // v8: folders mirrored locally so the library tree renders
-        // offline and folder ops are optimistic (write IDB +
-        // enqueue Supabase mutation via the sync queue).
+        // local folder mirror for offline tree + optimistic ops
         if (!db.objectStoreNames.contains("folders")) {
           db.createObjectStore("folders", { keyPath: "id" });
         }
-        // v9: ai_citations — selections that were actually sent to
-        // the AI in a chat. Indexed by documentId for the per-doc
-        // citation layer; the popover lookup uses the loaded list
-        // directly so we don't need a messageId index.
+        // selections that were sent to the AI in a chat
         if (!db.objectStoreNames.contains("ai_citations")) {
           const cs = db.createObjectStore("ai_citations", { keyPath: "id" });
           cs.createIndex("documentId", "documentId");
@@ -104,6 +84,22 @@ export function getDB(): Promise<IDBPDatabase> {
     });
   }
   return dbPromise;
+}
+
+// --- Sign-out cleanup ---
+
+// Every object store in this DB holds per-user data with no user
+// filter, so on sign-out we wipe the lot to stop one account's
+// highlights/notes/whiteboards leaking onto the next account on the
+// same browser. Only touches pnyxy-annotations; the pnyxy-sync
+// mutation queue is left alone so pending offline writes survive.
+export async function clearAllLocalData(): Promise<void> {
+  const db = await getDB();
+  const stores = Array.from(db.objectStoreNames);
+  if (stores.length === 0) return;
+  const tx = db.transaction(stores, "readwrite");
+  await Promise.all(stores.map((name) => tx.objectStore(name).clear()));
+  await tx.done;
 }
 
 // --- Highlights ---
@@ -170,19 +166,15 @@ export interface StoredDocumentMeta {
   customTitle?: string | null;
   tocWidth?: number;
   zoomMode?: string | null;
-  /** Last page the user was viewing — used to resume on reopen. */
+  /** Last page viewed, for resume on reopen. */
   lastPosition?: number;
-  /** Furthest page the active tracker has counted as "read". */
+  /** Furthest page counted as read. */
   progressPage?: number;
-  /** 0..1 fractional position WITHIN `lastPosition` — together they
-   *  give a pixel-precise resume point instead of just snapping to
-   *  the top of the page. Null/undefined = top of page. */
+  /** 0..1 fraction within lastPosition for a pixel-precise resume. undefined = top of page. */
   scrollOffset?: number;
-  /** EPUB Canonical Fragment Identifier — the canonical position
-   *  inside an EPUB's spine. Null/undefined for PDFs. */
+  /** EPUB CFI position in the spine. undefined for PDFs. */
   cfi?: string;
-  /** Epoch ms — used to reconcile with the cloud sync row. The cloud
-   *  side has its own `updated_at`; whichever is newer wins on open. */
+  /** Epoch ms; newer of local vs cloud wins on open. */
   updatedAt?: number;
 }
 
@@ -197,9 +189,7 @@ export async function saveDocumentMeta(
   meta: StoredDocumentMeta,
 ): Promise<void> {
   const db = await getDB();
-  // Stamp updatedAt on every write so the cloud-vs-local merge can
-  // make a timestamp comparison without each caller having to
-  // remember to set it.
+  // stamp updatedAt on every write so the cloud merge has a timestamp
   await db.put("documentMeta", { ...meta, updatedAt: Date.now() });
 }
 
@@ -230,14 +220,9 @@ export interface StoredNote {
   id: string;
   title: string;
   content: string;
-  /** Library folder this note lives in, or null/undefined for the
-   *  root. Mirrors the Supabase `notes.folder_id` column (00044) so
-   *  the note shows up in the library filetree. Pre-00044 rows read
-   *  back `undefined` → treated as root. */
+  /** Library folder, or null/undefined for root. */
   folderId?: string | null;
-  /** Position within the folder. Lower = earlier. Fractional so a
-   *  drag-reorder can insert between neighbours without renumbering.
-   *  Pre-00044 rows read back `undefined` → treated as 0. */
+  /** Position within the folder; fractional so reorders don't renumber. undefined = 0. */
   sortOrder?: number;
   createdAt: number;
   updatedAt: number;
@@ -272,7 +257,7 @@ export interface StoredBookmark {
   documentId: string;
   page: number;
   label: string;
-  /** Hex color (#rrggbb). UI offers a swatch picker. */
+  /** Hex color (#rrggbb). */
   color: string;
   createdAt: number;
 }
@@ -341,9 +326,7 @@ export async function findVocabEntryByWord(
 }
 
 // --- Folders (local mirror of the Supabase `folders` table) ---
-//
-// Stored shape exactly matches `Folder` from types/database.ts so
-// the library store can write/read it without conversion.
+// Stored shape matches `Folder` from types/database.ts, no conversion needed.
 
 export async function loadAllFolders<T = unknown>(): Promise<T[]> {
   return loadOrEmpty(async () => {
@@ -362,8 +345,7 @@ export async function deleteFolderLocal(id: string): Promise<void> {
   await db.delete("folders", id);
 }
 
-/** Replace the local folders mirror in one transaction. Used after
- *  a successful `fetchFolders` to keep the IDB cache up to date. */
+/** Replace the local folders mirror in one transaction. */
 export async function replaceAllFoldersLocal<T extends { id: string }>(
   folders: T[],
 ): Promise<void> {

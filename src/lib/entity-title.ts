@@ -1,27 +1,11 @@
 /**
- * Shared display-title logic for user-created entities (notes,
- * whiteboards, quizzes, roadmaps).
+ * Display-title logic for user-created entities (notes, whiteboards,
+ * quizzes, roadmaps, chats).
  *
- * The problem this solves: the library filetree used to fill up with a
- * dozen identical "Untitled whiteboard" / "Untitled note" rows because
- * every new entity got the same static placeholder. Two strategies here,
- * picked per entity:
- *
- *  - Content-bearing entities (note, whiteboard) derive a *live* display
- *    title from their content — the first line of a note, the first text
- *    element on a whiteboard — so the name reflects what's inside without
- *    the user having to type anything. When there's no content yet we
- *    fall back to a date-stamped label, which is at least unique.
- *
- *  - Content-less but renamable entities (quiz, roadmap) instead persist
- *    a date-stamped default at creation time (see `datedDefaultTitle`),
- *    so the many bare `{entity.title}` render sites keep working and the
- *    user's own rename always wins.
- *
- * The date-stamp is deliberately minute-precision so two entities made
- * seconds apart still differ. Locale + word come from i18n
- * (`library.allBooks.derivedTitle.*`); the date itself is formatted with
- * the runtime locale via Intl.
+ * Two strategies: content-bearing entities (note, whiteboard) derive a
+ * live title from their content and fall back to a date stamp; content-less
+ * renamable ones (quiz, roadmap) persist a date-stamped default at creation.
+ * Minute-precision stamp so entities made seconds apart still differ.
  */
 
 import type { TFunction } from "i18next";
@@ -45,11 +29,7 @@ function formatStamp(ts: number): string {
   }).format(new Date(ts));
 }
 
-/**
- * A unique, human-readable default like "Whiteboard · Jul 1, 14:30".
- * Used both as the content-less fallback below and as the persisted
- * default for quizzes/roadmaps at creation time.
- */
+/** Unique default like "Whiteboard · Jul 1, 14:30". */
 export function datedDefaultTitle(
   t: TFunction,
   kind: DerivedTitleKind,
@@ -58,12 +38,7 @@ export function datedDefaultTitle(
   return t(`library.allBooks.derivedTitle.${kind}`, { date: formatStamp(ts) });
 }
 
-/**
- * Extract the first meaningful line of Markdown as a plain-text title,
- * stripping the common leading/inline syntax so "# My heading" becomes
- * "My heading" and "- [ ] todo" becomes "todo". Returns "" if the note
- * body has no textual line.
- */
+/** First meaningful markdown line as plain text, syntax stripped. "" if none. */
 function firstMarkdownLine(markdown: string): string {
   for (const rawLine of markdown.split(/\r?\n/)) {
     const line = rawLine
@@ -81,10 +56,7 @@ function firstMarkdownLine(markdown: string): string {
   return "";
 }
 
-/**
- * Display title for a note: the user's explicit title, else the first
- * line of its Markdown body, else a date-stamped default.
- */
+/** Note title: explicit title, else first markdown line, else date stamp. */
 export function noteDisplayTitle(
   note: { title: string; content: string; createdAt: number },
   t: TFunction,
@@ -97,10 +69,8 @@ export function noteDisplayTitle(
 }
 
 /**
- * Display title for a whiteboard: the user's explicit title, else the
- * text of the first text element on the canvas, else a date-stamped
- * default. (Whiteboards have no rename UI, so the stored title is
- * normally empty and the derived name is what the user sees.)
+ * Whiteboard title: explicit title, else first text element, else date stamp.
+ * Whiteboards have no rename UI so the stored title is normally empty.
  */
 export function whiteboardDisplayTitle(
   wb: {
@@ -123,11 +93,8 @@ export function whiteboardDisplayTitle(
 }
 
 /**
- * Display title for a chat conversation. Conversations normally get an
- * LLM-generated title from their first message, so this only matters for
- * empty or auto-title-failed threads: the user's/LLM title if present,
- * else a date-stamped default so identical "Untitled chat" rows don't
- * pile up in the library. `created_at` is an ISO string on the row.
+ * Chat title: stored title if present, else date stamp. Only bites for empty
+ * or auto-title-failed threads. `created_at` is an ISO string on the row.
  */
 export function conversationDisplayTitle(
   conversation: { title: string; created_at: string },

@@ -35,40 +35,21 @@ export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Hide chrome (sidebar, topbar, bottom nav) when in reader OR when a
-  // focus session is active (user explicitly asked for an
-  // uninterrupted reading surface).
   const isReaderRoute = location.pathname.startsWith("/reader");
-  // Chat wants a flush, full-width layout too — the conversation
-  // sidebar should sit right against the global app sidebar with no
-  // gap, and the thread should use the full viewport. Same p-0
-  // treatment as the reader.
   const isChatRoute = location.pathname.startsWith("/chat");
-  // BookPage's left rail follows the same pattern: a sticky sidebar
-  // with its own right border. Adding outer p-4/p-6 around it gave
-  // the rail a top + left margin and made the right border look like
-  // a stranded line. Flush mode lets the rail reach the app's
-  // sidebar / viewport edges. The BookPage's main pane has its own
-  // internal p-4 sm:p-6 md:p-8 so content there stays comfortable.
+  // flush layout: sticky left rail with its own border needs to reach the viewport edge, outer padding strands the border
   const isBookRoute = location.pathname.startsWith("/books");
   const useFlushContent = isReaderRoute || isChatRoute || isBookRoute;
+  // library owns a sticky bottom bar (count + storage) that pins via
+  // mt-auto; make its wrapper a flex column so the page can flex-grow.
+  const isLibraryRoute = location.pathname === "/library";
 
-  // Collapse the global sidebar by default when the user enters the
-  // reader. Reading wants every horizontal pixel; the reader's own
-  // toolbar still has a hamburger that brings the sidebar back when
-  // the user wants to navigate away. Triggers on every entry into
-  // the reader route — if the user manually expanded mid-session
-  // and then exited and re-entered a book, we collapse again,
-  // because that's the explicit user request ("by default collapse"
-  // on every book open).
+  // collapse sidebar on every reader entry, reader toolbar has its own hamburger to bring it back
   useEffect(() => {
     if (isReaderRoute) setSidebarCollapsed(true);
   }, [isReaderRoute, setSidebarCollapsed]);
 
-  // Footer is only rendered on the informational / legal pages. The
-  // main app surfaces (library, browse, reader, settings, profile,
-  // streaks, admin) use the sidebar for navigation and don't need a
-  // site-wide footer taking up viewport space.
+  // footer only on the informational / legal pages
   const showFooter = STATIC_PAGE_PATHS.some((p) =>
     location.pathname.startsWith(p),
   );
@@ -80,9 +61,7 @@ export function AppLayout() {
     description: "Toggle sidebar",
     handler: toggleSidebar,
   });
-  // Cmd/Ctrl+, opens Settings — the universal "Preferences" hotkey
-  // (VSCode, Obsidian, macOS, Discord). The shortcut handler treats
-  // ctrl as cmd-or-ctrl, so this works on both platforms.
+  // Cmd/Ctrl+, opens settings (handler treats ctrl as cmd-or-ctrl)
   useKeyboardShortcut({
     id: "app:open-settings",
     key: ",",
@@ -91,9 +70,7 @@ export function AppLayout() {
     handler: () => navigate("/settings"),
   });
 
-  // While a focus session is active, only reading-related shortcuts and
-  // the sidebar toggle pass through; navigation/library/forum hotkeys
-  // are silently ignored to discourage accidental tab-switching.
+  // during a focus session only reader shortcuts and the sidebar toggle pass through
   useEffect(() => {
     if (focusActive) {
       setShortcutGate(
@@ -104,8 +81,7 @@ export function AppLayout() {
     return undefined;
   }, [focusActive]);
 
-  // Receive PDFs handed off by the OS via the PWA File Handlers API
-  // ("Open with Pnyxy") and route them straight into the reader.
+  // PDFs handed off by the OS via the PWA File Handlers API, route them into the reader
   const { openFile } = useOpenDocument();
   useEffect(() => {
     setLaunchedFilesListener((files) => {
@@ -119,79 +95,54 @@ export function AppLayout() {
     return <BannedScreen />;
   }
 
-  // Sidebar (desktop/tablet) is shown on most routes, but on the
-  // reader we *fully* hide it when collapsed instead of leaving the
-  // narrow rail visible. Reading benefits from every horizontal pixel,
-  // and the reader's own toolbar grows a hamburger that expands the
-  // sidebar back when the user wants to navigate away.
-  const hideSidebarForReader = isReaderRoute && sidebarCollapsed;
+  // on the reader, fully hide the sidebar when collapsed instead of leaving the
+  // narrow rail. Desktop only: on mobile the <Sidebar/> renders just an
+  // off-screen drawer (no rail), and it must stay mounted so the reader
+  // toolbar's hamburger has something to slide open.
+  const hideSidebarForReader = isReaderRoute && sidebarCollapsed && isDesktop;
   const showSidebar = !focusActive && !hideSidebarForReader;
-  // Bottom nav hides on the two routes the user spends the most time
-  // on (reader, chat) — the persistent rail competes with the page's
-  // own content there. On reader the user has a toolbar with its own
-  // nav-drawer button; on chat the mobile header carries the same.
-  // Everywhere else the rail is the one-tap way to switch surfaces.
   const showBottomNav = !focusActive && !isReaderRoute && !isChatRoute;
-  // Mobile-only top bar carries the brand + the avatar/profile menu
-  // (Profile, Settings, Sign-out). Hidden on the reader since
-  // ReaderToolbar already occupies that space, and during a focus
-  // session for an uninterrupted reading surface. Also hidden on chat:
-  // /chat is a full-screen feature route whose own header IS the single
-  // contextual top bar (HIG/M3: one bar per screen, not two stacked).
-  // The chat's conversation drawer carries a nav trigger so the global
-  // Sidebar overlay (Library / Profile / Settings) stays one tap away.
+  // hidden on reader (ReaderToolbar) and chat (its own header is the single top bar)
   const showMobileTopBar =
     !isReaderRoute && !isChatRoute && !focusActive && !showFooter;
   const sidebarMargin = showSidebar && isDesktop;
 
   return (
-    <div className="min-h-screen bg-bg-primary">
-      {/* Slim offline status bar pinned to the very top. Renders
-          nothing when online; when offline it sits above the
-          MobileTopBar so it's always visible. */}
+    <div className="min-h-dvh bg-bg-primary">
+      {/* renders nothing when online */}
       <OfflineBanner />
       {showSidebar && <Sidebar />}
       {showMobileTopBar && <MobileTopBar />}
-      {/* main is flex-col + min-h-screen so a flex-1 content wrapper
-          stretches to fill the viewport on short pages — that's what
-          pins the footer (and the bottom-nav spacer) to the visual
-          bottom on About / Privacy / Terms / Help. */}
+      {/* flex-col + min-h-screen lets the flex-1 wrapper pin the footer to the bottom on short pages */}
       <main
         className={cn(
           "flex flex-col transition-[margin] duration-200 ease-out",
-          // On the reader AND chat routes we lock the main element
-          // to the dynamic viewport height and hide overflow. The
-          // browser chrome on mobile (URL bar) makes 100vh > 100dvh,
-          // so a `min-h-screen` main would let the body scroll a
-          // couple of dozen pixels, exposing a black strip beneath
-          // the route's own bottom bar / composer and pushing the
-          // route's top bar off-screen. Locking to 100dvh +
-          // overflow-hidden kills the scroll. Chat also benefits
-          // because the composer should always sit just above the
-          // global BottomNav, not below the visible area.
+          // lock reader/chat to 100dvh + overflow-hidden: min-h-screen (100vh) lets mobile URL-bar chrome scroll the body and expose a black strip below the composer
           isReaderRoute || isChatRoute
             ? "h-[100dvh] overflow-hidden"
-            : "min-h-screen",
+            : "min-h-dvh",
           sidebarMargin && (sidebarCollapsed ? "ml-sidebar-collapsed" : "ml-sidebar-expanded"),
-          // Push content below the mobile top bar so it doesn't sit
-          // behind the fixed header. Reader is excluded above so it
-          // gets to use the full vertical space.
+          // push content below the fixed mobile top bar
           showMobileTopBar && "pt-12 md:pt-0",
         )}
+        // offset below the custom title bar (--titlebar-h is 0 in the browser)
+        style={{
+          marginTop: "var(--titlebar-h)",
+          ...(isReaderRoute || isChatRoute
+            ? { height: "calc(100dvh - var(--titlebar-h))" }
+            : { minHeight: "calc(100dvh - var(--titlebar-h))" }),
+        }}
       >
         <div
           className={cn(
             "flex-1",
             useFlushContent ? "p-0" : "p-4 md:p-6",
+            // library-only: flex column so LibraryPage (flex-1) grows to
+            // fill and its bottom bar pins via mt-auto on short grids.
+            isLibraryRoute && "flex flex-col",
           )}
         >
-          {/* Suspense fallback for lazy-loaded route chunks. Most
-              non-eager routes (reader, chat, book tabs, settings,
-              quizzes, …) live in their own chunks and fall through
-              here while their JS downloads on the first visit. The
-              spinner is intentionally minimal — same dark bg as the
-              page so the transition reads as "still loading" not
-              "different screen." */}
+          {/* fallback for lazy-loaded route chunks */}
           <Suspense
             fallback={
               <div className="flex h-full min-h-[40vh] items-center justify-center">
@@ -207,11 +158,7 @@ export function AppLayout() {
           </Suspense>
         </div>
         {showFooter && <Footer />}
-        {/* Spacer so app routes' content + bottom-nav don't overlap
-            on mobile. Footer routes already render their own block
-            and we accept it sitting partly behind the nav there.
-            The reader has its own internal padding handling, so
-            skip the spacer there. */}
+        {/* spacer so content doesn't sit under the bottom nav on mobile */}
         {showBottomNav && !showFooter && !isReaderRoute && (
           <div aria-hidden className="h-16 md:h-0" />
         )}

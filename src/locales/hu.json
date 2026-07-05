@@ -459,7 +459,9 @@
         "title": "Saját bővítmények",
         "description": "A fejlesztők saját bővítményekkel egészíthetik ki a Pnyxy-t. Ezek homokozóban futnak, és a közösségi registry-n keresztül megoszthatók."
       }
-    }
+    },
+    "themeLight": "Váltás világosra",
+    "themeDark": "Váltás sötétre"
   },
   "browse": {
     "title": "Katalógus",
@@ -584,6 +586,7 @@
       "failed": "Feltöltés sikertelen",
       "success": "Feltöltve",
       "retry": "Újra",
+      "cancel": "Feltöltés megszakítása",
       "unsupportedFormat": "A {{formats}} formátum még nem támogatott. Feljegyeztük, hogy érdekel — ha elég sokan kérik, beletesszük."
     },
     "actions": {
@@ -1199,7 +1202,9 @@
       "moveToFolder": "Áthelyezés ide: {{name}}",
       "moveToRoot": "Áthelyezés a gyökérbe",
       "root": "Gyökér (nincs mappa)",
-      "dropToRoot": "Húzd ide a gyökérbe helyezéshez"
+      "dropToRoot": "Húzd ide a gyökérbe helyezéshez",
+      "newSubfolder": "Új almappa",
+      "openInLibrary": "Megnyitás a könyvtárban"
     },
     "flashcards": {
       "title": "Mentés tanulókártyaként",

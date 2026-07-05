@@ -31,7 +31,7 @@ export function setUserCss(css: string) {
   try {
     localStorage.setItem(STORAGE_KEY, css);
   } catch {
-    // localStorage can throw in private mode / out-of-quota — fall
+    // localStorage can throw in private mode / out-of-quota, fall
     // through and still apply so the user at least sees the effect
     // for the current session.
   }

@@ -24,7 +24,7 @@ interface AiGeneratePanelProps {
   /** When set (and uploadedBookId is not), "From book" mode is backed by
    *  the catalog book's ia_id or download_url, provided it resolves to a PDF. */
   catalogBookId?: string | null;
-  /** Start the panel expanded — used when the editor is opened from a
+  /** Start the panel expanded, used when the editor is opened from a
    *  "Generate from this book" shortcut on the book Overview page so
    *  the user lands directly on the form instead of having to click
    *  the panel header first. */

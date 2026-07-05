@@ -70,7 +70,7 @@ export function ProfilePage() {
     }
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
-    // uploadFile is stable enough — it only reads from refs/setState.
+    // uploadFile is stable enough, it only reads from refs/setState.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -6,7 +6,7 @@ import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 import { useBookmarkStore, BOOKMARK_COLORS, type Bookmark } from "@/stores/bookmark-store";
 
 interface BookmarksPanelProps {
-  /** Hide the "Add bookmark" row — useful when the panel is embedded
+  /** Hide the "Add bookmark" row, useful when the panel is embedded
    *  somewhere that already has its own add affordance. */
   hideAddRow?: boolean;
   /** Optional: custom click handler. Defaults to jumping to the page

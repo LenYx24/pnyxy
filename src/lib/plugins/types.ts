@@ -1,16 +1,6 @@
-/**
- * Plugin system types.
- *
- * IMPORTANT: every parameter and return value on `PluginAPI` MUST be
- * JSON-serializable. This single rule lets the v1 sandboxed runtime
- * (cross-origin iframe + JSON-RPC) and a future native runtime
- * (dynamic import in-process) share one `PluginAPI` surface without
- * any special-case glue. Functions, DOM nodes, class instances, and
- * non-finite numbers are forbidden as arguments/returns. Use string
- * tokens (e.g. `commandId`) instead of callbacks where possible;
- * subscriptions return numeric handles via the `events.on` shim
- * built host-side.
- */
+// Every param/return on PluginAPI must be JSON-serializable (it round-trips
+// over JSON-RPC to a cross-origin iframe). No functions/DOM nodes/class
+// instances/non-finite numbers. Use string tokens instead of callbacks.
 
 export type ApiVersion = 1;
 
@@ -31,17 +21,9 @@ export interface PluginManifest {
   /** URL of the plugin bundle. Unused for core plugins. */
   entry: string;
   permissions?: Permission[];
-  /**
-   * Acceptable runtimes. Defaults to `["sandboxed"]`. A future native
-   * runtime (Tauri-only) will read this list to opt in.
-   */
+  /** Acceptable runtimes. Defaults to ["sandboxed"]. */
   runtime?: Array<"sandboxed" | "native">;
-  /**
-   * Whether the plugin should be enabled out of the box for new users.
-   * Used by the settings-store migration. Most core plugins are
-   * opt-in; flip this for ones that are too useful to hide behind
-   * the plugin manager (e.g. the global ? cheatsheet).
-   */
+  /** Enabled out of the box for new users (read by settings-store migration). */
   defaultEnabled?: boolean;
 }
 
@@ -63,13 +45,8 @@ export interface PluginAPI {
     version: string;
   };
   commands: {
-    /**
-     * Register a command. Plugins reference it by id from the host
-     * (e.g. shortcut bindings). The function is called in the plugin
-     * runtime when `execute(id)` is invoked.
-     */
+    /** Register a command; host references it by id. Runs in-runtime on execute(id). */
     register(id: string, label: string): Promise<void>;
-    /** Trigger a previously-registered command. */
     execute(id: string): Promise<void>;
   };
   storage: {
@@ -82,30 +59,19 @@ export interface PluginAPI {
     show(message: string): Promise<void>;
   };
   events: {
-    /**
-     * Subscribe to a host event. Returns a numeric subscription id;
-     * pass it to `off` to unsubscribe. (Cannot return a function
-     * because everything must round-trip JSON.)
-     */
+    /** Subscribe; returns a numeric id (not a function, must be JSON) to pass to off. */
     on(name: HostEventName): Promise<number>;
     off(subscriptionId: number): Promise<void>;
   };
 }
 
-/**
- * Lifecycle entry points a plugin module is expected to expose.
- * Only `onLoad` is required; `onUnload` is optional cleanup.
- */
+/** Lifecycle entry points a plugin module exposes. Only onLoad is required. */
 export interface PluginModule {
   onLoad?: (api: PluginAPI, ctx: { manifest: PluginManifest }) => void | Promise<void>;
   onUnload?: () => void | Promise<void>;
-  /**
-   * Map of command id → handler. Populated when `commands.register`
-   * is called inside `onLoad`. Used by the host to dispatch
-   * `commands.execute` back into the plugin.
-   */
+  /** Dispatches commands.execute back into the plugin by id. */
   handleCommand?: (id: string) => void | Promise<void>;
-  /** Receive a host event. Wired up by the runtime; plugins shouldn't define this manually. */
+  /** Wired up by the runtime; plugins shouldn't define this manually. */
   handleEvent?: (subscriptionId: number, payload: unknown) => void;
 }
 

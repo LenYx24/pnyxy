@@ -27,7 +27,7 @@ export interface ImportResult {
 /**
  * Map an ImportResult to a CatalogBookInsert ready for
  * browse-store.addBookToCatalog(). The catalog accepts a handful of
- * source enum values — we collapse PG / MEK into "user_submitted"
+ * source enum values, we collapse PG / MEK into "user_submitted"
  * with a prefixed source_id since those aren't in the enum yet.
  */
 export function resultToCatalogInsert(r: ImportResult): CatalogBookInsert {
@@ -49,7 +49,7 @@ export function resultToCatalogInsert(r: ImportResult): CatalogBookInsert {
   };
 }
 
-// ── Open Library search ───────────────────────────────────
+// Open Library search
 
 interface OLDoc {
   key: string;
@@ -104,7 +104,7 @@ export async function searchOpenLibrary(
     .filter((r): r is ImportResult => r !== null);
 }
 
-// ── Project Gutenberg via Gutendex ────────────────────────
+// Project Gutenberg via Gutendex
 
 interface GDBook {
   id: number;
@@ -156,7 +156,7 @@ export async function searchGutenberg(
     .filter((r): r is ImportResult => r !== null);
 }
 
-// ── Source registry ──────────────────────────────────────
+// Source registry
 
 export interface SourceMeta {
   id: ImportSourceId;

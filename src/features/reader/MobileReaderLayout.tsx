@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
-import { PromptModal } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
 import { useSearchStore } from "@/stores/search-store";
@@ -37,13 +36,7 @@ interface MobileReaderLayoutProps {
   onToggleZenMode: () => void;
 }
 
-/**
- * Mobile-only reader layout. Owns the overlay toolbar, the bottom
- * action bar, the sliding panels (TOC / comments / AI chat), and the
- * touch-gesture wiring (swipe to turn pages, pinch to zoom, single-
- * tap to toggle chrome, double-tap to zoom). The desktop / tablet
- * surface uses Dockview instead and is rendered from ReaderPage.
- */
+/** Mobile reader layout: overlay toolbar, bottom bar, sliding panels, touch gestures. Desktop uses Dockview. */
 export function MobileReaderLayout({
   isFullscreen,
   onToggleFullscreen,
@@ -74,9 +67,7 @@ export function MobileReaderLayout({
     setMobileReaderPanel(mobileReaderPanel === "aiChat" ? "none" : "aiChat");
   }, [mobileReaderPanel, setMobileReaderPanel]);
 
-  // On mobile we don't have Dockview, so a whiteboard opens as a full
-  // page via the standalone /whiteboards/:id route. Closing the panel
-  // first prevents the slide-over from being stuck open after navigate.
+  // whiteboard opens as a full page route on mobile; close panel first so the slide-over isn't stuck open
   const handleCreateWhiteboard = useCallback(() => {
     const activeDocId = useReaderStore.getState().activeDocumentId ?? undefined;
     const id = useWhiteboardStore
@@ -104,33 +95,7 @@ export function MobileReaderLayout({
     useBookmarkStore.getState().addBookmark(doc.currentPage);
   }, []);
 
-  // Page-jump prompt — surfaces the desktop toolbar's "page X / Y"
-  // input on mobile, where the toolbar is hidden by default. Tapping
-  // the bottom bar's "X / Y" item opens this; the user types a page
-  // number and the prompt's onSubmit jumps the active doc. Two
-  // primitive selectors instead of one object selector — Zustand
-  // would otherwise see a fresh literal on every render and loop.
-  const [pageJumpOpen, setPageJumpOpen] = useState(false);
-  const currentPage = useReaderStore(
-    (s) => s.getActiveDoc()?.currentPage ?? 0,
-  );
-  const totalPages = useReaderStore(
-    (s) => s.getActiveDoc()?.totalPages ?? 0,
-  );
-  const handleJumpToPage = useCallback(() => {
-    setPageJumpOpen(true);
-  }, []);
-  const handleJumpToPageSubmit = useCallback((value: string) => {
-    const n = Number.parseInt(value, 10);
-    if (!Number.isFinite(n) || n < 1) return;
-    const doc = useReaderStore.getState().getActiveDoc();
-    if (!doc) return;
-    const clamped = Math.max(1, Math.min(doc.totalPages, n));
-    useReaderStore.getState().goToPage(clamped);
-  }, []);
-
-  // Close panels with ESC. On mobile this matters for iPad/Android
-  // users with an external keyboard; on phone it's cheap insurance.
+  // ESC closes panels (external keyboards on tablets)
   useEffect(() => {
     if (mobileReaderPanel === "none") return;
     const handler = (e: KeyboardEvent) => {
@@ -142,22 +107,12 @@ export function MobileReaderLayout({
     return () => window.removeEventListener("keydown", handler);
   }, [mobileReaderPanel, setMobileReaderPanel]);
 
-  // Android hardware back / system back gesture closes the active
-  // mobile sliding panel (TOC / comments / AI chat) before falling
-  // through to the browser's default. Without this, pressing back
-  // while a panel is open would navigate the user out of the reader
-  // entirely.
+  // Android back gesture closes the open panel instead of leaving the reader
   useBackToClose(
     mobileReaderPanel !== "none",
     useCallback(() => setMobileReaderPanel("none"), [setMobileReaderPanel]),
   );
 
-  // Tap-to-toggle chrome (ReadEra pattern). A click on the viewer
-  // area that isn't on an interactive element, isn't the tail of a
-  // selection drag, and isn't during an open context menu toggles the
-  // toolbar visibility. onClick fires only on completed taps — drags
-  // and scrolls don't trigger it — so this is safe for PDF.js's text
-  // selection + highlight flows.
   const toggleMobileChromeHidden = useUIStore(
     (s) => s.toggleMobileChromeHidden,
   );
@@ -166,23 +121,18 @@ export function MobileReaderLayout({
   const chromeVisible = !mobileChromeHidden || mobileReaderPanel !== "none";
   const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
 
-  // Start each reader session with chrome hidden — the user opens a
-  // book to read, not to stare at the toolbar. Resets on every new
-  // document so an explicit reveal doesn't persist across books.
+  // start each doc with chrome hidden
   useEffect(() => {
     setMobileChromeHidden(true);
   }, [activeDocumentId, setMobileChromeHidden]);
 
-  // Touch gestures: horizontal swipe → page turn (PDF only), pinch →
-  // zoom. Swipe disabled on EPUB/markdown/text since they don't have
-  // discrete pages in the same sense.
+  // swipe page-turns are PDF-only; EPUB/markdown/text lack discrete pages
   const nextPage = useReaderStore((s) => s.nextPage);
   const prevPage = useReaderStore((s) => s.prevPage);
   const isPaginated = useReaderStore(
     (s) => s.getActiveDoc()?.meta.capabilities.paginated ?? false,
   );
-  // Once the user has zoomed in past ~110%, they want to pan
-  // horizontally like a map; swipe-to-turn-page would fight that.
+  // past ~110% zoom, horizontal drag should pan not turn pages
   const isZoomedIn = useReaderStore(
     (s) =>
       (s.getActiveDoc()?.zoomMode === "custom" &&
@@ -192,11 +142,7 @@ export function MobileReaderLayout({
 
   const viewerRef = useRef<HTMLDivElement>(null);
 
-  // Single-tap toggles the chrome (toolbar / bottom bar). Skipped on
-  // taps that landed on an interactive child and on taps that happen
-  // while the user has a text selection — pdf.js's selection handles
-  // can otherwise dismiss themselves before the user can interact
-  // with them.
+  // single-tap toggles chrome; skip interactive targets and active text selections (pdf.js selection handles)
   const handleSingleTap = useCallback(
     ({ target }: TapEvent) => {
       if (mobileReaderPanel !== "none") return;
@@ -210,18 +156,14 @@ export function MobileReaderLayout({
       }
       const selection = window.getSelection();
       if (selection && selection.toString().length > 0) return;
-      // Skip when the annotation context menu is up — tapping
-      // outside it should dismiss the menu (handled elsewhere), not
-      // also toggle the reader chrome.
+      // don't toggle chrome while the annotation context menu is up
       if (useAnnotationStore.getState().contextMenu.visible) return;
       toggleMobileChromeHidden();
     },
     [mobileReaderPanel, toggleMobileChromeHidden],
   );
 
-  // Double-tap toggles between 1× (fit-width) and 2× zoom anchored at
-  // the tap point. Drives the live tray controller directly — no
-  // intermediate React state, the visual lands in one paint frame.
+  // double-tap toggles 1x/2x zoom anchored at tap point, driving the tray controller directly
   const handleDoubleTap = useCallback(
     ({ x, y, target }: TapEvent) => {
       if (mobileReaderPanel !== "none") return;
@@ -261,10 +203,7 @@ export function MobileReaderLayout({
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
-      {/* Toolbar is an absolute overlay so the viewer keeps the full
-          screen even while chrome is visible. Slides off-screen when
-          the user hides chrome. Always visible while a panel is open
-          (so the user has orientation). */}
+      {/* absolute overlay so the viewer keeps full screen; slides off when chrome hidden */}
       <div
         className={cn(
           "absolute left-0 right-0 top-0 z-20 transition-transform duration-200 ease-out",
@@ -302,14 +241,9 @@ export function MobileReaderLayout({
         onBookmark={handleBookmark}
         onToggleComments={handleToggleComments}
         onToggleAiChat={handleToggleAiChat}
-        pageCurrent={currentPage > 0 ? currentPage : undefined}
-        pageTotal={totalPages > 0 ? totalPages : undefined}
-        onJumpToPage={totalPages > 0 ? handleJumpToPage : undefined}
       />
 
-      {/* Backdrop for overlay panels — covers the full viewport
-          (including the safe-inset strip at the top) so taps anywhere
-          outside the panel dismiss it. */}
+      {/* backdrop: covers full viewport incl. top safe-inset so any outside tap dismisses */}
       {mobileReaderPanel !== "none" && (
         <div
           className="absolute inset-0 z-30 bg-black/40"
@@ -317,18 +251,14 @@ export function MobileReaderLayout({
         />
       )}
 
-      {/* Mobile overlay panels. The wrappers are always mounted so
-          CSS can animate the slide; the contents are mounted only
-          while the corresponding panel is active. That keeps side
-          effects (scroll-into-view, textarea resize, visualViewport
-          listeners in AiChatPanelContent) from firing on every reader
-          render — previously those leaked onto the main view on
-          Android WebView. */}
+      {/* Wrappers stay mounted so CSS animates the slide; contents mount only when active,
+          keeping their side effects (scroll-into-view, textarea resize, visualViewport listeners)
+          off every reader render. */}
 
       {/* TOC panel - slides from left */}
       <div
         className={cn(
-          "absolute left-0 top-0 bottom-0 z-40 flex w-full flex-col border-r border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pl-safe-left",
+          "absolute left-0 top-0 bottom-0 z-40 flex w-full flex-col border-r border-glass-border bg-bg-secondary transition-transform duration-300 pt-safe-top pb-safe-bottom pl-safe-left",
           mobileReaderPanel === "toc"
             ? "translate-x-0"
             : "-translate-x-full pointer-events-none",
@@ -364,7 +294,9 @@ export function MobileReaderLayout({
       {/* Comments panel - slides from right */}
       <div
         className={cn(
-          "absolute right-0 top-0 bottom-0 z-40 flex w-full flex-col border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
+          // opaque (no backdrop-blur): a full-viewport blur repaints on every
+          // keyboard-driven visualViewport resize, which made the composer lag
+          "absolute right-0 top-0 bottom-0 z-40 flex w-full flex-col border-l border-glass-border bg-bg-secondary transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
           mobileReaderPanel === "comments"
             ? "translate-x-0"
             : "translate-x-full pointer-events-none",
@@ -394,7 +326,9 @@ export function MobileReaderLayout({
       {/* AI Chat panel - slides from right */}
       <div
         className={cn(
-          "absolute right-0 top-0 bottom-0 z-40 flex w-full flex-col border-l border-glass-border bg-bg-secondary/95 backdrop-blur-xl transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
+          // opaque (no backdrop-blur): a full-viewport blur repaints on every
+          // keyboard-driven visualViewport resize, which made the composer lag
+          "absolute right-0 top-0 bottom-0 z-40 flex w-full flex-col border-l border-glass-border bg-bg-secondary transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
           mobileReaderPanel === "aiChat"
             ? "translate-x-0"
             : "translate-x-full pointer-events-none",
@@ -405,16 +339,6 @@ export function MobileReaderLayout({
         )}
       </div>
 
-      <PromptModal
-        open={pageJumpOpen}
-        title={t("reader.toolbar.jumpToPageTitle")}
-        body={t("reader.toolbar.jumpToPageBody", { total: totalPages })}
-        defaultValue={String(currentPage)}
-        placeholder={String(totalPages)}
-        confirmLabel={t("reader.toolbar.jumpToPageConfirm")}
-        onClose={() => setPageJumpOpen(false)}
-        onSubmit={handleJumpToPageSubmit}
-      />
     </div>
   );
 }

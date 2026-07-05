@@ -3,29 +3,11 @@ import { logError } from "@/lib/logger";
 import type { ResourceRef } from "@/types/roadmap";
 
 /**
- * Match AI-cited book references against the user's library
- * (uploaded PDFs in `books`) and the public catalog (`catalog_books`).
- *
- * Match heuristic (tier-ordered):
- *   1. Library wins over catalog when both match — the user already
- *      has the file, so the link drives them into a fully-featured
- *      reader instead of a "download from catalog" stub.
- *   2. Title + author both present → require both to share at least
- *      one normalised token. Title-only → require title to share two
- *      tokens (or one if it's distinctive — handled by minimum-length
- *      filter on the tokenizer).
- *   3. No match → `{ source: "none" }`. The UI shows the citation
- *      greyed out as info-only.
- *
- * Network: one ILIKE query per side, each running against a single
- * indexed column (`title`). All refs share the same two queries —
- * we then score each ref against the returned rows in memory.
- * Empty input → empty output.
+ * Match book references against the user's library (`books`) and the
+ * public catalog (`catalog_books`). Library wins over catalog when both
+ * match. Unmatched refs get `{ source: "none" }`.
  */
 
-/** @internal — exported so the scoring helpers can take a typed
- *  argument the unit tests can construct without importing internal
- *  Supabase types. */
 export interface LibraryRowForScoring {
   id: string;
   title: string | null;
@@ -33,7 +15,6 @@ export interface LibraryRowForScoring {
   file_hash: string | null;
 }
 
-/** @internal — exported for unit tests. See `LibraryRowForScoring`. */
 export interface CatalogRowForScoring {
   id: string;
   title: string | null;
@@ -47,14 +28,10 @@ const STOP_WORDS = new Set([
   "a", "az", "és", "egy", "vagy", "hogy",
 ]);
 
-/** @internal — exported only so the unit tests can pin the
- *  diacritic-stripping + stop-word + min-length semantics that the
- *  scoring functions depend on. Not part of the public surface. */
 export function tokenize(s: string): string[] {
   return s
     .toLowerCase()
-    // Strip diacritics so "Bevezetés" ≈ "bevezetes" — the Postgres
-    // ILIKE side won't help with accents, so we equalise here.
+    // strip diacritics: "Bevezetés" -> "bevezetes"
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
@@ -63,9 +40,7 @@ export function tokenize(s: string): string[] {
     .filter((tok) => tok.length >= 3 && !STOP_WORDS.has(tok));
 }
 
-/** Distinct, non-empty tokens common to both strings.
- *  @internal — exported for the unit tests; not part of the public
- *  module surface. */
+/** Distinct tokens common to both strings. */
 export function sharedTokens(a: string, b: string): Set<string> {
   const ta = new Set(tokenize(a));
   const tb = new Set(tokenize(b));
@@ -74,7 +49,6 @@ export function sharedTokens(a: string, b: string): Set<string> {
   return out;
 }
 
-/** @internal — exported for unit tests. */
 export function scoreLibrary(ref: ResourceRef, row: LibraryRowForScoring): number {
   if (!row.title) return 0;
   const titleHits = sharedTokens(ref.title, row.title).size;
@@ -88,7 +62,6 @@ export function scoreLibrary(ref: ResourceRef, row: LibraryRowForScoring): numbe
   return titleHits * 2 + authorBonus;
 }
 
-/** @internal — exported for unit tests. */
 export function scoreCatalog(ref: ResourceRef, row: CatalogRowForScoring): number {
   if (!row.title) return 0;
   const titleHits = sharedTokens(ref.title, row.title).size;
@@ -102,13 +75,11 @@ export function scoreCatalog(ref: ResourceRef, row: CatalogRowForScoring): numbe
   return titleHits * 2 + authorBonus;
 }
 
-const MIN_SCORE = 4; // ~ two title-token matches; one match + author bonus
+const MIN_SCORE = 4; // two title-token matches, or one match + author bonus
 
 /**
- * Resolve every reference's `match` field. Returns a new array — the
- * input is not mutated. Refs whose `kind` isn't "book" pass through
- * unchanged with `match: { source: "none" }` (we don't try to match
- * URL / YouTube refs against the library).
+ * Resolve every reference's `match` field. Returns a new array; input
+ * is not mutated. Non-book refs pass through as `{ source: "none" }`.
  */
 export async function lookupResources(
   refs: ResourceRef[],
@@ -120,10 +91,7 @@ export async function lookupResources(
     return refs.map((r) => ({ ...r, match: { source: "none" as const } }));
   }
 
-  // One coarse fetch each side — Postgres can hold the user's full
-  // library and the catalog in memory easily for this scoring pass,
-  // and N round-trips per reference would be far slower over a
-  // typical residential network.
+  // one coarse fetch per side, then score in memory
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -167,11 +135,7 @@ export async function lookupResources(
         match: {
           source: "library" as const,
           bookId: bestLib.row.id,
-          // The reader keys docs by file_hash for uploaded PDFs; fall
-          // back to the row id when file_hash is missing (very old
-          // rows or non-PDF formats). That match still drives the
-          // book-page link; only auto-progress depends on docId
-          // matching `book_resume_state.doc_id`.
+          // reader keys uploaded PDFs by file_hash; fall back to row id when missing
           docId: bestLib.row.file_hash ?? bestLib.row.id,
         },
       };

@@ -16,7 +16,7 @@ interface ModelInfoModalProps {
  * cost per turn, and routing notes (free Pnyxy quota vs. own key).
  *
  * Portaled to document.body so the fixed positioning is truly
- * viewport-relative — an earlier inline render was being scoped by
+ * viewport-relative, an earlier inline render was being scoped by
  * a transformed ancestor of the composer, which on mobile pushed
  * the bottom of the modal off-screen.
  */

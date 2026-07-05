@@ -18,7 +18,7 @@ const SHIFT = "1.25rem";
 
 /**
  * Reveals its children with a fade + slide animation when it enters the
- * viewport. Pure CSS — no animation library, just IntersectionObserver
+ * viewport. Pure CSS, no animation library, just IntersectionObserver
  * triggering a one-shot transition.
  *
  * Falls back to "always visible" when IntersectionObserver isn't

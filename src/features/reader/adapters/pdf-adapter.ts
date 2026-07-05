@@ -146,7 +146,7 @@ export function createPdfAdapter(): DocumentAdapter {
           if (m.index === undefined) continue;
           const matchStart = m.index;
           const matchEnd = matchStart + m[0].length;
-          if (matchEnd === matchStart) continue; // zero-width match — skip
+          if (matchEnd === matchStart) continue; // zero-width match, skip
 
           const rects: PageRect[] = [];
           for (const r of ranges) {
@@ -156,7 +156,7 @@ export function createPdfAdapter(): DocumentAdapter {
             const ty = t[5];
             // pdfjs uses bottom-left origin; flip to top-left for CSS coords
             const yTop = viewport.height - ty - r.item.height;
-            // pdfjs returns text items as RUNS — a single item can hold
+            // pdfjs returns text items as RUNS, a single item can hold
             // many characters ("The cat sat on the mat"). A whole-item
             // rect would paint that entire run for a match on just
             // "cat". Slice the rect down to the matched substring's
@@ -235,7 +235,7 @@ export function createPdfAdapter(): DocumentAdapter {
 
     async extractReflow(options) {
       if (!doc) {
-        // Caller hit the toggle before the doc fully loaded — return
+        // Caller hit the toggle before the doc fully loaded, return
         // an empty result rather than throw; the view's loading state
         // will catch up once `load` resolves.
         return { blocks: [], totalPages: 0 };

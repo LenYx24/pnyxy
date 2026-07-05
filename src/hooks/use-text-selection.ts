@@ -2,26 +2,16 @@ import { useEffect } from "react";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import type { PageRect, TextSelection } from "@/types/annotation";
 
-/**
- * Belt-and-suspenders clamp for selection over-extension. pdf.js's
- * text layer occasionally lets a drag-select snap its endpoint to
- * the layer container (instead of an individual span), which makes
- * the range engulf every remaining span on the page. The CSS rule
- * `:not(span) { user-select: none }` blocks most cases visually; this
- * runs at read-time to repair any range that still slipped through,
- * so we never hand a "whole-page" selection to the context menu.
- */
+// pdf.js sometimes snaps a drag-select endpoint to the text layer container
+// instead of a span, which makes the range swallow the whole page. Clamp it back.
 function clampOverExtendedSelection(sel: Selection): void {
-  // Only repair a single drag-select. For a Ctrl/⌘-click multi-range
-  // selection we must NOT touch it — the removeAllRanges()/addRange()
-  // repair below would collapse it down to a single range and drop the
-  // other fragments.
+  // Single range only. A Ctrl/click multi-range selection must be left alone or
+  // the removeAllRanges/addRange below collapses it to one range.
   if (sel.isCollapsed || sel.rangeCount !== 1) return;
   const range = sel.getRangeAt(0);
   const endNode = range.endContainer;
 
-  // The only "valid" endpoint is inside a span's text node. Anything
-  // landing on the textContent layer itself is an over-extension.
+  // Valid endpoints live inside a span text node; the layer itself means over-extension.
   const endLayer =
     endNode instanceof Element &&
     endNode.classList?.contains("react-pdf__Page__textContent")
@@ -29,9 +19,7 @@ function clampOverExtendedSelection(sel: Selection): void {
       : null;
   if (!endLayer) return;
 
-  // Probe the rightmost user-visible rect to find which span the
-  // user actually meant to reach. A small inset from the right edge
-  // lands inside the span instead of past it.
+  // Probe the rightmost rect (inset 2px so we land inside the span, not past it).
   const clientRects = range.getClientRects();
   if (clientRects.length === 0) return;
   const lastRect = clientRects[clientRects.length - 1];
@@ -43,9 +31,7 @@ function clampOverExtendedSelection(sel: Selection): void {
 
   const lastChild = span.lastChild;
   if (!(lastChild instanceof Text)) return;
-  // Shrink the range to end at the span we just hit. Re-applying the
-  // range tells the browser to repaint the highlight, so the user
-  // also sees the clamp visually.
+  // Shrink to the hit span; re-applying the range repaints the highlight.
   range.setEnd(lastChild, lastChild.length);
   sel.removeAllRanges();
   sel.addRange(range);
@@ -57,10 +43,8 @@ function getSelectionData(): { selection: TextSelection; rects: PageRect[] } | n
 
   clampOverExtendedSelection(sel);
 
-  // Range 0 gates the "is this inside a PDF text layer?" check. The
-  // rect collection below walks EVERY range: a Ctrl/⌘-click selection
-  // is several disjoint ranges, and reading only range 0 was the bug
-  // where a multi-part selection only underlined its first fragment.
+  // Range 0 gates the "inside a PDF text layer?" check; rect collection below
+  // walks every range so multi-part (Ctrl/click) selections aren't truncated.
   const firstRange = sel.getRangeAt(0);
 
   const ancestor =
@@ -107,13 +91,8 @@ function getSelectionData(): { selection: TextSelection; rects: PageRect[] } | n
   return { selection: { text, rects }, rects };
 }
 
-/**
- * Find the highlight ID under a given point using coordinate-based hit testing.
- * Checks the annotation store's highlight rects against the point position
- * relative to the PDF page, since highlight elements have pointer-events: none.
- */
+// Coordinate hit-test for highlight under a point (highlight els are pointer-events: none).
 function findHighlightAtPoint(x: number, y: number): string | null {
-  // Find the page element at this point
   const els = document.elementsFromPoint(x, y);
   let pageEl: HTMLElement | null = null;
   for (const el of els) {
@@ -158,16 +137,11 @@ export function useTextSelection(
     if (!container) return;
 
     const handleMouseUp = (e: MouseEvent) => {
-      // Don't show on right-click (handled by contextmenu event)
+      // right-click is handled by the contextmenu event
       if (e.button === 2) return;
 
-      // Mirror the right-click path: probe for BOTH a selection and
-      // a highlight at the cursor and pass both to the menu. Without
-      // probing both, a click-on-highlight that happens while a stale
-      // text selection from earlier is still alive would land in the
-      // selection branch and never expose the "Remove Highlight"
-      // entry. Showing them together keeps the menu honest about
-      // what actions apply to what's under the cursor.
+      // Probe both selection and highlight so a click-on-highlight with a stale
+      // text selection still exposes the "Remove Highlight" entry.
       const data = getSelectionData();
       const highlightId = findHighlightAtPoint(e.clientX, e.clientY);
       if (data || highlightId) {
@@ -182,16 +156,8 @@ export function useTextSelection(
       }
     };
 
-    // Mobile path. Selection on touch devices completes on touchend
-    // rather than mouseup; long-press → drag-to-extend → release.
-    //
-    // Was: blanket double-rAF wait so the selection state had a
-    // guaranteed two frames to settle. That added ~33ms of dead time
-    // even on platforms where the selection is already ready at
-    // touchend. Now: try synchronously first (zero delay common case),
-    // fall back to a single rAF only if nothing's there yet — covers
-    // the platforms where selectionchange lands one tick after
-    // touchend without penalising everyone else.
+    // Touch selection completes on touchend. Try synchronously, then fall back to
+    // one rAF for platforms where selectionchange lands a tick after touchend.
     const handleTouchEnd = (e: TouchEvent) => {
       const touch = e.changedTouches[0];
       if (!touch) return;
@@ -231,11 +197,11 @@ export function useTextSelection(
             highlightId,
           );
       }
-      // Otherwise, let the browser's default context menu appear
+      // else let the native context menu show
     };
 
     const handleMouseDown = (e: MouseEvent) => {
-      // Dismiss context menu if clicking outside it (left-click only)
+      // dismiss menu on left-click outside it
       if (e.button !== 0) return;
       const target = e.target as HTMLElement;
       if (!target.closest("[data-annotation-context-menu]")) {

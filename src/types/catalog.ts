@@ -1,6 +1,6 @@
 import type { BookStatusTag } from "./database";
 
-// ── Catalog book (shared public catalog) ────────────────────
+// Catalog book (shared public catalog)
 
 export type CatalogSource = "open_library" | "google_books" | "user_submitted";
 export type CatalogStatus = "pending" | "verified" | "rejected";
@@ -52,7 +52,7 @@ export interface CatalogBookInsert {
   download_url?: string | null;
 }
 
-// ── User library junction ───────────────────────────────────
+// User library junction
 
 export interface UserLibraryEntry {
   id: string;
@@ -70,7 +70,7 @@ export interface LibraryBookEntry {
   catalog_book: CatalogBook;
 }
 
-// ── Unified library items (discriminated union) ─────────────
+// Unified library items (discriminated union)
 
 export interface CatalogLibraryItem {
   source: "catalog";
@@ -91,7 +91,7 @@ export interface UploadedLibraryItem {
   book: {
     id: string;
     title: string;
-    /** Structured author list (migration 00048) — source of truth. */
+    /** Structured author list (migration 00048), source of truth. */
     authors: string[];
     /** Legacy joined display string, kept in sync with `authors`. */
     author: string | null;
@@ -110,7 +110,7 @@ export interface UploadedLibraryItem {
 
 export type UnifiedLibraryItem = CatalogLibraryItem | UploadedLibraryItem;
 
-// ── Download types ──────────────────────────────────────────
+// Download types
 
 export type DownloadFormat = "pdf" | "epub" | "txt";
 
@@ -120,7 +120,7 @@ export interface DownloadOption {
   label: string;
 }
 
-// ── Open Library API response types ─────────────────────────
+// Open Library API response types
 
 export type EbookAccess = "public" | "borrowable" | "printdisabled" | "no_ebook";
 

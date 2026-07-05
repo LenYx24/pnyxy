@@ -49,7 +49,7 @@ const KIND_META: Record<
 };
 
 /** Best-effort URL classification. The model is just a hint for the
- *  list icon — the user can edit it later. We default to 'article'
+ *  list icon, the user can edit it later. We default to 'article'
  *  for ordinary http(s) URLs (most "other" things people paste are
  *  blog posts) and 'other' only when nothing matches AND the URL
  *  shape is unusual.
@@ -181,7 +181,7 @@ export function ResourcesTab() {
       if (!user) return;
       const trimmedUrl = formUrl.trim();
       if (!trimmedUrl) return;
-      // Quick URL sanity check — defer the deep validation to the
+      // Quick URL sanity check, defer the deep validation to the
       // browser when the user clicks through.
       try {
         new URL(trimmedUrl);

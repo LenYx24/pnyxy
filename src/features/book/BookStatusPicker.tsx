@@ -18,7 +18,7 @@ import { useBook } from "./BookPageContext";
  * Small status-tag picker for the book overview. Toggle-on / toggle-off
  * pills for the six built-in statuses (Want to read, Reading, Done…).
  * Wraps the existing `tag-store` actions so adding the picker doesn't
- * duplicate any DB plumbing — same source of truth as the library.
+ * duplicate any DB plumbing, same source of truth as the library.
  *
  * For the tag-store helpers we only need `source` and the right id, so
  * we hand-build a minimal `UnifiedLibraryItem` shape rather than
@@ -38,7 +38,7 @@ export function BookStatusPicker() {
   const [pendingTag, setPendingTag] = useState<BookStatusTag | null>(null);
 
   // Build the minimal `UnifiedLibraryItem` shape tag-store reads.
-  // Only `source` + the right id are used — the rest of the fields
+  // Only `source` + the right id are used, the rest of the fields
   // would just be unused noise. The cast acknowledges this trim.
   const item = useMemo<UnifiedLibraryItem>(() => {
     if (data.source === "catalog") {

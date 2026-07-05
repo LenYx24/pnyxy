@@ -11,7 +11,7 @@ const SHELF_SIZE = 10;
 /**
  * Self-contained shelf that fetches the top N verified catalog books
  * for a given category via the category junction table. Renders
- * nothing when the category has no books — the Shelf component
+ * nothing when the category has no books, the Shelf component
  * already hides empty shelves, so categories with a small catalog
  * just silently disappear from the Home page.
  */

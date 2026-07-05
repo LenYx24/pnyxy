@@ -7,7 +7,7 @@ const COL_MIN = 50;
 const COL_MAX = 360;
 
 /**
- * Resizable column header — a label cell with a 4px grab strip on its
+ * Resizable column header, a label cell with a 4px grab strip on its
  * right edge. Mouse-down on the strip starts a window-level drag that
  * tracks deltaX and commits a clamped new width via `onResize`. When
  * `onResize` is omitted (e.g. preview/test mounts without a setter),

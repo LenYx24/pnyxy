@@ -5,7 +5,7 @@ import type { Note } from "@/stores/note-store";
  *
  * The note's body is already Markdown, so the only thing we add is an
  * H1 title header when the note has a title. This keeps the export
- * round-trippable and openable in any text editor — the anti-vendor-
+ * round-trippable and openable in any text editor, the anti-vendor-
  * lock-in goal: a note is just a `.md` file the user fully owns.
  */
 export function noteToMarkdown(note: Pick<Note, "title" | "content">): string {

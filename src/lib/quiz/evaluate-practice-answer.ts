@@ -4,7 +4,7 @@ const MAX_EXAM_CONTEXT_CHARS = 8_000;
 
 /** Streamed Socratic feedback for a student's practice answer.
  *
- * Pedagogical contract — written into the system prompt:
+ * Pedagogical contract, written into the system prompt:
  *   - DO NOT just hand over the full solution. The Bastani et al.
  *     PNAS 2025 result on unrestricted-LLM math practice showed
  *     students gain practice-time but lose exam-time when the AI
@@ -34,11 +34,11 @@ interface EvaluateArgs {
   /** The student's typed answer. May be empty (the prompt makes the
    *  AI nudge them to attempt instead of refusing outright). */
   userAnswer: string;
-  /** Full extracted exam text — the model uses this as background
+  /** Full extracted exam text, the model uses this as background
    *  context but should not regurgitate it. Hard-capped so a long
    *  multi-page paper doesn't blow the prompt budget. */
   examContext: string;
-  /** Cancel token — wired through to fetch / SDK so the user pressing
+  /** Cancel token, wired through to fetch / SDK so the user pressing
    *  "stop" or closing the modal stops the in-flight stream. */
   signal?: AbortSignal;
 }
@@ -78,7 +78,7 @@ export async function* evaluatePracticeAnswer(
 }
 
 /** Quick verdict-line parser. Returns null if the model hasn't
- *  written one yet — used to colour the feedback panel as the
+ *  written one yet, used to colour the feedback panel as the
  *  stream lands. */
 export function parseVerdict(
   feedback: string,

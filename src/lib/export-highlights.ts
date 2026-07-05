@@ -2,16 +2,7 @@ import type { Highlight, Comment, HighlightColor } from "@/types/annotation";
 import type { StoredBookmark } from "@/lib/annotation-storage";
 import type { DocumentMeta } from "@/types/document";
 
-/**
- * Lowest page number a highlight covers. Highlights span one or more
- * rects (a selection that wraps lines becomes several rects), each
- * with its own `pageNum`. For ordering and labelling we treat the
- * highlight as "starting" at its earliest page.
- *
- * Falls back to 1 when the rects array is empty — shouldn't happen
- * in practice (no selection = no save), but keeps the export
- * deterministic instead of throwing.
- */
+// earliest page a highlight's rects touch; 1 if empty
 function highlightPage(h: Highlight): number {
   let min = Number.POSITIVE_INFINITY;
   for (const r of h.selection.rects) {
@@ -40,11 +31,7 @@ function isoDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/**
- * Group comments under the highlight they're attached to. Returns a
- * map keyed by highlight id (with `null` for free-floating comments
- * that have no parent highlight).
- */
+// bucket comments by their parent highlight id; parentless ones go to freestanding
 function indexCommentsByHighlight(
   comments: Comment[],
 ): { byHighlight: Map<string, Comment[]>; freestanding: Comment[] } {
@@ -62,26 +49,7 @@ function indexCommentsByHighlight(
   return { byHighlight, freestanding };
 }
 
-/**
- * Render the book's highlights + comments + bookmarks as portable
- * Markdown. Mirrors `conversationToMarkdown` for tonal consistency
- * (the user already exports chats this way) so anything paste-able
- * across Obsidian / Notion / Readwise plain-text imports stays
- * coherent.
- *
- * Sections:
- *   - Title header + metadata
- *   - Highlights grouped by page, sorted ascending; each block shows
- *     the colour and any threaded comments inline.
- *   - Free-floating comments (selection-anchored notes with no
- *     accompanying highlight) in their own list.
- *   - Bookmarks as a flat list, page-ordered.
- *
- * Free-floating comments are rare in practice (the UI nearly always
- * spawns them from a highlight) but the type allows them, so we
- * export them too — otherwise a power user could lose data on
- * round-trip.
- */
+/** Render highlights, comments and bookmarks as portable Markdown. */
 export function annotationsToMarkdown(
   meta: DocumentMeta,
   highlights: Highlight[],
@@ -112,9 +80,7 @@ export function annotationsToMarkdown(
       const page = highlightPage(h);
       const color = COLOR_LABEL[h.color];
       lines.push(`### Page ${page} · ${color}`);
-      // Blockquote each line of the selection so multi-line quotes
-      // render correctly in markdown viewers that don't auto-wrap
-      // unprefixed continuation lines inside a `>` block.
+      // prefix every line so multi-line selections stay inside the blockquote
       const quoteBody = h.selection.text
         .split("\n")
         .map((l) => `> ${l}`)
@@ -179,14 +145,7 @@ export function annotationsToMarkdown(
   return lines.join("\n");
 }
 
-/**
- * Full annotation dump as JSON. Schema is a thin wrapper around the
- * underlying types so a future "import highlights from another
- * Pnyxy install" feature can round-trip without inventing a new
- * format. The book-meta block carries enough to look the source
- * back up; the `schemaVersion` exists so a later breaking change
- * can be detected and migrated rather than crashing the parser.
- */
+/** Full annotation dump as JSON. schemaVersion allows future migrations. */
 export function annotationsToJson(
   meta: DocumentMeta,
   highlights: Highlight[],
@@ -209,12 +168,7 @@ export function annotationsToJson(
   return JSON.stringify(payload, null, 2);
 }
 
-/**
- * Trigger a browser download of a text blob. Filename is sanitised
- * the same way `downloadMarkdown` in export-conversation does — keeps
- * Save dialogs across Windows / macOS / Linux happy with weird book
- * titles like "Foo / Bar: vol. 1?".
- */
+/** Trigger a browser download of a text blob, sanitising the filename. */
 export function downloadTextFile(
   filename: string,
   body: string,
@@ -236,7 +190,6 @@ export function downloadTextFile(
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  // Safari can race the revoke against the download start when
-  // synchronous; defer a tick.
+  // Safari races revoke against the download if synchronous; defer a tick
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }

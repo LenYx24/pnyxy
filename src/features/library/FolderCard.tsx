@@ -41,7 +41,7 @@ export function FolderCard({
     isDragging,
   } = useSortable({ id: sortableId ?? folder.id, disabled: !sortableId });
 
-  // "Nest into me" drop target — fires the nest branch in
+  // "Nest into me" drop target, fires the nest branch in
   // AllBooksTab.handleDragEnd so dropping a book/folder onto a card
   // moves it inside this folder. Without this, the cover only acted
   // as a sortable position and drops did sibling reorder only.
@@ -59,13 +59,10 @@ export function FolderCard({
   const [renameOpen, setRenameOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const selKey = `folder:${folder.id}`;
-  // Folder cards visually break from the book-cover ratio: a
-  // square icon container (aspect-square, not 5:7) reads as a
-  // proper "folder" rather than a placeholder for a missing book
-  // cover. Icon size sits at ~65% of the square so the filled
-  // glyph has real visual weight without crowding the border —
-  // the earlier sizing was too small and let the card read as an
-  // empty placeholder.
+  // Folder icon container matches the book cover's 5:7 ratio so a
+  // folder tile is exactly as tall as a book tile in the same grid
+  // row. The filled glyph is centred at ~65% of the cover height so
+  // it keeps real visual weight without crowding the edges.
   const iconSize = Math.round(Math.min(Math.max(coverHeight * 0.65, 56), 96));
   const compact = coverHeight < 100;
 
@@ -82,15 +79,11 @@ export function FolderCard({
     onNavigate(folder.id);
   };
 
-  // Matches LibraryBookCard's content-visibility setup so the
-  // grid skips layout/paint for offscreen folder tiles. Folder
-  // cards are SQUARE now (icon area = card width), so the
-  // intrinsic height is one card-width plus the ~56px label
-  // block underneath. Books still use the 5:7 height; CSS Grid
-  // rows align to whichever cell is tallest, so a mixed row
-  // leaves a small gap under each folder — visually fine since
-  // folders read as distinct items anyway.
-  const intrinsicHeight = coverHeight + 56;
+  // Matches LibraryBookCard's content-visibility setup so the grid
+  // skips layout/paint for offscreen folder tiles. Folders share the
+  // book cover's 5:7 ratio and the same ~80px label block, so their
+  // intrinsic (and rendered) height lines up with book tiles.
+  const intrinsicHeight = coverHeight + 80;
   return (
     <div
       ref={setNodeRef}
@@ -102,12 +95,9 @@ export function FolderCard({
       {...attributes}
       {...listeners}
     >
-      {/* Outer layout: a square icon container (not 5:7 like book
-          covers — folders look weird stretched into book shape) +
-          a label block underneath. Grid rows that mix folders and
-          books will have folders sitting taller-than-content, with
-          a small gap below the label; visually fine since the
-          shape difference makes folders read as distinct items.  */}
+      {/* Outer layout: a 5:7 icon container (matching book covers) +
+          a label block underneath, so folder and book tiles are the
+          same height in a mixed grid row. */}
       <div
         className={cn(
           "group relative",
@@ -120,16 +110,14 @@ export function FolderCard({
           title={folder.name}
           className="cursor-pointer"
         >
-          {/* Square icon area: a solid purple-tinted fill gives the
-              card real visual mass so it doesn't blend into the
-              background. No outer border — the fill itself defines
-              the shape, and adding a border on top of the tint felt
-              busy. Hover bumps the tint up one notch + adds shadow
-              for the same lift the book covers get. */}
+          {/* 5:7 icon area (same ratio as book covers): a solid
+              purple-tinted fill gives the card real visual mass so it
+              doesn't blend into the background. Hover bumps the tint up
+              one notch + adds shadow for the same lift book covers get. */}
           <div
             ref={nest.setNodeRef}
             className={cn(
-              "relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-accent/[0.12] shadow-sm transition-all group-hover:bg-accent/[0.18] group-hover:shadow-md",
+              "relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md bg-accent/[0.12] shadow-sm transition-all group-hover:bg-accent/[0.18] group-hover:shadow-md",
               nest.isOver &&
                 "bg-accent/30 ring-2 ring-inset ring-accent/70",
             )}

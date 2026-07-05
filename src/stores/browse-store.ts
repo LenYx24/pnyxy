@@ -29,7 +29,7 @@ interface BrowseState {
   userLibraryIds: Set<string>;
   totalCount: number;
   page: number;
-  /** Top-of-page shelves. Fetched independently of the paginated grid. */
+  /** Top-of-page shelves, fetched separately from the paginated grid. */
   featuredBooks: CatalogBook[];
   newThisWeekBooks: CatalogBook[];
 
@@ -44,11 +44,7 @@ interface BrowseState {
   removeFromUserLibrary: (bookId: string) => Promise<void>;
   checkUserLibrary: () => Promise<void>;
   setSelectedBook: (book: CatalogBook | null) => void;
-  /**
-   * Subscribe to Supabase realtime UPDATEs on `catalog_books` so newly
-   * approved submissions appear in the browse list without a refresh.
-   * Returns an unsubscribe function.
-   */
+  /** Realtime subscription so approved submissions show up without a refresh. Returns unsubscribe. */
   subscribeCatalogUpdates: () => () => void;
 }
 
@@ -79,13 +75,7 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
   featuredBooks: [],
   newThisWeekBooks: [],
 
-  /**
-   * Fetch the two top-of-page shelves in parallel. Featured is a
-   * stable alphabetical slice of the catalog; "New this week" is
-   * verified in the last 7 days, newest first. Both cap at 10 —
-   * the shelf is horizontally scrollable but shouldn't need to
-   * load a large prefix.
-   */
+  // featured = alphabetical slice, new-this-week = verified in last 7 days newest first, both capped at 10
   fetchShelves: async () => {
     const SHELF_SIZE = 10;
     const sevenDaysAgo = new Date(
@@ -120,10 +110,7 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
       featuredBooks: featured,
       newThisWeekBooks: newThisWeek,
     });
-    // Warm the browser cache for shelf covers in parallel with the
-    // first React render. Featured + new shelves both render
-    // above-the-fold on /home; getting the bytes in flight before
-    // the render shaves the worst-case ~500ms cold-cover flash.
+    // warm the cache for above-the-fold shelf covers before first render
     prefetchImages([
       ...featured.map((b) => b.cover_url),
       ...newThisWeek.map((b) => b.cover_url),
@@ -134,7 +121,7 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
     set({ isLoading: true, page: 0 });
     const { searchQuery, activeCategory } = get();
 
-    // If filtering by category, get matching IDs from junction table first
+    // category filter: resolve matching ids from the junction table first
     let categoryBookIds: string[] | null = null;
     if (activeCategory) {
       categoryBookIds = await fetchBookIdsByCategory(activeCategory);
@@ -183,7 +170,6 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
 
     set({ isLoading: true });
 
-    // If filtering by category, get matching IDs from junction table
     let categoryBookIds: string[] | null = null;
     if (activeCategory) {
       categoryBookIds = await fetchBookIdsByCategory(activeCategory);
@@ -250,7 +236,7 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
       throw error;
     }
 
-    // Link to categories via junction table
+    // link to categories via junction table
     if (data && categoryIds && categoryIds.length > 0) {
       const rows = categoryIds.map((cid) => ({
         catalog_book_id: data.id,
@@ -317,8 +303,6 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
     if (!user) throw new Error("Must be signed in");
 
     const orgId = useOrgStore.getState().currentOrgId;
-    // No-op if there's no active org — there can't be a row to
-    // delete in that case.
     if (!orgId) return;
 
     const { error } = await supabase
@@ -374,16 +358,14 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
   setSelectedBook: (book) => set({ selectedBook: book }),
 
   subscribeCatalogUpdates: () => {
-    // Listen for INSERT (published directly by an admin) and UPDATE
-    // (pending → verified). We only act when the row now has the
-    // `verified` status so users see newly approved books immediately.
+    // handle INSERT (admin publish) and UPDATE (pending -> verified)
     const channel = supabase
       .channel("catalog_books_realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "catalog_books" },
         (payload) => {
-          // supabase-js gives us `new` for INSERT/UPDATE, `old` for DELETE.
+          // supabase-js: `new` for INSERT/UPDATE, `old` for DELETE
           const untyped = payload as unknown as {
             new?: Record<string, unknown>;
             old?: Record<string, unknown>;
@@ -407,17 +389,14 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
           const isVerified =
             (row as { status?: string }).status === "verified";
 
-          // Skip books that don't match the current search query. We leave
-          // category filtering to a re-fetch since the junction is queried
-          // separately; simplest correct behavior is to re-fetch when a
-          // category filter is active.
+          // category filter uses a separate junction query, so just re-fetch
           if (isVerified && state.activeCategory) {
             get().fetchCatalogBooks();
             return;
           }
 
           if (!isVerified) {
-            // The book just left "verified" (rejected / re-pended) — drop it.
+            // rejected or re-pended, drop it
             set((s) => ({
               catalogBooks: s.catalogBooks.filter((b) => b.id !== row.id),
               totalCount: Math.max(0, s.totalCount - 1),
@@ -429,14 +408,14 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
           if (query && !row.title.toLowerCase().includes(query)) return;
 
           set((s) => {
-            // If we already have the book (e.g. metadata update), replace it.
+            // already present (metadata update) -> replace in place
             const existing = s.catalogBooks.findIndex((b) => b.id === row.id);
             if (existing >= 0) {
               const next = s.catalogBooks.slice();
               next[existing] = row;
               return { catalogBooks: next };
             }
-            // Otherwise prepend (matches the default sort order: created_at desc).
+            // prepend to match created_at desc sort
             return {
               catalogBooks: [row, ...s.catalogBooks],
               totalCount: s.totalCount + 1,
@@ -452,10 +431,7 @@ export const useBrowseStore = create<BrowseState>((set, get) => ({
   },
 }));
 
-// Re-check which catalog books are in "my library" whenever the
-// active org changes — the in-library badge on browse cards should
-// reflect the current org's holdings, not whichever org was active
-// last.
+// re-check library membership on org switch so in-library badges track the current org
 useOrgStore.subscribe((state, prev) => {
   if (state.currentOrgId === prev.currentOrgId) return;
   if (state.currentOrgId) {

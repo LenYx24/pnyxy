@@ -6,7 +6,7 @@
  *
  * To add a new core theme: implement `Theme` in a new file under
  * `src/lib/themes/` and register it in `core.ts`. No Tailwind recompile
- * is needed — applying a theme is a single pass of `setProperty`.
+ * is needed, applying a theme is a single pass of `setProperty`.
  */
 
 export type ThemeApiVersion = 1;

@@ -6,12 +6,12 @@ import { logError } from "@/lib/logger";
 export const EXPORT_SCHEMA_VERSION = "pnyxy-export-v1";
 
 /** Tables that hold user-owned rows. Forum/community content, the shared
- *  catalog, and admin tables are excluded — they are either public or not
+ *  catalog, and admin tables are excluded, they are either public or not
  *  meaningful to dump per-user.
  *
  *  Some rows here are reachable via RLS without an explicit `user_id` filter
  *  (e.g. `comments` is gated by ownership of the parent book). For those
- *  tables we leave the filter off and trust RLS — Postgres will return only
+ *  tables we leave the filter off and trust RLS, Postgres will return only
  *  what this user can see, which is what an export should contain. */
 type SectionSpec = {
   key: string;
@@ -73,7 +73,7 @@ interface ExportPayload {
 /**
  * Pull every user-owned row from Supabase, bundle into one JSON file, and
  * trigger a browser download. Forum posts, organisations, and the shared
- * catalog are intentionally excluded — they're either public or not yours
+ * catalog are intentionally excluded, they're either public or not yours
  * to export. Uploaded files themselves aren't bundled (they can be many
  * GB); only their metadata + storage URLs land in the JSON.
  */
@@ -118,7 +118,7 @@ export async function exportUserData(): Promise<{
   const counts: Record<string, number> = {};
   for (const [key, value] of results) {
     if (key === "profile") {
-      // Single-row table — surface as object instead of an array of one.
+      // Single-row table, surface as object instead of an array of one.
       const arr = Array.isArray(value) ? value : null;
       data[key] = arr && arr.length > 0 ? arr[0] : null;
       counts[key] = arr ? arr.length : 0;

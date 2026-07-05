@@ -17,7 +17,7 @@ import {
 import type { PluginAPI, PluginManifest } from "./types";
 import type { PluginHandle, PluginRuntime } from "./runtime/types";
 
-// Skip the supabase/auth side imports — the manager doesn't touch them
+// Skip the supabase/auth side imports, the manager doesn't touch them
 // directly, but the settings store does via syncPreferences.
 vi.mock("@/lib/supabase", () => ({
   supabase: {

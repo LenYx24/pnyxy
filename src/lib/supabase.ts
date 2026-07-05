@@ -10,3 +10,8 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
+
+// exported so the upload store can hit the storage REST endpoint directly
+// with a per-request AbortSignal (storage-js upload() can't thread one through)
+export const SUPABASE_URL = supabaseUrl as string;
+export const SUPABASE_ANON_KEY = supabaseKey as string;

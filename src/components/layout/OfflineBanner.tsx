@@ -5,7 +5,7 @@ import { useIsOnline } from "@/stores/network-store";
 /**
  * Slim app-wide banner that surfaces when the browser thinks the
  * network adapter is down OR the most recent best-effort server
- * heartbeat failed. Renders nothing when online — zero footprint
+ * heartbeat failed. Renders nothing when online, zero footprint
  * for the common case.
  *
  * Lives in AppLayout above the sidebar/content so it's visible on

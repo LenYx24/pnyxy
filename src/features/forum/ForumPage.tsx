@@ -34,7 +34,7 @@ export function ForumPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [sort, setSort] = useState<FeedSort>("hot");
 
-  // Communities sidebar data — modest fetch, no infinite scroll here.
+  // Communities sidebar data, modest fetch, no infinite scroll here.
   // The dedicated /forum?explore route (or "Browse all" link) covers
   // discovery in depth.
   useEffect(() => {

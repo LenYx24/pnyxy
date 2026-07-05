@@ -17,7 +17,7 @@ import { useReaderStore } from "@/stores/reader-store";
  *      === bookId` after the round-1 fix) takes it from there.
  *
  * Falling back to react-router instead of letting the browser follow
- * the anchor avoids a full page reload — the SPA shell stays mounted.
+ * the anchor avoids a full page reload, the SPA shell stays mounted.
  */
 export function usePageCitationDispatch() {
   const navigate = useNavigate();
@@ -36,14 +36,14 @@ export function usePageCitationDispatch() {
       const pageStr = url.searchParams.get("page");
       const page = pageStr ? Number.parseInt(pageStr, 10) : NaN;
       if (!Number.isFinite(page) || page < 1) {
-        // Plain doc link with no page — still let react-router
+        // Plain doc link with no page, still let react-router
         // handle it instead of a hard reload.
         e.preventDefault();
         navigate(href);
         return;
       }
 
-      // Optional `q=` payload — the model's `[p.N:"quote"]` chips
+      // Optional `q=` payload, the model's `[p.N:"quote"]` chips
       // pass the verbatim passage so the reader can paint a
       // temporary highlight on arrival. Decoded once here; the
       // store slot triggers `CitationQuoteHighlightLayer`.

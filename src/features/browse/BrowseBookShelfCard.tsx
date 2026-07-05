@@ -9,7 +9,7 @@ interface BrowseBookShelfCardProps {
 }
 
 /**
- * Compact shelf card. Blends into the page — no border, no card
+ * Compact shelf card. Blends into the page, no border, no card
  * background, just the cover and a small metadata block beneath.
  * The cover lives inside a fixed-ratio container so cards in a row
  * all have the same height regardless of cover dimensions.

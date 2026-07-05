@@ -63,7 +63,7 @@ export function TtsMiniPlayer() {
     return () => document.removeEventListener("pointerdown", onDown);
   }, [showSettings]);
 
-  // Stop on unmount as a defensive guard — though `status: idle` on
+  // Stop on unmount as a defensive guard, though `status: idle` on
   // route changes will already hide the player, an SSR-style remount
   // shouldn't strand a speaking utterance.
   useEffect(() => {

@@ -12,7 +12,7 @@ import { useRoadmapStore } from "@/stores/roadmap-store";
 import type { ResourceRef } from "@/types/roadmap";
 
 export interface RoadmapNodeData extends Record<string, unknown> {
-  /** Roadmap this node belongs to — the inline minutes editor needs
+  /** Roadmap this node belongs to, the inline minutes editor needs
    *  it to write back through `upsertNode` without dragging the
    *  parent component into the loop. */
   roadmapId: string;
@@ -21,7 +21,7 @@ export interface RoadmapNodeData extends Record<string, unknown> {
   title: string;
   description: string;
   estimatedMinutes: number;
-  /** 0–100 — composite of manual + auto-detected progress. 100 reads
+  /** 0-100, composite of manual + auto-detected progress. 100 reads
    *  as "complete" everywhere the node card uses to render. */
   progress: number;
   locked: boolean;
@@ -42,7 +42,7 @@ export type RoadmapXyNode = Node<RoadmapNodeData, "roadmap">;
 const REF_LABEL_MAX = 28;
 
 function refLabel(ref: ResourceRef): string {
-  // Author + Title is the canonical citation form ("Cormen — Intro
+  // Author + Title is the canonical citation form ("Cormen, Intro
   // to Algorithms"). Title-only when no author. Truncated to keep
   // the card narrow.
   const base = ref.author ? `${ref.author} — ${ref.title}` : ref.title;
@@ -51,7 +51,7 @@ function refLabel(ref: ResourceRef): string {
 }
 
 /**
- * Custom xyflow node — a card showing the learning unit. Visual states:
+ * Custom xyflow node, a card showing the learning unit. Visual states:
  *   - progress >= 100 (green check, dimmed, line-through title)
  *   - 0 < progress < 100 (partial-fill progress bar at bottom)
  *   - locked (lock icon, faint)
@@ -194,8 +194,8 @@ export function RoadmapNodeCard({
  * Click-to-edit minutes badge on the node card. Reads/writes the
  * roadmap through the store directly so the parent (xyflow / detail
  * page / editor) doesn't need to pass a callback. Estimates change a
- * lot in practice — a user partway through a node realises their
- * 30-minute guess is really 90 — so the inline edit deliberately
+ * lot in practice, a user partway through a node realises their
+ * 30-minute guess is really 90, so the inline edit deliberately
  * lives outside the editor's full edit-mode flow.
  *
  * Click stops propagation so it doesn't toggle node selection /

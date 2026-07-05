@@ -53,7 +53,7 @@ export function RoadmapDetailPage() {
 
   // Fetch auto-progress for matched book references on mount + on
   // focus (e.g. user reads a referenced book in another tab, comes
-  // back). One Supabase round-trip total — caps at the number of
+  // back). One Supabase round-trip total, caps at the number of
   // distinct matched books in the roadmap.
   const [autoProgress, setAutoProgress] = useState<Record<string, number>>({});
   useEffect(() => {
@@ -358,7 +358,7 @@ export function RoadmapDetailPage() {
 /**
  * Per-node progress slider + quick-complete button. Shows the
  * composited display percent (max of manual + auto-detected) and
- * highlights when auto-detection is contributing — so the user
+ * highlights when auto-detection is contributing, so the user
  * understands that reading the cited book updated their progress
  * without them clicking anything.
  */

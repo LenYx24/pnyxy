@@ -3,7 +3,7 @@ import { useActiveDocument } from "@/stores/reader-store";
 /**
  * Thin vertical bar pinned to the right edge of the reader's scroll
  * area. Shows how far the user has read, computed from the
- * tracker-maintained `progressPage` watermark — same value reading
+ * tracker-maintained `progressPage` watermark, same value reading
  * plans, streaks and library cards consume, so the indicator stays
  * consistent across the app.
  *
@@ -17,7 +17,7 @@ import { useActiveDocument } from "@/stores/reader-store";
  *     leaves the actual scrolling UX untouched.
  *
  * Mount inside a positioned ancestor that matches the reader's
- * visible viewport — the strip uses `absolute right-0 top-0 h-full`
+ * visible viewport, the strip uses `absolute right-0 top-0 h-full`
  * relative to its parent, so the parent must NOT be the scroll
  * container itself (otherwise the strip scrolls away with the
  * content).
@@ -28,7 +28,7 @@ export function ReadProgressStrip() {
 
   const watermark = Math.min(doc.progressPage, doc.totalPages);
   const fillPct = Math.max(0, Math.min(100, (watermark / doc.totalPages) * 100));
-  // Slot the cursor too — a brighter, narrower pip at the user's
+  // Slot the cursor too, a brighter, narrower pip at the user's
   // current page (which can be ahead of OR behind the watermark
   // depending on tracker, e.g. "max" leaves the watermark sticky
   // when the user pages back).

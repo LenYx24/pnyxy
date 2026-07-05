@@ -3,7 +3,7 @@ import { toggleTracker } from "./toggle-tracker";
 
 /**
  * Registry of available trackers, keyed by id. Add new trackers
- * here — the rest of the app discovers them through this map.
+ * here, the rest of the app discovers them through this map.
  */
 export const TRACKERS = {
   toggle: toggleTracker,

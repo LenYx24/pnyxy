@@ -1,6 +1,6 @@
 /**
  * Unit tests for the adapter dispatcher. Each adapter factory is
- * heavily mocked so this test stays fast and isolated — we're just
+ * heavily mocked so this test stays fast and isolated, we're just
  * verifying that the right factory gets called for a given file.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";

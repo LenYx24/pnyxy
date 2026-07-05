@@ -9,8 +9,8 @@ interface BrowseBookCardProps {
 }
 
 /**
- * Grid card for Browse. Matches the shelf card visually — no card
- * chrome, fixed 2:3 cover ratio — so rows stay aligned regardless
+ * Grid card for Browse. Matches the shelf card visually, no card
+ * chrome, fixed 2:3 cover ratio, so rows stay aligned regardless
  * of the cover's actual aspect. A single file-availability glyph
  * (bottom right) flags metadata-only books; readable books wear no
  * badge, keeping chrome to a minimum.

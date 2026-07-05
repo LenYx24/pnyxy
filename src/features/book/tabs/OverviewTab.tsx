@@ -52,20 +52,7 @@ import { AttachFileButton } from "../AttachFileButton";
 import { DownloadButton } from "../DownloadButton";
 import { ReadingSessionCard } from "../ReadingSessionCard";
 
-/**
- * Button that creates a standalone whiteboard and navigates to it.
- * Works for any book — file-backed or shell. For shell books this is
- * the primary way users can use the whiteboard feature at all,
- * since the reader can't open them.
- */
-/**
- * One-click entry into the AI quiz generator for the current book.
- * Creates an empty quiz row tied to this book and navigates to its
- * editor with the AI generate panel pre-expanded — so the user lands
- * directly on "From book: pages X–Y, count N, Generate" instead of
- * having to: (1) open the quizzes list, (2) "New quiz", (3) find the
- * AI panel, (4) toggle to "From book". Half the clicks become zero.
- */
+// Creates an empty quiz tied to this book, opens editor with AI panel pre-expanded.
 function GenerateQuizFromBookButton() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -106,12 +93,7 @@ function GenerateQuizFromBookButton() {
   );
 }
 
-/**
- * Shortcut to the flashcards generator. Same pattern as the quiz
- * shortcut: pre-create the row tied to this book, navigate to the
- * editor with the AI panel auto-expanded AND in short-answer mode
- * (so the panel generates Q/A pairs instead of multi-choice).
- */
+// Like the quiz button but forces short-answer mode (Q/A pairs, not multi-choice).
 function GenerateFlashcardsFromBookButton() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -152,13 +134,6 @@ function GenerateFlashcardsFromBookButton() {
   );
 }
 
-/**
- * Shortcut to the book's exams tab. Past papers live under there with
- * their own AI flows (extract topics, generate similar quiz, practice
- * mode). Surfacing this on the Overview saves the user a sidebar
- * click — the most-frequent ask from study sessions is "what's been
- * on past exams", so it's worth the prime real estate.
- */
 function GenerateExamFromBookButton() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -204,9 +179,7 @@ export function OverviewTab() {
           categories={data.categories}
         />
       )}
-      {/* Second grouping axis: everything in the user's library that's
-          ABOUT this book (quizzes/chats/whiteboards/flashcards),
-          independent of filetree folder placement. */}
+      {/* library items about this book, regardless of folder placement */}
       <RelatedToBook />
     </div>
   );
@@ -236,8 +209,7 @@ function CatalogOverview({
   const [libraryLoading, setLibraryLoading] = useState(false);
   const inLibrary = userLibraryIds.has(book.id);
 
-  // Local copy of the aggregate so a rating action updates the UI
-  // without needing to re-fetch the book through useBookData.
+  // local aggregate so rating actions update the UI without a refetch
   const [ratingAgg, setRatingAgg] = useState({
     avg: book.rating_avg,
     count: book.rating_count,
@@ -272,10 +244,7 @@ function CatalogOverview({
     }
   };
 
-  // Licensing-gated downloads. Public-domain IA scans expose three
-  // formats (PDF / EPUB / TXT); explicit catalog `download_url`
-  // entries expose one. Commercial catalog rows have neither and
-  // DownloadButton renders nothing.
+  // IA scans expose PDF/EPUB/TXT, catalog download_url exposes one, commercial rows none.
   const downloadActions = getCatalogBookDownloadActions(book);
 
   const handleAddToLibrary = async () => {
@@ -316,9 +285,7 @@ function CatalogOverview({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        {/* Read — primary CTA when the book has an attached file.
-            Streams the remote URL into the reader; falls back to a
-            new-tab download when CORS blocks the fetch. */}
+        {/* streams the remote URL into the reader, falls back to new-tab download on CORS block */}
         {hasReadable && (
           <Button
             variant="primary"
@@ -334,9 +301,7 @@ function CatalogOverview({
           </Button>
         )}
 
-        {/* Library: separate Add vs (Open/Remove) buttons so clicks
-            never surprise the user. When in library: "Open library"
-            is primary, "Remove" is an unobtrusive ghost beside it. */}
+        {/* separate Add vs Open/Remove buttons */}
         {user && !inLibrary && (
           <Button
             variant="secondary"
@@ -375,32 +340,25 @@ function CatalogOverview({
           </>
         )}
 
-        {/* Works for every book — file-backed or shell. Placed next
-            to the Library buttons since it's a "study tool" entry
-            point the same way. */}
-        <CreateWhiteboardButton />
-        <GenerateQuizFromBookButton />
-        <GenerateFlashcardsFromBookButton />
-        <GenerateExamFromBookButton />
+        {/* study-tool generators require the book to be in the user's
+            library — don't spawn quizzes/whiteboards/exams for a catalog
+            book that hasn't been added yet */}
+        {inLibrary && (
+          <>
+            <CreateWhiteboardButton />
+            <GenerateQuizFromBookButton />
+            <GenerateFlashcardsFromBookButton />
+            <GenerateExamFromBookButton />
+          </>
+        )}
 
-        {/* Download dropdown (PDF / EPUB / TXT for IA scans, single
-            link for catalog rows with a direct download_url). Renders
-            nothing for commercial-only entries — same licensing gate
-            the library cards use. */}
         <DownloadButton actions={downloadActions} />
       </div>
 
       {!hasReadable && (
         <div className="space-y-2">
           <NoFileBanner />
-          {/* User added this catalog book to their library but the
-              catalog doesn't ship with a downloadable file. Let them
-              upload their own PDF so they can actually read it —
-              otherwise the library entry is dead weight. The upload
-              creates a normal "uploaded book" with the catalog
-              metadata pre-filled and removes the catalog entry from
-              the user's library so they end up with a single, useful
-              row instead of two confusing ones. */}
+          {/* catalog book has no downloadable file: let them upload their own PDF */}
           {user && inLibrary && (
             <CatalogUploadOwnCopyButton
               catalogBookId={book.id}
@@ -412,18 +370,15 @@ function CatalogOverview({
         </div>
       )}
 
-      {/* Status picker is the lightest "make this book yours"
-          control — useful even before / without opening the book. */}
-      {user && (
+      {/* reading status only makes sense once the book is in the library;
+          before that the only relevant action is "Add to library" */}
+      {user && inLibrary && (
         <div className="rounded-lg border border-glass-border bg-glass-bg p-4">
           <BookStatusPicker />
         </div>
       )}
 
-      {/* Reading session + per-book stats. Only shown once the book
-          is in the user's library — sessions live on a per-doc
-          basis and a not-yet-added catalog book has no stats to
-          accumulate against. */}
+      {/* per-doc session stats only exist once the book is in the library */}
       {user && inLibrary && (
         <ReadingSessionCard docId={book.id} pageCount={book.page_count ?? null} />
       )}
@@ -546,20 +501,13 @@ function UploadedOverview({
   const { openUploadedBook } = useOpenUploadedDocument();
   const [loading, setLoading] = useState(false);
 
-  // Warm the blob cache in the background so clicking "Open in Reader"
-  // skips the network round-trip. Skipped on low-end devices and large
-  // files inside prefetchBookBlob; cancelled if the user navigates
-  // away before it finishes.
+  // warm the blob cache so "Open in Reader" skips the network round-trip
   useEffect(() => {
     if (!storagePath) return;
     return prefetchBookBlob(storagePath, { sizeBytes });
   }, [storagePath, sizeBytes]);
 
-  // Built once and reused by both "Open in reader" and the Download
-  // button. Synthesising the UploadedLibraryItem here matches the
-  // shape every downstream consumer already expects (openUploadedBook,
-  // getDownloadActions), keeping this page from drifting away from
-  // the library card surfaces.
+  // synthesise the UploadedLibraryItem shape openUploadedBook/getDownloadActions expect
   const uploadedEntry: UploadedLibraryItem | null =
     storagePath && fileName
       ? {
@@ -635,8 +583,7 @@ function UploadedOverview({
         />
       </div>
 
-      {/* Per-book reading session timer + derived stats (streak,
-          pace, finish-date). docId mirrors what PageTracker uses. */}
+      {/* docId must match what PageTracker uses */}
       <ReadingSessionCard docId={book.id} pageCount={book.page_count ?? null} />
 
       {storagePath && (
@@ -703,24 +650,9 @@ function formatBytes(n: number): string {
   return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
-/**
- * Banner shown when the book has no readable file attached. Catalog
- * books without a download URL and shell uploaded books with no
- * storage_path land here. Lets the reader know notes/whiteboards/forum
- * still work — their attempt to open the book wasn't a bug.
- */
-/**
- * "Upload your own copy" — sibling to the catalog metadata Open
- * Library couldn't link a file for. Runs the normal uploadPdf flow
- * so storage limits / progress / dedup all still work, then patches
- * the book row with the catalog's title/author so the new entry
- * doesn't fall back to whatever the PDF metadata happens to claim
- * (which for scanned textbooks is usually blank or wrong).
- *
- * On success the catalog row is removed from the user's library
- * (via `onUploaded`) and the page navigates to the new uploaded
- * book so the user lands somewhere they can actually open.
- */
+// Runs the normal uploadPdf flow, then patches title/author from catalog metadata
+// (PDF metadata for scanned textbooks is usually blank/wrong). On success removes
+// the catalog row and navigates to the new uploaded book.
 function CatalogUploadOwnCopyButton({
   fallbackTitle,
   fallbackAuthor,
@@ -767,10 +699,7 @@ function CatalogUploadOwnCopyButton({
         setBusy(false);
         return;
       }
-      // Patch the new books row with the catalog's title/author so we
-      // don't end up with "untitled.pdf" when the PDF metadata is
-      // missing. Best-effort: a failure here doesn't roll back the
-      // upload — the file is already attached and openable.
+      // patch title/author to avoid "untitled.pdf". failure here doesn't roll back the upload.
       try {
         const patch: Record<string, unknown> = { title: fallbackTitle };
         if (fallbackAuthor) {
@@ -781,8 +710,7 @@ function CatalogUploadOwnCopyButton({
       } catch (err) {
         logError("CatalogUploadOwnCopyButton:patch", err);
       }
-      // Free the catalog row from the user's library — they now own
-      // the real file, so the placeholder is just noise.
+      // drop the catalog placeholder now that a real file exists
       try {
         onUploaded();
       } catch (err) {

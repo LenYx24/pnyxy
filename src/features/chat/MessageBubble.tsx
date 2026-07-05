@@ -30,13 +30,7 @@ import {
   pathFromRoot,
 } from "@/stores/chat-store";
 
-/**
- * Shared confirm-modal shape — both ChatPage and AiChatPanel build
- * their own with useConfirm and thread the returned `confirm` fn
- * down to MessageBubble. The bubble itself doesn't pin the modal
- * (it doesn't render the JSX mount); it just calls confirm() and
- * awaits the answer for the AI-link guard.
- */
+/** Confirm-modal handle threaded down from the parent's useConfirm. */
 export type BubbleConfirmFn = (opts: {
   title: string;
   body?: React.ReactNode;
@@ -50,42 +44,25 @@ interface MessageBubbleProps {
   messages: Map<string, ChatMessage>;
   activeLeafId: string | null;
   streamingMessageId: string | null;
-  /** Set when the conversation has a source doc — citation tokens
-   *  in assistant messages get post-processed into clickable links. */
+  /** When set, citation tokens become clickable page links. */
   sourceDocId: string | null;
-  /** Parent's `useConfirm` handle, threaded down so the AI-link
-   *  warning modal can reuse the page-level confirm dialog. */
   confirm: BubbleConfirmFn;
   onBranchHere: () => void;
   onPickBranch: (id: string) => void;
   /** Open the flashcards extractor over this message's content. */
   onSaveAsFlashcards?: () => void;
-  /** Regenerate this assistant message — re-runs its parent user
-   *  message as a sibling branch. Undefined for user messages and
-   *  while another stream is in flight. */
+  /** Regenerate assistant message as a sibling branch under its parent. */
   onRegenerate?: () => void;
-  /** Edit-in-place for user messages — submits a fresh sibling
-   *  branch with the new text under the same parent. Undefined for
-   *  assistant messages and while another stream is in flight. */
+  /** Edit-in-place for user messages, submits a new sibling branch. */
   onEdit?: (newText: string) => void;
-  /** Trim this message and every descendant out of the
-   *  conversation. Confirm modal is the caller's responsibility;
-   *  the bubble just renders the trigger. */
+  /** Delete this message and every descendant. Caller owns the confirm. */
   onDelete?: () => void;
-  /** Fork the conversation from this message into a fresh new
-   *  conversation, preserving the original. */
+  /** Fork the thread up to here into a new conversation. */
   onDuplicate?: () => void;
-  /** Shared TTS controller from the parent — single utterance lives
-   *  at the thread level so starting a read on one message stops
-   *  whatever was already speaking. */
+  /** Shared thread-level TTS controller so only one message speaks at a time. */
   tts: ReturnType<typeof useReadAloud>;
-  /** Optional follow-up question chips rendered below the assistant
-   *  bubble. Populated by `requestFollowupSuggestions` after the
-   *  turn settles; absent for user messages and for assistant
-   *  messages whose response was too short / errored / aborted. */
+  /** Follow-up chips below the assistant bubble. */
   suggestions?: string[];
-  /** Click handler for a suggestion chip — sends it as a new user
-   *  message branched from the current assistant. */
   onPickSuggestion?: (text: string) => void;
 }
 
@@ -116,7 +93,7 @@ export function MessageBubble({
   const [editText, setEditText] = useState(msg.content);
   const handleCitationClick = usePageCitationDispatch();
 
-  // Which child of this message is on the active path (if any)?
+  // which child of this message sits on the active path
   const activePath = pathFromRoot(messages, activeLeafId).map((m) => m.id);
   const activeChildId = childrenOf(messages, msg.id).find((c) =>
     activePath.includes(c.id),
@@ -131,34 +108,20 @@ export function MessageBubble({
     >
       <div
         className={cn(
-          // backdrop-blur frosts whatever drifts behind (the chat
-          // aurora) so text stays legible and the bubble reads as a
-          // pane of glass floating over the light rather than a flat
-          // fill. The hairline border gives the glass an edge.
-          // min-w-0 lets the bubble shrink below its content's intrinsic
-          // width (flex items default to min-width:auto). Without it a wide
-          // code block or table forces the bubble past max-w-[85%] and the
-          // whole conversation scrolls sideways on mobile.
+          // min-w-0 lets the bubble shrink below content width; without it a
+          // wide code block/table blows past max-w and scrolls the page sideways.
           "min-w-0 max-w-[85%] rounded-2xl px-3.5 py-2 text-sm backdrop-blur-md",
           isUser
             ? "bg-accent/20 text-text-primary rounded-br-md"
             : "border border-glass-border bg-glass-bg text-text-secondary rounded-bl-md",
-          // Slightly taller while still empty so the typing indicator
-          // sits comfortably; collapses back to py-2 once content is
-          // streaming.
+          // taller while empty so the typing indicator fits
           isStreaming && msg.content.trim().length === 0 && "py-3",
         )}
       >
-        {/* User messages render as preformatted text (the user typed
-            them — no need to interpret markdown). Assistant messages
-            go through marked + DOMPurify so code blocks, tables,
-            lists, headings, and inline code all render properly. */}
+        {/* User text is preformatted; assistant text goes through marked + DOMPurify. */}
         {isUser ? (
           isEditing ? (
-            // Edit-in-place: textarea pre-filled with the original
-            // content. Save = `onEdit` → branchFrom under the same
-            // parent → fresh sibling branch + new assistant reply.
-            // Original message stays accessible via the branch picker.
+            // save branches a sibling under the same parent, original stays in the picker
             <div className="space-y-2">
               <textarea
                 autoFocus
@@ -251,20 +214,13 @@ export function MessageBubble({
             </div>
           )
         ) : isStreaming && msg.content.trim().length === 0 ? (
-          // Empty assistant placeholder while waiting for the first
-          // delta. Showing the typing indicator inside the bubble
-          // beats pulsing an empty rectangle — that read as
-          // "something's broken" on mobile where the bubble is
-          // otherwise just a thin sliver.
+          // placeholder while waiting for the first delta
           <div className="text-text-muted">
             <TypingIndicator label={t("chat.thinking", { defaultValue: "Thinking…" })} />
           </div>
         ) : (
           <div className="space-y-2">
-            {/* Generated image (or any other attachment a future
-                tool might emit) on an assistant turn. Rendered
-                above the markdown so the image is the visual focal
-                point and any caption/explanation reads below it. */}
+            {/* attachments above the markdown so the image reads first */}
             {msg.attachments && msg.attachments.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {msg.attachments.map((att, idx) =>
@@ -316,10 +272,7 @@ export function MessageBubble({
             <GitBranch size={10} />
             {t("chat.branchHere")}
           </button>
-          {/* Duplicate from here — creates a fresh conversation
-              that mirrors the thread up to and including this
-              message. Lets the user explore a different direction
-              without losing the original. */}
+          {/* fork the thread up to here into a new conversation */}
           {onDuplicate && !isStreaming && (
             <button
               onClick={onDuplicate}
@@ -336,9 +289,7 @@ export function MessageBubble({
               })}
             </button>
           )}
-          {/* Delete this message + everything underneath it.
-              Confirm modal sits in the parent because it owns the
-              useConfirm hook. */}
+          {/* delete this message and its descendants */}
           {onDelete && !isStreaming && (
             <button
               onClick={onDelete}
@@ -354,10 +305,7 @@ export function MessageBubble({
               })}
             </button>
           )}
-          {/* Edit: user messages only. Flips the bubble into a
-              textarea; on save it branches a sibling under the same
-              parent so the original message stays accessible via
-              the branch picker. */}
+          {/* edit, user messages only */}
           {isUser && !isStreaming && onEdit && !isEditing && (
             <button
               onClick={() => {
@@ -372,17 +320,11 @@ export function MessageBubble({
               {t("chat.editAction")}
             </button>
           )}
-          {/* Copy: assistant messages only (the user can already
-              re-read what they typed; copying their own message is
-              a niche need we can add later). Stays disabled while
-              streaming so we don't capture a partial response. */}
+          {/* copy, assistant messages only, hidden mid-stream */}
           {!isUser && !isStreaming && msg.content.trim().length > 0 && (
             <CopyButton text={msg.content} />
           )}
-          {/* Regenerate: assistant messages only, parent user msg
-              must still exist in the tree (it does unless the
-              conversation was edited externally). Disabled while
-              another stream is in flight to avoid stacking turns. */}
+          {/* regenerate, assistant messages only */}
           {!isUser && !isStreaming && onRegenerate && (
             <button
               onClick={onRegenerate}
@@ -394,10 +336,7 @@ export function MessageBubble({
               {t("chat.regenerate")}
             </button>
           )}
-          {/* Read aloud: assistant messages only, only when the Web
-              Speech API is supported, only after streaming finishes
-              (don't read a half-complete sentence). Toggles to Stop
-              while the same message is speaking. */}
+          {/* read aloud, only when Web Speech API is supported and stream is done */}
           {!isUser && !isStreaming && tts.supported && msg.content.trim() && (
             <button
               onClick={() => {
@@ -423,9 +362,7 @@ export function MessageBubble({
                 : t("chat.readAloud")}
             </button>
           )}
-          {/* Save-as-flashcards: only on assistant messages, only
-              once the stream has finished (the extractor would just
-              choke on a half-written passage). */}
+          {/* save-as-flashcards, assistant messages only, after the stream ends */}
           {!isUser &&
             !isStreaming &&
             msg.content.trim().length > 40 &&
@@ -473,11 +410,7 @@ export function MessageBubble({
           </div>
         )}
 
-        {/* Follow-up suggestion chips. Only on assistant messages
-            once the turn has settled. Hidden once the user has
-            already replied to this assistant (countBranches > 0)
-            since the chips would be re-asking what the user has
-            already moved past. */}
+        {/* follow-up chips, hidden once the user has already replied (branches === 0) */}
         {!isUser &&
           !isStreaming &&
           suggestions &&
@@ -502,14 +435,7 @@ export function MessageBubble({
   );
 }
 
-// Throttle window for streaming-time markdown re-renders. The model
-// pushes tokens every few ms; without this we'd re-parse the entire
-// accumulated markdown + re-typeset every KaTeX formula + re-sanitize
-// on each token, which froze the UI on weaker laptops. 60ms is faster
-// than the eye can follow but slow enough that the parser only runs
-// ~16×/s instead of hundreds. The final value is always flushed (the
-// effect fires once more after the last update), so finalized
-// messages never show a stale truncation.
+// throttle markdown re-parse during streaming so KaTeX/DOMPurify don't run per token
 const STREAM_RENDER_THROTTLE_MS = 60;
 
 const AssistantContent = memo(function AssistantContent({
@@ -527,15 +453,11 @@ const AssistantContent = memo(function AssistantContent({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  // While streaming, throttle the value we actually render. State
-  // updates batch into ~60ms windows; once streaming stops the
-  // effect's dependency flip flushes the final content immediately.
+  // throttle the rendered value while streaming; flush immediately once it stops
   const [throttled, setThrottled] = useState(content);
   useEffect(() => {
     if (!isStreaming) {
-      // Final flush — write the post-stream content synchronously so
-      // the user doesn't see a stale truncated body after the model
-      // settles. setState ignores no-op updates.
+      // final flush so no stale truncated body lingers
       setThrottled(content);
       return;
     }
@@ -551,11 +473,7 @@ const AssistantContent = memo(function AssistantContent({
     () => extractRecommendations(throttled),
     [throttled],
   );
-  // The expensive part — full marked.parse → KaTeX → DOMPurify
-  // pipeline. Cached on (cleaned, sourceDocId) so unrelated parent
-  // re-renders (hover, branch toggle, sibling-message updates) don't
-  // re-run it. Combined with the throttle above, parses drop from
-  // hundreds during a long stream to a few dozen.
+  // expensive marked.parse -> KaTeX -> DOMPurify, memoized on (cleaned, sourceDocId)
   const html = useMemo(
     () => renderMarkdown(cleaned, sourceDocId),
     [cleaned, sourceDocId],
@@ -572,9 +490,7 @@ const AssistantContent = memo(function AssistantContent({
             void promptOpenAiLink(aiLink, confirm, t);
             return;
           }
-          // Relative in-app links (e.g. the "Open the generated
-          // roadmap" link a roadmap-skill turn appends) navigate
-          // through the SPA router instead of triggering a full reload.
+          // relative in-app links go through the SPA router, not a full reload
           const anchor = (e.target as HTMLElement)?.closest?.("a");
           const href = anchor?.getAttribute("href");
           if (href && href.startsWith("/") && !href.startsWith("//")) {
@@ -602,8 +518,7 @@ export function CopyButton({ text }: { text: string }) {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Clipboard API blocked — extremely rare in our deploys, but
-      // surface the failure rather than silently swallowing it.
+      // clipboard blocked, surface it instead of failing silently
       window.alert(t("chat.copy.failed"));
     }
   };

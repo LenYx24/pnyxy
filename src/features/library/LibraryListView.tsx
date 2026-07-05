@@ -29,20 +29,20 @@ interface LibraryListViewProps {
   quizzes?: Quiz[];
   /** Conversations in the current folder, in render order. */
   chats?: ChatConversation[];
-  /** Interleaved render order — keys like `folder:<id>` / `book:<id>` /
+  /** Interleaved render order, keys like `folder:<id>` / `book:<id>` /
    *  `note:<id>` / `whiteboard:<id>` / `quiz:<id>` / `chat:<id>`. When
    *  provided, rows render in this order instead of the default grouping,
    *  matching the SortableContext's order so DnD reorder works correctly. */
   orderedKeys?: string[];
   allFolders: FolderType[];
   allBooks: UnifiedLibraryItem[];
-  /** All notes (any folder) — used to populate expanded folders' children. */
+  /** All notes (any folder), used to populate expanded folders' children. */
   allNotes?: Note[];
-  /** All whiteboards (any folder) — for expanded folders' children. */
+  /** All whiteboards (any folder), for expanded folders' children. */
   allWhiteboards?: WhiteboardData[];
-  /** All quizzes (any folder) — for expanded folders' children. */
+  /** All quizzes (any folder), for expanded folders' children. */
   allQuizzes?: Quiz[];
-  /** All conversations (any folder) — for expanded folders' children. */
+  /** All conversations (any folder), for expanded folders' children. */
   allChats?: ChatConversation[];
   selectedIds: Set<string>;
   selectionActive: boolean;
@@ -55,7 +55,7 @@ interface LibraryListViewProps {
   onDeleteFolder: (id: string) => void;
   onMoveBook: (entry: UnifiedLibraryItem) => void;
   onRemoveBook: (entry: UnifiedLibraryItem) => void;
-  /** "New subfolder" — wired through to FolderRow's context menu. */
+  /** "New subfolder", wired through to FolderRow's context menu. */
   onCreateSubfolder?: (parentFolderId: string) => void;
   cardSize?: number;
   /** Per-column widths in pixels for the resizable columns. Defaults
@@ -63,7 +63,7 @@ interface LibraryListViewProps {
    *  callers without a persisted store). */
   columnWidths?: ListColumnWidths;
   /** Fires while the user drags a column-header handle. Commits a
-   *  single column's new width — the caller persists it. */
+   *  single column's new width, the caller persists it. */
   setColumnWidth?: (key: keyof ListColumnWidths, width: number) => void;
 }
 

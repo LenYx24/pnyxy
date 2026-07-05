@@ -44,7 +44,7 @@ export function FeedbackTab() {
       });
 
       if (!res.ok) {
-        // Read as text first — a 401/403 from the edge often comes
+        // Read as text first, a 401/403 from the edge often comes
         // back as plain text, and `res.json()` would have thrown a
         // SyntaxError that hid the real reason ("Invalid JWT" /
         // "Service not enabled" / etc.).

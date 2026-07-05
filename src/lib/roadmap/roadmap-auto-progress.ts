@@ -6,15 +6,15 @@ import type { ResourceRef, Roadmap } from "@/types/roadmap";
  * Auto-progress for a roadmap node: take any matched book reference
  * that includes a `pageRange`, fetch the user's current page in
  * `book_resume_state` for that book, and lerp linearly between
- * `from` and `to` to a 0–100 percent.
+ * `from` and `to` to a 0-100 percent.
  *
- * Composition vs manual progress is the caller's job — typically
+ * Composition vs manual progress is the caller's job, typically
  * `displayProgress = max(manualProgress, autoProgress)`. We never
  * persist auto-progress; recomputing on demand keeps the data layer
  * single-source-of-truth (the resume state is the only thing that
  * needs to round-trip with the cloud).
  *
- * References without a pageRange contribute 0 to auto-progress —
+ * References without a pageRange contribute 0 to auto-progress -
  * chapter/section-only citations can't be mapped to a page-precise
  * read position without TOC matching, which is a separate feature.
  */
@@ -24,8 +24,8 @@ interface ResumeStateRow {
   page: number;
 }
 
-/** @internal — exported for unit tests. Pure lerp from current page
- *  into a node's [from, to] range, clamped to 0–100. */
+/** @internal, exported for unit tests. Pure lerp from current page
+ *  into a node's [from, to] range, clamped to 0-100. */
 export function nodePctFromPage(
   page: number,
   range: { from: number; to: number },

@@ -26,7 +26,7 @@ const MAX_PER_CALL = 16;
 /** Called from store fetchers after data lands. Filters out empty
  *  strings / nulls / already-seen URLs, then fires off Image() for
  *  the first MAX_PER_CALL entries. The Image instances are
- *  deliberately discarded — only the cache effect matters. */
+ *  deliberately discarded, only the cache effect matters. */
 export function prefetchImages(urls: ReadonlyArray<string | null | undefined>): void {
   // SSR / non-browser contexts are a no-op. Image() exists only in
   // window-scoped environments; the test harness uses jsdom which
@@ -38,7 +38,7 @@ export function prefetchImages(urls: ReadonlyArray<string | null | undefined>): 
     if (!url) continue;
     if (seen.has(url)) continue;
     seen.add(url);
-    // `decoding="async"` keeps the prefetch off the main thread —
+    // `decoding="async"` keeps the prefetch off the main thread -
     // we don't care when the decode lands, just that the bytes are
     // sitting in the HTTP cache.
     const img = new Image();
@@ -49,7 +49,7 @@ export function prefetchImages(urls: ReadonlyArray<string | null | undefined>): 
   }
 }
 
-/** Test/dev escape hatch — clears the in-memory dedup so a re-run
+/** Test/dev escape hatch, clears the in-memory dedup so a re-run
  *  of the same data triggers fresh prefetches. Not exported to the
  *  app surface; reserved for unit tests if we add any. */
 export function _resetPrefetchCacheForTests(): void {

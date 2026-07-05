@@ -12,12 +12,7 @@ interface BookTitleRow {
   title: string | null;
 }
 
-/**
- * One book the user has been reading recently. Title is best-effort
- * — if we can't resolve it (book deleted, catalog unreachable), we
- * fall back to a short slug of the doc id so the AI prompt still
- * has something to anchor on.
- */
+/** A recently-read book. Title falls back to a doc-id slug if unresolved. */
 export interface RecentBook {
   docId: string;
   title: string;
@@ -25,15 +20,7 @@ export interface RecentBook {
   lastSeen: string;
 }
 
-/**
- * Fetch the user's reading activity over the past `days` days from
- * `book_resume_state` (the cross-device resume table the reader
- * writes on every page change). Joins against `books` and
- * `catalog_books` for human titles.
- *
- * Returns at most `limit` rows ordered most-recent first. Empty
- * array on auth failure or query error — callers degrade silently.
- */
+/** Recent reading activity from book_resume_state, newest first. Empty on any failure. */
 export async function fetchRecentReading(
   options: { days?: number; limit?: number } = {},
 ): Promise<RecentBook[]> {
@@ -63,10 +50,7 @@ export async function fetchRecentReading(
   const rows = (data ?? []) as ReadingActivityRow[];
   if (rows.length === 0) return [];
 
-  // Resolve titles. doc_ids are either UUIDs (catalog) or text
-  // hashes (uploaded PDFs); books.id is uuid only — but `books` has
-  // a `file_hash` column for uploaded PDFs (tied to the reader's
-  // adapter id). Try both lookup paths and merge.
+  // doc_id is a catalog UUID or an uploaded-PDF file_hash, so look up by both.
   const ids = rows.map((r) => r.doc_id);
   const [uploadedRes, catalogRes, hashRes] = await Promise.all([
     supabase.from("books").select("id, title").in("id", ids),
@@ -107,13 +91,7 @@ function relativeDate(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
-/**
- * Format a recent-reading list as a compact prompt block the user
- * can paste into the composer. The shape is plain text — markdown
- * pollutes the textbox feel and the AI handles plain bullet lists
- * fine. Keep it self-explanatory: the AI sees the same text the
- * user does, so no special prelude needed.
- */
+/** Format a recent-reading list as a plain-text prompt block (no markdown). */
 export function formatReadingContextPrompt(
   books: RecentBook[],
   intro: string,

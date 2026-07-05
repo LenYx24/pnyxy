@@ -114,7 +114,7 @@ describe("CompositeRegistry", () => {
 
     unsubscribe();
     listener.mockClear();
-    // After unsubscribe, no further calls — but trigger a new status to be sure.
+    // After unsubscribe, no further calls, but trigger a new status to be sure.
     await composite.listThemes();
     expect(listener).not.toHaveBeenCalled();
   });
@@ -130,7 +130,7 @@ describe("CompositeRegistry", () => {
 
     await composite.listThemes();
     await composite.listPlugins();
-    // Both calls should keep status at { offline: false } — no extra emit.
+    // Both calls should keep status at { offline: false }, no extra emit.
     expect(listener).not.toHaveBeenCalled();
   });
 

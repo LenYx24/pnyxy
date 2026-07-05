@@ -196,4 +196,4 @@ function StatTile({
   );
 }
 
-// DayCell removed — replaced by the GitHub-style StreakHeatmap.
+// DayCell removed, replaced by the GitHub-style StreakHeatmap.

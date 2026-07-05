@@ -2,10 +2,10 @@ import { ScrollText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 /**
- * First-pass Terms of Service. Draft — review before public launch.
+ * First-pass Terms of Service. Draft, review before public launch.
  * Placeholders marked [TO FILL] must be completed.
  *
- * Body text is intentionally kept in English only — see PrivacyPage for
+ * Body text is intentionally kept in English only, see PrivacyPage for
  * the same rationale.
  */
 export function TermsPage() {

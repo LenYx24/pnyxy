@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { supabase } from "@/lib/supabase";
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase";
 import { createPdfAdapter } from "@/features/reader/adapters/pdf-adapter";
 import { logUploadAttempt } from "@/lib/upload-telemetry";
 import { useOrgStore } from "./org-store";
@@ -13,25 +13,19 @@ interface StorageUsage {
 }
 
 export interface UploadJob {
-  /** Client-generated id; the upload's row in the visible queue. */
   id: string;
   fileName: string;
   fileSize: number;
-  /** Folder the new book lands in, or null for the org's root. */
+  /** null = org root */
   folderId: string | null;
   status: "uploading" | "success" | "error";
-  /** 0–100. Monotonic within a single attempt; resets to 0 on retry. */
+  /** 0-100, resets to 0 on retry */
   progress: number;
   error: string | null;
-  /** Set on success — the resulting `books` row id, so the ghost card
-   *  can dispatch to /reader/<id> on click before fetchLibrary lands. */
+  /** set on success; lets the ghost card navigate to /reader/<id> before fetchLibrary lands */
   bookId: string | null;
-  /** Wall-clock timestamp; used for the auto-dismiss-success timer. */
   createdAt: number;
-  /** Original File reference, retained until success/dismiss so
-   *  failed uploads can be retried inline without re-picking the
-   *  file. Storing File objects on the store is fine — it's just a
-   *  reference, not a serialised blob. */
+  /** kept until success/dismiss so failed uploads can retry without re-picking */
   file: File;
 }
 
@@ -41,39 +35,28 @@ interface UploadState {
 
   fetchStorageUsage: () => Promise<void>;
 
-  /** Enqueue a PDF for background upload. Returns the new job's id
-   *  *synchronously* — the work runs in the background and the UI
-   *  watches `uploads.get(id)` for status / progress. Multiple
-   *  concurrent uploads are safe; the server-side storage-limit
-   *  trigger catches over-budget races even if the client-side
-   *  pre-check passed for both. On success the job's `status` flips
-   *  to `"success"` and a single `fetchLibrary(true)` runs so the
-   *  new book lands in the library list. */
+  /** Enqueue a PDF for background upload, returns the job id synchronously. Watch uploads.get(id) for status/progress. */
   enqueueUpload: (file: File, folderId?: string | null) => string;
 
-  /** Drop a finished or errored job from the visible queue. The
-   *  underlying `books` row (if it was created) is untouched — this
-   *  only clears the ghost card. */
+  /** Drop a finished/errored job from the queue. Does not touch the books row. */
   dismissUpload: (id: string) => void;
 
-  /** Re-attempt a failed job in place. Resets progress + error and
-   *  reuses the same job id so the ghost card doesn't blink. The
-   *  caller passes the original File again because it lives on the
-   *  job and we want one helper that works whether the UI cached the
-   *  File or pulled it back from `uploads.get(id).file`. */
+  /** Abort an in-flight job and drop it. Treated as cancelled, not failed: no error toast, no telemetry. */
+  cancelUpload: (id: string) => void;
+
+  /** Retry a failed job in place, reusing the same id so the ghost card doesn't blink. */
   retryUpload: (id: string) => void;
 
-  /** Backward-compat: enqueue + await completion. Returns the
-   *  resulting book id and any error message from the terminal job
-   *  state. Used by callers that genuinely need to wait
-   *  (Open-in-reader after upload, sequential batch import counters,
-   *  the device-scan modal's per-file status tracker). New code
-   *  should prefer `enqueueUpload`. */
+  /** enqueue + await completion, for callers that need to wait (open-in-reader, batch import). Prefer enqueueUpload. */
   uploadPdf: (
     file: File,
     folderId?: string | null,
   ) => Promise<{ bookId: string | null; error: string | null }>;
 }
+
+// per-job AbortControllers, keyed by job id. NOT in zustand state: not
+// serializable and must never persist. Lives for the job's network life only.
+const uploadControllers = new Map<string, AbortController>();
 
 function patchJob(
   uploads: Map<string, UploadJob>,
@@ -152,6 +135,20 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     });
   },
 
+  cancelUpload: (id) => {
+    // abort the network transfer, then drop the job. runUploadJob swallows
+    // the resulting AbortError so it never surfaces as an error/telemetry.
+    const controller = uploadControllers.get(id);
+    if (controller) controller.abort();
+    uploadControllers.delete(id);
+    set((s) => {
+      if (!s.uploads.has(id)) return s;
+      const next = new Map(s.uploads);
+      next.delete(id);
+      return { uploads: next };
+    });
+  },
+
   retryUpload: (id) => {
     const job = get().uploads.get(id);
     if (!job || job.status === "uploading") return;
@@ -167,17 +164,13 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
   uploadPdf: async (file, folderId) => {
     const id = get().enqueueUpload(file, folderId ?? null);
-    // Subscribe-once for the terminal state. Zustand setState is
-    // synchronous so this resolves on the same microtask the job
-    // finishes in — no slop. We don't store the resolve handler on
-    // the job itself because we want `UploadJob` to stay POJO-clean
-    // and serialisable for future devtools / persistence.
+    // subscribe once for the terminal state
     return new Promise<{ bookId: string | null; error: string | null }>(
       (resolve) => {
         const unsubscribe = useUploadStore.subscribe((s) => {
           const job = s.uploads.get(id);
           if (!job) {
-            // Dismissed before completion — treat as cancelled.
+            // dismissed before completion, treat as cancelled
             unsubscribe();
             resolve({ bookId: null, error: null });
             return;
@@ -197,15 +190,62 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   },
 }));
 
+/** True for aborts triggered by cancelUpload, so callers can skip the failure path. */
+function isAbortError(err: unknown): boolean {
+  return err instanceof Error && err.name === "AbortError";
+}
+
 /**
- * Background runner — owns one job's full lifecycle. Patches the job
- * row as it makes progress; on terminal status (success/error) the
- * caller is responsible for either dismissing (auto-fade after a few
- * seconds for success) or surfacing the error (manual dismiss).
- *
- * Module-scoped so we can call it from both `enqueueUpload` and
- * `retryUpload` without putting it on the store interface.
+ * Upload bytes straight to the storage REST endpoint so we can pass an
+ * AbortSignal. storage-js's upload() builds its own fetch call and never
+ * threads a signal through, so we replicate its request here: multipart
+ * FormData body with a "cacheControl" field, x-upsert header, bearer auth.
+ * Throws AbortError if the signal fires mid-transfer.
  */
+async function uploadBytes(
+  storagePath: string,
+  file: File,
+  signal: AbortSignal,
+): Promise<{ error: string | null }> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const token = session?.access_token ?? SUPABASE_ANON_KEY;
+
+  const form = new FormData();
+  form.append("cacheControl", "3600");
+  // storage-js appends the Blob under the empty field name
+  form.append("", file);
+
+  const res = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/book-files/${storagePath}`,
+    {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+        // upsert:false, matches the store's original upload() options
+        "x-upsert": "false",
+      },
+      body: form,
+      signal,
+    },
+  );
+
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`;
+    try {
+      const body = (await res.json()) as { message?: string; error?: string };
+      message = body.message || body.error || message;
+    } catch {
+      // non-JSON error body, keep the status-code message
+    }
+    return { error: message };
+  }
+  return { error: null };
+}
+
+/** Background runner for one job's lifecycle. Patches the job row as it progresses. */
 async function runUploadJob(
   id: string,
   set: (
@@ -219,6 +259,10 @@ async function runUploadJob(
   if (!job) return;
   const file = job.file;
   const folderId = job.folderId;
+
+  // one controller per run; cancelUpload aborts it. retry gets a fresh one.
+  const controller = new AbortController();
+  uploadControllers.set(id, controller);
 
   const fail = (
     message: string,
@@ -259,7 +303,7 @@ async function runUploadJob(
 
     bump(10);
 
-    // 1. Extract metadata via PDF adapter.
+    // 1. extract metadata
     const adapter = createPdfAdapter();
     let title: string;
     let authors: string[];
@@ -268,13 +312,9 @@ async function runUploadJob(
     let fileHash: string;
     try {
       const meta = await adapter.load(file);
-      // The book's name is its filename (extension stripped), not the
-      // PDF's embedded Title — embedded titles are frequently missing,
-      // stale, or generic ("Microsoft Word - untitled"), whereas the
-      // filename is what the user recognises.
+      // prefer filename over embedded PDF Title, which is often missing or generic
       title = file.name.replace(/\.pdf$/i, "").trim() || meta.title;
-      // Document metadata uses ";" as the multi-author separator (a
-      // comma would clash with "Last, First" names), so split on that.
+      // ";" is the multi-author separator (comma clashes with "Last, First")
       authors = (meta.author ?? "")
         .split(";")
         .map((a) => a.trim())
@@ -293,9 +333,7 @@ async function runUploadJob(
 
     bump(30);
 
-    // 2. Duplicate check, scoped to current org so the same PDF can
-    //    live in two orgs (e.g. "Personal" + "School") with separate
-    //    storage paths.
+    // 2. duplicate check, scoped to org so the same PDF can live in two orgs
     const { data: existing } = await supabase
       .from("books")
       .select("id")
@@ -310,23 +348,29 @@ async function runUploadJob(
 
     bump(40);
 
-    // 3. Upload bytes. Path includes org id so deletes per org don't
-    //    cross-contaminate.
+    // 3. upload bytes. path includes org id so per-org deletes don't cross-contaminate.
+    // uploadBytes threads the abort signal so cancel actually stops the transfer.
     const storagePath = `${user.id}/${orgId}/${fileHash}.pdf`;
-    const { error: uploadError } = await supabase.storage
-      .from("book-files")
-      .upload(storagePath, file, {
-        contentType: "application/pdf",
-        upsert: false,
-      });
+    const { error: uploadError } = await uploadBytes(
+      storagePath,
+      file,
+      controller.signal,
+    );
     if (uploadError) {
-      fail(`Upload failed: ${uploadError.message}`);
+      fail(`Upload failed: ${uploadError}`);
+      return;
+    }
+
+    // cancelled between the byte upload landing and the row inserts: clean up
+    // the orphaned bytes and bail without creating a book.
+    if (controller.signal.aborted) {
+      await supabase.storage.from("book-files").remove([storagePath]);
       return;
     }
 
     bump(70);
 
-    // 4. Insert books row.
+    // 4. insert books row
     const { data: bookRow, error: bookError } = await supabase
       .from("books")
       .insert({
@@ -343,8 +387,7 @@ async function runUploadJob(
       .select("id")
       .single();
     if (bookError || !bookRow) {
-      // Best-effort cleanup of the orphaned bytes — failure here is
-      // acceptable, the duplicate check on retry would catch it.
+      // clean up orphaned bytes; retry's duplicate check covers failures here
       await supabase.storage.from("book-files").remove([storagePath]);
       fail(`Failed to save book: ${bookError?.message ?? "unknown"}`);
       return;
@@ -352,8 +395,7 @@ async function runUploadJob(
 
     bump(85);
 
-    // 5. Insert book_files row — server-side trigger enforces the
-    //    storage-tier limit here.
+    // 5. insert book_files row; server-side trigger enforces the storage-tier limit here
     const { error: fileError } = await supabase.from("book_files").insert({
       book_id: bookRow.id,
       storage_path: storagePath,
@@ -386,15 +428,18 @@ async function runUploadJob(
       }),
     }));
 
-    // Refresh storage usage + library list so the new book lands in
-    // its destination folder. Force-refetch to bypass the freshness
-    // window — this is a real mutation the user just made.
+    // force-refetch to bypass the freshness window
     void get().fetchStorageUsage();
     void useLibraryStore.getState().fetchLibrary(true);
   } catch (err) {
+    // cancelUpload aborted the transfer: not a failure, don't toast or log.
+    // the job row is already gone, so fail() would no-op anyway.
+    if (isAbortError(err) || controller.signal.aborted) return;
     fail(
       err instanceof Error ? err.message : "Upload failed unexpectedly.",
       "upload_failed",
     );
+  } finally {
+    uploadControllers.delete(id);
   }
 }

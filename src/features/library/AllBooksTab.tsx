@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   DndContext,
@@ -92,15 +92,16 @@ interface AllBooksTabProps {
   selectedIds: Set<string>;
   selectionActive: boolean;
   onToggleSelect: (id: string, event: { ctrlKey: boolean; shiftKey: boolean }) => void;
+  /** Reports the current on-screen item order (filtered + sorted) so
+   *  the parent's shift-range selection spans exactly what's visible. */
+  onOrderedKeysChange?: (keys: string[]) => void;
   activeTag?: BookStatusTag | null;
   sortOrders: Record<string, string[]>;
   setSortOrder: (contextId: string, orderedKeys: string[]) => void;
   listColumnWidths: ListColumnWidths;
   setListColumnWidth: (key: keyof ListColumnWidths, width: number) => void;
   isLoading?: boolean;
-  /** Right-click handler for the whole library area (new folder +
-   *  upload entry points). Built in LibraryPage where the upload
-   *  handlers live. */
+  /** Right-click handler for the library area (new folder / upload). */
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
@@ -113,6 +114,7 @@ export function AllBooksTab({
   selectedIds,
   selectionActive,
   onToggleSelect,
+  onOrderedKeysChange,
   activeTag = null,
   sortOrders,
   setSortOrder,
@@ -135,10 +137,46 @@ export function AllBooksTab({
   const moveBookToFolder = useLibraryStore((s) => s.moveBookToFolder);
   const moveFolderToFolder = useLibraryStore((s) => s.moveFolderToFolder);
 
-  // Notes live in the local-first note-store (IndexedDB), not the
-  // Supabase-backed library store — so the tree aggregates them in
-  // directly. loadNotes hydrates from IDB on mount (idempotent / cheap;
-  // the editor pages call it too).
+  // Mirror the current folder into a ?folder= search param so the browser /
+  // phone back button pops folder levels one at a time (each nav-in pushes a
+  // history entry). Folder nav is otherwise store-only with no URL trace, so
+  // back would leave /library entirely. lastSyncedFolderRef breaks the
+  // store<->URL echo: whichever side initiates a change stamps the ref, and
+  // the opposite effect no-ops when it already matches.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlFolder = searchParams.get("folder");
+  const lastSyncedFolderRef = useRef<string | null | undefined>(undefined);
+
+  // store -> URL (push a history entry so Back can pop it)
+  useEffect(() => {
+    const cur = currentFolderId ?? null;
+    if (lastSyncedFolderRef.current === cur) return;
+    // On the very first run the store is still at its default (root) while a
+    // deep-link URL may already carry ?folder=X. Don't wipe that param before
+    // the URL->store effect gets to consume it — let it drive instead.
+    if (lastSyncedFolderRef.current === undefined && cur === null) {
+      const inUrl = new URLSearchParams(window.location.search).get("folder");
+      if (inUrl) {
+        lastSyncedFolderRef.current = null;
+        return;
+      }
+    }
+    lastSyncedFolderRef.current = cur;
+    const next = new URLSearchParams(window.location.search);
+    if (cur) next.set("folder", cur);
+    else next.delete("folder");
+    setSearchParams(next);
+  }, [currentFolderId, setSearchParams]);
+
+  // URL -> store (handles Back/Forward and folder deep-links)
+  useEffect(() => {
+    const target = urlFolder ?? null;
+    if (target === (useLibraryStore.getState().currentFolderId ?? null)) return;
+    lastSyncedFolderRef.current = target;
+    navigateToFolder(target);
+  }, [urlFolder, navigateToFolder]);
+
+  // notes live in IndexedDB, not the library store. loadNotes is idempotent.
   const notes = useNoteStore((s) => s.notes);
   const loadNotes = useNoteStore((s) => s.loadNotes);
   const moveNoteToFolder = useNoteStore((s) => s.moveNoteToFolder);
@@ -218,10 +256,7 @@ export function AllBooksTab({
     return result;
   }, [booksInFolder, query, activeTag, getTagsForBook]);
 
-  // Notes are searchable by title. The book status-tag filter doesn't
-  // apply to notes (they carry no reading-status tags), so an active
-  // tag hides them entirely — matching the "show only tagged books"
-  // intent of that filter.
+  // active book status-tag hides notes entirely; else match on title.
   const filteredNotes = useMemo(() => {
     if (activeTag) return [] as Note[];
     if (!query) return notesInFolder;
@@ -230,8 +265,6 @@ export function AllBooksTab({
     );
   }, [notesInFolder, query, activeTag]);
 
-  // Same treatment as notes: searchable by title, hidden when a book
-  // status-tag filter is active (whiteboards carry no such tags).
   const filteredWhiteboards = useMemo(() => {
     if (activeTag) return [] as WhiteboardData[];
     if (!query) return whiteboardsInFolder;
@@ -256,11 +289,10 @@ export function AllBooksTab({
     );
   }, [chatsInFolder, query, activeTag]);
 
-  // ─── Sort order ───────────────────────────────────────────
   const contextId = currentFolderId ?? "root";
   const savedOrder = sortOrders[contextId];
 
-  // Build combined sortable items (folders, then books, notes, whiteboards)
+  // combined sortable keys: folders first, then books/notes/etc
   const allItemKeys = useMemo(() => {
     const folderKeys = filteredFolders.map((f) => `folder:${f.id}`);
     const bookKeys = filteredBooks.map((b) => `book:${b.id}`);
@@ -290,7 +322,12 @@ export function AllBooksTab({
     [savedOrder, allItemKeys],
   );
 
-  // Build lookup maps
+  // Report the live display order up so shift-range selection matches
+  // exactly what's on screen.
+  useEffect(() => {
+    onOrderedKeysChange?.(orderedKeys);
+  }, [orderedKeys, onOrderedKeysChange]);
+
   const folderMap = useMemo(() => {
     const m = new Map<string, FolderType>();
     for (const f of filteredFolders) m.set(`folder:${f.id}`, f);
@@ -327,9 +364,7 @@ export function AllBooksTab({
     return m;
   }, [filteredChats]);
 
-  // Ordered arrays for rendering. orderedKeys is derived from the
-  // same filtered folders/books that populate the maps, so every
-  // key resolves — no `filter(Boolean)` safety net needed.
+  // keys come from the same filtered lists as the maps, so every get() resolves
   const orderedFolders = useMemo(
     () =>
       orderedKeys
@@ -373,43 +408,26 @@ export function AllBooksTab({
     [orderedKeys, chatMap],
   );
 
-  // ─── DnD ─────────────────────────────────────────────────
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
-    // Desktop only — MouseSensor (not PointerSensor) so touch events
-    // are handled exclusively by TouchSensor below. PointerSensor's
-    // unified pointer-events listener was catching touch too, and
-    // its `distance: 8` constraint beat the TouchSensor's 200ms
-    // delay → on mobile, a regular scroll-swipe would start a drag
-    // as soon as the finger moved 8px. MouseSensor scopes the
-    // distance-based activation to mouse input where it belongs.
+    // MouseSensor, not PointerSensor: PointerSensor's distance beat the touch
+    // delay so a mobile scroll-swipe kept starting a drag at 8px.
     useSensor(MouseSensor, {
       activationConstraint: { distance: 8 },
     }),
-    // Mobile: long-press kicks off the drag so a regular tap on a
-    // row still navigates / opens the context menu and a scroll-
-    // swipe still scrolls.
+    // long-press to drag so tap still navigates and swipe still scrolls
     useSensor(TouchSensor, {
       activationConstraint: { delay: 200, tolerance: 5 },
     }),
-    // Keyboard a11y: Tab to a row, Space to pick up, arrows to
-    // move, Space to drop. `sortableKeyboardCoordinates` from
-    // @dnd-kit/sortable hooks the arrow-key navigation into the
-    // sortable strategy so the moves are valid drop targets.
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
 
-  // Custom collision detector: explicit action targets (nest, breadcrumb)
-  // win whenever the cursor is actually inside them, even when the
-  // outer sortable shares the same center point — which is exactly
-  // the case for the list-view nest droppable (inset 6px symmetrically
-  // inside the row, so closestCenter alone tied with the sortable
-  // wrapper and "drop into folder" silently fell back to sibling
-  // reorder). Sibling reorder still uses closestCenter for everything
-  // that isn't an explicit action target.
+  // nest/breadcrumb win when the cursor is inside them. The list-view nest
+  // droppable shares a row's center, so closestCenter alone ties and drops
+  // fall back to reorder. Everything else uses closestCenter.
   const collisionDetection: CollisionDetection = useCallback((args) => {
     const pointerHits = pointerWithin(args);
     const explicit = pointerHits.filter((c) => {
@@ -433,8 +451,7 @@ export function AllBooksTab({
       const activeId = active.id as string;
       const overId = over.id as string;
 
-      // "Nest into" — the inner droppable that covers the middle of a
-      // folder row. Drops here move the dragged item into the folder.
+      // nest droppable (middle of a folder row): move dragged item into it
       if (overId.startsWith("nest:")) {
         const targetFolderId = overId.slice("nest:".length);
         if (activeId.startsWith("book:")) {
@@ -463,10 +480,8 @@ export function AllBooksTab({
         return;
       }
 
-      // Breadcrumb drop — drop a row onto any crumb in the path
-      // (including "Library" root) to move it to that level. This is
-      // the file-manager pattern (Finder, Explorer, Drive) and is the
-      // only way to get a nested folder back out to the top level.
+      // drop onto a crumb (incl. root) to move to that level; only way to pull
+      // a nested folder back out to the top level.
       if (overId.startsWith("breadcrumb:")) {
         const tail = overId.slice("breadcrumb:".length);
         const targetFolderId = tail === "root" ? null : tail;
@@ -496,10 +511,7 @@ export function AllBooksTab({
         return;
       }
 
-      // Sortable target. Top-level folder/book rows are part of the
-      // SortableContext — dropping near their top/bottom edge reorders
-      // the sibling list. (The middle of folder rows is handled by the
-      // nest droppable above, so we don't need to special-case it here.)
+      // sortable target: reorder the sibling list
       const oldIndex = orderedKeys.indexOf(activeId);
       const newIndex = orderedKeys.indexOf(overId);
       if (oldIndex === -1 || newIndex === -1) return;
@@ -525,13 +537,9 @@ export function AllBooksTab({
     setActiveId(null);
   }, []);
 
-  // ─── Other handlers ───────────────────────────────────────
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
-  // When set, the create-folder modal targets this folder as parent
-  // instead of `currentFolderId` — used by the "New subfolder" entry
-  // in a folder row's context menu so the new folder lands inside the
-  // right-clicked folder, not the visible folder.
+  // when set, new folders parent here instead of currentFolderId (New subfolder)
   const [createParentOverride, setCreateParentOverride] = useState<
     string | null | undefined
   >(undefined);
@@ -547,9 +555,7 @@ export function AllBooksTab({
   }, []);
 
   const handleConfirmCreateFolder = async (name: string) => {
-    // Name may be a slash-separated path like "p1/p2/p3"; createFolderPath
-    // walks each segment, reusing existing siblings and creating missing
-    // parents. A bare name (no "/") behaves exactly as before.
+    // name may be a slash path like "p1/p2/p3"; createFolderPath walks each segment
     const parent =
       createParentOverride !== undefined
         ? createParentOverride
@@ -602,19 +608,11 @@ export function AllBooksTab({
     filteredWhiteboards.length === 0 &&
     filteredQuizzes.length === 0 &&
     filteredChats.length === 0;
-  // On mobile the desktop cardSize default (200px) means a single
-  // column and a giant 300px-tall cover per row. Clamp the grid's
-  // floor to ~130px so two cards fit on a 375px viewport — matches
-  // how Apple Books / Readwise lay out on phones.
+  // clamp card floor on mobile so two fit on a 375px viewport
   const effectiveCardSize = isMobile ? Math.min(cardSize, 130) : cardSize;
   const coverHeight = Math.round(effectiveCardSize * 0.6);
 
-  // Skeleton count for the loading state. Reads the per-folder count
-  // snapshot written by the last successful fetchLibrary — synchronous
-  // localStorage read, so the placeholders are in the very first paint
-  // and books don't pop in from a blank container on revisit. No
-  // cached count (first-ever visit, or a folder we've never opened
-  // while populated) falls back to ~one row's worth.
+  // skeleton count from the per-folder localStorage snapshot; no cache falls back to a row
   const currentOrgId = useOrgStore((s) => s.currentOrgId);
   const skeletonCount = useMemo(() => {
     const cached = currentOrgId
@@ -622,34 +620,24 @@ export function AllBooksTab({
       : null;
     if (cached !== null && cached > 0) return cached;
     if (viewMode === "list") return 4;
-    // Grid: estimate one row from the viewport. Off-by-one is fine
-    // here — the goal is "something to look at" until the real count
-    // gets cached after this fetch resolves.
+    // grid: estimate one row from the viewport, off-by-one is fine
     const w = typeof window !== "undefined" ? window.innerWidth : 1024;
     return Math.max(3, Math.min(10, Math.floor(w / Math.max(effectiveCardSize, 100))));
   }, [currentOrgId, currentFolderId, viewMode, effectiveCardSize]);
 
-  // List view is a strict vertical stack, so pin the drag transform
-  // to the Y axis — eliminates horizontal drift that the user almost
-  // never intends. Grid view stays 2D since rows wrap. Always clamp
-  // to window edges so a fast finger flick can't carry the overlay
-  // off-screen on mobile.
+  // list view pins drag to Y (grid stays 2D); always clamp to window edges
   const dndModifiers =
     viewMode === "list"
       ? [restrictToVerticalAxis, restrictToWindowEdges]
       : [restrictToWindowEdges];
 
-  // ─── Drag overlay content ────────────────────────────────
   const activeDragFolder = activeId ? folderMap.get(activeId) : null;
   const activeDragBook = activeId ? bookMap.get(activeId) : null;
   const activeDragNote = activeId ? noteMap.get(activeId) : null;
   const activeDragWhiteboard = activeId ? whiteboardMap.get(activeId) : null;
   const activeDragQuiz = activeId ? quizMap.get(activeId) : null;
   const activeDragChat = activeId ? chatMap.get(activeId) : null;
-  // Smooth "settle into place" on drop instead of the default snap.
-  // Same easing dnd-kit ships in `defaultDropAnimation`, but with the
-  // sideEffects helper so the dragged source row keeps its dimming
-  // briefly while the overlay finishes animating.
+  // keep the source row dimmed until the overlay finishes settling
   const dropAnimation: DropAnimation = {
     duration: 200,
     easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
@@ -668,19 +656,10 @@ export function AllBooksTab({
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-      {/* Toolbar: Breadcrumbs + Actions. Only rendered inside a
-          subfolder — at the library root the breadcrumb is redundant
-          (the page title already says "Library") and there's no
-          parent to go "Up" to, so the row would just be an empty gap. */}
+      {/* Toolbar (breadcrumbs + actions), only inside a subfolder */}
       {folderPath.length > 0 && (
       <div className="mb-4 flex items-center justify-between gap-2">
-        {/* Breadcrumbs — only rendered when the user has navigated
-            into a subfolder. At the library root the page title
-            already says "Library", so a single redundant crumb just
-            adds noise. Once inside a folder, the leading "Library"
-            crumb is useful again for jumping back to root. Each
-            non-current crumb is a drop target, so the user can drag
-            a folder/book onto any ancestor level to move it there. */}
+        {/* each non-current crumb is a drop target for moving items up a level */}
         {folderPath.length > 0 ? (
           <nav className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm">
             <BreadcrumbDropTarget
@@ -708,8 +687,7 @@ export function AllBooksTab({
             ))}
           </nav>
         ) : (
-          // Empty spacer so the right-side actions stay right-aligned
-          // by `flex justify-between` on the parent.
+          // spacer to keep the right-side actions right-aligned
           <span />
         )}
 
@@ -734,10 +712,7 @@ export function AllBooksTab({
       </div>
       )}
 
-      {/* In-flight upload strip — shows ghost rows for files the
-          user just dropped/picked, so they can leave the modal /
-          drag-drop the next batch without watching a blocking
-          progress bar. Filtered to the current folder context. */}
+      {/* ghost rows for in-flight uploads in this folder */}
       <UploadGhostStrip currentFolderId={currentFolderId} />
 
       {/* Search empty state */}
@@ -749,12 +724,7 @@ export function AllBooksTab({
         </div>
       )}
 
-      {/* Loading state — skeleton tiles in place of a spinner so the
-          grid/list looks populated while fetchLibrary is in flight.
-          Count comes from the per-folder localStorage cache written
-          on the last successful fetch; first-ever visit (no cache)
-          falls back to a single row so the user still sees activity
-          without committing to a fake count. */}
+      {/* skeleton tiles while fetchLibrary is in flight */}
       {isEmpty && !query && isLoading && (
         <BookCardSkeleton
           viewMode={viewMode}
@@ -763,9 +733,7 @@ export function AllBooksTab({
         />
       )}
 
-      {/* Tag-filter empty state — the folder isn't actually empty, an
-          active status-tag filter just hid everything. Distinct copy
-          (and no "Browse catalog") so it doesn't read as "no books". */}
+      {/* tag filter hid everything (folder isn't really empty) */}
       {isEmpty && !query && !isLoading && activeTag && (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
           <p className="text-sm text-text-muted">
@@ -842,8 +810,7 @@ export function AllBooksTab({
                   gridTemplateColumns: `repeat(auto-fill, minmax(min(${effectiveCardSize}px, 100%), 1fr))`,
                 }}
               >
-                {/* Render in orderedKeys order so a DnD reorder (which may
-                    interleave folders and books) is reflected visually. */}
+                {/* iterate orderedKeys so a reorder that interleaves types shows up */}
                 {orderedKeys.map((key) => {
                   const folder = folderMap.get(key);
                   if (folder) {
@@ -1047,8 +1014,7 @@ export function AllBooksTab({
         }
       />
 
-      {/* Confirm delete dialog — shared ConfirmModal (focus/Esc/portal
-          + backdrop handled once) instead of a hand-rolled overlay. */}
+      {/* Confirm delete dialog */}
       <ConfirmModal
         open={!!confirmDelete}
         title={t("library.allBooks.deleteFolder.title")}
@@ -1063,15 +1029,9 @@ export function AllBooksTab({
 }
 
 /**
- * Renders one row per in-flight (or just-finished) upload in the
- * current folder. Filters by `currentFolderId` so a user with two
- * folders open in two tabs only sees their own ghosts.
- *
- * Successful uploads auto-dismiss 1.5s after they land — by that
- * point the real book card has rendered (the upload-store fires a
- * forced `fetchLibrary` on success), so the ghost would just
- * duplicate it. Errored uploads stay until the user dismisses or
- * retries.
+ * One row per in-flight upload in the current folder. Successful jobs
+ * auto-dismiss 1.5s after landing (the real book card has rendered by then);
+ * errored ones stay until dismissed or retried.
  */
 function UploadGhostStrip({
   currentFolderId,
@@ -1081,6 +1041,7 @@ function UploadGhostStrip({
   const uploads = useUploadStore((s) => s.uploads);
   const dismissUpload = useUploadStore((s) => s.dismissUpload);
   const retryUpload = useUploadStore((s) => s.retryUpload);
+  const cancelUpload = useUploadStore((s) => s.cancelUpload);
 
   const visible = useMemo(() => {
     const out: UploadJob[] = [];
@@ -1091,9 +1052,7 @@ function UploadGhostStrip({
     return out;
   }, [uploads, currentFolderId]);
 
-  // Auto-dismiss successful jobs after a short fade so the ghost
-  // doesn't sit next to its real book card forever. Tracks a per-id
-  // timer so re-renders don't double-schedule.
+  // auto-dismiss successful jobs after a short delay; per-id timers avoid double-scheduling
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
     for (const job of visible) {
@@ -1116,6 +1075,7 @@ function UploadGhostStrip({
           job={job}
           onDismiss={() => dismissUpload(job.id)}
           onRetry={() => retryUpload(job.id)}
+          onCancel={() => cancelUpload(job.id)}
         />
       ))}
     </div>
@@ -1126,14 +1086,17 @@ function UploadGhostRow({
   job,
   onDismiss,
   onRetry,
+  onCancel,
 }: {
   job: UploadJob;
   onDismiss: () => void;
   onRetry: () => void;
+  onCancel: () => void;
 }) {
   const { t } = useTranslation();
   const isError = job.status === "error";
   const isSuccess = job.status === "success";
+  const isUploading = job.status === "uploading";
   return (
     <div
       className={cn(
@@ -1183,6 +1146,18 @@ function UploadGhostRow({
           </p>
         )}
       </div>
+      {/* cancel an in-flight upload; aborts the transfer and drops the row */}
+      {isUploading && (
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+          title={t("library.upload.cancel")}
+          aria-label={t("library.upload.cancel")}
+        >
+          <X size={14} />
+        </button>
+      )}
       {isError && (
         <button
           type="button"
@@ -1209,14 +1184,7 @@ function UploadGhostRow({
   );
 }
 
-/**
- * One crumb in the breadcrumb path. Behaves as a normal nav button,
- * but also registers as a dnd-kit drop target — dropping a folder or
- * book here moves it to that level. The hover highlight comes from
- * `isOver`; collision detection in dnd-kit picks the smallest
- * matching bounding box, so a crumb deep in the path doesn't grab
- * drops aimed at the row body underneath.
- */
+/** A breadcrumb nav button that's also a drop target; dropping here moves the item to that level. */
 function BreadcrumbDropTarget({
   dropId,
   onClick,

@@ -13,17 +13,12 @@ function rotateAround(p: Point, c: Point, angle: number): Point {
 }
 
 /**
- * Apply a resize-handle drag to a snapshot element and return updated
- * fields. The drag is interpreted in the element's local (un-rotated)
- * frame: we un-rotate the world pointer around the original centre,
- * compute a new bbox vs the held-still anchor (opposite handle), then
- * scale the element's geometry from old → new bbox.
- *
- * When the element has a non-zero rotation, the centre of the bbox
- * moves with the resize. We compensate by re-rotating the new local
- * geometry around its new centre, then translating so the world-space
- * anchor stays fixed. This matches Excalidraw's "anchor opposite
- * corner" behaviour for rotated elements.
+ * Apply a resize-handle drag and return the updated fields. Drag is
+ * interpreted in the element's local (un-rotated) frame: un-rotate the
+ * pointer around the original centre, build a new bbox against the
+ * opposite handle as anchor, then scale geometry old to new bbox.
+ * Rotated elements need the offset compensation below to keep the
+ * anchor fixed in world space.
  */
 export function applyResize(
   original: WhiteboardElement,
@@ -56,7 +51,7 @@ export function applyResize(
   const movesX = handle !== "n" && handle !== "s";
   const movesY = handle !== "e" && handle !== "w";
 
-  // Avoid degenerate (zero/near-zero) sizes — clamp to a small min.
+  // Avoid degenerate (zero/near-zero) sizes, clamp to a small min.
   const MIN = 4;
   const newMinX = movesX ? Math.min(anchor.x, pLocal.x) : orig.minX;
   const newMaxX = movesX ? Math.max(anchor.x, pLocal.x) : orig.maxX;
@@ -76,54 +71,33 @@ export function applyResize(
     y: anchor.y + (p.y - anchor.y) * sy,
   });
 
-  // Build new local geometry per type, then re-rotate around the *new*
-  // local centre and translate so the world-space anchor stays fixed.
-  // This keeps the dragged handle visually under the cursor.
+  // The anchor stays at the same local point but the bbox centre moves,
+  // so compute the world offset that keeps the anchor fixed.
   const newCx = (newMinX + newMaxX) / 2;
   const newCy = (newMinY + newMaxY) / 2;
-  // World-space anchor before resize:
   const worldAnchor = rotateAround(anchor, { x: origCx, y: origCy }, rot);
-  // Where the new anchor ends up if we naively place the new geometry
-  // with its new centre at the original world centre:
   const naiveWorldAnchor = rotateAround(
     anchor,
     { x: origCx, y: origCy },
     rot,
   );
-  // …actually since anchor stays at the same local position but in a
-  // bigger/smaller box, the centre of the box moves. We compensate by
-  // shifting the entire element so the world-space anchor stays fixed.
-  // After scaling around the local anchor, the new local centre is at:
-  const newLocalAnchor = anchor; // anchor itself is invariant in local
+  const newLocalAnchor = anchor; // anchor is invariant in local space
   void newLocalAnchor;
-  // World offset = (rotated anchor under new bbox) − (original world
-  // anchor). Both anchors are at the same local point, so the only
-  // difference is the centre changed:
   const newWorldAnchor = rotateAround(
     anchor,
     { x: newCx, y: newCy },
     rot,
   );
   const offsetX = worldAnchor.x - newWorldAnchor.x;
-  const offsetY = naiveWorldAnchor.y - newWorldAnchor.y; // y mirrors x via the same rotation
-  // (Both expressions equal worldAnchor − newWorldAnchor; written this
-  // way to keep tooling from flagging an unused local.)
+  const offsetY = naiveWorldAnchor.y - newWorldAnchor.y;
 
-  // Convert a local point to its final world position with the offset
-  // applied. After this, the dragged handle is exactly under cursor.
   const localToWorld = (p: Point): Point => {
     const r = rotateAround(p, { x: newCx, y: newCy }, rot);
     return { x: r.x + offsetX, y: r.y + offsetY };
   };
-  void localToWorld; // we keep geometry in local space; the world
-  // offset is applied implicitly because every element's stored
-  // coordinates are local-axis-aligned. The natural shift below
-  // achieves the same effect: shapes whose bounds move (rect, ellipse,
-  // text) bake the new local position; line endpoints scale around
-  // anchor; pen points scale around anchor. The resulting bbox centre
-  // shifts to (newCx, newCy) in local space, which is what we want.
-  // For the rotated case, the rendered position correctly tracks the
-  // anchor because render() uses the (current) bbox centre as pivot.
+  // geometry stays in local space; the offset is applied implicitly since
+  // render() uses the current bbox centre as pivot.
+  void localToWorld;
 
   switch (original.type) {
     case "pen":
@@ -165,9 +139,7 @@ export function applyResize(
         y: original.y + original.height,
       });
       const newWidth = Math.abs(br.x - tl.x);
-      // Scale font size by the smaller axis to avoid stretching glyphs;
-      // matches Excalidraw behaviour. Text height is re-measured for
-      // the new width + fontSize.
+      // scale font by the smaller axis so glyphs don't stretch
       const fontScale = Math.min(sx, sy);
       const newFont = Math.max(8, original.fontSize * fontScale);
       const newHeight = measureTextHeight(original.text, newWidth, newFont);
@@ -182,14 +154,11 @@ export function applyResize(
   }
 }
 
-/** Compute a new rotation (radians) given the element's snapshot
- *  centre and the current pointer world position. The rotate handle
- *  is drawn directly above the bbox top, so the "12 o'clock" angle
- *  corresponds to rotation 0. */
+/** New rotation (radians) from the bbox centre to the pointer. Straight up is 0. */
 export function angleFromPointer(
   centre: Point,
   pointerWorld: Point,
 ): number {
-  // atan2 returns angle from +x axis. Subtract π/2 so straight-up is 0.
+  // atan2 is from +x axis; +π/2 makes straight-up 0.
   return Math.atan2(pointerWorld.y - centre.y, pointerWorld.x - centre.x) + Math.PI / 2;
 }

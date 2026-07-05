@@ -4,12 +4,12 @@
  *
  * The model is asked to:
  *   1. Write a short prose explanation of WHY each item is on the
- *      list — that's what the user reads in the chat bubble.
+ *      list, that's what the user reads in the chat bubble.
  *   2. Append a fenced code block with structured JSON that the
  *      `RecommendationsRenderer` parses into cards.
  *
  * The fenced block uses a custom language tag (`pnyxy-books` /
- * `pnyxy-videos`) the renderer keys off — that's safer than
+ * `pnyxy-videos`) the renderer keys off, that's safer than
  * embedding raw JSON anywhere in the prose, since legitimate
  * formatting (lists, code samples, etc.) won't trigger the
  * extraction path by accident.

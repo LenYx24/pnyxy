@@ -24,7 +24,7 @@ function formatDate(ts: number): string {
 }
 
 /**
- * Inline editor — same shape as the per-book NotesTab editor, but
+ * Inline editor, same shape as the per-book NotesTab editor, but
  * lifted up here so the workspace surface owns its own copy and
  * doesn't reach into book context. Notes are freestanding in
  * IndexedDB regardless of where they're created, so the only
@@ -111,7 +111,7 @@ export function WorkspacePage() {
     void loadWhiteboards();
   }, [loadNotes, loadWhiteboards]);
 
-  // Workspace shows ONLY freestanding whiteboards — book-tied ones
+  // Workspace shows ONLY freestanding whiteboards, book-tied ones
   // belong to their book detail pages, not the global scratchpad.
   // bookId === undefined is the "no book" signal we set on creation
   // in OverviewTab and the reader's draw-tool auto-create.

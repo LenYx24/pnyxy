@@ -15,17 +15,24 @@
  *     redistributing the book.
  *
  * Usage:
- *   pnpm import-books --source=gutenberg --limit=500
+ *   pnpm import-books --source=popular                         # curated famous-titles seed (Google Books + OL)
+ *   pnpm import-books --source=backfill-covers                 # fill missing cover_url on existing rows
+ *   pnpm import-books --source=google-books --query="dune" --limit=40
  *   pnpm import-books --source=open-library --query="bestseller" --limit=200
- *   pnpm import-books --source=open-library --query="philosophy" --limit=100
+ *   pnpm import-books --source=gutenberg --limit=500
  *   pnpm import-books --source=standard-ebooks --limit=1000
  *   pnpm import-books --source=mek --limit=500 --dry-run
  *
  * Flags:
- *   --source   gutenberg | standard-ebooks | mek | open-library  (default: gutenberg)
- *   --limit    Max books to import this run         (default: 500)
- *   --query    Open Library search query (required for --source=open-library)
+ *   --source   popular | backfill-covers | google-books | open-library |
+ *              gutenberg | standard-ebooks | mek                (default: gutenberg)
+ *   --limit    Max books to import/backfill this run            (default: 500)
+ *   --query    Search query (required for google-books / open-library)
  *   --dry-run  Print what would be inserted, no DB writes
+ *
+ * Quick start for popular books + covers:
+ *   pnpm import-books --source=popular
+ *   pnpm import-books --source=backfill-covers
  *
  * Credentials: put SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in
  * `.env.local` (gitignored). The pnpm script loads it via
@@ -616,6 +623,406 @@ function openLibraryToCatalog(d) {
   };
 }
 
+// ── Adapter: Google Books (metadata only) ─────────────────
+//
+// Best covers + real page counts for mainstream in-copyright titles
+// (Harry Potter, contemporary fiction, textbooks). Metadata only, no
+// file is distributed. No API key needed at this volume; the volumes
+// endpoint wants a country param.
+
+const GB_PAGE_SIZE = 40; // Google Books max results per request
+
+// Anonymous Google Books has a low per-IP daily quota (429s when
+// exhausted). Set GOOGLE_BOOKS_API_KEY in .env.local for headroom;
+// the OL fallback covers the gap either way.
+const gbKey = () =>
+  process.env.GOOGLE_BOOKS_API_KEY
+    ? `&key=${process.env.GOOGLE_BOOKS_API_KEY}`
+    : "";
+
+async function importGoogleBooks(limit, query) {
+  if (!query) {
+    console.error(
+      'Google Books imports require --query=<search terms>. Example: --query="dune"',
+    );
+    return 0;
+  }
+  let imported = 0;
+  let startIndex = 0;
+  while (imported < limit) {
+    const url =
+      `https://www.googleapis.com/books/v1/volumes?` +
+      `q=${encodeURIComponent(query)}&maxResults=${GB_PAGE_SIZE}` +
+      `&startIndex=${startIndex}&country=US${gbKey()}`;
+    const res = await fetchWithRetry(url);
+    const body = await res.json();
+    const items = body.items ?? [];
+    if (items.length === 0) break;
+
+    const candidates = dedupBySourceId(
+      items.map(googleBooksToCatalog).filter(Boolean),
+    );
+    const sourceIds = candidates.map((c) => c.source_id);
+    const already = await existingSourceIds("google_books", sourceIds);
+    const fresh = candidates.filter((c) => !already.has(c.source_id));
+    const slice = fresh.slice(0, limit - imported);
+
+    if (slice.length > 0) {
+      await insertBatch(slice);
+      imported += slice.length;
+    }
+    console.log(
+      `Google Books: startIndex=${startIndex} imported=${imported}/${limit} (skipped ${candidates.length - fresh.length} already in catalog)`,
+    );
+
+    startIndex += GB_PAGE_SIZE;
+    if (startIndex >= (body.totalItems ?? 0)) break;
+    await sleep(300);
+  }
+  return imported;
+}
+
+/** Upgrade a Google Books thumbnail to a bigger https cover. */
+function normalizeGoogleCover(url) {
+  if (!url) return null;
+  return url
+    .replace(/^http:/, "https:")
+    .replace(/&edge=curl/, "")
+    .replace(/zoom=\d/, "zoom=1");
+}
+
+/** Convert a Google Books volume into CatalogBookInsert. */
+function googleBooksToCatalog(item) {
+  const v = item?.volumeInfo;
+  if (!item?.id || !v) return null;
+  const title = (v.title ?? "").trim();
+  const authors = (v.authors ?? []).filter(Boolean);
+  if (!title || authors.length === 0) return null;
+
+  const ids = v.industryIdentifiers ?? [];
+  const isbn_13 = ids.find((i) => i.type === "ISBN_13")?.identifier ?? null;
+  const isbn_10 = ids.find((i) => i.type === "ISBN_10")?.identifier ?? null;
+  const cover_url = normalizeGoogleCover(
+    v.imageLinks?.thumbnail ?? v.imageLinks?.smallThumbnail ?? null,
+  );
+
+  return {
+    title,
+    authors,
+    description: v.description ?? null,
+    cover_url,
+    isbn_13,
+    isbn_10,
+    publisher: v.publisher ?? null,
+    published_date: v.publishedDate ?? null,
+    page_count: typeof v.pageCount === "number" ? v.pageCount : null,
+    language: v.language ?? null,
+    categories: Array.isArray(v.categories) ? v.categories.slice(0, 10) : [],
+    source: "google_books",
+    source_id: `gb:${item.id}`,
+    download_url: null, // metadata-only
+    status: "verified",
+    verified_at: new Date().toISOString(),
+  };
+}
+
+function dedupBySourceId(rows) {
+  const seen = new Set();
+  const out = [];
+  for (const r of rows) {
+    if (seen.has(r.source_id)) continue;
+    seen.add(r.source_id);
+    out.push(r);
+  }
+  return out;
+}
+
+// ── Curated popular seed (--source=popular) ────────────────
+//
+// One command to seed a hand-picked set of well-known books so the
+// catalog looks alive. Each title is resolved via Google Books first
+// (best covers + page counts), falling back to Open Library. Edit the
+// list freely; re-running is idempotent (dedup by source_id).
+
+const POPULAR_TITLES = [
+  // Fantasy / YA
+  "Harry Potter and the Philosopher's Stone J.K. Rowling",
+  "Harry Potter and the Chamber of Secrets J.K. Rowling",
+  "Harry Potter and the Prisoner of Azkaban J.K. Rowling",
+  "Harry Potter and the Goblet of Fire J.K. Rowling",
+  "Harry Potter and the Order of the Phoenix J.K. Rowling",
+  "Harry Potter and the Half-Blood Prince J.K. Rowling",
+  "Harry Potter and the Deathly Hallows J.K. Rowling",
+  "The Hobbit J.R.R. Tolkien",
+  "The Fellowship of the Ring J.R.R. Tolkien",
+  "The Two Towers J.R.R. Tolkien",
+  "The Return of the King J.R.R. Tolkien",
+  "A Game of Thrones George R.R. Martin",
+  "A Clash of Kings George R.R. Martin",
+  "The Name of the Wind Patrick Rothfuss",
+  "Mistborn The Final Empire Brandon Sanderson",
+  "The Way of Kings Brandon Sanderson",
+  "The Lion the Witch and the Wardrobe C.S. Lewis",
+  "The Hunger Games Suzanne Collins",
+  "Catching Fire Suzanne Collins",
+  "Mockingjay Suzanne Collins",
+  "Percy Jackson The Lightning Thief Rick Riordan",
+  "The Fault in Our Stars John Green",
+  "Twilight Stephenie Meyer",
+  "Eragon Christopher Paolini",
+  // Sci-fi
+  "Dune Frank Herbert",
+  "Ender's Game Orson Scott Card",
+  "Foundation Isaac Asimov",
+  "The Hitchhiker's Guide to the Galaxy Douglas Adams",
+  "Neuromancer William Gibson",
+  "Fahrenheit 451 Ray Bradbury",
+  "Brave New World Aldous Huxley",
+  "The Martian Andy Weir",
+  "Ready Player One Ernest Cline",
+  "American Gods Neil Gaiman",
+  "Good Omens Terry Pratchett Neil Gaiman",
+  // Classics
+  "1984 George Orwell",
+  "Animal Farm George Orwell",
+  "Pride and Prejudice Jane Austen",
+  "Jane Eyre Charlotte Bronte",
+  "Wuthering Heights Emily Bronte",
+  "The Great Gatsby F. Scott Fitzgerald",
+  "To Kill a Mockingbird Harper Lee",
+  "The Catcher in the Rye J.D. Salinger",
+  "Lord of the Flies William Golding",
+  "Of Mice and Men John Steinbeck",
+  "The Grapes of Wrath John Steinbeck",
+  "Moby Dick Herman Melville",
+  "War and Peace Leo Tolstoy",
+  "Anna Karenina Leo Tolstoy",
+  "Crime and Punishment Fyodor Dostoevsky",
+  "The Brothers Karamazov Fyodor Dostoevsky",
+  "Don Quixote Miguel de Cervantes",
+  "Les Miserables Victor Hugo",
+  "The Count of Monte Cristo Alexandre Dumas",
+  "The Three Musketeers Alexandre Dumas",
+  "Frankenstein Mary Shelley",
+  "Dracula Bram Stoker",
+  "The Adventures of Sherlock Holmes Arthur Conan Doyle",
+  "The Odyssey Homer",
+  "The Iliad Homer",
+  "The Picture of Dorian Gray Oscar Wilde",
+  "Heart of Darkness Joseph Conrad",
+  "The Old Man and the Sea Ernest Hemingway",
+  "One Hundred Years of Solitude Gabriel Garcia Marquez",
+  // Modern bestsellers
+  "The Da Vinci Code Dan Brown",
+  "The Alchemist Paulo Coelho",
+  "Life of Pi Yann Martel",
+  "The Kite Runner Khaled Hosseini",
+  "A Thousand Splendid Suns Khaled Hosseini",
+  "The Book Thief Markus Zusak",
+  "Gone Girl Gillian Flynn",
+  "The Girl with the Dragon Tattoo Stieg Larsson",
+  "The Road Cormac McCarthy",
+  "Normal People Sally Rooney",
+  "Where the Crawdads Sing Delia Owens",
+  // Children
+  "The Little Prince Antoine de Saint-Exupery",
+  "Charlotte's Web E.B. White",
+  "Alice's Adventures in Wonderland Lewis Carroll",
+  "The Wonderful Wizard of Oz L. Frank Baum",
+  "Matilda Roald Dahl",
+  "Charlie and the Chocolate Factory Roald Dahl",
+  // Non-fiction / popular
+  "Sapiens A Brief History of Humankind Yuval Noah Harari",
+  "Atomic Habits James Clear",
+  "Thinking Fast and Slow Daniel Kahneman",
+  "The Subtle Art of Not Giving a F*ck Mark Manson",
+  "Rich Dad Poor Dad Robert Kiyosaki",
+  "How to Win Friends and Influence People Dale Carnegie",
+  "The 7 Habits of Highly Effective People Stephen Covey",
+  "Educated Tara Westover",
+  "Man's Search for Meaning Viktor Frankl",
+  // Hungarian classics (test market)
+  "Egri csillagok Gardonyi Geza",
+  "A Pal utcai fiuk Molnar Ferenc",
+  "Az arany ember Jokai Mor",
+  "A koszivu ember fiai Jokai Mor",
+  "Edes Anna Kosztolanyi Dezso",
+  "Abigel Szabo Magda",
+  "Az ember tragediaja Madach Imre",
+  "Legy jo mindhalalig Moricz Zsigmond",
+  "Iskola a hataron Ottlik Geza",
+];
+
+/** Best single match for a title query, Google first then OL. */
+async function resolvePopularTitle(query) {
+  try {
+    const url =
+      `https://www.googleapis.com/books/v1/volumes?` +
+      `q=${encodeURIComponent(query)}&maxResults=5&country=US${gbKey()}`;
+    const res = await fetchWithRetry(url);
+    const body = await res.json();
+    const mapped = (body.items ?? [])
+      .map(googleBooksToCatalog)
+      .filter(Boolean);
+    // Prefer a match that actually has a cover.
+    const withCover = mapped.find((m) => m.cover_url) ?? mapped[0];
+    if (withCover) return withCover;
+  } catch (err) {
+    console.warn(`  google lookup failed for "${query}": ${err.message}`);
+  }
+  try {
+    const url =
+      `https://openlibrary.org/search.json?` +
+      `q=${encodeURIComponent(query)}&limit=5`;
+    const res = await fetchWithRetry(url);
+    const body = await res.json();
+    const mapped = (body.docs ?? []).map(openLibraryToCatalog).filter(Boolean);
+    const withCover = mapped.find((m) => m.cover_url) ?? mapped[0];
+    if (withCover) return withCover;
+  } catch (err) {
+    console.warn(`  OL lookup failed for "${query}": ${err.message}`);
+  }
+  return null;
+}
+
+async function importPopular(limit) {
+  const list = POPULAR_TITLES.slice(0, limit || POPULAR_TITLES.length);
+  let imported = 0;
+  for (const query of list) {
+    const cand = await resolvePopularTitle(query);
+    if (!cand) {
+      console.log(`  no match: ${query}`);
+      await sleep(200);
+      continue;
+    }
+    const already = await existingSourceIds(cand.source, [cand.source_id]);
+    if (already.has(cand.source_id)) {
+      console.log(`  skip (exists): ${cand.title}`);
+      await sleep(200);
+      continue;
+    }
+    await insertBatch([cand]);
+    imported += 1;
+    console.log(
+      `  + ${cand.title} [${cand.source}${cand.cover_url ? ", cover" : ", NO COVER"}]`,
+    );
+    await sleep(300);
+  }
+  return imported;
+}
+
+// ── Cover backfill (--source=backfill-covers) ──────────────
+//
+// Fills cover_url on existing catalog rows that don't have one. Looks
+// up by ISBN (Open Library cover-by-isbn), then Google Books by
+// title+author, then Open Library search. Read all coverless rows up
+// front so updates don't shift the paging window.
+
+async function fetchCoverlessRows() {
+  const rows = [];
+  let offset = 0;
+  const PAGE = 500;
+  for (;;) {
+    const { data, error } = await supabase
+      .from("catalog_books")
+      .select("id, title, authors, isbn_13, isbn_10")
+      .is("cover_url", null)
+      .order("created_at", { ascending: true })
+      .range(offset, offset + PAGE - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    rows.push(...data);
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
+  return rows;
+}
+
+/** True if a URL responds 200 to a HEAD request. */
+async function urlExists(url) {
+  try {
+    const res = await fetch(url, { method: "HEAD" });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function findCover(row) {
+  // 1. Open Library cover-by-ISBN (no API call to build; verify with HEAD).
+  const isbn = row.isbn_13 || row.isbn_10;
+  if (isbn) {
+    const probe = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false`;
+    if (await urlExists(probe)) {
+      return `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
+    }
+  }
+  const author = Array.isArray(row.authors) ? row.authors[0] : null;
+  const q = [row.title, author].filter(Boolean).join(" ");
+  if (!q) return null;
+
+  // 2. Google Books by title+author.
+  try {
+    const url =
+      `https://www.googleapis.com/books/v1/volumes?` +
+      `q=${encodeURIComponent(q)}&maxResults=3&country=US${gbKey()}`;
+    const res = await fetchWithRetry(url);
+    const body = await res.json();
+    for (const item of body.items ?? []) {
+      const cover = normalizeGoogleCover(
+        item.volumeInfo?.imageLinks?.thumbnail ??
+          item.volumeInfo?.imageLinks?.smallThumbnail ??
+          null,
+      );
+      if (cover) return cover;
+    }
+  } catch {
+    // fall through to Open Library
+  }
+
+  // 3. Open Library search.
+  try {
+    const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=3`;
+    const res = await fetchWithRetry(url);
+    const body = await res.json();
+    const doc = (body.docs ?? []).find((d) => d.cover_i != null);
+    if (doc) return `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`;
+  } catch {
+    // give up on this row
+  }
+  return null;
+}
+
+async function backfillCovers(limit) {
+  const rows = (await fetchCoverlessRows()).slice(0, limit);
+  console.log(`Backfill: ${rows.length} rows missing a cover`);
+  let fixed = 0;
+  for (const row of rows) {
+    const cover = await findCover(row);
+    if (!cover) {
+      console.log(`  no cover found: ${row.title}`);
+      await sleep(150);
+      continue;
+    }
+    if (DRY_RUN) {
+      console.log(`  [dry-run] ${row.title} -> ${cover}`);
+    } else {
+      const { error } = await supabase
+        .from("catalog_books")
+        .update({ cover_url: cover })
+        .eq("id", row.id);
+      if (error) {
+        console.error(`  update failed for ${row.title}: ${error.message}`);
+        continue;
+      }
+      console.log(`  cover: ${row.title}`);
+    }
+    fixed += 1;
+    await sleep(200);
+  }
+  return fixed;
+}
+
 // ── Main ───────────────────────────────────────────────────
 
 async function main() {
@@ -630,6 +1037,10 @@ async function main() {
     else if (SOURCE === "mek") count = await importMEK(LIMIT);
     else if (SOURCE === "open-library")
       count = await importOpenLibrary(LIMIT, args.query);
+    else if (SOURCE === "google-books")
+      count = await importGoogleBooks(LIMIT, args.query);
+    else if (SOURCE === "popular") count = await importPopular(LIMIT);
+    else if (SOURCE === "backfill-covers") count = await backfillCovers(LIMIT);
     else {
       console.error(`Unknown --source=${SOURCE}`);
       process.exit(1);

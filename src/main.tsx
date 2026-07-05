@@ -11,14 +11,13 @@ import { startSyncOrchestrator } from "@/lib/sync/sync-orchestrator";
 import { startServerHeartbeat } from "@/lib/sync/server-heartbeat";
 import { registerSyncEntityHandlers } from "@/lib/sync/sync-entity-handlers";
 import { loadUserCss } from "@/lib/user-css";
+import { isTauri } from "@/lib/tauri";
 
-// Suppress one class of unhandled promise rejection that's
-// recoverable but spammy: pdf.js's "Worker was terminated", which
-// fires when a `<Document>` unmounts mid-load (e.g. the library
-// cover-thumbnail when the user switches folders). react-pdf doesn't
-// catch the post-unmount rejection and it lands here as an unhandled
-// error. `preventDefault()` swallows it; everything else still
-// surfaces normally.
+// native app: mark <html> so the custom title bar's height offset (the
+// --titlebar-h var) kicks in. No-op in the browser.
+if (isTauri) document.documentElement.classList.add("tauri-app");
+
+// pdf.js throws "Worker was terminated" when a <Document> unmounts mid-load; react-pdf leaks it here as an unhandled rejection, so swallow just that one.
 window.addEventListener("unhandledrejection", (event) => {
   const err = event.reason;
   const message =
@@ -33,44 +32,24 @@ window.addEventListener("unhandledrejection", (event) => {
   }
 });
 
-// Initialize auth listener once at startup (Zustand stores work outside React)
 useAuthStore.getState().initialize();
 
-// Register entity handlers BEFORE the orchestrator starts —
-// otherwise a queued mutation drained on boot would dead-letter
-// for "no handler registered."
+// must register handlers before the orchestrator, or a mutation drained on boot dead-letters as "no handler registered"
 registerSyncEntityHandlers();
 
-// Sync orchestrator — subscribes to network + auth + queue changes
-// and drains pending local mutations to Supabase whenever we're
-// online and signed in. Idempotent; safe to call early because it
-// gates internally on having a user id.
+// gates internally on user id, safe to call early
 startSyncOrchestrator();
 
-// Probe the Supabase API on boot + on focus + every 60s so the
-// offline banner reflects real reachability, not just the OS's
-// best guess of `navigator.onLine`.
+// probes reachability instead of trusting navigator.onLine
 startServerHeartbeat();
 
-// Register the PWA launchQueue consumer ASAP so file handlers work
-// from a cold start (the queue buffers until React mounts a listener).
+// PWA launchQueue buffers until React mounts a listener, so register early
 initLaunchedFiles();
 
-// Apply user-supplied CSS overrides as early as possible so the
-// first React paint already reflects the user's customizations
-// — otherwise there's a visible flash from default → custom.
+// load user css before first paint to avoid a default->custom flash
 loadUserCss();
 
-// When the user transitions from signed-out to signed-in and the
-// profile is available, pull theme/plugin preferences down from
-// Supabase — once. We deliberately don't re-hydrate on every later
-// profile update: auth-store's profile snapshot is updated locally
-// when the user edits their display name, but its `preferences` blob
-// can be stale relative to whatever the user has changed in the
-// settings store since sign-in. Re-hydrating in that case clobbered
-// the user's recent theme pick (and any other preference) with an old
-// value. Settings store is the source of truth after the initial
-// hydrate; subsequent changes are pushed up via syncPreferences.
+// hydrate preferences from the profile once per sign-in. Don't re-run on later profile updates: settings store is the source of truth after this and the profile's preferences blob can be stale.
 let hydratedForUser: string | null = null;
 useAuthStore.subscribe((state) => {
   const id = state.user?.id ?? null;
@@ -81,9 +60,7 @@ useAuthStore.subscribe((state) => {
   if (state.profile && hydratedForUser !== id) {
     hydratedForUser = id;
     useSettingsStore.getState().hydrateFromRemote(state.profile.preferences);
-    // Rehydrate any reading session that was active in another tab
-    // / before the last crash. Cheap query (filtered by user_id +
-    // ended_at IS NULL, both indexed) so we fire-and-forget it.
+    // pick up a reading session left open in another tab or before a crash
     void useReadingSessionStore.getState().hydrate();
   }
 });
@@ -94,11 +71,7 @@ createRoot(document.getElementById("root")!).render(
   </StrictMode>,
 );
 
-// Fade the boot splash out once React has painted its first frame. Two
-// rAFs: the first lets React commit, the second runs after the browser
-// has painted. setTimeout fallback removes the node even if the
-// transitionend event is dropped (some mobile browsers do that under
-// load).
+// double rAF so the fade starts after React's first paint; setTimeout removes the node in case transitionend never fires (some mobile browsers drop it)
 const splash = document.getElementById("boot-splash");
 if (splash) {
   requestAnimationFrame(() => {

@@ -119,7 +119,7 @@ describe("buildHostApi — notifications", () => {
   it("rejects non-string messages with a TypeError", async () => {
     const { api } = build(["notifications"]);
     await expect(
-      // @ts-expect-error — intentionally calling with a wrong type
+      // @ts-expect-error, intentionally calling with a wrong type
       api.notifications.show(42),
     ).rejects.toBeInstanceOf(TypeError);
   });
@@ -151,11 +151,11 @@ describe("buildHostApi — commands", () => {
   it("rejects non-string ids with a TypeError", async () => {
     const { api } = build(["commands"]);
     await expect(
-      // @ts-expect-error — intentionally wrong type
+      // @ts-expect-error, intentionally wrong type
       api.commands.register(1, "x"),
     ).rejects.toBeInstanceOf(TypeError);
     await expect(
-      // @ts-expect-error — intentionally wrong type
+      // @ts-expect-error, intentionally wrong type
       api.commands.execute(1),
     ).rejects.toBeInstanceOf(TypeError);
   });
@@ -216,7 +216,7 @@ describe("buildHostApi — events", () => {
   it("rejects unknown event names with a TypeError", async () => {
     const { api } = build(["events:book", "events:reader"]);
     await expect(
-      // @ts-expect-error — intentionally bogus event name
+      // @ts-expect-error, intentionally bogus event name
       api.events.on("something:weird"),
     ).rejects.toBeInstanceOf(TypeError);
   });

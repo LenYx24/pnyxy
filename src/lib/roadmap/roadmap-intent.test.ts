@@ -3,7 +3,7 @@ import { detectRoadmapIntent } from "./roadmap-tools";
 
 // The detector gates an expensive escalation: a positive routes the
 // chat turn through the Anthropic tool-use path instead of the cheap
-// auto-route. So we care about BOTH directions — it must fire on real
+// auto-route. So we care about BOTH directions, it must fire on real
 // "build me a roadmap" asks (HU + EN) and must NOT fire on ordinary
 // chat that merely mentions a roadmap or asks to generate something
 // else.

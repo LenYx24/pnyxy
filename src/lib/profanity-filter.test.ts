@@ -58,7 +58,7 @@ describe("cleanUserText", () => {
 
   it("preserves non-letter characters surrounding the match", () => {
     // punctuation characters between letters are also dropped during
-    // normalization, so they get masked too — acceptable trade-off.
+    // normalization, so they get masked too, acceptable trade-off.
     expect(cleanUserText("s.h.i.t.")).toBe("*.*.*.*.");
   });
 

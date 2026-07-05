@@ -34,7 +34,7 @@ interface LibraryQuizCardProps {
 
 /**
  * Grid card for a quiz in the library filetree. Opens the quiz detail
- * route; export produces a GIFT (.gift) file — the questions are
+ * route; export produces a GIFT (.gift) file, the questions are
  * fetched on demand since the card only holds the quiz row. Move /
  * delete are self-contained.
  */

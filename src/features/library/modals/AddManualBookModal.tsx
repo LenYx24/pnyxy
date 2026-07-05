@@ -15,7 +15,7 @@ interface AddManualBookModalProps {
 }
 
 /**
- * Add a book to the user's library as pure metadata — no file.
+ * Add a book to the user's library as pure metadata, no file.
  * "Shell book" use case: a physical copy the user owns, or a book
  * they want to discuss/take notes on without uploading the PDF.
  *

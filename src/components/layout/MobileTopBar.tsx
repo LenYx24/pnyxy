@@ -16,7 +16,7 @@ import { cn } from "@/lib/cn";
 /**
  * Mobile-only top bar. Carries the brand on the left and an avatar
  * button on the right that opens a small menu with Profile, Settings
- * and Sign In / Out — these used to sit in the bottom nav, but the
+ * and Sign In / Out, these used to sit in the bottom nav, but the
  * bottom rail is reserved for the four high-traffic surfaces
  * (Library / Chat / Reader / Browse).
  *
@@ -62,9 +62,6 @@ export function MobileTopBar() {
         >
           <Menu size={20} />
         </button>
-        <Link to="/" aria-label="Pnyxy home" className="flex items-center">
-          <img src="/logo.svg" alt="Pnyxy" className="h-7 w-auto" />
-        </Link>
       </div>
 
       {user ? (

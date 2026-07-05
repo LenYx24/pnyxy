@@ -4,7 +4,7 @@ import { useStreakStore } from "@/stores/streak-store";
 import { cn } from "@/lib/cn";
 
 /**
- * Compact streak pill — just a flame icon with the current streak number.
+ * Compact streak pill, just a flame icon with the current streak number.
  * Used on mobile where the full card would dominate the library header.
  */
 export function StreakPill({ className }: { className?: string }) {

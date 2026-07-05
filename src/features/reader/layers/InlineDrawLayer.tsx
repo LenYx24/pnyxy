@@ -7,7 +7,7 @@ import {
 
 /**
  * SVG overlay sized to a single PDF page. Renders any stored strokes
- * for that page, and — when inline draw mode is active — captures
+ * for that page, and, when inline draw mode is active, captures
  * pointer events to record new strokes.
  *
  * Coordinates are NORMALISED to the page (0..1 along each axis), so
@@ -84,7 +84,7 @@ export function InlineDrawLayer({ pageNum }: InlineDrawLayerProps) {
     e.preventDefault();
     setDraft((prev) => {
       if (!prev) return prev;
-      // Skip if the cursor barely moved — keeps stroke point counts
+      // Skip if the cursor barely moved, keeps stroke point counts
       // bounded for long drags.
       const last = prev.points[prev.points.length - 1];
       if (last && Math.hypot(p.x - last.x, p.y - last.y) < 0.002) return prev;
@@ -102,7 +102,7 @@ export function InlineDrawLayer({ pageNum }: InlineDrawLayerProps) {
     try {
       (e.currentTarget as SVGSVGElement).releasePointerCapture(e.pointerId);
     } catch {
-      // not captured — ignore
+      // not captured, ignore
     }
   };
 

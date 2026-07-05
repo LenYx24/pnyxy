@@ -18,16 +18,16 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants: Record<ButtonVariant, string> = {
-  // Solid accent — the one primary action on a surface.
+  // Solid accent, the one primary action on a surface.
   primary: "bg-accent hover:bg-accent/80 text-white shadow-lg shadow-accent/25",
-  // Glass outline — secondary actions that shouldn't compete.
+  // Glass outline, secondary actions that shouldn't compete.
   secondary:
     "bg-glass-bg border border-glass-border hover:bg-glass-hover text-text-primary backdrop-blur-md",
-  // Chromeless — tertiary / toolbar-ish text actions.
+  // Chromeless, tertiary / toolbar-ish text actions.
   ghost: "hover:bg-glass-hover text-text-secondary hover:text-text-primary",
-  // Tinted accent — the very common "quiet primary" (New, Generate…).
+  // Tinted accent, the very common "quiet primary" (New, Generate…).
   soft: "bg-accent/15 hover:bg-accent/25 text-accent",
-  // Tinted danger — destructive actions (delete, remove).
+  // Tinted danger, destructive actions (delete, remove).
   danger: "bg-danger/15 hover:bg-danger/25 text-danger",
 };
 

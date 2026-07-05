@@ -19,7 +19,7 @@ import { persist } from "zustand/middleware";
  * passage re-speaks the current chunk so the change is audible
  * immediately rather than waiting for the next sentence boundary.
  *
- * Only voice + rate persist to localStorage — playback state is
+ * Only voice + rate persist to localStorage, playback state is
  * intentionally session-scoped so a refresh doesn't leave the
  * browser droning over background tabs.
  */
@@ -34,7 +34,7 @@ interface TtsState {
   index: number;
   /** Selected voice URI (matches `SpeechSynthesisVoice.voiceURI`). */
   voiceUri: string | null;
-  /** Speech rate, 0.5 – 2.0. */
+  /** Speech rate, 0.5, 2.0. */
   rate: number;
   /** Cached snapshot of `speechSynthesis.getVoices()`. */
   voices: SpeechSynthesisVoice[];
@@ -237,7 +237,7 @@ export const useTtsStore = create<TtsState>()(
           if (queue.length === 0) return;
           const next = Math.min(index + 1, queue.length - 1);
           if (next === index && index === queue.length - 1) {
-            // Already on the last chunk — let the natural `onend`
+            // Already on the last chunk, let the natural `onend`
             // finalise rather than re-speaking.
             return;
           }

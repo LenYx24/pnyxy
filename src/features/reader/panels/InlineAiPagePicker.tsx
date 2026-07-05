@@ -9,23 +9,13 @@ import { useConfirm } from "@/hooks/use-confirm";
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf-assets/pdf.worker.min.mjs";
 
 const THUMB_WIDTH = 90;
-// A4 ratio placeholder so the strip's geometry is stable while
-// thumbnails stream in.
+// A4 ratio placeholder to keep strip geometry stable while thumbs load
 const THUMB_PLACEHOLDER_HEIGHT = THUMB_WIDTH * 1.4142;
 
 /**
- * Inline AI page picker that sits above the ChatComposer. A horizontal
- * scrolling strip of page thumbnails; clicking a tile toggles whether
- * that page gets included in the next message's context. Mirrors the
- * sidebar `ThumbnailToc`'s selection state — both surfaces edit the
- * same `aiSelectedPages` set on the active doc, so changes here show
- * up in the sidebar editor and vice versa.
- *
- * Lives in the chat panel because that's where the user actually
- * sees the "x pages" count and wants to adjust it — saves a round
- * trip to the sidebar TOC. PDF-only (react-pdf renders the tiles);
- * for non-PDF formats the chat panel falls back to the sidebar
- * editor route.
+ * Inline AI page picker above the ChatComposer: a scrolling strip of page
+ * thumbnails, clicking toggles inclusion in the next message's context.
+ * Edits the same `aiSelectedPages` set as the sidebar ThumbnailToc. PDF-only.
  */
 export function InlineAiPagePicker({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
@@ -45,11 +35,7 @@ export function InlineAiPagePicker({ onClose }: { onClose: () => void }) {
   const selectedCount = selectedPages.size;
   const allSelected = totalPages > 0 && selectedCount === totalPages;
 
-  // Click handler with shift-range support. Plain click toggles a
-  // single page; shift+click extends from the most recent selection
-  // anchor to the clicked page (matches the sidebar ThumbnailToc).
-  // Anchor-less shift-click falls back to a single toggle — same
-  // sane default as the sidebar picker.
+  // shift+click extends from the last anchor, otherwise toggle one page
   const handleTileClick = useCallback(
     (pageNum: number, shift: boolean) => {
       if (shift && selectionAnchor !== null) {
@@ -61,9 +47,7 @@ export function InlineAiPagePicker({ onClose }: { onClose: () => void }) {
     [selectionAnchor, selectAiPageRange, toggleAiPage],
   );
 
-  // Select-all gate. Reuses the wholeBook confirm copy from
-  // ChatComposer (same warning about token cost on big books) so
-  // users get a consistent dialog whichever entry point they use.
+  // confirm before selecting all; big books burn quota fast
   const handleSelectAll = useCallback(async () => {
     if (!activeDoc || totalPages <= 0) return;
     const ok = await confirm({
@@ -83,11 +67,7 @@ export function InlineAiPagePicker({ onClose }: { onClose: () => void }) {
     selectAllAiPages();
   }, [activeDoc, totalPages, confirm, selectAllAiPages, t]);
 
-  // First-open auto-fill: if nothing is selected, seed with the
-  // user's "surrounding pages" default — same UX as the sidebar
-  // ThumbnailToc on entering selection mode. Without this, opening
-  // the picker on a fresh book shows zero selected and the user has
-  // to start from scratch every time.
+  // on first open with nothing selected, seed the surrounding-pages default
   const autoSelectedRef = useRef(false);
   useEffect(() => {
     if (autoSelectedRef.current) return;
@@ -100,9 +80,7 @@ export function InlineAiPagePicker({ onClose }: { onClose: () => void }) {
     autoSelectedRef.current = true;
   }, [activeDoc, totalPages, selectedCount, selectAiPagesAround]);
 
-  // Scroll the current page roughly into view on first open so the
-  // user lands near where they actually are in the book, not at
-  // page 1 of a 600-page PDF.
+  // scroll the current page into view on first open
   const scrollRef = useRef<HTMLDivElement>(null);
   const tileRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const scrolledRef = useRef(false);
@@ -179,9 +157,7 @@ export function InlineAiPagePicker({ onClose }: { onClose: () => void }) {
         }
         error={null}
       >
-        {/* pt-2 leaves breathing room for the emerald selection ring on
-            the first row of tiles — without it the ring's top edge was
-            clipped against the header divider. */}
+        {/* pt-2 so the top selection ring isn't clipped by the header divider */}
         <div
           ref={scrollRef}
           className="flex gap-2 overflow-x-auto overscroll-contain px-3 pb-3 pt-2"
@@ -213,11 +189,9 @@ export function InlineAiPagePicker({ onClose }: { onClose: () => void }) {
 const EMPTY_SET: ReadonlySet<number> = new Set();
 
 /**
- * Lazy-mounted thumbnail tile. Same pattern as the sidebar
- * ThumbnailItem: stay placeholder until scrolled near, then mount the
- * react-pdf <Page> and keep it. The IntersectionObserver uses the
- * scroll container as its root so off-screen-to-the-right tiles
- * don't fire all at once on mount.
+ * Lazy-mounted thumbnail tile: stays a placeholder until scrolled near,
+ * then mounts the react-pdf Page and keeps it. Observer root is the scroll
+ * container so off-screen tiles don't all fire on mount.
  */
 function PickerTile({
   pageNum,
@@ -249,7 +223,7 @@ function PickerTile({
           observer.disconnect();
         }
       },
-      // Overscan to the right so tiles look ready as the user scrolls.
+      // overscan so tiles look ready while scrolling
       { root, rootMargin: "0px 400px" },
     );
     observer.observe(el);

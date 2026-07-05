@@ -21,7 +21,7 @@ interface BaseElement {
   strokeWidth: number;
   createdAt: number;
   /** Rotation around the element's bbox centre, in radians. Optional
-   *  for backward compatibility — readers should treat undefined as 0. */
+   *  for backward compatibility, readers should treat undefined as 0. */
   rotation?: number;
 }
 
@@ -98,13 +98,13 @@ export interface WhiteboardData {
    *  whiteboards (created from the OverviewTab "Create Whiteboard"
    *  button or the dedicated /workspace surface later) leave it
    *  undefined. The reader's "auto-create draw whiteboard" path
-   *  also leaves it undefined — those exist per-session inside the
+   *  also leaves it undefined, those exist per-session inside the
    *  reader's dockview, not as book artifacts. */
   bookId?: string;
   /** Library folder this whiteboard lives in, or null/undefined for
    *  the root. Lets whiteboards appear in the library filetree
    *  alongside books + notes. Stored inside this jsonb blob (like
-   *  bookId) — the whiteboard sync upserts the whole WhiteboardData,
+   *  bookId), the whiteboard sync upserts the whole WhiteboardData,
    *  so it round-trips with no schema change. */
   folderId?: string | null;
 }

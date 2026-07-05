@@ -37,7 +37,7 @@ interface PlatformDownload {
   os: OsKey;
   /** The installer file names we care about for this platform. */
   matcher: (name: string) => boolean;
-  /** Short label for the button — "Download for Windows" etc. */
+  /** Short label for the button, "Download for Windows" etc. */
   labelKey: string;
   fileLabelKey: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;

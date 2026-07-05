@@ -5,7 +5,7 @@ import { GlassCard } from "@/components/ui";
 const REPO_URL = "https://github.com/LenYx24/pnyxy";
 const COMMUNITY_URL = "https://github.com/LenYx24/pnyxy-community";
 
-/** Lucide 1.x drops the GitHub mark for trademark reasons — inline
+/** Lucide 1.x drops the GitHub mark for trademark reasons, inline
  *  SVG to stay dependency-light (same pattern as Footer.tsx). */
 function GithubGlyph({ size = 20 }: { size?: number }) {
   return (

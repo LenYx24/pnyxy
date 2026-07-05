@@ -57,8 +57,7 @@ interface FolderRowProps {
   allChats?: ChatConversation[];
   onMoveBook: (entry: UnifiedLibraryItem) => void;
   onRemoveBook: (entry: UnifiedLibraryItem) => void;
-  /** Open the create-folder modal targeting this folder as parent.
-   *  Wired to the "New subfolder" context-menu entry. */
+  /** Open the create-folder modal with this folder as parent. */
   onCreateSubfolder?: (parentFolderId: string) => void;
   expandedFolders: Set<string>;
   selectedIds: Set<string>;
@@ -102,10 +101,8 @@ export function FolderRow({
   const { t } = useTranslation();
   const isTopLevel = depth === 0;
 
-  // Top-level folders participate in the SortableContext for sibling
-  // reorder. Nested folders are draggable (so users can drag them out)
-  // but not part of any sortable list — they only accept drops via the
-  // inner "nest" zone below.
+  // Top-level folders are sortable for sibling reorder. Nested folders are
+  // only draggable (to drag out); they accept drops via the nest zone below.
   const sortable = useSortable({
     id: sortableId ?? `folder:${folder.id}`,
     disabled: !isTopLevel,
@@ -115,12 +112,8 @@ export function FolderRow({
     disabled: isTopLevel,
   });
 
-  // Inner "nest into me" droppable. Covers the middle of the row — top
-  // and bottom edges remain part of the outer sortable so the sortable
-  // reorder only triggers when the user is hovering near an edge, not
-  // when they're squarely over a folder. This is the file-manager
-  // convention (Finder, Explorer): drop in middle = nest, drop on edge
-  // = place above/below.
+  // Nest droppable covers the row's middle; the top/bottom edges stay with the
+  // outer sortable. Drop in middle = nest, drop on edge = reorder above/below.
   const nest = useDroppable({
     id: `nest:${folder.id}`,
     data: { type: "folder", folderId: folder.id },
@@ -137,10 +130,8 @@ export function FolderRow({
       }
     : undefined;
 
-  // content-visibility:auto skips off-screen rows for scroll perf, but
-  // it collapses their measured rects — which breaks dnd-kit's collision
-  // detection during a drag (the drop target resolves to the dragged row
-  // itself, so nothing reorders). Disable it while any drag is in flight.
+  // content-visibility:auto collapses offscreen rects, which breaks dnd-kit
+  // collision detection mid-drag. Disable it while a drag is active.
   const dragActive = useDndContext().active != null;
   const cvStyle = dragActive
     ? null
@@ -169,8 +160,7 @@ export function FolderRow({
 
   const indent = Math.min(depth * 20, 80);
 
-  // Right-click + long-press menu. Items are computed lazily so they
-  // capture fresh callbacks at the moment the menu opens.
+  // Items built lazily so they capture fresh callbacks when the menu opens.
   const contextHandlers = useContextMenu((): ContextMenuEntry[] => {
     const items: ContextMenuEntry[] = [
       {
@@ -208,10 +198,8 @@ export function FolderRow({
   });
 
   return (
-    // Row-level content-visibility: cheap when there are hundreds of
-    // rows — the browser skips paint/layout for offscreen ones. 48px
-    // is an over-estimate for the densest layout so the scrollbar is
-    // steady regardless of which density is active.
+    // Row content-visibility skips paint/layout for offscreen rows. 48px
+    // over-estimates the densest layout to keep the scrollbar steady.
     <div
       ref={setNodeRef}
       style={{
@@ -224,8 +212,7 @@ export function FolderRow({
         {...contextHandlers}
         {...listeners}
         className={cn(
-          // Folders share the same row background as files (Nextcloud-
-          // style); the folder icon is the only distinguishing cue.
+          // Same row background as files; only the folder icon differs.
           "group relative flex select-none items-center border-b border-glass-border/30 px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
           density.py,
           selected && "bg-accent/10",
@@ -236,9 +223,8 @@ export function FolderRow({
         style={{ paddingLeft: 8 + indent }}
         onClick={handleClick}
       >
-        {/* "Nest into me" drop zone — covers the middle of the row.
-            Smaller than the row so top/bottom edges still belong to
-            the outer sortable's drop target. */}
+        {/* Nest drop zone: middle of the row only, so top/bottom edges
+            stay with the outer sortable. */}
         <div
           ref={nest.setNodeRef}
           aria-hidden="true"
@@ -263,10 +249,8 @@ export function FolderRow({
           />
         </div>
 
-        {/* Icon — bare folder glyph, no tinted tile. Inline expand was
-            removed (folders open by navigation); the toggle plumbing is
-            kept for later re-enable. Fixed-height box keeps rows equal
-            height and aligns the name column across types. */}
+        {/* Icon. Fixed-height box keeps rows equal height and aligns the
+            name column across types. */}
         <div className="mr-2.5 flex h-8 w-7 shrink-0 items-center justify-center sm:h-9">
           <Folder
             size={density.icon + 4}
@@ -285,8 +269,7 @@ export function FolderRow({
           {folder.name}
         </span>
 
-        {/* Menu — placed right after the name (Nextcloud puts row
-            actions here), not at the far edge. */}
+        {/* Menu, placed right after the name. */}
         <div className="relative mr-2 shrink-0">
           <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
             <MenuItem
@@ -309,7 +292,7 @@ export function FolderRow({
           </ContextMenu>
         </div>
 
-        {/* Size column → item count for folders (Nextcloud-style). */}
+        {/* Size column shows item count for folders. */}
         <span
           className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
           style={{ width: columnWidths.size }}

@@ -11,7 +11,7 @@ const MOVE_TOLERANCE_PX = 8;
  * Returns event handlers to spread on any element so it shows a custom
  * context menu on right-click (desktop) or long-press (touch).
  *
- * Pass items either as a stable array or as a getter function — the
+ * Pass items either as a stable array or as a getter function, the
  * getter is called at the moment the menu opens, so it can read fresh
  * state (e.g. "is this row currently selected").
  *

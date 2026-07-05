@@ -59,7 +59,7 @@ export function NumberInput({
 
   const handleType = (raw: string) => {
     if (raw === "" || raw === "-") {
-      // Allow temporary empty/in-progress input — caller can decide
+      // Allow temporary empty/in-progress input, caller can decide
       // whether NaN matters by re-validating on blur.
       onChange(Number.NaN);
       return;

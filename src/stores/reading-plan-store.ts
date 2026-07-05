@@ -27,7 +27,7 @@ interface CreatePlanInput {
   start_date: string;
   end_date: string;
   ignore_weekends: boolean;
-  /** May be empty — a plan can be created without books and have
+  /** May be empty, a plan can be created without books and have
    *  them attached later from the detail page. */
   items: PlanItemDraft[];
 }
@@ -279,9 +279,9 @@ export const useReadingPlanStore = create<PlanState>((set, get) => ({
   },
 }));
 
-// ── Progress math (pure; no store access) ───────────────────
+// Progress math (pure; no store access)
 
-/** Count the weekdays (Mon–Fri) between two ISO dates inclusive. */
+/** Count the weekdays (Mon-Fri) between two ISO dates inclusive. */
 export function countWeekdays(startIso: string, endIso: string): number {
   const start = new Date(startIso + "T00:00:00");
   const end = new Date(endIso + "T00:00:00");

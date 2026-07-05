@@ -2,7 +2,7 @@ import { Shield } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 /**
- * First-pass privacy notice. Draft — review before public launch.
+ * First-pass privacy notice. Draft, review before public launch.
  * Placeholders marked [TO FILL] must be completed.
  *
  * Body text is intentionally kept in English only: a legal document

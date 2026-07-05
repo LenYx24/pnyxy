@@ -5,7 +5,7 @@ import type { BookResumeState } from "@/types/database";
 /**
  * Cross-device sync for the reader's "last position" so opening
  * the same book on phone after reading on desktop drops you exactly
- * where you left off. Both reads and writes are best-effort — a
+ * where you left off. Both reads and writes are best-effort, a
  * network failure just means the local IndexedDB copy stays
  * authoritative for the session.
  */

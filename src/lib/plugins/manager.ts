@@ -23,7 +23,7 @@ type StatusListener = (statuses: ReadonlyMap<string, PluginLoadStatus>) => void;
 
 /**
  * Owns the lifecycle of every loaded plugin. Subscribes to settings
- * changes and reconciles enable/disable state on its own — callers
+ * changes and reconciles enable/disable state on its own, callers
  * just toggle `enabledPlugins` and the manager catches up.
  */
 export class PluginManager {
@@ -222,7 +222,7 @@ export class PluginManager {
   }
 }
 
-// ── Adapters wired into the singleton settings store ──────────
+// Adapters wired into the singleton settings store
 
 function createCommandRegistry(manager: PluginManager): CommandRegistry {
   const cmds = new Map<string, { pluginId: string; label: string }>();

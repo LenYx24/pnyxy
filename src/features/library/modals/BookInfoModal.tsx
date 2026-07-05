@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import { formatAuthors } from "@/lib/library/format-authors";
@@ -37,7 +38,9 @@ export function BookInfoModal({ open, onClose, entry }: BookInfoModalProps) {
     ? entry.book.page_count
     : entry.catalog_book.page_count;
 
-  return (
+  // Portal to body: the host card uses content-visibility, a containing
+  // block for position:fixed, which would otherwise clip this modal.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -95,6 +98,7 @@ export function BookInfoModal({ open, onClose, entry }: BookInfoModalProps) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

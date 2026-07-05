@@ -15,7 +15,7 @@ interface DictionaryEntry {
 }
 
 /**
- * Free Dictionary API client — no auth, English-only, 404 when the
+ * Free Dictionary API client, no auth, English-only, 404 when the
  * lookup misses. Returns null on 404; throws on 5xx so the caller's
  * "connect_failed" branch can light up. Kept module-local because
  * nothing else in the app talks to the dictionary API today.
@@ -60,7 +60,7 @@ interface Props {
 }
 
 /**
- * "Define this word" panel — Free Dictionary lookup with silent
+ * "Define this word" panel, Free Dictionary lookup with silent
  * capture into the user's vocabulary deck on a single-word success.
  * Multi-word selections are shown but not auto-saved (would pollute
  * the flashcard deck). Capture is best-effort; failures are silent.
@@ -93,7 +93,7 @@ export function AnnotationMenuDefinePanel({
         if (entry) {
           setDefinition(entry);
           // Silently save to vocabulary for later review. Only capture
-          // on a successful single-word lookup — long-phrase "defines"
+          // on a successful single-word lookup, long-phrase "defines"
           // would pollute the flashcard deck.
           if (!word.includes(" ")) {
             const primaryDef =
@@ -112,7 +112,7 @@ export function AnnotationMenuDefinePanel({
               });
               if (!cancelled) setCapturedVocabId(saved.id);
             } catch {
-              // Capture is best-effort — surface nothing to the user.
+              // Capture is best-effort, surface nothing to the user.
             }
           }
         } else {
@@ -136,7 +136,7 @@ export function AnnotationMenuDefinePanel({
     try {
       await removeVocabEntry(id);
     } catch {
-      // Silent — re-saving will just overwrite.
+      // Silent, re-saving will just overwrite.
     }
   }, [capturedVocabId, removeVocabEntry]);
 

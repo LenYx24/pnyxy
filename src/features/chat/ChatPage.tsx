@@ -57,6 +57,7 @@ import { restrictToWindowEdges } from "@/lib/dnd-modifiers";
 import { cn } from "@/lib/cn";
 import { useAuthStore } from "@/stores/auth-store";
 import { useUIStore } from "@/stores/ui-store";
+import { useLibraryStore } from "@/stores/library-store";
 import {
   useChatStore,
   pathFromRoot,
@@ -71,24 +72,11 @@ import {
 import { SaveAsFlashcardsModal } from "./SaveAsFlashcardsModal";
 import { ChatTree, RootDropZone } from "./chat-tree";
 
-// Composer attachment limits — enforced client-side, mirrored
-// roughly by Anthropic's per-request payload cap. Image-only for
-// v1; PDF / text upload would need server-side extraction or
-// provider-native file uploads, both deferred.
-
-// Markdown rendering moved to `@/lib/markdown-message`; same citation
-// pre-pass logic now lives there so the reader's AI panel renders
-// `[p.N]` clickably too. Click dispatch is the
-// `usePageCitationDispatch` hook — anchors that target the
-// already-active reader doc jump in place; everything else navigates.
-
 export function ChatPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  // Opens the global app-nav Sidebar overlay (Library / Profile /
-  // Settings / …). Surfaced inside the chat's conversation drawer since
-  // the global MobileTopBar is hidden on /chat.
+  // opens the global nav overlay
   const setMobileSidebarOpen = useUIStore((s) => s.setMobileSidebarOpen);
 
   const conversations = useChatStore((s) => s.conversations);
@@ -127,30 +115,14 @@ export function ChatPage() {
   const moveFolderToParent = useChatStore((s) => s.moveFolderToParent);
   const reorderConversation = useChatStore((s) => s.reorderConversation);
   const reorderFolder = useChatStore((s) => s.reorderFolder);
+  // chat folders live in the shared library folders table
+  const navigateToLibraryFolder = useLibraryStore((s) => s.navigateToFolder);
 
-  // The store now fetches conversations ordered by sort_order asc
-  // (DB-backed, see migration 00041). No client-side sort layer
-  // needed — what comes out of useChatStore is already in display
-  // order. Same for folders.
+  // already sorted by sort_order in the store
   const sortedConversations = conversations;
 
-  // Drag-and-drop sensors. MouseSensor (not PointerSensor) so touch
-  // events are exclusively handled by TouchSensor below — otherwise
-  // PointerSensor's distance activation beat TouchSensor's delay on
-  // phones and a regular scroll-swipe over a conversation row would
-  // start a drag.
-  //
-  // distance: 14 (was 8) — sidebar rows are tight and stuffed with
-  // inline action buttons (Move/Rename/Delete pencils). Clicking
-  // those with even slight cursor drift used to trip the 8px
-  // threshold and start an unintended drag. 14px sits above typical
-  // hand-jitter while staying well below "obvious drag" distances.
-  //
-  // delay: 600 (was 200) — the long-press context menu fires at
-  // 500ms (see use-context-menu.ts). With 200ms the drag always won
-  // and touch users could never reach the context menu via
-  // long-press. 600ms leaves a clear gap: < 500ms tap → click,
-  // 500-600ms hold → context menu, ≥ 600ms hold + movement → drag.
+  // MouseSensor (not PointerSensor) so touch scroll goes through TouchSensor and
+  // doesn't start a drag. delay 600ms clears the 500ms long-press menu.
   const dndSensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 14 } }),
     useSensor(TouchSensor, {
@@ -159,25 +131,8 @@ export function ChatPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // Collision detection: pointerWithin matches the dropzone the
-  // pointer is actually inside, which is what users expect for
-  // drop-into semantics. The earlier closestCenter mis-targeted in
-  // two ways: (1) the thin RootDropZone strip has a center far from
-  // where users actually drop, so drops near a folder got attributed
-  // to root; (2) when a folder is hovered near a sibling boundary,
-  // closestCenter picks whichever center is fractionally closer
-  // rather than the one the pointer is in.
-  //
-  // The outer tree wrapper also registers as a "root" droppable so
-  // any drop that misses a folder/conv still lands at root (fixes
-  // the "I can't drop on root" complaint). Without the area-sort
-  // below, that outer droppable would beat nested folder rows
-  // because both contain the pointer. Sorting by ascending area
-  // means the most specific (smallest) droppable wins — folder row
-  // > root container, conversation row > folder row.
-  //
-  // closestCenter stays as a fallback for when the pointer is in a
-  // dead zone between rows so a drop doesn't silently cancel.
+  // smallest droppable wins so the most specific target gets the drop;
+  // closestCenter fallback for gaps between rows
   const collisionDetection: CollisionDetection = (args) => {
     const within = pointerWithin(args);
     if (within.length === 0) return closestCenter(args);
@@ -189,16 +144,9 @@ export function ChatPage() {
     });
   };
 
-  // Active drag preview state. Library uses the same pattern: track
-  // what's being dragged so a DragOverlay can render a ghost that
-  // follows the cursor 1:1, instead of relying on the implicit
-  // dnd-kit transform on the in-place row (which feels laggy on
-  // the chat sidebar's tighter row heights).
+  // drives the DragOverlay ghost
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
-  // Current `over` id during a drag — drives the drop-indicator line
-  // that gets rendered in conversation rows. Tracked separately from
-  // the active drag because we need to know what the pointer is over
-  // *right now*, which dnd-kit updates on every move via onDragOver.
+  // current `over` id, drives the drop-indicator line
   const [overDragId, setOverDragId] = useState<string | null>(null);
   const activeDragConv = useMemo(() => {
     if (!activeDragId?.startsWith("conv:")) return null;
@@ -220,21 +168,8 @@ export function ChatPage() {
     setOverDragId((event.over?.id as string | null) ?? null);
   };
 
-  // ─── Sort-order arithmetic helpers ───────────────────────
-  // sort_order is a fractional number (double precision in the DB)
-  // so we can drop an item between any two existing siblings by
-  // computing the midpoint, no batch renumbering needed.
-  //
-  // `topOf(ctx)` picks `min - 1` so a new item lands above
-  // everything else in `ctx` (used by drop-on-folder-body and
-  // drop-on-root).
-  //
-  // `aboveItem(ctx, targetId)` picks the midpoint between target
-  // and its predecessor. `ctx` must be the FUTURE state of the
-  // context — i.e. excluding the dragged item if it's coming from
-  // another context. Result places the dragged item directly above
-  // the target, matching the drop-line UX (line at top = "lands
-  // above").
+  // sort_order is fractional: insert via midpoints, no renumbering.
+  // ctx must be the future state (exclude the dragged item if it's moving in).
   const topOf = (ctx: { sort_order: number }[]): number => {
     if (ctx.length === 0) return 0;
     return Math.min(...ctx.map((x) => x.sort_order)) - 1;
@@ -262,14 +197,13 @@ export function ChatPage() {
 
     const isRootDrop = overId === "root" || overId === "root-pin";
 
-    // ─── Folder drag ─────────────────────────────────────────
+    // folder drag
     if (activeId.startsWith("folder:")) {
       const id = activeId.slice("folder:".length);
       const activeFolder = folders.find((f) => f.id === id);
       if (!activeFolder) return;
 
       if (isRootDrop) {
-        // Move to root + position at the top.
         const futureSiblings = folders.filter(
           (f) => f.parent_id === null && f.id !== id,
         );
@@ -277,12 +211,7 @@ export function ChatPage() {
         return;
       }
 
-      // Folder drop on another folder: same-parent → reorder,
-      // different-parent → nest INTO target. Disambiguation by
-      // parent comparison rather than hit-zone splitting keeps the
-      // model simple — "drop next to a sibling" is the common
-      // intent; users who want to nest a sibling use the context
-      // menu or first move the source out of the parent.
+      // folder onto folder: same-parent reorders, different-parent nests
       if (overId.startsWith("folder:") || overId.startsWith("nest:")) {
         const targetId = overId.startsWith("folder:")
           ? overId.slice("folder:".length)
@@ -292,17 +221,11 @@ export function ChatPage() {
         if (!targetFolder) return;
 
         if (activeFolder.parent_id === targetFolder.parent_id) {
-          // Same parent → reorder. Exclude self from the context
-          // sample so aboveItem's midpoint math doesn't see the
-          // dragged folder's current position.
           const siblings = folders.filter(
             (f) => f.parent_id === targetFolder.parent_id && f.id !== id,
           );
           void reorderFolder(id, aboveItem(siblings, targetId));
         } else {
-          // Different parent → nest INTO the target. Place at the
-          // top of target's children so the user sees it land
-          // somewhere visible without scrolling.
           const futureChildren = folders.filter(
             (f) => f.parent_id === targetId && f.id !== id,
           );
@@ -312,13 +235,12 @@ export function ChatPage() {
       return;
     }
 
-    // ─── Conversation drag ───────────────────────────────────
+    // conversation drag
     if (!activeId.startsWith("conv:")) return;
     const convId = activeId.slice("conv:".length);
     const activeConv = conversations.find((c) => c.id === convId);
     if (!activeConv) return;
 
-    // Drop on root: move to root, land at the top of Quick chats.
     if (isRootDrop) {
       const futureRoot = conversations.filter(
         (c) => c.folder_id === null && c.id !== convId,
@@ -327,9 +249,7 @@ export function ChatPage() {
       return;
     }
 
-    // Drop on a folder row → nest into folder, land at the top.
-    // Both id forms ("folder:" from sortable, "nest:" if any
-    // residual non-sortable path still emits them) route here.
+    // drop on a folder row: nest in at top
     if (overId.startsWith("folder:") || overId.startsWith("nest:")) {
       const targetFolderId = overId.startsWith("folder:")
         ? overId.slice("folder:".length)
@@ -345,9 +265,7 @@ export function ChatPage() {
       return;
     }
 
-    // Drop on another conversation: insert above it. Same folder →
-    // single-row reorder; different folder → move + position pin
-    // in the same write.
+    // drop on another conversation: insert above it
     if (overId.startsWith("conv:")) {
       const overConvId = overId.slice("conv:".length);
       if (overConvId === convId) return;
@@ -372,25 +290,16 @@ export function ChatPage() {
   };
 
   const [input, setInput] = useState("");
-  // Mobile-only: controls the slide-in conversation rail drawer.
-  // Desktop renders the same aside as a static column and ignores
-  // this state.
+  // mobile-only slide-in conversation drawer
   const [mobileListOpen, setMobileListOpen] = useState(false);
   const [branchFromId, setBranchFromId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
-  // Sidebar folder collapse state. Lifted from individual FolderRow
-  // useState into the page so the "Collapse all / Expand all"
-  // toolbar button can write to every folder at once. A Set of
-  // collapsed folder ids — absence means expanded. New folders the
-  // user creates start expanded by default (not in the set).
+  // collapsed folder ids (absence = expanded), lifted so collapse-all can write all at once
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(
     () => new Set(),
   );
-  // Session-scoped set of conversation ids whose source-page chip
-  // the user has dismissed. Not persisted: re-opening the
-  // conversation in a new session brings the chip back, which is
-  // forgiving for users who didn't mean to hide it permanently.
+  // conversation ids whose source-page chip is dismissed, session-only
   const [hiddenSourceChips, setHiddenSourceChips] = useState<Set<string>>(
     () => new Set(),
   );
@@ -402,20 +311,12 @@ export function ChatPage() {
     });
   }, []);
 
-  // Resizable sidebar (desktop only). Width persists per-device via
-  // localStorage so reopening the chat lands on the user's preferred
-  // size. Same UX as the reader's panel — drag a 4px-wide handle on
-  // the right edge between 200px (min, still readable) and 480px
-  // (max, before it starts eating the conversation column).
+  // resizable sidebar (desktop only), width persisted in localStorage
   const SIDEBAR_MIN = 200;
   const SIDEBAR_MAX = 480;
   const SIDEBAR_STORAGE_KEY = "pnyxy-chat-sidebar-width";
   const isMobile = useIsMobile();
-  // Height the soft keyboard covers, so we can lift the composer above
-  // it on mobile (visualViewport-backed). 0 on desktop. Mirrors the
-  // reader's AiChatPanel, which already does this — the standalone chat
-  // page was relying on `100dvh` alone, whose lag/inconsistency on
-  // Android made the composer jump out from under the keyboard.
+  // soft-keyboard height, lifts the composer. 100dvh alone lagged on Android.
   const keyboardInset = useKeyboardInset();
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     try {
@@ -425,14 +326,13 @@ export function ChatPage() {
         return Math.min(Math.max(n, SIDEBAR_MIN), SIDEBAR_MAX);
       }
     } catch {
-      // localStorage may be blocked in private mode — fall through.
+      // localStorage can be blocked in private mode
     }
     return 256;
   });
   const handleSidebarResizeStart = useCallback(
     (e: React.MouseEvent) => {
-      // preventDefault keeps the drag from also selecting text
-      // inside the sidebar/main pane as the cursor moves.
+      // don't select text while dragging
       e.preventDefault();
       const startX = e.clientX;
       const startWidth = sidebarWidth;
@@ -451,7 +351,7 @@ export function ChatPage() {
         try {
           localStorage.setItem(SIDEBAR_STORAGE_KEY, String(lastWidth));
         } catch {
-          // Persistence is best-effort; the in-memory width stays.
+          // ignore
         }
       };
       document.addEventListener("mousemove", onMove);
@@ -468,11 +368,7 @@ export function ChatPage() {
     });
   }, []);
 
-  // Stable handler refs for ChatTree props — without these, every
-  // ChatPage re-render (each composer keystroke) feeds fresh
-  // function identities into the tree, defeating the memo wrappers
-  // on FolderRow / ConversationRow. With useCallback they fire
-  // exactly once per state change instead of once per render.
+  // stable identities so ChatTree's memoized rows don't re-render on every keystroke
   const handleStartEdit = useCallback((id: string, title: string) => {
     setEditingId(id);
     setEditTitle(title);
@@ -490,36 +386,31 @@ export function ChatPage() {
     },
     [],
   );
+  const handleRequestCreateSubfolder = useCallback((parentId: string) => {
+    setFolderAction({ kind: "create", parentId });
+  }, []);
+  const handleOpenFolderInLibrary = useCallback(
+    (folderId: string) => {
+      navigateToLibraryFolder(folderId);
+      navigate("/library");
+    },
+    [navigateToLibraryFolder, navigate],
+  );
   const threadEndRef = useRef<HTMLDivElement>(null);
-  // Kept so reader→chat handoff can refocus the input post-prefill.
-  // Composer owns the actual textarea ref internally, so this is
-  // unused for now — leaving it commented as a placeholder once we
-  // expose a focus() imperative handle on ChatComposer.
   // const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Per-conversation model picker. `null` means "Default" — the
-  // app uses its full configured fallback chain (Pnyxy first, then
-  // direct keys). Any other value is a strict pick — only that
-  // provider is tried, errors surface instead of silent fallback.
-  // Declared up here because the attachment cap below depends on it.
+  // model picker: null = default fallback chain, otherwise a strict pick
   const enabledProviders = useSettingsStore((s) => s.enabledProviders);
   const configuredProviders = useMemo(
     () => getConfiguredProviders(),
-    // configuration changes when settings change — re-evaluate.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [enabledProviders],
   );
-  // selectedProvider is kept around for the onPickSuggestion quick-
-  // reply path which branches off existing assistant messages. The
-  // composer manages its own copy too — they don't have to agree.
+  // used by the onPickSuggestion path; composer keeps its own copy
   const [selectedProvider, setSelectedProvider] = useState<AiProvider | null>(
     () => null,
   );
-  // Conversation search — filters the visible sidebar list (desktop)
-  // and the mobile pre-open conversations list. Title-only,
-  // case-insensitive substring match. Full-text-across-messages is
-  // a follow-up — would need a Postgres RPC since we don't have
-  // every conversation's message bodies in memory.
+  // title-only case-insensitive substring match
   const [conversationSearch, setConversationSearch] = useState("");
   const filteredConversationData = useMemo(() => {
     const q = conversationSearch.trim().toLowerCase();
@@ -530,9 +421,7 @@ export function ChatPage() {
     const matched = sortedConversations.filter((c) =>
       (c.title || "").toLowerCase().includes(q),
     );
-    // Walk up each matched conversation's folder chain so every
-    // ancestor folder stays visible — otherwise a hit deep in a
-    // nested folder would render orphaned.
+    // keep every ancestor folder of a match so nested hits aren't orphaned
     const keptFolderIds = new Set<string>();
     for (const c of matched) {
       let fid = c.folder_id;
@@ -547,20 +436,17 @@ export function ChatPage() {
       folders: folders.filter((f) => keptFolderIds.has(f.id)),
     };
   }, [sortedConversations, folders, conversationSearch]);
-  // If the user disables the picked provider, snap back to "Default"
-  // rather than hold a stale value that would either error or be
-  // silently ignored by the strict-mode resolver.
+  // if the picked provider gets disabled, fall back to default
   useEffect(() => {
     if (selectedProvider && !configuredProviders.includes(selectedProvider)) {
       setSelectedProvider(null);
     }
   }, [configuredProviders, selectedProvider]);
 
-  // One folder-action modal at a time, dispatched by `kind`. Keeps
-  // a single render branch in JSX instead of three near-identical
-  // copies, and means there's never two folder dialogs open at once.
+  // one folder-action modal at a time, dispatched by `kind`
   type FolderAction =
-    | { kind: "create" }
+    // parentId null = root folder
+    | { kind: "create"; parentId: string | null }
     | { kind: "rename"; id: string; name: string }
     | { kind: "delete"; id: string; name: string };
   const [folderAction, setFolderAction] = useState<FolderAction | null>(null);
@@ -572,11 +458,8 @@ export function ChatPage() {
     }
   }, [user, fetchConversations, fetchFolders]);
 
-  // Reader → chat hand-off. When the user clicks "Send to AI chat"
-  // from the reader's annotation menu, the reader stashes a draft
-  // (selected text + source doc context) and navigates here. Drain
-  // the draft once on mount: create a fresh conversation tagged
-  // with the source, prefill the composer, and let them edit / send.
+  // reader hand-off: drain a stashed draft on mount, create a source-tagged
+  // conversation and prefill the composer
   useEffect(() => {
     if (!user) return;
     const draft = useChatStore.getState().consumePendingDraft();
@@ -586,14 +469,7 @@ export function ChatPage() {
       textPreview: draft.text.slice(0, 80),
       hasSource: !!draft.source,
     });
-    // Pre-fill IMMEDIATELY, before any await. Two reasons:
-    //   1. The composer is a controlled textarea on local state, so
-    //      the value lands regardless of whether the conversation
-    //      row has finished creating in Supabase yet.
-    //   2. If `openConversation` errors silently (network, RLS), we
-    //      still want the user to see their draft text so they can
-    //      retry — putting setInput behind await means an error
-    //      anywhere upstream silently swallows the prefill.
+    // prefill before the await so the draft survives an upstream error
     setInput(draft.text);
     void (async () => {
       const id = await createConversation(
@@ -606,20 +482,12 @@ export function ChatPage() {
       await openConversation(id);
       console.log("[chat-page-drain] conversation opened", { id });
     })();
-    // Drain only once per mount / sign-in event. Subsequent reader
-    // sends will re-fire the navigation and a fresh consume.
+    // drain once per mount / sign-in
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // Auto-open the most recent conversation when /chat is opened
-  // fresh. Saves the user a click in the common case of "coming back
-  // to continue where I left off". Skip if:
-  //  - signed out (nothing to open)
-  //  - already viewing a conversation (e.g. via deep link or branch)
-  //  - a reader-handoff draft is in flight (its handler creates a
-  //    fresh conversation that we'd just blow away)
-  // Conversations are sorted newest-first by `fetchConversations`,
-  // so `conversations[0]` is the most recent.
+  // auto-open the most recent conversation on a fresh /chat, unless a
+  // reader-handoff draft is in flight
   useEffect(() => {
     if (!user) return;
     if (activeId) return;
@@ -633,10 +501,7 @@ export function ChatPage() {
     [conversations, activeId],
   );
 
-  // Export the active conversation's visible thread as Markdown.
-  // Pulled out of the overflow menu's onClick so both the mobile
-  // header menu and the desktop floating menu wire to the same
-  // handler. No-op when there's no active conversation.
+  // export the active thread as Markdown
   const handleExportActive = useCallback(() => {
     if (!activeConversation) return;
     const md = conversationToMarkdown(
@@ -650,10 +515,7 @@ export function ChatPage() {
     );
   }, [activeConversation, messages, activeLeafId, t]);
 
-  // Roadmap-edit mode: when the conversation is tied to a roadmap,
-  // load the roadmap store (it's IndexedDB-backed and may not be in
-  // memory if the user landed on /chat directly) and resolve the
-  // current title for the pill.
+  // roadmap-edit mode: load the roadmap store and resolve its title for the pill
   const targetRoadmapId = activeConversation?.target_roadmap_id ?? null;
   const targetRoadmap = useRoadmap(targetRoadmapId ?? undefined);
   const roadmapsLoaded = useRoadmapStore((s) => s.loaded);
@@ -662,30 +524,19 @@ export function ChatPage() {
     if (targetRoadmapId && !roadmapsLoaded) void loadRoadmaps();
   }, [targetRoadmapId, roadmapsLoaded, loadRoadmaps]);
 
-  // Flashcard extractor — opens with the chosen assistant message's
-  // content. Held at this level (not inside MessageBubble) so the
-  // modal lives outside the message bubble's portal logic and can
-  // freely overlay the entire app.
+  // flashcard extractor, held at page level so the modal overlays the app
   const [flashcardSource, setFlashcardSource] = useState<{
     text: string;
     title: string;
   } | null>(null);
 
-  // Overflow menus — desktop top-right and mobile header. Distinct
-  // refs/state so opening one doesn't auto-close the other.
+  // separate overflow-menu state for desktop and mobile
   const overflowAnchorRef = useRef<HTMLButtonElement>(null);
   const overflowAnchorMobileRef = useRef<HTMLButtonElement>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [overflowOpenMobile, setOverflowOpenMobile] = useState(false);
 
-  // Auto-scroll to the latest message. We split the behavior in two:
-  //   - On a fresh conversation open (active conversation changed)
-  //     we jump instantly. Smooth scrolling for the whole history
-  //     felt sluggish on long threads — the user just wants to be at
-  //     the bottom, not animated there.
-  //   - During an in-place update (new tokens, new turn within the
-  //     same conversation) we keep the smooth behavior so the
-  //     reading flow stays natural.
+  // auto-scroll to latest: instant on conversation switch, smooth within it
   const lastScrollConvIdRef = useRef<string | null>(null);
   useEffect(() => {
     const isConvSwitch = lastScrollConvIdRef.current !== activeId;
@@ -700,10 +551,7 @@ export function ChatPage() {
     [messages, activeLeafId],
   );
 
-  // Single TTS instance shared across all bubbles in the thread —
-  // starting a read on message B implicitly stops message A. Per-
-  // bubble hook calls would have isolated state and lose this
-  // behaviour.
+  // one shared TTS instance so reading one bubble stops another
   const tts = useReadAloud();
   const messageSuggestions = useChatStore((s) => s.messageSuggestions);
 
@@ -722,22 +570,17 @@ export function ChatPage() {
     [createConversation, openConversation],
   );
 
-  // "Collapse all" flips every existing folder into the collapsed
-  // set; "Expand all" clears the set so every folder is open.
   const handleCollapseAll = useCallback(() => {
     setCollapsedFolders(new Set(folders.map((f) => f.id)));
   }, [folders]);
   const handleExpandAll = useCallback(() => {
     setCollapsedFolders(new Set());
   }, []);
-  // True when every existing folder is in the collapsed set — drives
-  // the toolbar button's icon flip (collapse-all vs expand-all).
+  // flips the toolbar button between collapse-all and expand-all
   const allFoldersCollapsed =
     folders.length > 0 && folders.every((f) => collapsedFolders.has(f.id));
 
-  // Wraps openConversation so picking a thread from the mobile
-  // drawer also closes the drawer. On desktop the setState is a
-  // no-op because the drawer is never open.
+  // opening a thread from the mobile drawer closes it
   const handleOpenFromDrawer = useCallback(
     (id: string) => {
       setMobileListOpen(false);
@@ -746,25 +589,17 @@ export function ChatPage() {
     [openConversation],
   );
 
-  // Composer-shape submit. Composer owns attachments, mode, mic,
-  // and provider pick; this surface translates the payload into a
-  // chat-store call and handles the surface-specific branch /
-  // lazy-create-conversation flows.
+  // maps the composer payload to a chat-store call (branch / lazy-create flows)
   const sendImageMessage = useChatStore((s) => s.sendImageMessage);
   const handleSubmit = useCallback(
     async (payload: ChatComposerSubmitPayload) => {
       const text = payload.text.trim();
       const attachments =
         payload.attachments.length > 0 ? payload.attachments : undefined;
-      // Allow sending with attachments only (e.g. "describe this"
-      // worth of intent in the image alone).
+      // allow attachment-only sends
       if (!text && !attachments) return;
-      // Parent clears its controlled input — composer cleared its
-      // own attachment + mode state before invoking us.
       setInput("");
-      // Image mode: skip the chat-completion path entirely and
-      // route to the Images API. Needs an active conversation, so
-      // create one lazily like the regular send flow does.
+      // image mode routes to the Images API, needs a conversation first
       if (payload.mode === "image") {
         if (!activeId) {
           const id = await createConversation();
@@ -775,11 +610,7 @@ export function ChatPage() {
         return;
       }
       const provider = payload.provider ?? undefined;
-      // Topic-first modes swap the system prompt for a single turn.
-      // Composer already resets `mode` to "default" after submit so
-      // the next turn is a regular chat unless re-picked. Reasoning
-      // is the only sticky flag — the composer keeps it on across
-      // turns until the user toggles it off.
+      // topic-first modes swap the system prompt for one turn; reasoning is sticky
       const sendOptions =
         payload.mode !== "default" || payload.reasoning
           ? {
@@ -817,10 +648,7 @@ export function ChatPage() {
     ],
   );
 
-  // Reading-context loader for the composer's History dropdown.
-  // Wrapped here so the composer doesn't need to know about
-  // Supabase fetching — it just gets a callback that returns the
-  // formatted prompt to prepend.
+  // reading-context loader for the composer's History dropdown
   const handleLoadReadingContext = useCallback(
     async (mode: "week" | "all") => {
       const books = await fetchRecentReading(
@@ -860,8 +688,7 @@ export function ChatPage() {
 
   return (
     <div className="relative flex h-[100dvh] w-full p-0">
-      {/* Mobile-only backdrop. Tapping it closes the drawer. Hidden
-          on desktop where the aside is a permanent column. */}
+      {/* mobile backdrop, tap to close the drawer */}
       {mobileListOpen && (
         <div
           className="fixed inset-0 z-20 bg-black/40 backdrop-blur-sm sm:hidden"
@@ -869,45 +696,20 @@ export function ChatPage() {
           aria-hidden="true"
         />
       )}
-      {/* Sidebar: folder tree + conversations. Static column on
-          desktop, slide-in drawer on mobile. The translate-x-0 /
-          -translate-x-full toggle drives the slide; sm:translate-x-0
-          locks it visible on desktop so the same element serves
-          both. */}
+      {/* sidebar: folder tree + conversations. column on desktop, drawer on mobile */}
       <aside
-        // Width is class-driven on mobile (the slide-in drawer is a
-        // fixed `w-72`) and inline-style-driven on desktop (the
-        // user-resizable static column). The conditional inline style
-        // makes the desktop width win without bleeding into the
-        // mobile drawer.
+        // resizable width on desktop only; mobile is a fixed w-72 drawer
         style={!isMobile ? { width: sidebarWidth } : undefined}
-        // Mobile: `fixed` so the drawer overlays without occupying
-        // layout space — sliding `-translate-x-full` actually hides
-        // it. (Earlier this had `relative fixed` together; Tailwind
-        // emits `relative` later in the CSS than `fixed`, so the
-        // aside resolved to position:relative on mobile, took up
-        // width in the flow, and looked like a "permanently open
-        // but empty" submenu the user couldn't close.) Desktop:
-        // `sm:relative` keeps the aside as a static column AND
-        // provides the positioning context the resize handle's
-        // `absolute right-0` needs to land on the aside's right
-        // edge instead of the chat page's right edge.
+        // fixed on mobile so the drawer overlays; sm:relative anchors the resize handle
         className={cn(
           "fixed inset-y-0 left-0 z-30 flex w-72 max-w-[80vw] shrink-0 flex-col gap-3 border-r border-glass-border bg-bg-secondary p-3 transition-transform duration-200",
-          // Desktop: trade the flat slab + hard divider for a frosted
-          // vertical-gradient pane with a hairline border, so the
-          // sidebar reads as glass in the same family as the message
-          // bubbles and aurora rather than a heavy block bolted on.
+          // desktop: frosted gradient glass pane
           "sm:relative sm:translate-x-0 sm:border-glass-border/60 sm:bg-gradient-to-b sm:from-bg-secondary/70 sm:to-bg-secondary/30 sm:backdrop-blur-xl",
           mobileListOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        {/* Mobile drawer header — the global MobileTopBar is hidden on
-            /chat (one contextual top bar per screen), so this row keeps
-            app-level navigation one tap away: a nav trigger that opens
-            the global Sidebar overlay (Library / Profile / Settings) and
-            the brand/home link. Desktop already shows the global Sidebar
-            as a column, so this is mobile-only. */}
+        {/* mobile drawer header: global MobileTopBar is hidden on /chat, so
+            this keeps the nav trigger and home link reachable. mobile-only. */}
         <div
           className="flex items-center gap-1.5 sm:hidden"
           style={{ marginTop: "var(--spacing-safe-top, 0px)" }}
@@ -931,13 +733,8 @@ export function ChatPage() {
           </Link>
         </div>
 
-        {/* Top action row. Primary "New conversation" is a full-width
-            ghost/outline button with a compose glyph — the highest-
-            frequency action, styled as the primary without the heavy
-            filled accent block. Secondary actions sit in a smaller row
-            of icon-only buttons below: New folder + Collapse/Expand all.
-            The collapse toggle's icon flips based on whether every
-            existing folder is already collapsed. */}
+        {/* top action row: full-width New conversation, then icon buttons
+            for new folder and collapse/expand all */}
         <div className="flex flex-col gap-1.5">
           <button
             onClick={handleNew}
@@ -948,7 +745,7 @@ export function ChatPage() {
           </button>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => setFolderAction({ kind: "create" })}
+              onClick={() => setFolderAction({ kind: "create", parentId: null })}
               title={t("chat.folders.create")}
               aria-label={t("chat.folders.create")}
               className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
@@ -992,8 +789,7 @@ export function ChatPage() {
           </div>
         </div>
 
-        {/* Conversation search — filters the tree as the user types.
-            Hidden when there are zero conversations to search. */}
+        {/* conversation search, hidden when there's nothing to search */}
         {conversations.length > 0 && (
           <div className="relative">
             <Search
@@ -1056,6 +852,8 @@ export function ChatPage() {
                   collapsedFolders={collapsedFolders}
                   onToggleFolder={handleToggleFolder}
                   onNewInFolder={handleNewInFolder}
+                  onNewSubfolder={handleRequestCreateSubfolder}
+                  onOpenFolderInLibrary={handleOpenFolderInLibrary}
                   onOpen={handleOpenFromDrawer}
                   onStartEdit={handleStartEdit}
                   onCancelEdit={handleCancelEdit}
@@ -1070,11 +868,7 @@ export function ChatPage() {
               </>
             )}
           </div>
-          {/* Drag preview that follows the cursor 1:1 — matches the
-              Library page's DnD pattern. The in-place row still
-              animates via dnd-kit's transform; this overlay just
-              adds a clearer "what you're dragging" hint. Empty
-              when nothing is being dragged. */}
+          {/* drag preview that follows the cursor, empty when nothing is dragging */}
           <DragOverlay dropAnimation={null}>
             {activeDragConv && (
               <div className="pointer-events-none flex items-center gap-2 rounded-md border border-accent/60 bg-bg-secondary/95 px-3 py-1.5 text-xs text-text-primary shadow-lg backdrop-blur-md">
@@ -1100,10 +894,7 @@ export function ChatPage() {
             )}
           </DragOverlay>
         </DndContext>
-        {/* Resize handle — desktop only. 4px wide ribbon on the
-            right edge; the hover-only purple tint hints that the
-            edge is draggable without taking visual weight when
-            idle. Mobile gets a fixed-width drawer so no handle. */}
+        {/* resize handle, desktop only (mobile drawer is fixed width) */}
         {!isMobile && (
           <div
             onMouseDown={handleSidebarResizeStart}
@@ -1124,12 +915,8 @@ export function ChatPage() {
           paddingBottom: keyboardInset > 0 ? keyboardInset : undefined,
         }}
       >
-        {/* Aurora backdrop — slow, abstract drift of accent-tinted
-            light behind the thread. `isolate` on <main> contains the
-            -z-10 layer so it sits behind the messages but in front of
-            the page base; pointer-events-none keeps it inert. Blobs
-            are parked toward the corners so colour lives in the
-            gutters, not under the reading column. */}
+        {/* aurora backdrop. `isolate` on <main> keeps the -z-10 layer
+            behind the messages; pointer-events-none keeps it inert */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
@@ -1147,9 +934,8 @@ export function ChatPage() {
             style={{ animation: "aurora-c 27s ease-in-out infinite" }}
           />
         </div>
-        {/* Desktop overflow — mobile has its own header with the menu
-            so this is hidden below sm. Floats so it doesn't push the
-            messages area down on desktop where there's no header. */}
+        {/* desktop overflow, floats so it doesn't push the thread down.
+            mobile has its own header menu */}
         <div className="absolute right-2 top-2 z-10 hidden sm:block">
           <button
             ref={overflowAnchorRef}
@@ -1191,12 +977,8 @@ export function ChatPage() {
             </button>
           </FloatingMenu>
         </div>
-        {/* Mobile header — the single contextual top bar for /chat now
-            that the global MobileTopBar is suppressed here. Hamburger
-            opens the conversation rail drawer (which also carries the
-            global-nav trigger); title; overflow; new-chat. Owns the
-            safe-area top inset the global bar used to provide, so the
-            row doesn't slide under the notch/status bar. */}
+        {/* mobile header: the only top bar on /chat. hamburger opens the
+            conversation drawer. owns the safe-area top inset itself. */}
         <div
           className="flex items-center gap-2 border-b border-glass-border bg-bg-primary/40 px-3 pb-2 sm:hidden"
           style={{ paddingTop: "calc(0.5rem + var(--spacing-safe-top, 0px))" }}
@@ -1261,10 +1043,7 @@ export function ChatPage() {
           </button>
         </div>
 
-        {/* Empty state — shows on both mobile and desktop when no
-            conversation is active. On mobile the conversation list
-            is one hamburger-tap away via the slide-in drawer, so we
-            no longer need a separate mobile list page here. */}
+        {/* empty state, shown on mobile and desktop when no conversation is active */}
         {!activeId && (
           <div className="flex flex-1 items-center justify-center p-6">
             <div className="text-center">
@@ -1289,9 +1068,7 @@ export function ChatPage() {
           </div>
         )}
 
-        {/* Active conversation — thread inside a Gemini-style "paved
-            middle path": the message column is capped at max-w-3xl
-            and centered, regardless of how wide the main pane is. */}
+        {/* active conversation, message column capped at max-w-3xl and centered */}
         {activeId && (
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4">
@@ -1318,10 +1095,8 @@ export function ChatPage() {
                 const parent = msg.parent_message_id
                   ? messages.get(msg.parent_message_id)
                   : null;
-                // Regenerate is meaningful only when the assistant
-                // message has a user-message parent we can resend.
-                // Falls through to undefined for the first turn /
-                // detached messages — the bubble hides the button.
+                // regenerate needs an assistant message with a user parent to resend;
+                // undefined otherwise (first turn / detached) hides the button
                 const handleRegenerate =
                   msg.role === "assistant" && parent && parent.role === "user"
                     ? () => {
@@ -1335,11 +1110,8 @@ export function ChatPage() {
                         );
                       }
                     : undefined;
-                // Edit is meaningful only on user messages — it
-                // branches a sibling with the new text under the
-                // same parent. Image attachments carry through so
-                // an image+question turn keeps its image when the
-                // user just tweaks the question.
+                // edit only on user messages: branches a sibling under the same
+                // parent, carrying attachments so an image+question keeps its image
                 const handleEdit =
                   msg.role === "user"
                     ? (newText: string) => {
@@ -1400,11 +1172,7 @@ export function ChatPage() {
                         : undefined
                     }
                     onPickSuggestion={(text) => {
-                      // Branch from this assistant message — sends a
-                      // new user turn under it. Equivalent to typing
-                      // the chip into the composer when this is the
-                      // active leaf, plus correct branching when it
-                      // isn't.
+                      // branch a new user turn under this assistant message
                       const provider = selectedProvider ?? undefined;
                       void branchFrom(msg.id, text, provider);
                     }}
@@ -1415,18 +1183,10 @@ export function ChatPage() {
               </div>
             </div>
 
-            {/* Composer — wrapped as a "panel island" on desktop
-                (rounded card with breathing room around it). On
-                mobile the wrapper keeps its horizontal padding so the
-                branching / roadmap pills above stay inset, while
-                pb-6 drops to 0 so the composer can sit flush against
-                the screen bottom. The composer's flush variant
-                breaks out of the px-3 horizontally with a negative
-                margin. */}
+            {/* composer wrapper. keeps horizontal padding on mobile so the pills
+                stay inset; pb drops to 0 so the composer sits flush to the bottom */}
             <div className="bg-bg-primary/30 px-3 pb-0 pt-3 backdrop-blur-md sm:pb-6">
-              {/* Roadmap edit-mode pill — present when this
-                  conversation is tied to a roadmap. The AI has tool
-                  access; tool calls render as quoted lines inline. */}
+              {/* roadmap edit-mode pill, shown when this conversation is tied to a roadmap */}
               {targetRoadmapId && (
                 <div className="mx-auto mb-2 flex w-full max-w-3xl items-center gap-2 rounded-md border border-accent/30 bg-accent/10 px-2 py-1.5 text-xs text-accent">
                   <MapIcon size={12} />
@@ -1449,13 +1209,8 @@ export function ChatPage() {
                   </a>
                 </div>
               )}
-              {/* Source-document context pill — present when this
-                  conversation was started from the reader. Click it
-                  to jump back to the page the user was on when they
-                  sent the selection. The X hides the chip for this
-                  session — the user can still navigate via the chat
-                  list, and the chip returns next session in case the
-                  dismiss was accidental. */}
+              {/* source-document pill, shown when this conversation started from the
+                  reader. click jumps back to the page; X hides it for the session */}
               {activeConversation?.source_doc_id &&
                 !hiddenSourceChips.has(activeConversation.id) && (
                   <div className="mx-auto mb-2 flex w-full max-w-3xl items-center gap-2 rounded-md border border-accent-blue/30 bg-accent-blue/10 px-2 py-1.5 text-xs text-accent-blue">
@@ -1521,11 +1276,7 @@ export function ChatPage() {
                   </button>
                 </div>
               )}
-              {/* Composer panel-island. The textarea, mic, send, and
-                  the model/context controls all live inside a single
-                  rounded card so the input feels like the focal
-                  point of the screen rather than an afterthought
-                  glued to the bottom edge. */}
+              {/* composer island: textarea, mic, send and controls in one rounded card */}
               <div className="mx-auto w-full max-w-3xl">
                 <ChatComposer
                   value={input}
@@ -1550,16 +1301,17 @@ export function ChatPage() {
         />
       )}
 
-      {/* Folder action modals — replace the old native confirm/
-          prompt calls. One modal at a time, dispatched on the
-          `kind` of the current folderAction. */}
+      {/* folder action modals, one at a time by folderAction.kind */}
       <PromptModal
         open={folderAction?.kind === "create"}
         title={t("chat.folders.create")}
         placeholder={t("chat.folders.namePrompt")}
         onClose={() => setFolderAction(null)}
         onSubmit={(name) => {
-          void createFolder(name);
+          void createFolder(
+            name,
+            folderAction?.kind === "create" ? folderAction.parentId : null,
+          );
         }}
       />
       <PromptModal
@@ -1597,7 +1349,4 @@ export function ChatPage() {
     </div>
   );
 }
-
-
-// ── Sidebar tree ────────────────────────────────────────────
 

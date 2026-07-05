@@ -21,6 +21,7 @@ import {
   Mic,
   MicOff,
   Paperclip,
+  Plus,
   Sparkles,
   Square,
   X,
@@ -39,13 +40,7 @@ import type { ChatMessageAttachment } from "@/types/chat";
 import { ModelInfoModal } from "./ModelInfoModal";
 import { cn } from "@/lib/cn";
 
-// ── Constants ───────────────────────────────────────────────────
-//
-// Two attachment caps: Default mode (free Pnyxy quota) caps to 1
-// image so per-message cost stays predictable on the budget side.
-// Direct keys (Anthropic / OpenAI) — the user's own billing — go
-// up to 4. 5 MB per image, image-only for v1.
-
+// Default (free quota) caps to 1 image for predictable cost; BYOK keys allow 4.
 const MAX_ATTACHMENTS_DIRECT = 4;
 const MAX_ATTACHMENTS_DEFAULT = 1;
 const MAX_ATTACHMENT_MB = 5;
@@ -57,12 +52,7 @@ const ALLOWED_IMAGE_TYPES = new Set([
   "image/webp",
 ]);
 
-/**
- * UI labels for each routing destination. Drives the model picker
- * dropdown's display text and routing-note subtitles. Hard-coded
- * here today and synced manually with the upstream calls in
- * ai-client.ts / ai-chat-proxy/index.ts.
- */
+// keep in sync with ai-client.ts / ai-chat-proxy
 const PROVIDER_INFO: Record<
   AiProvider,
   { model: string; routing: string }
@@ -73,11 +63,7 @@ const PROVIDER_INFO: Record<
   local: { model: "Local model", routing: "Ollama / LM Studio" },
 };
 
-// ── Internal helpers ────────────────────────────────────────────
-
-/** Read a File as a base64 string (no `data:` prefix). FileReader
- *  is the safe path — naive Uint8Array→btoa breaks for files past
- *  the JS argument-count limit. */
+// Read a File as base64 (no `data:` prefix). Uint8Array→btoa breaks past the arg-count limit.
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -95,8 +81,6 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-// ── ModelPicker ─────────────────────────────────────────────────
-
 interface PnyxyQuotaRow {
   model: string;
   tokens_used: number;
@@ -105,14 +89,8 @@ interface PnyxyQuotaRow {
   request_limit: number;
 }
 
-/**
- * Free-tier models the proxy can route to. Selecting one pins the
- * proxy to that single model instead of walking the auto-routing
- * chain — same shape `_ai_usage_limits_for_model` expects on the
- * SQL side. Kept inline here (not from AI_MODEL_CATALOG) because
- * the picker wants short labels + cost tiers, and the catalog is
- * Hungarian-prose-heavy.
- */
+// Free-tier models. Picking one pins the proxy to it instead of auto-routing.
+// ids must match `_ai_usage_limits_for_model` on the SQL side.
 const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
   id: string;
   label: string;
@@ -132,13 +110,7 @@ const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
     tagline: "Fuller Flash · step-up from Lite",
   },
   {
-    // Newest Google chat model — same family the gemini.google.com
-    // webapp serves. Listed in the "mid" tier because the
-    // per-token cost sits between the cheap default and the
-    // premium Haiku 4.5 (≈$0.50 / $3.00 per MTok vs. Flash's
-    // ≈$0.30 / $2.50). In auto-route mode the proxy still tries
-    // 2.5 Flash first to keep the free quota cost predictable;
-    // pin this option to use it explicitly.
+    // mid tier: auto-route still prefers 2.5 Flash, pin this to force it
     id: "gemini-3-flash-preview",
     label: "Gemini 3 Flash (preview)",
     costTier: "mid",
@@ -158,28 +130,22 @@ const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
   },
 ];
 
-// ── QuotaBar ────────────────────────────────────────────────────
-
-/** The model the auto-route chain bills first — shown as the quota
- *  reference when the user hasn't pinned a specific model. */
+// Quota reference model when nothing is pinned (the model the auto-route bills
+// first). Reader Q&A (a doc is open → grounding off) bills flash-lite; standalone
+// chat (no doc → web grounding on) bills gemini-3-flash-preview. The bar has to
+// read whichever row the proxy actually records or it sits permanently at 0 —
+// which is exactly why it looked "broken" on the standalone chat page.
 const QUOTA_AUTO_DEFAULT_MODEL = "gemini-2.5-flash-lite";
+const QUOTA_AUTO_GROUNDED_MODEL = "gemini-3-flash-preview";
 
-/**
- * Thin "how much of today's free-tier quota is left" meter, pinned
- * just above the textarea. Only meaningful on the Pnyxy proxy (BYOK
- * keys bill the user's own provider account, not our bucket) and only
- * for signed-in users — anon traffic uses an IP bucket the client
- * can't read. Tracks the *most-constrained* axis (tokens vs requests)
- * for the active model, and refetches whenever a stream finishes so
- * it reflects the turn that just completed.
- */
+// Free-tier quota meter. Signed-in only (anon uses an IP bucket we can't read).
+// Reports the most-constrained axis, tokens vs requests.
 function QuotaBar({
   activeModel,
   isPinned,
   isStreaming,
 }: {
   activeModel: string;
-  /** Whether the user pinned this specific model (vs. auto-route). */
   isPinned: boolean;
   isStreaming: boolean;
 }) {
@@ -194,12 +160,10 @@ function QuotaBar({
     });
   }, [user]);
 
-  // Fetch on mount / model change …
   useEffect(() => {
     refresh();
   }, [refresh]);
-  // … and again each time a stream completes (true → false edge), so
-  // the bar ticks up right after the response that consumed quota.
+  // refetch when streaming ends so the bar reflects the last turn
   const prevStreaming = useRef(isStreaming);
   useEffect(() => {
     if (prevStreaming.current && !isStreaming) refresh();
@@ -212,8 +176,7 @@ function QuotaBar({
 
   const tokensRatio = row.tokens_limit ? row.tokens_used / row.tokens_limit : 0;
   const reqRatio = row.request_limit ? row.request_count / row.request_limit : 0;
-  // The axis closer to its ceiling is the one the user will actually
-  // hit first, so that's the one the bar reports.
+  // Report whichever axis is closer to its ceiling.
   const onTokens = tokensRatio >= reqRatio;
   const used = onTokens ? row.tokens_used : row.request_count;
   const limit = onTokens ? row.tokens_limit : row.request_limit;
@@ -261,35 +224,28 @@ export function ModelPicker({
   options,
   onChange,
   label,
+  compact = false,
 }: {
-  /** null = "Default" (full fallback chain). A specific provider =
-   *  strict pick — only that provider is tried, no fallback. */
+  /** null = Default (full fallback chain). A provider = strict pick, no fallback. */
   value: AiProvider | null;
   options: AiProvider[];
   onChange: (next: AiProvider | null) => void;
-  /** Optional small-caps prefix ("MODEL: …"). Omitted in the
-   *  composer panel-island so the dropdown stands on its own. */
   label?: string;
+  /** Icon-only square trigger (mobile), no label / chevron / help button. */
+  compact?: boolean;
 }) {
   const { t } = useTranslation();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
-  // Free-tier model selection lives in the global settings store so
-  // it survives reloads, but the picker reads/writes it directly —
-  // it's UI state in a structural sense. When the user picks a
-  // specific Pnyxy model the proxy pins that model instead of
-  // walking its auto-routing chain.
+  // persisted in settings store
   const pnyxyModel = useSettingsStore((s) => s.pnyxyModel);
   const setPnyxyModel = useSettingsStore((s) => s.setPnyxyModel);
   const pnyxyConfigured = useSettingsStore((s) =>
     s.enabledProviders.includes("pnyxy"),
   );
 
-  // Per-model usage for the Default (Pnyxy free) option. Fetched
-  // lazily on first dropdown open so we don't pay the RPC on every
-  // composer mount. The user must be signed in — anon traffic uses
-  // an IP-bucketed quota the client can't read.
+  // Per-model usage, fetched lazily on first dropdown open. Signed-in only.
   const user = useAuthStore((s) => s.user);
   const [quotaRows, setQuotaRows] = useState<PnyxyQuotaRow[]>([]);
   const [quotaLoaded, setQuotaLoaded] = useState(false);
@@ -307,11 +263,7 @@ export function ModelPicker({
       cancelled = true;
     };
   }, [open, quotaLoaded, user]);
-  // Worst-case (most-constrained) model becomes the headline number
-  // in the Default option's subtitle — that's the one the user is
-  // about to hit if they keep chatting at the current rate. We
-  // compute it from the higher of (tokens_used/tokens_limit) and
-  // (request_count/request_limit) for each model.
+  // Most-constrained model (higher of the tokens/requests ratios) headlines the Default subtitle.
   const quotaHeadline =
     quotaRows.length === 0
       ? null
@@ -327,9 +279,7 @@ export function ModelPicker({
           })
           .reduce((a, b) => (a.ratio > b.ratio ? a : b));
 
-  // Trigger label reflects whichever leaf the user is currently
-  // pointing at: BYOK provider name → free-tier pinned model name →
-  // generic "Default" if neither is in effect.
+  // BYOK provider name → pinned free-tier model → "Default".
   const triggerLabel = value
     ? PROVIDER_INFO[value].model
     : pnyxyModel
@@ -338,33 +288,45 @@ export function ModelPicker({
 
   return (
     <div className="flex min-w-0 items-center gap-1 text-2xs text-text-muted">
-      {label && (
+      {label && !compact && (
         <span className="font-medium uppercase tracking-wider">{label}</span>
       )}
       <button
         ref={triggerRef}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md border border-glass-border bg-bg-primary/50 px-2 text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+        className={
+          compact
+            ? "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-glass-border bg-bg-primary/50 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            : "inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md border border-glass-border bg-bg-primary/50 px-2 text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+        }
+        title={compact ? triggerLabel : undefined}
+        aria-label={compact ? triggerLabel : undefined}
       >
-        <Bot size={12} className="shrink-0 text-accent/80" />
-        <span className="truncate max-w-[100px] sm:max-w-none">
-          {triggerLabel}
-        </span>
-        <ChevronDown size={11} className="shrink-0" />
+        <Bot size={compact ? 18 : 12} className="shrink-0 text-accent/80" />
+        {!compact && (
+          <>
+            <span className="truncate max-w-[100px] sm:max-w-none">
+              {triggerLabel}
+            </span>
+            <ChevronDown size={11} className="shrink-0" />
+          </>
+        )}
       </button>
-      <button
-        type="button"
-        onClick={() => setInfoOpen(true)}
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-        title={t("chat.composer.modelHelp", {
-          defaultValue: "Modellek leírása",
-        })}
-        aria-label={t("chat.composer.modelHelp", {
-          defaultValue: "Modellek leírása",
-        })}
-      >
-        <HelpCircle size={14} />
-      </button>
+      {!compact && (
+        <button
+          type="button"
+          onClick={() => setInfoOpen(true)}
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+          title={t("chat.composer.modelHelp", {
+            defaultValue: "Modellek leírása",
+          })}
+          aria-label={t("chat.composer.modelHelp", {
+            defaultValue: "Modellek leírása",
+          })}
+        >
+          <HelpCircle size={14} />
+        </button>
+      )}
       <ModelInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
       <FloatingMenu
         open={open}
@@ -387,10 +349,6 @@ export function ModelPicker({
           <>
             <div className="my-0.5 h-px bg-glass-border" />
             {PNYXY_MODEL_OPTIONS.map((m) => {
-              // Match the per-model row to its usage bucket from the
-              // RPC we already fetch. Surfaces the same "tokens
-              // used today" headline as Default, scoped to that
-              // model so the user sees its specific quota.
               const row = quotaRows.find((q) => q.model === m.id);
               const headline = row
                 ? {
@@ -452,10 +410,7 @@ function ModelOption({
   active: boolean;
   label: string;
   subtitle: string;
-  /** Optional small "model X/Y today" line for the Pnyxy free
-   *  option. Color escalates from default → amber (>50% used) →
-   *  red (>80% used) so the user has a glanceable warning before
-   *  they smack into the hard cap mid-sentence. */
+  /** Optional "X/Y today" usage line; color escalates amber >50%, red >80%. */
   quotaHeadline?: {
     row: PnyxyQuotaRow;
     ratio: number;
@@ -503,8 +458,6 @@ function ModelOption({
     </button>
   );
 }
-
-// ── ModePicker (recommendation modes) ────────────────────────────
 
 function ModePicker({
   value,
@@ -581,8 +534,6 @@ function ModePicker({
   );
 }
 
-// ── AttachmentCard ──────────────────────────────────────────────
-
 function AttachmentCard({
   attachment,
   onRemove,
@@ -624,59 +575,34 @@ function AttachmentCard({
   );
 }
 
-// ── ChatComposer ────────────────────────────────────────────────
-
 export interface ChatComposerSubmitPayload {
   text: string;
   provider: AiProvider | null;
   mode: RecommendationMode;
   attachments: ChatMessageAttachment[];
-  /** Reasoning mode — when true the parent passes this to
-   *  sendMessage's options.reasoning, which forwards to ai-client's
-   *  StreamOptions. Today only the OpenAI BYOK path honors it
-   *  (swaps gpt-4o-mini → o3-mini). Composer's toggle is hidden
-   *  unless OpenAI is among the user's configured providers. */
+  /** Only the OpenAI BYOK path honors this (swaps gpt-4o-mini → o3-mini). */
   reasoning: boolean;
 }
 
-/**
- * Imperative handle exposed via `forwardRef` so external surfaces
- * (e.g. ReaderPage's rect-to-AI flow) can drop attachments into
- * the composer without lifting state. Use `useRef<ChatComposerHandle>`
- * on the parent + pass as `ref`.
- */
+/** forwardRef handle letting external surfaces (e.g. reader rect-to-AI) drop in attachments. */
 export interface ChatComposerHandle {
   addAttachments: (atts: ChatMessageAttachment[]) => void;
 }
 
 interface ChatComposerProps {
-  /** Controlled input value. Parent owns it so it can pre-fill
-   *  (reader→chat handoff) or clear externally. */
+  /** Controlled input value, owned by the parent for pre-fill/clear. */
   value: string;
   onChange: (next: string) => void;
-  /** Called when the user presses Send / Enter. Parent does the
-   *  actual chat-store dispatch. Composer clears attachments and
-   *  resets `mode` to "default" after this resolves. */
+  /** Send/Enter handler. Composer clears attachments and resets mode to "default" after. */
   onSubmit: (payload: ChatComposerSubmitPayload) => Promise<void>;
-  /** Streaming state from the chat store. When true, the send
-   *  button morphs into a stop button. */
+  /** When true the send button becomes a stop button. */
   isStreaming: boolean;
   onStop: () => void;
-  /** Optional reading-context loader. When provided, the History
-   *  button + dropdown render and call this. Returns the formatted
-   *  prompt text to prepend to the input. Omit on surfaces where
-   *  reading context is implicit (e.g. the reader panel). */
+  /** When set, renders the History button; returns prompt text to prepend to the input. */
   onLoadReadingContext?: (mode: "week" | "all") => Promise<string>;
-  /** Override the textarea placeholder. Defaults to
-   *  `chat.composerPlaceholder` i18n key. */
+  /** Override the textarea placeholder i18n key. */
   placeholderKey?: string;
-  /** When true, drops the side + bottom borders and the bottom
-   *  rounded corners on mobile so the composer sits flush against
-   *  the screen edges. The top corners stay rounded so it still
-   *  reads as its own surface. Desktop falls back to the regular
-   *  panel-island styling. Used by the standalone /chat page; the
-   *  reader-side AI panel keeps the all-around card because it's
-   *  already nested in a narrow side panel with its own chrome. */
+  /** Mobile-flush variant: drops side/bottom borders so the composer meets the screen edges. */
   edgeToEdgeOnMobile?: boolean;
 }
 
@@ -698,30 +624,18 @@ export const ChatComposer = forwardRef<
 ) {
   const { t } = useTranslation();
   const { confirm, ConfirmModalElement } = useConfirm();
-  // Drives the textarea's Enter behavior. On desktop Enter sends and
-  // Shift+Enter inserts a newline — the standard chat-app shortcut.
-  // On mobile the soft-keyboard return key is the only quick way to
-  // get a newline, so we flip it: Enter inserts a newline, the on-
-  // screen send button (and Ctrl/Cmd+Enter for external keyboards)
-  // sends. Without this, mobile users can't write multi-line prompts.
+  // On mobile, Enter inserts a newline and the send button sends; desktop is the inverse.
   const isMobile = useIsMobile();
 
   const enabledProviders = useSettingsStore((s) => s.enabledProviders);
   const configuredProviders = useMemo(
-    // configuration changes when settings change — re-evaluate.
+    // re-evaluate when provider settings change.
     () => getConfiguredProviders(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [enabledProviders],
   );
 
-  // "Use whole book" shortcut. Only surfaces when a reader doc is
-  // currently active — i.e. the composer is rendered from the reader
-  // AI panel or from a chat conversation that already opened the
-  // book. The standalone /chat page without an active doc never sees
-  // the button. The flow is: click → confirm modal (warns about
-  // token cost) → on accept, the doc's full page set goes into
-  // aiSelectedPages so the next send picks them up via the existing
-  // context-pack pipeline.
+  // "Use whole book": only shown with an active reader doc. Confirm modal → selectAllAiPages.
   const activeDoc = useActiveDocument();
   const selectAllAiPages = useReaderStore((s) => s.selectAllAiPages);
   const allPagesAlreadySelected =
@@ -750,8 +664,7 @@ export const ChatComposer = forwardRef<
   const [selectedProvider, setSelectedProvider] = useState<AiProvider | null>(
     null,
   );
-  // If the picked provider gets disabled in Settings, fall back
-  // to "Default" so the next send doesn't error.
+  // Fall back to Default if the picked provider gets disabled in Settings.
   useEffect(() => {
     if (selectedProvider && !configuredProviders.includes(selectedProvider)) {
       setSelectedProvider(null);
@@ -759,37 +672,28 @@ export const ChatComposer = forwardRef<
   }, [configuredProviders, selectedProvider]);
 
   const [mode, setMode] = useState<RecommendationMode>("default");
+  // mobile "+" secondary-actions menu (attach / whole-book / reasoning / mode / usage)
+  const plusBtnRef = useRef<HTMLButtonElement>(null);
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
 
-  // Quota bar: only relevant when the turn will be billed against our
-  // Pnyxy free-tier bucket — i.e. the routing is "Default" (null →
-  // full proxy chain) or the proxy is explicitly picked, AND the proxy
-  // is configured. A specific BYOK provider bills the user's own
-  // account, so the bar is hidden there. The reference model is the
-  // pinned one, or the auto-route default the chain charges first.
+  // Quota bar only applies when the turn bills the Pnyxy bucket (Default or proxy picked).
   const pnyxyModel = useSettingsStore((s) => s.pnyxyModel);
   const usesPnyxyQuota =
     (selectedProvider === null || selectedProvider === "pnyxy") &&
     configuredProviders.includes("pnyxy");
-  const activeQuotaModel = pnyxyModel ?? QUOTA_AUTO_DEFAULT_MODEL;
+  const activeQuotaModel =
+    pnyxyModel ??
+    (activeDoc ? QUOTA_AUTO_DEFAULT_MODEL : QUOTA_AUTO_GROUNDED_MODEL);
 
-  // Reasoning toggle. Persistent within the composer's lifetime
-  // (not auto-reset after send, unlike `mode`) so multi-turn
-  // problem-solving stays in o3-mini mode without the user
-  // re-clicking each turn. Only meaningful when OpenAI is one of
-  // the configured providers — otherwise the toggle would have
-  // nowhere to route. The toggle's visibility is gated on that
-  // check below.
+  // Reasoning toggle persists across sends (unlike `mode`). Only routes when OpenAI is configured.
   const [reasoning, setReasoning] = useState(false);
   const openAiConfigured = configuredProviders.includes("openai");
-  // If the user disables OpenAI in Settings while reasoning is on,
-  // drop the flag silently — otherwise the next send would force
-  // an unconfigured provider and bounce.
+  // Drop the flag if OpenAI gets disabled while reasoning is on.
   useEffect(() => {
     if (!openAiConfigured && reasoning) setReasoning(false);
   }, [openAiConfigured, reasoning]);
 
-  // Effective cap depends on routing. Default mode = Pnyxy free
-  // quota = 1 image (cost predictability). Direct keys = 4.
+  // Default routing caps at 1 image; BYOK keys allow 4.
   const effectiveAttachmentCap =
     selectedProvider === null
       ? MAX_ATTACHMENTS_DEFAULT
@@ -800,10 +704,7 @@ export const ChatComposer = forwardRef<
   >([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
-  // Persistent hint when the user has more images staged than the
-  // current routing supports — separate from the transient
-  // `attachmentError` so it doesn't disappear on the next state
-  // change.
+  // persistent hint (separate from the transient attachmentError) when over the cap
   const attachmentsBlocked =
     selectedProvider === null &&
     pendingAttachments.length > MAX_ATTACHMENTS_DEFAULT;
@@ -863,11 +764,7 @@ export const ChatComposer = forwardRef<
     setAttachmentError(null);
   }, []);
 
-  // Imperative addAttachments — used by ReaderPage's rect-to-AI
-  // flow to inject a captured page region into the chat composer.
-  // Bypasses the size/type validation in `handleAddFiles` because
-  // the caller has already produced a well-formed in-memory PNG;
-  // no user file picked, no risk of an unsupported MIME.
+  // Skips handleAddFiles validation: caller supplies an already well-formed PNG.
   useImperativeHandle(
     ref,
     () => ({
@@ -880,10 +777,7 @@ export const ChatComposer = forwardRef<
     [],
   );
 
-  // Paste handler — pull image items from clipboard and route them
-  // through the same validation/encoding path as the file picker.
-  // Doesn't preventDefault when there are no images, so plain text
-  // pastes still flow into the textarea normally.
+  // Route pasted image items through handleAddFiles; leave plain-text pastes alone.
   const handlePaste = useCallback(
     (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
       const items = e.clipboardData?.items;
@@ -903,7 +797,7 @@ export const ChatComposer = forwardRef<
     [handleAddFiles],
   );
 
-  // Speech-to-text — appends finalized chunks to the textarea.
+  // Speech-to-text: append finalized chunks to the textarea.
   const speech = useSpeechRecognition({
     onResult: (text) => {
       onChange(
@@ -914,8 +808,7 @@ export const ChatComposer = forwardRef<
     },
   });
 
-  // Textarea auto-resize. Snap to scrollHeight (capped at 12rem)
-  // before paint so the user never sees a height jitter.
+  // Auto-resize to scrollHeight (capped 12rem) before paint to avoid jitter.
   useLayoutEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -939,11 +832,7 @@ export const ChatComposer = forwardRef<
         el.setSelectionRange(end, end);
       });
     },
-    // We deliberately read `value` lazily from the closure each
-    // call rather than as a dep — the latest closure always wins
-    // because the handler is recreated on every render via the
-    // useCallback's empty-ish dep list. We DO depend on value here
-    // for correctness on the inner concat:
+    // value is a dep so the concat below uses the latest input.
     [onChange, onLoadReadingContext, value],
   );
 
@@ -951,11 +840,7 @@ export const ChatComposer = forwardRef<
     const text = value.trim();
     if (!text && pendingAttachments.length === 0) return;
     if (attachmentsBlocked) return;
-    // When reasoning is on, force-route through OpenAI BYOK — other
-    // providers don't have a step-by-step reasoning model on tap and
-    // would silently ignore the flag. Falling back to the user's
-    // own preference when reasoning is off keeps the model picker's
-    // normal behavior.
+    // Reasoning must force OpenAI BYOK; other providers ignore the flag.
     const effectiveProvider = reasoning ? "openai" : selectedProvider;
     const payload: ChatComposerSubmitPayload = {
       text,
@@ -964,9 +849,7 @@ export const ChatComposer = forwardRef<
       attachments: pendingAttachments,
       reasoning,
     };
-    // Clear staged attachments + reset per-turn mode before the
-    // await so a slow send doesn't leave them visually stuck. The
-    // input value is parent-controlled — parent clears on its own.
+    // Clear attachments + reset mode before the await so a slow send doesn't leave them stuck.
     setPendingAttachments([]);
     setAttachmentError(null);
     if (mode !== "default") setMode("default");
@@ -985,16 +868,21 @@ export const ChatComposer = forwardRef<
     !attachmentsBlocked &&
     (value.trim().length > 0 || pendingAttachments.length > 0);
 
+  // shared row style for the mobile "+" actions menu
+  const mobileMenuRow =
+    "flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
+  const modeLabels: Record<RecommendationMode, string> = {
+    default: t("chat.composer.modeDefault", { defaultValue: "Chat" }),
+    books: t("chat.composer.modeBooks", { defaultValue: "Recommend books" }),
+    videos: t("chat.composer.modeVideos", { defaultValue: "Recommend videos" }),
+    image: t("chat.composer.modeImage", { defaultValue: "Generate image" }),
+  };
+
   return (
     <div
       className={cn(
         "border bg-bg-tertiary p-2 shadow-md transition-colors sm:p-3",
-        // Mobile-flush variant: negative horizontal margin breaks
-        // out of the parent's px-3 so the composer extends to the
-        // viewport edges, side + bottom borders are dropped, and
-        // only the top corners stay rounded so it still reads as
-        // its own surface above the thread. Desktop reverts to the
-        // all-around panel-island with normal margins.
+        // Mobile-flush: negative margin breaks out of the parent's px-3 to reach the viewport edge.
         edgeToEdgeOnMobile
           ? "-mx-3 rounded-t-2xl border-x-0 border-b-0 sm:mx-0 sm:rounded-2xl sm:border-x sm:border-b"
           : "rounded-2xl",
@@ -1031,28 +919,19 @@ export const ChatComposer = forwardRef<
         onPaste={handlePaste}
         onKeyDown={(e) => {
           if (e.key !== "Enter") return;
-          // IME composition guard. While the user is mid-composition
-          // (CJK, Hungarian dead-key accents, etc.) the soft keyboard
-          // fires an Enter with `isComposing: true` to commit the
-          // composition — that's not a send intent. keyCode 229 is
-          // the legacy webview equivalent some Android browsers still
-          // emit instead of the modern flag.
+          // IME composition guard: mid-composition Enter commits, it's not a send.
+          // keyCode 229 is the legacy equivalent some Android webviews still emit.
           if (
             (e.nativeEvent as KeyboardEvent).isComposing ||
             e.keyCode === 229
           ) {
             return;
           }
-          // Mobile: Enter inserts a newline (browser default); only
-          // Ctrl/Cmd+Enter sends. Desktop: Enter sends, Shift+Enter
-          // inserts a newline.
+          // Mobile: Ctrl/Cmd+Enter sends. Desktop: Enter sends, Shift+Enter newline.
           const sendIntent = isMobile
             ? e.ctrlKey || e.metaKey
             : !e.shiftKey;
-          // While a response is streaming the user can keep typing
-          // their next message, but Enter must not send: the store
-          // streams one turn at a time and the action button is in
-          // "Stop" mode. The send fires once the stream finishes.
+          // Enter must not send while streaming (one turn at a time).
           if (sendIntent && !isStreaming) {
             e.preventDefault();
             void handleSendClick();
@@ -1064,7 +943,7 @@ export const ChatComposer = forwardRef<
             : t(placeholderKey)
         }
         rows={1}
-        className="block min-h-[2.25rem] w-full resize-none bg-transparent px-1 text-sm text-text-primary placeholder:text-text-muted outline-none sm:min-h-[3rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="block min-h-[2.25rem] w-full resize-none bg-transparent px-1 text-base text-text-primary placeholder:text-text-muted outline-none sm:min-h-[3rem] sm:text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       />
       <input
         ref={fileInputRef}
@@ -1077,17 +956,209 @@ export const ChatComposer = forwardRef<
           e.target.value = "";
         }}
       />
-      {/* Toolbar — single row when the composer is wide, two stacked
-          rows when narrow (small reader chat panel, mobile). The
-          @container query measures the composer's parent so the
-          layout switches based on its actual rendered width, not the
-          viewport — Dockview can give the panel any size independent
-          of screen. Threshold sits at 30rem (480px): phone portrait
-          (~360–420px) always falls below, tablet-portrait and up
-          stay single-row. Inner divs use `@[30rem]/cm:contents` to
-          flatten back into a single flex row above the threshold;
-          below, they stay as nested flex containers stacked by
-          `flex-col`. */}
+      {isMobile ? (
+        /* Mobile: Gemini-style single row — "+" menu (attach + secondary
+           actions) on the left, a compact model square + mic/send on the
+           right. Everything else lives behind the "+" so the common case is
+           just type-and-send. */
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <button
+            ref={plusBtnRef}
+            type="button"
+            onClick={() => setPlusMenuOpen((v) => !v)}
+            disabled={isStreaming}
+            aria-label={t("chat.composer.moreActions", { defaultValue: "More" })}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-glass-border bg-bg-primary/50 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Plus size={20} />
+          </button>
+          <FloatingMenu
+            open={plusMenuOpen}
+            anchorRef={plusBtnRef}
+            onClose={() => setPlusMenuOpen(false)}
+            className="w-64"
+          >
+            <button
+              type="button"
+              disabled={
+                isStreaming ||
+                pendingAttachments.length >= effectiveAttachmentCap
+              }
+              onClick={() => {
+                setPlusMenuOpen(false);
+                fileInputRef.current?.click();
+              }}
+              className={mobileMenuRow}
+            >
+              <Paperclip size={16} />
+              {t("chat.composer.attachments.add")}
+            </button>
+            {activeDoc && activeDoc.totalPages > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPlusMenuOpen(false);
+                  void handleSelectWholeBook();
+                }}
+                className={mobileMenuRow}
+              >
+                <BookOpenCheck size={16} />
+                {t("chat.composer.wholeBook.button", {
+                  defaultValue: "Use the whole book as context",
+                })}
+                {allPagesAlreadySelected && (
+                  <Check size={14} className="ml-auto shrink-0 text-accent" />
+                )}
+              </button>
+            )}
+            {openAiConfigured && (
+              <button
+                type="button"
+                onClick={() => setReasoning((r) => !r)}
+                className={mobileMenuRow}
+              >
+                <Sparkles
+                  size={16}
+                  className={reasoning ? "text-accent" : undefined}
+                />
+                {t("chat.composer.reasoning.label", {
+                  defaultValue: "Reasoning mode",
+                })}
+                {reasoning && (
+                  <Check size={14} className="ml-auto shrink-0 text-accent" />
+                )}
+              </button>
+            )}
+            {onLoadReadingContext && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlusMenuOpen(false);
+                    void handleInsertReadingContext("week");
+                  }}
+                  className={mobileMenuRow}
+                >
+                  <History size={16} />
+                  {t("chat.readingContext.weekTitle")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlusMenuOpen(false);
+                    void handleInsertReadingContext("all");
+                  }}
+                  className={mobileMenuRow}
+                >
+                  <History size={16} />
+                  {t("chat.readingContext.recentTitle")}
+                </button>
+              </>
+            )}
+            <div className="my-1 border-t border-glass-border" />
+            <p className="px-3 pb-1 text-2xs font-medium uppercase tracking-wider text-text-muted">
+              {t("chat.composer.modeLabel", { defaultValue: "Mode" })}
+            </p>
+            {(["default", "books", "videos", "image"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => {
+                  setMode(m);
+                  setPlusMenuOpen(false);
+                }}
+                className={mobileMenuRow}
+              >
+                <Sparkles
+                  size={16}
+                  className={
+                    mode === m && m !== "default" ? "text-accent" : undefined
+                  }
+                />
+                {modeLabels[m]}
+                {mode === m && (
+                  <Check size={14} className="ml-auto shrink-0 text-accent" />
+                )}
+              </button>
+            ))}
+            {usesPnyxyQuota && (
+              <div className="border-t border-glass-border px-3 pb-2 pt-2">
+                <QuotaBar
+                  activeModel={activeQuotaModel}
+                  isPinned={pnyxyModel !== null}
+                  isStreaming={isStreaming}
+                />
+              </div>
+            )}
+          </FloatingMenu>
+
+          <div className="min-w-0 flex-1" />
+
+          <ModelPicker
+            compact
+            value={selectedProvider}
+            options={configuredProviders}
+            onChange={setSelectedProvider}
+          />
+
+          {isStreaming ? (
+            <button
+              type="button"
+              onClick={onStop}
+              aria-label={t("chat.stop")}
+              title={t("chat.stop")}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-white transition-colors hover:bg-accent/80 cursor-pointer"
+            >
+              <Square size={14} fill="currentColor" />
+            </button>
+          ) : canSend ? (
+            <button
+              type="button"
+              onClick={() => void handleSendClick()}
+              aria-label={t("chat.send")}
+              title={t("chat.send")}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-white transition-colors hover:bg-accent/80 cursor-pointer"
+            >
+              <ArrowUp size={18} strokeWidth={2.5} />
+            </button>
+          ) : speech.supported ? (
+            <button
+              type="button"
+              onClick={() => (speech.listening ? speech.stop() : speech.start())}
+              aria-label={
+                speech.listening
+                  ? t("chat.composer.stopListening")
+                  : t("chat.composer.startListening")
+              }
+              title={
+                speech.listening
+                  ? t("chat.composer.stopListening")
+                  : t("chat.composer.startListening")
+              }
+              className={cn(
+                "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors cursor-pointer",
+                speech.listening
+                  ? "border-danger/40 bg-danger/20 text-danger hover:bg-danger/30"
+                  : "border-glass-border bg-bg-primary/50 text-text-muted hover:bg-glass-hover hover:text-text-primary",
+              )}
+            >
+              {speech.listening ? <MicOff size={18} /> : <Mic size={18} />}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              aria-label={t("chat.send")}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-glass-bg text-text-muted cursor-not-allowed"
+            >
+              <ArrowUp size={18} strokeWidth={2.5} />
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+      {/* Toolbar: one row when wide, two stacked rows below the 30rem @container
+          threshold. Container width, not viewport, since Dockview sizes the panel freely. */}
       <div className="@container/cm mt-1.5 sm:mt-2">
       <div className="flex flex-col gap-1.5 @[30rem]/cm:flex-row @[30rem]/cm:items-center">
       <div className="flex min-w-0 items-center gap-1.5 @[30rem]/cm:contents">
@@ -1271,6 +1342,8 @@ export const ChatComposer = forwardRef<
           isPinned={pnyxyModel !== null}
           isStreaming={isStreaming}
         />
+      )}
+        </>
       )}
       {ConfirmModalElement}
     </div>

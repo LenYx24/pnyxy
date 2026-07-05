@@ -12,7 +12,7 @@ interface KbdProps {
 /**
  * Inline keyboard-shortcut hint. Renders the shortcut inside a `<kbd>`
  * element with consistent styling; auto-formats ⌘ vs Ctrl for Mac.
- * Renders nothing on phones — shortcuts are meaningless without a keyboard.
+ * Renders nothing on phones, shortcuts are meaningless without a keyboard.
  */
 export function Kbd({ shortcut, className }: KbdProps) {
   const isMobile = useIsMobile();

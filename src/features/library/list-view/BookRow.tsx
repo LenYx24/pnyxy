@@ -88,7 +88,7 @@ export function BookRow({
 
   const isTopLevel = depth === 0;
   // Top-level: sortable (sibling reorder + drag). Nested: draggable
-  // only — same drag UX, just not part of any sortable list.
+  // only, same drag UX, just not part of any sortable list.
   const sortable = useSortable({
     id: sortableId ?? `book:${entry.id}`,
     disabled: !isTopLevel,
@@ -112,7 +112,7 @@ export function BookRow({
   };
 
   // content-visibility:auto skips off-screen rows for scroll perf, but
-  // it collapses their measured rects — which breaks dnd-kit's collision
+  // it collapses their measured rects, which breaks dnd-kit's collision
   // detection during a drag (the drop target resolves to the dragged row
   // itself, so nothing reorders). Disable it while any drag is in flight.
   const dragActive = useDndContext().active != null;
@@ -126,7 +126,7 @@ export function BookRow({
   const [infoOpen, setInfoOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
 
-  // Download options for this row — single item for uploaded books,
+  // Download options for this row, single item for uploaded books,
   // up to three for public-domain catalog scans (PDF / EPUB / TXT).
   // Empty array when the catalog entry has no downloadable artifact
   // (commercial-only metadata).
@@ -154,7 +154,7 @@ export function BookRow({
   // Anchor for the tag picker. Wraps the ContextMenu's button area so
   // the picker pops near the 3-dots (which is the "Manage tags" entry
   // they just clicked from). The 3-dots button itself is owned by
-  // ContextMenu so we can't ref it directly — wrapping is simpler.
+  // ContextMenu so we can't ref it directly, wrapping is simpler.
   const tagAnchorRef = useRef<HTMLDivElement>(null);
   const tagKey = bookKey(entry);
   const tags = useTagStore((s) => s.bookTags.get(tagKey)) ?? [];
@@ -180,7 +180,7 @@ export function BookRow({
       onToggleSelect(selKey, { ctrlKey: false, shiftKey: false });
       return;
     }
-    // Pre-bake slug — same reasoning as the grid card.
+    // Pre-bake slug, same reasoning as the grid card.
     if (entry.source === "catalog") {
       navigate(
         `/books/${bookIdSegment(entry.catalog_book_id, entry.catalog_book.title)}`,
@@ -312,6 +312,9 @@ export function BookRow({
               src={coverUrl}
               alt=""
               aria-hidden="true"
+              // See LibraryBookCard: native image drag hijacks the
+              // pointer stream and breaks dnd-kit dragging.
+              draggable={false}
               className="h-full w-auto max-w-full rounded-sm object-contain"
               loading="lazy"
             />

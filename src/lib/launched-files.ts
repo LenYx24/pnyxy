@@ -39,7 +39,7 @@ export function initLaunchedFiles() {
           if (file instanceof File) files.push(file);
         }
       } catch {
-        // skip unreadable handles silently — partial delivery is
+        // skip unreadable handles silently, partial delivery is
         // better than dropping the whole launch
       }
     }

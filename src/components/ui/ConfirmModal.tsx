@@ -23,8 +23,8 @@ interface ConfirmModalProps {
 
 /**
  * Drop-in replacement for `window.confirm`. Same UX shell as the
- * existing inline delete dialogs across the app — backdrop, glass
- * card, two buttons — but reusable. Returns control via callbacks
+ * existing inline delete dialogs across the app, backdrop, glass
+ * card, two buttons, but reusable. Returns control via callbacks
  * (no Promise) so React state stays the source of truth.
  */
 export function ConfirmModal({

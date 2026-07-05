@@ -13,20 +13,13 @@ export interface ListColumnWidths {
 
 interface LibraryPrefs {
   viewMode: ViewMode;
-  cardSize: number; // 140–320, grid minWidth in px
-  // Whether the search box + tag filter row are visible. Toolbar
-  // exposes a chevron toggle. Default is platform-aware (mobile
-  // collapsed, desktop expanded) but the user's explicit pick is
-  // persisted from then on.
+  cardSize: number; // 140-320, grid minWidth in px
+  // default is platform-aware (mobile collapsed, desktop expanded) until user toggles
   controlsExpanded: boolean;
-  // List-view column widths in pixels. Defaults mirror the original
-  // hard-coded w-32 / w-16 / w-20 tailwind values; resize handles in
-  // the column header let the user tune them per-column.
   listColumnWidths: ListColumnWidths;
 }
 
-// Map of folder context → ordered item keys
-// Keys are "folder:<id>" or "book:<id>" strings
+// keys are "folder:<id>" or "book:<id>"
 type SortOrdersMap = Record<string, string[]>;
 
 export const DEFAULT_LIST_COLUMN_WIDTHS: ListColumnWidths = {
@@ -35,14 +28,8 @@ export const DEFAULT_LIST_COLUMN_WIDTHS: ListColumnWidths = {
   added: 80,
 };
 
-// Compact, Nextcloud-style tiles by default — the old 200px tiles read
-// as oversized for a file-manager grid. 150 keeps covers legible while
-// fitting more per row; the size slider still spans 140–320.
 const DEFAULT_CARD_SIZE = 150;
-// The previous default. Clients that never touched the size slider have
-// this value baked into their persisted prefs (savePrefs writes the
-// whole object), so we treat a stored 200 as "unset" and nudge it to
-// the new default — without stomping a size the user deliberately set.
+// stored 200 is treated as unset and migrated to the current default
 const LEGACY_CARD_SIZE = 200;
 
 const DEFAULT_PREFS: LibraryPrefs = {
@@ -61,17 +48,14 @@ function loadPrefs(): LibraryPrefs {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<LibraryPrefs>;
-      // If `controlsExpanded` was never written (older clients), fall
-      // back to the platform default rather than the object default.
+      // fall back to platform default when unset
       const controlsExpanded =
         parsed.controlsExpanded ?? (isMobile ? false : true);
-      // Merge column widths so newly-added columns get defaults when
-      // older clients have only some keys persisted.
+      // merge so newly-added columns pick up defaults
       const listColumnWidths = {
         ...DEFAULT_LIST_COLUMN_WIDTHS,
         ...(parsed.listColumnWidths ?? {}),
       };
-      // Migrate the legacy 200px default down to the new compact one.
       const cardSize =
         parsed.cardSize == null || parsed.cardSize === LEGACY_CARD_SIZE
           ? DEFAULT_CARD_SIZE
@@ -87,12 +71,7 @@ function loadPrefs(): LibraryPrefs {
   } catch {
     // ignore
   }
-  // First-time visitors land on the platform-appropriate default —
-  // mobile gets list (less visually noisy, matches the Nextcloud-
-  // style files UI we're modeling after); desktop keeps grid which
-  // shows book covers well at desktop widths. Once the user picks
-  // explicitly via the toolbar toggle, that choice is persisted
-  // and this default no longer applies.
+  // mobile defaults to list, desktop to grid
   if (isMobile) {
     return { ...DEFAULT_PREFS, viewMode: "list", controlsExpanded: false };
   }
@@ -117,17 +96,11 @@ function saveSortOrders(orders: SortOrdersMap) {
   localStorage.setItem(SORT_ORDERS_KEY, JSON.stringify(orders));
 }
 
-/**
- * Given saved order keys and the current set of item keys,
- * returns ordered keys: saved items that still exist (in saved order),
- * then any new items appended at end.
- */
+/** Order currentKeys by savedOrder, appending unseen keys at the end. */
 export function applySort(savedOrder: string[] | undefined, currentKeys: string[]): string[] {
   if (!savedOrder || savedOrder.length === 0) return currentKeys;
   const currentSet = new Set(currentKeys);
-  // Keep saved items that still exist
   const ordered = savedOrder.filter((k) => currentSet.has(k));
-  // Append any new items not in saved order
   const orderedSet = new Set(ordered);
   for (const k of currentKeys) {
     if (!orderedSet.has(k)) ordered.push(k);

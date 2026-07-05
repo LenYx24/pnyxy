@@ -41,7 +41,7 @@ export function writeBookCounts(orgId: string, cache: BookCountCache): void {
   try {
     localStorage.setItem(STORAGE_KEY_PREFIX + orgId, JSON.stringify(cache));
   } catch {
-    // Quota exceeded / private mode / disabled storage — the cache
+    // Quota exceeded / private mode / disabled storage, the cache
     // is purely a UX nicety, so swallow and move on.
   }
 }

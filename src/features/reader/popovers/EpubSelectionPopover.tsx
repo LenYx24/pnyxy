@@ -22,7 +22,7 @@ async function translateText(text: string, target: string): Promise<string> {
 
 export interface EpubSelectionState {
   text: string;
-  /** Viewport-relative anchor rect — popover is placed above (or below if no room). */
+  /** Viewport-relative anchor rect, popover is placed above (or below if no room). */
   rect: { left: number; top: number; width: number; height: number };
 }
 

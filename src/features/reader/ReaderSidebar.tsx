@@ -17,7 +17,7 @@ const EMPTY_TOC: TocItem[] = [];
 
 type SidebarTab = "contents" | "bookmarks" | "notes" | "whiteboards";
 
-/** Flatten TOC into ordered list of page numbers for range-based active detection */
+/** Flatten TOC into ordered list of page numbers. */
 function flattenTocPages(items: TocItem[]): number[] {
   const pages: number[] = [];
   for (const item of items) {
@@ -32,15 +32,9 @@ function flattenTocPages(items: TocItem[]): number[] {
 type TocReadState = "read" | "in-progress" | "unread";
 
 /**
- * Map each TOC entry → read state, given the watermark `progressPage`
- * (furthest page the user has reached, tracker-maintained).
- *
- * A chapter's "end page" is the page of the next item in flattened
- * depth-first order minus 1; the last item ends at `totalPages`.
- * From there:
- *   read         — end page ≤ watermark   (chapter fully behind)
- *   in-progress  — chapter contains the watermark
- *   unread       — chapter starts past the watermark
+ * Read state per TOC entry. progressPage is the furthest page reached.
+ * A chapter ends where the next flattened DFS item starts (minus 1); the
+ * last chapter ends at totalPages.
  */
 function buildTocReadState(
   items: TocItem[],
@@ -62,8 +56,7 @@ function buildTocReadState(
     const startPage = item.pageIndex + 1;
     const next = flat[i + 1];
     const endPage = next ? next.pageIndex : totalPages - 1; // 0-indexed inclusive
-    // Convert to 1-indexed inclusive for comparison with progressPage.
-    const endPage1 = endPage + 1;
+    const endPage1 = endPage + 1; // 1-indexed to compare against progressPage
 
     if (progressPage <= 0 || startPage > progressPage) {
       result.set(item, "unread");
@@ -76,11 +69,7 @@ function buildTocReadState(
   return result;
 }
 
-/** Tiny visual cue beside each TOC entry. Filled circle for read,
- *  hollow ring for in-progress, empty placeholder (preserves
- *  alignment) for unread. Color matches the global active-accent
- *  so the indicator reads as the same family as the active-row
- *  highlight without competing with it. */
+/** TOC read cue: filled dot = read, ring = in-progress, empty = unread. */
 function TocReadDot({ state }: { state: TocReadState }) {
   if (state === "read") {
     return (
@@ -98,8 +87,7 @@ function TocReadDot({ state }: { state: TocReadState }) {
       />
     );
   }
-  // Unread: take the same 1.5 × 1.5 footprint so the title text
-  // doesn't shift when a chapter transitions states.
+  // same footprint as the other states so titles don't shift
   return <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0" />;
 }
 
@@ -115,8 +103,6 @@ function TocEntry({
   depth: number;
   currentPage: number;
   activePage: number | null;
-  /** Map from TOC item → reading watermark state, computed at the
-   *  top of the TOC render so every TocEntry can look itself up. */
   readState: Map<TocItem, TocReadState>;
   onNavigate: (page: number) => void;
 }) {
@@ -124,12 +110,8 @@ function TocEntry({
   const isActive = activePage === page;
   const state = readState.get(item) ?? "unread";
   const hasChildren = item.children.length > 0;
-  // Default-expand the top level so the user sees the table of
-  // contents at a glance; deeper levels collapse by default to keep
-  // long TOCs scannable. Toggling overrides this for that node.
+  // top level expanded by default, deeper levels collapsed
   const [expanded, setExpanded] = useState(depth === 0);
-  // Indent grows with depth — keep arithmetic in one spot so the
-  // chevron and the row text stay aligned.
   const indentPx = depth * 12;
 
   return (
@@ -143,9 +125,6 @@ function TocEntry({
         )}
         style={{ paddingLeft: indentPx }}
       >
-        {/* Chevron toggle — only rendered when there are children
-            so leaf rows stay flush with the row text instead of
-            getting an empty-icon gap. */}
         {hasChildren ? (
           <button
             onClick={(e) => {
@@ -172,9 +151,7 @@ function TocEntry({
           className={cn(
             "flex min-w-0 flex-1 items-center gap-1.5 rounded-md py-1.5 pr-3 text-left transition-colors cursor-pointer",
             depth === 0 ? "text-sm" : "text-xs",
-            // Subtle fade for chapters fully behind the watermark —
-            // keeps them readable but visually "done" so the eye is
-            // drawn to the in-progress / unread entries ahead.
+            // fade already-read chapters
             state === "read" && !isActive && "opacity-60",
           )}
           title={item.title}
@@ -212,7 +189,7 @@ interface ReaderSidebarContentProps {
   onDeleteWhiteboard?: (whiteboardId: string) => void;
 }
 
-/** Inner content component used by Dockview panel (no outer sizing wrapper) */
+/** Sidebar body without the sizing wrapper (used by the Dockview panel). */
 export function ReaderSidebarContent({
   onOpenFile,
   onOpenNote,
@@ -232,15 +209,7 @@ export function ReaderSidebarContent({
 
   const notes = useNoteStore((s) => s.notes);
   const whiteboards = useWhiteboardStore((s) => s.whiteboards);
-  // Reader sidebar shows ONLY whiteboards relevant to the currently
-  // open document:
-  //   • `bookId === activeDocumentId` — explicitly tied to this book.
-  //   • `bookId == null` — legacy / global whiteboards created before
-  //     this filter existed; surfaced so they don't silently vanish
-  //     from the user's view. Going forward, the reader's own
-  //     `createWhiteboard()` callers tag with `activeDocumentId` so
-  //     newly-created reader whiteboards always land in the matched
-  //     bucket.
+  // whiteboards tied to this doc, plus null-bookId ones so they aren't hidden
   const visibleWhiteboards = useMemo(
     () =>
       whiteboards.filter(
@@ -249,11 +218,7 @@ export function ReaderSidebarContent({
       ),
     [whiteboards, activeDocumentId],
   );
-  // Range-select (shift-click) reads the visible list via this ref so
-  // the index offsets match what the user actually sees. Updating the
-  // ref in an effect (rather than during render) keeps React's
-  // refs-during-render rule happy; the handler that consumes the ref
-  // fires later (on user click), so the one-tick lag never materialises.
+  // shift-click range-select reads the visible list through this ref
   const visibleWhiteboardsRef = useRef(visibleWhiteboards);
   useEffect(() => {
     visibleWhiteboardsRef.current = visibleWhiteboards;
@@ -261,9 +226,7 @@ export function ReaderSidebarContent({
   const allowWhiteboardForAll = useSettingsStore(
     (s) => s.experimental_allowWhiteboardForAllFormats,
   );
-  // Whiteboards are a paginated-format concept (they anchor to PDF pages).
-  // Disable the "new whiteboard" button when the active doc can't host one,
-  // unless the developer toggle is flipped.
+  // whiteboards anchor to PDF pages, so only allow them on paginated docs
   const whiteboardCreationAllowed =
     !activeDoc ||
     activeDoc.meta.capabilities.paginated ||
@@ -275,9 +238,6 @@ export function ReaderSidebarContent({
   const totalPages = activeDoc?.totalPages ?? 0;
   const progressPage = activeDoc?.progressPage ?? 0;
 
-  // Re-compute only when the TOC shape OR the watermark changes —
-  // both are cheap enough to redo even on every page change, but a
-  // big TOC + a steadily-incrementing watermark gets called a lot.
   const tocReadState = useMemo(
     () => buildTocReadState(toc, progressPage, totalPages),
     [toc, progressPage, totalPages],
@@ -303,12 +263,7 @@ export function ReaderSidebarContent({
   const [tocViewMode, setTocViewMode] = useState<"outline" | "thumbnail">("outline");
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("contents");
 
-  // Register the cross-component opener so the AI chat panel can
-  // surface a "Customize context" button without coupling to the
-  // sidebar's internal tab/view state. The opener flips this
-  // sidebar to the thumbnail TOC and enables page-selection mode;
-  // ThumbnailToc itself auto-fills the surrounding-pages default
-  // when selection mode is entered with nothing selected.
+  // expose an opener so the AI chat panel can jump into thumbnail page-selection
   useEffect(() => {
     const open = () => {
       useUIStore.getState().setReaderSidebarCollapsed(false);
@@ -362,7 +317,7 @@ export function ReaderSidebarContent({
         return next;
       });
     } else {
-      // Normal click — open note
+      // Normal click, open note
       onOpenNote?.(noteId);
       lastClickedNoteIndexRef.current = index;
       return;
@@ -376,9 +331,7 @@ export function ReaderSidebarContent({
       const end = Math.max(lastClickedWhiteboardIndexRef.current, index);
       setSelectedWhiteboardIds((prev) => {
         const next = new Set(prev);
-        // Use the filtered visible list so indices line up with what
-        // the user is actually clicking on (the underlying store
-        // contains whiteboards from other books we don't show here).
+        // filtered list so indices match the rendered rows
         const currentWbs = visibleWhiteboardsRef.current;
         for (let i = start; i <= end; i++) {
           if (currentWbs[i]) next.add(currentWbs[i].id);
@@ -476,10 +429,7 @@ export function ReaderSidebarContent({
 
   return (
     <div className="h-full flex flex-col bg-bg-secondary/50">
-      {/* Header. Extra left padding on the heading clears the toolbar's
-          sidebar-toggle hamburger that sits directly above this row when
-          the global app sidebar is collapsed — without it the two
-          stacked vertically and looked glued together. */}
+      {/* heading has extra left padding to clear the toolbar hamburger above it */}
       <div className="p-4 border-b border-glass-border flex items-center justify-between">
         <h3 className="pl-10 text-sm font-semibold text-text-muted uppercase tracking-wider">
           {t("reader.sidebar.readerHeading")}
@@ -506,11 +456,7 @@ export function ReaderSidebarContent({
         </div>
       </div>
 
-      {/* Open documents list — always rendered (even with 1 doc)
-          so the user discovers they can keep multiple books loaded
-          and switch between them. The "Open another" button at the
-          bottom lets them add a sibling book without leaving the
-          reader. */}
+      {/* Open documents list, shown even with a single doc */}
       {docEntries.length > 0 && (
         <div className="border-b border-glass-border p-2 space-y-0.5">
           <p className="px-3 py-1 text-2xs font-semibold uppercase tracking-wider text-text-muted">
@@ -534,7 +480,7 @@ export function ReaderSidebarContent({
         </div>
       )}
 
-      {/* Tab bar — icon-only with tooltip on hover */}
+      {/* Tab bar, icon-only */}
       <div className="border-b border-glass-border px-2 py-1.5 flex items-center gap-1 overflow-x-auto">
         {tabItems.map(({ key, icon: Icon, label }) => (
           <button
@@ -554,8 +500,7 @@ export function ReaderSidebarContent({
         ))}
       </div>
 
-      {/* Contextual actions for the active tab — on their own row so
-          they're always accessible regardless of panel width. */}
+      {/* Per-tab actions row */}
       <div className="border-b border-glass-border px-2 py-1 flex items-center gap-1 overflow-x-auto">
         {sidebarTab === "contents" && meta && (
           <>
@@ -848,7 +793,7 @@ export function ReaderSidebarContent({
   );
 }
 
-/** Full sidebar component with sizing wrapper (for non-dockview use) */
+/** Standalone sidebar with its sizing wrapper (non-Dockview use). */
 export function ReaderSidebar() {
   return (
     <div className="h-full w-64 shrink-0 border-r border-glass-border">

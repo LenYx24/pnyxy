@@ -2,27 +2,10 @@ import { openDB, type IDBPDatabase } from "idb";
 import { logError } from "@/lib/logger";
 
 /**
- * Local-first sync queue.
- *
- * Mutations that the user makes while offline (and successful but
- * provisional writes when online) land in IndexedDB first. The drain
- * loop reads them out and applies each to Supabase via an
- * entity-specific handler; on success the row is removed. On
- * transient failure the row stays with an incremented `attempts`
- * counter — the loop retries with exponential backoff. On 4xx
- * "this will never succeed" failures the row is moved to a dead-
- * letter store so the UI can surface it.
- *
- * Tier 2 scope: folders + notes route through here. The dispatch
- * table is intentionally open so new entities (book metadata,
- * tags, reading sessions, …) can be added incrementally without
- * touching this file.
- *
- * Future / Tier 3 hook: the same queue shape works for true local-
- * first apps if we swap the drain target from "REST upsert" to a
- * sync engine (PowerSync, ElectricSQL). Don't bake REST assumptions
- * into the entity handlers — pass the payload and let the handler
- * decide.
+ * Local-first sync queue. Mutations land in IndexedDB, the drain loop
+ * applies each to Supabase via an entity handler and deletes on success.
+ * Transient failures retry with exponential backoff; permanent (4xx)
+ * failures move to a dead-letter store for the UI to surface.
  */
 
 const DB_NAME = "pnyxy-sync";
@@ -32,9 +15,7 @@ const STORE_DEAD = "dead";
 
 export type SyncOp = "insert" | "update" | "delete";
 
-/** Catalog of entities the queue knows how to apply. Extend this
- *  type as new local-first entities are added, then register a
- *  handler with `registerEntityHandler`. */
+/** Entities the queue can apply. Register a handler per entity. */
 export type SyncEntity =
   | "folder"
   | "note"
@@ -43,18 +24,16 @@ export type SyncEntity =
   | "user_book_tag";
 
 export interface PendingMutation<P = unknown> {
-  /** Stable client-side id. UUID. */
+  /** Stable client-side UUID. */
   id: string;
   entity: SyncEntity;
   op: SyncOp;
-  /** Whatever the entity handler needs to apply the op — typically
-   *  the full row for insert/update, just the primary key for
-   *  delete. Shape is opaque to the queue. */
+  /** Opaque to the queue: full row for insert/update, PK for delete. */
   payload: P;
   createdAt: number;
   attempts: number;
   lastError: string | null;
-  /** Next time we're willing to retry, in epoch ms. Backoff-driven. */
+  /** Earliest retry time, epoch ms. */
   retryAfter: number;
 }
 
@@ -68,12 +47,8 @@ function getDB(): Promise<IDBPDatabase> {
           const store = db.createObjectStore(STORE_PENDING, {
             keyPath: "id",
           });
-          // `createdAt` for FIFO drain order; queue should preserve
-          // user intent ("I created folder A then renamed it") so
-          // entity handlers see ops in the right sequence.
+          // createdAt = FIFO drain order so ops apply in sequence
           store.createIndex("createdAt", "createdAt");
-          // `retryAfter` for the drain loop's "skip rows still in
-          // their backoff window" query.
           store.createIndex("retryAfter", "retryAfter");
         }
         if (!db.objectStoreNames.contains(STORE_DEAD)) {
@@ -85,16 +60,12 @@ function getDB(): Promise<IDBPDatabase> {
   return dbPromise;
 }
 
-// ── Entity handler registry ─────────────────────────────────────
-//
-// Each registered handler knows how to apply one mutation to the
-// remote (typically Supabase). Returns void on success; throws on
-// failure. The queue inspects the thrown error: if it has
-// `permanent: true` the row goes to dead letters, otherwise it's
-// retried.
+// Entity handler registry. A handler applies one mutation to the
+// remote; it throws on failure. If the error has `permanent: true`
+// the row is dead-lettered, otherwise retried.
 
 export interface SyncContext {
-  /** Current user id — most Supabase tables RLS-gate by this. */
+  /** Current user id, RLS-gates most Supabase tables. */
   userId: string;
 }
 
@@ -121,11 +92,7 @@ export class PermanentSyncError extends Error {
   }
 }
 
-// ── Enqueue ─────────────────────────────────────────────────────
-
-/** Drop a new mutation onto the queue. Returns the row id (caller
- *  rarely needs it). Safe to call from anywhere — the queue does
- *  the IndexedDB write, then signals the drain loop to wake up. */
+/** Enqueue a mutation and wake the drain loop. Returns the row id. */
 export async function enqueueMutation<P>(
   entity: SyncEntity,
   op: SyncOp,
@@ -152,26 +119,16 @@ export async function enqueueMutation<P>(
     logError("sync-queue:enqueue", err);
     throw err;
   }
-  // Wake up any listening drain loop so the mutation flushes the
-  // moment we're online — no need to wait for the next poll tick.
   notifyChange();
   return id;
 }
 
-// ── Drain ───────────────────────────────────────────────────────
-
-/** Backoff schedule in ms, indexed by attempt count. After this
- *  list, mutations stay at 30s intervals forever (or until the
- *  user clicks "retry now"). Tuned for Supabase: most transient
- *  failures (network, 5xx) resolve within a few seconds. */
+/** Backoff by attempt count, in ms. Past the end it stays at 30s. */
 const BACKOFF_MS = [0, 2_000, 5_000, 15_000, 30_000];
 
 /**
- * Drain the queue: read all rows whose `retryAfter <= now`, apply
- * them in createdAt order, and delete on success. Caller is
- * responsible for only invoking this when online (the drain loop
- * gates on `useNetworkStore.online()`). Best-effort — a single
- * failed row doesn't stop subsequent rows.
+ * Apply all due rows (retryAfter <= now) in createdAt order, deleting
+ * on success. Only call when online. A failed row doesn't block the rest.
  */
 export async function drainQueue(ctx: SyncContext): Promise<{
   processed: number;
@@ -189,10 +146,7 @@ export async function drainQueue(ctx: SyncContext): Promise<{
   for (const row of due) {
     const handler = handlers.get(row.entity);
     if (!handler) {
-      // No registered handler — likely a feature that hasn't been
-      // migrated to local-first yet. Park the row in dead letters
-      // rather than retrying forever. Users can drain by hand
-      // once the handler ships.
+      // no handler yet: dead-letter rather than retry forever
       await moveToDeadLetters(
         row,
         `No handler registered for entity "${row.entity}"`,
@@ -235,8 +189,6 @@ async function moveToDeadLetters(
   await db.delete(STORE_PENDING, row.id);
 }
 
-// ── Counts & inspection ────────────────────────────────────────
-
 export async function getPendingCount(): Promise<number> {
   const db = await getDB();
   return db.count(STORE_PENDING);
@@ -247,8 +199,7 @@ export async function getDeadLetters(): Promise<PendingMutation[]> {
   return db.getAll(STORE_DEAD) as Promise<PendingMutation[]>;
 }
 
-/** Push a dead-lettered row back into the active queue. Useful for
- *  "the underlying bug was fixed, please try again." */
+/** Push a dead-lettered row back into the active queue. */
 export async function retryDeadLetter(id: string): Promise<void> {
   const db = await getDB();
   const row = (await db.get(STORE_DEAD, id)) as PendingMutation | undefined;
@@ -263,12 +214,8 @@ export async function retryDeadLetter(id: string): Promise<void> {
   notifyChange();
 }
 
-// ── Change notification ────────────────────────────────────────
-// The drain loop (in sync-orchestrator.ts) subscribes here so an
-// `enqueueMutation` call from one tab can wake up the drain loop
-// in another. Single-process for now via EventTarget; cross-tab
-// coordination would need BroadcastChannel — deferred until we
-// actually see two tabs causing duplicate Supabase writes.
+// The drain loop (sync-orchestrator.ts) subscribes so an enqueue can
+// wake it. Single-process only; no cross-tab BroadcastChannel.
 
 const changeBus = new EventTarget();
 

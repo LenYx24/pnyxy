@@ -14,7 +14,7 @@ import type { DocumentFormat } from "./document";
 import type { WhiteboardBackground, WhiteboardElement } from "./whiteboard";
 import type { CatalogBook, CatalogBookInsert, UserLibraryEntry } from "./catalog";
 
-// ── Enums ───────────────────────────────────────────────────
+// Enums
 
 export type BookVisibility = "private" | "public";
 export type UserRole = "user" | "admin";
@@ -22,10 +22,10 @@ export type StorageTier = "free" | "premium";
 export type ReportStatus = "pending" | "dismissed" | "warned" | "temp_banned" | "permabanned";
 export type ReportReason = "spam" | "harassment" | "inappropriate_content" | "impersonation" | "other";
 
-// Re-export for convenience — these match the Postgres enums
+// Re-export for convenience, these match the Postgres enums
 export type { HighlightColor, DocumentFormat };
 
-// ── Profiles ────────────────────────────────────────────────
+// Profiles
 
 export interface Profile {
   id: string;
@@ -47,7 +47,7 @@ export interface Profile {
   current_period_end?: string | null;
 }
 
-// ── Categories ──────────────────────────────────────────────
+// Categories
 
 export interface Category {
   id: string;
@@ -61,13 +61,13 @@ export interface Category {
   created_at: string;
 }
 
-// ── Books ───────────────────────────────────────────────────
+// Books
 
 export interface Book {
   id: string;
   user_id: string;
   title: string;
-  /** Structured author list (migration 00048) — source of truth. */
+  /** Structured author list (migration 00048), source of truth. */
   authors: string[];
   /** Legacy joined display string, kept in sync with `authors`. */
   author: string | null;
@@ -111,7 +111,7 @@ export interface BookUpdate {
   metadata?: Record<string, unknown>;
 }
 
-// ── Book Files ──────────────────────────────────────────────
+// Book Files
 
 export interface BookFile {
   id: string;
@@ -124,7 +124,7 @@ export interface BookFile {
   created_at: string;
 }
 
-// ── Folders ─────────────────────────────────────────────────
+// Folders
 
 export interface Folder {
   id: string;
@@ -137,7 +137,7 @@ export interface Folder {
   updated_at: string;
 }
 
-// ── Folder Items ────────────────────────────────────────────
+// Folder Items
 
 export interface FolderItem {
   id: string;
@@ -146,7 +146,7 @@ export interface FolderItem {
   added_at: string;
 }
 
-// ── Status Tags ─────────────────────────────────────────────
+// Status Tags
 
 export type BookStatusTag =
   | "currently_reading"
@@ -174,7 +174,7 @@ export interface UserBookCustomTag {
   created_at: string;
 }
 
-// ── Category Junctions ──────────────────────────────────────
+// Category Junctions
 
 export interface CatalogBookCategory {
   id: string;
@@ -188,7 +188,7 @@ export interface BookCategory {
   category_id: string;
 }
 
-// ── Highlights ──────────────────────────────────────────────
+// Highlights
 
 export interface DbHighlight {
   id: string;
@@ -200,7 +200,7 @@ export interface DbHighlight {
   created_at: string;
 }
 
-// ── Comments ────────────────────────────────────────────────
+// Comments
 
 export interface DbComment {
   id: string;
@@ -214,7 +214,7 @@ export interface DbComment {
   updated_at: string;
 }
 
-// ── Notes ───────────────────────────────────────────────────
+// Notes
 
 export interface DbNote {
   id: string;
@@ -230,7 +230,7 @@ export interface DbNote {
   updated_at: string;
 }
 
-// ── Whiteboards ─────────────────────────────────────────────
+// Whiteboards
 
 export interface DbWhiteboard {
   id: string;
@@ -243,7 +243,7 @@ export interface DbWhiteboard {
   updated_at: string;
 }
 
-// ── Reading Progress ────────────────────────────────────────
+// Reading Progress
 
 export interface ReadingProgress {
   id: string;
@@ -256,21 +256,21 @@ export interface ReadingProgress {
   updated_at: string;
 }
 
-// ── Book Resume State (cross-device sync) ───────────────────
+// Book Resume State (cross-device sync)
 
 export interface BookResumeState {
   user_id: string;
-  /** Adapter content hash — stable across devices for the same file. */
+  /** Adapter content hash, stable across devices for the same file. */
   doc_id: string;
   page: number;
   /** 0..1 fraction within `page`. Null = top of page. */
   scroll_offset: number | null;
-  /** EPUB CFI — null for PDFs. */
+  /** EPUB CFI, null for PDFs. */
   cfi: string | null;
   updated_at: string;
 }
 
-// ── Reading Sessions (per-book session timer) ──────────────
+// Reading Sessions (per-book session timer)
 
 export interface ReadingSession {
   id: string;
@@ -295,7 +295,7 @@ export interface ReadingSessionInsert {
   end_page?: number | null;
 }
 
-// ── User Reports ───────────────────────────────────────────
+// User Reports
 
 export interface UserReport {
   id: string;
@@ -310,7 +310,7 @@ export interface UserReport {
   created_at: string;
 }
 
-// ── User Bans ──────────────────────────────────────────────
+// User Bans
 
 export interface UserBan {
   id: string;
@@ -321,7 +321,7 @@ export interface UserBan {
   created_at: string;
 }
 
-// ── Database type map (for generic helpers) ─────────────────
+// Database type map (for generic helpers)
 
 export interface Database {
   public: {

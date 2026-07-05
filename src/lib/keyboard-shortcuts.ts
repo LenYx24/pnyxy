@@ -12,7 +12,7 @@ export interface Shortcut {
 const shortcuts = new Map<string, Shortcut>();
 let listenerAttached = false;
 
-/** Optional global filter — when set, only shortcuts whose id passes
+/** Optional global filter, when set, only shortcuts whose id passes
  *  the predicate fire. Used by focus-mode to silence navigation
  *  shortcuts while still allowing reading-related ones. */
 let shortcutGate: ((id: string) => boolean) | null = null;

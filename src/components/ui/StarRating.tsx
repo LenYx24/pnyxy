@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 /**
  * Read-only star display. Shows a compact "<avg> ★ · <count>" line
  * when the book has at least one rating. Renders nothing for
- * unrated books — absence is less noisy than a placeholder.
+ * unrated books, absence is less noisy than a placeholder.
  */
 export function StarRatingDisplay({
   avg,
@@ -37,7 +37,7 @@ export function StarRatingDisplay({
 /**
  * Interactive 5-star picker. Clicking a star sets the rating;
  * clicking the *same* star a second time clears the rating. Disabled
- * (grayed) when the user isn't signed in — the caller decides what
+ * (grayed) when the user isn't signed in, the caller decides what
  * to render instead (e.g., a "Sign in to rate" link).
  */
 export function StarRatingInput({

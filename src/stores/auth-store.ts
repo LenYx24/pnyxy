@@ -7,7 +7,7 @@ import type { Profile, UserBan } from "@/types/database";
 
 /**
  * Pull any per-user Supabase-backed state that lives in other
- * stores. Called after we detect a signed-in session — lets
+ * stores. Called after we detect a signed-in session, lets
  * returning users see their cloud-synced whiteboards / vocab / etc
  * on a fresh device without having to navigate to each feature
  * before it hydrates. Each call is fire-and-forget so one slow
@@ -28,6 +28,35 @@ async function hydrateSyncedStores() {
     void useOrgStore.getState().fetchMine();
   } catch (err) {
     logError("auth-store:hydrateOrgs", err);
+  }
+}
+
+/**
+ * Wipe per-user local caches on sign-out so a previous account's
+ * highlights/notes/whiteboards can't leak onto the next account that
+ * signs in on the same browser. Only clears the pnyxy-annotations
+ * IndexedDB; the pnyxy-sync mutation queue is left untouched so
+ * pending offline writes survive. Dynamic imports keep IndexedDB
+ * plumbing off the auth-store's boot path.
+ */
+async function clearLocalCachesOnSignOut() {
+  try {
+    const { clearAllLocalData } = await import("@/lib/annotation-storage");
+    await clearAllLocalData();
+  } catch (err) {
+    logError("auth-store:clearAllLocalData", err);
+  }
+  try {
+    const { useWhiteboardStore } = await import("./whiteboard-store");
+    useWhiteboardStore.getState().clearLocal();
+  } catch (err) {
+    logError("auth-store:clearWhiteboards", err);
+  }
+  try {
+    const { useNoteStore } = await import("./note-store");
+    useNoteStore.getState().clearLocal();
+  } catch (err) {
+    logError("auth-store:clearNotes", err);
   }
 }
 
@@ -92,7 +121,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // in the URL hash on the wrong path) before the SDK consumes
       // them. This handles the edge case where the SDK still
       // classifies the event as PASSWORD_RECOVERY without the
-      // characteristic hash — force the user onto the reset form
+      // characteristic hash, force the user onto the reset form
       // regardless of where they were heading.
       if (
         event === "PASSWORD_RECOVERY" &&
@@ -113,6 +142,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         void import("./org-store").then(({ useOrgStore }) =>
           useOrgStore.getState().reset(),
         );
+        // Wipe local caches only on a real sign-out, not the anonymous
+        // INITIAL_SESSION that fires on a fresh load with no user.
+        // Hooked here rather than in signOut() so it also runs on
+        // cross-tab sign-out and server-side session revocation.
+        if (event === "SIGNED_OUT") {
+          void clearLocalCachesOnSignOut();
+        }
       }
     });
 

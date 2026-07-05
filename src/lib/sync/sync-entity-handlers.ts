@@ -7,28 +7,11 @@ import {
 } from "@/lib/sync/sync-queue";
 
 /**
- * Entity handlers for the sync queue.
- *
- * Each handler receives `(op, payload, ctx)` and is responsible
- * for translating the local mutation into a Supabase write. The
- * queue owns retry / backoff / dead-lettering; handlers just need
- * to throw on failure. Throw a `PermanentSyncError` for things
- * that will never succeed (RLS denied, malformed row, …) so the
- * row goes to dead letters instead of looping forever.
- *
- * Called once from main.tsx before the orchestrator starts.
+ * Entity handlers for the sync queue. Throw PermanentSyncError for failures that
+ * will never resolve (RLS denied, bad row) so the entry dead-letters.
  */
 
-// ── Notes ───────────────────────────────────────────────────────
-//
-// Payload shape mirrors `StoredNote` from annotation-storage:
-// `{ id, title, content, folder_id, sort_order, createdAt, updatedAt }`
-// for insert/update, `{ id }` for delete. book_id stays null for every
-// locally-created note — note↔book association now flows through the
-// library folder tree (folder_id, added in 00044) rather than a direct
-// book_id. Because the handler upserts the WHOLE row keyed by id, the
-// note-store always sends every column on update; a partial payload
-// would reset the omitted columns to their defaults.
+// Upserts the whole row keyed by id, so a partial payload resets omitted columns.
 
 export interface NoteSyncPayload {
   id: string;
@@ -54,24 +37,16 @@ async function handleNote(
     if (error) throwClassifiedSupabaseError(error.message, error.code);
     return;
   }
-  // Insert and update collapse into a single upsert keyed by id —
-  // the local note-store created the UUID up front, so the same id
-  // round-trips through every replay. Cleaner than tracking which
-  // ops have happened first.
+  // insert and update collapse into one upsert; store mints the id up front.
   const row = {
     id: payload.id,
     user_id: ctx.userId,
     book_id: null,
     title: payload.title ?? "",
     content: payload.content ?? "",
-    // Library-tree placement (00044). null → root; sort_order 0 is the
-    // column default. Always present because the store sends the full
-    // row on every upsert.
     folder_id: payload.folder_id ?? null,
     sort_order: payload.sort_order ?? 0,
-    // Server-side `created_at` defaults to now(); we still mirror
-    // the client timestamp so cross-device sort order matches
-    // what the user saw locally.
+    // use client timestamp so cross-device sort order stays consistent
     created_at: payload.createdAt
       ? new Date(payload.createdAt).toISOString()
       : new Date().toISOString(),
@@ -85,13 +60,6 @@ async function handleNote(
   if (error) throwClassifiedSupabaseError(error.message, error.code);
 }
 
-// ── Folders ─────────────────────────────────────────────────────
-//
-// Payload shape:
-//   insert: { id, name, parent_id, org_id, sort_order }
-//   update: { id, name?, parent_id? }  — partial patch
-//   delete: { id }
-
 export interface FolderSyncPayload {
   id: string;
   name?: string;
@@ -100,32 +68,15 @@ export interface FolderSyncPayload {
   sort_order?: number;
 }
 
-// ── Books ───────────────────────────────────────────────────────
-//
-// Two book "sources" share one queue entry: catalog rows live in
-// `user_library` (the join table), uploaded rows in `books`. The
-// payload's `source` discriminator picks the right Supabase target.
-//
-// Payload shape:
-//   update: { id, source, folder_id }
-//   delete: { id, source, storage_path? }
-//   (insert is intentionally not queued — uploads + catalog-adds
-//    write directly as part of their own happy path.)
-
+// catalog rows live in `user_library`, uploaded rows in `books`; `source` picks
+// the target. insert is not queued (uploads and catalog-adds write directly).
 export interface BookSyncPayload {
   id: string;
   source: "catalog" | "uploaded";
-  /** Partial patch for `update`. Mutable fields:
-   *  - folder_id  (move to folder / move to root, both sources)
-   *  - title      (rename, uploaded only — catalog titles are shared
-   *               community metadata)
-   */
+  // title is uploaded-only; catalog titles are shared community metadata
   folder_id?: string | null;
   title?: string;
-  /** For `delete` on an uploaded book: the storage object key to
-   *  remove before the DB row goes. The Storage `remove` is
-   *  best-effort and idempotent — if the file is already gone the
-   *  call still resolves cleanly, so the queue can retry safely. */
+  // storage key to remove before the DB row (uploaded delete)
   storage_path?: string;
 }
 
@@ -137,10 +88,7 @@ async function handleBook(
   const table = payload.source === "catalog" ? "user_library" : "books";
   if (op === "delete") {
     if (payload.source === "uploaded" && payload.storage_path) {
-      // Best-effort: errors here (missing object, transient 5xx) shouldn't
-      // block deleting the DB row. The storage row + DB row deletion
-      // are not transactional; if storage fails permanently the
-      // orphaned object is collected by a separate cleanup job.
+      // not transactional with the DB delete; orphans get swept by a cleanup job
       await supabase.storage
         .from("book-files")
         .remove([payload.storage_path]);
@@ -155,10 +103,7 @@ async function handleBook(
   if (op === "update") {
     const patch: Record<string, unknown> = {};
     if (payload.folder_id !== undefined) patch.folder_id = payload.folder_id;
-    // Title rename is uploaded-only. Catalog titles live on the
-    // shared `catalog_books` row and would affect every user — we
-    // refuse to forward such a payload as a defence in depth even
-    // if the store ever leaked one through.
+    // rename is uploaded-only; catalog titles are shared
     if (payload.title !== undefined && payload.source === "uploaded") {
       patch.title = payload.title;
     }
@@ -170,9 +115,7 @@ async function handleBook(
     if (error) throwClassifiedSupabaseError(error.message, error.code);
     return;
   }
-  // `insert` for books goes through the upload pipeline directly; the
-  // queue isn't a write path for new books today. Treat as a no-op
-  // so the queue drains a stray entry without looping.
+  // insert isn't queued for books; drain any stray entry
 }
 
 async function handleFolder(
@@ -191,9 +134,7 @@ async function handleFolder(
   }
   if (op === "insert") {
     if (!payload.org_id) {
-      // org_id is required by the folders schema. If we got here
-      // without one, the caller forgot to capture it — treat as
-      // permanent so it doesn't loop.
+      // org_id is required by the schema; without it the entry can never replay
       throw new PermanentSyncError(
         "Folder insert is missing org_id; cannot replay.",
       );
@@ -212,7 +153,7 @@ async function handleFolder(
     if (error) throwClassifiedSupabaseError(error.message, error.code);
     return;
   }
-  // op === "update" — partial patch (rename, move-to-parent).
+  // update: partial patch
   const patch: Record<string, unknown> = {};
   if (payload.name !== undefined) patch.name = payload.name;
   if (payload.parent_id !== undefined) patch.parent_id = payload.parent_id;
@@ -225,12 +166,7 @@ async function handleFolder(
   if (error) throwClassifiedSupabaseError(error.message, error.code);
 }
 
-// ── Error classification ────────────────────────────────────────
-// PostgREST surfaces structured codes for the things that won't
-// resolve on retry: `42501` RLS denied, `23503` foreign-key violation,
-// `23505` unique violation. Everything else is treated as transient
-// (network glitch, 5xx, timeout) so the queue keeps retrying.
-
+// PostgREST codes that won't resolve on retry; everything else is transient.
 const PERMANENT_PG_CODES = new Set([
   "42501", // insufficient_privilege (RLS)
   "23503", // foreign_key_violation
@@ -247,8 +183,6 @@ function throwClassifiedSupabaseError(
   }
   throw new Error(message);
 }
-
-// ── Registration ────────────────────────────────────────────────
 
 let registered = false;
 

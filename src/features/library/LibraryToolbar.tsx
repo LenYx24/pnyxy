@@ -23,10 +23,10 @@ interface LibraryToolbarProps {
    *  useLibraryPrefs, so the user's pick survives reloads. */
   controlsExpanded?: boolean;
   onToggleControls?: () => void;
-  /** Rendered at the very start of the toolbar row — the page title
+  /** Rendered at the very start of the toolbar row, the page title
    *  lives here so the whole header is a single line. */
   leading?: ReactNode;
-  /** Rendered at the very end of the row — the Upload / New-folder
+  /** Rendered at the very end of the row, the Upload / New-folder
    *  actions sit here. */
   trailing?: ReactNode;
 }
@@ -57,7 +57,7 @@ export function LibraryToolbar({
 
   // Ctrl+K used to focus this input; that shortcut now opens the
   // global command palette instead. The library search is still a
-  // visible input — click it or Tab to it. The palette covers the
+  // visible input, click it or Tab to it. The palette covers the
   // "I want to find this book" flow with broader scope (catalog, nav,
   // commands) anyway.
 
@@ -77,7 +77,7 @@ export function LibraryToolbar({
     return () => window.removeEventListener("keydown", handler);
   }, [searchActive, onSearchChange]);
 
-  // View-mode toggle stays visible on every viewport — it's a
+  // View-mode toggle stays visible on every viewport, it's a
   // primary affordance for users who want to switch between
   // covers-focused (grid) and high-density (list) browsing.
   const viewToggle = (
@@ -124,7 +124,7 @@ export function LibraryToolbar({
   );
 
   // Disclosure toggle for the collapsible panel. A single chevron
-  // that rotates 180° between states — same pattern as the settings
+  // that rotates 180° between states, same pattern as the settings
   // TabDropdown elsewhere in the app. When expanded the search input
   // + tag filter bar are visible; when collapsed the toolbar shrinks
   // to just this toggle + view/refresh controls.

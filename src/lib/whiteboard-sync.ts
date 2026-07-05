@@ -4,13 +4,13 @@ import type { WhiteboardData } from "@/types/whiteboard";
 
 /**
  * Cross-device sync for whiteboards. IndexedDB stays the local
- * cache — this module adds Supabase as the authoritative backup.
+ * cache, this module adds Supabase as the authoritative backup.
  *
  * Writes are fire-and-forget: the in-memory + IDB update is the
  * fast path so drawing never blocks on network. Failures log
  * quietly; the next write retries.
  *
- * Reads happen on sign-in via `pullAllWhiteboards` — the store
+ * Reads happen on sign-in via `pullAllWhiteboards`, the store
  * merges cloud rows with local ones, cloud wins on conflict
  * (assumes server clock is trustworthy enough for this low-stakes
  * merge).

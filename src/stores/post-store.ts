@@ -11,10 +11,7 @@ import type {
 
 const PAGE_SIZE = 20;
 
-// Reddit-style hot-ranking. Recency dominates for low-score posts;
-// score takes over once a post has accumulated meaningful votes. Used
-// client-side for the "hot" feed sort since the database doesn't have
-// a precomputed hotness column.
+// Reddit-style hot ranking, done client-side (no hotness column in db).
 const HOT_TIME_DENOMINATOR = 45000; // seconds (~12.5h)
 function hotScore(post: { score_cached: number; created_at: string }): number {
   const score = post.score_cached;
@@ -43,10 +40,8 @@ function buildCommentTree(
     }
   }
 
-  // Prune: a soft-deleted comment with no surviving descendants is
-  // dropped entirely. Soft-deleted comments that still anchor a reply
-  // sub-tree are kept so the thread structure stays intact — the UI
-  // shows "[deleted by user]" in place of the body.
+  // Drop soft-deleted leaves, but keep deleted nodes that still have
+  // replies so the thread doesn't lose structure (UI shows "[deleted]").
   function prune(
     nodes: ForumCommentWithAuthor[],
   ): ForumCommentWithAuthor[] {
@@ -175,11 +170,7 @@ export const usePostStore = create<PostState>((set, get) => ({
   async fetchFeed(sort) {
     set({ isLoading: true, page: 0 });
     try {
-      // Pull the most recent N posts across all public communities,
-      // joined with community info so each card can show its origin.
-      // For "hot" we sort client-side using a Reddit-style ranking
-      // because we don't have a server function for it. For "new" and
-      // "top" the server does the sort directly.
+      // "hot" is ranked in JS below; "new"/"top" sort in the query.
       let query = supabase
         .from("posts")
         .select(
@@ -192,7 +183,6 @@ export const usePostStore = create<PostState>((set, get) => ({
       } else if (sort === "top") {
         query = query.order("score_cached", { ascending: false });
       } else {
-        // For "hot" pull the most recent batch and re-rank in JS.
         query = query.order("created_at", { ascending: false });
       }
 
@@ -307,11 +297,8 @@ export const usePostStore = create<PostState>((set, get) => ({
 
   async fetchComments(postId) {
     try {
-      // Don't filter out is_removed=true at the SQL level — soft-deleted
-      // comments need to stay in the tree so their replies don't get
-      // orphaned. The tree builder prunes leaf-deleted comments and
-      // the UI substitutes the body with "[deleted by user]" for the
-      // ones that remain.
+      // Keep is_removed rows here so replies aren't orphaned; the tree
+      // builder prunes deleted leaves.
       const { data, error } = await supabase
         .from("forum_comments")
         .select("*, author:profiles!author_id(display_name, avatar_url)")
@@ -347,7 +334,6 @@ export const usePostStore = create<PostState>((set, get) => ({
 
     if (error) throw new Error(error.message);
 
-    // Refetch to get the updated tree
     await get().fetchComments(input.post_id);
   },
 
@@ -360,7 +346,6 @@ export const usePostStore = create<PostState>((set, get) => ({
 
       if (error) throw error;
 
-      // Refetch current post comments
       const postId = get().currentPost?.id;
       if (postId) await get().fetchComments(postId);
     } catch (err) {
@@ -380,7 +365,6 @@ export const usePostStore = create<PostState>((set, get) => ({
           filter: `community_id=eq.${communityId}`,
         },
         async () => {
-          // Simple refetch on new post
           await get().fetchPosts(communityId);
         },
       )

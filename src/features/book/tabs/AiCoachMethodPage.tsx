@@ -11,7 +11,7 @@ interface CoachConfig {
   /** First-message framing the user can edit before sending. The
    *  AI sees this verbatim as the opening turn, so the methodology
    *  is established without us needing a per-conversation system
-   *  prompt column on the DB — model picks up the persona from the
+   *  prompt column on the DB, model picks up the persona from the
    *  user's framing and continues the role through the thread. */
   framing: (bookTitle: string) => string;
   /** Hint shown above the "Start" button so the user knows what
@@ -62,7 +62,7 @@ export function AiCoachMethodPage() {
   const config = methodSlug ? CONFIGS[methodSlug] : undefined;
 
   // The method picker on the right groups the three coach methods
-  // together so users can switch without backing out to the hub —
+  // together so users can switch without backing out to the hub -
   // the user explicitly asked for these three to feel grouped.
   const [hoverSlug, setHoverSlug] = useState<string | null>(null);
 

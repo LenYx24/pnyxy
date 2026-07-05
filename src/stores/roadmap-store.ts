@@ -55,7 +55,7 @@ interface RoadmapState {
   enroll(roadmapId: string, prefs?: Partial<SchedulePrefs>): Enrollment;
   unenroll(enrollmentId: string): void;
   toggleNodeComplete(enrollmentId: string, nodeId: string): void;
-  /** Set a node's manual progress to an explicit percent (0–100). 0
+  /** Set a node's manual progress to an explicit percent (0-100). 0
    *  clears the entry; non-integer or out-of-range values are clamped. */
   setNodeProgress(
     enrollmentId: string,
@@ -75,7 +75,7 @@ interface RoadmapState {
    * Set (or clear) the enrollment's deadline. When `date` is provided,
    * the store also derives weekday/weekend hours from the remaining
    * roadmap work + the supplied `weekendMultiplier` and writes them
-   * into schedulePrefs in the same update — so the scheduler's per-node
+   * into schedulePrefs in the same update, so the scheduler's per-node
    * due dates immediately reflow to hit the deadline. When `date` is
    * null, the deadline is cleared and the user's manually-set hours
    * remain untouched.
@@ -268,8 +268,8 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
   setNodeProgress(enrollmentId, nodeId, percent) {
     const e = get().enrollments.get(enrollmentId);
     if (!e) return;
-    // Clamp + round so storage always sees a clean integer 0–100. 0
-    // deletes the entry so the JSON stays sparse — most nodes start
+    // Clamp + round so storage always sees a clean integer 0-100. 0
+    // deletes the entry so the JSON stays sparse, most nodes start
     // un-touched and the absent key implicitly means 0.
     const clamped = Math.max(0, Math.min(100, Math.round(percent)));
     const nodeProgress = { ...e.nodeProgress };
@@ -315,7 +315,7 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 
     // Clear-deadline path: drop targetEndDate + weekendMultiplier and
     // leave whatever hours the user (or a previous deadline derivation)
-    // wrote — switching back to manual mode shouldn't surprise the
+    // wrote, switching back to manual mode shouldn't surprise the
     // user with a reset to defaults.
     if (!date) {
       const updated: Enrollment = {
@@ -339,7 +339,7 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 
     const totalMinutes = remainingEstimatedMinutes(roadmap, e);
     // Today is the natural starting point for "what pace do I need
-    // from here on out" — `startDate` ages and would understate the
+    // from here on out", `startDate` ages and would understate the
     // required hours after a few weeks of enrollment.
     const today = new Date();
     today.setHours(0, 0, 0, 0);

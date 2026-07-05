@@ -23,7 +23,7 @@ export function NotePage() {
   const notes = useNoteStore((s) => s.notes);
   const loadNotes = useNoteStore((s) => s.loadNotes);
 
-  // Hydrate once if the store is empty — a direct navigation / refresh
+  // Hydrate once if the store is empty, a direct navigation / refresh
   // onto this route won't have gone through any page that loads notes.
   useEffect(() => {
     if (notes.length === 0) void loadNotes();

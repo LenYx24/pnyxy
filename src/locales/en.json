@@ -459,7 +459,9 @@
         "title": "Build Your Own Plugins",
         "description": "Technical users can extend Pnyxy with custom plugins. They run sandboxed and ship to other readers through the community registry."
       }
-    }
+    },
+    "themeLight": "Switch to light",
+    "themeDark": "Switch to dark"
   },
   "browse": {
     "title": "Catalog",
@@ -584,6 +586,7 @@
       "failed": "Upload failed",
       "success": "Uploaded",
       "retry": "Retry",
+      "cancel": "Cancel upload",
       "unsupportedFormat": "The {{formats}} format isn't supported yet. We've recorded that you're interested — if enough people ask, we'll add it."
     },
     "actions": {
@@ -1199,7 +1202,9 @@
       "moveToFolder": "Move to {{name}}",
       "moveToRoot": "Move to root",
       "root": "Root (no folder)",
-      "dropToRoot": "Drop here to move to root"
+      "dropToRoot": "Drop here to move to root",
+      "newSubfolder": "New subfolder",
+      "openInLibrary": "Open in library"
     },
     "flashcards": {
       "title": "Save as flashcards",

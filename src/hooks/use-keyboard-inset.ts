@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 /**
  * Returns the height (in px) that the on-screen keyboard currently
- * occupies at the bottom of the viewport — 0 when no keyboard is
+ * occupies at the bottom of the viewport, 0 when no keyboard is
  * open. Backed by `window.visualViewport`, which reliably reports
  * the visible-above-keyboard height on iOS Safari and modern Android
  * Chrome. Falls back to 0 when the API is unavailable (older

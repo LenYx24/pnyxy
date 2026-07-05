@@ -157,7 +157,7 @@ export function AddBookModal({ open, onClose }: AddBookModalProps) {
   );
 }
 
-// ── Success message ─────────────────────────────────────────
+// Success message
 
 function SuccessMessage({
   onClose,
@@ -188,7 +188,7 @@ function SuccessMessage({
   );
 }
 
-// ── Search tab (provider-based) ─────────────────────────────
+// Search tab (provider-based)
 
 function SearchTab({
   onBatchSubmit,
@@ -376,7 +376,7 @@ function SearchTab({
   );
 }
 
-// ── URL import tab ──────────────────────────────────────────
+// URL import tab
 
 function UrlImportTab({
   onSubmit,
@@ -470,7 +470,7 @@ function UrlImportTab({
   );
 }
 
-// ── Manual entry tab ────────────────────────────────────────
+// Manual entry tab
 
 function ManualTab({
   onSubmit,
