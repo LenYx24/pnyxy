@@ -124,8 +124,21 @@ interface StripeObject {
   metadata?: { user_id?: string };
 }
 
-// deno-lint-ignore no-explicit-any
-type Admin = any;
+// The Deno esm.sh Supabase import is untyped; this captures just the query
+// surface used below, so we stay off `any` (our ESLint config forbids it).
+type DbResult = {
+  data?: { id?: string } | null;
+  error?: { message: string } | null;
+};
+interface AdminQuery extends PromiseLike<DbResult> {
+  select(columns: string): AdminQuery;
+  update(values: Record<string, unknown>): AdminQuery;
+  eq(column: string, value: string): AdminQuery;
+  maybeSingle(): Promise<DbResult>;
+}
+interface Admin {
+  from(table: string): AdminQuery;
+}
 
 async function resolveUserId(
   admin: Admin,
