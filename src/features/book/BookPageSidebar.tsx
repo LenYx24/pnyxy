@@ -5,6 +5,7 @@ import {
   Info,
   GraduationCap,
   MessageSquare,
+  Bot,
   StickyNote,
   Link as LinkIcon,
   ChevronDown,
@@ -22,6 +23,7 @@ interface NavItem {
   /** i18n key under `book.nav`. */
   labelKey:
     | "overview"
+    | "chats"
     | "learn"
     | "discuss"
     | "notes"
@@ -37,6 +39,7 @@ function useNavItems(bookId: string): NavItem[] {
   return useMemo<NavItem[]>(
     () => [
       { to: `/books/${bookId}`, labelKey: "overview", icon: Info, end: true },
+      { to: `/books/${bookId}/chat`, labelKey: "chats", icon: Bot },
       { to: `/books/${bookId}/learn`, labelKey: "learn", icon: GraduationCap },
       { to: `/books/${bookId}/discuss`, labelKey: "discuss", icon: MessageSquare },
       { to: `/books/${bookId}/notes`, labelKey: "notes", icon: StickyNote },

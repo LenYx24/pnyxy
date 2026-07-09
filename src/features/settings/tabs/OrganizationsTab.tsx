@@ -88,7 +88,7 @@ export function OrganizationsTab() {
       <p className="text-xs text-text-muted">
         {t("settings.organizationsSection.description")}
       </p>
-      <p className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning/90">
+      <p className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-text-secondary">
         {t("settings.organizationsSection.scopingNotice")}
       </p>
 

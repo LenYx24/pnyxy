@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
+import i18n from "@/lib/i18n";
 import {
   isAbortError,
   streamChatResponse,
@@ -83,6 +84,8 @@ interface ChatState {
     source?: ChatSourceContext | null,
     /** Ties the conversation to an editable artifact for AI tool-use. */
     target?: { roadmapId?: string | null; quizId?: string | null } | null,
+    /** Fork lineage: the conversation this one was branched from. */
+    parentConversationId?: string | null,
   ) => Promise<string | null>;
   setPendingDraft: (draft: ChatDraft | null) => void;
   /** Read and clear in one step so the next mount doesn't replay it. */
@@ -107,6 +110,8 @@ interface ChatState {
   // Folders
   fetchFolders: () => Promise<void>;
   createFolder: (name: string, parentId?: string | null) => Promise<string | null>;
+  /** Find-or-create the shared "Quick chats" folder loose chats default into. */
+  ensureQuickChatsFolder: () => Promise<string | null>;
   renameFolder: (id: string, name: string) => Promise<void>;
   /** Deletes folder + subfolders; conversations fall back to root via FK set null. */
   deleteFolder: (id: string) => Promise<void>;
@@ -192,14 +197,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  async createConversation(title = "", folderId = null, source = null, target = null) {
+  async createConversation(
+    title = "",
+    folderId = null,
+    source = null,
+    target = null,
+    parentConversationId = null,
+  ) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in to use chat.");
+    // Loose "quick" chats get filed under a real, shared "Quick chats" folder
+    // so they don't pile up at the library root. Explicit folders are honored.
+    let effectiveFolderId = folderId;
+    if (effectiveFolderId == null) {
+      effectiveFolderId = await get().ensureQuickChatsFolder();
+    }
     // min(siblings) - 1 lands at top without renumbering or colliding with a concurrent create
     const siblingSorts = get()
-      .conversations.filter((c) => c.folder_id === folderId)
+      .conversations.filter((c) => c.folder_id === effectiveFolderId)
       .map((c) => c.sort_order);
     const sortOrder =
       siblingSorts.length > 0 ? Math.min(...siblingSorts) - 1 : 0;
@@ -208,13 +225,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .insert({
         user_id: user.id,
         title,
-        folder_id: folderId,
+        folder_id: effectiveFolderId,
         sort_order: sortOrder,
         source_doc_id: source?.docId ?? null,
         source_doc_title: source?.docTitle ?? null,
         source_page: source?.page ?? null,
         target_roadmap_id: target?.roadmapId ?? null,
         target_quiz_id: target?.quizId ?? null,
+        parent_conversation_id: parentConversationId,
       })
       .select()
       .single();
@@ -222,11 +240,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       logError("chat:createConversation", error);
       throw error ?? new Error("Could not create conversation.");
     }
+    // fully seeds the active-conversation state (empty thread), so callers don't
+    // need a redundant openConversation round-trip after creating.
     set((s) => ({
       conversations: [data as ChatConversation, ...s.conversations],
       activeConversationId: data.id as string,
       messages: new Map(),
       activeLeafId: null,
+      messageSuggestions: new Map(),
     }));
     return data.id as string;
   },
@@ -399,6 +420,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             quizId: source.target_quiz_id,
           }
         : null,
+      // Record the fork so the graph shows this as a child of `source`.
+      source.id,
     );
     if (!newId) return null;
 
@@ -720,6 +743,40 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
     await get().fetchFolders();
     return data.id as string;
+  },
+
+  async ensureQuickChatsFolder() {
+    const name = i18n.t("chat.sidebar.quickChats", {
+      defaultValue: "Quick chats",
+    });
+    const matches = (f: ChatFolder) =>
+      f.parent_id === null &&
+      f.name.trim().toLowerCase() === name.trim().toLowerCase();
+    const existing = get().folders.find(matches);
+    if (existing) return existing.id;
+    // folders may not be loaded yet (e.g. a reader-panel quick chat); refresh
+    // and re-check so we don't create a duplicate.
+    await get().fetchFolders();
+    const rechecked = get().folders.find(matches);
+    if (rechecked) return rechecked.id;
+    const id = await get().createFolder(name, null);
+    if (!id) return null;
+    // one-time migration: sweep every currently-loose conversation into it so
+    // the library root stops filling up with chats. Runs only right after the
+    // folder is first created (existing folder short-circuits above).
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { error } = await supabase
+        .from("chat_conversations")
+        .update({ folder_id: id })
+        .eq("user_id", user.id)
+        .is("folder_id", null);
+      if (error) logError("chat:ensureQuickChatsFolder:sweep", error);
+      else await get().fetchConversations();
+    }
+    return id;
   },
 
   async renameFolder(id, name) {
@@ -1093,6 +1150,57 @@ async function sendOrBranch(
   streamAbortController = new AbortController();
   const signal = streamAbortController.signal;
 
+  // Plain text stream. Providers often deliver deltas in big bursts, so a
+  // separate rAF pump reveals the accumulated text a little each frame for a
+  // smooth type-out. Step scales with backlog so large bursts drain fast; the
+  // pump is awaited before we return the final string. Returns the full text.
+  const streamPlain = async (): Promise<string> => {
+    let local = "";
+    let revealed = 0;
+    let streamDone = false;
+    const pump = (async () => {
+      while (!signal.aborted) {
+        if (revealed < local.length) {
+          const remaining = local.length - revealed;
+          revealed = Math.min(
+            local.length,
+            revealed + Math.max(2, Math.ceil(remaining / 6)),
+          );
+          patchAssistant(local.slice(0, revealed));
+        } else if (streamDone) {
+          return;
+        }
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => resolve()),
+        );
+      }
+    })();
+
+    try {
+      for await (const chunk of streamChatResponse(
+        promptMessages,
+        sourceTitle,
+        contextPack.pageContext,
+        {
+          preferredProvider,
+          signal,
+          customContext: contextPack.customContext,
+          // per-turn override from the composer's mode picker; skips the doc-context prompt
+          systemPromptOverride: options?.systemPromptOverride,
+          // OpenAI branch swaps to o3-mini; other branches ignore it
+          reasoning: options?.reasoning,
+        },
+      )) {
+        local += chunk.delta;
+      }
+    } finally {
+      // stop the pump and let it flush the rest of `local` before returning
+      streamDone = true;
+      await pump;
+    }
+    return local;
+  };
+
   let acc = "";
   try {
     if (targetRoadmapId) {
@@ -1106,58 +1214,26 @@ async function sendOrBranch(
     } else if (detectRoadmapIntent(trimmed)) {
       // "generate a roadmap" skill, auto-detected from the message. Routes this turn
       // through the tool-use path (only branch wired for tools) and links the result inline.
-      acc = await runRoadmapGenerateLoop(
-        promptMessages,
-        preferredProvider,
-        patchAssistant,
-        signal,
-      );
-    } else {
-      // Providers often deliver deltas in big bursts. Raw deltas accumulate into `acc`,
-      // while a separate rAF pump reveals it a little each frame so it types out smoothly.
-      // Step scales with backlog so large bursts drain fast; awaited in finally before persist.
-      let revealed = 0;
-      let streamDone = false;
-      const pump = (async () => {
-        while (!signal.aborted) {
-          if (revealed < acc.length) {
-            const remaining = acc.length - revealed;
-            revealed = Math.min(
-              acc.length,
-              revealed + Math.max(2, Math.ceil(remaining / 6)),
-            );
-            patchAssistant(acc.slice(0, revealed));
-          } else if (streamDone) {
-            return;
-          }
-          await new Promise<void>((resolve) =>
-            requestAnimationFrame(() => resolve()),
-          );
-        }
-      })();
-
+      // Auto-detect is a best-guess: if the tool path is unavailable (e.g. the
+      // server has no Anthropic key and the loop 501s), degrade gracefully to a
+      // normal chat answer rather than leaving a ⚠ dead-end.
       try {
-        for await (const chunk of streamChatResponse(
+        acc = await runRoadmapGenerateLoop(
           promptMessages,
-          sourceTitle,
-          contextPack.pageContext,
-          {
-            preferredProvider,
-            signal,
-            customContext: contextPack.customContext,
-            // per-turn override from the composer's mode picker; skips the doc-context prompt
-            systemPromptOverride: options?.systemPromptOverride,
-            // OpenAI branch swaps to o3-mini; other branches ignore it
-            reasoning: options?.reasoning,
-          },
-        )) {
-          acc += chunk.delta;
-        }
-      } finally {
-        // stop the pump and let it flush the rest of `acc` before persistence
-        streamDone = true;
-        await pump;
+          preferredProvider,
+          patchAssistant,
+          signal,
+        );
+      } catch (roadmapErr) {
+        if (isAbortError(roadmapErr)) throw roadmapErr;
+        logError("chat:roadmapAutoDetect:fallback", roadmapErr);
+        // wipe any partial roadmap/tool output and answer as a plain chat
+        acc = "";
+        patchAssistant("");
+        acc = await streamPlain();
       }
+    } else {
+      acc = await streamPlain();
     }
   } catch (err) {
     if (isAbortError(err)) {
@@ -1171,6 +1247,16 @@ async function sendOrBranch(
   } finally {
     if (streamAbortController?.signal === signal) {
       streamAbortController = null;
+    }
+    // Empty-response guard: if the model streamed nothing (and the user didn't
+    // abort), swap in a friendly notice so we never persist a blank bubble.
+    // An aborted partial or a real ⚠ error message is left untouched.
+    if (!signal.aborted && acc.trim() === "") {
+      acc = `⚠ ${i18n.t("chat.emptyResponse", {
+        defaultValue:
+          "The model returned an empty response — please try again.",
+      })}`;
+      patchAssistant(acc);
     }
     // 5. persist final content + mark as active leaf
     await supabase

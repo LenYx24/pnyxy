@@ -75,6 +75,9 @@ export interface DocumentState {
   scrollOffset: number;
   /** EPUB CFI, null for PDFs. */
   cfi: string | null;
+  /** ISO timestamp the book was last read (from resume state); drives the
+   *  "summarize where you left off" offer when re-opened after a while. */
+  lastReadAt?: string | null;
   /** Pages sent as AI chat context. Memory-only, resets on reader unmount. */
   aiSelectedPages: Set<number>;
   /** Anchor for shift-click range selection: last individual page toggled. */
@@ -271,6 +274,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     let progressPage = 0;
     let scrollOffset = 0;
     let cfi: string | null = null;
+    let lastReadAt: string | null = null;
 
     // Local IndexedDB read, works offline.
     let stored: Awaited<ReturnType<typeof loadDocumentMeta>>;
@@ -290,6 +294,9 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         scrollOffset = stored.scrollOffset;
       }
       if (typeof stored?.cfi === "string") cfi = stored.cfi;
+      if (typeof stored?.updatedAt === "number") {
+        lastReadAt = new Date(stored.updatedAt).toISOString();
+      }
     } catch {
       // ignore
     }
@@ -298,6 +305,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     try {
       const cloud = await fetchResumeState(meta.id);
       if (cloud) {
+        // cloud row is the authoritative last-seen timestamp
+        lastReadAt = cloud.updated_at;
         const cloudTs = new Date(cloud.updated_at).getTime();
         const localTs = stored?.updatedAt ?? 0;
         if (cloudTs > localTs) {
@@ -331,6 +340,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       progressPage,
       scrollOffset,
       cfi,
+      lastReadAt,
       aiSelectedPages: initialAiPages,
       aiSelectionAnchor: null,
       aiSendPagesAsImage: false,

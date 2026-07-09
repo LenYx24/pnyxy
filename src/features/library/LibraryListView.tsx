@@ -5,6 +5,7 @@ import type { Note } from "@/stores/note-store";
 import type { WhiteboardData } from "@/types/whiteboard";
 import type { Quiz } from "@/types/quiz";
 import type { ChatConversation } from "@/types/chat";
+import type { Resource } from "@/types/resource";
 import {
   DEFAULT_LIST_COLUMN_WIDTHS,
   type ListColumnWidths,
@@ -14,6 +15,7 @@ import { NoteRow } from "./list-view/NoteRow";
 import { WhiteboardRow } from "./list-view/WhiteboardRow";
 import { QuizRow } from "./list-view/QuizRow";
 import { ChatRow } from "./list-view/ChatRow";
+import { ResourceRow } from "./list-view/ResourceRow";
 import { FolderRow } from "./list-view/FolderRow";
 import { ResizableHeader } from "./list-view/ResizableHeader";
 import { getRowDensity } from "./list-view/helpers";
@@ -29,8 +31,11 @@ interface LibraryListViewProps {
   quizzes?: Quiz[];
   /** Conversations in the current folder, in render order. */
   chats?: ChatConversation[];
+  /** Resources in the current folder, in render order. */
+  resources?: Resource[];
   /** Interleaved render order, keys like `folder:<id>` / `book:<id>` /
-   *  `note:<id>` / `whiteboard:<id>` / `quiz:<id>` / `chat:<id>`. When
+   *  `note:<id>` / `whiteboard:<id>` / `quiz:<id>` / `chat:<id>` /
+   *  `resource:<id>`. When
    *  provided, rows render in this order instead of the default grouping,
    *  matching the SortableContext's order so DnD reorder works correctly. */
   orderedKeys?: string[];
@@ -44,6 +49,8 @@ interface LibraryListViewProps {
   allQuizzes?: Quiz[];
   /** All conversations (any folder), for expanded folders' children. */
   allChats?: ChatConversation[];
+  /** All resources (any folder), for expanded folders' children. */
+  allResources?: Resource[];
   selectedIds: Set<string>;
   selectionActive: boolean;
   onToggleSelect: (
@@ -74,6 +81,7 @@ export function LibraryListView({
   whiteboards = [],
   quizzes = [],
   chats = [],
+  resources = [],
   orderedKeys,
   allFolders,
   allBooks,
@@ -81,6 +89,7 @@ export function LibraryListView({
   allWhiteboards = [],
   allQuizzes = [],
   allChats = [],
+  allResources = [],
   selectedIds,
   selectionActive,
   onToggleSelect,
@@ -114,7 +123,8 @@ export function LibraryListView({
     notes.length === 0 &&
     whiteboards.length === 0 &&
     quizzes.length === 0 &&
-    chats.length === 0
+    chats.length === 0 &&
+    resources.length === 0
   )
     return null;
 
@@ -164,6 +174,8 @@ export function LibraryListView({
         for (const q of quizzes) quizByKey.set(`quiz:${q.id}`, q);
         const chatByKey = new Map<string, ChatConversation>();
         for (const c of chats) chatByKey.set(`chat:${c.id}`, c);
+        const resourceByKey = new Map<string, Resource>();
+        for (const r of resources) resourceByKey.set(`resource:${r.id}`, r);
 
         const renderOrder =
           orderedKeys ?? [
@@ -173,6 +185,7 @@ export function LibraryListView({
             ...whiteboards.map((w) => `whiteboard:${w.id}`),
             ...quizzes.map((q) => `quiz:${q.id}`),
             ...chats.map((c) => `chat:${c.id}`),
+            ...resources.map((r) => `resource:${r.id}`),
           ];
 
         return renderOrder.map((key) => {
@@ -196,6 +209,9 @@ export function LibraryListView({
             const childChats = allChats.filter(
               (c) => (c.folder_id ?? null) === folder.id,
             );
+            const childResources = allResources.filter(
+              (r) => (r.folder_id ?? null) === folder.id,
+            );
             return (
               <FolderRow
                 key={folder.id}
@@ -215,12 +231,14 @@ export function LibraryListView({
                 childWhiteboards={childWhiteboards}
                 childQuizzes={childQuizzes}
                 childChats={childChats}
+                childResources={childResources}
                 allFolders={allFolders}
                 allBooks={allBooks}
                 allNotes={allNotes}
                 allWhiteboards={allWhiteboards}
                 allQuizzes={allQuizzes}
                 allChats={allChats}
+                allResources={allResources}
                 onMoveBook={onMoveBook}
                 onRemoveBook={onRemoveBook}
                 onCreateSubfolder={onCreateSubfolder}
@@ -301,6 +319,21 @@ export function LibraryListView({
                 conversation={chat}
                 sortableId={`chat:${chat.id}`}
                 selected={selectedIds.has(`chat:${chat.id}`)}
+                selectionActive={selectionActive}
+                onToggleSelect={onToggleSelect}
+                density={density}
+                columnWidths={columnWidths}
+              />
+            );
+          }
+          const resource = resourceByKey.get(key);
+          if (resource) {
+            return (
+              <ResourceRow
+                key={`resource:${resource.id}`}
+                resource={resource}
+                sortableId={`resource:${resource.id}`}
+                selected={selectedIds.has(`resource:${resource.id}`)}
                 selectionActive={selectionActive}
                 onToggleSelect={onToggleSelect}
                 density={density}

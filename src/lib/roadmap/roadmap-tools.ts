@@ -215,10 +215,11 @@ Guidelines:
 // conjugations and English forms all match.
 const ROADMAP_NOUN_RE =
   /(roadmap|tanul(á|a)si\s*(terv|útiterv|út)|útiterv|tanrend|learning\s*(path|plan|roadmap)|study\s*plan|curriculum)/i;
-// Broad on purpose (esp. HU): the noun gate above keeps false positives
-// down, so a stray view-intent match here only costs one tool-path turn.
+// Explicit generation verbs only. Weak intents (want/need/give me/plan out and
+// HU szeretn/kéne) are deliberately excluded so casual chat isn't hijacked into
+// the Anthropic-only tool path; the noun gate above still has to match too.
 const BUILD_VERB_RE =
-  /(generál|készí|csinál|tervez|állíts|rakj|gyárts|hozz\s*létre|alkoss|vázol|dolgozz\s*ki|szeretn|kéne|kellene|kérek|kérn|adj|adn(á|a)l|legyen|build|create|make|generate|design|draft|put\s*together|plan\s*out|lay\s*out|outline|sketch|map\s*out|want|would\s*like|i'?d\s*like|give\s*me|need)/i;
+  /(generál|generat|készít|készí|csinál|hozz\s*létre|creat|mak(e|ing)|build|draw\s*up)/i;
 
 /** True when a plain-chat message reads as "generate a roadmap for X". */
 export function detectRoadmapIntent(text: string): boolean {

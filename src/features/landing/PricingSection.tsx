@@ -1,14 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { Check, Sparkles } from "lucide-react";
-import { GlassCard } from "@/components/ui";
-import { cn } from "@/lib/cn";
+import { SectionHeading } from "./SectionHeading";
 
 /**
- * Pricing section. Free plan reflects today's reality, core
- * features all free. Premium is a "coming soon" teaser listing the
- * features most likely to ship behind a subscription: AI quota
- * uplift, more storage, OCR, X-Ray, cross-device sync. No price is
- * shown yet because there isn't one. Keeps honest expectations.
+ * Pricing section. Free plan reflects today's reality; Premium is the
+ * paid tier. Solid panels (no glass/blur); the Premium card is lifted
+ * with an accent hairline + a faint accent top-glow so the eye lands
+ * on it.
  */
 export function PricingSection() {
   const { t } = useTranslation();
@@ -21,25 +19,22 @@ export function PricingSection() {
   }) as string[];
 
   return (
-    <section
-      id="pricing"
-      className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24"
-    >
-      <h2 className="mb-4 text-center text-3xl font-bold text-text-primary">
-        {t("landing.pricing.title")}
-      </h2>
-      <p className="mx-auto mb-12 max-w-2xl text-center text-text-secondary">
-        {t("landing.pricing.subtitle")}
-      </p>
+    <section id="pricing" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+      <SectionHeading
+        eyebrow={t("landing.eyebrow.pricing")}
+        title={t("landing.pricing.title")}
+        subtitle={t("landing.pricing.subtitle")}
+      />
 
-      <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2">
-        <GlassCard className="flex flex-col p-6">
+      <div className="mx-auto grid max-w-4xl gap-4 md:grid-cols-2">
+        {/* Free */}
+        <div className="flex flex-col rounded-xl border border-glass-border bg-bg-secondary p-6">
           <div className="mb-4">
-            <h3 className="text-lg font-semibold text-text-primary">
+            <h3 className="font-display text-lg font-semibold text-text-primary">
               {t("landing.pricing.free.name")}
             </h3>
             <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-3xl font-bold text-text-primary">
+              <span className="font-display text-3xl font-bold text-text-primary">
                 {t("landing.pricing.free.price")}
               </span>
               <span className="text-sm text-text-muted">
@@ -55,24 +50,29 @@ export function PricingSection() {
               <FeatureRow key={i} text={f} />
             ))}
           </ul>
-        </GlassCard>
+        </div>
 
-        <GlassCard
-          className={cn(
-            "relative flex flex-col p-6",
-            "border-accent/30",
-          )}
-        >
-          <span className="absolute -top-3 right-4 flex items-center gap-1 rounded-full bg-accent/20 px-3 py-1 text-xs font-medium text-accent">
+        {/* Premium — highlighted */}
+        <div className="relative flex flex-col overflow-hidden rounded-xl border border-accent/40 bg-bg-secondary p-6">
+          {/* faint accent top-glow */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 h-24"
+            style={{
+              background:
+                "radial-gradient(ellipse 70% 100% at 50% 0%, rgba(8,145,178,0.14), transparent)",
+            }}
+          />
+          <span className="absolute -top-3 right-4 flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-2xs font-semibold uppercase tracking-wide text-white">
             <Sparkles size={12} />
             {t("landing.pricing.premium.comingSoon")}
           </span>
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-text-primary">
+          <div className="relative mb-4">
+            <h3 className="font-display text-lg font-semibold text-text-primary">
               {t("landing.pricing.premium.name")}
             </h3>
             <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-3xl font-bold text-text-secondary">
+              <span className="font-display text-3xl font-bold text-text-primary">
                 {t("landing.pricing.premium.price")}
               </span>
               <span className="text-sm text-text-muted">
@@ -83,12 +83,12 @@ export function PricingSection() {
               {t("landing.pricing.premium.tagline")}
             </p>
           </div>
-          <ul className="flex-1 space-y-2">
+          <ul className="relative flex-1 space-y-2">
             {premiumFeatures.map((f, i) => (
-              <FeatureRow key={i} text={f} muted />
+              <FeatureRow key={i} text={f} />
             ))}
           </ul>
-        </GlassCard>
+        </div>
       </div>
 
       <p className="mx-auto mt-6 max-w-2xl text-center text-xs text-text-muted">
@@ -98,24 +98,11 @@ export function PricingSection() {
   );
 }
 
-function FeatureRow({ text, muted = false }: { text: string; muted?: boolean }) {
+function FeatureRow({ text }: { text: string }) {
   return (
     <li className="flex items-start gap-2">
-      <Check
-        size={16}
-        className={cn(
-          "mt-0.5 shrink-0",
-          muted ? "text-text-muted" : "text-accent",
-        )}
-      />
-      <span
-        className={cn(
-          "text-sm",
-          muted ? "text-text-muted" : "text-text-secondary",
-        )}
-      >
-        {text}
-      </span>
+      <Check size={16} className="mt-0.5 shrink-0 text-accent" />
+      <span className="text-sm text-text-secondary">{text}</span>
     </li>
   );
 }

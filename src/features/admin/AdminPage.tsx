@@ -4,6 +4,7 @@ import { cn } from "@/lib/cn";
 import { AdminGuard } from "./AdminGuard";
 import { DashboardTab } from "./tabs/DashboardTab";
 import { AnalyticsTab } from "./tabs/AnalyticsTab";
+import { AiUsageTab } from "./tabs/AiUsageTab";
 import { ReportsTab } from "./tabs/ReportsTab";
 import { CatalogModerationTab } from "./tabs/CatalogModerationTab";
 import { UserManagementTab } from "./tabs/UserManagementTab";
@@ -11,6 +12,7 @@ import { UserManagementTab } from "./tabs/UserManagementTab";
 const tabs = [
   { key: "dashboard", label: "Dashboard" },
   { key: "analytics", label: "Analytics" },
+  { key: "quota", label: "AI Quota" },
   { key: "reports", label: "Reports" },
   { key: "catalog", label: "Catalog" },
   { key: "users", label: "Users" },
@@ -50,6 +52,7 @@ export function AdminPage() {
         {/* Tab content */}
         {activeTab === "dashboard" && <DashboardTab />}
         {activeTab === "analytics" && <AnalyticsTab />}
+        {activeTab === "quota" && <AiUsageTab />}
         {activeTab === "reports" && <ReportsTab />}
         {activeTab === "catalog" && <CatalogModerationTab />}
         {activeTab === "users" && <UserManagementTab />}

@@ -31,7 +31,7 @@ export function RouteErrorBoundary() {
           Reload
         </button>
         <Link
-          to="/app"
+          to="/"
           className="inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-all duration-200 bg-glass-bg border border-glass-border hover:bg-glass-hover text-text-primary backdrop-blur-md"
         >
           <Home size={16} />

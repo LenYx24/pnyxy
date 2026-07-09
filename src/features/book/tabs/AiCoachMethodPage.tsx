@@ -70,8 +70,13 @@ export function AiCoachMethodPage() {
     book.source === "catalog"
       ? book.book.title
       : book.book.title || "this book";
+  // match the reader/RelatedToBook document id so coach chats surface next to
+  // the book: file hash for uploaded books (row id when there's no file yet),
+  // catalog UUID for catalog books
   const sourceDocId =
-    book.source === "catalog" ? book.book.id : book.book.id;
+    book.source === "catalog"
+      ? book.book.id
+      : book.book.file_hash || book.book.id;
 
   const handleStart = useCallback(() => {
     if (!config) return;

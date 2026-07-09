@@ -24,6 +24,7 @@ import { BannedScreen } from "@/features/admin/BannedScreen";
 import { StreakCelebrationModal } from "@/features/library/StreakCelebrationModal";
 import { FeedbackPrompt } from "@/features/feedback/FeedbackPrompt";
 import { TtsMiniPlayer } from "@/components/tts/TtsMiniPlayer";
+import { OnboardingTour } from "@/features/onboarding/OnboardingTour";
 
 const STATIC_PAGE_PATHS = ["/about", "/privacy", "/terms", "/help", "/tutorial"];
 
@@ -165,6 +166,7 @@ export function AppLayout() {
       </main>
       {showBottomNav && <BottomNav />}
       <StreakCelebrationModal />
+      <OnboardingTour />
       <FeedbackPrompt />
       <ContextMenu />
       <CommandPalette />

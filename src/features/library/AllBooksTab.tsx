@@ -7,6 +7,7 @@ import {
   defaultDropAnimationSideEffects,
   DragOverlay,
   KeyboardSensor,
+  MeasuringStrategy,
   MouseSensor,
   TouchSensor,
   pointerWithin,
@@ -43,10 +44,13 @@ import {
   Shapes,
   ListChecks,
   MessageSquare,
+  Globe,
+  LayoutGrid,
   RotateCw,
   X,
   Check,
   AlertTriangle,
+  type LucideIcon,
 } from "lucide-react";
 import { Button, GlassCard, ConfirmModal } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -58,6 +62,9 @@ import { useQuizStore } from "@/stores/quiz-store";
 import type { Quiz } from "@/types/quiz";
 import { useChatStore } from "@/stores/chat-store";
 import type { ChatConversation } from "@/types/chat";
+import { useResourceStore } from "@/stores/resource-store";
+import type { Resource } from "@/types/resource";
+import { displayHost } from "@/lib/resource-url";
 import { useTagStore } from "@/stores/tag-store";
 import { useUploadStore, type UploadJob } from "@/stores/upload-store";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
@@ -69,6 +76,7 @@ import { LibraryNoteCard } from "./LibraryNoteCard";
 import { LibraryWhiteboardCard } from "./LibraryWhiteboardCard";
 import { LibraryQuizCard } from "./LibraryQuizCard";
 import { LibraryChatCard } from "./LibraryChatCard";
+import { LibraryResourceCard } from "./LibraryResourceCard";
 import { LibraryListView } from "./LibraryListView";
 import { CreateFolderModal } from "./modals/CreateFolderModal";
 import { BookCardSkeleton } from "./BookCardSkeleton";
@@ -82,6 +90,32 @@ import type { ViewMode, ListColumnWidths } from "./useLibraryPrefs";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import type { BookStatusTag } from "@/types/database";
 import type { Folder as FolderType } from "@/types/database";
+
+/** Which kind of library item to show. "all" shows everything.
+ *  Folders are navigation and stay visible regardless of the pick. */
+type ItemTypeFilter =
+  | "all"
+  | "books"
+  | "notes"
+  | "whiteboards"
+  | "quizzes"
+  | "chats"
+  | "resources";
+
+const ITEM_TYPE_FILTERS: {
+  value: ItemTypeFilter;
+  icon: LucideIcon;
+  labelKey: string;
+  defaultLabel: string;
+}[] = [
+  { value: "all", icon: LayoutGrid, labelKey: "library.typeFilter.all", defaultLabel: "All" },
+  { value: "books", icon: BookOpen, labelKey: "library.typeFilter.books", defaultLabel: "Books" },
+  { value: "notes", icon: FileText, labelKey: "library.typeFilter.notes", defaultLabel: "Notes" },
+  { value: "whiteboards", icon: Shapes, labelKey: "library.typeFilter.whiteboards", defaultLabel: "Whiteboards" },
+  { value: "quizzes", icon: ListChecks, labelKey: "library.typeFilter.quizzes", defaultLabel: "Quizzes" },
+  { value: "chats", icon: MessageSquare, labelKey: "library.typeFilter.chats", defaultLabel: "Chats" },
+  { value: "resources", icon: Globe, labelKey: "library.typeFilter.resources", defaultLabel: "Resources" },
+];
 
 interface AllBooksTabProps {
   onMoveBook: (entry: UnifiedLibraryItem) => void;
@@ -193,12 +227,16 @@ export function AllBooksTab({
   const moveConversationToFolder = useChatStore(
     (s) => s.moveConversationToFolder,
   );
+  const resources = useResourceStore((s) => s.resources);
+  const fetchResources = useResourceStore((s) => s.fetchResources);
+  const moveResourceToFolder = useResourceStore((s) => s.moveResourceToFolder);
   useEffect(() => {
     void loadNotes();
     void loadWhiteboards();
     void fetchMyQuizzes();
     void fetchConversations();
-  }, [loadNotes, loadWhiteboards, fetchMyQuizzes, fetchConversations]);
+    void fetchResources();
+  }, [loadNotes, loadWhiteboards, fetchMyQuizzes, fetchConversations, fetchResources]);
 
   const getTagsForBook = useTagStore((s) => s.getTagsForBook);
 
@@ -226,6 +264,19 @@ export function AllBooksTab({
     () => conversations.filter((c) => (c.folder_id ?? null) === currentFolderId),
     [conversations, currentFolderId],
   );
+  const resourcesInFolder = useMemo(
+    () => resources.filter((r) => (r.folder_id ?? null) === currentFolderId),
+    [resources, currentFolderId],
+  );
+
+  // Item-type filter (Books / Notes / … / All). When not "all", only that
+  // type's items render; folders always stay visible (they're navigation).
+  const [typeFilter, setTypeFilter] = useState<ItemTypeFilter>("all");
+  const showType = useCallback(
+    (type: Exclude<ItemTypeFilter, "all">) =>
+      typeFilter === "all" || typeFilter === type,
+    [typeFilter],
+  );
 
   // Apply search + tag filter
   const query = searchQuery.toLowerCase().trim();
@@ -237,6 +288,7 @@ export function AllBooksTab({
     [subfolders, query],
   );
   const filteredBooks = useMemo(() => {
+    if (!showType("books")) return [] as UnifiedLibraryItem[];
     let result = booksInFolder;
     if (query) {
       result = result.filter((b) => {
@@ -254,40 +306,48 @@ export function AllBooksTab({
       result = result.filter((b) => getTagsForBook(b).includes(activeTag));
     }
     return result;
-  }, [booksInFolder, query, activeTag, getTagsForBook]);
+  }, [booksInFolder, query, activeTag, getTagsForBook, showType]);
 
   // active book status-tag hides notes entirely; else match on title.
   const filteredNotes = useMemo(() => {
-    if (activeTag) return [] as Note[];
+    if (activeTag || !showType("notes")) return [] as Note[];
     if (!query) return notesInFolder;
     return notesInFolder.filter((n) =>
       (n.title || "").toLowerCase().includes(query),
     );
-  }, [notesInFolder, query, activeTag]);
+  }, [notesInFolder, query, activeTag, showType]);
 
   const filteredWhiteboards = useMemo(() => {
-    if (activeTag) return [] as WhiteboardData[];
+    if (activeTag || !showType("whiteboards")) return [] as WhiteboardData[];
     if (!query) return whiteboardsInFolder;
     return whiteboardsInFolder.filter((w) =>
       (w.title || "").toLowerCase().includes(query),
     );
-  }, [whiteboardsInFolder, query, activeTag]);
+  }, [whiteboardsInFolder, query, activeTag, showType]);
 
   const filteredQuizzes = useMemo(() => {
-    if (activeTag) return [] as Quiz[];
+    if (activeTag || !showType("quizzes")) return [] as Quiz[];
     if (!query) return quizzesInFolder;
     return quizzesInFolder.filter((q) =>
       (q.title || "").toLowerCase().includes(query),
     );
-  }, [quizzesInFolder, query, activeTag]);
+  }, [quizzesInFolder, query, activeTag, showType]);
 
   const filteredChats = useMemo(() => {
-    if (activeTag) return [] as ChatConversation[];
+    if (activeTag || !showType("chats")) return [] as ChatConversation[];
     if (!query) return chatsInFolder;
     return chatsInFolder.filter((c) =>
       (c.title || "").toLowerCase().includes(query),
     );
-  }, [chatsInFolder, query, activeTag]);
+  }, [chatsInFolder, query, activeTag, showType]);
+
+  const filteredResources = useMemo(() => {
+    if (activeTag || !showType("resources")) return [] as Resource[];
+    if (!query) return resourcesInFolder;
+    return resourcesInFolder.filter((r) =>
+      (r.title || "").toLowerCase().includes(query),
+    );
+  }, [resourcesInFolder, query, activeTag, showType]);
 
   const contextId = currentFolderId ?? "root";
   const savedOrder = sortOrders[contextId];
@@ -300,6 +360,7 @@ export function AllBooksTab({
     const whiteboardKeys = filteredWhiteboards.map((w) => `whiteboard:${w.id}`);
     const quizKeys = filteredQuizzes.map((q) => `quiz:${q.id}`);
     const chatKeys = filteredChats.map((c) => `chat:${c.id}`);
+    const resourceKeys = filteredResources.map((r) => `resource:${r.id}`);
     return [
       ...folderKeys,
       ...bookKeys,
@@ -307,6 +368,7 @@ export function AllBooksTab({
       ...whiteboardKeys,
       ...quizKeys,
       ...chatKeys,
+      ...resourceKeys,
     ];
   }, [
     filteredFolders,
@@ -315,6 +377,7 @@ export function AllBooksTab({
     filteredWhiteboards,
     filteredQuizzes,
     filteredChats,
+    filteredResources,
   ]);
 
   const orderedKeys = useMemo(
@@ -364,6 +427,12 @@ export function AllBooksTab({
     return m;
   }, [filteredChats]);
 
+  const resourceMap = useMemo(() => {
+    const m = new Map<string, Resource>();
+    for (const r of filteredResources) m.set(`resource:${r.id}`, r);
+    return m;
+  }, [filteredResources]);
+
   // keys come from the same filtered lists as the maps, so every get() resolves
   const orderedFolders = useMemo(
     () =>
@@ -406,6 +475,13 @@ export function AllBooksTab({
         .filter((k) => k.startsWith("chat:"))
         .map((k) => chatMap.get(k)!),
     [orderedKeys, chatMap],
+  );
+  const orderedResources = useMemo(
+    () =>
+      orderedKeys
+        .filter((k) => k.startsWith("resource:"))
+        .map((k) => resourceMap.get(k)!),
+    [orderedKeys, resourceMap],
   );
 
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -471,6 +547,11 @@ export function AllBooksTab({
             activeId.slice("chat:".length),
             targetFolderId,
           );
+        } else if (activeId.startsWith("resource:")) {
+          void moveResourceToFolder(
+            activeId.slice("resource:".length),
+            targetFolderId,
+          );
         } else if (activeId.startsWith("folder:")) {
           const draggedFolderId = activeId.slice("folder:".length);
           if (draggedFolderId !== targetFolderId) {
@@ -502,6 +583,11 @@ export function AllBooksTab({
             activeId.slice("chat:".length),
             targetFolderId,
           );
+        } else if (activeId.startsWith("resource:")) {
+          void moveResourceToFolder(
+            activeId.slice("resource:".length),
+            targetFolderId,
+          );
         } else if (activeId.startsWith("folder:")) {
           const draggedFolderId = activeId.slice("folder:".length);
           if (draggedFolderId !== targetFolderId) {
@@ -530,6 +616,7 @@ export function AllBooksTab({
       moveWhiteboardToFolder,
       moveQuizToFolder,
       moveConversationToFolder,
+      moveResourceToFolder,
     ],
   );
 
@@ -607,7 +694,8 @@ export function AllBooksTab({
     filteredNotes.length === 0 &&
     filteredWhiteboards.length === 0 &&
     filteredQuizzes.length === 0 &&
-    filteredChats.length === 0;
+    filteredChats.length === 0 &&
+    filteredResources.length === 0;
   // clamp card floor on mobile so two fit on a 375px viewport
   const effectiveCardSize = isMobile ? Math.min(cardSize, 130) : cardSize;
   const coverHeight = Math.round(effectiveCardSize * 0.6);
@@ -637,6 +725,7 @@ export function AllBooksTab({
   const activeDragWhiteboard = activeId ? whiteboardMap.get(activeId) : null;
   const activeDragQuiz = activeId ? quizMap.get(activeId) : null;
   const activeDragChat = activeId ? chatMap.get(activeId) : null;
+  const activeDragResource = activeId ? resourceMap.get(activeId) : null;
   // keep the source row dimmed until the overlay finishes settling
   const dropAnimation: DropAnimation = {
     duration: 200,
@@ -647,11 +736,19 @@ export function AllBooksTab({
   };
 
   return (
-    <div onContextMenu={onContextMenu}>
+    <div
+      onContextMenu={onContextMenu}
+      className={activeId ? "library-dnd-active" : undefined}
+    >
       <DndContext
         sensors={sensors}
         collisionDetection={collisionDetection}
         modifiers={dndModifiers}
+        // Re-measure droppables on every move: the .library-dnd-active
+        // class flips content-visibility at drag start, and Always makes
+        // dnd-kit pick up the corrected rects rather than the stale
+        // intrinsic-size guess measured once at drag start.
+        measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
@@ -712,6 +809,30 @@ export function AllBooksTab({
       </div>
       )}
 
+      {/* item-type filter chips: show only one kind of item at a time.
+          Folders always render regardless of the active type. */}
+      <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+        {ITEM_TYPE_FILTERS.map(({ value, icon: Icon, labelKey, defaultLabel }) => {
+          const isActive = typeFilter === value;
+          return (
+            <button
+              key={value}
+              onClick={() => setTypeFilter(value)}
+              aria-pressed={isActive}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap",
+                isActive
+                  ? "bg-accent/15 text-accent"
+                  : "bg-glass-bg text-text-muted hover:text-text-primary border border-glass-border",
+              )}
+            >
+              <Icon size={13} />
+              {t(labelKey, { defaultValue: defaultLabel })}
+            </button>
+          );
+        })}
+      </div>
+
       {/* ghost rows for in-flight uploads in this folder */}
       <UploadGhostStrip currentFolderId={currentFolderId} />
 
@@ -742,7 +863,19 @@ export function AllBooksTab({
         </div>
       )}
 
-      {isEmpty && !query && !isLoading && !activeTag && (
+      {/* type filter yielded nothing here (folder isn't really empty
+          when it holds folders, which stay visible above) */}
+      {isEmpty && !query && !isLoading && !activeTag && typeFilter !== "all" && (
+        <div className="flex flex-col items-center gap-2 py-16 text-center">
+          <p className="text-sm text-text-muted">
+            {t("library.typeFilter.noItems", {
+              defaultValue: "No items of this type here.",
+            })}
+          </p>
+        </div>
+      )}
+
+      {isEmpty && !query && !isLoading && !activeTag && typeFilter === "all" && (
         <div className="flex flex-col items-center gap-4 py-16 text-center">
           <BookOpen size={48} className="text-text-muted/50" />
           <div>
@@ -781,6 +914,7 @@ export function AllBooksTab({
                 whiteboards={orderedWhiteboards}
                 quizzes={orderedQuizzes}
                 chats={orderedChats}
+                resources={orderedResources}
                 orderedKeys={orderedKeys}
                 allFolders={folders}
                 allBooks={books}
@@ -788,6 +922,7 @@ export function AllBooksTab({
                 allWhiteboards={whiteboards}
                 allQuizzes={quizzes}
                 allChats={conversations}
+                allResources={resources}
                 selectedIds={selectedIds}
                 selectionActive={selectionActive}
                 onToggleSelect={onToggleSelect}
@@ -901,6 +1036,20 @@ export function AllBooksTab({
                       />
                     );
                   }
+                  const resource = resourceMap.get(key);
+                  if (resource) {
+                    return (
+                      <LibraryResourceCard
+                        key={`resource:${resource.id}`}
+                        resource={resource}
+                        sortableId={`resource:${resource.id}`}
+                        coverHeight={coverHeight}
+                        selected={selectedIds.has(`resource:${resource.id}`)}
+                        selectionActive={selectionActive}
+                        onToggleSelect={onToggleSelect}
+                      />
+                    );
+                  }
                   return null;
                 })}
               </div>
@@ -992,6 +1141,19 @@ export function AllBooksTab({
                     <MessageSquare size={16} className="shrink-0 text-accent-blue/80" />
                     <span className="text-sm font-medium text-text-primary truncate">
                       {conversationDisplayTitle(activeDragChat, t)}
+                    </span>
+                  </div>
+                </GlassCard>
+              </div>
+            )}
+            {activeDragResource && (
+              <div style={{ width: effectiveCardSize }} className="pointer-events-none">
+                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
+                  <div className="flex items-center gap-3 p-3">
+                    <Globe size={16} className="shrink-0 text-accent-blue/80" />
+                    <span className="text-sm font-medium text-text-primary truncate">
+                      {activeDragResource.title ||
+                        displayHost(activeDragResource.url)}
                     </span>
                   </div>
                 </GlassCard>

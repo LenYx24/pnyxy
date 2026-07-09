@@ -1,32 +1,49 @@
 import { create } from "zustand";
 
 /**
- * "Dumbed down" inline draw, a lightweight doodle overlay on top of
- * the reader's existing PDF page layout. The full whiteboard mode
- * (which swaps the viewer for a Tldraw canvas) is still there for
- * heavy use; this is the "I just want to circle something quickly"
- * pen.
+ * Inline draw — a lightweight vector doodle layer on top of the reader's
+ * existing PDF page layout. The full Whiteboard mode is still there for
+ * heavy use; this is the "annotate the page in place" tool.
  *
- * Design choices that keep this small on purpose:
- *   - SVG strokes, not raster, crisp at every zoom level, easy to
- *     undo / clear, easy to persist as JSON.
- *   - Coordinates are NORMALIZED to the page (0..1 along x, 0..1
- *     along y) so the same stroke draws correctly at any zoom level
- *     and any per-slot CSS scale. Avoids the "drew at 100 %, panned
- *     to 200 %, marks now drift" problem.
- *   - localStorage persistence keyed by (book, page). Per-device,
- *     no DB migration. v1 trade-off; cloud-sync is a follow-up.
- *   - No size picker, no eraser. Three colours, undo, clear page,
- *     exit. That's it.
+ * It now supports the core whiteboard tool-set — freehand pen, shapes
+ * (rectangle, ellipse, line, arrow), an eraser, and a select tool that
+ * moves/resizes/deletes placed elements — plus adjustable stroke width
+ * and a colour palette.
+ *
+ * Design choices kept from v1:
+ *   - SVG vector elements, not raster: crisp at every zoom, trivial to
+ *     undo / persist as JSON.
+ *   - Coordinates are NORMALISED to the page (0..1 on each axis) so the
+ *     same drawing renders correctly at any zoom / CSS scale.
+ *   - localStorage persistence keyed by (book, page). Per-device, no DB
+ *     migration. Cloud-sync remains a follow-up.
  */
 
-export interface Stroke {
+export interface Pt {
+  x: number;
+  y: number;
+}
+
+interface ElementBase {
+  id: string;
   /** Hex with optional alpha. */
   color: string;
-  /** Px at 1× zoom, applied via stroke-width on the SVG. */
+  /** Px at 1× zoom (non-scaling-stroke keeps it constant on screen). */
   width: number;
-  /** Normalised 0..1 coordinates relative to the page's natural box. */
-  points: { x: number; y: number }[];
+}
+
+export type InlineElement =
+  | (ElementBase & { type: "pen"; points: Pt[] })
+  | (ElementBase & { type: "rectangle"; x: number; y: number; w: number; h: number })
+  | (ElementBase & { type: "ellipse"; cx: number; cy: number; rx: number; ry: number })
+  | (ElementBase & { type: "line"; x1: number; y1: number; x2: number; y2: number })
+  | (ElementBase & { type: "arrow"; x1: number; y1: number; x2: number; y2: number });
+
+/** Legacy v1 stroke: a pen with no `type`/`id`. Kept for migration. */
+interface LegacyStroke {
+  color: string;
+  width: number;
+  points: Pt[];
 }
 
 const STORAGE_PREFIX = "pnyxy:inline-draw:v1:";
@@ -36,15 +53,43 @@ function storageKey(bookId: string): string {
   return `${STORAGE_PREFIX}${bookId}`;
 }
 
-function loadFromStorage(bookId: string): Map<number, Stroke[]> {
+export function makeId(): string {
+  return `el_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Coerce a stored item into an InlineElement, migrating legacy strokes
+ *  (no `type`) into pen elements and back-filling ids. */
+function normalizeElement(raw: unknown): InlineElement | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const base = {
+    id: typeof o.id === "string" ? o.id : makeId(),
+    color: typeof o.color === "string" ? o.color : "#ef4444",
+    width: typeof o.width === "number" ? o.width : INLINE_DRAW_DEFAULT_WIDTH,
+  };
+  const type = o.type;
+  if (type === undefined || type === "pen") {
+    const pts = (raw as LegacyStroke).points;
+    if (!Array.isArray(pts)) return null;
+    return { ...base, type: "pen", points: pts };
+  }
+  if (type === "rectangle" || type === "ellipse" || type === "line" || type === "arrow") {
+    return { ...base, ...(o as object), type } as InlineElement;
+  }
+  return null;
+}
+
+function loadFromStorage(bookId: string): Map<number, InlineElement[]> {
   try {
     const raw = localStorage.getItem(storageKey(bookId));
     if (!raw) return new Map();
-    const parsed = JSON.parse(raw) as Record<string, Stroke[]>;
-    const out = new Map<number, Stroke[]>();
+    const parsed = JSON.parse(raw) as Record<string, unknown[]>;
+    const out = new Map<number, InlineElement[]>();
     for (const [k, v] of Object.entries(parsed)) {
       const page = Number(k);
-      if (Number.isFinite(page) && Array.isArray(v)) out.set(page, v);
+      if (!Number.isFinite(page) || !Array.isArray(v)) continue;
+      const els = v.map(normalizeElement).filter((e): e is InlineElement => !!e);
+      if (els.length > 0) out.set(page, els);
     }
     return out;
   } catch {
@@ -52,143 +97,202 @@ function loadFromStorage(bookId: string): Map<number, Stroke[]> {
   }
 }
 
-function saveToStorage(bookId: string, drawings: Map<number, Stroke[]>) {
+function saveToStorage(bookId: string, drawings: Map<number, InlineElement[]>) {
   try {
-    const obj: Record<string, Stroke[]> = {};
-    for (const [page, strokes] of drawings) {
-      if (strokes.length > 0) obj[String(page)] = strokes;
+    const obj: Record<string, InlineElement[]> = {};
+    for (const [page, els] of drawings) {
+      if (els.length > 0) obj[String(page)] = els;
     }
     if (Object.keys(obj).length === 0) {
       localStorage.removeItem(storageKey(bookId));
     } else {
       localStorage.setItem(storageKey(bookId), JSON.stringify(obj));
     }
-    // Maintain a small index so future cleanup / migration knows
-    // which keys exist without scanning all of localStorage.
     const idxRaw = localStorage.getItem(STORAGE_VERSION_KEY);
     const idx = new Set<string>(idxRaw ? (JSON.parse(idxRaw) as string[]) : []);
     if (Object.keys(obj).length === 0) idx.delete(bookId);
     else idx.add(bookId);
     localStorage.setItem(STORAGE_VERSION_KEY, JSON.stringify([...idx]));
   } catch {
-    // quota / private mode, strokes stay in memory for the session
+    // quota / private mode — elements stay in memory for the session
   }
 }
 
 export const INLINE_DRAW_COLORS = [
   "#ef4444", // red
-  "#3b82f6", // blue
-  "#10b981", // emerald
   "#f59e0b", // amber
+  "#10b981", // emerald
+  "#3b82f6", // blue
+  "#8b5cf6", // violet
+  "#1f2937", // slate-ink (reads on white pages)
 ] as const;
 
-export const INLINE_DRAW_STROKE_WIDTH = 2.5;
+export const INLINE_DRAW_WIDTHS = [1.5, 2.5, 4, 6] as const;
+export const INLINE_DRAW_DEFAULT_WIDTH = 2.5;
 
-/** Pen mode draws new strokes; eraser mode lets the user tap an
- *  existing stroke to delete just that one. The toolbar exposes a
- *  toggle for it so users have a precise way to clean up parts of
- *  their doodles without losing the rest of the page. */
-export type InlineDrawTool = "pen" | "eraser";
+export type InlineDrawTool =
+  | "select"
+  | "pen"
+  | "rectangle"
+  | "ellipse"
+  | "line"
+  | "arrow"
+  | "eraser";
 
 interface InlineDrawState {
   active: boolean;
-  /** Currently selected colour (hex). */
   color: string;
-  /** Pen vs eraser. */
+  width: number;
   tool: InlineDrawTool;
-  /** Current book scope. Switching books clears in-memory state. */
+  /** Selected element id (select tool). Selection is global; only one
+   *  element is selected at a time, on whichever page it lives. */
+  selectedId: string | null;
   currentBookId: string | null;
-  /** Page → strokes for the active book. Persisted to localStorage on
-   *  every commit. */
-  drawingsByPage: Map<number, Stroke[]>;
+  drawingsByPage: Map<number, InlineElement[]>;
+
   setActive: (active: boolean) => void;
   toggleActive: () => void;
   setColor: (color: string) => void;
+  setWidth: (width: number) => void;
   setTool: (tool: InlineDrawTool) => void;
-  /** Switch the active book, loads its drawings from localStorage,
-   *  no-op if it's already the current book. */
+  select: (id: string | null) => void;
   setBook: (bookId: string | null) => void;
-  /** Commit a finished stroke to a page (called on pointer-up). */
-  addStroke: (page: number, stroke: Stroke) => void;
-  /** Pop the last stroke on a page. Returns true if anything was
-   *  removed (useful so the toolbar can disable the button). */
-  undoStrokeOnPage: (page: number) => boolean;
-  /** Delete a specific stroke (by index) on a page, used by the
-   *  eraser tool when the user taps a stroke. */
-  removeStrokeOnPage: (page: number, strokeIndex: number) => void;
-  /** Wipe strokes on a single page. */
+
+  addElement: (page: number, el: InlineElement) => void;
+  updateElement: (page: number, id: string, next: InlineElement) => void;
+  removeElement: (page: number, id: string) => void;
+  /** Remove the currently selected element wherever it lives. */
+  removeSelected: () => void;
+  undoOnPage: (page: number) => boolean;
   clearPage: (page: number) => void;
-  /** Wipe all strokes across every page for the active book, used
-   *  when the user wants a clean slate without flipping through each
-   *  page to clear them individually. */
   clearAllPages: () => void;
-  /** Read-side helper, returns a stable ref-equal array per render
-   *  when the page hasn't changed. */
-  strokesForPage: (page: number) => Stroke[];
-  /** Total stroke count for the active book, drives the toolbar's
-   *  disabled state for the "Clear all" button. */
-  totalStrokes: () => number;
+
+  elementsForPage: (page: number) => InlineElement[];
+  totalElements: () => number;
 }
 
-const EMPTY: Stroke[] = [];
+const EMPTY: InlineElement[] = [];
 
 export const useInlineDrawStore = create<InlineDrawState>((set, get) => ({
   active: false,
   color: INLINE_DRAW_COLORS[0],
+  width: INLINE_DRAW_DEFAULT_WIDTH,
   tool: "pen",
+  selectedId: null,
   currentBookId: null,
   drawingsByPage: new Map(),
 
-  // Leaving draw mode also resets the tool back to pen so the user
-  // doesn't re-enter mid-erase the next time they open the palette.
-  setActive: (active) => set(active ? { active } : { active, tool: "pen" }),
+  setActive: (active) =>
+    set(active ? { active } : { active, tool: "pen", selectedId: null }),
   toggleActive: () =>
-    set((s) => (s.active ? { active: false, tool: "pen" } : { active: true })),
-  setColor: (color) => set({ color }),
-  setTool: (tool) => set({ tool }),
+    set((s) =>
+      s.active
+        ? { active: false, tool: "pen", selectedId: null }
+        : { active: true },
+    ),
+  setColor: (color) => {
+    const { tool, selectedId, currentBookId, drawingsByPage } = get();
+    set({ color });
+    // Recolour the selected element live when the select tool is active.
+    if (tool === "select" && selectedId) {
+      const next = mapElement(drawingsByPage, selectedId, (el) => ({ ...el, color }));
+      if (next) {
+        set({ drawingsByPage: next });
+        if (currentBookId) saveToStorage(currentBookId, next);
+      }
+    }
+  },
+  setWidth: (width) => {
+    const { tool, selectedId, currentBookId, drawingsByPage } = get();
+    set({ width });
+    if (tool === "select" && selectedId) {
+      const next = mapElement(drawingsByPage, selectedId, (el) => ({ ...el, width }));
+      if (next) {
+        set({ drawingsByPage: next });
+        if (currentBookId) saveToStorage(currentBookId, next);
+      }
+    }
+  },
+  setTool: (tool) =>
+    set(tool === "select" ? { tool } : { tool, selectedId: null }),
+  select: (id) => set({ selectedId: id }),
 
   setBook: (bookId) => {
     if (get().currentBookId === bookId) return;
     if (!bookId) {
-      set({ currentBookId: null, drawingsByPage: new Map() });
+      set({ currentBookId: null, drawingsByPage: new Map(), selectedId: null });
       return;
     }
     set({
       currentBookId: bookId,
       drawingsByPage: loadFromStorage(bookId),
+      selectedId: null,
     });
   },
 
-  addStroke: (page, stroke) => {
+  addElement: (page, el) => {
     const { drawingsByPage, currentBookId } = get();
     const next = new Map(drawingsByPage);
-    const existing = next.get(page) ?? [];
-    next.set(page, [...existing, stroke]);
+    next.set(page, [...(next.get(page) ?? []), el]);
     set({ drawingsByPage: next });
     if (currentBookId) saveToStorage(currentBookId, next);
   },
 
-  undoStrokeOnPage: (page) => {
+  updateElement: (page, id, updated) => {
+    const { drawingsByPage, currentBookId } = get();
+    const existing = drawingsByPage.get(page);
+    if (!existing) return;
+    const next = new Map(drawingsByPage);
+    next.set(page, existing.map((e) => (e.id === id ? updated : e)));
+    set({ drawingsByPage: next });
+    if (currentBookId) saveToStorage(currentBookId, next);
+  },
+
+  removeElement: (page, id) => {
+    const { drawingsByPage, currentBookId, selectedId } = get();
+    const existing = drawingsByPage.get(page);
+    if (!existing) return;
+    const remaining = existing.filter((e) => e.id !== id);
+    const next = new Map(drawingsByPage);
+    if (remaining.length === 0) next.delete(page);
+    else next.set(page, remaining);
+    set({
+      drawingsByPage: next,
+      selectedId: selectedId === id ? null : selectedId,
+    });
+    if (currentBookId) saveToStorage(currentBookId, next);
+  },
+
+  removeSelected: () => {
+    const { selectedId, drawingsByPage, currentBookId } = get();
+    if (!selectedId) return;
+    for (const [page, els] of drawingsByPage) {
+      if (!els.some((e) => e.id === selectedId)) continue;
+      const remaining = els.filter((e) => e.id !== selectedId);
+      const next = new Map(drawingsByPage);
+      if (remaining.length === 0) next.delete(page);
+      else next.set(page, remaining);
+      set({ drawingsByPage: next, selectedId: null });
+      if (currentBookId) saveToStorage(currentBookId, next);
+      return;
+    }
+    set({ selectedId: null });
+  },
+
+  undoOnPage: (page) => {
     const { drawingsByPage, currentBookId } = get();
     const existing = drawingsByPage.get(page);
     if (!existing || existing.length === 0) return false;
     const next = new Map(drawingsByPage);
-    next.set(page, existing.slice(0, -1));
-    set({ drawingsByPage: next });
+    const removed = existing[existing.length - 1];
+    if (existing.length === 1) next.delete(page);
+    else next.set(page, existing.slice(0, -1));
+    set((s) => ({
+      drawingsByPage: next,
+      selectedId: s.selectedId === removed.id ? null : s.selectedId,
+    }));
     if (currentBookId) saveToStorage(currentBookId, next);
     return true;
-  },
-
-  removeStrokeOnPage: (page, strokeIndex) => {
-    const { drawingsByPage, currentBookId } = get();
-    const existing = drawingsByPage.get(page);
-    if (!existing || strokeIndex < 0 || strokeIndex >= existing.length) return;
-    const remaining = existing.filter((_, i) => i !== strokeIndex);
-    const next = new Map(drawingsByPage);
-    if (remaining.length === 0) next.delete(page);
-    else next.set(page, remaining);
-    set({ drawingsByPage: next });
-    if (currentBookId) saveToStorage(currentBookId, next);
   },
 
   clearPage: (page) => {
@@ -196,23 +300,40 @@ export const useInlineDrawStore = create<InlineDrawState>((set, get) => ({
     if (!drawingsByPage.has(page)) return;
     const next = new Map(drawingsByPage);
     next.delete(page);
-    set({ drawingsByPage: next });
+    set({ drawingsByPage: next, selectedId: null });
     if (currentBookId) saveToStorage(currentBookId, next);
   },
 
   clearAllPages: () => {
     const { drawingsByPage, currentBookId } = get();
     if (drawingsByPage.size === 0) return;
-    const next = new Map<number, Stroke[]>();
-    set({ drawingsByPage: next });
+    const next = new Map<number, InlineElement[]>();
+    set({ drawingsByPage: next, selectedId: null });
     if (currentBookId) saveToStorage(currentBookId, next);
   },
 
-  strokesForPage: (page) => get().drawingsByPage.get(page) ?? EMPTY,
+  elementsForPage: (page) => get().drawingsByPage.get(page) ?? EMPTY,
 
-  totalStrokes: () => {
+  totalElements: () => {
     let n = 0;
-    for (const strokes of get().drawingsByPage.values()) n += strokes.length;
+    for (const els of get().drawingsByPage.values()) n += els.length;
     return n;
   },
 }));
+
+/** Apply `fn` to the element with `id` wherever it lives; returns a new
+ *  page map, or null if not found. */
+function mapElement(
+  drawings: Map<number, InlineElement[]>,
+  id: string,
+  fn: (el: InlineElement) => InlineElement,
+): Map<number, InlineElement[]> | null {
+  for (const [page, els] of drawings) {
+    const idx = els.findIndex((e) => e.id === id);
+    if (idx === -1) continue;
+    const next = new Map(drawings);
+    next.set(page, els.map((e) => (e.id === id ? fn(e) : e)));
+    return next;
+  }
+  return null;
+}

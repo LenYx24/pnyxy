@@ -6,6 +6,9 @@ import { useReaderStore } from "@/stores/reader-store";
 import { useUIStore } from "@/stores/ui-store";
 import { registerFile } from "@/lib/file-store";
 import { saveLastOpenedBook } from "@/lib/last-opened-book";
+import { loadBookBlob, saveBookBlob } from "@/lib/offline-books";
+import { logError } from "@/lib/logger";
+import { showToast } from "@/stores/toast-store";
 import type { UploadedLibraryItem } from "@/types/catalog";
 
 // Module-level cache: once downloaded, re-opening is instant within session
@@ -115,8 +118,17 @@ export function useOpenUploadedDocument() {
           throw new Error("This book has no file to open.");
         }
 
-        // Check cache first
+        // In-session cache → persistent offline store → network, so a book
+        // opened before re-opens offline (the offline store survives restart).
         let blob = blobCache.get(storage_path);
+
+        if (!blob) {
+          const offline = await loadBookBlob(storage_path);
+          if (offline) {
+            blob = offline;
+            blobCache.set(storage_path, blob);
+          }
+        }
 
         if (!blob) {
           const { data, error } = await supabase.storage
@@ -129,6 +141,8 @@ export function useOpenUploadedDocument() {
 
           blob = data;
           blobCache.set(storage_path, blob);
+          // persist for offline re-opening
+          void saveBookBlob(storage_path, blob);
         }
 
         setLoading(true, "Loading document...");
@@ -147,6 +161,12 @@ export function useOpenUploadedDocument() {
           title: entry.book.title,
         });
         navigate(`/reader/${docId}`, { state: { from: openedFrom } });
+      } catch (error) {
+        logError("openUploadedBook", error);
+        showToast(
+          "Couldn't open this document. Check your connection and try again.",
+          "error",
+        );
       } finally {
         setLoading(false);
       }

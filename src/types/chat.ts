@@ -18,6 +18,9 @@ export interface ChatConversation {
   /** Sidebar position, lower = earlier. Reorder writes a fractional value
    *  between neighbours; new convos get min(siblings) - 1 to land on top. */
   sort_order: number;
+  /** Set when this conversation was forked from another (the Graph view's
+   *  parent→child lineage). Null = a root conversation. */
+  parent_conversation_id: string | null;
   created_at: string;
   updated_at: string;
   active_leaf_id: string | null;

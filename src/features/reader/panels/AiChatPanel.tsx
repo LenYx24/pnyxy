@@ -11,6 +11,7 @@ import {
   MoreVertical,
   Plus,
   Settings,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -35,6 +36,8 @@ import {
 import { FloatingMenu, TypingIndicator } from "@/components/ui";
 import { GitBranch } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { logError } from "@/lib/logger";
+import { showToast } from "@/stores/toast-store";
 import type { IDockviewPanelProps } from "dockview";
 import type { ChatConversation, ChatMessage } from "@/types/chat";
 import { PanelShell } from "./PanelShell";
@@ -112,6 +115,23 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   );
 
   const sourceDocId = activeConversation?.source_doc_id ?? null;
+
+  // "Summarize where you left off": offered when the book was opened with
+  // meaningful prior progress after a break, and there's no thread yet.
+  const resumeDaysAgo = activeDoc?.lastReadAt
+    ? (Date.now() - new Date(activeDoc.lastReadAt).getTime()) / 86_400_000
+    : null;
+  const showResume =
+    !activeIsForThisDoc &&
+    !!activeDoc &&
+    (activeDoc.currentPage ?? 1) > 5 &&
+    resumeDaysAgo !== null &&
+    resumeDaysAgo >= 4;
+  const resumePrompt = t("reader.aiChat.resumeSummaryPrompt", {
+    defaultValue:
+      "Summarize the part of this book I've read so far, up to page {{page}}. Focus on the key ideas and how they build up so I can pick up where I left off.",
+    page: activeDoc?.currentPage ?? 1,
+  });
 
   const [input, setInput] = useState("");
   const [listOpen, setListOpen] = useState(false);
@@ -310,10 +330,17 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         null,
       );
       setListOpen(false);
-    } catch {
-      // TODO: surface via store error / network UI
+    } catch (error) {
+      logError("handleNewConversation", error);
+      showToast(
+        t("reader.aiChat.newConversationFailed", {
+          defaultValue:
+            "Couldn't start a new conversation. Check your connection and try again.",
+        }),
+        "error",
+      );
     }
-  }, [user, activeDocumentId, activeDoc, createConversation]);
+  }, [user, activeDocumentId, activeDoc, createConversation, t]);
 
   const handleDeleteActive = useCallback(async () => {
     if (!activeConversationId) return;
@@ -551,7 +578,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       {/* Messages */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-3"
+        className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-3 space-y-3"
       >
         {!activeIsForThisDoc && (
           <div className="flex flex-col items-center gap-2 py-8 text-center">
@@ -559,6 +586,27 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             <p className="text-xs text-text-muted">
               {t("reader.aiChat.emptyPrompt")}
             </p>
+            {showResume && (
+              <button
+                type="button"
+                onClick={() =>
+                  void handleSubmit({
+                    text: resumePrompt,
+                    provider: null,
+                    mode: "default",
+                    attachments: [],
+                    reasoning: false,
+                  })
+                }
+                className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20 cursor-pointer"
+              >
+                <Sparkles size={13} />
+                {t("reader.aiChat.resumeSummary", {
+                  defaultValue: "Summarize where I left off (p.{{page}})",
+                  page: activeDoc?.currentPage ?? 1,
+                })}
+              </button>
+            )}
           </div>
         )}
 
@@ -676,6 +724,14 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
               <X size={12} />
             </button>
           </div>
+        )}
+        {(activeDoc?.aiSelectedPages.size ?? 0) > 0 && (
+          <p className="rounded-md border border-glass-border bg-glass-bg/40 px-2 py-1.5 text-2xs text-text-muted">
+            {t("reader.aiChat.pagesContextNote", {
+              defaultValue:
+                'Pages with no text layer are sent as page images; figures on text pages aren\'t attached automatically — turn on "Send as images" in the page picker if you need them.',
+            })}
+          </p>
         )}
         <ChatComposer
           ref={composerRef}

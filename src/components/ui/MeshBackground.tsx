@@ -2,39 +2,38 @@ interface MeshBackgroundProps {
   theme?: "dark" | "light";
 }
 
+/**
+ * Calm background for public pages (landing + auth).
+ *
+ * Deliberately NOT a multi-blob gradient "mesh" — that violet, blurred,
+ * AI-slop look is gone. Instead: the flat base surface, ONE restrained
+ * accent bloom anchored to a corner, and a masked dot grid for texture.
+ * No blur, no violet — the colour comes from the teal --color-accent so
+ * the public pages stay on-brand with the app.
+ */
 export function MeshBackground({ theme = "dark" }: MeshBackgroundProps) {
   const light = theme === "light";
   const base = light ? "#f5f3f0" : "#0a0a0f";
-  // Soft accent blooms. On light we keep them barely-there so the page
-  // reads as one coherent warm off-white, not a patchy varying tint.
-  const v1 = light ? "rgba(139, 92, 246, 0.05)" : "rgba(139, 92, 246, 0.15)";
-  const b1 = light ? "rgba(59, 130, 246, 0.04)" : "rgba(59, 130, 246, 0.12)";
-  const v2 = light ? "rgba(139, 92, 246, 0.03)" : "rgba(139, 92, 246, 0.08)";
-  const b2 = light ? "rgba(59, 130, 246, 0.03)" : "rgba(59, 130, 246, 0.1)";
-  const v3 = light ? "rgba(139, 92, 246, 0.03)" : "rgba(139, 92, 246, 0.08)";
+  // One restrained accent bloom (teal #0891b2). Stronger on dark where
+  // it reads; near-invisible on the warm off-white so the page stays
+  // one coherent surface rather than a patchy tint.
+  const glow = light ? "rgba(8, 145, 178, 0.06)" : "rgba(8, 145, 178, 0.12)";
 
   return (
-    <div className="fixed inset-0 -z-10 overflow-hidden">
+    <div
+      className="fixed inset-0 -z-10 overflow-hidden"
+      style={{ background: base }}
+      aria-hidden="true"
+    >
       <div
         className="absolute inset-0"
         style={{
-          background: `
-            radial-gradient(ellipse 80% 50% at 20% 40%, ${v1}, transparent),
-            radial-gradient(ellipse 60% 40% at 80% 20%, ${b1}, transparent),
-            radial-gradient(ellipse 50% 60% at 50% 80%, ${v3}, transparent),
-            ${base}
-          `,
+          background: `radial-gradient(ellipse 55% 45% at 88% -5%, ${glow}, transparent 60%)`,
         }}
       />
-      <div
-        className="absolute inset-0 animate-[drift_20s_ease-in-out_infinite]"
-        style={{
-          background: `
-            radial-gradient(ellipse 40% 30% at 70% 60%, ${b2}, transparent),
-            radial-gradient(ellipse 30% 40% at 30% 30%, ${v2}, transparent)
-          `,
-        }}
-      />
+      {/* Faint neutral dot grid, faded out toward the page centre so it
+          reads as texture in the corners only. */}
+      <div className="grid-dots absolute inset-0 text-text-primary/[0.05] [mask-image:radial-gradient(ellipse_70%_60%_at_50%_0%,black,transparent_70%)]" />
     </div>
   );
 }

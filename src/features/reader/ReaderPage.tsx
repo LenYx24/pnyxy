@@ -55,6 +55,7 @@ import { useStreakStore } from "@/stores/streak-store";
 import { getFile, registerFile } from "@/lib/file-store";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
+import { showToast } from "@/stores/toast-store";
 import { createAdapterForFile } from "./adapters";
 import { useOpenDocument } from "@/hooks/use-open-document";
 import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
@@ -410,7 +411,17 @@ export function ReaderPage() {
     if (file) {
       // hot path: file already in memory
       const adapter = createAdapterForFile(file);
-      void addDocument(adapter, file);
+      void addDocument(adapter, file).catch((error) => {
+        if (cancelled) return;
+        logError("addDocument", error);
+        showToast(
+          t("reader.openFailed", {
+            defaultValue:
+              "Couldn't open this document. It may be corrupt or unsupported.",
+          }),
+          "error",
+        );
+      });
       return;
     }
     // cold path: post-refresh recovery. `cancelled` gates applying the doc so a
@@ -425,6 +436,17 @@ export function ReaderPage() {
         registerFile(bookId, recovered);
         const adapter = createAdapterForFile(recovered);
         await addDocument(adapter, recovered);
+      } catch (error) {
+        if (!cancelled) {
+          logError("addDocument", error);
+          showToast(
+            t("reader.openFailed", {
+              defaultValue:
+                "Couldn't open this document. It may be corrupt or unsupported.",
+            }),
+            "error",
+          );
+        }
       } finally {
         if (loadingTokenRef.current === token) setLoading(false);
       }
@@ -1079,15 +1101,25 @@ export function ReaderPage() {
       document.querySelector<HTMLElement>("[data-pdf-viewer]");
     if (!viewer) return;
 
-    const { default: html2canvas } = await import("html2canvas-pro");
-    const canvas = await html2canvas(viewer, {
-      useCORS: true,
-      allowTaint: true,
-      scale: window.devicePixelRatio,
-      backgroundColor: null,
-    });
-    saveCanvas(canvas);
-  }, [saveCanvas]);
+    try {
+      const { default: html2canvas } = await import("html2canvas-pro");
+      const canvas = await html2canvas(viewer, {
+        useCORS: true,
+        allowTaint: true,
+        scale: window.devicePixelRatio,
+        backgroundColor: null,
+      });
+      saveCanvas(canvas);
+    } catch (error) {
+      logError("handleScreenshot", error);
+      showToast(
+        t("reader.screenshotFailed", {
+          defaultValue: "Couldn't capture the screenshot. Please try again.",
+        }),
+        "error",
+      );
+    }
+  }, [saveCanvas, t]);
 
   const handleRectScreenshotStart = useCallback(() => {
     setRectScreenshotActive(true);
@@ -1120,33 +1152,46 @@ export function ReaderPage() {
     setRectToAiActive(true);
   }, []);
 
-  const handleRectToAiCapture = useCallback(async (rect: ScreenshotRect) => {
-    setRectToAiActive(false);
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-    const { default: html2canvas } = await import("html2canvas-pro");
-    const canvas = await html2canvas(document.body, {
-      useCORS: true,
-      allowTaint: true,
-      scale: window.devicePixelRatio,
-      backgroundColor: null,
-      x: rect.left + window.scrollX,
-      y: rect.top + window.scrollY,
-      width: rect.width,
-      height: rect.height,
-    });
-    // base64 PNG, same shape as uploaded image attachments
-    const dataUrl = canvas.toDataURL("image/png");
-    const idx = dataUrl.indexOf(",");
-    const data = idx === -1 ? dataUrl : dataUrl.slice(idx + 1);
-    useUIStore.getState().pushChatAttachment({
-      kind: "image",
-      media_type: "image/png",
-      data,
-      name: `page-${Date.now()}.png`,
-    });
-    // open the chat panel so the attachment is visible (null on /chat)
-    useUIStore.getState().openReaderAiChat?.();
-  }, []);
+  const handleRectToAiCapture = useCallback(
+    async (rect: ScreenshotRect) => {
+      setRectToAiActive(false);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      try {
+        const { default: html2canvas } = await import("html2canvas-pro");
+        const canvas = await html2canvas(document.body, {
+          useCORS: true,
+          allowTaint: true,
+          scale: window.devicePixelRatio,
+          backgroundColor: null,
+          x: rect.left + window.scrollX,
+          y: rect.top + window.scrollY,
+          width: rect.width,
+          height: rect.height,
+        });
+        // base64 PNG, same shape as uploaded image attachments
+        const dataUrl = canvas.toDataURL("image/png");
+        const idx = dataUrl.indexOf(",");
+        const data = idx === -1 ? dataUrl : dataUrl.slice(idx + 1);
+        useUIStore.getState().pushChatAttachment({
+          kind: "image",
+          media_type: "image/png",
+          data,
+          name: `page-${Date.now()}.png`,
+        });
+        // open the chat panel so the attachment is visible (null on /chat)
+        useUIStore.getState().openReaderAiChat?.();
+      } catch (error) {
+        logError("handleRectToAiCapture", error);
+        showToast(
+          t("reader.screenshotFailed", {
+            defaultValue: "Couldn't capture the screenshot. Please try again.",
+          }),
+          "error",
+        );
+      }
+    },
+    [t],
+  );
 
   const toggleSearch = useCallback(() => {
     const store = useSearchStore.getState();

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { BookOpen, FileText, Loader2, Minus, Plus, Sparkles, X } from "lucide-react";
@@ -18,7 +18,7 @@ import {
 import type { QuizQuestionDraft } from "@/types/quiz";
 
 interface AiGeneratePanelProps {
-  onAppend: (drafts: QuizQuestionDraft[]) => void;
+  onAppend: (drafts: QuizQuestionDraft[], sourceTitle?: string) => void;
   /** When set, the panel offers "From book" mode backed by the uploaded PDF. */
   uploadedBookId?: string | null;
   /** When set (and uploadedBookId is not), "From book" mode is backed by
@@ -66,6 +66,7 @@ export function AiGeneratePanel({
   const [count, setCount] = useState(DEFAULT_COUNT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const [bookMeta, setBookMeta] = useState<BookMeta | null>(null);
   const [startPage, setStartPage] = useState(1);
@@ -134,18 +135,29 @@ export function AiGeneratePanel({
   const handleGenerate = async () => {
     setError(null);
     setLoading(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const text = await resolveSourceText();
       const drafts = await generateQuizQuestions({
         sourceText: text,
         count,
         kind,
+        signal: controller.signal,
       });
-      onAppend(drafts);
+      // Suggest a title so the editor's happy path can save without the
+      // user hand-typing one: the book title in book mode, or the first
+      // words of the pasted source in text mode.
+      const sourceTitle =
+        mode === "book" ? bookMeta?.title : deriveTextTitle(text);
+      onAppend(drafts, sourceTitle || undefined);
       setSourceText("");
       setOpen(false);
     } catch (err) {
-      if (err instanceof QuizGenerationError) {
+      // Abort is a deliberate user cancel, not an error — stay silent.
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // no-op
+      } else if (err instanceof QuizGenerationError) {
         setError(err.message);
       } else if (err instanceof Error) {
         setError(err.message);
@@ -153,6 +165,7 @@ export function AiGeneratePanel({
         setError("Generation failed.");
       }
     } finally {
+      abortRef.current = null;
       setLoading(false);
     }
   };
@@ -285,13 +298,20 @@ export function AiGeneratePanel({
         <Button
           variant="secondary"
           onClick={() => {
+            // While a generation is in flight this doubles as an abort
+            // control so a stalled stream can't trap the user.
+            if (loading) {
+              abortRef.current?.abort();
+              return;
+            }
             setOpen(false);
             setError(null);
           }}
-          disabled={loading}
           className="w-full sm:w-auto"
         >
-          {t("common.cancel")}
+          {loading
+            ? t("quizzes.ai.cancelGeneration", { defaultValue: "Cancel" })
+            : t("common.cancel")}
         </Button>
         <Button
           onClick={handleGenerate}
@@ -315,6 +335,18 @@ export function AiGeneratePanel({
       </div>
     </section>
   );
+}
+
+/** Best-effort title from pasted source text: first non-empty line,
+ *  collapsed and clipped so it fits the editor's 140-char title field. */
+function deriveTextTitle(text: string): string {
+  const firstLine = text
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => l.length > 0);
+  if (!firstLine) return "";
+  const clipped = firstLine.replace(/\s+/g, " ").slice(0, 80);
+  return clipped.length < firstLine.length ? `${clipped}…` : clipped;
 }
 
 async function loadUploadedBookMeta(

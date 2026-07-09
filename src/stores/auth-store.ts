@@ -53,6 +53,12 @@ async function clearLocalCachesOnSignOut() {
     logError("auth-store:clearWhiteboards", err);
   }
   try {
+    const { clearOfflineBooks } = await import("@/lib/offline-books");
+    await clearOfflineBooks();
+  } catch (err) {
+    logError("auth-store:clearOfflineBooks", err);
+  }
+  try {
     const { useNoteStore } = await import("./note-store");
     useNoteStore.getState().clearLocal();
   } catch (err) {

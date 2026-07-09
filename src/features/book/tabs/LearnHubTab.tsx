@@ -1,23 +1,27 @@
 import { Link, useParams } from "react-router";
 import { Sparkles } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { LEARN_METHODS } from "../LEARN_METHODS";
 
 export function LearnHubTab() {
   const { bookId } = useParams<{ bookId: string }>();
+  const { t } = useTranslation();
 
   return (
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2 text-sm text-text-muted">
           <Sparkles size={14} />
-          Learning tools
+          {t("learnHub.eyebrow", { defaultValue: "Learning tools" })}
         </div>
         <h2 className="mt-1 text-xl font-semibold text-text-primary">
-          Practice what you've read
+          {t("learnHub.title", { defaultValue: "Practice what you've read" })}
         </h2>
         <p className="mt-1 text-sm text-text-secondary">
-          Pick a method. Most are rolling out in Phase 1 — the shell is here so
-          you can see the shape.
+          {t("learnHub.subtitle", {
+            defaultValue:
+              "Choose a study method to review and reinforce this book.",
+          })}
         </p>
       </div>
 

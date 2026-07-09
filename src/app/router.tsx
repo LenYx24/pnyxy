@@ -1,5 +1,6 @@
 // router config exports non-components next to lazy() consts, which trips this rule
 /* eslint-disable react-refresh/only-export-components */
+import type { ComponentType } from "react";
 import { Navigate, createBrowserRouter, redirect } from "react-router";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PublicLayout } from "@/components/layout/PublicLayout";
@@ -80,9 +81,19 @@ const NotePage = lazy(() =>
     default: m.NotePage,
   })),
 );
-const WorkspacePage = lazy(() =>
-  import("@/features/workspace/WorkspacePage").then((m) => ({
-    default: m.WorkspacePage,
+const ResourceViewerPage = lazy(() =>
+  import("@/features/resources/ResourceViewerPage").then((m) => ({
+    default: m.ResourceViewerPage,
+  })),
+);
+const CourseSpacePage = lazy(() =>
+  import("@/features/spaces/CourseSpacePage").then((m) => ({
+    default: m.CourseSpacePage,
+  })),
+);
+const PromptGalleryPage = lazy(() =>
+  import("@/features/spaces/PromptGalleryPage").then((m) => ({
+    default: m.PromptGalleryPage,
   })),
 );
 const ReaderPage = lazy(() =>
@@ -98,11 +109,6 @@ const SettingsPage = lazy(() =>
 const GeneralTab = lazy(() =>
   import("@/features/settings/tabs/GeneralTab").then((m) => ({
     default: m.GeneralTab,
-  })),
-);
-const PlanTab = lazy(() =>
-  import("@/features/settings/tabs/PlanTab").then((m) => ({
-    default: m.PlanTab,
   })),
 );
 const AppearanceTab = lazy(() =>
@@ -154,6 +160,11 @@ const WhiteboardPage = lazy(() =>
 const VocabularyPage = lazy(() =>
   import("@/features/vocabulary/VocabularyPage").then((m) => ({
     default: m.VocabularyPage,
+  })),
+);
+const SpacesPage = lazy(() =>
+  import("@/features/spaces/SpacesPage").then((m) => ({
+    default: m.SpacesPage,
   })),
 );
 const QuizEditorPage = lazy(() =>
@@ -220,7 +231,15 @@ const RoadmapEditorPage = lazy(() =>
   })),
 );
 const ChatPage = lazy(() =>
-  import("@/features/chat/ChatPage").then((m) => ({ default: m.ChatPage })),
+  import("@/features/chat/ChatPage").then((m) => ({
+    // ChatPage takes optional book-scope props; the /chat route uses it bare
+    default: m.ChatPage as ComponentType<unknown>,
+  })),
+);
+const BookChatPage = lazy(() =>
+  import("@/features/chat/BookChatPage").then((m) => ({
+    default: m.BookChatPage,
+  })),
 );
 const ForumPage = lazy(() =>
   import("@/features/forum/ForumPage").then((m) => ({ default: m.ForumPage })),
@@ -333,9 +352,12 @@ export const router = createBrowserRouter([
           { path: "exams", element: <ExamsTab /> },
         ],
       },
+      // full-screen book-scoped chat (separate from the book layout above)
+      { path: "books/:bookId/chat", element: <BookChatPage /> },
       { path: "library", element: <LibraryPage /> },
       { path: "notes/:noteId", element: <NotePage /> },
-      { path: "workspace", element: <WorkspacePage /> },
+      { path: "resources/:resourceId", element: <ResourceViewerPage /> },
+      { path: "workspace", element: <Navigate to="/library" replace /> },
       { path: "streaks", element: <StreaksPage /> },
       { path: "plans/new", element: <PlanDetailPage /> },
       { path: "plans/:planId", element: <PlanDetailPage /> },
@@ -355,7 +377,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="general" replace /> },
           { path: "general", element: <GeneralTab /> },
-          { path: "plan", element: <PlanTab /> },
+          { path: "plan", element: <Navigate to="/profile" replace /> },
           { path: "appearance", element: <AppearanceTab /> },
           { path: "ai", element: <AiTab /> },
           { path: "organizations", element: <OrganizationsTab /> },
@@ -369,6 +391,10 @@ export const router = createBrowserRouter([
       { path: "profile", element: <ProfilePage /> },
       { path: "admin", element: <AdminPage /> },
       { path: "vocabulary", element: <VocabularyPage /> },
+      { path: "spaces", element: <SpacesPage /> },
+      { path: "spaces/:spaceId", element: <CourseSpacePage /> },
+      { path: "spaces/:spaceId/gallery", element: <PromptGalleryPage /> },
+      { path: "gallery", element: <PromptGalleryPage /> },
       { path: "whiteboards/:whiteboardId", element: <WhiteboardPage /> },
       { path: "quizzes", element: <QuizzesPage /> },
       { path: "quizzes/review", element: <QuizReviewPage /> },

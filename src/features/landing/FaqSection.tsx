@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { ChevronDown } from "lucide-react";
+import { Plus } from "lucide-react";
+import { SectionHeading } from "./SectionHeading";
 
 const QUESTIONS = [
   "isItFree",
@@ -14,38 +15,34 @@ const QUESTIONS = [
 
 /**
  * FAQ using native <details>/<summary>, no JS accordion, no library.
- * Users can open multiple at once; ChevronDown rotates via the
- * [open] attribute group selector.
+ * Users can open multiple at once; the Plus icon rotates into an ×
+ * via the [open] attribute group selector. Solid rows, no blur.
  */
 export function FaqSection() {
   const { t } = useTranslation();
 
   return (
-    <section
-      id="faq"
-      className="mx-auto max-w-3xl px-4 py-16 sm:px-6 sm:py-24"
-    >
-      <h2 className="mb-4 text-center text-3xl font-bold text-text-primary">
-        {t("landing.faq.title")}
-      </h2>
-      <p className="mb-10 text-center text-text-secondary">
-        {t("landing.faq.subtitle")}
-      </p>
+    <section id="faq" className="mx-auto max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
+      <SectionHeading
+        eyebrow={t("landing.eyebrow.faq")}
+        title={t("landing.faq.title")}
+        subtitle={t("landing.faq.subtitle")}
+      />
 
       <div className="space-y-2">
         {QUESTIONS.map((key) => (
           <details
             key={key}
-            className="group rounded-lg border border-glass-border bg-glass-bg/40 backdrop-blur-md"
+            className="group rounded-lg border border-glass-border bg-bg-secondary transition-colors hover:border-accent/30"
           >
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-text-primary transition-colors hover:bg-glass-hover">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-medium text-text-primary">
               {t(`landing.faq.items.${key}.q`)}
-              <ChevronDown
+              <Plus
                 size={16}
-                className="shrink-0 text-text-muted transition-transform group-open:rotate-180"
+                className="shrink-0 text-accent transition-transform group-open:rotate-45"
               />
             </summary>
-            <div className="border-t border-glass-border/60 px-4 py-3 text-sm leading-relaxed text-text-secondary">
+            <div className="border-t border-glass-border/60 px-4 py-3.5 text-sm leading-relaxed text-text-secondary">
               {t(`landing.faq.items.${key}.a`)}
             </div>
           </details>

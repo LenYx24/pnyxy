@@ -15,7 +15,9 @@ import {
 import {
   MessagesSquare,
   MoreVertical,
+  Network,
   Gauge,
+  ChevronDown,
   SquarePen,
   Loader2,
   GitBranch,
@@ -29,8 +31,10 @@ import {
   Map as MapIcon,
   Download,
   Search,
+  ArrowLeft,
 } from "lucide-react";
 import { ConfirmModal, FloatingMenu, PromptModal } from "@/components/ui";
+import { ConversationGraph } from "./ConversationGraph";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { buildRecommendationSystemPrompt } from "@/lib/ai/recommendation-prompts";
@@ -71,8 +75,23 @@ import {
 } from "@/lib/reading-context";
 import { SaveAsFlashcardsModal } from "./SaveAsFlashcardsModal";
 import { ChatTree, RootDropZone } from "./chat-tree";
+import { BookChatTree } from "./BookChatTree";
 
-export function ChatPage() {
+/**
+ * When set, ChatPage runs in "book-scoped" mode: the sidebar lists only this
+ * book's conversations (source_doc_id === docId), organized by fork lineage,
+ * and every new conversation is tagged with the book so it lives beside it in
+ * the library. Reached from a book page's "Chat" entry point.
+ */
+export interface ChatPageScope {
+  docId: string;
+  docTitle: string;
+  /** Route to return to (the book page); shows a back button when present. */
+  backTo?: string;
+  backLabel?: string;
+}
+
+export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -118,8 +137,25 @@ export function ChatPage() {
   // chat folders live in the shared library folders table
   const navigateToLibraryFolder = useLibraryStore((s) => s.navigateToFolder);
 
+  // in book-scoped mode, only this book's conversations (forks copy the
+  // source_doc_id, so they come along too)
+  const visibleConversations = useMemo(
+    () =>
+      scope
+        ? conversations.filter((c) => c.source_doc_id === scope.docId)
+        : conversations,
+    [scope, conversations],
+  );
+  // new conversations started here inherit the book as their source context
+  const scopeSource = useMemo(
+    () =>
+      scope
+        ? { docId: scope.docId, docTitle: scope.docTitle, page: null }
+        : null,
+    [scope],
+  );
   // already sorted by sort_order in the store
-  const sortedConversations = conversations;
+  const sortedConversations = visibleConversations;
 
   // MouseSensor (not PointerSensor) so touch scroll goes through TouchSensor and
   // doesn't start a drag. delay 600ms clears the 500ms long-press menu.
@@ -462,39 +498,44 @@ export function ChatPage() {
   // conversation and prefill the composer
   useEffect(() => {
     if (!user) return;
+    // reader hand-off drafts always target the global /chat page, not a
+    // book-scoped one
+    if (scope) return;
     const draft = useChatStore.getState().consumePendingDraft();
     if (!draft) return;
-    console.log("[chat-page-drain] consumed draft", {
-      textLen: draft.text.length,
-      textPreview: draft.text.slice(0, 80),
-      hasSource: !!draft.source,
-    });
     // prefill before the await so the draft survives an upstream error
     setInput(draft.text);
     void (async () => {
-      const id = await createConversation(
+      // createConversation already opens it (sets active + empty thread)
+      await createConversation(
         "",
         null,
         draft.source ?? null,
         draft.target ?? null,
       );
-      if (!id) return;
-      await openConversation(id);
-      console.log("[chat-page-drain] conversation opened", { id });
     })();
     // drain once per mount / sign-in
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // book-scoped: if the store's active conversation belongs to another book
+  // (leftover from the global /chat), drop it so we snap to this book's thread
+  useEffect(() => {
+    if (!scope || !activeId) return;
+    const active = conversations.find((c) => c.id === activeId);
+    if (active && active.source_doc_id === scope.docId) return;
+    useChatStore.getState().clearActive();
+  }, [scope, activeId, conversations]);
 
   // auto-open the most recent conversation on a fresh /chat, unless a
   // reader-handoff draft is in flight
   useEffect(() => {
     if (!user) return;
     if (activeId) return;
-    if (conversations.length === 0) return;
-    if (useChatStore.getState().pendingDraft !== null) return;
-    void openConversation(conversations[0].id);
-  }, [user, activeId, conversations, openConversation]);
+    if (visibleConversations.length === 0) return;
+    if (!scope && useChatStore.getState().pendingDraft !== null) return;
+    void openConversation(visibleConversations[0].id);
+  }, [user, activeId, visibleConversations, openConversation, scope]);
 
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeId) ?? null,
@@ -535,15 +576,41 @@ export function ChatPage() {
   const overflowAnchorMobileRef = useRef<HTMLButtonElement>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [overflowOpenMobile, setOverflowOpenMobile] = useState(false);
+  const [showGraph, setShowGraph] = useState(false);
 
-  // auto-scroll to latest: instant on conversation switch, smooth within it
+  // tracks whether the thread is scrolled near the bottom; drives both the
+  // auto-follow gate and the scroll-to-bottom button
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [atBottom, setAtBottom] = useState(true);
+  const atBottomRef = useRef(true);
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const near = dist < 120;
+    atBottomRef.current = near;
+    setAtBottom(near);
+  }, []);
+  const scrollToBottom = useCallback(() => {
+    threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    atBottomRef.current = true;
+    setAtBottom(true);
+  }, []);
+
+  // auto-scroll to latest: instant on conversation switch, smooth within it —
+  // but only while the user is already at the bottom, so scrolling up to
+  // re-read mid-stream isn't yanked back down on every token.
   const lastScrollConvIdRef = useRef<string | null>(null);
   useEffect(() => {
     const isConvSwitch = lastScrollConvIdRef.current !== activeId;
     lastScrollConvIdRef.current = activeId;
-    threadEndRef.current?.scrollIntoView({
-      behavior: isConvSwitch ? "auto" : "smooth",
-    });
+    if (isConvSwitch) {
+      atBottomRef.current = true;
+      setAtBottom(true);
+      threadEndRef.current?.scrollIntoView({ behavior: "auto" });
+    } else if (atBottomRef.current) {
+      threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [activeId, activeLeafId, messages, streamingMessageId]);
 
   const threadPath = useMemo(
@@ -557,17 +624,17 @@ export function ChatPage() {
 
   const handleNew = async () => {
     setMobileListOpen(false);
-    const id = await createConversation();
-    if (id) await openConversation(id);
+    // createConversation already sets it active with an empty thread — no need
+    // for a second openConversation round-trip (that was the visible lag).
+    await createConversation("", null, scopeSource);
   };
 
   const handleNewInFolder = useCallback(
     async (folderId: string) => {
       setMobileListOpen(false);
-      const id = await createConversation("", folderId);
-      if (id) await openConversation(id);
+      await createConversation("", folderId, scopeSource);
     },
-    [createConversation, openConversation],
+    [createConversation, scopeSource],
   );
 
   const handleCollapseAll = useCallback(() => {
@@ -602,9 +669,8 @@ export function ChatPage() {
       // image mode routes to the Images API, needs a conversation first
       if (payload.mode === "image") {
         if (!activeId) {
-          const id = await createConversation();
+          const id = await createConversation("", null, scopeSource);
           if (!id) return;
-          await openConversation(id);
         }
         await sendImageMessage(text);
         return;
@@ -630,9 +696,8 @@ export function ChatPage() {
         await branchFrom(parentId, text, provider, attachments, sendOptions);
       } else {
         if (!activeId) {
-          const id = await createConversation();
+          const id = await createConversation("", null, scopeSource);
           if (!id) return;
-          await openConversation(id);
         }
         await sendMessage(text, provider, attachments, sendOptions);
       }
@@ -642,9 +707,9 @@ export function ChatPage() {
       activeId,
       branchFrom,
       createConversation,
-      openConversation,
       sendMessage,
       sendImageMessage,
+      scopeSource,
     ],
   );
 
@@ -733,16 +798,35 @@ export function ChatPage() {
           </Link>
         </div>
 
-        {/* top action row: full-width New conversation, then icon buttons
-            for new folder and collapse/expand all */}
-        <div className="flex flex-col gap-1.5">
-          <button
-            onClick={handleNew}
-            className="flex items-center justify-center gap-2 rounded-md border border-glass-border bg-transparent px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:border-accent/40 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-          >
-            <SquarePen size={14} className="text-accent" />
-            {t("chat.newConversation")}
-          </button>
+        {/* book-scoped banner: back to the book + which book these chats are about */}
+        {scope && (
+          <div className="flex flex-col gap-1.5">
+            <button
+              type="button"
+              onClick={() =>
+                scope.backTo ? navigate(scope.backTo) : navigate(-1)
+              }
+              className="flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+            >
+              <ArrowLeft size={14} />
+              {scope.backLabel ||
+                t("chat.book.backToBook", { defaultValue: "Back to book" })}
+            </button>
+            <div className="flex items-center gap-1.5 rounded-md border border-accent-blue/30 bg-accent-blue/10 px-2 py-1.5">
+              <BookOpen size={13} className="shrink-0 text-accent-blue" />
+              <span
+                className="min-w-0 flex-1 truncate text-xs font-medium text-accent-blue"
+                title={scope.docTitle}
+              >
+                {scope.docTitle}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* header controls: small icon actions + search sit on top, then a
+            prominent New conversation button below to nudge starting a chat */}
+        <div className="flex flex-col gap-2">
           <div className="flex items-center gap-1">
             <button
               onClick={() => setFolderAction({ kind: "create", parentId: null })}
@@ -787,35 +871,78 @@ export function ChatPage() {
               </button>
             )}
           </div>
+
+          {/* conversation search, hidden when there's nothing to search */}
+          {conversations.length > 0 && (
+            <div className="relative">
+              <Search
+                size={12}
+                className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-text-muted"
+              />
+              <input
+                type="text"
+                value={conversationSearch}
+                onChange={(e) => setConversationSearch(e.target.value)}
+                placeholder={t("chat.searchPlaceholder")}
+                className="w-full rounded-md border border-glass-border bg-glass-bg/50 px-2 py-1.5 pl-7 pr-7 text-xs text-text-primary outline-none focus:border-accent/60 placeholder:text-text-muted"
+              />
+              {conversationSearch && (
+                <button
+                  type="button"
+                  onClick={() => setConversationSearch("")}
+                  aria-label={t("common.cancel")}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          )}
+
+          <button
+            onClick={handleNew}
+            className="flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent/90 cursor-pointer"
+          >
+            <SquarePen size={16} />
+            {t("chat.newConversation")}
+          </button>
         </div>
 
-        {/* conversation search, hidden when there's nothing to search */}
-        {conversations.length > 0 && (
-          <div className="relative">
-            <Search
-              size={12}
-              className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-text-muted"
-            />
-            <input
-              type="text"
-              value={conversationSearch}
-              onChange={(e) => setConversationSearch(e.target.value)}
-              placeholder={t("chat.searchPlaceholder")}
-              className="w-full rounded-md border border-glass-border bg-glass-bg/50 px-2 py-1.5 pl-7 pr-7 text-xs text-text-primary outline-none focus:border-accent/60 placeholder:text-text-muted"
-            />
-            {conversationSearch && (
-              <button
-                type="button"
-                onClick={() => setConversationSearch("")}
-                aria-label={t("common.cancel")}
-                className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              >
-                <X size={12} />
-              </button>
+        {scope ? (
+          <div className="flex-1 space-y-0.5 overflow-y-auto">
+            {visibleConversations.length === 0 ? (
+              <p className="px-2 py-4 text-center text-xs text-text-muted">
+                {t("chat.book.empty", {
+                  defaultValue: "No chats about this book yet.",
+                })}
+              </p>
+            ) : filteredConversationData.conversations.length === 0 ? (
+              <p className="px-2 py-4 text-center text-xs text-text-muted">
+                {t("chat.searchNoResults")}
+              </p>
+            ) : (
+              <BookChatTree
+                conversations={filteredConversationData.conversations}
+                folders={folders}
+                activeId={activeId}
+                editingId={editingId}
+                editTitle={editTitle}
+                onOpen={handleOpenFromDrawer}
+                onStartEdit={handleStartEdit}
+                onCancelEdit={handleCancelEdit}
+                onSaveTitle={handleSaveTitle}
+                onEditTitleChange={setEditTitle}
+                onDelete={handleDeleteConversation}
+                onMove={moveConversationToFolder}
+                onNewInFolder={handleNewInFolder}
+                onRequestRenameFolder={handleRequestRenameFolder}
+                onRequestDeleteFolder={handleRequestDeleteFolder}
+                onOpenFolderInLibrary={handleOpenFolderInLibrary}
+                t={t}
+              />
             )}
           </div>
-        )}
-
+        ) : (
         <DndContext
           sensors={dndSensors}
           collisionDetection={collisionDetection}
@@ -894,6 +1021,7 @@ export function ChatPage() {
             )}
           </DragOverlay>
         </DndContext>
+        )}
         {/* resize handle, desktop only (mobile drawer is fixed width) */}
         {!isMobile && (
           <div
@@ -915,6 +1043,32 @@ export function ChatPage() {
           paddingBottom: keyboardInset > 0 ? keyboardInset : undefined,
         }}
       >
+        {showGraph && (
+          <div className="absolute inset-0 z-20 flex flex-col bg-bg-primary/95 backdrop-blur-sm">
+            <div className="flex items-center justify-between border-b border-glass-border px-3 py-2">
+              <span className="flex items-center gap-2 text-sm font-medium text-text-primary">
+                <Network size={16} className="text-accent" />
+                {t("chat.graph.title", { defaultValue: "Conversation graph" })}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowGraph(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                aria-label={t("common.close", { defaultValue: "Close" })}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <ConversationGraph
+              className="min-h-0 flex-1"
+              scopeDocId={scope?.docId}
+              onOpen={(id) => {
+                void openConversation(id);
+                setShowGraph(false);
+              }}
+            />
+          </div>
+        )}
         {/* aurora backdrop. `isolate` on <main> keeps the -z-10 layer
             behind the messages; pointer-events-none keeps it inert */}
         <div
@@ -936,7 +1090,15 @@ export function ChatPage() {
         </div>
         {/* desktop overflow, floats so it doesn't push the thread down.
             mobile has its own header menu */}
-        <div className="absolute right-2 top-2 z-10 hidden sm:block">
+        <div className="absolute right-2 top-2 z-10 hidden items-center gap-1 sm:flex">
+          <button
+            onClick={() => setShowGraph(true)}
+            className="rounded-md border border-glass-border bg-bg-secondary/70 p-1.5 text-text-muted backdrop-blur-md transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            aria-label={t("chat.graph.title", { defaultValue: "Conversation graph" })}
+            title={t("chat.graph.title", { defaultValue: "Conversation graph" })}
+          >
+            <Network size={16} />
+          </button>
           <button
             ref={overflowAnchorRef}
             onClick={() => setOverflowOpen((v) => !v)}
@@ -1071,7 +1233,12 @@ export function ChatPage() {
         {/* active conversation, message column capped at max-w-3xl and centered */}
         {activeId && (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4">
+            <div className="relative flex min-h-0 flex-1 flex-col">
+            <div
+              ref={scrollContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4"
+            >
               <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-3">
               {isLoading && threadPath.length === 0 && (
                 <div
@@ -1181,6 +1348,24 @@ export function ChatPage() {
               })}
               <div ref={threadEndRef} />
               </div>
+            </div>
+            {/* jump-to-latest, shown when the user has scrolled up (e.g. reading
+                while the answer is still streaming) */}
+            {!atBottom && (
+              <button
+                type="button"
+                onClick={scrollToBottom}
+                aria-label={t("chat.scrollToBottom", {
+                  defaultValue: "Scroll to latest",
+                })}
+                title={t("chat.scrollToBottom", {
+                  defaultValue: "Scroll to latest",
+                })}
+                className="absolute bottom-3 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-glass-border bg-bg-secondary/90 text-text-muted shadow-lg backdrop-blur-md transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              >
+                <ChevronDown size={18} />
+              </button>
+            )}
             </div>
 
             {/* composer wrapper. keeps horizontal padding on mobile so the pills

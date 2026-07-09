@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { registerFile } from "@/lib/file-store";
 import { saveLastOpenedBook } from "@/lib/last-opened-book";
+import { loadBookBlob, saveBookBlob } from "@/lib/offline-books";
 import { logError } from "@/lib/logger";
 import { supabase } from "@/lib/supabase";
 import type { CatalogBook } from "@/types/catalog";
@@ -100,6 +101,24 @@ export function useOpenCatalogBook() {
           return;
         }
 
+        // Persistent offline copy (survives restart) before hitting the network.
+        const offline = await loadBookBlob(book.id);
+        if (offline) {
+          const ext = guessExtension(url);
+          const filename = `${book.title.replace(/[^\w.-]+/g, "_")}.${ext}`;
+          const offlineFile =
+            offline instanceof File
+              ? offline
+              : new File([offline], filename, {
+                  type: offline.type || mimeFor(ext),
+                });
+          blobCache.set(book.id, offlineFile);
+          registerFile(book.id, offlineFile);
+          saveLastOpenedBook({ source: "catalog", id: book.id, title: book.title });
+          navigate(`/reader/${book.id}`, { state: { from: openedFrom } });
+          return;
+        }
+
         let res: Response;
         try {
           res = await fetch(url, { mode: "cors" });
@@ -127,6 +146,8 @@ export function useOpenCatalogBook() {
         });
 
         blobCache.set(book.id, file);
+        // persist for offline re-opening
+        void saveBookBlob(book.id, file);
         registerFile(book.id, file);
         saveLastOpenedBook({ source: "catalog", id: book.id, title: book.title });
         navigate(`/reader/${book.id}`, { state: { from: openedFrom } });

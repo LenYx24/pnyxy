@@ -518,7 +518,7 @@ export function ReaderToolbar({
   );
 
   const pageNavEl = (
-    <div className="flex shrink-0 items-center gap-1">
+    <div className="flex shrink-0 items-center gap-0.5">
       <button
         onClick={() => prevPage()}
         disabled={currentPage <= 1}

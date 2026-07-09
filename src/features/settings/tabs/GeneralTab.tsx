@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Download } from "lucide-react";
+import { Download, RotateCcw } from "lucide-react";
 import { useSettingsStore } from "@/stores/settings-store";
 import type { FitMode, EpubFlow } from "@/stores/settings-store";
 import {
@@ -72,6 +72,7 @@ export function GeneralTab() {
     setEpubColumnWidth,
     setExperimentalAnnotations,
     setExperimentalWhiteboard,
+    setOnboardingCompleted,
   } = useSettingsStore();
 
   const fitModeOptions: { value: FitMode; label: string; description: string }[] = [
@@ -418,6 +419,30 @@ export function GeneralTab() {
             {t("settings.data.exportError", { message: exportStatus.message })}
           </p>
         )}
+      </section>
+
+      <section className="space-y-3 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
+        <div>
+          <h2 className="text-lg font-semibold text-text-primary">
+            {t("settings.onboarding.heading", { defaultValue: "Onboarding" })}
+          </h2>
+          <p className="mt-0.5 text-xs text-text-muted">
+            {t("settings.onboarding.description", {
+              defaultValue:
+                "Replay the quick welcome tour of Pnyxy's main features.",
+            })}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOnboardingCompleted(false)}
+          className="inline-flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-glass-hover hover:border-accent/50 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+        >
+          <RotateCcw size={14} />
+          {t("settings.onboarding.restartButton", {
+            defaultValue: "Restart the tour",
+          })}
+        </button>
       </section>
     </div>
   );

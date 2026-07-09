@@ -295,6 +295,9 @@ export function QuizTakePage() {
           revealed={revealed}
           isCorrect={!!(answers[current]?.is_correct)}
           correctText={q.correct_text ?? ""}
+          onSubmit={() => {
+            if (canReveal && !revealed) reveal();
+          }}
         />
       )}
 
@@ -440,12 +443,16 @@ export function ShortAnswerInput({
   revealed,
   isCorrect,
   correctText,
+  onSubmit,
 }: {
   value: string;
   onChange: (v: string) => void;
   revealed: boolean;
   isCorrect: boolean;
   correctText: string;
+  /** Fired when the user presses Enter (before reveal). Ignores IME
+   *  composition so mid-composition Enter doesn't submit. */
+  onSubmit?: () => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -453,6 +460,14 @@ export function ShortAnswerInput({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" || revealed || !onSubmit) return;
+          // Skip while an IME is composing (same guard as the chat
+          // composer): nativeEvent.isComposing or the legacy 229 keyCode.
+          if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+          e.preventDefault();
+          onSubmit();
+        }}
         disabled={revealed}
         placeholder={t("quizzes.take.typeAnswer")}
         autoFocus

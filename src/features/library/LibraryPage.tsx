@@ -8,6 +8,7 @@ import {
   UploadCloud,
   Link as LinkIcon,
   BookPlus,
+  Globe,
   AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui";
@@ -23,6 +24,7 @@ import { useNoteStore } from "@/stores/note-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import { useQuizStore } from "@/stores/quiz-store";
 import { useChatStore } from "@/stores/chat-store";
+import { useResourceStore } from "@/stores/resource-store";
 import { useUploadStore } from "@/stores/upload-store";
 import {
   classifyFile,
@@ -44,6 +46,7 @@ import { FolderPickerModal } from "./modals/FolderPickerModal";
 import { UploadPdfModal } from "./modals/UploadPdfModal";
 import { DeviceBookScanModal } from "./modals/DeviceBookScanModal";
 import { AddManualBookModal } from "./modals/AddManualBookModal";
+import { AddResourceModal } from "./modals/AddResourceModal";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import type { BookStatusTag } from "@/types/database";
 
@@ -85,6 +88,10 @@ export function LibraryPage() {
     (s) => s.moveConversationToFolder,
   );
   const deleteConversation = useChatStore((s) => s.deleteConversation);
+  const resources = useResourceStore((s) => s.resources);
+  const moveResourceToFolder = useResourceStore((s) => s.moveResourceToFolder);
+  const deleteResource = useResourceStore((s) => s.deleteResource);
+  const fetchResources = useResourceStore((s) => s.fetchResources);
   const user = useAuthStore((s) => s.user);
 
   // View preferences
@@ -126,6 +133,7 @@ export function LibraryPage() {
     const whiteboardIds = whiteboards.map((w) => `whiteboard:${w.id}`);
     const quizIds = quizzes.map((q) => `quiz:${q.id}`);
     const chatIds = conversations.map((c) => `chat:${c.id}`);
+    const resourceIds = resources.map((r) => `resource:${r.id}`);
     return [
       ...folderIds,
       ...bookIds,
@@ -133,8 +141,9 @@ export function LibraryPage() {
       ...whiteboardIds,
       ...quizIds,
       ...chatIds,
+      ...resourceIds,
     ];
-  }, [folders, books, notes, whiteboards, quizzes, conversations]);
+  }, [folders, books, notes, whiteboards, quizzes, conversations, resources]);
 
   const handleToggleSelect = useCallback(
     (id: string, event: { ctrlKey: boolean; shiftKey: boolean }) => {
@@ -180,6 +189,7 @@ export function LibraryPage() {
   const [scanModalOpen, setScanModalOpen] = useState(false);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
   const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [resourceModalOpen, setResourceModalOpen] = useState(false);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
 
   // upload pipeline is PDF-only; other formats just open in the reader
@@ -209,7 +219,8 @@ export function LibraryPage() {
     fetchFolders();
     fetchStorageUsage();
     fetchInProgress();
-  }, [fetchLibrary, fetchFolders, fetchStorageUsage, fetchInProgress]);
+    void fetchResources();
+  }, [fetchLibrary, fetchFolders, fetchStorageUsage, fetchInProgress, fetchResources]);
 
   // pull-to-refresh (mobile). always forces a refetch.
   const { pullDistance, isRefreshing } = usePullToRefresh({
@@ -295,6 +306,9 @@ export function LibraryPage() {
     const chatIds = [...selectedIds]
       .filter((s) => s.startsWith("chat:"))
       .map((s) => s.slice(5));
+    const resourceIds = [...selectedIds]
+      .filter((s) => s.startsWith("resource:"))
+      .map((s) => s.slice(9));
 
     // Move books
     for (const id of bookIds) {
@@ -316,6 +330,10 @@ export function LibraryPage() {
     // Move conversations
     for (const id of chatIds) {
       await moveConversationToFolder(id, folderId);
+    }
+    // Move resources
+    for (const id of resourceIds) {
+      await moveResourceToFolder(id, folderId);
     }
     // Move folders
     for (const id of folderIds) {
@@ -376,6 +394,14 @@ export function LibraryPage() {
       .map((s) => s.slice(5));
     for (const id of chatIds) {
       await deleteConversation(id);
+    }
+
+    // Delete resources
+    const resourceIds = [...selectedIds]
+      .filter((s) => s.startsWith("resource:"))
+      .map((s) => s.slice(9));
+    for (const id of resourceIds) {
+      await deleteResource(id);
     }
 
     // For folders, use deleteFolder from the store
@@ -555,6 +581,14 @@ export function LibraryPage() {
       label: t("library.actions.manual"),
       icon: BookPlus,
       onClick: () => setManualModalOpen(true),
+    },
+    {
+      id: "resource",
+      label: t("library.actions.addResource", {
+        defaultValue: "Resource (beta)",
+      }),
+      icon: Globe,
+      onClick: () => setResourceModalOpen(true),
     },
   ]);
 
@@ -755,6 +789,13 @@ export function LibraryPage() {
       <AddManualBookModal
         open={manualModalOpen}
         onClose={() => setManualModalOpen(false)}
+      />
+
+      {/* saved web page / YouTube link (beta), lands in the current folder */}
+      <AddResourceModal
+        open={resourceModalOpen}
+        onClose={() => setResourceModalOpen(false)}
+        folderId={currentFolderId}
       />
 
       {/* new folder modal, creates in the current folder */}

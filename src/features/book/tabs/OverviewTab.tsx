@@ -419,7 +419,14 @@ function CatalogOverview({
               className="mt-1"
             />
           </div>
-          {user ? (
+          {!user ? (
+            <Link
+              to="/auth"
+              className="text-xs text-accent hover:underline"
+            >
+              {t("ratings.signInToRate")}
+            </Link>
+          ) : inLibrary ? (
             <div className="flex items-center gap-3">
               <StarRatingInput
                 value={myRating}
@@ -434,12 +441,13 @@ function CatalogOverview({
               )}
             </div>
           ) : (
-            <Link
-              to="/auth"
-              className="text-xs text-accent hover:underline"
-            >
-              {t("ratings.signInToRate")}
-            </Link>
+            // rating is a library-only action — a catalog book you're merely
+            // previewing can't be rated until you add it
+            <span className="text-xs text-text-muted">
+              {t("ratings.addToLibraryToRate", {
+                defaultValue: "Add this book to your library to rate it.",
+              })}
+            </span>
           )}
         </div>
       </div>

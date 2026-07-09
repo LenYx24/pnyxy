@@ -20,12 +20,14 @@ import type { Note } from "@/stores/note-store";
 import type { WhiteboardData } from "@/types/whiteboard";
 import type { Quiz } from "@/types/quiz";
 import type { ChatConversation } from "@/types/chat";
+import type { Resource } from "@/types/resource";
 import type { ListColumnWidths } from "../useLibraryPrefs";
 import { BookRow } from "./BookRow";
 import { NoteRow } from "./NoteRow";
 import { WhiteboardRow } from "./WhiteboardRow";
 import { QuizRow } from "./QuizRow";
 import { ChatRow } from "./ChatRow";
+import { ResourceRow } from "./ResourceRow";
 import { ContextMenu, MenuItem } from "./MenuButton";
 import { formatDate, type RowDensity } from "./helpers";
 
@@ -49,12 +51,14 @@ interface FolderRowProps {
   childWhiteboards?: WhiteboardData[];
   childQuizzes?: Quiz[];
   childChats?: ChatConversation[];
+  childResources?: Resource[];
   allFolders: FolderType[];
   allBooks: UnifiedLibraryItem[];
   allNotes?: Note[];
   allWhiteboards?: WhiteboardData[];
   allQuizzes?: Quiz[];
   allChats?: ChatConversation[];
+  allResources?: Resource[];
   onMoveBook: (entry: UnifiedLibraryItem) => void;
   onRemoveBook: (entry: UnifiedLibraryItem) => void;
   /** Open the create-folder modal with this folder as parent. */
@@ -83,12 +87,14 @@ export function FolderRow({
   childWhiteboards = [],
   childQuizzes = [],
   childChats = [],
+  childResources = [],
   allFolders,
   allBooks,
   allNotes = [],
   allWhiteboards = [],
   allQuizzes = [],
   allChats = [],
+  allResources = [],
   onMoveBook,
   onRemoveBook,
   onCreateSubfolder,
@@ -302,7 +308,8 @@ export function FolderRow({
             childNotes.length +
             childWhiteboards.length +
             childQuizzes.length +
-            childChats.length}{" "}
+            childChats.length +
+            childResources.length}{" "}
           items
         </span>
 
@@ -333,6 +340,9 @@ export function FolderRow({
             const cfChats = allChats.filter(
               (c) => (c.folder_id ?? null) === cf.id,
             );
+            const cfResources = allResources.filter(
+              (r) => (r.folder_id ?? null) === cf.id,
+            );
             return (
               <FolderRow
                 key={cf.id}
@@ -352,12 +362,14 @@ export function FolderRow({
                 childWhiteboards={cfWhiteboards}
                 childQuizzes={cfQuizzes}
                 childChats={cfChats}
+                childResources={cfResources}
                 allFolders={allFolders}
                 allBooks={allBooks}
                 allNotes={allNotes}
                 allWhiteboards={allWhiteboards}
                 allQuizzes={allQuizzes}
                 allChats={allChats}
+                allResources={allResources}
                 onMoveBook={onMoveBook}
                 onRemoveBook={onRemoveBook}
                 onCreateSubfolder={onCreateSubfolder}
@@ -430,12 +442,25 @@ export function FolderRow({
               columnWidths={columnWidths}
             />
           ))}
+          {childResources.map((resource) => (
+            <ResourceRow
+              key={`resource:${resource.id}`}
+              resource={resource}
+              depth={depth + 1}
+              selected={selectedIds.has(`resource:${resource.id}`)}
+              selectionActive={selectionActive}
+              onToggleSelect={onToggleSelect}
+              density={density}
+              columnWidths={columnWidths}
+            />
+          ))}
           {childFolders.length === 0 &&
             childBooks.length === 0 &&
             childNotes.length === 0 &&
             childWhiteboards.length === 0 &&
             childQuizzes.length === 0 &&
-            childChats.length === 0 && (
+            childChats.length === 0 &&
+            childResources.length === 0 && (
               <div
                 className="px-3 py-2 text-xs text-text-muted italic"
                 style={{ paddingLeft: 8 + Math.min((depth + 1) * 20, 80) }}

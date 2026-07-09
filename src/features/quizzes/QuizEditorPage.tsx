@@ -230,8 +230,17 @@ export function QuizEditorPage() {
     !q.option_d.trim() &&
     !q.correct_text.trim();
 
-  const appendGeneratedQuestions = (drafts: QuizQuestionDraft[]) => {
+  const appendGeneratedQuestions = (
+    drafts: QuizQuestionDraft[],
+    sourceTitle?: string,
+  ) => {
     if (drafts.length === 0) return;
+    // Seed the title from the generation source (book title / pasted
+    // topic) so the happy path can Save without the user hand-typing a
+    // title — but never clobber one they've already entered.
+    if (sourceTitle && !title.trim()) {
+      setTitle(sourceTitle.slice(0, 140));
+    }
     setItems((prev) => {
       const keep =
         prev.length === 1 && isEmptyDraft(prev[0].draft) ? [] : prev;

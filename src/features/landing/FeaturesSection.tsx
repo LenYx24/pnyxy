@@ -7,7 +7,8 @@ import {
   Users,
   Puzzle,
 } from "lucide-react";
-import { GlassCard, Reveal } from "@/components/ui";
+import { Reveal } from "@/components/ui";
+import { SectionHeading } from "./SectionHeading";
 
 const features = [
   { icon: BookOpen, key: "smartReading" as const },
@@ -21,28 +22,32 @@ const features = [
 export function FeaturesSection() {
   const { t } = useTranslation();
   return (
-    <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-      <h2 className="mb-4 text-center text-3xl font-bold text-text-primary">
-        {t("landing.featuresTitle")}
-      </h2>
-      <p className="mb-16 text-center text-text-secondary">
-        {t("landing.featuresSubtitle")}
-      </p>
+    <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+      <SectionHeading
+        eyebrow={t("landing.eyebrow.features")}
+        title={t("landing.featuresTitle")}
+        subtitle={t("landing.featuresSubtitle")}
+      />
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {features.map(({ icon: Icon, key }, i) => (
-          <Reveal key={key} delay={i * 80}>
-            <GlassCard className="p-6">
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-accent/15">
-                <Icon size={20} className="text-accent" />
+          <Reveal key={key} delay={i * 60}>
+            <div className="group h-full rounded-xl border border-glass-border bg-bg-secondary p-6 transition-colors hover:border-accent/40">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/12 text-accent">
+                  <Icon size={20} />
+                </div>
+                <span className="font-mono text-2xs text-text-muted">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-text-primary">
+              <h3 className="mb-2 font-display text-lg font-semibold text-text-primary">
                 {t(`landing.features.${key}.title`)}
               </h3>
               <p className="text-sm leading-relaxed text-text-secondary">
                 {t(`landing.features.${key}.description`)}
               </p>
-            </GlassCard>
+            </div>
           </Reveal>
         ))}
       </div>

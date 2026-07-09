@@ -1,5 +1,6 @@
 import { Link, useParams } from "react-router";
 import { ArrowLeft, Clock } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { LEARN_METHODS } from "../LEARN_METHODS";
 import { BookQuizzesList } from "@/features/quizzes/QuizzesPage";
 import { useBook } from "../BookPageContext";
@@ -12,6 +13,7 @@ export function LearnMethodPlaceholder() {
     methodSlug: string;
   }>();
   const book = useBook();
+  const { t } = useTranslation();
   const method = LEARN_METHODS.find((m) => m.slug === methodSlug);
 
   // The three AI-coaching styles (Feynman / ELI5 / Socratic) all
@@ -102,7 +104,9 @@ export function LearnMethodPlaceholder() {
         <Clock size={24} className="mx-auto mb-2 text-text-muted" />
         <p className="text-sm font-medium text-text-primary">Coming soon</p>
         <p className="mt-1 text-xs text-text-muted">
-          Launching in Phase 1 of the learning-tools rollout.
+          {t("learnHub.methodComingSoon", {
+            defaultValue: "This learning tool is coming soon.",
+          })}
         </p>
       </div>
     </div>

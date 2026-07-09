@@ -1,4 +1,41 @@
 {
+  "onboarding": {
+    "welcome": {
+      "title": "Welcome to Pnyxy",
+      "body": "Your study workspace for reading, understanding, and remembering. This quick tour takes under a minute."
+    },
+    "read": {
+      "title": "Read PDFs & ask the AI",
+      "body": "Open a PDF and ask questions in the chat. Answers cite the page — click a citation to jump straight there."
+    },
+    "memory": {
+      "title": "Turn reading into memory",
+      "body": "Generate quizzes, flashcards, and study roadmaps from anything you read to lock it in."
+    },
+    "ready": {
+      "title": "You're all set",
+      "body": "It's free to start — pick your AI model anytime in Settings. Happy studying!"
+    },
+    "skip": "Skip tour",
+    "back": "Back",
+    "done": "Get started",
+    "next": "Next"
+  },
+  "learnHub": {
+    "eyebrow": "Learning tools",
+    "title": "Practice what you've read",
+    "subtitle": "Choose a study method to review and reinforce this book.",
+    "methodComingSoon": "This learning tool is coming soon."
+  },
+  "resources": {
+    "back": "Back",
+    "backToLibrary": "Go to library",
+    "beta": "Beta",
+    "loading": "Loading…",
+    "notFound": "This resource could not be found.",
+    "openOriginal": "Open original",
+    "previewUnavailable": "A readable preview isn't available yet. Extraction is a beta feature that needs the server ingest function."
+  },
   "common": {
     "back": "Back",
     "cancel": "Cancel",
@@ -35,6 +72,7 @@
     "streaks": "Streaks",
     "roadmaps": "Roadmaps",
     "forum": "Forum",
+    "spaces": "Spaces",
     "settings": "Settings",
     "admin": "Admin",
     "signIn": "Sign in",
@@ -131,10 +169,15 @@
       "currentPremium": "You're on the Premium plan",
       "freeBadge": "Free",
       "premiumBadge": "Premium",
-      "manageHint": "Your Premium subscription is active. To update payment details or cancel, use the link in your Lemon Squeezy receipt email.",
+      "manageHint": "Your Premium subscription is active. Cancel, switch plan, or update your payment method anytime via the secure portal.",
       "upgradeButton": "Upgrade to Premium",
+      "manageButton": "Manage subscription",
+      "openingPortal": "Opening…",
       "comingSoon": "Coming soon",
-      "securedBy": "Payments are securely handled by Lemon Squeezy.",
+      "startingCheckout": "Opening secure checkout…",
+      "checkoutError": "Couldn't start checkout. Please try again.",
+      "processingUpgrade": "Payment received - activating your Premium plan. This can take a moment.",
+      "securedBy": "Payments are securely handled by Stripe.",
       "features": {
         "largerQuota": "Much larger daily AI quota",
         "moreStorage": "25 GB of cloud storage for your books",
@@ -165,9 +208,9 @@
       "epubFlow": "EPUB reading mode",
       "epubFlowHint": "Choose how EPUBs flow on screen. Switching applies to currently open books too.",
       "epubFlowScrolled": "Continuous scroll",
-      "epubFlowScrolledHint": "One long page you scroll through — best on desktop.",
+      "epubFlowScrolledHint": "One long page you scroll through - best on desktop.",
       "epubFlowPaginated": "Paginated",
-      "epubFlowPaginatedHint": "Discrete pages you swipe between — best on mobile.",
+      "epubFlowPaginatedHint": "Discrete pages you swipe between - best on mobile.",
       "epubFontScale": "EPUB font size",
       "epubFontScaleHint": "Scales the EPUB's body text. Applies live to open books.",
       "epubLineHeight": "EPUB line height",
@@ -196,12 +239,12 @@
     },
     "data": {
       "heading": "Your data",
-      "description": "Pnyxy stores your data in open formats. Download a copy at any time — your library, annotations, notes, vocab, quizzes, reading plans, chats, and stats. Uploaded book files are not included; their metadata and storage URLs are.",
+      "description": "Pnyxy stores your data in open formats. Download a copy at any time - your library, annotations, notes, vocab, quizzes, reading plans, chats, and stats. Uploaded book files are not included; their metadata and storage URLs are.",
       "exportButton": "Export as JSON",
       "exportingButton": "Exporting…",
       "exportSuccess": "Export downloaded.",
       "exportError": "Export failed: {{message}}",
-      "exportPartial": "Export downloaded with {{count}} section error(s) — see the file for details."
+      "exportPartial": "Export downloaded with {{count}} section error(s) - see the file for details."
     },
     "appearanceSection": {
       "heading": "Appearance",
@@ -211,7 +254,7 @@
       "browseCommunity": "Browse community themes",
       "library": {
         "heading": "Library",
-        "coverSize": "Cover size — {{value}}px",
+        "coverSize": "Cover size - {{value}}px",
         "coverSizeHelp": "How large book covers render in the Library grid view."
       },
       "customCss": {
@@ -253,8 +296,8 @@
     },
     "organizationsSection": {
       "heading": "Organizations",
-      "description": "Group your work into separate spaces — School, Personal, Work — and switch between them from the sidebar.",
-      "scopingNotice": "Right now organizations only scope your library (folders, uploaded books, catalog additions). Quizzes, reading plans, vocab, whiteboards, and roadmaps are still shared across orgs — per-feature scoping lands in follow-up updates.",
+      "description": "Group your work into separate spaces - School, Personal, Work - and switch between them from the sidebar.",
+      "scopingNotice": "Right now organizations only scope your library (folders, uploaded books, catalog additions). Quizzes, reading plans, vocab, whiteboards, and roadmaps are still shared across orgs - per-feature scoping lands in follow-up updates.",
       "signInFirst": "Sign in to manage organizations.",
       "newOrg": "New organization",
       "create": "Create",
@@ -273,7 +316,7 @@
       "defaultBadge": "Default",
       "deleteOrg": "Delete",
       "confirmDeleteTitle": "Delete \"{{name}}\"?",
-      "confirmDeleteBody": "Removes the organization. Your books, quizzes, and other content stay in place — they're not scoped to organizations yet."
+      "confirmDeleteBody": "Removes the organization. Your books, quizzes, and other content stay in place - they're not scoped to organizations yet."
     },
     "shortcutsSection": {
       "heading": "Keyboard Shortcuts",
@@ -307,7 +350,7 @@
       "localBaseUrlLabel": "Base URL",
       "localBaseUrlHint": "Ollama: http://localhost:11434/v1 · LM Studio: http://localhost:1234/v1",
       "localModelLabel": "Model name",
-      "localModelHint": "Whatever you've pulled locally — e.g. \"llama3.2\", \"qwen2.5-coder:14b\", \"gpt-oss:20b\".",
+      "localModelHint": "Whatever you've pulled locally - e.g. \"llama3.2\", \"qwen2.5-coder:14b\", \"gpt-oss:20b\".",
       "localApiKeyPlaceholder": "(usually empty for localhost)",
       "localApiKeyHint": "Only needed if your server requires a bearer token (LM Studio with auth, vLLM with --api-key, tailnet proxies).",
       "pnyxyAnon": "Sign in for the standard daily quota. Anonymous users get a small per-IP quota of 5 requests / 5,000 tokens per day.",
@@ -318,7 +361,7 @@
       "resetsDaily": "Resets daily at 00:00 UTC.",
       "anthropicKeyHint": "Stored locally in your browser. Calls go directly to Anthropic.",
       "openaiKeyHint": "Stored locally in your browser. Calls go directly to OpenAI.",
-      "byokQuotaNote": "Pnyxy can't see your provider-side credit balance — these calls are billed directly. Use the link below to check usage in your provider's console.",
+      "byokQuotaNote": "Pnyxy can't see your provider-side credit balance - these calls are billed directly. Use the link below to check usage in your provider's console.",
       "checkUsageAnthropic": "Check usage in the Anthropic console ↗",
       "checkUsageOpenAI": "Check usage in the OpenAI dashboard ↗",
       "moreActions": "More actions",
@@ -347,6 +390,12 @@
     "getStarted": "Get Started",
     "learnMore": "Learn More",
     "continueNoAccount": "Continue without an account →",
+    "eyebrow": {
+      "features": "What you get",
+      "pricing": "Pricing",
+      "faq": "Questions",
+      "openSource": "Open source"
+    },
     "featuresTitle": "Everything you need to read smarter",
     "featuresSubtitle": "Powerful tools designed around how people actually learn from books.",
     "openSource": {
@@ -382,7 +431,7 @@
       },
       "premium": {
         "name": "Premium",
-        "price": "—",
+        "price": "-",
         "priceSuffix": "coming soon",
         "comingSoon": "Coming soon",
         "tagline": "For power users who want more AI, more storage, more tools.",
@@ -485,6 +534,7 @@
     "blockTitle": "Ratings",
     "notYetRated": "Not yet rated",
     "yourRating": "Your rating: {{stars}}",
+    "addToLibraryToRate": "Add this book to your library to rate it.",
     "signInToRate": "Sign in to rate →"
   },
   "whiteboard": {
@@ -505,7 +555,7 @@
     "added": "Added",
     "hasFile": "Readable file",
     "metadataOnly": "Metadata only",
-    "metadataOnlyTooltip": "No file attached — notes + forum still work",
+    "metadataOnlyTooltip": "No file attached - notes + forum still work",
     "sources": {
       "openLibrary": {
         "name": "Open Library",
@@ -525,8 +575,8 @@
       }
     },
     "disabled": {
-      "patron_auth_required": "Requires Standard Ebooks Patrons Circle — configure SE_EMAIL.",
-      "endpoint_unknown": "Public OAI-PMH endpoint unknown — contact MEK."
+      "patron_auth_required": "Requires Standard Ebooks Patrons Circle - configure SE_EMAIL.",
+      "endpoint_unknown": "Public OAI-PMH endpoint unknown - contact MEK."
     }
   },
   "home": {
@@ -576,7 +626,7 @@
     "bookCount_other": "{{count}} books in your collection",
     "dropOverlay": {
       "title": "Drop to add to your library",
-      "formats": "PDF, EPUB, TXT, or Markdown — multiple files supported",
+      "formats": "PDF, EPUB, TXT, or Markdown - multiple files supported",
       "signInHint": "Sign in to save PDFs to your cloud library."
     },
     "importing": "Importing {{current}} of {{total}}",
@@ -587,7 +637,7 @@
       "success": "Uploaded",
       "retry": "Retry",
       "cancel": "Cancel upload",
-      "unsupportedFormat": "The {{formats}} format isn't supported yet. We've recorded that you're interested — if enough people ask, we'll add it."
+      "unsupportedFormat": "The {{formats}} format isn't supported yet. We've recorded that you're interested - if enough people ask, we'll add it."
     },
     "actions": {
       "scan": "Scan folder",
@@ -598,9 +648,10 @@
       "openInReader": "Open in reader",
       "openTitle": "Open a file ({{shortcut}})",
       "fromUrl": "From URL",
+      "addResource": "Resource (beta)",
       "fromUrlTitle": "Open a file from a URL",
       "manual": "Manual entry",
-      "manualTitle": "Add a book by hand — for physical copies or books without a file",
+      "manualTitle": "Add a book by hand - for physical copies or books without a file",
       "more": "More",
       "download": "Download",
       "downloadFormat": "Download {{format}}",
@@ -630,7 +681,7 @@
       "pagesInvalid": "Pages must be a non-negative number.",
       "signInRequired": "Sign in to add a book.",
       "noActiveOrg": "No active organization. Pick one from the sidebar before adding a book.",
-      "failed": "Couldn't add the book — try again."
+      "failed": "Couldn't add the book - try again."
     },
     "tabs": {
       "home": "Home",
@@ -647,7 +698,7 @@
       "pdfOnly": "PDF files only",
       "chooseFiles": "Choose files",
       "chooseFolder": "Choose folder",
-      "folderHint": "Folders are scanned one level deep — the folder structure is kept in your library.",
+      "folderHint": "Folders are scanned one level deep - the folder structure is kept in your library.",
       "addFiles": "Add files",
       "addFolder": "Add folder",
       "clear": "Clear all",
@@ -695,6 +746,18 @@
       "rename": "Rename",
       "delete": "Delete",
       "renamePrompt": "Rename folder:"
+    },
+    "resource": {
+      "beta": "Beta",
+      "kindWeb": "Web",
+      "kindYoutube": "YouTube",
+      "open": "Open resource",
+      "addTitle": "Add resource",
+      "addHint": "Paste a web page or YouTube link to save it to your library.",
+      "addError": "Couldn't save that link.",
+      "urlLabel": "Link URL",
+      "save": "Save",
+      "saving": "Saving..."
     },
     "allBooks": {
       "breadcrumbRoot": "Library",
@@ -814,7 +877,7 @@
     "allPlatforms": "All platforms",
     "noAssetsForPlatform": "No installer for this platform in the current release.",
     "quickDownload": "Download now",
-    "unsignedNotice": "These builds are not code-signed. Your OS may warn before running — this is expected for unsigned open-source software. On macOS, right-click the .dmg → Open to bypass Gatekeeper. On Windows, click \"More info → Run anyway\" past SmartScreen.",
+    "unsignedNotice": "These builds are not code-signed. Your OS may warn before running - this is expected for unsigned open-source software. On macOS, right-click the .dmg → Open to bypass Gatekeeper. On Windows, click \"More info → Run anyway\" past SmartScreen.",
     "platforms": {
       "windows": {
         "title": "Windows",
@@ -832,7 +895,7 @@
     "mobile": {
       "android": {
         "title": "Android coming soon",
-        "body": "The Android build isn't published yet. In the meantime, Pnyxy runs in your mobile browser — try it from the home page."
+        "body": "The Android build isn't published yet. In the meantime, Pnyxy runs in your mobile browser - try it from the home page."
       },
       "ios": {
         "title": "iOS not yet available",
@@ -882,7 +945,7 @@
       "sections": {
         "quickStart": {
           "title": "Quick start",
-          "body": "You can be reading inside a minute. Sign in is only required for cloud sync, AI quotas, and the social features — anonymous browsing of the catalog works without an account.",
+          "body": "You can be reading inside a minute. Sign in is only required for cloud sync, AI quotas, and the social features - anonymous browsing of the catalog works without an account.",
           "bullets": {
             "0": "Sign in or create an account from the landing page (Google or email).",
             "1": "Open the Library and click \"Upload\" to add a PDF, or pick a free book from the Catalog.",
@@ -892,10 +955,10 @@
         },
         "reading": {
           "title": "Reading & annotating",
-          "body": "The reader supports PDF and EPUB. Select any text to mark it up, leave a note, or send it straight to AI — annotations sync across devices when signed in.",
+          "body": "The reader supports PDF and EPUB. Select any text to mark it up, leave a note, or send it straight to AI - annotations sync across devices when signed in.",
           "bullets": {
             "0": "Highlight selected text in any color. The annotation panel collects every mark across the book for review.",
-            "1": "Add a free-form comment to a highlight — useful for the \"why does this matter\" half of active reading.",
+            "1": "Add a free-form comment to a highlight - useful for the \"why does this matter\" half of active reading.",
             "2": "Open the side notes pad for free-form text and whiteboard sketches that aren't tied to a specific passage.",
             "3": "Right-click a selection to translate it, look the word up, or send it to the AI chat with a citation back to the page."
           }
@@ -904,19 +967,19 @@
           "title": "AI chat that knows your book",
           "body": "The AI panel works in three modes: as a general assistant, anchored to a document (so its citations link back to specific pages), and tied to a roadmap (so it can edit the graph for you).",
           "bullets": {
-            "0": "Pick the provider in the composer — Pnyxy's free quota, your own Anthropic key, or your OpenAI key.",
+            "0": "Pick the provider in the composer - Pnyxy's free quota, your own Anthropic key, or your OpenAI key.",
             "1": "When chat is started from a reader selection, replies use [p.42] tokens that link straight back to the page.",
             "2": "From any AI message, hit \"Save as flashcards\" to extract Q/A pairs into the vocabulary deck.",
-            "3": "On a roadmap, click \"Edit with AI\" to chat about the graph — the model can add, remove, and reorder nodes live."
+            "3": "On a roadmap, click \"Edit with AI\" to chat about the graph - the model can add, remove, and reorder nodes live."
           }
         },
         "activeRecall": {
           "title": "Quizzes, flashcards & vocabulary",
           "body": "Reading once isn't learning. Pnyxy turns content into spaced-repetition reviews so what you read sticks past the next exam.",
           "bullets": {
-            "0": "Generate a quiz from a passage you uploaded — multiple choice, true/false, or short-answer.",
+            "0": "Generate a quiz from a passage you uploaded - multiple choice, true/false, or short-answer.",
             "1": "Save flashcards from any AI answer or directly from a highlighted passage.",
-            "2": "The Vocabulary tab is your word deck — words you looked up while reading get queued for review.",
+            "2": "The Vocabulary tab is your word deck - words you looked up while reading get queued for review.",
             "3": "The Review screen runs the FSRS algorithm, so cards you struggle with come back sooner than ones you know."
           }
         },
@@ -932,7 +995,7 @@
         },
         "community": {
           "title": "Forum & community",
-          "body": "Discussions and debates around books — early stage today, but the wiring is there. You can spin up a thread for any book in your library.",
+          "body": "Discussions and debates around books - early stage today, but the wiring is there. You can spin up a thread for any book in your library.",
           "bullets": {
             "0": "Each book has a \"Discuss\" tab with comments and replies.",
             "1": "The Forum index aggregates threads across every shared book.",
@@ -943,10 +1006,10 @@
           "title": "Keyboard & navigation",
           "body": "Once you've got the basics, these shortcuts make Pnyxy faster than clicking around.",
           "bullets": {
-            "0": "Cmd/Ctrl + K — open the command palette: search across pages and your books, jump anywhere in one keystroke.",
-            "1": "Cmd/Ctrl + , — open Settings (the universal Preferences hotkey).",
-            "2": "Cmd/Ctrl + B — collapse or expand the sidebar.",
-            "3": "Press ? anywhere outside an input — opens the cheatsheet listing every registered shortcut."
+            "0": "Cmd/Ctrl + K - open the command palette: search across pages and your books, jump anywhere in one keystroke.",
+            "1": "Cmd/Ctrl + , - open Settings (the universal Preferences hotkey).",
+            "2": "Cmd/Ctrl + B - collapse or expand the sidebar.",
+            "3": "Press ? anywhere outside an input - opens the cheatsheet listing every registered shortcut."
           }
         }
       },
@@ -974,11 +1037,11 @@
   },
   "workspace": {
     "title": "Workspace",
-    "subtitle": "Notes and whiteboards that aren't tied to any one book — your scratchpad for ideas, plans, and quick sketches.",
+    "subtitle": "Notes and whiteboards that aren't tied to any one book - your scratchpad for ideas, plans, and quick sketches.",
     "notes": {
       "heading": "Notes",
       "emptyTitle": "No notes yet",
-      "emptyBody": "Jot down a thought, a meeting note, or a research lead — Pnyxy keeps it here even when you're between books."
+      "emptyBody": "Jot down a thought, a meeting note, or a research lead - Pnyxy keeps it here even when you're between books."
     },
     "whiteboards": {
       "heading": "Whiteboards",
@@ -1011,13 +1074,13 @@
     "heatmap": {
       "less": "Less",
       "more": "More",
-      "tooltip": "{{date}} — {{minutes}} min",
-      "tooltipMixed": "{{date}} — {{minutes}} min ({{manualMinutes}} logged manually)"
+      "tooltip": "{{date}} - {{minutes}} min",
+      "tooltipMixed": "{{date}} - {{minutes}} min ({{manualMinutes}} logged manually)"
     },
     "log": {
       "button": "Log time",
       "title": "Log reading time",
-      "description": "Track time you spent reading off-app — physical books, ebooks on another device. You can log today or any of the last {{days}} days.",
+      "description": "Track time you spent reading off-app - physical books, ebooks on another device. You can log today or any of the last {{days}} days.",
       "day": "Day",
       "today": "today",
       "minutes": "Minutes read",
@@ -1026,7 +1089,7 @@
       "errors": {
         "invalidMinutes": "Enter a positive number of minutes.",
         "tooMany": "Cap is {{max}} minutes per day.",
-        "rejected": "Couldn't log that — date is out of range or input invalid."
+        "rejected": "Couldn't log that - date is out of range or input invalid."
       }
     }
   },
@@ -1061,7 +1124,7 @@
     "enrolledHeading": "In progress",
     "completedHeading": "Completed ({{count}})",
     "yoursHeading": "Your roadmaps",
-    "empty": "No roadmaps yet — create one to start mapping out a learning path.",
+    "empty": "No roadmaps yet - create one to start mapping out a learning path.",
     "emptyDetail": "This roadmap is empty. Add some learning steps to begin.",
     "editorEmpty": "An empty canvas. Add a node to get started.",
     "addNode": "Add step",
@@ -1104,7 +1167,7 @@
       "clear": "Clear",
       "weekendMultiplier": "Weekend intensity",
       "weekendMultiplierHint": "Weekends count {{multiplier}}× a weekday.",
-      "weekendMultiplierZeroHint": "Weekends off — only weekdays count.",
+      "weekendMultiplierZeroHint": "Weekends off - only weekdays count.",
       "perWeekday": "Per weekday",
       "perWeekend": "Per weekend day",
       "coverage": "{{total}} of remaining work across {{weekdays}} weekdays and {{weekends}} weekend days.",
@@ -1127,7 +1190,7 @@
       "deadlineDate": "Finish by",
       "weekendMultiplier": "Weekend vs weekday pace",
       "weekendMultiplierHint": "Weekends carry {{multiplier}}× a weekday's load.",
-      "weekendMultiplierZeroHint": "Weekends off — all work happens on weekdays."
+      "weekendMultiplierZeroHint": "Weekends off - all work happens on weekdays."
     }
   },
   "chat": {
@@ -1135,8 +1198,9 @@
     "untitled": "Untitled conversation",
     "newConversation": "New conversation",
     "newConversationHint": "Send a message to get started.",
+    "scrollToBottom": "Scroll to latest",
     "emptyTitle": "No conversations yet",
-    "emptyBody": "Start a new chat — conversations stay organized and can branch at any point.",
+    "emptyBody": "Start a new chat - conversations stay organized and can branch at any point.",
     "loading": "Loading messages…",
     "signInRequired": "Sign in to use chat",
     "signInHint": "Conversations are private to your account.",
@@ -1144,6 +1208,18 @@
     "send": "Send",
     "stop": "Stop generating",
     "regenerate": "Regenerate",
+    "graph": {
+      "title": "Conversation graph",
+      "empty": "No conversations yet — start chatting and they'll appear here.",
+      "emptyMessages": "No messages in this conversation yet.",
+      "back": "Back",
+      "fit": "Fit to view",
+      "open": "Open",
+      "messageView": "Message view",
+      "continueHere": "Continue from here",
+      "branchHere": "New conversation from here",
+      "deleteHere": "Delete from here"
+    },
     "exportMarkdown": "Export as Markdown",
     "editAction": "Edit",
     "editSaveAndSend": "Save & resend",
@@ -1176,7 +1252,7 @@
     "composer": {
       "modelLabel": "Model",
       "modelDefault": "Default",
-      "modelDefaultSubtitle": "Auto-pick — Pnyxy free quota first",
+      "modelDefaultSubtitle": "Auto-pick - Pnyxy free quota first",
       "listeningPlaceholder": "Listening… speak now",
       "startListening": "Dictate (microphone)",
       "stopListening": "Stop dictating",
@@ -1213,7 +1289,7 @@
       "savedDescription": "Generated from a chat message",
       "titleLabel": "Quiz title",
       "extracting": "Extracting flashcards from this message…",
-      "noneFound": "Couldn't find anything to extract — try a longer or more substantive message.",
+      "noneFound": "Couldn't find anything to extract - try a longer or more substantive message.",
       "extractFailed": "Couldn't parse the AI response as flashcards. Try again.",
       "editHint_one": "{{count}} card found. Edit, remove, or add more before saving.",
       "editHint_other": "{{count}} cards found. Edit, remove, or add more before saving.",
@@ -1258,7 +1334,7 @@
     },
     "detail": {
       "newTitle": "New reading plan",
-      "newSubtitle": "Set the dates and goal — books are optional and can be added later.",
+      "newSubtitle": "Set the dates and goal - books are optional and can be added later.",
       "editTitle": "Edit reading plan",
       "editSubtitle": "Update any field, attach more books, or change the page ranges.",
       "signInFirst": "Please sign in to view or edit your reading plans.",
@@ -1267,7 +1343,7 @@
       "titleLabel": "Title",
       "titlePlaceholder": "Spring semester reading…",
       "descriptionLabel": "Description",
-      "descriptionPlaceholder": "Optional — what this plan covers, why you're doing it, what success looks like.",
+      "descriptionPlaceholder": "Optional - what this plan covers, why you're doing it, what success looks like.",
       "colorLabel": "Color",
       "colorNone": "No color",
       "color": {
@@ -1283,9 +1359,9 @@
       "ignoreWeekends": "Weekdays only",
       "ignoreWeekendsHint": "Skip Saturday and Sunday when distributing daily targets.",
       "booksHeading": "Books",
-      "booksHint": "Optional — leave empty for a goal you'll fill in later.",
+      "booksHint": "Optional - leave empty for a goal you'll fill in later.",
       "addBook": "Add book",
-      "noBooksHint": "No books attached yet. The plan can still be saved — add books any time.",
+      "noBooksHint": "No books attached yet. The plan can still be saved - add books any time.",
       "pickBook": "Pick a book…",
       "useRange": "Only a page range of this book",
       "startPage": "Start page",
@@ -1314,7 +1390,7 @@
     },
     "loading": "Loading leaderboard…",
     "empty": "No rankings yet",
-    "emptyBody": "Start a reading session — you'll appear here once you've logged some time.",
+    "emptyBody": "Start a reading session - you'll appear here once you've logged some time.",
     "you": "You",
     "anonymous": "Anonymous reader",
     "privacyNote": "Your display name and avatar come from your public profile. You can change them in your profile settings, or hide your rankings by keeping your profile empty."
@@ -1348,7 +1424,7 @@
     },
     "bookmarks": {
       "heading": "Bookmarks",
-      "description": "Saved pages from this book — click one to jump to it in the reader.",
+      "description": "Saved pages from this book - click one to jump to it in the reader.",
       "emptyTitle": "No bookmarks yet",
       "emptyBody": "Bookmark a page from the reader's right-side menu and it'll show up here."
     },
@@ -1356,7 +1432,7 @@
       "heading": "Whiteboards",
       "description": "Free-form sketch canvases tied to this book.",
       "newEmpty": "New whiteboard",
-      "defaultTitle": "Whiteboard — {{book}}",
+      "defaultTitle": "Whiteboard - {{book}}",
       "untitled": "Untitled whiteboard",
       "emptyTitle": "No whiteboards yet",
       "emptyBody": "Create an empty canvas to brainstorm, sketch a concept map, or work out a problem.",
@@ -1391,7 +1467,7 @@
       "untitled": "Untitled note",
       "emptyNote": "No content yet",
       "emptyTitle": "Nothing here yet",
-      "emptyBody": "Highlight text, add comments, or create a note while reading — they'll show up here."
+      "emptyBody": "Highlight text, add comments, or create a note while reading - they'll show up here."
     },
     "discuss": {
       "heading": "Discussion",
@@ -1422,11 +1498,11 @@
       "addToLibrary": "Add to My Library",
       "removeFromLibrary": "Remove",
       "inYourLibrary": "In Your Library",
-      "inYourLibraryOpen": "In your library — open",
+      "inYourLibraryOpen": "In your library - open",
       "addToLibraryAria": "Add to library",
       "removeFromLibraryAria": "Remove from library",
       "removeConfirmTitle": "Remove from your library?",
-      "removeConfirmBody": "The book stays in the catalog — you can always add it back. Notes and bookmarks are kept.",
+      "removeConfirmBody": "The book stays in the catalog - you can always add it back. Notes and bookmarks are kept.",
       "openInReader": "Open in Reader",
       "read": "Read",
       "download": "Download",
@@ -1448,7 +1524,7 @@
       "uploadedHint": "Only basic metadata is extracted today. AI-assisted enrichment (summary, auto-categorization, cover detection) is planned.",
       "noFile": {
         "title": "No file attached",
-        "body": "This book is metadata-only — there's nothing to read in the reader. You can still take notes, draw whiteboards, and discuss it on the forum."
+        "body": "This book is metadata-only - there's nothing to read in the reader. You can still take notes, draw whiteboards, and discuss it on the forum."
       },
       "meta": {
         "publisher": "Publisher",
@@ -1464,7 +1540,7 @@
       "ocr": {
         "button": "Capture passage",
         "buttonShort": "Capture",
-        "noVisionProvider": "Image capture needs an Anthropic or OpenAI key in Settings → AI — the free Pnyxy quota is text-only for now.",
+        "noVisionProvider": "Image capture needs an Anthropic or OpenAI key in Settings → AI - the free Pnyxy quota is text-only for now.",
         "processing": "Reading your image…",
         "failed": "Couldn't read the text from that image. Try a clearer shot.",
         "emptyResult": "No text detected in that image.",
@@ -1472,7 +1548,7 @@
       },
       "session": {
         "heading": "Reading session",
-        "subheading": "Tap start when you sit down with the book — works for digital and physical reads.",
+        "subheading": "Tap start when you sit down with the book - works for digital and physical reads.",
         "start": "Start session",
         "stop": "Stop session",
         "running": "Reading…",
@@ -1490,7 +1566,7 @@
         "streak": "Book streak",
         "streakValue_one": "{{count}} day",
         "streakValue_other": "{{count}} days",
-        "streakNone": "No streak yet — read today to start one.",
+        "streakNone": "No streak yet - read today to start one.",
         "totalTime": "Total time on this book",
         "lastSession": "Last session",
         "pace": "Recent pace",
@@ -1595,7 +1671,7 @@
       "dismiss": "Dismiss"
     },
     "reflow": {
-      "banner": "Reflow mode — original layout is preserved. Toggle off in the toolbar to see it.",
+      "banner": "Reflow mode - original layout is preserved. Toggle off in the toolbar to see it.",
       "starting": "Preparing reflow…",
       "progress": "Extracting text: {{current}} / {{total}}",
       "errorUnsupported": "Reflow isn't available for this document.",
@@ -1691,6 +1767,7 @@
       "tabDictionary": "Dictionary",
       "tabWikipedia": "Wikipedia",
       "tabTranslate": "Translate",
+      "tabGraph": "Graph",
       "search": "Search",
       "dictionaryPlaceholder": "Look up a word…",
       "translatePlaceholder": "Text to translate…",
@@ -1799,7 +1876,10 @@
       "changeColor": "Change color",
       "removeHighlight": "Remove highlight",
       "translatePanelTitle": "Translate",
-      "translateTargetLabel": "Target",
+      "translateSourceLabel": "From",
+      "translateTargetLabel": "To",
+      "translateAutoDetect": "Auto-detect",
+      "translateSwap": "Swap languages",
       "translating": "Translating…",
       "translateFailed": "Translation failed",
       "translateConnectFailed": "Could not connect to translation service",
@@ -1894,7 +1974,7 @@
       "titleLabel": "Title *",
       "titlePlaceholder": "e.g. Chapter 3 review",
       "description": "Description",
-      "descriptionPlaceholder": "Optional — a line or two about what this quiz covers.",
+      "descriptionPlaceholder": "Optional - a line or two about what this quiz covers.",
       "publicLabel": "Public",
       "publicHint": "Visible in the community quizzes feed.",
       "randomizeQuestionsLabel": "Shuffle question order",
@@ -1940,7 +2020,7 @@
       "noProvider": "No AI provider is enabled.",
       "configureLink": "Configure one in Settings",
       "sourceText": "Source text",
-      "sourcePlaceholder": "Paste a chapter, notes, a Wikipedia section — anything the quiz should be about.",
+      "sourcePlaceholder": "Paste a chapter, notes, a Wikipedia section - anything the quiz should be about.",
       "charsCounter": "{{used}} / {{max}} chars",
       "questionsLabel": "Questions",
       "generating": "Generating…",
@@ -1950,9 +2030,9 @@
       "pasteText": "Paste text",
       "fromPage": "From page",
       "toPage": "To page",
-      "bookHint": "Text is extracted from those pages. Keep the range tight — a couple of chapters works better than a whole book.",
+      "bookHint": "Text is extracted from those pages. Keep the range tight - a couple of chapters works better than a whole book.",
       "errors": {
-        "couldNotReadPdf": "Couldn't read the book PDF. If it's a catalog book, the host may block cross-origin access — try pasting text instead.",
+        "couldNotReadPdf": "Couldn't read the book PDF. If it's a catalog book, the host may block cross-origin access - try pasting text instead.",
         "noTextInRange": "No extractable text in that page range. The PDF might be scanned images.",
         "bookNotLoaded": "Book isn't loaded yet.",
         "emptySource": "Paste or type source text to generate from.",
@@ -1963,9 +2043,9 @@
       "progress": "Question {{current}} of {{total}}",
       "results": "Results",
       "scoreOf": "{{score}} / {{total}}",
-      "great": "— great work!",
-      "keepGoing": "— keep going.",
-      "worthAnother": "— worth another go.",
+      "great": "- great work!",
+      "keepGoing": "- keep going.",
+      "worthAnother": "- worth another go.",
       "backToQuiz": "Back to quiz",
       "typeAnswer": "Type your answer",
       "expected": "Expected:",
@@ -1984,7 +2064,7 @@
     "review": {
       "sessionTitle": "Review session · {{current}} of {{total}}",
       "nothingDue": "Nothing due right now",
-      "nothingDueBody": "Take a quiz or come back later — cards resurface on an FSRS schedule based on how well you remember them.",
+      "nothingDueBody": "Take a quiz or come back later - cards resurface on an FSRS schedule based on how well you remember them.",
       "browseQuizzes": "Browse quizzes",
       "sessionComplete": "Session complete",
       "sessionResult_one": "{{correct}} / {{total}} correct ({{pct}}%)",
@@ -1995,7 +2075,7 @@
   },
   "vocabulary": {
     "title": "Vocabulary",
-    "tagline": "Words you've defined in the reader — reviewed on an FSRS schedule.",
+    "tagline": "Words you've defined in the reader - reviewed on an FSRS schedule.",
     "reviewDue": "Review ({{count}})",
     "export": "Export CSV",
     "search": "Search word or definition…",
@@ -2023,8 +2103,8 @@
       "title": "Review",
       "progress": "{{current}} / {{total}}",
       "done": "Done",
-      "allCaughtUp_one": "Nicely done — {{count}} card reviewed.",
-      "allCaughtUp_other": "Nicely done — {{count}} cards reviewed.",
+      "allCaughtUp_one": "Nicely done - {{count}} card reviewed.",
+      "allCaughtUp_other": "Nicely done - {{count}} cards reviewed.",
       "reveal": "Reveal (space)",
       "noContext": "No surrounding context was captured for this word."
     },

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Languages, Loader2 } from "lucide-react";
+import { ArrowLeftRight, ChevronDown, Languages, Loader2 } from "lucide-react";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { detectSourceLang } from "@/lib/lang-detect";
@@ -60,10 +60,10 @@ async function translateViaMyMemory(
 }
 
 /**
- * Translate panel, MyMemory free API, source-language auto-detected
- * (Hungarian-flavour chars → "hu", else "en"), target picked from a
- * fixed set persisted in settings-store. Re-translates on target
- * change so the user can flip langs without leaving the panel.
+ * Translate panel — MyMemory free API. Both source and target languages
+ * are user-selectable and persisted in settings-store; the source
+ * defaults to "auto" (detected from the text). Re-translates whenever
+ * either language changes so the user can flip langs in place.
  */
 export function AnnotationMenuTranslatePanel({
   selectedText,
@@ -71,6 +71,10 @@ export function AnnotationMenuTranslatePanel({
   fullWidth = false,
 }: Props) {
   const { t } = useTranslation();
+  const sourceLanguage = useSettingsStore((s) => s.translateSourceLanguage);
+  const setSourceLanguage = useSettingsStore(
+    (s) => s.setTranslateSourceLanguage,
+  );
   const targetLanguage = useSettingsStore((s) => s.translateTargetLanguage);
   const setTargetLanguage = useSettingsStore(
     (s) => s.setTranslateTargetLanguage,
@@ -81,19 +85,19 @@ export function AnnotationMenuTranslatePanel({
   const [translating, setTranslating] = useState(false);
   const [error, setError] = useState("");
 
+  const trimmed = selectedText.trim();
+  const effectiveSource =
+    sourceLanguage === "auto" ? detectSourceLang(trimmed) : sourceLanguage;
+
   const runTranslate = useCallback(
-    async (target: string) => {
-      const trimmed = selectedText.trim();
-      if (!trimmed) return;
+    async (source: string, target: string) => {
+      const text = selectedText.trim();
+      if (!text) return;
       setTranslating(true);
       setTranslated("");
       setError("");
       try {
-        const data = await translateViaMyMemory(
-          trimmed,
-          detectSourceLang(trimmed),
-          target,
-        );
+        const data = await translateViaMyMemory(text, source, target);
         if (
           data.responseStatus === 200 &&
           data.responseData?.translatedText
@@ -113,43 +117,68 @@ export function AnnotationMenuTranslatePanel({
     [selectedText, t],
   );
 
-  // First translation runs on mount with the current target. If the
-  // user flips the target via the picker below, we re-translate.
+  // Re-translate on mount and whenever either language changes.
   useEffect(() => {
-    void runTranslate(targetLanguage);
-  }, [runTranslate, targetLanguage]);
+    void runTranslate(effectiveSource, targetLanguage);
+  }, [runTranslate, effectiveSource, targetLanguage]);
 
-  const handleLanguageChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      setTargetLanguage(e.target.value);
-      // runTranslate will fire automatically via the effect above once
-      // targetLanguage updates in the store; no need to call here.
-    },
-    [setTargetLanguage],
-  );
+  const handleSwap = useCallback(() => {
+    // Resolve "auto" to the detected language first so we never move
+    // "auto" into the target slot.
+    setSourceLanguage(targetLanguage);
+    setTargetLanguage(effectiveSource);
+  }, [setSourceLanguage, setTargetLanguage, targetLanguage, effectiveSource]);
 
   return (
-    <div className={cn("flex flex-col gap-2 p-1", fullWidth ? "w-full" : "w-72")}>
+    <div className={cn("flex flex-col gap-2.5 p-1", fullWidth ? "w-full" : "w-72")}>
       <div className="flex items-center gap-1.5">
         <Languages size={14} className="text-accent" />
         <span className="text-xs font-medium text-text-primary">
           {t("reader.annotationMenu.translatePanelTitle")}
         </span>
         <span className="ml-auto rounded bg-glass-bg px-1.5 py-0.5 text-2xs uppercase tracking-wide text-text-muted">
-          {detectSourceLang(selectedText.trim())}
+          {effectiveSource}
           <span className="mx-1">→</span>
           {targetLanguage}
         </span>
       </div>
 
-      {/* Source text */}
-      <div className="max-h-20 overflow-y-auto rounded bg-glass-bg/50 px-2 py-1.5 text-xs italic leading-relaxed text-text-muted">
-        {selectedText.trim().length > 200
-          ? selectedText.trim().slice(0, 200) + "…"
-          : selectedText.trim()}
+      {/* Language pickers: source ⇄ target */}
+      <div className="flex items-end gap-2">
+        <LangSelect
+          label={t("reader.annotationMenu.translateSourceLabel", {
+            defaultValue: "From",
+          })}
+          value={sourceLanguage}
+          onChange={(e) => setSourceLanguage(e.target.value)}
+          autoLabel={t("reader.annotationMenu.translateAutoDetect", {
+            defaultValue: "Auto-detect",
+          })}
+          autoHint={sourceLanguage === "auto" ? effectiveSource : undefined}
+        />
+        <button
+          type="button"
+          onClick={handleSwap}
+          title={t("reader.annotationMenu.translateSwap", {
+            defaultValue: "Swap languages",
+          })}
+          className="mb-0.5 shrink-0 rounded-md border border-glass-border bg-glass-bg p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-accent cursor-pointer"
+        >
+          <ArrowLeftRight size={13} />
+        </button>
+        <LangSelect
+          label={t("reader.annotationMenu.translateTargetLabel")}
+          value={targetLanguage}
+          onChange={(e) => setTargetLanguage(e.target.value)}
+        />
       </div>
 
-      {/* Translation result — give it real vertical room. */}
+      {/* Source text */}
+      <div className="max-h-20 overflow-y-auto rounded bg-glass-bg/50 px-2 py-1.5 text-xs italic leading-relaxed text-text-muted">
+        {trimmed.length > 200 ? trimmed.slice(0, 200) + "…" : trimmed}
+      </div>
+
+      {/* Translation result */}
       <div className="max-h-40 min-h-[3rem] overflow-y-auto rounded bg-glass-bg px-2 py-1.5 text-xs leading-relaxed text-text-primary">
         {translating && (
           <span className="flex items-center gap-1.5 text-text-muted">
@@ -159,28 +188,6 @@ export function AnnotationMenuTranslatePanel({
         )}
         {error && <span className="text-danger">{error}</span>}
         {!translating && !error && translated && translated}
-      </div>
-
-      {/* Target language picker */}
-      <div className="flex items-center gap-2">
-        <label
-          htmlFor="translate-lang"
-          className="text-2xs text-text-muted"
-        >
-          {t("reader.annotationMenu.translateTargetLabel")}
-        </label>
-        <select
-          id="translate-lang"
-          value={targetLanguage}
-          onChange={handleLanguageChange}
-          className="flex-1 cursor-pointer rounded border border-glass-border bg-glass-bg px-2 py-1 text-xs text-text-primary outline-none focus:border-accent"
-        >
-          {TRANSLATE_LANGUAGES.map(({ code, label }) => (
-            <option key={code} value={code}>
-              {label}
-            </option>
-          ))}
-        </select>
       </div>
 
       {/* Actions */}
@@ -207,5 +214,52 @@ export function AnnotationMenuTranslatePanel({
         )}
       </div>
     </div>
+  );
+}
+
+/** A styled language `<select>` with a chevron; the source picker adds
+ *  an "auto" option at the top. */
+function LangSelect({
+  label,
+  value,
+  onChange,
+  autoLabel,
+  autoHint,
+}: {
+  label: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  autoLabel?: string;
+  autoHint?: string;
+}) {
+  return (
+    <label className="flex min-w-0 flex-1 flex-col gap-1">
+      <span className="text-2xs uppercase tracking-wide text-text-muted">
+        {label}
+      </span>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={onChange}
+          className="w-full cursor-pointer appearance-none rounded-md border border-glass-border bg-bg-tertiary py-1.5 pl-2.5 pr-7 text-xs text-text-primary outline-none transition-colors hover:border-glass-hover focus:border-accent focus:ring-1 focus:ring-accent/30"
+        >
+          {autoLabel && (
+            <option value="auto">
+              {autoLabel}
+              {autoHint ? ` (${autoHint})` : ""}
+            </option>
+          )}
+          {TRANSLATE_LANGUAGES.map(({ code, label }) => (
+            <option key={code} value={code}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          size={13}
+          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-text-muted"
+        />
+      </div>
+    </label>
   );
 }

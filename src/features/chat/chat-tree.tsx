@@ -100,19 +100,39 @@ export function ChatTree(props: ChatTreeProps) {
   }, [conversations]);
 
   const rootConvs = folderConversations.get(null) ?? [];
+  // The real "Quick chats" folder (auto-created by chat-store) keeps the
+  // special accent group UI below instead of rendering as a plain folder, so
+  // quick chats stay visually distinct while still living in a real library
+  // folder. Its conversations (+ any still-loose ones) fill the group, and the
+  // folder is filtered out of the plain folder tree.
+  const quickChatsName = t("chat.sidebar.quickChats", {
+    defaultValue: "Quick chats",
+  })
+    .trim()
+    .toLowerCase();
+  const quickChatsFolder = folders.find(
+    (f) =>
+      f.parent_id === null && f.name.trim().toLowerCase() === quickChatsName,
+  );
+  const quickChatsConvs = [
+    ...(quickChatsFolder
+      ? folderConversations.get(quickChatsFolder.id) ?? []
+      : []),
+    ...rootConvs,
+  ];
+  const otherRootFolders = (childFolders.get(null) ?? []).filter(
+    (f) => f.id !== quickChatsFolder?.id,
+  );
   // Synthetic folder id for the Quick chats section in collapsedFolders.
   const QUICK_CHATS_KEY = "__quick_chats__";
   const quickChatsCollapsed = props.collapsedFolders.has(QUICK_CHATS_KEY);
   const [quickChatsShowAll, setQuickChatsShowAll] = useState(false);
   const visibleRootConvs = quickChatsShowAll
-    ? rootConvs
-    : rootConvs.slice(0, QUICK_CHATS_VISIBLE_LIMIT);
-  const hiddenRootCount = rootConvs.length - visibleRootConvs.length;
-  // Sortable ids for the Quick chats SortableContext.
-  const rootConvIds = useMemo(
-    () => rootConvs.map((c) => `conv:${c.id}`),
-    [rootConvs],
-  );
+    ? quickChatsConvs
+    : quickChatsConvs.slice(0, QUICK_CHATS_VISIBLE_LIMIT);
+  const hiddenRootCount = quickChatsConvs.length - visibleRootConvs.length;
+  // Sortable ids for the Quick chats SortableContext (small list, no memo).
+  const rootConvIds = quickChatsConvs.map((c) => `conv:${c.id}`);
 
   return (
     <div
@@ -123,7 +143,10 @@ export function ChatTree(props: ChatTreeProps) {
         rootDroppable.isOver && "ring-1 ring-accent/30",
       )}
     >
-      {/* Quick chats: virtual top-level group for loose (folder_id = null) convs. */}
+      {/* Quick chats: the accent-highlighted group at the top. Renders the real
+          "Quick chats" folder's conversations (+ any still-loose ones) with a
+          distinct look; the folder itself is filtered out of the plain tree. */}
+      {quickChatsConvs.length > 0 && (
       <div className="rounded-md bg-accent/[0.06]">
         <div className="group flex items-stretch">
           <IndentGuides depth={0} />
@@ -152,9 +175,9 @@ export function ChatTree(props: ChatTreeProps) {
               className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-accent/90 cursor-pointer"
             >
               {t("chat.sidebar.quickChats", { defaultValue: "Quick chats" })}
-              {rootConvs.length > 0 && (
+              {quickChatsConvs.length > 0 && (
                 <span className="ml-1.5 text-2xs font-normal text-accent/60">
-                  {rootConvs.length}
+                  {quickChatsConvs.length}
                 </span>
               )}
             </button>
@@ -187,7 +210,7 @@ export function ChatTree(props: ChatTreeProps) {
               </button>
             )}
             {quickChatsShowAll &&
-              rootConvs.length > QUICK_CHATS_VISIBLE_LIMIT && (
+              quickChatsConvs.length > QUICK_CHATS_VISIBLE_LIMIT && (
                 <button
                   onClick={() => setQuickChatsShowAll(false)}
                   className="flex w-full items-center justify-center gap-1.5 rounded-md py-1.5 text-2xs text-accent/70 transition-colors hover:bg-accent/10 hover:text-accent cursor-pointer"
@@ -202,14 +225,15 @@ export function ChatTree(props: ChatTreeProps) {
           </SortableContext>
         )}
       </div>
+      )}
 
-      {/* Separator, only when there's at least one folder. */}
-      {(childFolders.get(null) ?? []).length > 0 && (
+      {/* Separator, only when there's at least one (non-Quick-chats) folder. */}
+      {otherRootFolders.length > 0 && (
         <div className="my-1 h-px bg-glass-border" />
       )}
 
       {(() => {
-        const rootFolders = childFolders.get(null) ?? [];
+        const rootFolders = otherRootFolders;
         const rootFolderIds = rootFolders.map((f) => `folder:${f.id}`);
         return (
           <SortableContext
@@ -609,7 +633,7 @@ const ConversationRow = memo(function ConversationRow({
       {/* hover/focus action overlay, absolutely positioned so it takes no
           layout space. solid bg chip covers the title's tail. */}
       {!isEditing && (
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] flex items-center gap-0.5 rounded-r-md bg-bg-secondary pl-2 pr-1.5 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] flex items-center gap-0.5 rounded-r-md bg-gradient-to-l from-bg-secondary via-bg-secondary/95 to-transparent pl-5 pr-1.5 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
           <button
             ref={moveBtnRef}
             onClick={() => setShowMove((v) => !v)}

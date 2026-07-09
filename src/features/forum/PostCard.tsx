@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router";
-import { ArrowDown, ArrowUp, MessageSquare, Link as LinkIcon, FileText } from "lucide-react";
+import { MessageSquare, Link as LinkIcon, FileText } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { ForumPostWithAuthor } from "@/types/forum";
 
@@ -44,8 +44,8 @@ export function PostCard({ post, communitySlug }: PostCardProps) {
     navigate(`/forum/c/${slug}/p/${post.id}`);
   };
 
-  // Voting isn't wired up yet; the arrows are visual placeholders for
-  // now. Score still reflects the cached value from the DB.
+  // Voting isn't wired up yet, so we show the cached score as a plain
+  // count without interactive vote arrows.
   return (
     <article
       onClick={handleOpen}
@@ -55,28 +55,10 @@ export function PostCard({ post, communitySlug }: PostCardProps) {
       )}
     >
       {/* Left rail — score column */}
-      <div className="flex w-10 shrink-0 flex-col items-center justify-start gap-0.5 border-r border-glass-border/40 bg-glass-bg/30 py-2 text-text-muted">
-        <button
-          type="button"
-          onClick={(e) => e.stopPropagation()}
-          aria-label="Upvote"
-          title="Voting coming soon"
-          className="rounded p-0.5 transition-colors hover:bg-glass-hover hover:text-accent cursor-not-allowed"
-        >
-          <ArrowUp size={14} />
-        </button>
+      <div className="flex w-10 shrink-0 flex-col items-center justify-start border-r border-glass-border/40 bg-glass-bg/30 py-2 text-text-muted">
         <span className="text-xs font-semibold tabular-nums text-text-secondary">
           {post.score_cached}
         </span>
-        <button
-          type="button"
-          onClick={(e) => e.stopPropagation()}
-          aria-label="Downvote"
-          title="Voting coming soon"
-          className="rounded p-0.5 transition-colors hover:bg-glass-hover hover:text-accent-blue cursor-not-allowed"
-        >
-          <ArrowDown size={14} />
-        </button>
       </div>
 
       {/* Content */}

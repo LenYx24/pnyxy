@@ -211,7 +211,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           onClick={onNavigate}
           className={({ isActive }) =>
             cn(
-              "flex items-center border-t border-glass-border px-3 py-3 transition-colors",
+              "flex items-center border-t border-glass-border py-3 transition-colors",
+              collapsed ? "px-2 justify-center" : "px-3",
               isActive
                 ? "bg-accent/15 text-accent"
                 : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",

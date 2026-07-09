@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -7,6 +7,7 @@ import {
   GitBranch,
   Pencil,
   RefreshCw,
+  Share2,
   Sparkles,
   Trash2,
   Volume2,
@@ -29,6 +30,8 @@ import {
   childrenOf,
   pathFromRoot,
 } from "@/stores/chat-store";
+import { usePromptGalleryStore } from "@/stores/prompt-gallery-store";
+import { showToast } from "@/stores/toast-store";
 
 /** Confirm-modal handle threaded down from the parent's useConfirm. */
 export type BubbleConfirmFn = (opts: {
@@ -93,6 +96,36 @@ export function MessageBubble({
   const [editText, setEditText] = useState(msg.content);
   const handleCitationClick = usePageCitationDispatch();
 
+  // Share this answer (+ its question) to the public prompt gallery.
+  const shareAnswer = usePromptGalleryStore((s) => s.shareAnswer);
+  const [shared, setShared] = useState(false);
+  const handleShare = async () => {
+    // question = the nearest ancestor user message
+    let cur = msg.parent_message_id ? messages.get(msg.parent_message_id) : null;
+    while (cur && cur.role !== "user") {
+      cur = cur.parent_message_id
+        ? messages.get(cur.parent_message_id) ?? null
+        : null;
+    }
+    try {
+      await shareAnswer({ question: cur?.content ?? "", answer: msg.content });
+      setShared(true);
+      showToast(
+        t("chat.shareAnswer.done", {
+          defaultValue: "Shared to the prompt gallery.",
+        }),
+        "success",
+      );
+    } catch {
+      showToast(
+        t("chat.shareAnswer.failed", {
+          defaultValue: "Couldn't share this answer.",
+        }),
+        "error",
+      );
+    }
+  };
+
   // which child of this message sits on the active path
   const activePath = pathFromRoot(messages, activeLeafId).map((m) => m.id);
   const activeChildId = childrenOf(messages, msg.id).find((c) =>
@@ -108,14 +141,15 @@ export function MessageBubble({
     >
       <div
         className={cn(
-          // min-w-0 lets the bubble shrink below content width; without it a
-          // wide code block/table blows past max-w and scrolls the page sideways.
-          "min-w-0 max-w-[85%] rounded-2xl px-3.5 py-2 text-sm backdrop-blur-md",
+          // min-w-0 lets content shrink below its intrinsic width; without it a
+          // wide code block/table blows past the width and scrolls sideways.
+          "min-w-0 text-sm",
           isUser
-            ? "bg-accent/20 text-text-primary rounded-br-md"
-            : "border border-glass-border bg-glass-bg text-text-secondary rounded-bl-md",
-          // taller while empty so the typing indicator fits
-          isStreaming && msg.content.trim().length === 0 && "py-3",
+            // the user's question keeps a bubble
+            ? "max-w-[85%] rounded-2xl rounded-br-md bg-accent/20 px-3.5 py-2 text-text-primary backdrop-blur-md"
+            // assistant answer: no bubble, full width (Gemini-style) so long
+            // answers get the whole panel instead of an 85% pill
+            : "w-full text-text-primary",
         )}
       >
         {/* User text is preformatted; assistant text goes through marked + DOMPurify. */}
@@ -324,6 +358,22 @@ export function MessageBubble({
           {!isUser && !isStreaming && msg.content.trim().length > 0 && (
             <CopyButton text={msg.content} />
           )}
+          {/* share to the public prompt gallery, assistant only */}
+          {!isUser && !isStreaming && msg.content.trim().length > 0 && (
+            <button
+              onClick={handleShare}
+              disabled={shared}
+              className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+              title={t("chat.shareAnswer.action", {
+                defaultValue: "Share this answer to the gallery",
+              })}
+            >
+              <Share2 size={10} />
+              {shared
+                ? t("chat.shareAnswer.shared", { defaultValue: "Shared" })
+                : t("chat.shareAnswer.action", { defaultValue: "Share" })}
+            </button>
+          )}
           {/* regenerate, assistant messages only */}
           {!isUser && !isStreaming && onRegenerate && (
             <button
@@ -436,7 +486,7 @@ export function MessageBubble({
 }
 
 // throttle markdown re-parse during streaming so KaTeX/DOMPurify don't run per token
-const STREAM_RENDER_THROTTLE_MS = 60;
+const STREAM_RENDER_THROTTLE_MS = 50;
 
 const AssistantContent = memo(function AssistantContent({
   content,
@@ -455,18 +505,38 @@ const AssistantContent = memo(function AssistantContent({
   const navigate = useNavigate();
   // throttle the rendered value while streaming; flush immediately once it stops
   const [throttled, setThrottled] = useState(content);
+  // latest content, so the trailing timer flushes the freshest value
+  const contentRef = useRef(content);
+  contentRef.current = content;
+  const lastFlushRef = useRef(0);
+  const timerRef = useRef<number | null>(null);
   useEffect(() => {
     if (!isStreaming) {
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
       // final flush so no stale truncated body lingers
       setThrottled(content);
       return;
     }
     if (content === throttled) return;
-    const id = window.setTimeout(
-      () => setThrottled(content),
-      STREAM_RENDER_THROTTLE_MS,
-    );
-    return () => window.clearTimeout(id);
+    // A debounce resets its timer on every delta, so a fast, gapless stream
+    // never flushes until it pauses — the text then arrives in lurches. Use a
+    // real throttle instead: flush immediately when the interval has elapsed,
+    // otherwise let a single trailing timer fire on schedule.
+    const now = performance.now();
+    const elapsed = now - lastFlushRef.current;
+    if (elapsed >= STREAM_RENDER_THROTTLE_MS) {
+      lastFlushRef.current = now;
+      setThrottled(content);
+    } else if (timerRef.current === null) {
+      timerRef.current = window.setTimeout(() => {
+        timerRef.current = null;
+        lastFlushRef.current = performance.now();
+        setThrottled(contentRef.current);
+      }, STREAM_RENDER_THROTTLE_MS - elapsed);
+    }
   }, [content, isStreaming, throttled]);
 
   const { cleaned, books, videos } = useMemo(

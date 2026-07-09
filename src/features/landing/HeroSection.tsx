@@ -1,45 +1,36 @@
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Download, Sparkles } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { Download } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
+import { HeroStripes } from "./DiagonalStripes";
 
-interface HeroSectionProps {
-  theme: "dark" | "light";
-}
-
-export function HeroSection({ theme }: HeroSectionProps) {
+export function HeroSection() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const isDark = theme === "dark";
-
-  // Per-mode colors so both stay high-contrast. The eyebrow uses a
-  // brighter blue accent on dark (the cyan accent is too dark on
-  // near-black); the CTAs invert via tokens (light button on dark,
-  // dark button on light) for maximum readability either way.
-  const eyebrowCls = isDark
-    ? "border-accent-blue/30 bg-accent-blue/10 text-accent-blue"
-    : "border-accent/30 bg-accent/10 text-accent";
-  const primaryCta =
-    "rounded-lg bg-text-primary px-6 py-2.5 text-sm font-semibold text-bg-primary shadow-lg transition-opacity hover:opacity-90";
-  const secondaryCta =
-    "inline-flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-6 py-2.5 text-sm font-semibold text-text-primary backdrop-blur-md transition-colors hover:bg-glass-hover";
 
   return (
-    <section className="relative flex min-h-screen items-center px-6 pt-24 pb-16">
+    <section className="relative flex min-h-screen items-center overflow-hidden px-6 pt-24 pb-16">
+      {/* Scattered geometric accents — asymmetric, off to the side. */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <span className="absolute left-[7%] top-[28%] size-1.5 rounded-full bg-accent" />
+        <span className="absolute left-[12%] top-[32%] size-1 rounded-full bg-accent/50" />
+        <svg
+          className="absolute bottom-[18%] left-[5%] size-14 text-accent/35"
+          viewBox="0 0 40 40"
+          fill="none"
+        >
+          <circle cx="20" cy="20" r="18" stroke="currentColor" strokeWidth="1" />
+          <circle cx="20" cy="20" r="2.5" fill="currentColor" />
+        </svg>
+      </div>
+
       <div className="mx-auto grid w-full max-w-6xl items-center gap-12 lg:grid-cols-2 lg:gap-8">
-        {/* Left: copy + actions, left-aligned on desktop, centered on
-            mobile where the visual is hidden. */}
-        <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
-          <span
-            className={cn(
-              "mb-5 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium",
-              eyebrowCls,
-            )}
-          >
-            <Sparkles size={13} />
+        {/* Left: copy + actions. */}
+        <div className="relative flex flex-col items-center text-center lg:items-start lg:text-left">
+          <span className="mb-6 inline-flex items-center gap-2.5 font-mono text-2xs font-medium uppercase tracking-[0.22em] text-accent">
+            <span className="h-px w-6 bg-accent" />
             {t("landing.h1Purpose", {
-              defaultValue: "AI-assisted reading and learning",
+              defaultValue: "AI-assisted reading & learning",
             })}
           </span>
 
@@ -50,23 +41,29 @@ export function HeroSection({ theme }: HeroSectionProps) {
               aria-hidden="true"
               className="h-12 w-auto sm:h-14"
             />
-            <span className="text-5xl font-bold tracking-tight text-text-primary sm:text-6xl">
+            <span className="font-display text-6xl font-bold tracking-tight text-text-primary sm:text-7xl">
               Pnyxy
             </span>
           </h1>
 
-          <p className="mt-6 max-w-xl text-lg font-medium text-text-secondary sm:text-xl">
+          <p className="mt-6 max-w-xl font-display text-xl font-medium text-text-secondary sm:text-2xl">
             {t("landing.tagline")}
           </p>
-          <p className="mt-3 max-w-xl text-base text-text-muted">
+          <p className="mt-3 max-w-lg text-base leading-relaxed text-text-muted">
             {t("landing.subtitle")}
           </p>
 
           <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row lg:items-start">
-            <Link to={user ? "/library" : "/auth"} className={primaryCta}>
+            <Link
+              to={user ? "/library" : "/auth"}
+              className="rounded-lg bg-accent px-6 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_var(--color-accent)] transition-transform hover:-translate-y-0.5"
+            >
               {t("landing.getStarted")}
             </Link>
-            <Link to="/download" className={secondaryCta}>
+            <Link
+              to="/download"
+              className="inline-flex items-center gap-2 rounded-lg border border-glass-border bg-bg-secondary px-6 py-2.5 text-sm font-semibold text-text-primary transition-colors hover:bg-glass-hover"
+            >
               <Download size={16} />
               {t("landing.download")}
             </Link>
@@ -74,25 +71,19 @@ export function HeroSection({ theme }: HeroSectionProps) {
           {!user && (
             <Link
               to="/library"
-              className="mt-4 text-sm text-text-muted underline-offset-4 transition-colors hover:text-text-secondary hover:underline"
+              className="mt-5 font-mono text-2xs uppercase tracking-[0.15em] text-text-muted underline-offset-4 transition-colors hover:text-accent hover:underline"
             >
               {t("landing.continueNoAccount")}
             </Link>
           )}
         </div>
 
-        {/* Right: product-mock visual. A faux app window showing the
-            "one workspace" idea (PDF + AI chat). Swap this block for a
-            real <img src="/hero.gif" /> when a recording is ready. */}
+        {/* Right: product mock, sitting over a slanted accent band. */}
         <div className="relative hidden lg:block">
-          {/* floating accent shapes behind the mock */}
-          <div className="pointer-events-none absolute inset-0 -z-10">
-            <div className="absolute -left-6 top-8 h-24 w-24 rotate-12 rounded-2xl border border-accent/20 animate-[float_7s_ease-in-out_infinite]" />
-            <div className="absolute -right-4 bottom-10 h-16 w-16 rounded-full border border-accent-blue/20 animate-[float_9s_ease-in-out_infinite_1s]" />
-          </div>
+          <HeroStripes className="-inset-8 opacity-80" />
 
           <div
-            className="overflow-hidden rounded-2xl border border-glass-border bg-bg-secondary/80 shadow-2xl backdrop-blur-md"
+            className="relative overflow-hidden rounded-xl border border-glass-border bg-bg-secondary shadow-2xl"
             style={{
               transform: "perspective(1600px) rotateY(-9deg) rotateX(3deg)",
             }}
@@ -107,7 +98,6 @@ export function HeroSection({ theme }: HeroSectionProps) {
 
             {/* two-pane body: faux PDF + faux AI chat */}
             <div className="grid grid-cols-5 gap-px bg-glass-border">
-              {/* PDF page */}
               <div className="col-span-3 space-y-2.5 bg-bg-primary p-5">
                 <div className="h-3 w-2/3 rounded bg-text-muted/40" />
                 {Array.from({ length: 7 }).map((_, i) => (
@@ -126,7 +116,6 @@ export function HeroSection({ theme }: HeroSectionProps) {
                   />
                 ))}
               </div>
-              {/* AI chat */}
               <div className="col-span-2 space-y-3 bg-bg-secondary p-4">
                 <div className="ml-auto w-4/5 rounded-lg rounded-br-sm bg-accent/15 px-2.5 py-2">
                   <div className="h-1.5 w-full rounded bg-accent/40" />

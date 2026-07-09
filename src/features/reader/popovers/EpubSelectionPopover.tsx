@@ -6,10 +6,14 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { useTtsStore } from "@/stores/tts-store";
 import { detectSourceLang } from "@/lib/lang-detect";
 
-async function translateText(text: string, target: string): Promise<string> {
-  const source = detectSourceLang(text);
-  if (source === target) return text;
-  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${source}|${target}`;
+async function translateText(
+  text: string,
+  source: string,
+  target: string,
+): Promise<string> {
+  const src = source === "auto" ? detectSourceLang(text) : source;
+  if (src === target) return text;
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${src}|${target}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = (await res.json()) as {
@@ -40,6 +44,7 @@ export function EpubSelectionPopover({
 }: EpubSelectionPopoverProps) {
   const { t } = useTranslation();
   const popoverRef = useRef<HTMLDivElement>(null);
+  const translateSource = useSettingsStore((s) => s.translateSourceLanguage);
   const translateTarget = useSettingsStore((s) => s.translateTargetLanguage);
 
   const [translated, setTranslated] = useState<string | null>(null);
@@ -91,14 +96,18 @@ export function EpubSelectionPopover({
     setTranslating(true);
     setTranslateError(null);
     try {
-      const result = await translateText(selection.text, translateTarget);
+      const result = await translateText(
+        selection.text,
+        translateSource,
+        translateTarget,
+      );
       setTranslated(result);
     } catch (err) {
       setTranslateError(err instanceof Error ? err.message : "Failed");
     } finally {
       setTranslating(false);
     }
-  }, [selection, translateTarget]);
+  }, [selection, translateSource, translateTarget]);
 
   if (!selection) return null;
 

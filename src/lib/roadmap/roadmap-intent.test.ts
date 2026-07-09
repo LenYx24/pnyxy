@@ -20,16 +20,19 @@ describe("detectRoadmapIntent", () => {
     expect(detectRoadmapIntent("generate a study plan for the GRE")).toBe(true);
   });
 
-  it("fires on request / desire framings, not just creation verbs", () => {
-    // HU desire/request phrasings that the strict creation-verb list missed.
-    expect(detectRoadmapIntent("szeretnék egy roadmapet a React tanulásához")).toBe(true);
-    expect(detectRoadmapIntent("kéne egy tanulási terv a vizsgához")).toBe(true);
-    expect(detectRoadmapIntent("adj egy roadmapet a Python tanuláshoz")).toBe(true);
-    expect(detectRoadmapIntent("legyen egy roadmap a gépi tanulásról")).toBe(true);
+  it("stays off for weak request / desire framings (kept as normal chat)", () => {
+    // Deliberately narrowed: only explicit create/generate verbs escalate to
+    // the roadmap tool path. Weak "want/need/give me" (HU szeretn/kéne/adj/
+    // legyen) framings must NOT hijack ordinary chat — they still get a normal
+    // prose answer that can include a study plan.
+    expect(detectRoadmapIntent("szeretnék egy roadmapet a React tanulásához")).toBe(false);
+    expect(detectRoadmapIntent("kéne egy tanulási terv a vizsgához")).toBe(false);
+    expect(detectRoadmapIntent("adj egy roadmapet a Python tanuláshoz")).toBe(false);
+    expect(detectRoadmapIntent("legyen egy roadmap a gépi tanulásról")).toBe(false);
     // EN equivalents.
-    expect(detectRoadmapIntent("I'd like a roadmap for machine learning")).toBe(true);
-    expect(detectRoadmapIntent("give me a study plan for the exam")).toBe(true);
-    expect(detectRoadmapIntent("I want a learning path for SQL")).toBe(true);
+    expect(detectRoadmapIntent("I'd like a roadmap for machine learning")).toBe(false);
+    expect(detectRoadmapIntent("give me a study plan for the exam")).toBe(false);
+    expect(detectRoadmapIntent("I want a learning path for SQL")).toBe(false);
   });
 
   it("stays off when only the noun is present (no build verb)", () => {

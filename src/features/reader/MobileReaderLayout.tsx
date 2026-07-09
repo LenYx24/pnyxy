@@ -280,9 +280,9 @@ export function MobileReaderLayout({
             </div>
             <div className="flex-1 overflow-y-auto">
               <ReaderSidebarContent
-                onOpenFile={() => {}}
-                onOpenNote={() => {}}
-                onCreateNote={() => {}}
+                onOpenFile={undefined}
+                onOpenNote={undefined}
+                onCreateNote={undefined}
                 onOpenWhiteboard={handleOpenWhiteboard}
                 onCreateWhiteboard={handleCreateWhiteboard}
               />

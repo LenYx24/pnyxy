@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { ListChecks, MessageSquare, Shapes, GraduationCap } from "lucide-react";
+import {
+  ListChecks,
+  MessageSquare,
+  Shapes,
+  GraduationCap,
+  Bot,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { bookIdSegment } from "@/lib/slugify";
 import {
   conversationDisplayTitle,
   whiteboardDisplayTitle,
@@ -46,8 +53,11 @@ export function RelatedToBook() {
   const isUploaded = data.source === "uploaded";
   const bookRowId = data.book.id;
   // chats + vocab match the reader's document id: a PDF file hash for
-  // uploaded books, the catalog UUID for catalog books.
-  const docId = isUploaded ? data.book.file_hash : data.book.id;
+  // uploaded books, the catalog UUID for catalog books. Reference-only uploads
+  // (no file yet) fall back to the book row id so chats can still be scoped.
+  const docId = isUploaded
+    ? data.book.file_hash || data.book.id
+    : data.book.id;
 
   const openConversation = useChatStore((s) => s.openConversation);
   const whiteboards = useWhiteboardStore((s) => s.whiteboards);
@@ -129,11 +139,23 @@ export function RelatedToBook() {
     navigate("/chat");
   };
 
+  const bookChatHref = `/books/${bookIdSegment(bookRowId, data.book.title)}/chat`;
+
   return (
     <section className="rounded-lg border border-glass-border bg-glass-bg p-4">
-      <h3 className="mb-3 text-sm font-semibold text-text-primary">
-        {t("book.related.heading")}
-      </h3>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-text-primary">
+          {t("book.related.heading")}
+        </h3>
+        <button
+          type="button"
+          onClick={() => navigate(bookChatHref)}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-accent/30 bg-accent/10 px-2 py-1 text-2xs font-medium text-accent transition-colors hover:bg-accent/20 cursor-pointer"
+        >
+          <Bot size={12} />
+          {t("book.related.openChatPage", { defaultValue: "Open chat page" })}
+        </button>
+      </div>
       <div className="space-y-1.5">
         {quizzes.map((q) => (
           <RelatedRow

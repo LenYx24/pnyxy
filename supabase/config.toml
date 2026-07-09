@@ -7,6 +7,22 @@ verify_jwt = false
 [functions.lemonsqueezy-webhook]
 verify_jwt = false
 
+# Stripe calls this with its own signature (Stripe-Signature), not a user JWT.
+[functions.stripe-webhook]
+verify_jwt = false
+
+# stripe-checkout is called by a signed-in user; keep the gateway's JWT
+# check (default) — the function re-reads the JWT to get the user id.
+[functions.stripe-checkout]
+verify_jwt = true
+
+# stripe-portal (manage/cancel subscription) — same as stripe-checkout.
+[functions.stripe-portal]
+verify_jwt = true
+
+[functions.ingest-url]
+verify_jwt = true
+
 [auth]
 enabled = true
 site_url = "http://localhost:5173"

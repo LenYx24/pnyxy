@@ -37,12 +37,15 @@ export interface Profile {
   onboarded: boolean;
   created_at: string;
   updated_at: string;
-  // Billing (written only by the lemonsqueezy-webhook via service role;
-  // see migration 00043). Optional because the profile select doesn't
-  // always include them.
+  // Billing (written only by the billing webhook via service role; see
+  // migrations 00043/00049). Optional because the profile select
+  // doesn't always include them. `subscription_provider` is 'stripe'
+  // for new subs; the ls_* columns remain for any legacy rows.
   subscription_provider?: string | null;
   ls_customer_id?: string | null;
   ls_subscription_id?: string | null;
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
   subscription_status?: string | null;
   current_period_end?: string | null;
 }

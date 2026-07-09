@@ -95,6 +95,9 @@ interface SettingsState {
   pluginStorage: Record<string, unknown>;
 
   // Context-menu tools
+  /** "auto" = detect from the text; otherwise a language code. */
+  translateSourceLanguage: string;
+  setTranslateSourceLanguage: (v: string) => void;
   translateTargetLanguage: string;
   setTranslateTargetLanguage: (v: string) => void;
 
@@ -108,6 +111,8 @@ interface SettingsState {
   pdfInvertColors: boolean;
   /** Whether the reader's secondary action row is open. Desktop only; persisted per-user. */
   readerSecondaryPanelOpen: boolean;
+  /** Whether the first-run onboarding tour has been finished or dismissed. */
+  onboardingCompleted: boolean;
   /** PDF reflow: render the pdf.js text layer as flowing text so phones don't pan sideways. Local-only. */
   pdfReflowMode: boolean;
 
@@ -160,6 +165,7 @@ interface SettingsState {
   setPdfInvertColors: (v: boolean) => void;
   setPdfReflowMode: (v: boolean) => void;
   setReaderSecondaryPanelOpen: (v: boolean) => void;
+  setOnboardingCompleted: (v: boolean) => void;
 
   // Cloud sync
   syncPreferences: () => Promise<void>;
@@ -200,6 +206,7 @@ export const useSettingsStore = create<SettingsState>()(
       pluginSettings: buildDefaultPluginSettings().pluginSettings,
       pluginStorage: {},
 
+      translateSourceLanguage: "auto",
       translateTargetLanguage: "en",
 
       experimental_allowAnnotationsForAllFormats: false,
@@ -208,7 +215,9 @@ export const useSettingsStore = create<SettingsState>()(
       pdfInvertColors: false,
       pdfReflowMode: false,
       readerSecondaryPanelOpen: false,
+      onboardingCompleted: false,
 
+      setTranslateSourceLanguage: (v) => set({ translateSourceLanguage: v }),
       setTranslateTargetLanguage: (v) => set({ translateTargetLanguage: v }),
       setPageScrollBehavior: (v) => set({ pageScrollBehavior: v }),
       setScrollAnimationDuration: (v) =>
@@ -381,6 +390,7 @@ export const useSettingsStore = create<SettingsState>()(
       setPdfInvertColors: (v) => set({ pdfInvertColors: v }),
       setPdfReflowMode: (v) => set({ pdfReflowMode: v }),
       setReaderSecondaryPanelOpen: (v) => set({ readerSecondaryPanelOpen: v }),
+      setOnboardingCompleted: (v) => set({ onboardingCompleted: v }),
 
       // Cloud sync
       syncPreferences: async () => {
@@ -482,7 +492,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "pnyxy-reader:settings",
-      version: 11,
+      version: 12,
       partialize: (state) => {
         // persist everything; pluginStorage stays local-only, never synced to Supabase
         return state;
@@ -648,6 +658,11 @@ export const useSettingsStore = create<SettingsState>()(
           if (typeof state.readerSecondaryPanelOpen !== "boolean") {
             state.readerSecondaryPanelOpen = false;
           }
+        }
+        // v12: existing users have already learned the app; skip the tour.
+        // Brand-new users start from the initial `false` and see it once.
+        if (version < 12) {
+          state.onboardingCompleted = true;
         }
         return state as unknown as SettingsState;
       },

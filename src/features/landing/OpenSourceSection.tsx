@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Palette, Puzzle } from "lucide-react";
-import { GlassCard } from "@/components/ui";
+import { SectionHeading } from "./SectionHeading";
 
 const REPO_URL = "https://github.com/LenYx24/pnyxy";
 const COMMUNITY_URL = "https://github.com/LenYx24/pnyxy-community";
@@ -23,68 +23,63 @@ function GithubGlyph({ size = 20 }: { size?: number }) {
 
 /**
  * Open-source + extensibility CTA. Points readers at the main repo
- * (contribute / star / fork) and the separate community registry
- * repo (drop-in themes & plugins).
+ * (contribute / star / fork) and the separate community registry repo
+ * (drop-in themes & plugins). Solid panels, single teal accent.
  */
 export function OpenSourceSection() {
   const { t } = useTranslation();
   return (
-    <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-      <h2 className="mb-4 text-center text-3xl font-bold text-text-primary">
-        {t("landing.openSource.title")}
-      </h2>
-      <p className="mx-auto mb-12 max-w-2xl text-center text-text-secondary">
-        {t("landing.openSource.subtitle")}
-      </p>
+    <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+      <SectionHeading
+        eyebrow={t("landing.eyebrow.openSource")}
+        title={t("landing.openSource.title")}
+        subtitle={t("landing.openSource.subtitle")}
+      />
 
-      <div className="grid gap-6 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         <a
           href={REPO_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="block"
+          className="group block rounded-xl border border-glass-border bg-bg-secondary p-6 transition-colors hover:border-accent/40"
         >
-          <GlassCard className="h-full p-6 transition-transform hover:scale-[1.01]">
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-accent/15 text-accent">
-              <GithubGlyph size={20} />
-            </div>
-            <h3 className="mb-2 text-lg font-semibold text-text-primary">
-              {t("landing.openSource.repo.title")}
-            </h3>
-            <p className="text-sm leading-relaxed text-text-secondary">
-              {t("landing.openSource.repo.description")}
-            </p>
-            <p className="mt-4 text-xs text-accent">
-              github.com/LenYx24/pnyxy →
-            </p>
-          </GlassCard>
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-accent/12 text-accent">
+            <GithubGlyph size={20} />
+          </div>
+          <h3 className="mb-2 font-display text-lg font-semibold text-text-primary">
+            {t("landing.openSource.repo.title")}
+          </h3>
+          <p className="text-sm leading-relaxed text-text-secondary">
+            {t("landing.openSource.repo.description")}
+          </p>
+          <p className="mt-4 font-mono text-2xs text-accent">
+            github.com/LenYx24/pnyxy →
+          </p>
         </a>
 
         <a
           href={COMMUNITY_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="block"
+          className="group block rounded-xl border border-glass-border bg-bg-secondary p-6 transition-colors hover:border-accent/40"
         >
-          <GlassCard className="h-full p-6 transition-transform hover:scale-[1.01]">
-            <div className="mb-4 flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-blue/15">
-                <Palette size={20} className="text-accent-blue" />
-              </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-blue/15">
-                <Puzzle size={20} className="text-accent-blue" />
-              </div>
+          <div className="mb-4 flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/12 text-accent">
+              <Palette size={20} />
             </div>
-            <h3 className="mb-2 text-lg font-semibold text-text-primary">
-              {t("landing.openSource.community.title")}
-            </h3>
-            <p className="text-sm leading-relaxed text-text-secondary">
-              {t("landing.openSource.community.description")}
-            </p>
-            <p className="mt-4 text-xs text-accent-blue">
-              github.com/LenYx24/pnyxy-community →
-            </p>
-          </GlassCard>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/12 text-accent">
+              <Puzzle size={20} />
+            </div>
+          </div>
+          <h3 className="mb-2 font-display text-lg font-semibold text-text-primary">
+            {t("landing.openSource.community.title")}
+          </h3>
+          <p className="text-sm leading-relaxed text-text-secondary">
+            {t("landing.openSource.community.description")}
+          </p>
+          <p className="mt-4 font-mono text-2xs text-accent">
+            github.com/LenYx24/pnyxy-community →
+          </p>
         </a>
       </div>
     </section>

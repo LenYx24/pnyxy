@@ -33,6 +33,7 @@ import { useIsMobile } from "@/hooks/use-media-query";
 import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { useChatStore } from "@/stores/chat-store";
 import { supabase } from "@/lib/supabase";
 import { getConfiguredProviders } from "@/lib/ai/ai-client";
 import type { RecommendationMode } from "@/lib/ai/recommendation-prompts";
@@ -182,6 +183,9 @@ function QuotaBar({
   const limit = onTokens ? row.tokens_limit : row.request_limit;
   const pct = Math.min(100, Math.round((onTokens ? tokensRatio : reqRatio) * 100));
   const nearLimit = pct >= 80;
+  // With large free-tier ceilings the true fill can round to <1% and vanish;
+  // give any non-zero usage a visible sliver so the bar never looks broken.
+  const barWidth = used > 0 ? Math.max(pct, 4) : 0;
 
   const unit = onTokens
     ? t("chat.composer.quota.tokens", { defaultValue: "tokens" })
@@ -198,13 +202,13 @@ function QuotaBar({
         model: activeModel,
       })}
     >
-      <div className="h-1 flex-1 overflow-hidden rounded-full bg-glass-bg">
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-text-muted/15">
         <div
           className={cn(
             "h-full rounded-full transition-all",
-            nearLimit ? "bg-danger/70" : "bg-accent/70",
+            nearLimit ? "bg-danger" : "bg-accent",
           )}
-          style={{ width: `${pct}%` }}
+          style={{ width: `${barWidth}%` }}
         />
       </div>
       <span
@@ -462,9 +466,12 @@ function ModelOption({
 function ModePicker({
   value,
   onChange,
+  allowImage,
 }: {
   value: RecommendationMode;
   onChange: (next: RecommendationMode) => void;
+  /** Hide the "Generate image" option when no OpenAI key is configured. */
+  allowImage: boolean;
 }) {
   const { t } = useTranslation();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -517,7 +524,10 @@ function ModePicker({
         onClose={() => setOpen(false)}
         className="w-72"
       >
-        {(["default", "books", "videos", "image"] as const).map((m) => (
+        {(allowImage
+          ? (["default", "books", "videos", "image"] as const)
+          : (["default", "books", "videos"] as const)
+        ).map((m) => (
           <ModelOption
             key={m}
             active={value === m}
@@ -681,9 +691,22 @@ export const ChatComposer = forwardRef<
   const usesPnyxyQuota =
     (selectedProvider === null || selectedProvider === "pnyxy") &&
     configuredProviders.includes("pnyxy");
+  // Predict the billed model the SAME way the proxy routes it. Grounding
+  // (web search → gemini-3) is on only when the turn carries NO document
+  // context — and the proxy keys that off the active conversation's
+  // source_doc_title, NOT the reader's open doc. Mirror that signal so
+  // the bar tracks the bucket the proxy actually records; fall back to
+  // the reader doc only when there's no conversation yet (a fresh
+  // reader-panel chat will attach the doc).
+  const convHasDoc = useChatStore((s) => {
+    if (!s.activeConversationId) return undefined;
+    const conv = s.conversations.find((c) => c.id === s.activeConversationId);
+    return conv ? !!conv.source_doc_title : undefined;
+  });
+  const turnHasDoc = convHasDoc ?? !!activeDoc;
   const activeQuotaModel =
     pnyxyModel ??
-    (activeDoc ? QUOTA_AUTO_DEFAULT_MODEL : QUOTA_AUTO_GROUNDED_MODEL);
+    (turnHasDoc ? QUOTA_AUTO_DEFAULT_MODEL : QUOTA_AUTO_GROUNDED_MODEL);
 
   // Reasoning toggle persists across sends (unlike `mode`). Only routes when OpenAI is configured.
   const [reasoning, setReasoning] = useState(false);
@@ -692,6 +715,10 @@ export const ChatComposer = forwardRef<
   useEffect(() => {
     if (!openAiConfigured && reasoning) setReasoning(false);
   }, [openAiConfigured, reasoning]);
+  // Image generation needs an OpenAI key; fall back to Chat if it disappears.
+  useEffect(() => {
+    if (!openAiConfigured && mode === "image") setMode("default");
+  }, [openAiConfigured, mode]);
 
   // Default routing caps at 1 image; BYOK keys allow 4.
   const effectiveAttachmentCap =
@@ -1059,7 +1086,10 @@ export const ChatComposer = forwardRef<
             <p className="px-3 pb-1 text-2xs font-medium uppercase tracking-wider text-text-muted">
               {t("chat.composer.modeLabel", { defaultValue: "Mode" })}
             </p>
-            {(["default", "books", "videos", "image"] as const).map((m) => (
+            {(openAiConfigured
+              ? (["default", "books", "videos", "image"] as const)
+              : (["default", "books", "videos"] as const)
+            ).map((m) => (
               <button
                 key={m}
                 type="button"
@@ -1167,7 +1197,11 @@ export const ChatComposer = forwardRef<
           options={configuredProviders}
           onChange={setSelectedProvider}
         />
-        <ModePicker value={mode} onChange={setMode} />
+        <ModePicker
+          value={mode}
+          onChange={setMode}
+          allowImage={openAiConfigured}
+        />
       </div>
       <div className="flex items-center gap-1.5 @[30rem]/cm:contents">
         <button

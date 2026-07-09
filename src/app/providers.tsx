@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { RouterProvider } from "react-router";
 import { PluginHost } from "@/lib/plugins/host-context";
 import { CustomTitleBar } from "@/components/layout/CustomTitleBar";
+import { Toaster } from "@/components/ui/Toaster";
 import { router } from "./router";
 
 export function AppProviders({ children }: { children?: ReactNode }) {
@@ -10,6 +11,8 @@ export function AppProviders({ children }: { children?: ReactNode }) {
       {/* native-only window title bar (renders nothing in the browser) */}
       <CustomTitleBar />
       <RouterProvider router={router} />
+      {/* app-wide non-blocking toast notifications */}
+      <Toaster />
       {children}
     </PluginHost>
   );

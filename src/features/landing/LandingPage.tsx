@@ -11,6 +11,7 @@ import { FeaturesSection } from "./FeaturesSection";
 import { PricingSection } from "./PricingSection";
 import { FaqSection } from "./FaqSection";
 import { OpenSourceSection } from "./OpenSourceSection";
+import { SlantDivider } from "./DiagonalStripes";
 
 export function LandingPage() {
   const { t } = useTranslation();
@@ -65,7 +66,7 @@ export function LandingPage() {
         className={cn(
           "fixed top-0 z-50 flex w-full items-center justify-between px-4 py-3 transition-colors duration-200 sm:px-6",
           scrolled
-            ? "border-b border-glass-border/40 bg-bg-primary/70 backdrop-blur-md"
+            ? "border-b border-glass-border/40 bg-bg-primary/95"
             : "border-b border-transparent",
         )}
       >
@@ -117,7 +118,8 @@ export function LandingPage() {
         </div>
       </header>
 
-      <HeroSection theme={theme} />
+      <HeroSection />
+      <SlantDivider className="mx-auto max-w-6xl px-6" />
       <Reveal>
         <FeaturesSection />
       </Reveal>
@@ -127,6 +129,7 @@ export function LandingPage() {
       <Reveal>
         <FaqSection />
       </Reveal>
+      <SlantDivider className="mx-auto max-w-6xl px-6" />
       <Reveal>
         <OpenSourceSection />
       </Reveal>

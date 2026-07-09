@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -8,8 +8,10 @@ import {
   Check,
   Loader2,
   PartyPopper,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import { useQuizStore } from "@/stores/quiz-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { gradeAnswer, type DueReview } from "@/types/quiz";
@@ -38,6 +40,10 @@ export function QuizReviewPage() {
   const [revealed, setRevealed] = useState(false);
   const [recording, setRecording] = useState(false);
   const [wasCorrect, setWasCorrect] = useState(false);
+  // Guards exactly-once recording per card: reveal no longer records
+  // (so the self-grade override can flip the verdict first); we commit
+  // the FINAL wasCorrect when advancing or leaving the card instead.
+  const recordedRef = useRef(false);
 
   const current = queue[index];
   const finished = !loading && queue.length > 0 && index >= queue.length;
@@ -149,7 +155,7 @@ export function QuizReviewPage() {
   if (!current) return null;
   const { question } = current;
 
-  const reveal = async () => {
+  const reveal = () => {
     if (!canReveal) return;
     const isCorrect = gradeAnswer(question, {
       selected_index: pickedIndex,
@@ -157,28 +163,51 @@ export function QuizReviewPage() {
     });
     setWasCorrect(isCorrect);
     setRevealed(true);
+  };
+
+  // Records the current card's FSRS result exactly once, using the
+  // final (possibly self-graded-override) wasCorrect. Called when the
+  // user advances (Next) or leaves the card (Exit).
+  const commitReview = async () => {
+    if (!revealed || recordedRef.current) return;
+    recordedRef.current = true;
     setRecording(true);
     try {
       await recordReviewBatch([
-        { question_id: question.id, is_correct: isCorrect },
+        { question_id: question.id, is_correct: wasCorrect },
       ]);
+      if (wasCorrect) setCorrectCount((n) => n + 1);
+    } catch (err) {
+      // Allow a retry if the write failed.
+      recordedRef.current = false;
+      throw err;
     } finally {
       setRecording(false);
     }
-    if (isCorrect) setCorrectCount((n) => n + 1);
   };
 
-  const next = () => {
+  const next = async () => {
+    await commitReview();
+    recordedRef.current = false;
     setIndex((i) => i + 1);
     setPickedIndex(null);
     setTypedText("");
     setRevealed(false);
+    setWasCorrect(false);
   };
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-5 p-4 sm:p-6">
       <button
-        onClick={() => navigate("/quizzes")}
+        onClick={async () => {
+          // Persist the in-progress card (if revealed) before leaving so
+          // a reviewed-but-not-advanced card still records exactly once.
+          try {
+            await commitReview();
+          } finally {
+            navigate("/quizzes");
+          }
+        }}
         className="flex items-center gap-1 text-sm text-text-muted transition-colors hover:text-text-primary cursor-pointer"
       >
         <ArrowLeft size={14} />
@@ -235,6 +264,9 @@ export function QuizReviewPage() {
           revealed={revealed}
           isCorrect={wasCorrect}
           correctText={question.correct_text ?? ""}
+          onSubmit={() => {
+            if (canReveal && !revealed) reveal();
+          }}
         />
       )}
 
@@ -242,6 +274,43 @@ export function QuizReviewPage() {
         <p className="rounded-lg border border-glass-border bg-glass-bg/40 p-3 text-sm text-text-secondary">
           {question.explanation}
         </p>
+      )}
+
+      {revealed && (
+        // Auto-grading one canonical answer can't cover synonyms or
+        // phrasing, so let the user correct the verdict before it's
+        // recorded. This flips wasCorrect, which commitReview persists.
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-glass-border bg-glass-bg/40 p-3 text-sm">
+          <span
+            className={cn(
+              "flex items-center gap-1.5 font-medium",
+              wasCorrect ? "text-success" : "text-danger",
+            )}
+          >
+            {wasCorrect ? <Check size={14} /> : <X size={14} />}
+            {wasCorrect
+              ? t("quizzes.review.markedCorrect", {
+                  defaultValue: "Marked correct",
+                })
+              : t("quizzes.review.markedIncorrect", {
+                  defaultValue: "Marked incorrect",
+                })}
+          </span>
+          <button
+            type="button"
+            onClick={() => setWasCorrect((v) => !v)}
+            disabled={recording}
+            className="rounded-md border border-glass-border px-2.5 py-1 text-sm text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary disabled:opacity-50 cursor-pointer"
+          >
+            {wasCorrect
+              ? t("quizzes.review.markIncorrect", {
+                  defaultValue: "Mark as incorrect",
+                })
+              : t("quizzes.review.markCorrect", {
+                  defaultValue: "I was actually right",
+                })}
+          </button>
+        </div>
       )}
 
       <div className="flex justify-end gap-2">

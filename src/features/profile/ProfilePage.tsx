@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
 import { containsProfanity } from "@/lib/profanity-filter";
+import { PlanSection } from "./PlanSection";
 
 export function ProfilePage() {
   const { t } = useTranslation();
@@ -265,6 +266,8 @@ export function ProfilePage() {
         )}
         <p className="text-xs text-text-muted">{t("profile.avatarHint")}</p>
       </section>
+
+      <PlanSection />
 
       <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-text-primary">

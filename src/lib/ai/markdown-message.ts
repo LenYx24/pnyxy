@@ -109,15 +109,36 @@ marked.use(
   }),
 );
 
-// convert \(...\) and \[...\] delimiters (what LLMs emit) into $...$ / $$...$$ for marked-katex.
-// the code-block alternation runs first so we don't rewrite math-like content inside code fences.
+// Normalize the LaTeX LLMs emit into what marked-katex expects.
+//  - \(...\)  -> $...$   (inline)
+//  - \[...\]  -> block display math
+//  - $$...$$  -> block display math, re-emitted so it always parses
+// The code-block alternation runs first so we don't rewrite math inside fences.
+//
+// Display math is forced onto its OWN un-indented lines with blank-line
+// separation. Without this, models routinely indent a $$...$$ under a list
+// item (4-space indent = a Markdown code block, so it renders as raw text) or
+// place it flush against a preceding sentence with no blank line (parses as
+// block only intermittently) — the classic "sometimes it renders, sometimes
+// it doesn't". A leading/trailing newline guarantees the block tokenizer wins.
+function toDisplayBlock(inner: string): string {
+  return `\n\n$$\n${inner.trim()}\n$$\n\n`;
+}
+
 function normalizeLatexDelimiters(text: string): string {
   return text.replace(
-    /(```[\s\S]*?```|`[^`\n]*`)|\\\(([\s\S]+?)\\\)|\\\[([\s\S]+?)\\\]/g,
-    (_match, code: string | undefined, inlineMath: string | undefined, displayMath: string | undefined) => {
+    /(```[\s\S]*?```|`[^`\n]*`)|\\\(([\s\S]+?)\\\)|\\\[([\s\S]+?)\\\]|\$\$([\s\S]+?)\$\$/g,
+    (
+      _match,
+      code: string | undefined,
+      inlineMath: string | undefined,
+      bracketDisplay: string | undefined,
+      dollarDisplay: string | undefined,
+    ) => {
       if (code !== undefined) return code;
       if (inlineMath !== undefined) return `$${inlineMath}$`;
-      if (displayMath !== undefined) return `$$${displayMath}$$`;
+      if (bracketDisplay !== undefined) return toDisplayBlock(bracketDisplay);
+      if (dollarDisplay !== undefined) return toDisplayBlock(dollarDisplay);
       return _match;
     },
   );

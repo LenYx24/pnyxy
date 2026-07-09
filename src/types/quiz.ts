@@ -109,14 +109,24 @@ export interface QuizQuestionStat {
   wrong: number;
 }
 
-/** Grades a short-answer response case-insensitively against the
- *  stored correct_text. Trimmed, collapsed-whitespace, lowercased. */
+/** Grades a short-answer response leniently against the stored
+ *  correct_text. Tolerates case, diacritics/accents (so "só" matches
+ *  "so"), surrounding/most punctuation, and whitespace differences.
+ *  Deterministic and still a boolean — it does not match everything. */
 export function matchesShortAnswer(
   userText: string,
   correctText: string,
 ): boolean {
   const normalize = (s: string) =>
-    s.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+    s
+      .normalize("NFD")
+      // Strip combining diacritical marks (accents) left by NFD.
+      .replace(/[̀-ͯ]/g, "")
+      .toLocaleLowerCase()
+      // Drop punctuation/symbols anywhere; keep letters, numbers, space.
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
   return normalize(userText) === normalize(correctText);
 }
 

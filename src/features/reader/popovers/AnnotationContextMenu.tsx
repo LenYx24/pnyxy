@@ -142,19 +142,10 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
     const text = (selection?.text ?? "").trim();
     const doc = useReaderStore.getState().getActiveDoc();
     const openInReader = useUIStore.getState().openReaderAiChat;
-    // TODO: drop this log once send-to-chat is reliable. flat string so Chrome doesn't collapse it.
-    console.log(
-      `[send-to-chat] textLen=${text.length} preview="${text.slice(
-        0,
-        60,
-      )}" hasDoc=${!!doc} docId=${doc?.meta.id ?? "null"} hasOpenInReader=${!!openInReader}`,
-    );
     if (!text) {
-      console.warn("[send-to-chat] early-return: empty text");
       return;
     }
     if (!doc) {
-      console.warn("[send-to-chat] early-return: no active doc");
       return;
     }
     // Stash a draft for AiChatPanel/ChatPage to drain into a new conversation.
@@ -168,17 +159,12 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
       },
       selection,
     });
-    console.log("[send-to-chat] pendingDraft set");
     hideContextMenu();
     window.getSelection()?.removeAllRanges();
     // Prefer the reader side panel; fall back to /chat if it isn't registered.
     if (openInReader) {
-      console.log("[send-to-chat] opening in-reader panel");
       openInReader();
     } else {
-      console.log(
-        "[send-to-chat] navigating to /chat (in-reader panel not registered)",
-      );
       navigate("/chat");
     }
   }, [contextMenu.selection, highlight, hideContextMenu, navigate]);

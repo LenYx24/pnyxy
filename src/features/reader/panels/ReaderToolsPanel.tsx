@@ -5,17 +5,20 @@ import {
   BotMessageSquare,
   Globe,
   Languages,
+  Network,
   Search,
   X,
 } from "lucide-react";
 import type { IDockviewPanelProps } from "dockview";
 import { useChatStore } from "@/stores/chat-store";
+import { useReaderStore } from "@/stores/reader-store";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { cn } from "@/lib/cn";
 import { AiChatPanelContent } from "./AiChatPanel";
 import { AnnotationMenuDefinePanel } from "./AnnotationMenuDefinePanel";
 import { AnnotationMenuTranslatePanel } from "./AnnotationMenuTranslatePanel";
 import { AnnotationMenuWikiPanel } from "./AnnotationMenuWikiPanel";
+import { ConversationGraph } from "@/features/chat/ConversationGraph";
 
 /**
  * The right-side reader panel, a tab switcher over the tools that fit
@@ -33,7 +36,7 @@ import { AnnotationMenuWikiPanel } from "./AnnotationMenuWikiPanel";
  * cheap to recreate on re-entry.
  */
 
-type ToolTab = "chat" | "dictionary" | "wikipedia" | "translate";
+type ToolTab = "chat" | "graph" | "dictionary" | "wikipedia" | "translate";
 
 /** Small typed-query form shared by the Dictionary and Translate tabs
  *  (the Wikipedia panel ships its own input, so it doesn't use this). */
@@ -98,15 +101,27 @@ export function ReaderToolsPanelContent({
   // it so the drained quote is visible immediately (AiChatPanelContent
   // stays mounted below and does the actual draining).
   const pendingDraft = useChatStore((s) => s.pendingDraft);
+  const openConversation = useChatStore((s) => s.openConversation);
+  // Scope the graph to the book open in the reader.
+  const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot reaction to an external store signal (a new send-to-AI draft); can't cascade because pendingDraft only flips on user action
     if (pendingDraft) setTab("chat");
   }, [pendingDraft]);
 
+  const handleGraphOpen = useCallback(
+    (id: string) => {
+      void openConversation(id);
+      setTab("chat");
+    },
+    [openConversation],
+  );
+
   const tabs = useMemo(
     () =>
       [
         { key: "chat", icon: BotMessageSquare, label: t("reader.tools.tabChat") },
+        { key: "graph", icon: Network, label: t("reader.tools.tabGraph") },
         {
           key: "dictionary",
           icon: BookOpen,
@@ -185,6 +200,14 @@ export function ReaderToolsPanelContent({
       <div className={cn("min-h-0 flex-1", tab !== "chat" && "hidden")}>
         <AiChatPanelContent />
       </div>
+
+      {tab === "graph" && (
+        <ConversationGraph
+          onOpen={handleGraphOpen}
+          scopeDocId={activeDocumentId}
+          className="min-h-0 flex-1"
+        />
+      )}
 
       {tab === "dictionary" && (
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">

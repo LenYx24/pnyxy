@@ -252,6 +252,17 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     null,
   );
 
+  // Single-finger pan axis-lock. Once a drag commits to a dominant axis, a
+  // vertical-dominant one pins scrollLeft (see handleScroll) so the zoomed
+  // page doesn't drift sideways. Cleared on touch end / multi-touch.
+  const touchAxisLockRef = useRef<{
+    startX: number;
+    startY: number;
+    lockLeft: number;
+    decided: boolean;
+    lockHoriz: boolean;
+  } | null>(null);
+
   // True once the user drives the scroll themselves. Disarms the resume
   // re-snap for the current view. Gated on input intent, not scroll-position
   // matching: the re-snap's own programmatic write can land last in a frame
@@ -915,6 +926,14 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     if (!isProgrammatic) {
       userScrolledRef.current = true;
       resumeTargetRef.current = null;
+      // Axis-lock: during a vertical-dominant single-finger touch pan, cancel
+      // sideways drift so an imperfect up/down swipe on a zoomed page doesn't
+      // slide it left/right. Correcting scrollLeft here (not preventDefault)
+      // keeps native vertical momentum intact.
+      const lock = touchAxisLockRef.current;
+      if (lock?.lockHoriz && el.scrollLeft !== lock.lockLeft) {
+        el.scrollLeft = lock.lockLeft;
+      }
     }
 
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -979,6 +998,48 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       };
     });
   }, [containerHeight, pageOffsets, getPageHeight, setCurrentPage, docId]);
+
+  // Touch pan axis-lock: decide a dominant axis a few px into the drag; a
+  // vertical-dominant drag pins horizontal scroll (applied in handleScroll).
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length !== 1) {
+      touchAxisLockRef.current = null;
+      return;
+    }
+    const el = containerRef.current;
+    if (!el) return;
+    const t = e.touches[0];
+    touchAxisLockRef.current = {
+      startX: t.clientX,
+      startY: t.clientY,
+      lockLeft: el.scrollLeft,
+      decided: false,
+      lockHoriz: false,
+    };
+  }, []);
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const lock = touchAxisLockRef.current;
+    if (!lock) return;
+    if (e.touches.length !== 1) {
+      touchAxisLockRef.current = null;
+      return;
+    }
+    if (lock.decided) return;
+    const t = e.touches[0];
+    const dx = Math.abs(t.clientX - lock.startX);
+    const dy = Math.abs(t.clientY - lock.startY);
+    if (dx > 8 || dy > 8) {
+      lock.decided = true;
+      // vertical-dominant → pin horizontal; horizontal-dominant drags stay free
+      lock.lockHoriz = dy > dx;
+      if (lock.lockHoriz) {
+        lock.lockLeft = containerRef.current?.scrollLeft ?? lock.lockLeft;
+      }
+    }
+  }, []);
+  const handleTouchEnd = useCallback(() => {
+    touchAxisLockRef.current = null;
+  }, []);
 
   // Scroll-to-page (resume on doc open, TOC click, page input, search hit,
   // citation jump). scrollTop = pageOffsets[N] * liveScale.
@@ -1094,6 +1155,43 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     writeProgrammaticScroll(el, desired);
     setScrollTop(desired);
   }, [baselineWidth, zoomMode, scrollToPage, pageOffsets, getPageHeight, docId]);
+
+  // Re-anchor on container HEIGHT change (e.g. the reader toolbar/menu
+  // appearing or disappearing shrinks/grows the viewport). A taller viewport
+  // can clamp scrollTop and shift what's visible; pin the top-anchored
+  // page/fraction back to the viewport top, mirroring the WIDTH re-anchor.
+  // fit-page recomputes scale from height in the store-sync effect below, so
+  // it owns its own re-anchor and is skipped here.
+  const lastAnchorHeightRef = useRef(containerHeight);
+  useLayoutEffect(() => {
+    const prevHeight = lastAnchorHeightRef.current;
+    lastAnchorHeightRef.current = containerHeight;
+    if (prevHeight === containerHeight) return; // only act on a height change
+    if (zoomMode === "fit-page") return; // applyScale owns this re-anchor
+    if (scrollToPage !== null || resumeTargetRef.current) return; // resume owns the scroll
+    const el = containerRef.current;
+    if (!el || pageOffsets.length === 0) return;
+
+    let page: number;
+    let fraction: number;
+    const anchor = topAnchorRef.current;
+    if (anchor) {
+      page = anchor.page;
+      fraction = anchor.fraction;
+    } else {
+      const doc = useReaderStore.getState().documents.get(docId ?? "");
+      if (!doc) return;
+      page = doc.currentPage;
+      fraction = 0;
+    }
+    const pageTop = pageOffsets[page - 1];
+    if (pageTop === undefined) return;
+    const pageHeight = getPageHeight(page);
+    const desired = (pageTop + fraction * pageHeight) * liveScaleRef.current;
+    if (Math.abs(el.scrollTop - desired) <= 1) return;
+    writeProgrammaticScroll(el, desired);
+    setScrollTop(desired);
+  }, [containerHeight, zoomMode, scrollToPage, pageOffsets, getPageHeight, docId]);
 
   // Save scroll fraction to store for resume sync. Skip when the scroll
   // came from us, so a re-applied value doesn't overwrite the saved
@@ -1291,6 +1389,10 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     <div
       ref={containerRef}
       onScroll={handleScroll}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       data-pdf-viewer
       data-active-viewer
       // pdfGutter recolours the space around the page. The page raster can't
