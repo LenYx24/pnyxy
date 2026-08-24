@@ -107,6 +107,7 @@ export function SaveAsFlashcardsModal({
           option_d: "",
           correct_index: 0,
           correct_text: c.answer,
+          correct_indices: [],
           explanation: null,
         })),
       });

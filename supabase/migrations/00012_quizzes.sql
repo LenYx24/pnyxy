@@ -3,7 +3,7 @@
 --
 -- A quiz belongs to a user. It may optionally be associated with
 -- either an uploaded book (books.id) or a public catalog book
--- (catalog_books.id) — not both. Public quizzes are discoverable;
+-- (catalog_books.id), not both. Public quizzes are discoverable;
 -- private quizzes are owner-only.
 --
 -- Each attempt records the user's score plus their per-question
@@ -42,7 +42,7 @@ create trigger quizzes_updated_at
   for each row execute function public.set_updated_at();
 
 -- ── quiz_questions ──────────────────────────────────────────
--- Multiple-choice only for v1 — exactly 4 options, exactly one
+-- Multiple-choice only for v1, exactly 4 options, exactly one
 -- correct (index 0..3). Extra types (true/false, short-answer,
 -- fill-in-blank) will layer on later with a `kind` column.
 create table public.quiz_questions (

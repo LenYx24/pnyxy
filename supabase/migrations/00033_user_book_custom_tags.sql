@@ -1,12 +1,12 @@
 -- ============================================================
 -- Migration 00033: Free-text custom book tags
 -- ============================================================
--- Status tags (`user_book_tags`) are a closed enum — currently_reading,
+-- Status tags (`user_book_tags`) are a closed enum, currently_reading,
 -- want_to_read, done, abandoned, hiatus, favorites. They model where
 -- the book sits in the user's reading workflow.
 --
--- Custom tags are open-ended user-defined labels — "thesis-related",
--- "exam-prep", "loaned-to-Anna", "re-read-2026" — used for freeform
+-- Custom tags are open-ended user-defined labels, "thesis-related",
+-- "exam-prep", "loaned-to-Anna", "re-read-2026", used for freeform
 -- search and personal organisation. Kept in a separate table so the
 -- enum semantics of the status table stay clean.
 -- ============================================================
@@ -33,7 +33,7 @@ CREATE TABLE user_book_custom_tags (
   ),
 
   -- Unique per (user, book, label). Case-insensitive uniqueness via
-  -- functional index below — we still store the user's original casing.
+  -- functional index below, we still store the user's original casing.
   CONSTRAINT uq_user_catalog_custom_tag UNIQUE (user_id, catalog_book_id, label),
   CONSTRAINT uq_user_uploaded_custom_tag UNIQUE (user_id, book_id, label)
 );

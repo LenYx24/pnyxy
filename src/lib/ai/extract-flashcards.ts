@@ -20,7 +20,7 @@ Rules:
 - 3 to 8 cards.
 - Question: short, specific, answerable from the passage. Avoid yes/no.
 - Answer: concise (one sentence or fewer), in the user's reading language.
-- Skip cards if the passage is too short or has no testable content — return { "cards": [] }.
+- Skip cards if the passage is too short or has no testable content, return { "cards": [] }.
 - Each card stands alone (no "the above" / "according to the text").`;
 
 /**

@@ -9,7 +9,7 @@
 export interface LastOpenedBook {
   /** "uploaded" = the user's own file; "catalog" = a public catalog book. */
   source: "uploaded" | "catalog";
-  /** Library entry id (uploaded) or catalog book id — used to re-resolve. */
+  /** Library entry id (uploaded) or catalog book id, used to re-resolve. */
   id: string;
   title: string;
 }
@@ -20,7 +20,7 @@ export function saveLastOpenedBook(book: LastOpenedBook): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(book));
   } catch {
-    // private mode / quota — remembering the last book is best-effort
+    // private mode / quota, remembering the last book is best-effort
   }
 }
 
@@ -40,7 +40,7 @@ export function loadLastOpenedBook(): LastOpenedBook | null {
       return parsed as LastOpenedBook;
     }
   } catch {
-    // corrupt value — treat as "nothing remembered"
+    // corrupt value, treat as "nothing remembered"
   }
   return null;
 }

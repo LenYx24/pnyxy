@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { FeatureKey } from "@/lib/features";
 import {
   BookOpen,
   Layers,
@@ -15,6 +16,8 @@ export interface LearnMethod {
   tagline: string;
   description: string;
   status: "stub" | "live";
+  /** Extra feature flag on top of learnHub (quiz and flashcards have their own). */
+  feature?: FeatureKey;
 }
 
 export const LEARN_METHODS: LearnMethod[] = [
@@ -29,15 +32,17 @@ export const LEARN_METHODS: LearnMethod[] = [
   },
   {
     slug: "flashcards",
+    feature: "flashcards",
     label: "Flashcards",
     icon: Layers,
-    tagline: "Spaced repetition",
+    tagline: "Active recall",
     description:
-      "Auto-generated cards from your highlights and chapters, scheduled by an FSRS review algorithm.",
-    status: "stub",
+      "Generate question-and-answer flashcards from this book and review them, or head to your vocabulary deck for spaced repetition.",
+    status: "live",
   },
   {
     slug: "quiz",
+    feature: "quizzes",
     label: "Quiz",
     icon: BookOpen,
     tagline: "Active recall",

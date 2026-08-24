@@ -74,7 +74,7 @@ export function BookmarksPanel({ hideAddRow, onJump }: BookmarksPanelProps) {
               key={bm.id}
               className="group flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-glass-hover"
             >
-              {/* Color swatch — click to cycle */}
+              {/* Color swatch: click to cycle */}
               <button
                 onClick={() => {
                   const idx = BOOKMARK_COLORS.indexOf(

@@ -15,6 +15,7 @@ import {
   Shield,
   type LucideIcon,
 } from "lucide-react";
+import type { FeatureKey, FeatureSet } from "@/lib/features";
 
 /**
  * Single source of truth for app navigation. The Sidebar and the
@@ -41,6 +42,12 @@ export interface NavItem {
    *  Currently used for the Reader item (only meaningful when a
    *  book is open) and the Admin item (admin role only). */
   visibleWhen?: "hasActiveBook" | "isAdmin";
+  /** When true, the item is hidden from the sidebar for signed-out
+   *  users (its destination is a personal / account-bound surface that
+   *  a logged-out visitor can't meaningfully use). */
+  requiresAuth?: boolean;
+  /** Feature flag that must be enabled for the item to show (see lib/features). */
+  feature?: FeatureKey;
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -52,9 +59,22 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/library", icon: LibraryIcon, key: "library", group: "primary" },
   { to: "/chat", icon: Bot, key: "chat", group: "primary" },
   { to: "/browse", icon: Compass, key: "browse", group: "primary" },
-  { to: "/forum", icon: MessagesSquare, key: "forum", group: "primary" },
-  { to: "/spaces", icon: Boxes, key: "spaces", group: "primary" },
-  { to: "/streaks", icon: Flame, key: "streaks", group: "primary" },
+  { to: "/forum", icon: MessagesSquare, key: "forum", group: "primary", feature: "forum" },
+  {
+    to: "/spaces",
+    icon: Boxes,
+    key: "spaces",
+    group: "primary",
+    requiresAuth: true,
+    feature: "spaces",
+  },
+  {
+    to: "/streaks",
+    icon: Flame,
+    key: "streaks",
+    group: "primary",
+    requiresAuth: true,
+  },
 
   // Conditional: only when a book is loaded into the reader.
   {
@@ -66,11 +86,39 @@ export const NAV_ITEMS: NavItem[] = [
   },
 
   // Study submenu, collapsed by default in the sidebar; flat in the
-  // command palette.
-  { to: "/quizzes", icon: FileQuestion, key: "quizzes", group: "study" },
-  { to: "/quizzes/review", icon: BrainCircuit, key: "review", group: "study" },
-  { to: "/vocabulary", icon: BookMarked, key: "vocabulary", group: "study" },
-  { to: "/roadmaps", icon: MapIcon, key: "roadmaps", group: "study" },
+  // command palette. All personal learning surfaces → signed-in only.
+  {
+    to: "/quizzes",
+    icon: FileQuestion,
+    key: "quizzes",
+    group: "study",
+    requiresAuth: true,
+    feature: "quizzes",
+  },
+  {
+    to: "/quizzes/review",
+    icon: BrainCircuit,
+    key: "review",
+    group: "study",
+    requiresAuth: true,
+    feature: "quizzes",
+  },
+  {
+    to: "/vocabulary",
+    icon: BookMarked,
+    key: "vocabulary",
+    group: "study",
+    requiresAuth: true,
+    feature: "vocabulary",
+  },
+  {
+    to: "/roadmaps",
+    icon: MapIcon,
+    key: "roadmaps",
+    group: "study",
+    requiresAuth: true,
+    feature: "roadmaps",
+  },
 
   // Settings is reached via the gear icon next to the profile name.
   // Kept here so it's still searchable in the palette.
@@ -89,9 +137,15 @@ export const NAV_ITEMS: NavItem[] = [
 export function visibleSidebarItems(opts: {
   hasActiveBook: boolean;
   isAdmin: boolean;
+  /** Whether a user is signed in; gates `requiresAuth` items. */
+  isAuthed: boolean;
+  /** Resolved feature set; items with a `feature` need it enabled. */
+  features: FeatureSet;
 }): NavItem[] {
   return NAV_ITEMS.filter((item) => {
     if (item.group === "hidden") return false;
+    if (item.feature && !opts.features[item.feature]) return false;
+    if (item.requiresAuth && !opts.isAuthed) return false;
     if (item.visibleWhen === "hasActiveBook" && !opts.hasActiveBook) {
       return false;
     }

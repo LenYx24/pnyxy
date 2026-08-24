@@ -14,7 +14,7 @@ import {
   hitTestHandle,
   type ResizeHandle,
 } from "./lib/render-element";
-import { hitTest } from "./lib/hit-testing";
+import { hitTest, hitTestAll } from "./lib/hit-testing";
 import { bboxesIntersect, getElementBounds, screenToWorld } from "./lib/math-utils";
 import { applyResize, angleFromPointer } from "./lib/transforms";
 import { measureTextHeight, TEXT_LINE_HEIGHT } from "./lib/text-layout";
@@ -42,6 +42,10 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
   const panOriginRef = useRef<Point>({ x: 0, y: 0 });
   const spaceDownRef = useRef(false);
   const inProgressElementRef = useRef<WhiteboardElement | null>(null);
+  // smart-eraser sweep state: last sampled point + whether this drag has
+  // already snapshotted undo, so the whole sweep collapses into one undo step
+  const lastEraserWorldRef = useRef<Point | null>(null);
+  const eraserUndoPushedRef = useRef(false);
   const dragStartWorldRef = useRef<Point>({ x: 0, y: 0 });
   const dragSnapshotsRef = useRef<Map<string, WhiteboardElement>>(new Map());
   const isDraggingSelectionRef = useRef(false);
@@ -153,7 +157,7 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
       maxY: viewBottom,
     };
 
-    // Draw PDF background pages — lazily rasterized + windowed so a long book
+    // Draw PDF background pages, lazily rasterized + windowed so a long book
     // never holds every page's bitmap at once.
     const { pdfPages } = store.getState();
     if (pdfPages.length > 0) {
@@ -268,6 +272,39 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
     },
     [],
   );
+
+  // --- Smart eraser ---
+  // Erase every stroke the eraser tip passes over. Sampling ALONG the swept
+  // segment (not just the current pointer sample) means a fast flick still
+  // catches strokes between two move events; a small world-space radius makes
+  // the tip forgiving. All hits from one drag share a single undo entry.
+  const applyErase = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    if (!eraserUndoPushedRef.current) {
+      store.getState().pushUndo();
+      eraserUndoPushedRef.current = true;
+    }
+    store.getState().eraseElements(ids);
+  }, []);
+
+  const eraseSweep = useCallback((from: Point, to: Point) => {
+    const { elements, zoom } = store.getState();
+    if (elements.length === 0) return;
+    // ~8px eraser radius + ~4px sampling step, both in world units
+    const extra = 8 / zoom;
+    const stepWorld = 4 / zoom;
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const dist = Math.hypot(dx, dy);
+    const steps = Math.max(1, Math.ceil(dist / stepWorld));
+    const ids = new Set<string>();
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const p = { x: from.x + dx * t, y: from.y + dy * t };
+      for (const el of hitTestAll(elements, p, zoom, extra)) ids.add(el.id);
+    }
+    applyErase([...ids]);
+  }, []);
 
   // --- Pointer handlers ---
   const handlePointerDown = useCallback(
@@ -418,11 +455,10 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
       }
 
       if (activeTool === "eraser") {
-        const hit = hitTest(elements, world, zoom);
-        if (hit) {
-          store.getState().removeElements([hit.id]);
-        }
         isDrawingRef.current = true;
+        eraserUndoPushedRef.current = false;
+        lastEraserWorldRef.current = world;
+        eraseSweep(world, world);
         return;
       }
 
@@ -618,14 +654,13 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
 
       if (!isDrawingRef.current) return;
 
-      const { activeTool, elements, zoom } = store.getState();
+      const { activeTool } = store.getState();
 
-      // Eraser
+      // Smart eraser: sweep from the last sample so fast drags don't skip strokes
       if (activeTool === "eraser") {
-        const hit = hitTest(elements, world, zoom);
-        if (hit) {
-          store.getState().removeElements([hit.id]);
-        }
+        const from = lastEraserWorldRef.current ?? world;
+        eraseSweep(from, world);
+        lastEraserWorldRef.current = world;
         return;
       }
 
@@ -726,6 +761,15 @@ export function WhiteboardCanvas({ whiteboardId, pdfDocumentUrl }: WhiteboardCan
       if (!isDrawingRef.current) return;
       isDrawingRef.current = false;
       cancelAnimationFrame(rafRef.current);
+
+      // smart-eraser drag finished: reset sweep state + persist immediately
+      if (lastEraserWorldRef.current !== null) {
+        lastEraserWorldRef.current = null;
+        eraserUndoPushedRef.current = false;
+        store.getState().flushSave();
+        render();
+        return;
+      }
 
       const ip = inProgressElementRef.current;
       inProgressElementRef.current = null;

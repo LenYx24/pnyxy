@@ -158,11 +158,11 @@ export function LibraryToolbar({
             first so the header reads as one line. */}
         {leading}
 
-        {/* Disclosure toggle — clicking it shows the search/filter
+        {/* Disclosure toggle: clicking it shows the search/filter
             chrome below. */}
         {toggleControlsButton}
 
-        {/* Search — always visible on desktop (it's a primary
+        {/* Search: always visible on desktop (it's a primary
             affordance; hiding it behind the disclosure added friction).
             On mobile it stays behind the chevron so the collapsed
             toolbar keeps a tight single row; the tag filter + storage
@@ -243,7 +243,7 @@ export function LibraryToolbar({
       {/* Mobile-only secondary row inside the expander. The parent
           renders the Tag filter + Storage bar via the same
           `controlsExpanded` flag, so this stays focused on the bits
-          unique to the toolbar (Refresh — PTR covers the common case
+          unique to the toolbar (Refresh, PTR covers the common case
           on phones but the explicit button is still useful). */}
       {isMobile && controlsExpanded && (
         <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-glass-border bg-glass-bg/60 p-2">

@@ -3,22 +3,32 @@ import { useTranslation } from "react-i18next";
 import {
   BookOpen,
   BotMessageSquare,
+  ExternalLink,
   Globe,
   Languages,
   Network,
+  PenTool,
   Search,
+  StickyNote,
   X,
 } from "lucide-react";
-import type { IDockviewPanelProps } from "dockview";
+import type { DockviewApi, IDockviewPanelProps } from "dockview";
+import type { LucideIcon } from "lucide-react";
 import { useChatStore } from "@/stores/chat-store";
 import { useReaderStore } from "@/stores/reader-store";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { cn } from "@/lib/cn";
+import { useFeatures } from "@/lib/use-features";
 import { AiChatPanelContent } from "./AiChatPanel";
 import { AnnotationMenuDefinePanel } from "./AnnotationMenuDefinePanel";
 import { AnnotationMenuTranslatePanel } from "./AnnotationMenuTranslatePanel";
 import { AnnotationMenuWikiPanel } from "./AnnotationMenuWikiPanel";
 import { ConversationGraph } from "@/features/chat/ConversationGraph";
+import { useReaderDockPanels } from "../use-reader-dock-panels";
+import {
+  ReaderNotesList,
+  ReaderWhiteboardsList,
+} from "./ReaderNotesWhiteboards";
 
 /**
  * The right-side reader panel, a tab switcher over the tools that fit
@@ -36,7 +46,14 @@ import { ConversationGraph } from "@/features/chat/ConversationGraph";
  * cheap to recreate on re-entry.
  */
 
-type ToolTab = "chat" | "graph" | "dictionary" | "wikipedia" | "translate";
+type ToolTab =
+  | "chat"
+  | "graph"
+  | "notes"
+  | "whiteboard"
+  | "dictionary"
+  | "wikipedia"
+  | "translate";
 
 /** Small typed-query form shared by the Dictionary and Translate tabs
  *  (the Wikipedia panel ships its own input, so it doesn't use this). */
@@ -82,12 +99,16 @@ function LookupQueryBar({
 
 export function ReaderToolsPanelContent({
   onClose,
+  dockviewApi,
 }: {
   onClose?: () => void;
+  dockviewApi?: DockviewApi;
 } = {}) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const [tab, setTab] = useState<ToolTab>("chat");
+  // note/whiteboard editors open as dockview panels to the right
+  const dockPanels = useReaderDockPanels(dockviewApi);
 
   // Dictionary / Translate each keep a draft (the input) + a submitted
   // query. The lookup bodies fetch off their `selectedText` prop, so we
@@ -117,24 +138,33 @@ export function ReaderToolsPanelContent({
     [openConversation],
   );
 
-  const tabs = useMemo(
+  const features = useFeatures();
+  const tabs = useMemo<{ key: ToolTab; icon: LucideIcon; label: string }[]>(
     () =>
       [
-        { key: "chat", icon: BotMessageSquare, label: t("reader.tools.tabChat") },
-        { key: "graph", icon: Network, label: t("reader.tools.tabGraph") },
+        { key: "chat" as const, icon: BotMessageSquare, label: t("reader.tools.tabChat") },
+        ...(features.graph
+          ? [{ key: "graph" as const, icon: Network, label: t("reader.tools.tabGraph") }]
+          : []),
+        ...(features.notes
+          ? [{ key: "notes" as const, icon: StickyNote, label: t("reader.sidebar.tabNotes") }]
+          : []),
+        ...(features.whiteboard
+          ? [{ key: "whiteboard" as const, icon: PenTool, label: t("reader.sidebar.tabWhiteboards") }]
+          : []),
         {
-          key: "dictionary",
+          key: "dictionary" as const,
           icon: BookOpen,
           label: t("reader.tools.tabDictionary"),
         },
-        { key: "wikipedia", icon: Globe, label: t("reader.tools.tabWikipedia") },
+        { key: "wikipedia" as const, icon: Globe, label: t("reader.tools.tabWikipedia") },
         {
-          key: "translate",
+          key: "translate" as const,
           icon: Languages,
           label: t("reader.tools.tabTranslate"),
         },
-      ] as const,
-    [t],
+      ],
+    [t, features],
   );
 
   const handleDictSubmit = useCallback(() => setDictQuery(dictDraft.trim()), [
@@ -183,6 +213,23 @@ export function ReaderToolsPanelContent({
             </button>
           ))}
         </div>
+        {/* pop the chat out into its own browser tab (multi-tab reading) */}
+        {tab === "chat" && (
+          <a
+            href="/chat"
+            target="_blank"
+            rel="noopener noreferrer"
+            title={t("reader.tools.openInNewTab", {
+              defaultValue: "Open in new tab",
+            })}
+            aria-label={t("reader.tools.openInNewTab", {
+              defaultValue: "Open in new tab",
+            })}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+          >
+            <ExternalLink size={16} />
+          </a>
+        )}
         {onClose && (
           <button
             type="button"
@@ -195,7 +242,7 @@ export function ReaderToolsPanelContent({
         )}
       </div>
 
-      {/* AI Chat — kept mounted so it preserves state and keeps draining
+      {/* AI Chat: kept mounted so it preserves state and keeps draining
           "Send to AI" drafts while the user is on another tab. */}
       <div className={cn("min-h-0 flex-1", tab !== "chat" && "hidden")}>
         <AiChatPanelContent />
@@ -207,6 +254,12 @@ export function ReaderToolsPanelContent({
           scopeDocId={activeDocumentId}
           className="min-h-0 flex-1"
         />
+      )}
+
+      {tab === "notes" && <ReaderNotesList panels={dockPanels} />}
+
+      {tab === "whiteboard" && (
+        <ReaderWhiteboardsList panels={dockPanels} />
       )}
 
       {tab === "dictionary" && (
@@ -258,6 +311,12 @@ export function ReaderToolsPanelContent({
 
 export function ReaderToolsPanel(props: IDockviewPanelProps) {
   // Mirror AiChatPanel's old behaviour: the header X closes the dockview
-  // panel, matching the reader toolbar's toggle button.
-  return <ReaderToolsPanelContent onClose={() => props.api.close()} />;
+  // panel, matching the reader toolbar's toggle button. containerApi lets
+  // the Notes/Whiteboard tabs open editor panels beside the viewer.
+  return (
+    <ReaderToolsPanelContent
+      onClose={() => props.api.close()}
+      dockviewApi={props.containerApi}
+    />
+  );
 }

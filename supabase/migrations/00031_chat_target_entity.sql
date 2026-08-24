@@ -6,7 +6,7 @@
 -- system prompt and enables the matching tool dispatcher.
 --
 -- target_roadmap_id is text because roadmaps live in IndexedDB
--- (phase 1) — we just store the client-generated UUID as text and
+-- (phase 1), we just store the client-generated UUID as text and
 -- never join against it. target_quiz_id is reserved for the quiz
 -- variant landing in the next session; kept nullable so this
 -- migration ships independently.

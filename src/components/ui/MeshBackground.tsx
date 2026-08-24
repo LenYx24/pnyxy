@@ -5,10 +5,10 @@ interface MeshBackgroundProps {
 /**
  * Calm background for public pages (landing + auth).
  *
- * Deliberately NOT a multi-blob gradient "mesh" — that violet, blurred,
+ * Deliberately NOT a multi-blob gradient "mesh", that violet, blurred,
  * AI-slop look is gone. Instead: the flat base surface, ONE restrained
  * accent bloom anchored to a corner, and a masked dot grid for texture.
- * No blur, no violet — the colour comes from the teal --color-accent so
+ * No blur, no violet, the colour comes from the teal --color-accent so
  * the public pages stay on-brand with the app.
  */
 export function MeshBackground({ theme = "dark" }: MeshBackgroundProps) {

@@ -13,6 +13,7 @@ import type {
   QuizReview,
   QuizVisibility,
 } from "@/types/quiz";
+import { serializeIndices } from "@/types/quiz";
 import {
   emptyReviewState,
   nextReviewState,
@@ -84,11 +85,15 @@ interface QuizState {
   duplicateQuiz: (id: string) => Promise<string | null>;
 
   /** Record a completed attempt in one shot. `selected_index` is used
-   *  for mcq4/true_false; `selected_text` for short_answer. At least one
-   *  must be provided per answer. */
+   *  for mcq4/true_false; `selected_text` for short_answer/multi_select.
+   *  At least one must be provided per answer. `totalOverride` lets the
+   *  caller count skipped (unanswered) questions toward the denominator:
+   *  only answered questions appear in `answers`, but the attempt's
+   *  `total` should still reflect the full question count. */
   submitAttempt: (
     quizId: string,
     answers: SubmitAnswer[],
+    totalOverride?: number,
   ) => Promise<QuizAttempt | null>;
 
   fetchAttempts: (quizId: string) => Promise<QuizAttempt[]>;
@@ -133,6 +138,7 @@ export interface SubmitAnswer {
 function draftTexts(q: QuizQuestionDraft): (string | null)[] {
   switch (q.kind) {
     case "mcq4":
+    case "multi_select":
       return [
         q.question_text,
         q.option_a,
@@ -190,6 +196,18 @@ function draftToRow(
         option_d: null,
         correct_index: null,
         correct_text: q.correct_text.trim(),
+      };
+    case "multi_select":
+      return {
+        ...base,
+        option_a: q.option_a.trim(),
+        option_b: q.option_b.trim(),
+        option_c: q.option_c.trim(),
+        option_d: q.option_d.trim(),
+        correct_index: null,
+        // The set of correct option indices lives in correct_text as a
+        // sorted, comma-separated list (e.g. "0,2"). See parseCorrectIndices.
+        correct_text: serializeIndices(q.correct_indices),
       };
   }
 }
@@ -456,14 +474,14 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     return newRow.id as string;
   },
 
-  async submitAttempt(quizId, answers) {
+  async submitAttempt(quizId, answers, totalOverride) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in to submit an attempt.");
 
     const score = answers.reduce((n, a) => n + (a.is_correct ? 1 : 0), 0);
-    const total = answers.length;
+    const total = totalOverride ?? answers.length;
 
     const { data: attempt, error: attemptErr } = await supabase
       .from("quiz_attempts")

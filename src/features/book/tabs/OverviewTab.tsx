@@ -1,25 +1,34 @@
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   Plus,
   Check,
   Loader2,
   BookOpen,
-  FileText,
   FileX2,
   Paperclip,
   Trash2,
   PenLine,
   Sparkles,
   ScrollText,
+  ChevronDown,
+  Pencil,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import {
   Button,
   CategoryChip,
+  FloatingMenu,
   StarRatingDisplay,
   StarRatingInput,
 } from "@/components/ui";
+import { fetchResumeState, saveResumeState } from "@/lib/resume-state";
 import {
   getCatalogBookDownloadActions,
   getDownloadActions,
@@ -50,7 +59,6 @@ import { BookStatusPicker } from "../BookStatusPicker";
 import { BookCategoryEditor } from "../BookCategoryEditor";
 import { AttachFileButton } from "../AttachFileButton";
 import { DownloadButton } from "../DownloadButton";
-import { ReadingSessionCard } from "../ReadingSessionCard";
 
 // Creates an empty quiz tied to this book, opens editor with AI panel pre-expanded.
 function GenerateQuizFromBookButton() {
@@ -161,6 +169,169 @@ function CreateWhiteboardButton() {
       <PenLine size={16} />
       {t("book.overview.newWhiteboard")}
     </Button>
+  );
+}
+
+// Collapses the four "generate study material" buttons behind one
+// dropdown so the action row stays focused on the primary Open button.
+function StudyToolsDropdown() {
+  const { t } = useTranslation();
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <span ref={btnRef} className="inline-flex">
+        <Button
+          variant="secondary"
+          onClick={() => setOpen((v) => !v)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+        >
+          <Sparkles size={16} />
+          {t("book.overview.studyTools", { defaultValue: "Study tools" })}
+          <ChevronDown size={14} className="opacity-70" />
+        </Button>
+      </span>
+      <FloatingMenu
+        open={open}
+        anchorRef={btnRef}
+        onClose={() => setOpen(false)}
+        className="min-w-[15rem] p-1"
+      >
+        {/* the existing button components keep their own create/navigate
+            logic; clicking any of them closes the menu (bubbles up). */}
+        <div
+          className="flex flex-col gap-1 [&_button]:w-full [&_button]:justify-start"
+          onClick={() => setOpen(false)}
+        >
+          <CreateWhiteboardButton />
+          <GenerateQuizFromBookButton />
+          <GenerateFlashcardsFromBookButton />
+          <GenerateExamFromBookButton />
+        </div>
+      </FloatingMenu>
+    </>
+  );
+}
+
+// "Page X of N" reading progress, shown as the value of the Pages meta
+// row and editable on double-click (or the pencil). Persists to the same
+// book_resume_state row the reader syncs to, replaces the old sidebar
+// PageTracker.
+function ReadingProgressValue({
+  docId,
+  pageCount,
+}: {
+  docId: string;
+  pageCount: number | null;
+}) {
+  const { t } = useTranslation();
+  const [currentPage, setCurrentPage] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // reset on docId change without a setState-in-effect (React in-render guard)
+  const [snapshot, setSnapshot] = useState(docId);
+  if (snapshot !== docId) {
+    setSnapshot(docId);
+    setLoading(true);
+    setCurrentPage(null);
+    setEditing(false);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchResumeState(docId).then((row) => {
+      if (cancelled) return;
+      setCurrentPage(row?.page ?? null);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [docId]);
+
+  const startEdit = () => {
+    setDraft(String(currentPage ?? ""));
+    setEditing(true);
+  };
+
+  const save = async () => {
+    const parsed = parseInt(draft, 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      setEditing(false);
+      return;
+    }
+    const clamped = pageCount ? Math.min(parsed, pageCount) : parsed;
+    setSaving(true);
+    await saveResumeState(docId, { page: clamped });
+    setCurrentPage(clamped);
+    setSaving(false);
+    setEditing(false);
+  };
+
+  if (loading) return <p className="text-text-primary">-</p>;
+
+  if (editing) {
+    return (
+      <span className="flex items-center gap-1.5">
+        <input
+          autoFocus
+          type="number"
+          min={1}
+          max={pageCount ?? undefined}
+          value={draft}
+          disabled={saving}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => void save()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void save();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          className="w-16 rounded border border-glass-border bg-bg-primary px-1.5 py-0.5 text-sm text-text-primary outline-none focus:border-accent"
+        />
+        {pageCount != null && (
+          <span className="text-text-muted">/ {pageCount}</span>
+        )}
+      </span>
+    );
+  }
+
+  const label =
+    currentPage === null
+      ? pageCount != null
+        ? t("book.pageTracker.notStartedOf", {
+            total: pageCount,
+            defaultValue: "Not started · {{total}} pages",
+          })
+        : t("book.pageTracker.notStarted")
+      : pageCount != null
+        ? t("book.pageTracker.progress", {
+            current: currentPage,
+            total: pageCount,
+          })
+        : t("book.pageTracker.currentOnly", { current: currentPage });
+
+  return (
+    <button
+      type="button"
+      onDoubleClick={startEdit}
+      title={t("book.pageTracker.editTitle")}
+      className="group flex items-center gap-1.5 text-left text-text-primary transition-colors hover:text-accent cursor-text"
+    >
+      <span className="tabular-nums">{label}</span>
+      <Pencil
+        size={11}
+        onClick={(e) => {
+          // single-click affordance for discoverability (double-click also works)
+          e.stopPropagation();
+          startEdit();
+        }}
+        className="shrink-0 opacity-60 transition-opacity sm:opacity-0 sm:group-hover:opacity-60"
+      />
+    </button>
   );
 }
 
@@ -341,16 +512,9 @@ function CatalogOverview({
         )}
 
         {/* study-tool generators require the book to be in the user's
-            library — don't spawn quizzes/whiteboards/exams for a catalog
+            library, don't spawn quizzes/whiteboards/exams for a catalog
             book that hasn't been added yet */}
-        {inLibrary && (
-          <>
-            <CreateWhiteboardButton />
-            <GenerateQuizFromBookButton />
-            <GenerateFlashcardsFromBookButton />
-            <GenerateExamFromBookButton />
-          </>
-        )}
+        {inLibrary && <StudyToolsDropdown />}
 
         <DownloadButton actions={downloadActions} />
       </div>
@@ -373,15 +537,11 @@ function CatalogOverview({
       {/* reading status only makes sense once the book is in the library;
           before that the only relevant action is "Add to library" */}
       {user && inLibrary && (
-        <div className="rounded-lg border border-glass-border bg-glass-bg p-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <BookStatusPicker />
         </div>
       )}
 
-      {/* per-doc session stats only exist once the book is in the library */}
-      {user && inLibrary && (
-        <ReadingSessionCard docId={book.id} pageCount={book.page_count ?? null} />
-      )}
 
       {readError === "cors-fallback" && (
         <p className="rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning">
@@ -441,7 +601,7 @@ function CatalogOverview({
               )}
             </div>
           ) : (
-            // rating is a library-only action — a catalog book you're merely
+            // rating is a library-only action, a catalog book you're merely
             // previewing can't be rated until you add it
             <span className="text-xs text-text-muted">
               {t("ratings.addToLibraryToRate", {
@@ -458,6 +618,14 @@ function CatalogOverview({
           { label: t("book.overview.meta.published"), value: book.published_date },
           {
             label: t("book.overview.meta.pages"),
+            // once in the library, the pages row doubles as editable
+            // reading progress; otherwise just the static page count
+            node: inLibrary ? (
+              <ReadingProgressValue
+                docId={book.id}
+                pageCount={book.page_count ?? null}
+              />
+            ) : undefined,
             value: book.page_count ? String(book.page_count) : null,
           },
           { label: t("book.overview.meta.language"), value: book.language },
@@ -569,10 +737,7 @@ function UploadedOverview({
             )}
           </Button>
         )}
-        <CreateWhiteboardButton />
-        <GenerateQuizFromBookButton />
-        <GenerateFlashcardsFromBookButton />
-        <GenerateExamFromBookButton />
+        <StudyToolsDropdown />
         <DownloadButton actions={downloadActions} />
       </div>
 
@@ -583,34 +748,23 @@ function UploadedOverview({
         </div>
       )}
 
-      <div className="rounded-lg border border-glass-border bg-glass-bg p-4 space-y-4">
+      {/* compact metadata: status + category side by side, no heavy box */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <BookStatusPicker />
-        <BookCategoryEditor
-          bookId={book.id}
-          initialCategories={categories}
-        />
+        <BookCategoryEditor bookId={book.id} initialCategories={categories} />
       </div>
 
-      {/* docId must match what PageTracker uses */}
-      <ReadingSessionCard docId={book.id} pageCount={book.page_count ?? null} />
-
-      {storagePath && (
-        <div className="rounded-lg border border-glass-border bg-glass-bg/50 p-4 text-sm">
-          <p className="mb-1 flex items-center gap-1.5 text-text-muted">
-            <FileText size={14} />
-            {t("book.overview.uploadedFile")}
-          </p>
-          <p className="text-xs text-text-secondary">
-            {t("book.overview.uploadedHint")}
-          </p>
-        </div>
-      )}
 
       <MetaGrid
         entries={[
           {
             label: t("book.overview.meta.pages"),
-            value: book.page_count ? String(book.page_count) : null,
+            node: (
+              <ReadingProgressValue
+                docId={book.id}
+                pageCount={book.page_count ?? null}
+              />
+            ),
           },
           {
             label: t("book.overview.meta.format"),
@@ -635,17 +789,30 @@ function UploadedOverview({
 function MetaGrid({
   entries,
 }: {
-  entries: Array<{ label: string; value: string | null; wide?: boolean }>;
+  entries: Array<{
+    label: string;
+    value?: string | null;
+    /** Custom value node (e.g. the editable reading-progress). Takes
+     *  precedence over `value`; the row shows whenever a node is set. */
+    node?: ReactNode;
+    wide?: boolean;
+  }>;
 }) {
-  const visible = entries.filter((e) => e.value);
+  const visible = entries.filter((e) => e.node != null || e.value);
   if (visible.length === 0) return null;
+  // Compact single-line-ish metadata row, takes far less space than the
+  // old two-column grid.
   return (
-    <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
       {visible.map((e) => (
-        <div key={e.label} className={e.wide ? "sm:col-span-2" : undefined}>
-          <span className="text-text-muted">{e.label}</span>
-          <p className="truncate text-text-primary">{e.value}</p>
-        </div>
+        <span key={e.label} className="flex min-w-0 items-center gap-1.5">
+          <span>{e.label}:</span>
+          {e.node != null ? (
+            e.node
+          ) : (
+            <span className="truncate text-text-secondary">{e.value}</span>
+          )}
+        </span>
       ))}
     </div>
   );

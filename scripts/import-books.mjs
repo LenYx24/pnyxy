@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
  * Import books into catalog_books from:
- *   - Project Gutenberg (via the Gutendex API — sorted by popularity)
+ *   - Project Gutenberg (via the Gutendex API, sorted by popularity)
  *     Full text + metadata for public-domain books.
  *   - Standard Ebooks (via their OPDS feed)
  *     Full text + metadata; requires Patrons Circle membership.
  *   - MEK (Magyar Elektronikus Könyvtár) (via OAI-PMH)
  *     Hungarian public-domain; requires MEK_OAI_URL env var.
  *   - Open Library (via their search API)
- *     **Metadata only** — title/author/cover/description/ISBN. No
+ *     **Metadata only**, title/author/cover/description/ISBN. No
  *     file is distributed. Perfect for seeding in-copyright titles
  *     (Harry Potter, textbooks, contemporary fiction) so users can
  *     still use annotations / notes / forum / streaks without us
@@ -41,7 +41,7 @@
  * Dedup: existing rows matched by (source, source_id). Re-running is
  * idempotent; only new books are inserted.
  *
- * The service-role key bypasses RLS — do NOT commit it anywhere.
+ * The service-role key bypasses RLS, do NOT commit it anywhere.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -126,7 +126,7 @@ async function insertBatch(rows) {
 //
 // Gutendex (https://gutendex.com) is a community-maintained JSON
 // proxy over the Project Gutenberg catalog. It supports pagination
-// and `?sort=popular` which returns books in download-count order —
+// and `?sort=popular` which returns books in download-count order,
 // exactly the "most-read 500" cut we want.
 
 async function importGutenberg(limit) {
@@ -167,19 +167,19 @@ async function importGutenberg(limit) {
 }
 
 /** Convert a Gutendex record to our CatalogBookInsert shape.
- *  Metadata-only records (no downloadable file) are allowed — they
+ *  Metadata-only records (no downloadable file) are allowed, they
  *  appear in browse with a "metadata only" badge and a null
  *  download_url. Copyright status is not filtered: Project Gutenberg
  *  by policy only hosts works it considers legally distributable in
  *  the US, so every PG record's file is redistributable. EU/HU
  *  re-distribution of a few edge-case works is still up to the
- *  operator's risk tolerance — see the README. */
+ *  operator's risk tolerance, see the README. */
 function gutendexToCatalog(b) {
   if (!b?.id) return null;
 
   const formats = b.formats ?? {};
   // Prefer EPUB, then PDF, then plain text. HTML last-resort.
-  // null is allowed — we'll import metadata-only.
+  // null is allowed, we'll import metadata-only.
   const download =
     formats["application/epub+zip"] ||
     formats["application/pdf"] ||
@@ -217,7 +217,7 @@ function gutendexToCatalog(b) {
 // unauthenticated requests. To import from SE you need to either:
 //
 //   a) Become a Patron and set SE_EMAIL in .env.local. The password
-//      field is empty — SE uses Basic auth with <email>: as creds.
+//      field is empty, SE uses Basic auth with <email>: as creds.
 //
 //   b) Clone specific books from their GitHub org
 //      (github.com/standardebooks) and upload by hand.
@@ -240,7 +240,7 @@ async function importStandardEbooks(limit) {
     console.error(
       "Standard Ebooks requires Patrons Circle authentication.\n" +
         "Set SE_EMAIL=<your-patron-email> in .env.local, then re-run.\n" +
-        "(Password field is intentionally empty — SE uses Basic auth\n" +
+        "(Password field is intentionally empty, SE uses Basic auth\n" +
         "with the email as the username.)\n" +
         "Sign up at https://standardebooks.org/donate",
     );
@@ -269,7 +269,7 @@ async function importStandardEbooks(limit) {
   }
   if (!xml) {
     throw new Error(
-      "None of the Standard Ebooks OPDS URLs returned 200 — credentials may be invalid or the feed moved again.",
+      "None of the Standard Ebooks OPDS URLs returned 200, credentials may be invalid or the feed moved again.",
     );
   }
   console.log(`Standard Ebooks: using feed ${feedUrl}`);
@@ -331,7 +331,7 @@ function parseSEEntry(chunk) {
       /<link[^>]*rel="[^"]*\/acquisition"[^>]*type="application\/epub\+zip"[^>]*href="([^"]+)"/g,
     ),
   ].map((m) => m[1]);
-  // Some feeds encode href before type — try the reverse order too.
+  // Some feeds encode href before type, try the reverse order too.
   const epubLinks2 = [
     ...body.matchAll(
       /<link[^>]*type="application\/epub\+zip"[^>]*href="([^"]+)"/g,
@@ -397,7 +397,7 @@ function matchXml(body, tag) {
 //     MEK_OAI_URL=https://actual-mek-oai-url pnpm import-books --source=mek
 //
 // Once a working URL is known, the rest of the adapter is generic
-// OAI-PMH Dublin Core harvesting — should just work.
+// OAI-PMH Dublin Core harvesting, should just work.
 //
 // Caveats once the URL is resolved:
 //   - Cover URLs aren't part of Dublin Core → cover_url is null.
@@ -505,7 +505,7 @@ function parseMEKRecord(body) {
     language,
     categories: subjects,
     source: "user_submitted",
-    // Use the OAI identifier as our source key — stable per record.
+    // Use the OAI identifier as our source key, stable per record.
     source_id: `mek:${oaiIdentifier.trim()}`,
     download_url: landingUrl,
     status: "verified",
@@ -516,7 +516,7 @@ function parseMEKRecord(body) {
 // ── Adapter: Open Library (metadata only) ──────────────────
 //
 // Open Library is the Internet Archive's catalog project. Their
-// metadata is CC0-licensed and free to redistribute — perfect for
+// metadata is CC0-licensed and free to redistribute, perfect for
 // seeding in-copyright titles (Harry Potter, current fiction,
 // textbooks) where we *can* store title/author/cover/description
 // but cannot redistribute the file itself.
@@ -602,7 +602,7 @@ function openLibraryToCatalog(d) {
     ? d.isbn.find((i) => typeof i === "string" && i.length === 10) ?? null
     : null;
 
-  // Description is NOT in the search endpoint — pulling it would
+  // Description is NOT in the search endpoint, pulling it would
   // require a second request per book. Skipping for now; the book
   // detail page can fetch on demand if we ever want it.
   return {
@@ -617,7 +617,7 @@ function openLibraryToCatalog(d) {
     categories: Array.isArray(d.subject) ? d.subject.slice(0, 10) : [],
     source: "open_library",
     source_id: `ol:${workId}`,
-    download_url: null, // metadata-only — users can't read it inline
+    download_url: null, // metadata-only, users can't read it inline
     status: "verified",
     verified_at: new Date().toISOString(),
   };

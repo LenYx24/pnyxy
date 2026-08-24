@@ -23,7 +23,7 @@ describe("detectRoadmapIntent", () => {
   it("stays off for weak request / desire framings (kept as normal chat)", () => {
     // Deliberately narrowed: only explicit create/generate verbs escalate to
     // the roadmap tool path. Weak "want/need/give me" (HU szeretn/kéne/adj/
-    // legyen) framings must NOT hijack ordinary chat — they still get a normal
+    // legyen) framings must NOT hijack ordinary chat, they still get a normal
     // prose answer that can include a study plan.
     expect(detectRoadmapIntent("szeretnék egy roadmapet a React tanulásához")).toBe(false);
     expect(detectRoadmapIntent("kéne egy tanulási terv a vizsgához")).toBe(false);

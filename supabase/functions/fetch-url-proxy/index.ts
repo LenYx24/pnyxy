@@ -14,7 +14,7 @@
 //   so the function can't be used to scan internal Supabase
 //   infrastructure.
 // - 100 MB hard cap, matching the client's MAX_BYTES.
-// - 30 s timeout — Edge Functions have their own ceiling but we want
+// - 30 s timeout, Edge Functions have their own ceiling but we want
 //   a clear error before that hits.
 // - Mime allow-list aligned with the client (PDF / EPUB / TXT / MD).
 
@@ -54,7 +54,7 @@ function jsonError(status: number, code: string, message: string) {
 
 // Reject private / loopback / link-local IPs to prevent SSRF.
 // Hostnames are allowed; the deno fetch will resolve them and use
-// system networking — this guard is a defence-in-depth check on
+// system networking, this guard is a defence-in-depth check on
 // hostnames that look like raw IPs.
 function isBlockedHost(hostname: string): boolean {
   const h = hostname.toLowerCase();

@@ -181,7 +181,7 @@ export function NoteRow({
           />
         </div>
 
-        {/* Icon — bare note glyph, no tinted tile. Fixed-height box keeps
+        {/* Icon: bare note glyph, no tinted tile. Fixed-height box keeps
             rows equal height and the name column aligned across types. */}
         <div className="mr-2.5 flex h-8 w-7 shrink-0 items-center justify-center sm:h-9">
           <FileText size={density.icon + 4} className="text-accent-blue" />
@@ -201,7 +201,7 @@ export function NoteRow({
           {t("library.allBooks.noteLabel")}
         </span>
 
-        {/* Menu — placed right after the name (Nextcloud puts row
+        {/* Menu: placed right after the name (Nextcloud puts row
             actions here), not at the far edge. */}
         <div className="relative mr-2 shrink-0">
           <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
@@ -241,15 +241,15 @@ export function NoteRow({
           </ContextMenu>
         </div>
 
-        {/* Size — n/a for notes. */}
+        {/* Size: n/a for notes. */}
         <span
           className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
           style={{ width: columnWidths.size }}
         >
-          —
+          -
         </span>
 
-        {/* Date — last updated. */}
+        {/* Date: last updated. */}
         <span
           className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
           style={{ width: columnWidths.added }}

@@ -4,7 +4,7 @@
 --
 -- Use cases: a user attaching their YouTube companion videos, blog
 -- articles, course pages, supplementary PDFs etc. to a specific book.
--- Resources are PRIVATE per user — they are not surfaced on the
+-- Resources are PRIVATE per user, they are not surfaced on the
 -- catalog browse view.
 -- ============================================================
 
@@ -19,7 +19,7 @@ create table public.book_external_resources (
   title           text,
   -- Free-form-but-narrowed kind discriminator. Drives the small
   -- icon shown next to each row in the UI. New kinds can be added
-  -- by the client (no schema migration needed) — invalid values
+  -- by the client (no schema migration needed), invalid values
   -- will fall back to 'other' on render.
   kind            text not null default 'other'
                   check (kind in ('video', 'article', 'course', 'document', 'other')),
@@ -45,7 +45,7 @@ create trigger book_external_resources_set_updated_at
 alter table public.book_external_resources enable row level security;
 
 -- Strict per-user access. No collaborative / public sharing for
--- external resources at this point — keeps the surface simple and
+-- external resources at this point, keeps the surface simple and
 -- avoids worrying about user-submitted URL spam in the catalog.
 create policy "users select own external resources"
   on public.book_external_resources for select

@@ -140,7 +140,7 @@ export function VocabularyPage() {
             <Download size={16} />
             {t("vocabulary.export")}
           </Button>
-          {/* "Cram" — review any visible card regardless of dueAt.
+          {/* "Cram": review any visible card regardless of dueAt.
               FSRS schedule isn't touched (see FlashcardReview's
               `cram` prop). Disabled when there are zero cards to
               show; otherwise always available even if nothing is

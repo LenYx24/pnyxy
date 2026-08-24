@@ -114,6 +114,10 @@ interface WhiteboardState {
   addElement: (el: WhiteboardElement) => void;
   updateElement: (id: string, patch: Partial<WhiteboardElement>) => void;
   removeElements: (ids: string[]) => void;
+  /** Delete elements WITHOUT snapshotting undo. The smart eraser calls
+   *  this repeatedly across one drag and pushes a single undo entry
+   *  itself, so the whole sweep undoes in one step. */
+  eraseElements: (ids: string[]) => void;
 
   setActiveTool: (tool: WhiteboardTool) => void;
   setStrokeColor: (color: string) => void;
@@ -355,6 +359,18 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     get().saveCurrentWhiteboard();
   },
 
+  eraseElements(ids) {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    set((s) => ({
+      elements: s.elements.filter((el) => !idSet.has(el.id)),
+      selectedElementIds: new Set(
+        [...s.selectedElementIds].filter((id) => !idSet.has(id)),
+      ),
+    }));
+    get().scheduleSave();
+  },
+
   setActiveTool(tool) {
     set({ activeTool: tool, selectedElementIds: new Set() });
   },
@@ -448,7 +464,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       renderSinglePage(doc, n, pdfScaleRef)
         .then((bitmap) => {
           pdfRenderInFlight.delete(n);
-          // Board switched/closed mid-render — drop the orphan bitmap.
+          // Board switched/closed mid-render, drop the orphan bitmap.
           if (pdfDocRef !== doc) {
             bitmap.close();
             return;

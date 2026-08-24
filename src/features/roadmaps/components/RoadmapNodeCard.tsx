@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Handle,
   Position,
@@ -35,6 +36,10 @@ export interface RoadmapNodeData extends Record<string, unknown> {
   manualDate?: boolean;
   /** Edit mode dims the visual cues for completion/lock. */
   editMode: boolean;
+  /** True when the user is enrolled and viewing (not editing), so a
+   *  click on the node toggles completion. Drives the checkbox-style
+   *  affordance + tooltip that make "tick this off" discoverable. */
+  completable: boolean;
 }
 
 export type RoadmapXyNode = Node<RoadmapNodeData, "roadmap">;
@@ -45,7 +50,7 @@ function refLabel(ref: ResourceRef): string {
   // Author + Title is the canonical citation form ("Cormen, Intro
   // to Algorithms"). Title-only when no author. Truncated to keep
   // the card narrow.
-  const base = ref.author ? `${ref.author} — ${ref.title}` : ref.title;
+  const base = ref.author ? `${ref.author} - ${ref.title}` : ref.title;
   if (base.length <= REF_LABEL_MAX) return base;
   return `${base.slice(0, REF_LABEL_MAX - 1).trim()}…`;
 }
@@ -66,14 +71,28 @@ export function RoadmapNodeCard({
   data: d,
   selected,
 }: NodeProps<RoadmapXyNode>) {
+  const { t } = useTranslation();
   const completed = d.progress >= 100;
   const partial = d.progress > 0 && d.progress < 100;
   const ref = d.primaryReference;
   const refMatched =
     ref?.match?.source === "library" || ref?.match?.source === "catalog";
 
+  // Tooltip on the whole card while enrolled, so the "click a node to
+  // mark it done" interaction is discoverable rather than hidden.
+  const cardTitle = d.completable
+    ? completed
+      ? t("roadmaps.node.clickToUncheck", {
+          defaultValue: "Click to mark as not done",
+        })
+      : t("roadmaps.node.clickToCheck", {
+          defaultValue: "Click to mark as done",
+        })
+    : undefined;
+
   return (
     <div
+      title={cardTitle}
       className={cn(
         "relative w-60 rounded-xl border px-3 py-2.5 text-left transition-all",
         completed
@@ -82,6 +101,7 @@ export function RoadmapNodeCard({
             ? "border-glass-border/60 bg-glass-bg/40"
             : "border-glass-border bg-glass-bg",
         selected && "ring-2 ring-accent",
+        d.completable && "cursor-pointer hover:border-accent/60",
         !d.editMode && d.locked && "opacity-70",
         !d.editMode && completed && "opacity-90",
       )}
@@ -100,19 +120,36 @@ export function RoadmapNodeCard({
       )}
       <div className="flex items-start gap-2">
         <div
+          aria-label={
+            d.completable
+              ? completed
+                ? t("roadmaps.node.done", { defaultValue: "Done" })
+                : t("roadmaps.node.notDone", { defaultValue: "Not done" })
+              : undefined
+          }
           className={cn(
-            "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+            "group/check mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors",
             completed
               ? "bg-success text-white"
               : d.locked
                 ? "bg-glass-bg text-text-muted"
-                : "bg-accent/15 text-accent",
+                : d.completable
+                  ? "border-2 border-accent/60 bg-accent/10 text-accent hover:bg-accent/25"
+                  : "bg-accent/15 text-accent",
           )}
         >
           {completed ? (
             <Check size={12} strokeWidth={3} />
           ) : d.locked ? (
             <Lock size={11} />
+          ) : d.completable ? (
+            // Empty checkbox that reveals a check on hover, reads as
+            // "tick me off".
+            <Check
+              size={12}
+              strokeWidth={3}
+              className="opacity-0 transition-opacity group-hover/check:opacity-60"
+            />
           ) : (
             <span className="block h-2 w-2 rounded-full bg-current" />
           )}
@@ -138,7 +175,7 @@ export function RoadmapNodeCard({
                 refMatched ? "text-accent" : "text-text-muted",
               )}
               title={
-                ref.author ? `${ref.author} — ${ref.title}` : ref.title
+                ref.author ? `${ref.author} - ${ref.title}` : ref.title
               }
             >
               <BookOpen size={10} className="shrink-0" />

@@ -522,7 +522,7 @@ const AssistantContent = memo(function AssistantContent({
     }
     if (content === throttled) return;
     // A debounce resets its timer on every delta, so a fast, gapless stream
-    // never flushes until it pauses — the text then arrives in lurches. Use a
+    // never flushes until it pauses, the text then arrives in lurches. Use a
     // real throttle instead: flush immediately when the interval has elapsed,
     // otherwise let a single trailing timer fire on schedule.
     const now = performance.now();

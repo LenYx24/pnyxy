@@ -12,6 +12,8 @@ import {
   Pencil,
 } from "lucide-react";
 import { Checkbox, FloatingMenu } from "@/components/ui";
+import { useContextMenu } from "@/hooks/use-context-menu";
+import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { cn } from "@/lib/cn";
 import { logError } from "@/lib/logger";
 import { useLibraryStore } from "@/stores/library-store";
@@ -97,6 +99,41 @@ export function LibraryQuizCard({
     navigate(`/quizzes/${quiz.id}`);
   };
 
+  const contextHandlers = useContextMenu((): ContextMenuEntry[] => [
+    {
+      id: "open",
+      label: t("library.allBooks.openQuiz"),
+      icon: ListChecks,
+      onClick: () => navigate(`/quizzes/${quiz.id}`),
+    },
+    {
+      id: "edit",
+      label: t("library.actions.rename", { defaultValue: "Edit" }),
+      icon: Pencil,
+      onClick: () => navigate(`/quizzes/${quiz.id}/edit`),
+    },
+    {
+      id: "move",
+      label: t("library.actions.moveToFolder"),
+      icon: FolderInput,
+      onClick: () => setMoveOpen(true),
+    },
+    {
+      id: "export",
+      label: t("library.actions.exportGift"),
+      icon: Download,
+      onClick: () => void handleExport(),
+    },
+    { id: "div-1", divider: true },
+    {
+      id: "delete",
+      label: t("common.delete"),
+      icon: Trash2,
+      danger: true,
+      onClick: () => void deleteQuiz(quiz.id),
+    },
+  ]);
+
   return (
     <div
       ref={setNodeRef}
@@ -109,6 +146,7 @@ export function LibraryQuizCard({
       {...listeners}
     >
       <div
+        {...contextHandlers}
         className={cn(
           "group relative",
           selected && "ring-2 ring-accent rounded-md",

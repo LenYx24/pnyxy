@@ -298,7 +298,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
               </div>
               <h3 className="text-lg font-semibold text-text-primary">
                 {t("book.practice.doneTitle", {
-                  defaultValue: "Nice — you finished the practice.",
+                  defaultValue: "Nice, you finished the practice.",
                 })}
               </h3>
               <SessionStats verdicts={verdicts} total={total} />
@@ -383,7 +383,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
               }}
               placeholder={t("book.practice.answerPlaceholder", {
                 defaultValue:
-                  "Type your answer. Try first — the tutor won't reveal the solution.",
+                  "Type your answer. Try first, the tutor won't reveal the solution.",
               })}
               rows={3}
               disabled={phase === "answering"}

@@ -1,13 +1,13 @@
 import { create } from "zustand";
 
 /**
- * Inline draw — a lightweight vector doodle layer on top of the reader's
+ * Inline draw: a lightweight vector doodle layer on top of the reader's
  * existing PDF page layout. The full Whiteboard mode is still there for
  * heavy use; this is the "annotate the page in place" tool.
  *
- * It now supports the core whiteboard tool-set — freehand pen, shapes
+ * It now supports the core whiteboard tool-set, freehand pen, shapes
  * (rectangle, ellipse, line, arrow), an eraser, and a select tool that
- * moves/resizes/deletes placed elements — plus adjustable stroke width
+ * moves/resizes/deletes placed elements, plus adjustable stroke width
  * and a colour palette.
  *
  * Design choices kept from v1:
@@ -114,7 +114,7 @@ function saveToStorage(bookId: string, drawings: Map<number, InlineElement[]>) {
     else idx.add(bookId);
     localStorage.setItem(STORAGE_VERSION_KEY, JSON.stringify([...idx]));
   } catch {
-    // quota / private mode — elements stay in memory for the session
+    // quota / private mode, elements stay in memory for the session
   }
 }
 

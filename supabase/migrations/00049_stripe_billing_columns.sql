@@ -3,7 +3,7 @@
 --
 -- Migrates the Merchant-of-Record from Lemon Squeezy to Stripe
 -- Managed Payments. Adds Stripe identifier columns ALONGSIDE the
--- existing ls_* columns (kept, non-destructive — no live LS subs, but
+-- existing ls_* columns (kept, non-destructive, no live LS subs, but
 -- nothing should break for any legacy row) and extends the
 -- `protect_billing_columns` trigger from 00043 to guard them too, so a
 -- user still can't self-grant premium by echoing these columns back on
@@ -53,4 +53,4 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Trigger from 00043 references this function by name, so replacing the
--- function above is enough — no need to recreate the trigger.
+-- function above is enough, no need to recreate the trigger.

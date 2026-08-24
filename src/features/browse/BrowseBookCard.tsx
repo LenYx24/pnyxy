@@ -22,7 +22,10 @@ export function BrowseBookCard({ book, onClick }: BrowseBookCardProps) {
     <button
       type="button"
       onClick={onClick}
-      title={`${book.title}${book.authors.length ? " — " + book.authors.join(", ") : ""}`}
+      title={`${book.title}${book.authors.length ? " - " + book.authors.join(", ") : ""}`}
+      // Opacity-only fade on mount: new search results ease in, but cards
+      // that persist across a re-search don't re-run it (kept mounted by id).
+      style={{ animation: "fade-in 0.2s ease-out" }}
       className={cn(
         "group flex w-full flex-col text-left transition-transform",
         "cursor-pointer focus:outline-none",
@@ -44,7 +47,7 @@ export function BrowseBookCard({ book, onClick }: BrowseBookCardProps) {
         {!hasFile && (
           <span
             className="absolute right-1.5 top-1.5 rounded bg-bg-primary/80 p-1 text-text-muted backdrop-blur-sm"
-            title="Metadata only — no file attached"
+            title="Metadata only, no file attached"
           >
             <FileX2 size={12} />
           </span>

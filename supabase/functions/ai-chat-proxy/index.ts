@@ -11,14 +11,14 @@
 // SSE events on the way out, so the browser parses one shape.
 //
 // Env vars (set via `supabase secrets set`):
-//   GEMINI_API_KEY          — Google AI Studio key. OpenAI-compatible
+//   GEMINI_API_KEY          - Google AI Studio key. OpenAI-compatible
 //                             endpoint, cheapest option. Tried first.
-//   OPENAI_API_KEY          — OpenAI key. Second OpenAI-compat fallback.
-//   ANTHROPIC_API_KEY       — Anthropic key. Final fallback for plain
+//   OPENAI_API_KEY          - OpenAI key. Second OpenAI-compat fallback.
+//   ANTHROPIC_API_KEY       - Anthropic key. Final fallback for plain
 //                             chat; required for tool-use mode.
-//   SUPABASE_URL            — auto-populated
-//   SUPABASE_ANON_KEY       — auto-populated
-//   SUPABASE_SERVICE_ROLE_KEY — auto-populated
+//   SUPABASE_URL            - auto-populated
+//   SUPABASE_ANON_KEY       - auto-populated
+//   SUPABASE_SERVICE_ROLE_KEY - auto-populated
 //
 // At least one of GEMINI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY
 // must be set.
@@ -43,7 +43,7 @@ const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
 
 /**
  * OpenAI-compatible upstreams the proxy can call. Listed in priority
- * order — the handler tries each whose env key is set, falls through
+ * order, the handler tries each whose env key is set, falls through
  * on failure, and only hits Anthropic as the last resort. New
  * providers (Mistral, OpenRouter, …) drop in here as one more row
  * without touching the request-handling logic.
@@ -61,7 +61,7 @@ const OPENAI_COMPATIBLE_PROVIDERS: ReadonlyArray<{
   {
     // Cheapest tier and the auto-route default. Gemini 2.5 Flash-Lite
     // is ~3-6x cheaper per token than 2.5 Flash and handles the bulk
-    // of reader Q&A — short, context-grounded questions — fine.
+    // of reader Q&A (short, context-grounded questions), fine.
     // Tried first so default "auto" traffic lands on the cheapest
     // model; when its bucket is exhausted the chain falls through to
     // the fuller 2.5 Flash and the pricier tiers below. Users who
@@ -87,7 +87,7 @@ const OPENAI_COMPATIBLE_PROVIDERS: ReadonlyArray<{
     model: OPENAI_MODEL,
   },
   {
-    // Gemini 3 Flash Preview — newer Google model (≈67% pricier
+    // Gemini 3 Flash Preview, newer Google model (≈67% pricier
     // input, ≈20% pricier output than 2.5 Flash). Reuses the
     // GEMINI_API_KEY since it's the same upstream. Last in the
     // auto chain so a user on the default route only ever lands
@@ -130,7 +130,7 @@ function estimateTokens(text: string): number {
 /** Both OpenAI and Anthropic bill an attached image as roughly
  *  this many tokens for a typical viewport-sized image (1024×1024
  *  ≈ 1500–1700 tokens depending on detail level). Slight over-
- *  estimate on purpose — better to bill conservatively than let a
+ *  estimate on purpose, better to bill conservatively than let a
  *  multi-image message slip past the quota check. */
 const IMAGE_TOKEN_COST = 1600;
 
@@ -189,7 +189,7 @@ interface QuotaResult {
 }
 
 /**
- * Multimodal content block. Anthropic-shape on the wire — the
+ * Multimodal content block. Anthropic-shape on the wire, the
  * frontend's toAnthropicChatContent already produces this layout,
  * so it's natural to receive. We convert to OpenAI's image_url
  * shape inside `tryOpenAiCompatible` when any OpenAI-compat upstream
@@ -214,7 +214,7 @@ interface ChatRequestBody {
   /** Clamped to HARD_MAX_OUTPUT_TOKENS server-side; billed worst-case. */
   maxOutputTokens?: number;
   /** Pin the response to a single Pnyxy model. When set, the proxy
-   *  skips the auto-routing chain and only tries this model — the
+   *  skips the auto-routing chain and only tries this model, the
    *  user's pick from the chat composer's ModelPicker. Unknown
    *  values fall back to the full chain. Null/undefined = auto. */
   preferredModel?: string | null;
@@ -222,7 +222,7 @@ interface ChatRequestBody {
    * Tool-use mode. When `tools` is non-empty we route exclusively to
    * Anthropic (the only upstream we wire tool-use through), pass the
    * structured `toolMessages` instead of `messages`, and forward every
-   * Anthropic SSE event type — not just text_delta — so the browser
+   * Anthropic SSE event type (not just text_delta), so the browser
    * can collect tool_use blocks and run the agentic loop.
    */
   tools?: Array<{
@@ -250,21 +250,21 @@ function buildSystemPrompt(
   // claude.ai because there was no tone, no formatting policy, and
   // no honesty framing for the model to anchor against.
   if (!documentTitle.trim()) {
-    return `You are Pnyxy's AI chat assistant. Pnyxy is a study- and reading-focused learning app; the user is typically a student or researcher. Be helpful, conversational, and honest — talk to them like a smart, friendly tutor, not a search engine.
+    return `You are Pnyxy's AI chat assistant. Pnyxy is a study- and reading-focused learning app; the user is typically a student or researcher. Be helpful, conversational, and honest, talk to them like a smart, friendly tutor, not a search engine.
 
 Match the user's language: reply in Hungarian when they write in Hungarian, English otherwise, and switch fluidly if they mix. Never apologize for the language choice or comment on it.
 
-When the user attaches images, describe or reason about them directly — don't claim you can't see them.
+When the user attaches images, describe or reason about them directly, don't claim you can't see them.
 
 Formatting:
-- Conversational answers should read as conversation — no headers, no bullet lists, no bold-shouting unless the user explicitly asks for structure.
+- Conversational answers should read as conversation, no headers, no bullet lists, no bold-shouting unless the user explicitly asks for structure.
 - Use fenced \`\`\`code blocks with a language tag for code; tables for structured data; bullet lists only when comparing 3+ items.
 - Keep paragraphs short.
 
 When you don't know something or have ambiguous context, say so and ask a clarifying question instead of guessing. If a question has multiple reasonable interpretations, name them briefly before answering. Concise > exhaustive; the user can always ask for more.
 ${
   canSearchWeb
-    ? `\nYou have Google Search available and can look things up on the web. When the user asks about current events, recent releases, prices, dates, or anything you're unsure about or that may have changed since your training, search and base your answer on the results. Never claim you can't access the internet — you can.\n`
+    ? `\nYou have Google Search available and can look things up on the web. When the user asks about current events, recent releases, prices, dates, or anything you're unsure about or that may have changed since your training, search and base your answer on the results. Never claim you can't access the internet, you can.\n`
     : ""
 }
 When you write mathematical expressions, wrap inline math in single-dollar delimiters ($x^2$) and display equations in double-dollar delimiters ($$\\sum_{i=1}^n i$$). The chat UI renders these as proper formulas via KaTeX.`;
@@ -297,7 +297,7 @@ ${pageContext}
 Answer questions about this document. Be concise and helpful. Reference specific page numbers when relevant. If the answer is not in the provided text, say so.`;
   }
 
-  // Doc set but nothing selected and nothing attached — generic doc
+  // Doc set but nothing selected and nothing attached, generic doc
   // helper. Avoids the previous "Here is the text:\n---\n---" frame
   // that made the model think it had context it didn't.
   return `You are an AI assistant helping the user with a PDF document titled "${documentTitle}". The user hasn't selected any pages or attached images yet; answer general questions about the document or ask the user to point you at a specific section.`;
@@ -312,15 +312,15 @@ Answer questions about this document. Be concise and helpful. Reference specific
 // so marking it with an ephemeral cache breakpoint lets Anthropic
 // serve that prefix from cache on the next turn at ~10% of the input
 // price instead of re-billing the whole book context each time. The
-// cache has a 5-minute sliding TTL — perfect for a back-and-forth
+// cache has a 5-minute sliding TTL, perfect for a back-and-forth
 // chat, useless for one-shot traffic, and free to leave on either way
 // (Anthropic silently ignores the breakpoint when the prefix is below
-// the model's minimum cacheable length — 2048 tokens for Haiku — so
+// the model's minimum cacheable length (2048 tokens for Haiku), so
 // the short standalone brief just never caches, no error).
 //
 // Gemini and the OpenAI upstreams need no equivalent here: Gemini 2.5
 // Flash caches matching prefixes implicitly and gpt-4o-mini caches
-// prompts over 1024 tokens automatically — both bill the discount
+// prompts over 1024 tokens automatically, both bill the discount
 // without any request-side flag.
 
 function cachedSystem(
@@ -333,7 +333,7 @@ function cachedSystem(
 
 /** Mark the last tool with a cache breakpoint. In Anthropic's cache
  *  ordering (tools → system → messages) a breakpoint on the final
- *  tool caches the entire tools block — the roadmap/quiz schemas are
+ *  tool caches the entire tools block, the roadmap/quiz schemas are
  *  large and identical across the agentic loop's round-trips, so this
  *  is the second-biggest stable prefix after the system prompt. */
 function withToolCache<T extends Record<string, unknown>>(tools: T[]): T[] {
@@ -478,7 +478,7 @@ Deno.serve(async (req) => {
         ? { ok: true, quota }
         : { ok: false, quota };
     }
-    // Should never reach here — we've already returned 400 above
+    // Should never reach here, we've already returned 400 above
     // if no IP was derivable on the anon path.
     return { ok: false, rpcError: "no_quota_path" };
   }
@@ -496,9 +496,9 @@ Deno.serve(async (req) => {
   //
   // Google Search grounding is only available on Gemini 3+ via the
   // OpenAI-compat endpoint, so enabling it forces the request onto the
-  // (pricier) Gemini-3 model. We scope it to the standalone chat —
+  // (pricier) Gemini-3 model. We scope it to the standalone chat,
   // detected by an empty documentTitle, i.e. the /chat page rather than
-  // reader Q&A — so high-volume, already-context-grounded reader
+  // reader Q&A, so high-volume, already-context-grounded reader
   // questions stay on the cheap Flash-Lite tier. Respect an explicit
   // model pin: only auto-route (no pin) or an explicit Gemini-3 pin opt
   // into grounding; a user who pinned a cheaper model keeps it.
@@ -559,7 +559,7 @@ Deno.serve(async (req) => {
   //    order, billing each provider's own bucket before its upstream
   //    attempt. A quota-exceeded model is skipped to the next one;
   //    an upstream failure also falls through (the failed bucket
-  //    keeps its charge — acceptable as resilience-deterrent vs the
+  //    keeps its charge, acceptable as resilience-deterrent vs the
   //    complexity of a refund path). If everything in the compat
   //    chain failed for either reason, try Anthropic as the final
   //    fallback before giving up. ──
@@ -578,7 +578,7 @@ Deno.serve(async (req) => {
       ? openAiCompatChain.filter((p) => p.model === preferredModel)
       : openAiCompatChain;
   // When the user pinned Claude Haiku 4.5 (the Anthropic model) we
-  // skip the OpenAI-compat chain entirely — Anthropic handles it
+  // skip the OpenAI-compat chain entirely, Anthropic handles it
   // below. For any other preferred model we still try Anthropic as
   // a last-resort fallback so a single quota cap doesn't 502 the
   // user out.
@@ -623,7 +623,7 @@ Deno.serve(async (req) => {
       return jsonError(500, "quota_check_failed", billed.rpcError);
     }
     if (!billed.ok) {
-      // Out of quota for this specific model — try the next cheaper
+      // Out of quota for this specific model, try the next cheaper
       // / fallback provider. Track the latest reason so we can
       // surface something useful if the whole chain runs dry.
       lastQuotaFailure = billed.quota;
@@ -642,7 +642,7 @@ Deno.serve(async (req) => {
     if (stream) {
       return new Response(stream, { headers: sseHeaders });
     }
-    // Upstream failed (after quota was billed) — fall through to next.
+    // Upstream failed (after quota was billed), fall through to next.
   }
 
   if (anthropicKey && !skipAnthropicFallback) {
@@ -684,7 +684,7 @@ Deno.serve(async (req) => {
  * Generic OpenAI chat-completions caller. The wire shape (model,
  * messages, stream, max_tokens) and the SSE event format are
  * identical across OpenAI, Gemini's OpenAI-compatible endpoint,
- * Mistral, and OpenRouter — so adding a new provider is a row in
+ * Mistral, and OpenRouter, so adding a new provider is a row in
  * OPENAI_COMPATIBLE_PROVIDERS and nothing here changes.
  *
  * The `providerName` parameter is purely for logs so a 4xx from
@@ -714,7 +714,7 @@ async function tryOpenAiCompatible(
         stream: true,
         // Google Search grounding. On Gemini's OpenAI-compat endpoint
         // this is passed as the SDK's `extra_body` content flattened to
-        // the request body — a top-level `google` object. Only Gemini
+        // the request body, a top-level `google` object. Only Gemini
         // 3+ honours it; other upstreams ignore the unknown field. See
         // https://ai.google.dev/gemini-api/docs/openai
         ...(enableGrounding
@@ -841,7 +841,7 @@ async function tryAnthropic(
     return null;
   }
 
-  // Anthropic SSE is what the client already parses — pass through.
+  // Anthropic SSE is what the client already parses, pass through.
   return upstream.body;
 }
 
@@ -849,7 +849,7 @@ async function tryAnthropic(
  * Tool-use variant: forwards `tools` + structured `toolMessages` to
  * Anthropic and pipes every SSE event back unchanged. The browser's
  * Anthropic-shaped tool-use parser handles content_block_start /
- * input_json_delta / content_block_stop / message_delta itself —
+ * input_json_delta / content_block_stop / message_delta itself,
  * this proxy is only here to keep the Anthropic key off the client.
  */
 async function tryAnthropicWithTools(

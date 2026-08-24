@@ -1,6 +1,10 @@
 import { Link, useNavigate } from "react-router";
-import { MessageSquare, Link as LinkIcon, FileText } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { MessageSquare, Link as LinkIcon, FileText, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useAuthStore } from "@/stores/auth-store";
+import { usePostStore } from "@/stores/post-store";
+import { useConfirm } from "@/hooks/use-confirm";
 import type { ForumPostWithAuthor } from "@/types/forum";
 
 interface PostCardProps {
@@ -26,9 +30,28 @@ function timeAgo(dateStr: string): string {
 }
 
 export function PostCard({ post, communitySlug }: PostCardProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const removePost = usePostStore((s) => s.removePost);
+  const { confirm, ConfirmModalElement } = useConfirm();
   const slug = communitySlug ?? post.community?.slug ?? "";
   const showCommunityBadge = !communitySlug && !!post.community;
+  const isAuthor = !!user && user.id === post.author_id;
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const ok = await confirm({
+      title: t("forum.post.deleteTitle", { defaultValue: "Delete this post?" }),
+      body: t("forum.post.deleteBody", {
+        defaultValue: "This removes your post for everyone. This can't be undone.",
+      }),
+      confirmLabel: t("common.delete", { defaultValue: "Delete" }),
+      danger: true,
+    });
+    if (!ok) return;
+    await removePost(post.id);
+  };
 
   const preview =
     post.kind === "link"
@@ -54,7 +77,7 @@ export function PostCard({ post, communitySlug }: PostCardProps) {
         slug && "cursor-pointer",
       )}
     >
-      {/* Left rail — score column */}
+      {/* Left rail: score column */}
       <div className="flex w-10 shrink-0 flex-col items-center justify-start border-r border-glass-border/40 bg-glass-bg/30 py-2 text-text-muted">
         <span className="text-xs font-semibold tabular-nums text-text-secondary">
           {post.score_cached}
@@ -107,8 +130,20 @@ export function PostCard({ post, communitySlug }: PostCardProps) {
             {post.comment_count}{" "}
             {post.comment_count === 1 ? "comment" : "comments"}
           </span>
+          {isAuthor && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-text-muted transition-colors hover:bg-danger/10 hover:text-danger cursor-pointer"
+              aria-label={t("common.delete", { defaultValue: "Delete" })}
+            >
+              <Trash2 size={12} />
+              <span>{t("common.delete", { defaultValue: "Delete" })}</span>
+            </button>
+          )}
         </div>
       </div>
+      {ConfirmModalElement}
     </article>
   );
 }

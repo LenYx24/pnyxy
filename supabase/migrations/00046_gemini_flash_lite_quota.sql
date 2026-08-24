@@ -11,10 +11,10 @@
 -- Bucket sizing: because the per-token price is a fraction of 2.5
 -- Flash, we give Flash-Lite a LARGER token bucket than 2.5 Flash and
 -- still come out ahead on absolute worst-case daily spend:
---   * free    300k tokens — worst-case output-heavy ~$0.7/day
+--   * free    300k tokens: worst-case output-heavy ~$0.7/day
 --                           (vs 2.5 Flash's 200k ~$1.9/day)
---   * premium 1.0M tokens — ~4x free, same accepted tradeoff as 00042
---   * anon     25k tokens — kept tight; anon caps are scraper-deterrence,
+--   * premium 1.0M tokens: ~4x free, same accepted tradeoff as 00042
+--   * anon     25k tokens: kept tight; anon caps are scraper-deterrence,
 --                           not a cost lever, so only a touch above the
 --                           2.5 Flash anon bucket.
 --
@@ -52,7 +52,7 @@ BEGIN
 
   -- Premium tier. ~4x the free buckets. Worst-case daily spend at the
   -- cap (output-heavy): flash-lite ~$1.4, 2.5-flash ~$1.9, 3-flash
-  -- ~$1.2, haiku ~$1.0, 4o-mini ~$0.10 — bounded, request caps included.
+  -- ~$1.2, haiku ~$1.0, 4o-mini ~$0.10, bounded, request caps included.
   IF p_tier = 'premium' THEN
     IF p_model = 'gemini-2.5-flash-lite' THEN
       RETURN QUERY SELECT 1000000, 4000;

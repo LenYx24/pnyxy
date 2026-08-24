@@ -14,7 +14,7 @@ export default defineConfig({
       // The existing /public/manifest.webmanifest is the source of
       // truth for icons + branding. `injectManifest` mode would
       // require us to author a custom SW too; `generateSW` is
-      // enough — workbox handles cache strategies declaratively.
+      // enough, workbox handles cache strategies declaratively.
       registerType: "autoUpdate",
       strategies: "generateSW",
       // We already ship a hand-rolled manifest at /manifest.webmanifest
@@ -30,11 +30,11 @@ export default defineConfig({
       // boundaries.
       injectRegister: "auto",
       workbox: {
-        // Precache everything Vite emits — hashed assets are safe
+        // Precache everything Vite emits, hashed assets are safe
         // to keep forever; index.html falls back to NetworkFirst
         // below so users still see updates.
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest,woff,woff2,ttf}"],
-        // Bumped because pdf.worker.min.mjs is large (~1MB) — the
+        // Bumped because pdf.worker.min.mjs is large (~1MB), the
         // default 2MB cap was rejecting it from the precache list.
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         // After a deploy, evict precache entries from previous
@@ -49,7 +49,7 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         // New SW skips the "waiting" phase and activates the
         // moment it's done installing. Paired with clientsClaim
-        // below so open tabs immediately use the new SW too —
+        // below so open tabs immediately use the new SW too -
         // matters because `registerType: "autoUpdate"` only
         // reloads on next navigation, and a tab sitting on the
         // same route forever would otherwise keep the old SW
@@ -61,11 +61,11 @@ export default defineConfig({
         // runtime caching grab them as they're requested.
         navigateFallback: "/index.html",
         // Don't intercept SPA fallback for the /api/* or supabase
-        // realtime endpoints — they should 404 or stream, not
+        // realtime endpoints, they should 404 or stream, not
         // resolve to index.html.
         navigateFallbackDenylist: [/^\/api\//, /^\/auth\//],
         runtimeCaching: [
-          // PDF.js character maps + standard fonts — read-only,
+          // PDF.js character maps + standard fonts, read-only,
           // versioned by Pnyxy deploy. CacheFirst is safe.
           {
             urlPattern: /\/pdf-assets\/.*$/,
@@ -94,13 +94,13 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          // Google Fonts CSS — small file, can revalidate freely.
+          // Google Fonts CSS, small file, can revalidate freely.
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/,
             handler: "StaleWhileRevalidate",
             options: { cacheName: "pnyxy-google-fonts-css" },
           },
-          // The font files themselves — versioned hashes in the URL,
+          // The font files themselves, versioned hashes in the URL,
           // safe to CacheFirst forever.
           {
             urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/,
@@ -113,7 +113,7 @@ export default defineConfig({
           },
           // Everything else (Supabase API, Anthropic, OpenAI,
           // storage uploads, user-content fetches) is explicitly
-          // NetworkOnly — we never want to serve cached user data.
+          // NetworkOnly, we never want to serve cached user data.
           {
             urlPattern: ({ url }) =>
               /supabase\.co|anthropic\.com|openai\.com|api\.openai/.test(
@@ -124,7 +124,7 @@ export default defineConfig({
         ],
       },
       devOptions: {
-        // Off in dev — SW caching during development causes more
+        // Off in dev, SW caching during development causes more
         // confusion than it's worth. `pnpm dev` always serves
         // fresh code; SW is a production-only optimisation.
         enabled: false,
@@ -163,7 +163,7 @@ export default defineConfig({
   // Produce sourcemaps for Tauri debug builds
   envPrefix: ["VITE_", "TAURI_ENV_*"],
   build: {
-    // Bumped from the 500KB default — pdfjs + epubjs each cross
+    // Bumped from the 500KB default, pdfjs + epubjs each cross
     // the threshold legitimately and there's no point splitting
     // them further. A higher limit keeps the build log readable so
     // genuine offenders still stand out.
@@ -176,26 +176,26 @@ export default defineConfig({
         // its own long-cached chunk; the main app code is the only
         // thing that needs to re-download on a typical deploy.
         //
-        // Function form is required by Rolldown (Vite 8) — the
+        // Function form is required by Rolldown (Vite 8), the
         // object form throws "manualChunks is not a function".
         manualChunks(id) {
           if (!id.includes("node_modules")) return undefined;
-          // Mozilla PDF.js + react-pdf wrapper — only fetched when
+          // Mozilla PDF.js + react-pdf wrapper, only fetched when
           // the lazy ReaderPage chunk loads.
           if (id.includes("react-pdf") || id.includes("pdfjs-dist")) {
             return "vendor-pdfjs";
           }
-          // EPUB rendering — pulled in by the EPUB viewer path.
+          // EPUB rendering, pulled in by the EPUB viewer path.
           if (id.includes("epubjs") || id.includes("jszip")) {
             return "vendor-epubjs";
           }
-          // Supabase JS — used app-wide via the singleton client,
+          // Supabase JS, used app-wide via the singleton client,
           // but isolating it keeps the auth + DB SDK in a stable
           // chunk that survives feature commits.
           if (id.includes("@supabase/")) return "vendor-supabase";
-          // dnd-kit — only library + chat + roadmap pages use it.
+          // dnd-kit, only library + chat + roadmap pages use it.
           if (id.includes("@dnd-kit/")) return "vendor-dnd-kit";
-          // React core — biggest beneficiary of long-term caching
+          // React core, biggest beneficiary of long-term caching
           // since it changes only on major bumps. Match `/react/`
           // explicitly so unrelated packages with "react" in their
           // name (react-pdf, react-i18next, …) aren't pulled in.

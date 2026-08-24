@@ -126,7 +126,7 @@ export function annotationsToMarkdown(
     lines.push("");
     for (const bm of ordered) {
       const label = bm.label.trim();
-      lines.push(`- **Page ${bm.page}**${label ? ` — ${label}` : ""}`);
+      lines.push(`- **Page ${bm.page}**${label ? ` - ${label}` : ""}`);
     }
     lines.push("");
   }

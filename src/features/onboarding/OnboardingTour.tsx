@@ -23,7 +23,7 @@ interface Step {
 /**
  * Lightweight first-run tour. A centered modal carousel (no DOM-anchored
  * coach marks) so it stays robust regardless of the current route. Any exit
- * path — finish, skip, X, Esc, backdrop — marks onboarding complete so the
+ * path (finish, skip, X, Esc, backdrop) marks onboarding complete so the
  * user is never nagged twice. Restartable from Settings › General.
  */
 export function OnboardingTour() {
@@ -53,7 +53,7 @@ export function OnboardingTour() {
       }),
       body: t("onboarding.read.body", {
         defaultValue:
-          "Open a PDF and ask questions in the chat. Answers cite the page — click a citation to jump straight there.",
+          "Open a PDF and ask questions in the chat. Answers cite the page, click a citation to jump straight there.",
       }),
     },
     {
@@ -71,7 +71,7 @@ export function OnboardingTour() {
       title: t("onboarding.ready.title", { defaultValue: "You're all set" }),
       body: t("onboarding.ready.body", {
         defaultValue:
-          "It's free to start — pick your AI model anytime in Settings. Happy studying!",
+          "It's free to start, pick your AI model anytime in Settings. Happy studying!",
       }),
     },
   ];

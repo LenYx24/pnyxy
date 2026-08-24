@@ -172,7 +172,7 @@ export async function buildAiContextPack(
     );
     if (tocText.trim()) {
       const label = abbreviated
-        ? "[Table of Contents — abbreviated; ask for a chapter to see its sub-sections]"
+        ? "[Table of Contents, abbreviated; ask for a chapter to see its sub-sections]"
         : "[Table of Contents]";
       sections.push(`${label}\n${tocText}`);
     }

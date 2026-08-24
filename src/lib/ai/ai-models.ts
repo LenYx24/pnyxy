@@ -75,7 +75,7 @@ export const AI_MODEL_CATALOG: ModelInfo[] = [
     displayName: "Pnyxy Free (auto-routed)",
     modelId: "auto",
     description:
-      "Pnyxy ingyenes szerveres útvonala. Sima chat-kérésekhez a legolcsóbb működő szolgáltatóhoz fut át (Gemini 2.5 Flash-Lite → Gemini 2.5 Flash → GPT-4o-mini → Gemini 3 Flash preview fallback sorrendben), tool-use műveleteknél (kvíz/roadmap-generálás) Claude Haiku 4.5-öt hív. A chat composer modell-választójában explicit pinelhető a Gemini 3 Flash preview is — ez a Google legújabb chat-modellje (ugyanaz amit a gemini.google.com webapp ad), kicsit drágább per token mint a 2.5 Flash, de új-generációs minőség. Nem kell saját API-kulcs, viszont napi kvóta korlátozza.",
+      "Pnyxy ingyenes szerveres útvonala. Sima chat-kérésekhez a legolcsóbb működő szolgáltatóhoz fut át (Gemini 2.5 Flash-Lite → Gemini 2.5 Flash → GPT-4o-mini → Gemini 3 Flash preview fallback sorrendben), tool-use műveleteknél (kvíz/roadmap-generálás) Claude Haiku 4.5-öt hív. A chat composer modell-választójában explicit pinelhető a Gemini 3 Flash preview is, ez a Google legújabb chat-modellje (ugyanaz amit a gemini.google.com webapp ad), kicsit drágább per token mint a 2.5 Flash, de új-generációs minőség. Nem kell saját API-kulcs, viszont napi kvóta korlátozza.",
     bestFor: [
       "Olvasás közbeni gyors kérdések",
       "Fogalom-magyarázat egy kijelölt szakaszra",
@@ -122,7 +122,7 @@ export const AI_MODEL_CATALOG: ModelInfo[] = [
     displayName: "GPT-4o mini",
     modelId: "gpt-4o-mini",
     description:
-      "OpenAI olcsó, gyors modellje — a GPT-4 család könnyű változata. Általános chat-feladatokra elég, magyar nyelvi pontossága jó, költsége alacsony. Saját OpenAI API-kulcsot igényel.",
+      "OpenAI olcsó, gyors modellje, a GPT-4 család könnyű változata. Általános chat-feladatokra elég, magyar nyelvi pontossága jó, költsége alacsony. Saját OpenAI API-kulcsot igényel.",
     bestFor: [
       "Általános gyors válaszok",
       "Egyszerűbb kérdés-felelet, fordítás",
@@ -136,7 +136,7 @@ export const AI_MODEL_CATALOG: ModelInfo[] = [
       total: TYPICAL_INPUT + TYPICAL_OUTPUT,
     },
     costNotes:
-      "Saját OpenAI kulcsról fizet. Tájékoztató ár (2026): ≈ $0,15 / 1M input token, $0,60 / 1M output token. Egy átlagos forduló ≈ $0,001 — gyakorlatilag fillérek.",
+      "Saját OpenAI kulcsról fizet. Tájékoztató ár (2026): ≈ $0,15 / 1M input token, $0,60 / 1M output token. Egy átlagos forduló ≈ $0,001, gyakorlatilag fillérek.",
     contextWindow: "128k token",
     routingNote: "Saját OpenAI kulcs",
   },
@@ -148,7 +148,7 @@ export const AI_MODEL_CATALOG: ModelInfo[] = [
     displayName: "Helyi modell (Ollama / LM Studio)",
     modelId: "(user-configured)",
     description:
-      "A felhasználó saját gépén futó, OpenAI-kompatibilis modell — Ollama, LM Studio, vLLM, llama.cpp HTTP. Offline is működik, az adat sosem hagyja el a gépet, a futtatás ingyenes. Sebessége és minősége a hardvertől és a választott modelltől függ; jellemzően a Claude/GPT alatt van, de privát kérdésekhez és offline tanuláshoz ideális.",
+      "A felhasználó saját gépén futó, OpenAI-kompatibilis modell, Ollama, LM Studio, vLLM, llama.cpp HTTP. Offline is működik, az adat sosem hagyja el a gépet, a futtatás ingyenes. Sebessége és minősége a hardvertől és a választott modelltől függ; jellemzően a Claude/GPT alatt van, de privát kérdésekhez és offline tanuláshoz ideális.",
     bestFor: [
       "Internet nélküli olvasás-támogatás",
       "Privát/érzékeny szöveg, amit nem akarsz felhőbe küldeni",
@@ -162,7 +162,7 @@ export const AI_MODEL_CATALOG: ModelInfo[] = [
       total: TYPICAL_INPUT + TYPICAL_OUTPUT,
     },
     costNotes:
-      "Ingyenes — a futtatás a saját gépen történik. Telepítsd az Ollama-t (ollama.com) vagy az LM Studio-t, válassz egy modellt (llama3.2, qwen2.5, gpt-oss…), majd add meg a Beállítások → AI fülön az URL-t és a modell nevét.",
+      "Ingyenes, a futtatás a saját gépen történik. Telepítsd az Ollama-t (ollama.com) vagy az LM Studio-t, válassz egy modellt (llama3.2, qwen2.5, gpt-oss…), majd add meg a Beállítások → AI fülön az URL-t és a modell nevét.",
     contextWindow: "modelltől függ",
     routingNote: "Saját gép",
   },

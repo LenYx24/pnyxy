@@ -1,4 +1,4 @@
-// Pnyxy — ingest a URL into a library "resource" (beta).
+// Pnyxy: ingest a URL into a library "resource" (beta).
 //
 // Called by resource-store.createResource for a signed-in user. Given a URL:
 //   - YouTube  → metadata (title, author, thumbnail) via the public oEmbed API.

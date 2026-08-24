@@ -3,7 +3,7 @@
 --
 -- `quiz_most_missed` returns per-question attempt/wrong counts for a
 -- quiz the caller owns. It aggregates across every user who has ever
--- answered — which RLS on quiz_attempt_answers would otherwise hide —
+-- answered (which RLS on quiz_attempt_answers would otherwise hide),
 -- so it's a SECURITY DEFINER function that checks ownership itself.
 -- Only aggregates are exposed; no individual attempts leak.
 -- ============================================================

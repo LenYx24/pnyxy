@@ -3,7 +3,7 @@
 -- Folder organization for the long-running chat conversations.
 --
 -- A folder is a single-user namespace; folders can nest via
--- `parent_id`. Conversations gain an optional `folder_id` —
+-- `parent_id`. Conversations gain an optional `folder_id`,
 -- null means "loose at the root" (the same default everyone
 -- has today). Deleting a folder sends its conversations back
 -- to the root rather than cascading them away; users have a

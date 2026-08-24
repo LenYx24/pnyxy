@@ -12,7 +12,7 @@ import {
 } from "@/lib/resource-url";
 
 /**
- * Full-page viewer for a library "resource" — a saved web page or YouTube
+ * Full-page viewer for a library "resource", a saved web page or YouTube
  * link (migration 00053, beta). Reached from the library cards at
  * `/resources/:resourceId`. YouTube resources embed a responsive player;
  * web resources render their extracted article markdown (when the server
@@ -84,7 +84,7 @@ export function ResourceViewerPage() {
     );
   }
 
-  // Not found — resolved but the id isn't in the list.
+  // Not found, resolved but the id isn't in the list.
   if (!resource) {
     return (
       <div className="flex h-full flex-col">

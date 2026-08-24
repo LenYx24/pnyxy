@@ -1,11 +1,18 @@
 import { useMemo } from "react";
-import { MessageSquare, Check } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { MessageSquare, Check, X } from "lucide-react";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useReaderStore } from "@/stores/reader-store";
 import { cn } from "@/lib/cn";
 import type { Comment } from "@/types/annotation";
 
-export function CommentsSidebar() {
+interface CommentsSidebarProps {
+  /** Close the comments panel. Omitted when rendered outside a dockview panel. */
+  onClose?: () => void;
+}
+
+export function CommentsSidebar({ onClose }: CommentsSidebarProps) {
+  const { t } = useTranslation();
   const comments = useAnnotationStore((s) => s.comments);
   const selectedAnnotationId = useAnnotationStore((s) => s.selectedAnnotationId);
   const setSelectedAnnotation = useAnnotationStore((s) => s.setSelectedAnnotation);
@@ -32,20 +39,47 @@ export function CommentsSidebar() {
     setSelectedAnnotation(comment.id);
   };
 
+  const header = onClose ? (
+    <div className="flex shrink-0 items-center justify-between border-b border-glass-border px-3 py-2">
+      <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
+        <MessageSquare size={14} />
+        {t("reader.comments.title", { defaultValue: "Comments" })}
+      </span>
+      <button
+        type="button"
+        onClick={onClose}
+        title={t("reader.comments.close", { defaultValue: "Close comments" })}
+        aria-label={t("reader.comments.close", { defaultValue: "Close comments" })}
+        className="rounded-md p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+      >
+        <X size={14} />
+      </button>
+    </div>
+  ) : null;
+
   if (comments.size === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full px-4 text-center">
-        <MessageSquare size={32} className="text-text-muted mb-3" />
-        <p className="text-sm text-text-secondary">No comments yet</p>
-        <p className="text-xs text-text-muted mt-1">
-          Select text in the document to add a comment
-        </p>
+      <div className="flex h-full flex-col">
+        {header}
+        <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
+          <MessageSquare size={32} className="text-text-muted mb-3" />
+          <p className="text-sm text-text-secondary">
+            {t("reader.comments.empty", { defaultValue: "No comments yet" })}
+          </p>
+          <p className="text-xs text-text-muted mt-1">
+            {t("reader.comments.emptyHint", {
+              defaultValue: "Select text in the document to add a comment",
+            })}
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="flex h-full flex-col">
+      {header}
+      <div className="flex-1 overflow-y-auto">
       {groupedComments.map(([pageNum, pageComments]) => (
         <div key={pageNum}>
           <div className="sticky top-0 bg-bg-secondary/80 backdrop-blur-sm px-3 py-1.5 border-b border-glass-border">
@@ -94,6 +128,7 @@ export function CommentsSidebar() {
           })}
         </div>
       ))}
+      </div>
     </div>
   );
 }

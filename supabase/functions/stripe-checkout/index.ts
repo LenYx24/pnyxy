@@ -1,4 +1,4 @@
-// Pnyxy — create a Stripe Checkout Session (subscription mode).
+// Pnyxy: create a Stripe Checkout Session (subscription mode).
 //
 // The PlanTab "Upgrade" button calls this for the signed-in user. We:
 //   1. Verify the caller is signed in and read their user id + email.
@@ -12,11 +12,11 @@
 //      PCI-compliant checkout page. We never touch card data.
 //
 // Env vars (set via `supabase secrets set`):
-//   STRIPE_SECRET_KEY — the `sk_...` secret key (test or live).
-//   STRIPE_PRICE_ID   — the recurring Price id for Premium (`price_...`).
-//   SITE_URL          — optional fallback origin for success/cancel URLs
+//   STRIPE_SECRET_KEY - the `sk_...` secret key (test or live).
+//   STRIPE_PRICE_ID   - the recurring Price id for Premium (`price_...`).
+//   SITE_URL          - optional fallback origin for success/cancel URLs
 //                       when the request doesn't carry a usable origin.
-//   SUPABASE_URL / SUPABASE_ANON_KEY — provided by the platform.
+//   SUPABASE_URL / SUPABASE_ANON_KEY - provided by the platform.
 //
 // Left with the default `verify_jwt = true`; the Supabase gateway
 // validates the caller's JWT and we re-read it to get the user id.

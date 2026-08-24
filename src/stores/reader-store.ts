@@ -3,6 +3,7 @@ import type { DocumentAdapter, DocumentMeta, TocItem } from "@/types/document";
 import { loadDocumentMeta, saveDocumentMeta } from "@/lib/annotation-storage";
 import { fetchResumeState, saveResumeState } from "@/lib/resume-state";
 import { useSettingsStore } from "@/stores/settings-store";
+import { getFeatures } from "@/lib/use-features";
 import { getTracker, type TrackerContext } from "@/lib/reading-trackers";
 import { hostEventBus } from "@/lib/plugins/api/events";
 
@@ -348,6 +349,16 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     };
 
     const next = new Map(get().documents);
+    // Single-document mode (pilot default): opening a book replaces the
+    // ones already open instead of stacking tabs.
+    if (!getFeatures().multiDoc) {
+      for (const [id, doc] of next) {
+        if (id !== meta.id) {
+          doc.adapter.dispose();
+          next.delete(id);
+        }
+      }
+    }
     next.set(meta.id, docState);
     set({ documents: next, activeDocumentId: meta.id });
     hostEventBus.emit("book:opened", { docId: meta.id, title: meta.title });

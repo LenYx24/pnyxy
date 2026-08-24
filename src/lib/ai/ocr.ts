@@ -18,7 +18,7 @@ const VISION_CAPABLE_PROVIDERS: AiProvider[] = ["anthropic", "openai"];
 
 const OCR_SYSTEM_PROMPT =
   "You are an OCR system. Your job is to transcribe the text from " +
-  "the user's image, exactly as it appears. Output only the text — " +
+  "the user's image, exactly as it appears. Output only the text, " +
   "no introduction, no commentary, no headings, no markdown fences. " +
   "Preserve line breaks and paragraph breaks where the image has them.";
 

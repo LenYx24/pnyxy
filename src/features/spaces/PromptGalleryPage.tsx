@@ -101,7 +101,7 @@ export function PromptGalleryPage() {
           <p className="text-sm text-text-secondary">
             {t("gallery.empty", {
               defaultValue:
-                "No shared answers yet — share a helpful answer from a chat with the Share button.",
+                "No shared answers yet, share a helpful answer from a chat with the Share button.",
             })}
           </p>
         </div>

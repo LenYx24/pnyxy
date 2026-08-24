@@ -11,6 +11,9 @@ import { StorageUsageBar } from "../StorageUsageBar";
 interface UploadPdfModalProps {
   open: boolean;
   onClose: () => void;
+  /** Pre-stage these files when opened (e.g. a >10-file pick routed here
+   *  for review instead of uploading silently). */
+  initialFiles?: File[];
 }
 
 /** Hard cap on how many files a single staging session can hold, so a
@@ -52,7 +55,11 @@ function stagedKey(dirPath: string, file: File): string {
  * enqueue every file, and close immediately; per-file progress shows
  * on ghost cards in the library grid.
  */
-export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
+export function UploadPdfModal({
+  open,
+  onClose,
+  initialFiles,
+}: UploadPdfModalProps) {
   const { t } = useTranslation();
   const [staged, setStaged] = useState<StagedFile[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -128,6 +135,15 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
     },
     [addStaged, t],
   );
+
+  // Pre-stage files handed in when the modal is opened (runs after the
+  // open-reset effect above, so it isn't cleared).
+  useEffect(() => {
+    if (open && initialFiles && initialFiles.length > 0) {
+      ingestFiles(initialFiles);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // Folder pick: keep the structure, descend MAX_SUBFOLDER_DEPTH levels.
   // Non-PDFs are skipped silently, a folder scan routinely turns up
@@ -361,7 +377,7 @@ export function UploadPdfModal({ open, onClose }: UploadPdfModalProps) {
                 </div>
               )}
 
-              {/* Storage warning — synchronous pre-check so the user
+              {/* Storage warning: synchronous pre-check so the user
                   sees this *here*, not on doomed ghost cards. */}
               {wouldExceed && (
                 <div className="flex items-start gap-2 rounded-lg bg-danger/10 p-3">

@@ -98,7 +98,7 @@ export function formatReadingContextPrompt(
 ): string {
   if (books.length === 0) return intro + "\n\n(no recent reading found)";
   const lines = books.map(
-    (b) => `- "${b.title}" — page ${b.page} (${relativeDate(b.lastSeen)})`,
+    (b) => `- "${b.title}" - page ${b.page} (${relativeDate(b.lastSeen)})`,
   );
   return `${intro}\n\n${lines.join("\n")}\n\n`;
 }

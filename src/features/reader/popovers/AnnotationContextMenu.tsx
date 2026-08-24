@@ -181,7 +181,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
     const attribution = [title, page != null ? `p. ${page}` : null]
       .filter(Boolean)
       .join(" · ");
-    const body = attribution ? `"${text}"\n\n— ${attribution}` : `"${text}"`;
+    const body = attribution ? `"${text}"\n\n- ${attribution}` : `"${text}"`;
 
     if (navigator.share) {
       try {

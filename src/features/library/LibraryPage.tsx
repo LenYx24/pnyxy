@@ -10,8 +10,16 @@ import {
   BookPlus,
   Globe,
   AlertTriangle,
+  Plus,
+  ChevronDown,
+  StickyNote,
+  PenLine,
+  FileQuestion,
+  MessageSquare,
+  type LucideIcon,
 } from "lucide-react";
-import { Button } from "@/components/ui";
+import { useNavigate } from "react-router";
+import { Button, FloatingMenu } from "@/components/ui";
 import { useContextMenu } from "@/hooks/use-context-menu";
 import { CreateFolderModal } from "./modals/CreateFolderModal";
 import { cn } from "@/lib/cn";
@@ -47,8 +55,42 @@ import { UploadPdfModal } from "./modals/UploadPdfModal";
 import { DeviceBookScanModal } from "./modals/DeviceBookScanModal";
 import { AddManualBookModal } from "./modals/AddManualBookModal";
 import { AddResourceModal } from "./modals/AddResourceModal";
+import { loadLastOpenedBook } from "@/lib/last-opened-book";
+import { prefetchBookBlob } from "@/hooks/use-open-uploaded-document";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import type { BookStatusTag } from "@/types/database";
+
+// One row in the "+ New" dropdown. Styled to match the app's other
+// FloatingMenu lists (e.g. BookCategoryEditor).
+function CreateMenuRow({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+    >
+      <Icon size={16} className="shrink-0" />
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+function CreateMenuHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="px-3 pb-1 pt-2 text-2xs font-semibold uppercase tracking-wide text-text-muted">
+      {children}
+    </p>
+  );
+}
 
 export function LibraryPage() {
   const { t } = useTranslation();
@@ -73,9 +115,11 @@ export function LibraryPage() {
   const moveFolderToFolder = useLibraryStore((s) => s.moveFolderToFolder);
   const removeFromLibrary = useLibraryStore((s) => s.removeFromLibrary);
   const notes = useNoteStore((s) => s.notes);
+  const createNote = useNoteStore((s) => s.createNote);
   const moveNoteToFolder = useNoteStore((s) => s.moveNoteToFolder);
   const deleteNote = useNoteStore((s) => s.deleteNote);
   const whiteboards = useWhiteboardStore((s) => s.whiteboards);
+  const createWhiteboard = useWhiteboardStore((s) => s.createWhiteboard);
   const moveWhiteboardToFolder = useWhiteboardStore(
     (s) => s.moveWhiteboardToFolder,
   );
@@ -84,6 +128,7 @@ export function LibraryPage() {
   const moveQuizToFolder = useQuizStore((s) => s.moveQuizToFolder);
   const deleteQuiz = useQuizStore((s) => s.deleteQuiz);
   const conversations = useChatStore((s) => s.conversations);
+  const createConversation = useChatStore((s) => s.createConversation);
   const moveConversationToFolder = useChatStore(
     (s) => s.moveConversationToFolder,
   );
@@ -93,6 +138,9 @@ export function LibraryPage() {
   const deleteResource = useResourceStore((s) => s.deleteResource);
   const fetchResources = useResourceStore((s) => s.fetchResources);
   const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
+  const createBtnRef = useRef<HTMLButtonElement>(null);
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
 
   // View preferences
   const {
@@ -101,6 +149,8 @@ export function LibraryPage() {
     setViewMode,
     controlsExpanded,
     setControlsExpanded,
+    typeFilter,
+    setTypeFilter,
     sortOrders,
     setSortOrder,
     listColumnWidths,
@@ -184,8 +234,13 @@ export function LibraryPage() {
     displayedOrderRef.current = keys;
   }, []);
 
-  // Upload modal state
+  // Upload modal state. The primary upload action now picks files and
+  // uploads them directly (progress items, no confirm modal); a large
+  // batch (>10) routes to the review modal instead. The modal is kept
+  // for that + future use, just not the default path.
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [pendingUploadFiles, setPendingUploadFiles] = useState<File[]>([]);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
   const [scanModalOpen, setScanModalOpen] = useState(false);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
   const [manualModalOpen, setManualModalOpen] = useState(false);
@@ -214,8 +269,28 @@ export function LibraryPage() {
 
   const { confirm, ConfirmModalElement } = useConfirm();
 
+  // Warm the blob cache for the book the user read last, so the most
+  // likely next click opens instantly. Idle-scheduled and size-capped
+  // inside prefetchBookBlob. Backlog: extend to a small set chosen from
+  // recent-reads / current folder once memory budget is understood.
   useEffect(() => {
-    fetchLibrary();
+    const last = loadLastOpenedBook();
+    if (!last || last.source !== "uploaded") return;
+    const entry = books.find(
+      (b) => b.source === "uploaded" && b.id === last.id,
+    );
+    if (!entry || entry.source !== "uploaded" || !entry.book.storage_path) return;
+    return prefetchBookBlob(entry.book.storage_path, {
+      sizeBytes: entry.book.size_bytes,
+    });
+  }, [books]);
+
+  useEffect(() => {
+    // Force a fresh books fetch on every mount so a book just added from the
+    // catalog (which updates browse-store, not this store) shows up right away
+    // instead of waiting out the 60s freshness throttle. The in-memory book
+    // list persists across nav, so this revalidates without a blank flash.
+    fetchLibrary(true);
     fetchFolders();
     fetchStorageUsage();
     fetchInProgress();
@@ -235,7 +310,25 @@ export function LibraryPage() {
   });
 
   // shortcuts are surfaced via the global ? overlay, no inline hints
-  const openUploadModal = useCallback(() => setUploadModalOpen(true), []);
+  const triggerUpload = useCallback(() => uploadInputRef.current?.click(), []);
+  const handleUploadPick = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? []).filter((f) =>
+        /\.pdf$/i.test(f.name),
+      );
+      e.target.value = "";
+      if (files.length === 0 || !user) return;
+      // Big batches get the review modal; everything else uploads straight
+      // away with progress items (cancel via the X on each).
+      if (files.length > 10) {
+        setPendingUploadFiles(files);
+        setUploadModalOpen(true);
+        return;
+      }
+      for (const f of files) enqueueUpload(f, currentFolderId);
+    },
+    [user, enqueueUpload, currentFolderId],
+  );
   const openScanModal = useCallback(() => setScanModalOpen(true), []);
 
   useKeyboardShortcut({
@@ -250,7 +343,7 @@ export function LibraryPage() {
     key: "u",
     ctrl: true,
     description: "Open upload dialog",
-    handler: openUploadModal,
+    handler: triggerUpload,
   });
   useKeyboardShortcut({
     id: "library:scan-device",
@@ -543,21 +636,65 @@ export function LibraryPage() {
     [createFolderPath, currentFolderId],
   );
 
-  // desktop right-click menu with the folder/upload/import actions
-  const libraryMenu = useContextMenu(() => [
+  // --- Create new entities directly from the library ---
+  // Each lands in the folder the user is currently viewing and navigates
+  // straight to the new item's editor/page.
+  const handleCreateNote = useCallback(() => {
+    const id = createNote(currentFolderId);
+    if (id) navigate(`/notes/${id}`);
+  }, [createNote, currentFolderId, navigate]);
+
+  const handleCreateWhiteboard = useCallback(() => {
+    const id = createWhiteboard({ folderId: currentFolderId });
+    if (id) navigate(`/whiteboards/${id}`);
+  }, [createWhiteboard, currentFolderId, navigate]);
+
+  const handleCreateQuiz = useCallback(() => {
+    // fresh quiz in the editor; folder placement follows the first save
+    navigate("/quizzes/new");
+  }, [navigate]);
+
+  const handleCreateChat = useCallback(async () => {
+    await createConversation(undefined, currentFolderId ?? undefined);
+    navigate("/chat");
+  }, [createConversation, currentFolderId, navigate]);
+
+  // "Create" rows, shared by the + New dropdown and the right-click menu.
+  const createEntries = [
     {
-      id: "new-folder",
-      label: t("library.allBooks.newFolder"),
-      icon: FolderPlus,
-      onClick: handleNewFolder,
+      id: "create-note",
+      label: t("library.create.note", { defaultValue: "Note" }),
+      icon: StickyNote,
+      onClick: handleCreateNote,
     },
-    { id: "div-upload", divider: true },
     {
-      id: "upload",
-      label: t("library.actions.upload"),
-      icon: Upload,
-      onClick: () => setUploadModalOpen(true),
+      id: "create-whiteboard",
+      label: t("library.create.whiteboard", { defaultValue: "Whiteboard" }),
+      icon: PenLine,
+      onClick: handleCreateWhiteboard,
     },
+    {
+      id: "create-quiz",
+      label: t("library.create.quiz", { defaultValue: "Quiz" }),
+      icon: FileQuestion,
+      onClick: handleCreateQuiz,
+    },
+    {
+      id: "create-chat",
+      label: t("library.create.chat", { defaultValue: "Chat" }),
+      icon: MessageSquare,
+      onClick: () => void handleCreateChat(),
+    },
+    {
+      id: "create-resource",
+      label: t("library.actions.addResource", { defaultValue: "Resource (beta)" }),
+      icon: Globe,
+      onClick: () => setResourceModalOpen(true),
+    },
+  ];
+
+  // "Other upload modes" beyond the primary Upload button.
+  const uploadEntries = [
     {
       id: "open-file",
       label: t("library.actions.open"),
@@ -582,14 +719,26 @@ export function LibraryPage() {
       icon: BookPlus,
       onClick: () => setManualModalOpen(true),
     },
+  ];
+
+  // desktop right-click menu: create, then folder/upload/import actions
+  const libraryMenu = useContextMenu(() => [
+    ...createEntries,
+    { id: "div-folder", divider: true },
     {
-      id: "resource",
-      label: t("library.actions.addResource", {
-        defaultValue: "Resource (beta)",
-      }),
-      icon: Globe,
-      onClick: () => setResourceModalOpen(true),
+      id: "new-folder",
+      label: t("library.allBooks.newFolder"),
+      icon: FolderPlus,
+      onClick: handleNewFolder,
     },
+    { id: "div-upload", divider: true },
+    {
+      id: "upload",
+      label: t("library.actions.upload"),
+      icon: Upload,
+      onClick: triggerUpload,
+    },
+    ...uploadEntries,
   ]);
 
   return (
@@ -686,7 +835,7 @@ export function LibraryPage() {
           <div className="flex shrink-0 items-center gap-2">
             <Button
               variant="primary"
-              onClick={() => setUploadModalOpen(true)}
+              onClick={triggerUpload}
               title={t("library.actions.upload")}
               className="px-3 py-1.5 sm:px-4 sm:py-2"
             >
@@ -695,17 +844,77 @@ export function LibraryPage() {
                 {t("library.actions.upload")}
               </span>
             </Button>
-            <Button
-              variant="secondary"
-              onClick={handleNewFolder}
-              title={t("library.allBooks.newFolder")}
-              className="px-3 py-1.5 sm:px-4 sm:py-2"
+            {/* "+ New" dropdown: create entities + the other upload modes +
+                new folder, so everything is one click from the header. */}
+            <span ref={createBtnRef} className="inline-flex">
+              <Button
+                variant="secondary"
+                onClick={() => setCreateMenuOpen((v) => !v)}
+                title={t("library.create.new", { defaultValue: "New" })}
+                aria-haspopup="menu"
+                aria-expanded={createMenuOpen}
+                className="px-3 py-1.5 sm:px-4 sm:py-2"
+              >
+                <Plus size={18} />
+                <span className="hidden sm:inline">
+                  {t("library.create.new", { defaultValue: "New" })}
+                </span>
+                <ChevronDown size={14} className="opacity-70" />
+              </Button>
+            </span>
+            <FloatingMenu
+              open={createMenuOpen}
+              anchorRef={createBtnRef}
+              onClose={() => setCreateMenuOpen(false)}
+              className="min-w-[13rem] pb-1"
             >
-              <FolderPlus size={18} />
-              <span className="hidden sm:inline">
-                {t("library.allBooks.newFolder")}
-              </span>
-            </Button>
+              <CreateMenuHeading>
+                {t("library.create.createHeading", { defaultValue: "Create" })}
+              </CreateMenuHeading>
+              {createEntries.map((e) => (
+                <CreateMenuRow
+                  key={e.id}
+                  icon={e.icon}
+                  label={e.label}
+                  onClick={() => {
+                    setCreateMenuOpen(false);
+                    e.onClick();
+                  }}
+                />
+              ))}
+              <div className="my-1 border-t border-glass-border" />
+              <CreateMenuHeading>
+                {t("library.create.addHeading", { defaultValue: "Add / upload" })}
+              </CreateMenuHeading>
+              <CreateMenuRow
+                icon={Upload}
+                label={t("library.actions.upload")}
+                onClick={() => {
+                  setCreateMenuOpen(false);
+                  triggerUpload();
+                }}
+              />
+              {uploadEntries.map((e) => (
+                <CreateMenuRow
+                  key={e.id}
+                  icon={e.icon}
+                  label={e.label}
+                  onClick={() => {
+                    setCreateMenuOpen(false);
+                    e.onClick();
+                  }}
+                />
+              ))}
+              <div className="my-1 border-t border-glass-border" />
+              <CreateMenuRow
+                icon={FolderPlus}
+                label={t("library.allBooks.newFolder")}
+                onClick={() => {
+                  setCreateMenuOpen(false);
+                  handleNewFolder();
+                }}
+              />
+            </FloatingMenu>
           </div>
         }
       />
@@ -715,6 +924,15 @@ export function LibraryPage() {
         accept=".pdf,.epub,.txt,.md,.markdown"
         className="hidden"
         onChange={handleFileSelect}
+      />
+      {/* direct upload picker: PDF only, multi-select; skips the modal */}
+      <input
+        ref={uploadInputRef}
+        type="file"
+        accept=".pdf"
+        multiple
+        className="hidden"
+        onChange={handleUploadPick}
       />
 
       {/* tag filter bar, collapses with controlsExpanded */}
@@ -739,6 +957,8 @@ export function LibraryPage() {
         setListColumnWidth={setListColumnWidth}
         isLoading={isLoading}
         onContextMenu={libraryMenu.onContextMenu}
+        typeFilter={typeFilter}
+        setTypeFilter={setTypeFilter}
       />
 
       {/* gap between last row and the footer divider */}
@@ -766,10 +986,14 @@ export function LibraryPage() {
         onClear={clearSelection}
       />
 
-      {/* Upload PDF modal */}
+      {/* Upload PDF modal: kept for large batches (>10) and future use */}
       <UploadPdfModal
         open={uploadModalOpen}
-        onClose={() => setUploadModalOpen(false)}
+        onClose={() => {
+          setUploadModalOpen(false);
+          setPendingUploadFiles([]);
+        }}
+        initialFiles={pendingUploadFiles}
       />
 
       {/* Scan device for PDFs modal */}

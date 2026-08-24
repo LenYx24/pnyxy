@@ -16,7 +16,10 @@ import { cn } from "@/lib/cn";
 const STORAGE_KEY = "pnyxy:feedback-prompt:v1";
 const ACCOUNT_AGE_GATE_DAYS = 3;
 const COOLDOWN_DAYS = 30;
-const MOUNT_DELAY_MS = 6000; // don't pop the moment a page loads
+// Only ask after the user has genuinely used the app this session: this
+// much ACTIVE time (tab visible) must elapse AND they must have interacted
+// at least once. Popping 6s after load felt pointless, you hadn't used it.
+const ENGAGEMENT_DELAY_MS = 3 * 60 * 1000; // ~3 min of real in-app time
 
 const STATIC_PATHS = ["/about", "/privacy", "/terms", "/help", "/tutorial"];
 
@@ -83,13 +86,34 @@ export function FeedbackPrompt() {
   useEffect(() => {
     if (!user) return;
     if (!shouldShowFor(user)) return;
-    if (blocked) return;
-    const timer = window.setTimeout(() => {
-      setVisible(true);
-    }, MOUNT_DELAY_MS);
-    return () => window.clearTimeout(timer);
+
+    // Accumulate ACTIVE in-app time (only while the tab is visible) and
+    // require at least one interaction, so the prompt appears after real
+    // usage instead of the moment a page loads. Route blocking is applied
+    // at render time (onScreen), so we don't gate the timer on it here.
+    let activeMs = 0;
+    let interacted = false;
+    const markInteracted = () => {
+      interacted = true;
+    };
+    window.addEventListener("pointerdown", markInteracted);
+    window.addEventListener("keydown", markInteracted);
+
+    const TICK_MS = 5000;
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") activeMs += TICK_MS;
+      if (interacted && activeMs >= ENGAGEMENT_DELAY_MS) {
+        window.clearInterval(interval);
+        setVisible(true);
+      }
+    }, TICK_MS);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("pointerdown", markInteracted);
+      window.removeEventListener("keydown", markInteracted);
+    };
     // only re-run on user change; route blocking is handled separately
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const closeAndCooldown = () => {
@@ -127,9 +151,9 @@ export function FeedbackPrompt() {
         frustrated: "[Pnyxy feedback · frustrated]",
       };
       const fallbackBody: Record<Sentiment, string> = {
-        love: "(no message — just a thumbs-up)",
-        fine: "(no message — neutral signal)",
-        frustrated: "(no message — but they're not happy)",
+        love: "(no message, just a thumbs-up)",
+        fine: "(no message, neutral signal)",
+        frustrated: "(no message, but they're not happy)",
       };
 
       const res = await fetch(url, {
@@ -276,7 +300,7 @@ export function FeedbackPrompt() {
                         })
                       : t("feedbackPrompt.placeholder", {
                           defaultValue:
-                            "Anything you'd like us to know — features, bugs, ideas.",
+                            "Anything you'd like us to know, features, bugs, ideas.",
                         })
                   }
                   className="w-full resize-none rounded-md border border-glass-border bg-bg-primary/50 px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-60"

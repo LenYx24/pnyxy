@@ -93,7 +93,7 @@ export function BrowseCommunityModal({ mode, onClose }: BrowseCommunityModalProp
             {status.offline && (
               <p className="mt-0.5 inline-flex items-center gap-1 text-2xs text-warning">
                 <WifiOff size={11} />
-                Offline — showing bundled fallback registry
+                Offline: showing bundled fallback registry
               </p>
             )}
           </div>

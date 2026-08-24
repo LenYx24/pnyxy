@@ -49,6 +49,7 @@ import { useUndoStore } from "@/stores/undo-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useSearchStore } from "@/stores/search-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { getFeatures, useFeatures } from "@/lib/use-features";
 import { useNoteStore } from "@/stores/note-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import { useStreakStore } from "@/stores/streak-store";
@@ -126,7 +127,7 @@ function EmptyState() {
       <p className="mb-6 max-w-sm text-sm text-text-secondary">
         {t("reader.empty.body", {
           defaultValue:
-            "Upload a book or open a file to start reading — anything you open shows up in your library.",
+            "Upload a book or open a file to start reading, anything you open shows up in your library.",
         })}
       </p>
 
@@ -338,6 +339,7 @@ export function ReaderPage() {
     bookId ? s.documents.has(bookId) : false,
   );
   const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
+  const features = useFeatures();
   const addDocument = useReaderStore((s) => s.addDocument);
   const goToPage = useReaderStore((s) => s.goToPage);
   // Bind inline-draw to the active doc; deactivate on switch so draw mode doesn't carry over.
@@ -351,8 +353,6 @@ export function ReaderPage() {
   const zoomOut = useReaderStore((s) => s.zoomOut);
   const setZoomMode = useReaderStore((s) => s.setZoomMode);
 
-  const isLoadingDocument = useUIStore((s) => s.isLoadingDocument);
-  const loadingMessage = useUIStore((s) => s.loadingMessage);
   const zenMode = useUIStore((s) => s.zenMode);
   const setZenMode = useUIStore((s) => s.setZenMode);
   const toggleZenMode = useUIStore((s) => s.toggleZenMode);
@@ -719,6 +719,36 @@ export function ReaderPage() {
   });
   void horizScroll;
 
+  // PageUp / PageDown: scroll the active viewer by roughly a screenful.
+  const pageScroll = useCallback(
+    (dir: 1 | -1) => {
+      const el = getActivePdfViewerEl();
+      if (!el) return;
+      el.scrollBy({ top: dir * el.clientHeight * 0.9, behavior: "smooth" });
+    },
+    [getActivePdfViewerEl],
+  );
+  useKeyboardShortcut({
+    id: "reader:page-down",
+    key: "PageDown",
+    description: "Scroll down one screen",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      pageScroll(1);
+    }, [pageScroll]),
+    preventDefault: false,
+  });
+  useKeyboardShortcut({
+    id: "reader:page-up",
+    key: "PageUp",
+    description: "Scroll up one screen",
+    handler: useCallback(() => {
+      if (isEditableFocused()) return;
+      pageScroll(-1);
+    }, [pageScroll]),
+    preventDefault: false,
+  });
+
   // 1-5: set the active highlight color. isEditableFocused also covers
   // contenteditable (EPUB iframe, inline-edit pills) that the shortcut module skips.
   const setActiveHighlightColor = useAnnotationStore(
@@ -1019,6 +1049,7 @@ export function ReaderPage() {
       if (!activeDoc?.meta?.fileUrl) return;
 
       // whiteboard-on-document needs a paginated format unless the experimental toggle is on
+      if (!getFeatures().whiteboard) return;
       const allowAll = useSettingsStore.getState()
         .experimental_allowWhiteboardForAllFormats;
       if (!activeDoc.meta.capabilities.paginated && !allowAll) return;
@@ -1067,9 +1098,35 @@ export function ReaderPage() {
     }
   }, []);
 
-  // Global @media print CSS hides everything except [data-active-viewer], so
-  // the PDF canvas + overlays rasterize together.
+  // Printing. The on-screen PDF viewer is virtualized (only the pages near the
+  // viewport are in the DOM), so window.print() + the @media print CSS would
+  // drop most of the document. For PDFs we instead stream the original file
+  // into a hidden iframe and print that, the browser's built-in PDF viewer
+  // paginates every page. Non-paginated formats (EPUB/text) fall back to the
+  // in-page print path.
   const handlePrint = useCallback(() => {
+    const doc = useReaderStore.getState().getActiveDoc();
+    const fileUrl = doc?.meta.fileUrl;
+    if (doc?.meta.format === "pdf" && fileUrl) {
+      document.getElementById("pnyxy-print-frame")?.remove();
+      const iframe = document.createElement("iframe");
+      iframe.id = "pnyxy-print-frame";
+      iframe.setAttribute("aria-hidden", "true");
+      iframe.style.cssText =
+        "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+      iframe.src = fileUrl;
+      iframe.onload = () => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch (err) {
+          logError("reader:print:iframe", err);
+          window.print();
+        }
+      };
+      document.body.appendChild(iframe);
+      return;
+    }
     window.print();
   }, []);
 
@@ -1306,6 +1363,7 @@ export function ReaderPage() {
     ctrl: true,
     description: "Bookmark current page",
     handler: useCallback(() => {
+      if (!getFeatures().bookmarks) return;
       const store = useReaderStore.getState();
       const docId = store.activeDocumentId;
       const doc = docId ? store.documents.get(docId) : null;
@@ -1395,13 +1453,24 @@ export function ReaderPage() {
         }
       }
 
-      // Default layout: viewer only. TOC is opened on demand via the
-      // floating-circle toggle and persists across sessions once pinned.
+      // Default layout: viewer + AI chat. The book-scoped chat is one of
+      // the app's headline features, so it opens by default (desktop side
+      // panel) to remove a click of friction; the user can close it and the
+      // layout persists. TOC is opened on demand via the floating toggle.
       api.addPanel({
         id: "pdfViewer",
         component: "pdfViewer",
         title: i18n.t("reader.page.panelDocument"),
       });
+      if (!isMobile) {
+        api.addPanel({
+          id: "aiChat",
+          component: "aiChat",
+          title: i18n.t("reader.page.panelAiChat"),
+          position: { direction: "right" },
+          initialWidth: aiChatWidthRef.current,
+        });
+      }
 
       // keep `resolvedWidth` referenced for the lint gate; toggleSidebar reads it via tocWidthRef
       void resolvedWidth;
@@ -1506,12 +1575,6 @@ export function ReaderPage() {
       // URL-bar shrink/grow on mobile Safari; the bottom bar pads safe-area itself.
       className="relative flex h-[100dvh] flex-col bg-bg-primary md:h-screen"
     >
-      {isLoadingDocument && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-bg-primary/80 backdrop-blur-sm">
-          <Loader2 size={32} className="animate-spin text-accent mb-3" />
-          <p className="text-sm text-text-secondary">{loadingMessage}</p>
-        </div>
-      )}
       {hasDocuments && zenMode ? (
         <div className="relative flex-1 overflow-hidden bg-bg-primary">
           <ActiveViewer />
@@ -1555,7 +1618,7 @@ export function ReaderPage() {
               onToggleZenMode={toggleZenMode}
               onToggleSidebar={toggleSidebar}
             />
-            <DocumentTabs />
+            {features.multiDoc && <DocumentTabs />}
             <div className="relative flex-1 overflow-hidden">
               <DockviewReact
                 className="pnyxy-dockview-theme h-full w-full"

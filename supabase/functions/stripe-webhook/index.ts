@@ -1,4 +1,4 @@
-// Pnyxy — Stripe (Managed Payments) subscription webhook.
+// Pnyxy: Stripe (Managed Payments) subscription webhook.
 //
 // Stripe is our Merchant of Record via Managed Payments: it sells to
 // the end customer, collects + remits VAT/sales tax worldwide, handles
@@ -16,17 +16,17 @@
 //   2. Read `event.type` + `event.data.object`.
 //   3. Resolve which of OUR users this is: prefer `metadata.user_id`
 //      (we attach it on the Checkout Session AND propagate it onto the
-//      subscription via subscription_data — see stripe-checkout), and
+//      subscription via subscription_data, see stripe-checkout), and
 //      fall back to a lookup by stripe_customer_id.
 //   4. Upsert the tier + status with the SERVICE ROLE, which bypasses
 //      RLS and the `protect_billing_columns` trigger (migration 00049).
 //
 // Env vars (set via `supabase secrets set`):
-//   STRIPE_WEBHOOK_SECRET     — the `whsec_...` signing secret Stripe
+//   STRIPE_WEBHOOK_SECRET     - the `whsec_...` signing secret Stripe
 //                               shows when you create the webhook
 //                               endpoint in the dashboard.
-//   SUPABASE_URL              — provided by the platform.
-//   SUPABASE_SERVICE_ROLE_KEY — provided by the platform; service key
+//   SUPABASE_URL              - provided by the platform.
+//   SUPABASE_SERVICE_ROLE_KEY - provided by the platform; service key
 //                               so we may write the protected columns.
 //
 // Configure `verify_jwt = false` for this function (config.toml): the
@@ -42,7 +42,7 @@ declare const Deno: {
 
 // Stripe subscription statuses that should keep premium access.
 // `active`/`trialing` are obvious; `past_due` is the grace period while
-// Stripe retries the card (Smart Retries) — we keep access rather than
+// Stripe retries the card (Smart Retries), we keep access rather than
 // yanking premium the instant a renewal fails. Everything else
 // (`canceled`, `unpaid`, `incomplete`, `incomplete_expired`) → free.
 // A subscription set to cancel at period end stays `active` until it
@@ -146,7 +146,7 @@ async function resolveUserId(
 ): Promise<string | null> {
   const fromMeta = obj.metadata?.user_id || obj.client_reference_id;
   if (fromMeta) return fromMeta;
-  // Fall back to a lookup by customer — covers subscription events where
+  // Fall back to a lookup by customer, covers subscription events where
   // metadata somehow didn't propagate.
   const customerId = idOf(obj.customer);
   if (customerId) {
@@ -260,7 +260,7 @@ Deno.serve(async (req) => {
 
   if (error) {
     console.error(`stripe-webhook: db update failed: ${error.message}`);
-    // 500 so Stripe retries — the update is idempotent, safe to repeat.
+    // 500 so Stripe retries, the update is idempotent, safe to repeat.
     return json(500, { error: "db_update_failed" });
   }
 

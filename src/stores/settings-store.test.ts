@@ -48,7 +48,7 @@ afterEach(() => {
   localStorage.clear();
 });
 
-describe("settings-store migrate — v0 → v1", () => {
+describe("settings-store migrate - v0 → v1", () => {
   it("converts legacy `aiProvider: 'anthropic'` into `enabledProviders: ['anthropic']`", async () => {
     seedPersistedState(0, { aiProvider: "anthropic" });
 
@@ -80,7 +80,7 @@ describe("settings-store migrate — v0 → v1", () => {
   });
 });
 
-describe("settings-store migrate — v1 → v2", () => {
+describe("settings-store migrate - v1 → v2", () => {
   it("seeds tracker settings with defaults when missing", async () => {
     seedPersistedState(1, { enabledProviders: ["pnyxy"] });
     const { useSettingsStore } = await import("./settings-store");
@@ -105,7 +105,7 @@ describe("settings-store migrate — v1 → v2", () => {
   });
 });
 
-describe("settings-store migrate — v2 → v3", () => {
+describe("settings-store migrate - v2 → v3", () => {
   it("seeds activeThemeId, installedThemes, plugin maps when missing", async () => {
     seedPersistedState(2, {
       enabledProviders: ["pnyxy"],
@@ -161,7 +161,7 @@ describe("settings-store migrate — v2 → v3", () => {
   });
 });
 
-describe("settings-store migrate — v3 → v4", () => {
+describe("settings-store migrate - v3 → v4", () => {
   it("seeds experimental multi-format flags to false when missing", async () => {
     seedPersistedState(3, {
       activeThemeId: "pnyxy-dark",
@@ -198,7 +198,7 @@ describe("settings-store migrate — v3 → v4", () => {
   });
 });
 
-describe("settings-store migrate — v4 → v5", () => {
+describe("settings-store migrate - v4 → v5", () => {
   it("seeds epubFlow to 'scrolled' when missing", async () => {
     seedPersistedState(4, {
       activeThemeId: "pnyxy-dark",
@@ -230,7 +230,7 @@ describe("settings-store migrate — v4 → v5", () => {
   });
 });
 
-describe("settings-store migrate — v5 → v6", () => {
+describe("settings-store migrate - v5 → v6", () => {
   it("seeds typography defaults when missing", async () => {
     seedPersistedState(5, {
       epubFlow: "paginated",
@@ -279,7 +279,7 @@ describe("settings-store migrate — v5 → v6", () => {
   });
 });
 
-describe("settings-store migrate — full chain", () => {
+describe("settings-store migrate - full chain", () => {
   it("walks v0 all the way to v6 in a single rehydration pass", async () => {
     seedPersistedState(0, {
       aiProvider: "openai",

@@ -32,7 +32,7 @@ export class RoadmapGenerationError extends Error {
 }
 
 function buildRoadmapSystemPrompt(maxNodes: number): string {
-  return `You are designing a learning roadmap — a directed acyclic graph of
+  return `You are designing a learning roadmap, a directed acyclic graph of
 learning units that the user works through. Output ONLY valid JSON,
 no preamble, no markdown fence, no commentary.
 
@@ -46,13 +46,13 @@ Shape:
       "title": string,             // a topic to learn (5–60 chars)
       "description": string,       // 1–3 sentences explaining what to learn
       "estimatedMinutes": number,  // realistic minutes for an average learner
-      "references": [              // OPTIONAL — see Rules below
+      "references": [              // OPTIONAL, see Rules below
         {
           "kind": "book",          // "book", "url", or "youtube"
           "title": string,
           "author": string,        // optional, omit if unknown
           "pageRange": { "from": number, "to": number },  // optional
-          "section": string,       // optional, e.g. "Chapter 3.2 — Linear maps"
+          "section": string,       // optional, e.g. "Chapter 3.2 - Linear maps"
           "url": string            // required for kind="url" / "youtube"
         }
       ]
@@ -66,7 +66,7 @@ Shape:
 }
 
 Rules:
-- Produce 3 to ${maxNodes} nodes — enough to cover the topic without bloat.
+- Produce 3 to ${maxNodes} nodes, enough to cover the topic without bloat.
 - Sequence the topics from foundational to advanced; the edges encode
   prerequisites (source must be learned before target).
 - The graph MUST be a DAG. No cycles. No self-loops. No duplicate edges.
@@ -76,11 +76,11 @@ Rules:
   not vague ("Section 3").
 - references: cite 1–3 well-known authoritative sources per node when
   applicable. For STEM / textbook topics this means real, named books
-  ("Cormen et al. — Introduction to Algorithms, chapter 22"). Use
+  ("Cormen et al. - Introduction to Algorithms, chapter 22"). Use
   pageRange when you have specific page numbers; otherwise use section
   with the chapter/section name. Use url/youtube only when a free
   online resource is the obvious primary source. Empty array (or
-  omitted field) is fine if no sources come to mind — do NOT invent
+  omitted field) is fine if no sources come to mind, do NOT invent
   fake books just to fill the slot.
 - Do not nest objects beyond what's shown. Do not include any field
   other than the ones above.`;

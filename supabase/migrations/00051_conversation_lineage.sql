@@ -9,7 +9,7 @@
 -- ON DELETE SET NULL: deleting a parent conversation re-roots its
 -- children rather than cascade-deleting them. RLS already scopes
 -- chat_conversations by user_id (migration 00019), so no new policy is
--- needed — the column is just another self-referencing FK on rows the
+-- needed, the column is just another self-referencing FK on rows the
 -- user already owns.
 -- ============================================================
 

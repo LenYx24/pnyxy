@@ -12,7 +12,7 @@ import {
 } from "@/lib/resource-url";
 
 /**
- * Library "resources" — saved web pages / YouTube links (migration 00053,
+ * Library "resources": saved web pages / YouTube links (migration 00053,
  * beta). Mirrors the chat store's folder/reorder plumbing so resources drag
  * and drop in the library exactly like conversations. Enrichment (title,
  * thumbnail, extracted article) is attempted via the `ingest-url` edge

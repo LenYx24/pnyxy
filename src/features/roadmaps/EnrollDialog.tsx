@@ -127,7 +127,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
           {t("roadmaps.enroll.subtitle")}
         </p>
 
-        {/* Mode toggle — segmented control. Visual style matches the
+        {/* Mode toggle: segmented control. Visual style matches the
             paired-button patterns used elsewhere in the app
             (highlight color picker, list/grid toggle). */}
         <div
@@ -274,7 +274,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
                 {weekendMultiplier === 0
                   ? t("roadmaps.enroll.weekendMultiplierZeroHint", {
                       defaultValue:
-                        "Weekends off — all work happens on weekdays.",
+                        "Weekends off, all work happens on weekdays.",
                     })
                   : t("roadmaps.enroll.weekendMultiplierHint", {
                       defaultValue:
@@ -330,7 +330,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
                     <span>
                       {t("roadmaps.deadline.infeasible", {
                         defaultValue:
-                          "Not feasible — the date is in the past or there's no time available.",
+                          "Not feasible, the date is in the past or there's no time available.",
                       })}
                     </span>
                   </div>

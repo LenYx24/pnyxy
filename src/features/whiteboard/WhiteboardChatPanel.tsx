@@ -238,7 +238,7 @@ export function WhiteboardChatPanel({
             <p className="text-xs text-text-muted">
               {t("whiteboard.chat.empty", {
                 defaultValue:
-                  "Ask about your board — tap the image button to attach a snapshot so the AI can see what you drew.",
+                  "Ask about your board, tap the image button to attach a snapshot so the AI can see what you drew.",
               })}
             </p>
           </div>

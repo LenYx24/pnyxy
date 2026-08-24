@@ -196,7 +196,7 @@ function Header() {
         </h1>
         <p className="text-xs text-text-muted">
           {t("spaces.subtitle", {
-            defaultValue: "Communities & courses — organizations, courses, and topics.",
+            defaultValue: "Communities & courses, organizations, courses, and topics.",
           })}
         </p>
       </div>

@@ -111,7 +111,9 @@ interface ChatState {
   fetchFolders: () => Promise<void>;
   createFolder: (name: string, parentId?: string | null) => Promise<string | null>;
   /** Find-or-create the shared "Quick chats" folder loose chats default into. */
-  ensureQuickChatsFolder: () => Promise<string | null>;
+  ensureQuickChatsFolder: (
+    parentId?: string | null,
+  ) => Promise<string | null>;
   renameFolder: (id: string, name: string) => Promise<void>;
   /** Deletes folder + subfolders; conversations fall back to root via FK set null. */
   deleteFolder: (id: string) => Promise<void>;
@@ -588,7 +590,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } catch (err) {
       if (err instanceof ImageGenUnavailableError) {
         errorText =
-          "Image generation needs an OpenAI key — set one in Settings → AI.";
+          "Image generation needs an OpenAI key, set one in Settings → AI.";
       } else if (err instanceof Error) {
         errorText = `Image generation failed: ${err.message}`;
       } else {
@@ -745,12 +747,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     return data.id as string;
   },
 
-  async ensureQuickChatsFolder() {
+  async ensureQuickChatsFolder(parentId = null) {
     const name = i18n.t("chat.sidebar.quickChats", {
       defaultValue: "Quick chats",
     });
     const matches = (f: ChatFolder) =>
-      f.parent_id === null &&
+      f.parent_id === parentId &&
       f.name.trim().toLowerCase() === name.trim().toLowerCase();
     const existing = get().folders.find(matches);
     if (existing) return existing.id;
@@ -759,22 +761,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
     await get().fetchFolders();
     const rechecked = get().folders.find(matches);
     if (rechecked) return rechecked.id;
-    const id = await get().createFolder(name, null);
+    const id = await get().createFolder(name, parentId);
     if (!id) return null;
     // one-time migration: sweep every currently-loose conversation into it so
-    // the library root stops filling up with chats. Runs only right after the
-    // folder is first created (existing folder short-circuits above).
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      const { error } = await supabase
-        .from("chat_conversations")
-        .update({ folder_id: id })
-        .eq("user_id", user.id)
-        .is("folder_id", null);
-      if (error) logError("chat:ensureQuickChatsFolder:sweep", error);
-      else await get().fetchConversations();
+    // the library root stops filling up with chats. Only for the shared
+    // (root) Quick chats folder, per-folder ones start empty.
+    if (parentId === null) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { error } = await supabase
+          .from("chat_conversations")
+          .update({ folder_id: id })
+          .eq("user_id", user.id)
+          .is("folder_id", null);
+        if (error) logError("chat:ensureQuickChatsFolder:sweep", error);
+        else await get().fetchConversations();
+      }
     }
     return id;
   },
@@ -899,7 +903,7 @@ async function autoTitleConversation(
         {
           role: "user",
           content:
-            "Summarise the following message as a short conversation title — 3 to 6 words, no quotes, no trailing punctuation, plain text:\n\n" +
+            "Summarise the following message as a short conversation title, 3 to 6 words, no quotes, no trailing punctuation, plain text:\n\n" +
             firstUserMessage,
         },
       ],
@@ -1254,7 +1258,7 @@ async function sendOrBranch(
     if (!signal.aborted && acc.trim() === "") {
       acc = `⚠ ${i18n.t("chat.emptyResponse", {
         defaultValue:
-          "The model returned an empty response — please try again.",
+          "The model returned an empty response, please try again.",
       })}`;
       patchAssistant(acc);
     }

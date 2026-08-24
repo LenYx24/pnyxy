@@ -1,5 +1,9 @@
 export type QuizVisibility = "private" | "public";
-export type QuizQuestionKind = "mcq4" | "true_false" | "short_answer";
+export type QuizQuestionKind =
+  | "mcq4"
+  | "true_false"
+  | "short_answer"
+  | "multi_select";
 
 export interface Quiz {
   id: string;
@@ -31,9 +35,11 @@ export interface QuizQuestion {
   option_b: string | null;
   option_c: string | null;
   option_d: string | null;
-  /** MCQ4: 0..3. TF: 0 or 1 (0=option_a is correct). SA: null. */
+  /** MCQ4: 0..3. TF: 0 or 1 (0=option_a is correct). SA/multi_select: null. */
   correct_index: number | null;
-  /** Only set for short_answer. */
+  /** short_answer: the expected free-text answer. multi_select: a
+   *  comma-separated, sorted list of the correct option indices
+   *  (e.g. "0,2,3"); parse with `parseCorrectIndices`. */
   correct_text: string | null;
   explanation: string | null;
   created_at: string;
@@ -73,6 +79,9 @@ export interface QuizQuestionDraft {
   option_d: string;
   correct_index: number;
   correct_text: string;
+  /** multi_select only: the set of correct option indices (0..3). Empty
+   *  for every other kind. Serialised into `correct_text` when stored. */
+  correct_indices: number[];
   explanation: string | null;
 }
 
@@ -109,10 +118,34 @@ export interface QuizQuestionStat {
   wrong: number;
 }
 
+/** Parses the comma-separated correct-index list a multi_select
+ *  question stores in `correct_text` into a deduped, sorted array of
+ *  valid option indices (0..3). Also used to read the user's picked
+ *  set back out of `selected_text`. */
+export function parseCorrectIndices(text: string | null | undefined): number[] {
+  if (!text) return [];
+  const seen = new Set<number>();
+  for (const part of text.split(",")) {
+    const n = Number(part.trim());
+    if (Number.isInteger(n) && n >= 0 && n <= 3) seen.add(n);
+  }
+  return [...seen].sort((a, b) => a - b);
+}
+
+/** Serialises a set of correct/picked indices into the canonical
+ *  comma-separated, sorted, deduped string stored in the DB. */
+export function serializeIndices(indices: number[]): string {
+  const seen = new Set<number>();
+  for (const n of indices) {
+    if (Number.isInteger(n) && n >= 0 && n <= 3) seen.add(n);
+  }
+  return [...seen].sort((a, b) => a - b).join(",");
+}
+
 /** Grades a short-answer response leniently against the stored
  *  correct_text. Tolerates case, diacritics/accents (so "só" matches
  *  "so"), surrounding/most punctuation, and whitespace differences.
- *  Deterministic and still a boolean — it does not match everything. */
+ *  Deterministic and still a boolean, it does not match everything. */
 export function matchesShortAnswer(
   userText: string,
   correctText: string,
@@ -151,5 +184,17 @@ export function gradeAnswer(
         typeof question.correct_text === "string" &&
         matchesShortAnswer(answer.selected_text, question.correct_text)
       );
+    case "multi_select": {
+      // All-correct-required (all-or-nothing) scoring: the picked set
+      // must equal the correct set exactly, no missing, no extra. Both
+      // sides come out of parseCorrectIndices already deduped + sorted.
+      const correct = parseCorrectIndices(question.correct_text);
+      const selected = parseCorrectIndices(answer.selected_text);
+      return (
+        correct.length > 0 &&
+        correct.length === selected.length &&
+        correct.every((v, i) => v === selected[i])
+      );
+    }
   }
 }

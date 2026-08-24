@@ -5,7 +5,7 @@
 -- A user studying from a textbook can attach previous-year exams to
 -- it. The PDF lives in the existing `book-files` bucket; metadata
 -- (name, year, AI-derived topic list) lives here. Each exam targets
--- exactly one book — either a catalog book or an uploaded one,
+-- exactly one book, either a catalog book or an uploaded one,
 -- mirroring `book_external_resources`.
 --
 -- AI columns:

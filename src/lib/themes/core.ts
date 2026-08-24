@@ -47,7 +47,7 @@ export const CORE_THEMES = {
   },
   "pnyxy-dark-high-contrast": {
     id: "pnyxy-dark-high-contrast",
-    name: "Pnyxy Dark — High Contrast",
+    name: "Pnyxy Dark - High Contrast",
     description:
       "Pnyxy Dark with maximum text contrast (≥14:1 secondary, ≥8:1 muted) for accessibility and bright environments.",
     author: "Pnyxy",
@@ -92,7 +92,7 @@ export const CORE_THEMES = {
     id: "comfort-sepia",
     name: "Comfort Sepia",
     description:
-      "Warm parchment background with dark sepia text — low contrast and no pure white, designed for long reading sessions.",
+      "Warm parchment background with dark sepia text, low contrast and no pure white, designed for long reading sessions.",
     author: "Pnyxy",
     apiVersion: 1,
     variant: "light",
@@ -118,7 +118,7 @@ export const CORE_THEMES = {
     id: "comfort-night",
     name: "Comfort Night",
     description:
-      "Warm amber-tinted dark theme with no blue spectrum — evening-friendly, candlelight feel.",
+      "Warm amber-tinted dark theme with no blue spectrum, evening-friendly, candlelight feel.",
     author: "Pnyxy",
     apiVersion: 1,
     variant: "dark",

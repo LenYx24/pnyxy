@@ -71,7 +71,7 @@ export const ROADMAP_TOOLS: ToolDef[] = [
   {
     name: "add_edge",
     description:
-      "Add a prerequisite edge: source must be learned before target. The graph is enforced acyclic — edges that would close a cycle are rejected.",
+      "Add a prerequisite edge: source must be learned before target. The graph is enforced acyclic, edges that would close a cycle are rejected.",
     input_schema: {
       type: "object",
       properties: {
@@ -153,7 +153,7 @@ export function formatRoadmapSnapshot(
   const nodeLines = roadmap.nodes.map((n) => {
     const label = labels.labelFor(n.id) ?? "?";
     const minutes = n.estimatedMinutes ? ` (${n.estimatedMinutes}m)` : "";
-    const desc = n.description ? ` — ${truncate(n.description, 200)}` : "";
+    const desc = n.description ? ` - ${truncate(n.description, 200)}` : "";
     return `  ${label}: ${n.title}${minutes}${desc}`;
   });
   const edgeLines = roadmap.edges
@@ -189,7 +189,7 @@ You can modify the roadmap by calling tools: add_node, update_node, remove_node,
 
 Rules:
 - Use the short labels (n1, n2, ...) from the snapshot when referencing nodes. add_node returns a fresh label you can use later in the same turn.
-- The graph MUST stay acyclic. add_edge calls that would close a cycle are silently rejected — the tool result will tell you if that happens, so you can adjust.
+- The graph MUST stay acyclic. add_edge calls that would close a cycle are silently rejected, the tool result will tell you if that happens, so you can adjust.
 - After your edits, give a brief 1–2 sentence summary of what changed. Don't repeat the diff in detail; the user sees each tool call rendered inline.
 - If the user asks something that doesn't require edits, just answer normally without calling tools.`;
 }
@@ -204,7 +204,7 @@ You are starting from an EMPTY roadmap. Build it by calling tools:
 - add_edge: connect prerequisites (source -> target means "learn source before target") into a sensible dependency chain/tree. The graph MUST stay acyclic; edges that would close a cycle are rejected and the tool result tells you so.
 
 Guidelines:
-- Aim for roughly 6–14 nodes — a real plan that covers the topic end to end without overwhelming the learner.
+- Aim for roughly 6–14 nodes, a real plan that covers the topic end to end without overwhelming the learner.
 - Write in the user's language.
 - After the edits, give a brief 1–2 sentence summary of the roadmap you built. Don't list every node; the user sees each tool call inline and can open the roadmap.
 - If the request is too vague to build a roadmap, ask one brief clarifying question instead of calling tools.`;

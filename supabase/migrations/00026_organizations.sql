@@ -4,7 +4,7 @@
 --
 -- An organization is a single-owner namespace ("Personal",
 -- "School", "Work") used to group user-owned content. v1 ships
--- only the container — no scoping of existing tables yet, so
+-- only the container, no scoping of existing tables yet, so
 -- switching orgs is a no-op for content visibility. Per-feature
 -- scoping (library_folders, user_books, quizzes, reading_plans,
 -- vocab, whiteboards, mind maps) lands in follow-up migrations
@@ -26,7 +26,7 @@ create table public.organizations (
   color       text,
   -- Exactly one default org per user (see partial unique index).
   -- The default org is auto-created on signup and cannot be deleted
-  -- — only renamed / recolored.
+  --, only renamed / recolored.
   is_default  boolean not null default false,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()

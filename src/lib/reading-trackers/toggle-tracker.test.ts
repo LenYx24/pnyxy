@@ -23,7 +23,7 @@ function ctx(
   };
 }
 
-describe("toggleTracker — metadata", () => {
+describe("toggleTracker - metadata", () => {
   it("has the expected id and default settings", () => {
     expect(toggleTracker.id).toBe("toggle");
     expect(toggleTracker.defaultSettings).toEqual({ enabled: true });

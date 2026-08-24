@@ -12,6 +12,8 @@ import {
   PenLine,
 } from "lucide-react";
 import { Checkbox, FloatingMenu } from "@/components/ui";
+import { useContextMenu } from "@/hooks/use-context-menu";
+import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { cn } from "@/lib/cn";
 import { whiteboardDisplayTitle } from "@/lib/entity-title";
 import { useLibraryStore } from "@/stores/library-store";
@@ -90,6 +92,35 @@ export function LibraryWhiteboardCard({
     navigate(`/whiteboards/${whiteboard.id}`);
   };
 
+  const contextHandlers = useContextMenu((): ContextMenuEntry[] => [
+    {
+      id: "open",
+      label: t("library.allBooks.openWhiteboard"),
+      icon: PenLine,
+      onClick: () => navigate(`/whiteboards/${whiteboard.id}`),
+    },
+    {
+      id: "move",
+      label: t("library.actions.moveToFolder"),
+      icon: FolderInput,
+      onClick: () => setMoveOpen(true),
+    },
+    {
+      id: "export",
+      label: t("library.actions.exportJson"),
+      icon: Download,
+      onClick: () => downloadWhiteboardJson(whiteboard),
+    },
+    { id: "div-1", divider: true },
+    {
+      id: "delete",
+      label: t("common.delete"),
+      icon: Trash2,
+      danger: true,
+      onClick: () => deleteWhiteboard(whiteboard.id),
+    },
+  ]);
+
   return (
     <div
       ref={setNodeRef}
@@ -102,6 +133,7 @@ export function LibraryWhiteboardCard({
       {...listeners}
     >
       <div
+        {...contextHandlers}
         className={cn(
           "group relative",
           selected && "ring-2 ring-accent rounded-md",
@@ -109,7 +141,7 @@ export function LibraryWhiteboardCard({
         )}
       >
         <div onClick={handleClick} title={title} className="cursor-pointer">
-          {/* Cover — a live mini-render of the board's own strokes when
+          {/* Cover: a live mini-render of the board's own strokes when
               it has any, falling back to a small shapes glyph for an
               empty board. The small corner badge below still marks the
               item type. */}

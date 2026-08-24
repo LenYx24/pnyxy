@@ -195,7 +195,7 @@ export function QuizRow({
           />
         </div>
 
-        {/* Icon — bare quiz glyph, no tinted tile. */}
+        {/* Icon: bare quiz glyph, no tinted tile. */}
         <div className="mr-2.5 flex h-8 w-7 shrink-0 items-center justify-center sm:h-9">
           <ListChecks size={density.icon + 4} className="text-warning" />
         </div>
@@ -212,7 +212,7 @@ export function QuizRow({
           {t("library.allBooks.quizLabel")}
         </span>
 
-        {/* Menu — placed right after the name (Nextcloud puts row
+        {/* Menu: placed right after the name (Nextcloud puts row
             actions here), not at the far edge. */}
         <div className="relative mr-2 shrink-0">
           <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>

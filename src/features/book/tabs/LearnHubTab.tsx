@@ -44,7 +44,7 @@ export function LearnHubTab() {
               </div>
               {m.status === "stub" && (
                 <span className="ml-auto shrink-0 rounded-full bg-glass-bg px-2 py-0.5 text-2xs font-medium text-text-muted">
-                  Soon
+                  {t("learnHub.soonBadge", { defaultValue: "Soon" })}
                 </span>
               )}
             </div>

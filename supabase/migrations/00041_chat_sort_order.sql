@@ -19,7 +19,7 @@
 --
 -- For folders, the column already exists (`sort_order integer
 -- NOT NULL DEFAULT 0` from the unified folders migration), but
--- it's been unused — every row sits at 0. We backfill with
+-- it's been unused, every row sits at 0. We backfill with
 -- per-user row_number based on created_at so drag-reorder has a
 -- sane starting point, and widen the type to double precision
 -- so the same fractional-insert pattern works for folders too.
@@ -34,7 +34,7 @@ ALTER TABLE public.chat_conversations
 
 -- Backfill: newest conversation (largest updated_at) gets the
 -- lowest sort_order so the recently-touched threads stay at the
--- top of the sidebar — that's the historic visual order and
+-- top of the sidebar, that's the historic visual order and
 -- matches what users expect on first load after this migration.
 UPDATE public.chat_conversations c
 SET sort_order = sub.rn

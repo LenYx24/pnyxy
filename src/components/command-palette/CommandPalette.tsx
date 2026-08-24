@@ -15,6 +15,7 @@ import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { NAV_ITEMS, type NavItem } from "@/lib/navigation";
 import { useLibraryStore } from "@/stores/library-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { useFeatures } from "@/lib/use-features";
 import { useReaderStore } from "@/stores/reader-store";
 
 interface PaletteCommand {
@@ -44,6 +45,7 @@ export function CommandPalette() {
   const listRef = useRef<HTMLDivElement>(null);
 
   const isAdmin = useAuthStore((s) => s.profile?.role === "admin");
+  const features = useFeatures();
   const hasActiveBook = useReaderStore(
     (s) => s.activeDocumentId !== null && s.documents.has(s.activeDocumentId),
   );
@@ -79,6 +81,7 @@ export function CommandPalette() {
   // every keystroke would just be ceremony.
   const allCommands = useMemo<PaletteCommand[]>(() => {
     const visibleNav = NAV_ITEMS.filter((item) => {
+      if (item.feature && !features[item.feature]) return false;
       if (item.visibleWhen === "isAdmin" && !isAdmin) return false;
       if (item.visibleWhen === "hasActiveBook" && !hasActiveBook) return false;
       return true;
@@ -115,7 +118,7 @@ export function CommandPalette() {
         };
       });
     return [...navCommands, ...bookCommands];
-  }, [t, navigate, close, isAdmin, hasActiveBook, books]);
+  }, [t, navigate, close, isAdmin, hasActiveBook, books, features]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

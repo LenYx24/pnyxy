@@ -17,7 +17,7 @@ create table public.chat_conversations (
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
   /** id of the message currently treated as the "tip" of the active
-   *  path — updated whenever the user sends / branches / picks a
+   *  path, updated whenever the user sends / branches / picks a
    *  different leaf. */
   active_leaf_id uuid
 );

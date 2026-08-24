@@ -63,7 +63,7 @@ describe("parseMarkdownHeadings", () => {
   });
 });
 
-describe("createTextAdapter — markdown", () => {
+describe("createTextAdapter - markdown", () => {
   it("loads file content with the expected capabilities", async () => {
     stubObjectUrl();
     const adapter = createTextAdapter("markdown");
@@ -150,7 +150,7 @@ describe("createTextAdapter — markdown", () => {
   });
 });
 
-describe("createTextAdapter — text", () => {
+describe("createTextAdapter - text", () => {
   it("reports text format and no ToC", async () => {
     stubObjectUrl();
     const adapter = createTextAdapter("text");

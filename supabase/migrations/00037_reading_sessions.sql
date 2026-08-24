@@ -2,7 +2,7 @@
 -- 00037_reading_sessions.sql
 -- Per-book reading session timer with session-level granularity.
 --
--- Keyed by `doc_id` (text) to match book_resume_state — same id
+-- Keyed by `doc_id` (text) to match book_resume_state, same id
 -- works whether the entry is an uploaded book uuid, a catalog
 -- book uuid, or a PDF content hash, so the timer is consistent
 -- across both reader-tracked and manually-tracked books.
@@ -12,7 +12,7 @@
 --     session for this doc).
 --   • Estimated finish date (pages-per-day pace from recent
 --     sessions times pages remaining).
--- Both are computed client-side from the rows in here — no
+-- Both are computed client-side from the rows in here, no
 -- materialised view yet, the volume is per-user and tiny.
 -- ============================================================
 
@@ -24,7 +24,7 @@ create table public.reading_sessions (
   -- Null while the session is in progress. Stop flow sets it to
   -- now() and computes duration_seconds client-side. Crashed /
   -- abandoned sessions stay null until the user manually clears
-  -- them — see `closeStaleSessions` in the client.
+  -- them, see `closeStaleSessions` in the client.
   ended_at         timestamptz,
   duration_seconds int,
   -- Page snapshots at start/end. Optional because manual-track
@@ -42,7 +42,7 @@ create index reading_sessions_user_started_idx
   on public.reading_sessions (user_id, started_at desc);
 
 -- At most one in-progress session per user. The reading UI gates
--- "Start" on this — if the partial unique blocks the insert, we
+-- "Start" on this, if the partial unique blocks the insert, we
 -- surface the existing active session instead.
 create unique index reading_sessions_one_active
   on public.reading_sessions (user_id) where ended_at is null;

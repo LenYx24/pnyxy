@@ -1,4 +1,4 @@
-// Pnyxy — create a Stripe Billing Customer Portal session.
+// Pnyxy: create a Stripe Billing Customer Portal session.
 //
 // The "Manage / cancel subscription" button calls this for a signed-in
 // premium user. We:
@@ -8,7 +8,7 @@
 //      return { url } for the browser to redirect to.
 //
 // The portal lets the user cancel, switch plan, update their card, and
-// view invoices — all hosted by Stripe. On cancel, Stripe fires
+// view invoices, all hosted by Stripe. On cancel, Stripe fires
 // customer.subscription.updated / .deleted, which our stripe-webhook
 // already translates back into storage_tier='free'. Nothing else to do.
 //
@@ -17,9 +17,9 @@
 // the API returns an error about no configuration.
 //
 // Env vars (set via `supabase secrets set`):
-//   STRIPE_SECRET_KEY — the `sk_...` secret key (test or live).
-//   SITE_URL          — optional fallback origin for the return URL.
-//   SUPABASE_URL / SUPABASE_ANON_KEY — provided by the platform.
+//   STRIPE_SECRET_KEY - the `sk_...` secret key (test or live).
+//   SITE_URL          - optional fallback origin for the return URL.
+//   SUPABASE_URL / SUPABASE_ANON_KEY - provided by the platform.
 
 // @ts-expect-error Deno-only import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";

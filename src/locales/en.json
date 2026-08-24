@@ -6,7 +6,7 @@
     },
     "read": {
       "title": "Read PDFs & ask the AI",
-      "body": "Open a PDF and ask questions in the chat. Answers cite the page — click a citation to jump straight there."
+      "body": "Open a PDF and ask questions in the chat. Answers cite the page, click a citation to jump straight there."
     },
     "memory": {
       "title": "Turn reading into memory",
@@ -14,7 +14,7 @@
     },
     "ready": {
       "title": "You're all set",
-      "body": "It's free to start — pick your AI model anytime in Settings. Happy studying!"
+      "body": "It's free to start, pick your AI model anytime in Settings. Happy studying!"
     },
     "skip": "Skip tour",
     "back": "Back",
@@ -25,7 +25,16 @@
     "eyebrow": "Learning tools",
     "title": "Practice what you've read",
     "subtitle": "Choose a study method to review and reinforce this book.",
-    "methodComingSoon": "This learning tool is coming soon."
+    "methodComingSoon": "This learning tool is coming soon.",
+    "backToHub": "Learn hub",
+    "flashcards": {
+      "generate": "Generate flashcards with AI",
+      "hint": "Flashcards are saved as short-answer quizzes below. Open one to review its cards.",
+      "vocabDeck": "Vocabulary deck"
+    },
+    "methodComingSoonTitle": "Coming soon",
+    "soonBadge": "Soon",
+    "unknownMethod": "Unknown learning method."
   },
   "resources": {
     "back": "Back",
@@ -57,7 +66,8 @@
     "ok": "OK",
     "expand": "Expand",
     "collapse": "Collapse",
-    "requiredField": "This field can't be empty."
+    "requiredField": "This field can't be empty.",
+    "open": "Open"
   },
   "sidebar": {
     "home": "Home",
@@ -365,7 +375,19 @@
       "checkUsageAnthropic": "Check usage in the Anthropic console ↗",
       "checkUsageOpenAI": "Check usage in the OpenAI dashboard ↗",
       "moreActions": "More actions",
-      "openQuotas": "Quotas"
+      "openQuotas": "Quotas",
+      "colBestFor": "Best for",
+      "colCost": "Cost",
+      "colModel": "Model",
+      "colProvider": "Provider",
+      "modelsHeading": "Available models",
+      "modelsSubtitle": "Prices are per 1M tokens (input / output).",
+      "providersHeading": "Providers",
+      "providersSubtitle": "Order = priority. First enabled provider with a valid key handles each chat. Drag-free reorder via the arrow buttons.",
+      "statusActive": "Active",
+      "statusByok": "BYOK",
+      "statusLocal": "Local",
+      "statusSoon": "Soon"
     },
     "aiContext": {
       "heading": "Context for the AI",
@@ -377,6 +399,18 @@
       "attachTocHint": "When enabled, the TOC is included automatically in every chat about a book. Cheap context, very high leverage for navigation questions.",
       "surroundingLabel": "“Select around current” page count",
       "surroundingHint": "How many pages on each side of the current page the “select around current” button selects in the TOC."
+    },
+    "aiModels": {
+      "heading": "Detailed model info"
+    },
+    "features": {
+      "heading": "Features (admin)",
+      "description": "Pilot gating. Users only see the core loop (reader, chat, streaks); unlock the rest per user via profiles.preferences.features, or preview here.",
+      "showAll": "Show all features for me",
+      "showAllHint": "Admin-only preview switch. Turn off to see the app the way a pilot user does.",
+      "serverUnlocked": "unlocked on server",
+      "overridden": "local override",
+      "reset": "reset"
     }
   },
   "landing": {
@@ -441,7 +475,8 @@
           "OCR for scanned textbooks: searchable, selectable, AI-readable",
           "X-Ray: character & concept index for your personal uploads",
           "Priority support and early access to new features"
-        ]
+        ],
+        "paidNote": "Paid plan, not free"
       },
       "footnote": "Pricing is not yet finalized. Follow the GitHub repo or the community forum for launch updates."
     },
@@ -662,7 +697,10 @@
       "moveToFolder": "Move to folder",
       "exportMarkdown": "Export as Markdown",
       "exportJson": "Export as JSON",
-      "exportGift": "Export as GIFT"
+      "exportGift": "Export as GIFT",
+      "fileInfo": "File info",
+      "manageTags": "Manage tags",
+      "shareToCommunity": "Share with community"
     },
     "addManual": {
       "title": "Add a book manually",
@@ -798,7 +836,8 @@
         "title": "Delete Folder",
         "body": "Are you sure? Books in this folder will be moved to the root level. Subfolders will also be deleted.",
         "action": "Delete"
-      }
+      },
+      "emptyDragHint": "Just drag & drop a book anywhere to add it, the upload starts right away."
     },
     "selection": {
       "countSelected": "{{count}} selected",
@@ -860,6 +899,15 @@
       "emptyBody": "Browse the catalog to add books.",
       "browseCatalog": "Browse Catalog",
       "noSearchResults": "No results for \"{{query}}\""
+    },
+    "create": {
+      "new": "New",
+      "createHeading": "Create",
+      "addHeading": "Add / upload",
+      "note": "Note",
+      "whiteboard": "Whiteboard",
+      "quiz": "Quiz",
+      "chat": "Chat"
     }
   },
   "download": {
@@ -1191,7 +1239,14 @@
       "weekendMultiplier": "Weekend vs weekday pace",
       "weekendMultiplierHint": "Weekends carry {{multiplier}}× a weekday's load.",
       "weekendMultiplierZeroHint": "Weekends off - all work happens on weekdays."
-    }
+    },
+    "node": {
+      "clickToCheck": "Click to mark as done",
+      "clickToUncheck": "Click to mark as not done",
+      "done": "Done",
+      "notDone": "Not done"
+    },
+    "nodeClickHint": "Tip: click a node to mark it complete"
   },
   "chat": {
     "title": "Chat",
@@ -1210,7 +1265,7 @@
     "regenerate": "Regenerate",
     "graph": {
       "title": "Conversation graph",
-      "empty": "No conversations yet — start chatting and they'll appear here.",
+      "empty": "No conversations yet, start chatting and they'll appear here.",
       "emptyMessages": "No messages in this conversation yet.",
       "back": "Back",
       "fit": "Fit to view",
@@ -1247,7 +1302,10 @@
     "editingRoadmap": "Editing roadmap: {{title}}",
     "openInEditor": "Open in editor",
     "sidebar": {
-      "empty": "No conversations yet."
+      "empty": "No conversations yet.",
+      "collapseAll": "Collapse all folders",
+      "expandAll": "Expand all folders",
+      "resize": "Resize sidebar"
     },
     "composer": {
       "modelLabel": "Model",
@@ -1280,7 +1338,9 @@
       "root": "Root (no folder)",
       "dropToRoot": "Drop here to move to root",
       "newSubfolder": "New subfolder",
-      "openInLibrary": "Open in library"
+      "openInLibrary": "Open in library",
+      "enter": "Enter folder",
+      "backToAll": "All chats"
     },
     "flashcards": {
       "title": "Save as flashcards",
@@ -1309,7 +1369,10 @@
       "recentHint": "Most recent 10 books",
       "weekIntro": "Here's what I've been reading this past week:",
       "recentIntro": "Here's my recent reading activity:"
-    }
+    },
+    "confirmDeleteMessageBody": "Every reply and follow-up underneath this message will also be removed. The deletion is permanent.",
+    "confirmDeleteMessageTitle": "Delete this message?",
+    "hideSourceChip": "Hide for this session"
   },
   "readingPlans": {
     "section": {
@@ -1398,7 +1461,10 @@
   "notes": {
     "notFound": "Note not found",
     "titlePlaceholder": "Note title…",
-    "contentPlaceholder": "Start writing…"
+    "contentPlaceholder": "Start writing…",
+    "editor": {
+      "linkPrompt": "Link URL"
+    }
   },
   "book": {
     "notFound": "Book not found.",
@@ -1420,7 +1486,8 @@
       "bookmarks": "Bookmarks",
       "whiteboards": "Whiteboards",
       "resources": "Resources",
-      "exams": "Exams"
+      "exams": "Exams",
+      "reading": "Reading"
     },
     "bookmarks": {
       "heading": "Bookmarks",
@@ -1444,7 +1511,8 @@
       "notStarted": "Not started",
       "currentOnly": "Page {{current}}",
       "progress": "p. {{current}} of {{total}}",
-      "editTitle": "Set the page you're on"
+      "editTitle": "Set the page you're on",
+      "notStartedOf": "Not started · {{total}} pages"
     },
     "tabs": {
       "notesHeading": "Notes",
@@ -1467,7 +1535,9 @@
       "untitled": "Untitled note",
       "emptyNote": "No content yet",
       "emptyTitle": "Nothing here yet",
-      "emptyBody": "Highlight text, add comments, or create a note while reading - they'll show up here."
+      "emptyBody": "Highlight text, add comments, or create a note while reading - they'll show up here.",
+      "contentPlaceholder": "Write your note here… Markdown is supported.",
+      "titlePlaceholder": "Note title…"
     },
     "discuss": {
       "heading": "Discussion",
@@ -1576,8 +1646,40 @@
         "finishLabel": "Estimated finish",
         "finishUnknown": "Add pages-read info to estimate finish date.",
         "percentComplete": "{{percent}}% read"
-      }
-    }
+      },
+      "studyTools": "Study tools",
+      "readingSession": "Reading session",
+      "openBookPage": "Open book page"
+    },
+    "exams": {
+      "aiFailed": "Analyse failed:",
+      "analyze": "Identify topics with AI",
+      "analyzeShort": "Identify",
+      "deleteBody": "The PDF and any AI-extracted topics will be removed permanently.",
+      "deleteTitle": "Delete this exam?",
+      "description": "Upload past exam PDFs tied to this book. Use AI to extract the topics each exam tests, generate a similar quiz, or practice answering with feedback.",
+      "emptyHint": "Past papers tied to this book, practice, see the topics they cover, generate a similar quiz.",
+      "emptyTitle": "No exams uploaded yet",
+      "errorDownload": "Failed to download exam.",
+      "errorOpen": "Failed to open exam.",
+      "errorPdfOnly": "Only PDF exams are supported for now.",
+      "errorQuizGen": "Quiz generation failed.",
+      "errorQuizSave": "Quiz save failed.",
+      "errorTooLarge": "Exam PDFs are capped at 25 MB.",
+      "errorTooShort": "Exam text is too short to generate from.",
+      "generateQuiz": "Generate a practice quiz with similar questions on the same topics",
+      "generateQuizShort": "Quiz",
+      "generatedQuizDescription": "Auto-generated from a past exam, practice the same topics with fresh questions.",
+      "generatedQuizTitle": "Practice quiz: {{name}}",
+      "heading": "Exams & past papers",
+      "practice": "Practice each question with Socratic tutor feedback",
+      "practiceShort": "Practice",
+      "reanalyze": "Re-analyse",
+      "topics": "Topics covered",
+      "topicsEmpty": "AI couldn't identify clear topics, the PDF may be too short or not a typical exam.",
+      "upload": "Upload PDF"
+    },
+    "libraryRequired": "Add this book to your library first"
   },
   "admin": {
     "banned": {
@@ -1619,7 +1721,9 @@
       "replies_other": "{{count}} replies",
       "backToCommunity": "Back to community",
       "postedBy": "Posted by {{name}}",
-      "removed": "[removed]"
+      "removed": "[removed]",
+      "deleteBody": "This removes your post for everyone. This can't be undone.",
+      "deleteTitle": "Delete this post?"
     },
     "community": {
       "join": "Join",
@@ -1772,7 +1876,8 @@
       "dictionaryPlaceholder": "Look up a word…",
       "translatePlaceholder": "Text to translate…",
       "emptyDictionary": "Type a word above to see its definition.",
-      "emptyTranslate": "Type text above to translate it."
+      "emptyTranslate": "Type text above to translate it.",
+      "openInNewTab": "Open in new tab"
     },
     "toolbar": {
       "backToLibrary": "Back to library",
@@ -1837,7 +1942,31 @@
       "zenMode": "Zen mode",
       "toggleSidebar": "Toggle sidebar",
       "fullscreen": "Fullscreen",
-      "exitFullscreen": "Exit Fullscreen"
+      "exitFullscreen": "Exit Fullscreen",
+      "inlineDrawOff": "Stop drawing",
+      "inlineDrawOn": "Quick draw on page",
+      "rectToAi": "Crop to AI",
+      "customize": "Customize toolbar",
+      "customizeTitle": "Customize toolbar",
+      "customizeHint": "Drag icons between the left / center / right zones and the ⋮ menu. Pull from the palette below to add, drag back to remove.",
+      "customizeDone": "Done",
+      "customizeReset": "Reset",
+      "customizePalette": "Available icons",
+      "customizeDropHere": "Drop icons here",
+      "customizePaletteEmpty": "All icons are placed. Drag one here to remove it.",
+      "zoneLeft": "Left",
+      "zoneCenter": "Center",
+      "zoneRight": "Right",
+      "zoneOverflow": "More menu (⋮)",
+      "bookTitle": "Book title",
+      "pageNav": "Page navigation",
+      "readingTracker": "Reading tracker",
+      "focusTimer": "Focus timer",
+      "readerThemeShort": "Theme",
+      "separator": "Separator",
+      "addSeparator": "Separator",
+      "iconPadding": "Icon padding",
+      "dragHeight": "Drag to resize height"
     },
     "bookmarks": {
       "addAt": "Bookmark page {{page}}",
@@ -1895,7 +2024,8 @@
       "savedToVocab": "Saved to vocabulary",
       "undo": "Undo",
       "share": "Share…",
-      "sendToChat": "Send to AI chat"
+      "sendToChat": "Send to AI chat",
+      "addToVocab": "Add to vocabulary"
     },
     "aiChat": {
       "title": "AI Chat",
@@ -1928,6 +2058,19 @@
       "pickPagesEmpty": "Tap pages to include",
       "pickPagesSelected_one": "{{count}} page selected",
       "pickPagesSelected_other": "{{count}} pages selected"
+    },
+    "comments": {
+      "close": "Close comments",
+      "empty": "No comments yet",
+      "emptyHint": "Select text in the document to add a comment",
+      "title": "Comments"
+    },
+    "empty": {
+      "body": "Upload a book or open a file to start reading, anything you open shows up in your library.",
+      "continue": "Continue reading",
+      "fromLibrary": "From library",
+      "openFile": "Open a file",
+      "title": "No book open"
     }
   },
   "quizzes": {
@@ -1993,7 +2136,8 @@
       "kind": {
         "mcq4": "Multiple choice",
         "true_false": "True / False",
-        "short_answer": "Short answer"
+        "short_answer": "Short answer",
+        "multi_select": "Multiple answers"
       },
       "optionPlaceholder": "Option {{letter}}",
       "markCorrect": "Mark correct",
@@ -2011,8 +2155,10 @@
         "needAllOptions": "Question {{n}} needs all four options filled.",
         "pickTrueFalse": "Question {{n}}: pick True or False.",
         "needCorrectText": "Question {{n}} needs a correct answer.",
-        "saveFailed": "Could not save quiz."
-      }
+        "saveFailed": "Could not save quiz.",
+        "needCorrectAnswer": "Question {{n}}: mark at least one correct answer."
+      },
+      "multiSelectHint": "Tick every correct option. Takers must select all of them."
     },
     "ai": {
       "generate": "Generate questions with AI",
@@ -2052,7 +2198,10 @@
       "correct": "Correct",
       "blank": "(blank)",
       "noQuestions": "This quiz has no questions.",
-      "yourAnswer": "Your answer:"
+      "yourAnswer": "Your answer:",
+      "previous": "Previous",
+      "skip": "Skip",
+      "skipToFinishHint": "Skip to finish and see your results."
     },
     "attemptReview": {
       "title": "Attempt review",

@@ -80,7 +80,7 @@ function CommentNode({ comment, postId, depth }: CommentNodeProps) {
     >
       <div className="py-2">
         {/* Header: collapse toggle + author + timestamp. The fold
-            button works on a deleted comment too — its children may
+            button works on a deleted comment too, its children may
             still be the interesting content. */}
         <div className="flex items-center gap-2 text-xs text-text-muted">
           <button
@@ -123,7 +123,7 @@ function CommentNode({ comment, postId, depth }: CommentNodeProps) {
               />
             )}
 
-            {/* Actions — hidden on deleted comments since reply/delete
+            {/* Actions: hidden on deleted comments since reply/delete
                 no longer apply to a tombstone. */}
             {!isDeleted && (
               <div className="mt-1.5 flex items-center gap-2">
@@ -179,7 +179,7 @@ function CommentNode({ comment, postId, depth }: CommentNodeProps) {
         )}
       </div>
 
-      {/* Children — hidden when collapsed to match Reddit behaviour. */}
+      {/* Children: hidden when collapsed to match Reddit behaviour. */}
       {!collapsed &&
         comment.children?.map((child) => (
           <CommentNode

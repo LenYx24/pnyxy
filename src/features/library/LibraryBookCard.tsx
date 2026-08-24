@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import {
   MoreVertical,
   FolderInput,
@@ -27,7 +27,13 @@ import { logError } from "@/lib/logger";
 import { PdfCoverThumbnail } from "@/components/ui/PdfCoverThumbnail";
 import { useLibraryStore } from "@/stores/library-store";
 import { useTagStore, bookKey } from "@/stores/tag-store";
-import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
+import {
+  useOpenUploadedDocument,
+  prefetchBookBlob,
+} from "@/hooks/use-open-uploaded-document";
+import { useOpenCatalogBook } from "@/hooks/use-open-catalog-book";
+import { useContextMenu } from "@/hooks/use-context-menu";
+import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { bookIdSegment } from "@/lib/slugify";
 import { TagPickerDropdown } from "./TagPickerDropdown";
 import { ShareBookModal } from "./modals/ShareBookModal";
@@ -61,6 +67,7 @@ export function LibraryBookCard({
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { openUploadedBook } = useOpenUploadedDocument();
+  const { openCatalogBook } = useOpenCatalogBook();
   // "Reading" pill for books with a saved resume position
   const isInProgress = useLibraryStore((s) =>
     s.inProgressDocIds.has(entry.source === "catalog" ? entry.catalog_book_id : entry.book.id),
@@ -134,6 +141,54 @@ export function LibraryBookCard({
   const selKey = `book:${entry.id}`;
   const compact = coverHeight < 100;
 
+  // A click opens the book straight into the reader (less friction); the
+  // book's overview page is reachable via the corner button + context menu.
+  // Falls back to the overview page when there's no readable file.
+  // Hover-intent prefetch: after the cursor rests on the card for a
+  // moment, warm the blob cache so the click opens from memory. The
+  // timer keeps a fast sweep across the grid from downloading every book.
+  const hoverTimerRef = useRef<number | null>(null);
+  const cancelPrefetchRef = useRef<(() => void) | null>(null);
+  const handleHoverStart = () => {
+    prefetchBookPage();
+    if (entry.source !== "uploaded" || !entry.book.storage_path) return;
+    if (hoverTimerRef.current !== null) return;
+    hoverTimerRef.current = window.setTimeout(() => {
+      hoverTimerRef.current = null;
+      cancelPrefetchRef.current = prefetchBookBlob(entry.book.storage_path!, {
+        sizeBytes: entry.book.size_bytes,
+      });
+    }, 250);
+  };
+  const handleHoverEnd = () => {
+    if (hoverTimerRef.current !== null) {
+      window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  };
+  useEffect(
+    () => () => {
+      handleHoverEnd();
+      // an in-flight prefetch is left to finish: the cache is shared and
+      // the user may still open the book from elsewhere
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const openReader = () => {
+    if (entry.source === "uploaded") {
+      if (entry.book.storage_path) {
+        void openUploadedBook(entry);
+        return;
+      }
+    } else if (entry.catalog_book.download_url || entry.catalog_book.ia_id) {
+      void openCatalogBook(entry.catalog_book);
+      return;
+    }
+    openBook();
+  };
+
   const handleClick = (e: React.MouseEvent) => {
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
       e.preventDefault();
@@ -144,7 +199,10 @@ export function LibraryBookCard({
       onToggleSelect?.(selKey, { ctrlKey: false, shiftKey: false });
       return;
     }
-    // bake the slug into the URL to skip the canonical-redirect bounce on BookPage
+    openReader();
+  };
+
+  const openBook = () => {
     if (entry.source === "catalog") {
       navigate(
         `/books/${bookIdSegment(entry.catalog_book_id, entry.catalog_book.title)}`,
@@ -153,6 +211,83 @@ export function LibraryBookCard({
       navigate(`/books/${bookIdSegment(entry.book.id, entry.book.title)}`);
     }
   };
+
+  // Plain right-click (or long-press on touch) opens the same actions the
+  // 3-dot menu exposes, so users don't have to hunt for the hover-only button.
+  const contextHandlers = useContextMenu((): ContextMenuEntry[] => {
+    const items: ContextMenuEntry[] = [
+      {
+        id: "open",
+        label: t("library.actions.openInReader"),
+        icon: BookOpen,
+        onClick: openReader,
+      },
+      {
+        id: "book-page",
+        label: t("book.overview.openBookPage", {
+          defaultValue: "Open book page",
+        }),
+        icon: Info,
+        onClick: openBook,
+      },
+      {
+        id: "info",
+        label: t("library.actions.fileInfo", { defaultValue: "File info" }),
+        icon: Info,
+        onClick: () => setInfoOpen(true),
+      },
+      {
+        id: "tags",
+        label: t("library.actions.manageTags", { defaultValue: "Manage tags" }),
+        icon: Tag,
+        onClick: () => setTagPickerOpen(true),
+      },
+      {
+        id: "move",
+        label: t("library.actions.moveToFolder"),
+        icon: FolderInput,
+        onClick: () => onMove(entry),
+      },
+    ];
+    if (entry.source === "uploaded") {
+      items.push({
+        id: "rename",
+        label: t("library.actions.rename", { defaultValue: "Rename" }),
+        icon: Pencil,
+        onClick: () => setRenameOpen(true),
+      });
+    }
+    for (const action of downloadActions) {
+      items.push({
+        id: `download-${action.key}`,
+        label: downloadLabel(action),
+        icon: Download,
+        onClick: () => void runDownload(action),
+      });
+    }
+    if (entry.source === "uploaded") {
+      items.push({
+        id: "share",
+        label: t("library.actions.shareToCommunity", {
+          defaultValue: "Share with community",
+        }),
+        icon: Share2,
+        onClick: () => setShareOpen(true),
+      });
+    }
+    items.push({ id: "div-1", divider: true });
+    items.push({
+      id: "remove",
+      label:
+        entry.source === "uploaded"
+          ? t("common.delete")
+          : t("library.confirm.removeAction"),
+      icon: Trash2,
+      danger: true,
+      onClick: () => onRemove(entry),
+    });
+    return items;
+  });
 
   // content-visibility:auto skips offscreen paint; intrinsic-size keeps the
   // scrollbar stable. +80px is the title/author block under the cover.
@@ -169,6 +304,7 @@ export function LibraryBookCard({
       {...listeners}
     >
       <div
+        {...contextHandlers}
         className={cn(
           "group relative",
           selected && "ring-2 ring-accent rounded-md",
@@ -177,9 +313,10 @@ export function LibraryBookCard({
       >
         <div
           onClick={handleClick}
-          onMouseEnter={prefetchBookPage}
+          onMouseEnter={handleHoverStart}
+          onMouseLeave={handleHoverEnd}
           onPointerDown={prefetchBookPage}
-          title={`${title}${author ? " — " + author : ""}`}
+          title={`${title}${author ? " - " + author : ""}`}
           className="cursor-pointer"
         >
           {/* Cover, fixed 2:3 aspect so all cards match size */}
@@ -253,21 +390,24 @@ export function LibraryBookCard({
               </span>
             )}
 
-            {/* quick "Open in reader", uploaded books only. Enlarged so the
-                primary "start reading" action is an easy tap target on mobile. */}
-            {entry.source === "uploaded" && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void openUploadedBook(entry);
-                }}
-                aria-label={t("library.actions.openInReader")}
-                title={t("library.actions.openInReader")}
-                className="absolute bottom-2 right-2 z-10 rounded-xl bg-accent/90 p-2.5 text-white shadow-md backdrop-blur-sm transition-colors hover:bg-accent cursor-pointer"
-              >
-                <BookOpen size={24} />
-              </button>
-            )}
+            {/* The card click opens the reader; this corner button opens the
+                book's overview/description page instead (lower-friction split).
+                Always visible on touch, hover-reveal on desktop. */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openBook();
+              }}
+              aria-label={t("book.overview.openBookPage", {
+                defaultValue: "Open book page",
+              })}
+              title={t("book.overview.openBookPage", {
+                defaultValue: "Open book page",
+              })}
+              className="absolute bottom-1.5 right-1.5 z-10 rounded-lg bg-bg-primary/80 p-1.5 text-text-secondary shadow-sm backdrop-blur-sm transition-all hover:bg-bg-primary hover:text-text-primary cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 opacity-100"
+            >
+              <Info size={16} />
+            </button>
 
             {/* Favorite toggle, hover-reveal on desktop unless set */}
             <button

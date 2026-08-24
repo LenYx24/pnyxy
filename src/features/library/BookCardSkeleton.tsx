@@ -46,7 +46,7 @@ export function BookCardSkeleton({
         <div key={i} className="animate-pulse">
           {/* aspect-[5/7] mirrors the real cover wrapper in
               LibraryBookCard so the placeholder occupies the exact
-              card footprint — no layout shift on hand-off. */}
+              card footprint, no layout shift on hand-off. */}
           <div className="aspect-[5/7] w-full overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm" />
           <div className="mt-2 space-y-1">
             <div className="h-3 w-3/4 rounded bg-bg-tertiary" />

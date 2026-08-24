@@ -56,6 +56,11 @@ export interface ChatTreeProps {
   onEditTitleChange: (s: string) => void;
   onDelete: (id: string) => void;
   onMove: (id: string, folderId: string | null) => void;
+  /** Drill-in root: when set, the tree renders this folder AS the root so
+   *  the user can focus on one topic. null = the general (all) view. */
+  rootFolderId?: string | null;
+  /** Right-click "Enter folder" → drill into it (ChatPage owns the state). */
+  onEnterFolder?: (id: string) => void;
   /** Confirm modal lives in ChatPage; rows just pass (id, name). */
   onRequestRenameFolder: (id: string, currentName: string) => void;
   onRequestDeleteFolder: (id: string, currentName: string) => void;
@@ -99,7 +104,11 @@ export function ChatTree(props: ChatTreeProps) {
     return m;
   }, [conversations]);
 
-  const rootConvs = folderConversations.get(null) ?? [];
+  const rootFolderId = props.rootFolderId ?? null;
+  const isDrilled = rootFolderId !== null;
+  // convs directly in the (drilled) root folder, loose root chats in the
+  // general view, "promoted" chats of the folder in a drilled view
+  const rootConvs = folderConversations.get(rootFolderId) ?? [];
   // The real "Quick chats" folder (auto-created by chat-store) keeps the
   // special accent group UI below instead of rendering as a plain folder, so
   // quick chats stay visually distinct while still living in a real library
@@ -112,15 +121,19 @@ export function ChatTree(props: ChatTreeProps) {
     .toLowerCase();
   const quickChatsFolder = folders.find(
     (f) =>
-      f.parent_id === null && f.name.trim().toLowerCase() === quickChatsName,
+      f.parent_id === rootFolderId &&
+      f.name.trim().toLowerCase() === quickChatsName,
   );
   const quickChatsConvs = [
     ...(quickChatsFolder
       ? folderConversations.get(quickChatsFolder.id) ?? []
       : []),
-    ...rootConvs,
+    // general view: loose root chats live in Quick chats. Drilled view: the
+    // folder's direct chats are "promoted", shown separately below instead.
+    ...(isDrilled ? [] : rootConvs),
   ];
-  const otherRootFolders = (childFolders.get(null) ?? []).filter(
+  const promotedConvs = isDrilled ? rootConvs : [];
+  const otherRootFolders = (childFolders.get(rootFolderId) ?? []).filter(
     (f) => f.id !== quickChatsFolder?.id,
   );
   // Synthetic folder id for the Quick chats section in collapsedFolders.
@@ -227,6 +240,19 @@ export function ChatTree(props: ChatTreeProps) {
       </div>
       )}
 
+      {/* Drilled view: the folder's own "promoted" chats, shown as a flat
+          list above its subfolders. */}
+      {promotedConvs.length > 0 && (
+        <SortableContext
+          items={promotedConvs.map((c) => `conv:${c.id}`)}
+          strategy={verticalListSortingStrategy}
+        >
+          {promotedConvs.map((c) => (
+            <ConversationRow key={c.id} conversation={c} depth={0} {...props} />
+          ))}
+        </SortableContext>
+      )}
+
       {/* Separator, only when there's at least one (non-Quick-chats) folder. */}
       {otherRootFolders.length > 0 && (
         <div className="my-1 h-px bg-glass-border" />
@@ -310,6 +336,19 @@ const FolderRow = memo(function FolderRow({
     !isActiveSibling;
   // right-click / long-press menu for touch + trackpad
   const ctxMenu = useContextMenu(() => [
+    ...(rest.onEnterFolder
+      ? [
+          {
+            id: "enter",
+            label: rest.t("chat.folders.enter", {
+              defaultValue: "Enter folder",
+            }),
+            icon: FolderInput,
+            onClick: () => rest.onEnterFolder?.(folder.id),
+          },
+          { id: "div-enter", divider: true } as const,
+        ]
+      : []),
     {
       id: "new",
       label: rest.t("chat.sidebar.newInFolder", {

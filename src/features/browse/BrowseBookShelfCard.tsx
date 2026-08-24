@@ -21,7 +21,7 @@ export function BrowseBookShelfCard({ book, onClick }: BrowseBookShelfCardProps)
     <button
       type="button"
       onClick={onClick}
-      title={`${book.title}${book.authors.length ? " — " + book.authors.join(", ") : ""}`}
+      title={`${book.title}${book.authors.length ? " - " + book.authors.join(", ") : ""}`}
       className={cn(
         "group flex w-full flex-col text-left transition-transform",
         "cursor-pointer focus:outline-none",
@@ -43,7 +43,7 @@ export function BrowseBookShelfCard({ book, onClick }: BrowseBookShelfCardProps)
         {!hasFile && (
           <span
             className="absolute right-1 top-1 rounded bg-bg-primary/80 p-0.5 text-text-muted backdrop-blur-sm"
-            title="Metadata only — no file attached"
+            title="Metadata only, no file attached"
           >
             <FileX2 size={10} />
           </span>
@@ -59,7 +59,7 @@ export function BrowseBookShelfCard({ book, onClick }: BrowseBookShelfCardProps)
           {book.title}
         </h3>
         <p className="truncate text-2xs leading-tight text-text-muted">
-          {book.authors.join(", ") || "—"}
+          {book.authors.join(", ") || "-"}
         </p>
         <StarRatingDisplay
           avg={book.rating_avg}

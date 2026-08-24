@@ -103,7 +103,7 @@ async function onLoad(api) {
 }
 ```
 
-`PluginAPI` is JSON-only — every argument and return value must
+`PluginAPI` is JSON-only, every argument and return value must
 round-trip `JSON.stringify`. Don't pass functions, DOM nodes, or class
 instances across the API boundary.
 

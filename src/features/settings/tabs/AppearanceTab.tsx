@@ -128,7 +128,7 @@ export function AppearanceTab() {
         />
       </div>
 
-      {/* Custom CSS — power-user escape hatch. Rules go into a
+      {/* Custom CSS: power-user escape hatch. Rules go into a
           single <style> tag in <head> on every page load. Tailwind
           utility classes are stable selectors; the CSS variables
           on :root (--accent, --bg-primary, …) are the

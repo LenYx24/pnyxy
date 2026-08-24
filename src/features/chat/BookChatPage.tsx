@@ -9,7 +9,7 @@ import { ChatPage } from "./ChatPage";
 /**
  * Full-screen, book-scoped LLM page. Reached from a book's "Chat" entry
  * point. Resolves the book, derives its reader document id (the same key
- * chats are tagged with — a PDF file hash for uploaded books, the catalog
+ * chats are tagged with, a PDF file hash for uploaded books, the catalog
  * UUID for catalog books, falling back to the book row id for reference-only
  * uploads with no file yet), and hands it to a scoped {@link ChatPage}.
  */

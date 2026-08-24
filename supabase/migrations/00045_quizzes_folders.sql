@@ -8,7 +8,7 @@
 -- double-precision sort_order for fractional-midpoint drag reorder.
 --
 -- Quizzes are Supabase-direct (the quiz-store reads them straight from
--- this table), unlike notes/whiteboards which are local-first — so the
+-- this table), unlike notes/whiteboards which are local-first, so the
 -- column lives here and the store patches it on move. Quizzes carry no
 -- org_id today (org scoping is separate future work); like notes they
 -- scope into a workspace implicitly via folder_id, and root-level
@@ -42,7 +42,7 @@ where q.catalog_book_id = ul.catalog_book_id
 
 -- ── Backfill sort_order ────────────────────────────────────
 -- Newest quiz (largest updated_at) gets the lowest sort_order so the
--- most-recently-touched quizzes sit at the top — matches fetchMine's
+-- most-recently-touched quizzes sit at the top, matches fetchMine's
 -- existing updated_at-desc ordering.
 update public.quizzes q
 set sort_order = sub.rn

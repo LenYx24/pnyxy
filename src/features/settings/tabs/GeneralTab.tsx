@@ -18,6 +18,9 @@ import {
   type SupportedLanguage,
 } from "@/lib/i18n";
 import { exportUserData } from "@/lib/export-user-data";
+import { useAuthStore } from "@/stores/auth-store";
+import { useFeatures } from "@/lib/use-features";
+import { FEATURE_KEYS, FEATURE_META, serverUnlockedFeatures } from "@/lib/features";
 
 type ExportStatus =
   | { kind: "idle" }
@@ -46,6 +49,17 @@ export function GeneralTab() {
       setExportStatus({ kind: "error", message });
     }
   };
+  const isAdmin = useAuthStore((s) => s.profile?.role === "admin");
+  const serverUnlocked = serverUnlockedFeatures(
+    useAuthStore((s) => s.profile?.preferences),
+  );
+  const features = useFeatures();
+  const featureOverrides = useSettingsStore((s) => s.featureOverrides);
+  const setFeatureOverride = useSettingsStore((s) => s.setFeatureOverride);
+  const adminShowAllFeatures = useSettingsStore((s) => s.adminShowAllFeatures);
+  const setAdminShowAllFeatures = useSettingsStore(
+    (s) => s.setAdminShowAllFeatures,
+  );
   const currentLang: SupportedLanguage = isSupportedLanguage(
     i18n.resolvedLanguage,
   )
@@ -383,6 +397,76 @@ export function GeneralTab() {
           />
         </div>
       </section>
+
+      {isAdmin && (
+        <section className="space-y-4 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary">
+              {t("settings.features.heading")}
+            </h2>
+            <p className="text-xs text-text-muted mt-0.5">
+              {t("settings.features.description")}
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="pr-4">
+              <p className="text-sm font-medium text-text-primary">
+                {t("settings.features.showAll")}
+              </p>
+              <p className="text-xs text-text-muted">
+                {t("settings.features.showAllHint")}
+              </p>
+            </div>
+            <Toggle
+              checked={adminShowAllFeatures}
+              onChange={setAdminShowAllFeatures}
+            />
+          </div>
+
+          <div className="space-y-3 border-t border-glass-border pt-3">
+            {FEATURE_KEYS.map((key) => {
+              const override = featureOverrides[key];
+              return (
+                <div key={key} className="flex items-center justify-between">
+                  <div className="pr-4">
+                    <p className="text-sm font-medium text-text-primary">
+                      {FEATURE_META[key].label}
+                      <span className="ml-2 font-mono text-2xs text-text-muted">
+                        {key}
+                      </span>
+                    </p>
+                    <p className="text-xs text-text-muted">
+                      {FEATURE_META[key].hint}
+                      {serverUnlocked.includes(key)
+                        ? ` (${t("settings.features.serverUnlocked")})`
+                        : ""}
+                      {override !== undefined
+                        ? ` (${t("settings.features.overridden")})`
+                        : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {override !== undefined && (
+                      <button
+                        type="button"
+                        className="text-2xs text-text-muted hover:text-text-primary"
+                        onClick={() => setFeatureOverride(key, undefined)}
+                      >
+                        {t("settings.features.reset")}
+                      </button>
+                    )}
+                    <Toggle
+                      checked={features[key]}
+                      onChange={(v) => setFeatureOverride(key, v)}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <section className="space-y-3 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
         <div>

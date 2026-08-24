@@ -5,7 +5,7 @@
 -- Until now notes were a flat, book-agnostic list (the local-first
 -- note-store mirrors them to `public.notes` via the sync queue, with
 -- book_id always null). The product direction is now: every document-
--- like artifact — books, chat conversations, and notes — lives in the
+-- like artifact (books, chat conversations, and notes) lives in the
 -- same folder tree so a user can group "all things about a book"
 -- together and browse them from the desktop app's filetree.
 --
@@ -43,7 +43,7 @@ where n.book_id = b.id
 
 -- ── Backfill sort_order ────────────────────────────────────
 -- Newest note (largest updated_at) gets the lowest sort_order so the
--- most-recently-touched notes sit at the top — matches the note-
+-- most-recently-touched notes sit at the top, matches the note-
 -- store's existing updatedAt-desc ordering.
 update public.notes n
 set sort_order = sub.rn

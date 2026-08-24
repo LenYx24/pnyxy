@@ -117,7 +117,7 @@ export function FlashcardReview({
                 className="rounded-full bg-orange-500/20 px-2 py-0.5 text-2xs font-semibold uppercase tracking-wide text-orange-300"
                 title={t("vocabulary.review.cramHint", {
                   defaultValue:
-                    "Cram mode — ratings don't change the FSRS schedule",
+                    "Cram mode: ratings don't change the FSRS schedule",
                 })}
               >
                 {t("vocabulary.review.cramBadge", { defaultValue: "Cram" })}

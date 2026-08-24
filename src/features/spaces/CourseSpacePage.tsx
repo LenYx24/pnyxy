@@ -309,7 +309,7 @@ export function CourseSpacePage() {
             owner ? (
               <p className="text-sm text-text-muted">
                 {t("spaces.childrenEmptyOwner", {
-                  defaultValue: "No nested spaces yet — add a course or topic under this space.",
+                  defaultValue: "No nested spaces yet, add a course or topic under this space.",
                 })}
               </p>
             ) : null
@@ -374,7 +374,7 @@ export function CourseSpacePage() {
             owner ? (
               <p className="text-sm text-text-muted">
                 {t("spaces.offeringsEmptyOwner", {
-                  defaultValue: "No terms yet — add one to show when this course runs.",
+                  defaultValue: "No terms yet, add one to show when this course runs.",
                 })}
               </p>
             ) : null
@@ -402,7 +402,7 @@ export function CourseSpacePage() {
           <p className="text-sm text-text-muted">
             {owner
               ? t("spaces.contentEmptyOwner", {
-                  defaultValue: "No content yet — add books, quizzes, or links to build the course.",
+                  defaultValue: "No content yet, add books, quizzes, or links to build the course.",
                 })
               : t("spaces.contentEmpty", { defaultValue: "No content has been added yet." })}
           </p>

@@ -112,6 +112,7 @@ function RoadmapGraphInner({
           dueDate: sched?.dueDate,
           manualDate: sched?.manual,
           editMode: mode === "edit",
+          completable: mode === "view" && !!enrollment,
         };
         return {
           id: n.id,
@@ -131,6 +132,8 @@ function RoadmapGraphInner({
       schedule,
       mode,
       selectedNodeId,
+      enrollment,
+      roadmap.id,
     ],
   );
 
@@ -151,7 +154,9 @@ function RoadmapGraphInner({
         id: e.id,
         source: e.source,
         target: e.target,
-        markerEnd: { type: MarkerType.ArrowClosed },
+        // Bigger, more legible arrowheads, the default markers were
+        // too small to read the flow direction at a glance.
+        markerEnd: { type: MarkerType.ArrowClosed, width: 26, height: 26 },
         style: {
           // grey when target locked and source incomplete, green when source complete
           stroke:
@@ -160,7 +165,7 @@ function RoadmapGraphInner({
               : (nodeProgressMap[e.source] ?? 0) >= 100
                 ? "rgb(16 185 129 / 0.6)"
                 : undefined,
-          strokeWidth: 1.5,
+          strokeWidth: 2.5,
         },
       })),
     [roadmap.edges, nodeProgressMap, lockedSet],

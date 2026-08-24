@@ -23,9 +23,9 @@ import type { ChatConversation, ChatFolder } from "@/types/chat";
  * Sidebar tree for the book-scoped chat page. Unlike the main /chat tree
  * (drag-and-drop folders), this one's primary structure is the *fork
  * lineage*: a conversation that was branched into A/B forks renders as an
- * expandable parent with its children nested underneath — "the main
+ * expandable parent with its children nested underneath, "the main
  * conversation is a folder, A and B are its children". Explicit library
- * folders still group root conversations on top of that. No DnD here — the
+ * folders still group root conversations on top of that. No DnD here, the
  * global /chat page owns reordering; this view is about the book's threads.
  */
 export interface BookChatTreeProps {
@@ -75,7 +75,7 @@ export function BookChatTree(props: BookChatTreeProps) {
 
   // The auto-created "Quick chats" folder is treated as "loose" here: book
   // chats created loose land in it, but on a book page we don't want a
-  // "Quick chats" wrapper — those threads are the book's main threads.
+  // "Quick chats" wrapper, those threads are the book's main threads.
   const quickChatsName = t("chat.sidebar.quickChats", {
     defaultValue: "Quick chats",
   })

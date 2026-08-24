@@ -27,7 +27,7 @@ const TOOLS: { tool: WhiteboardTool; icon: typeof Pencil; label: string; shortcu
   { tool: "line", icon: Minus, label: "Line", shortcut: "L" },
   { tool: "arrow", icon: ArrowUpRight, label: "Arrow", shortcut: "A" },
   { tool: "text", icon: Type, label: "Text", shortcut: "T" },
-  { tool: "eraser", icon: Eraser, label: "Eraser", shortcut: "X" },
+  { tool: "eraser", icon: Eraser, label: "Smart eraser (whole strokes)", shortcut: "X" },
 ];
 
 const COLORS = [

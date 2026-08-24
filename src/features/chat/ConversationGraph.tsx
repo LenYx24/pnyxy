@@ -10,7 +10,7 @@ import type { ChatConversation, ChatMessage } from "@/types/chat";
  *
  * Conversations view (document-rooted tree):
  *   - Each unique source document is a ROOT node (or, when `scopeDocId`
- *     is set — the reader's open book — the graph is filtered to just
+ *     is set (the reader's open book), the graph is filtered to just
  *     that document's conversations).
  *   - A conversation grounded in a document hangs off it; a forked
  *     conversation (parent_conversation_id) nests under its PARENT
@@ -729,7 +729,7 @@ export function ConversationGraph({
           {mode === "messages"
             ? t("chat.graph.emptyMessages", { defaultValue: "No messages in this conversation yet." })
             : t("chat.graph.empty", {
-                defaultValue: "No conversations yet — start chatting and they'll appear here.",
+                defaultValue: "No conversations yet, start chatting and they'll appear here.",
               })}
         </div>
       )}

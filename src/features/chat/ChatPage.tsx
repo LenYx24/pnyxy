@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useReadAloud } from "@/hooks/use-read-aloud";
@@ -18,6 +19,7 @@ import {
   Network,
   Gauge,
   ChevronDown,
+  ChevronLeft,
   SquarePen,
   Loader2,
   GitBranch,
@@ -127,6 +129,13 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
   const branchFrom = useChatStore((s) => s.branchFrom);
   const setActiveLeaf = useChatStore((s) => s.setActiveLeaf);
   const folders = useChatStore((s) => s.folders);
+  const ensureQuickChatsFolder = useChatStore((s) => s.ensureQuickChatsFolder);
+  // Drill-in: when set, the sidebar tree treats this folder as its root so
+  // the user can focus on one topic. null = the general (all chats) view.
+  const [chatRootFolderId, setChatRootFolderId] = useState<string | null>(null);
+  const drilledFolder = chatRootFolderId
+    ? folders.find((f) => f.id === chatRootFolderId) ?? null
+    : null;
   const fetchFolders = useChatStore((s) => s.fetchFolders);
   const createFolder = useChatStore((s) => s.createFolder);
   const renameFolder = useChatStore((s) => s.renameFolder);
@@ -241,9 +250,9 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
 
       if (isRootDrop) {
         const futureSiblings = folders.filter(
-          (f) => f.parent_id === null && f.id !== id,
+          (f) => f.parent_id === chatRootFolderId && f.id !== id,
         );
-        void moveFolderToParent(id, null, topOf(futureSiblings));
+        void moveFolderToParent(id, chatRootFolderId, topOf(futureSiblings));
         return;
       }
 
@@ -262,6 +271,14 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
           );
           void reorderFolder(id, aboveItem(siblings, targetId));
         } else {
+          // Guard against nesting a folder into its own descendant, which
+          // would orphan the subtree into a cycle. Walk the target's
+          // ancestor chain; if we reach the dragged folder, bail.
+          let ancestor: string | null = targetFolder.parent_id;
+          while (ancestor !== null) {
+            if (ancestor === id) return;
+            ancestor = folders.find((f) => f.id === ancestor)?.parent_id ?? null;
+          }
           const futureChildren = folders.filter(
             (f) => f.parent_id === targetId && f.id !== id,
           );
@@ -278,10 +295,16 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
     if (!activeConv) return;
 
     if (isRootDrop) {
+      // In a drilled view "root" is the focused folder, so dropping a quick
+      // chat here promotes it into that folder.
       const futureRoot = conversations.filter(
-        (c) => c.folder_id === null && c.id !== convId,
+        (c) => c.folder_id === chatRootFolderId && c.id !== convId,
       );
-      void moveConversationToFolder(convId, null, topOf(futureRoot));
+      void moveConversationToFolder(
+        convId,
+        chatRootFolderId,
+        topOf(futureRoot),
+      );
       return;
     }
 
@@ -597,7 +620,7 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
     setAtBottom(true);
   }, []);
 
-  // auto-scroll to latest: instant on conversation switch, smooth within it —
+  // auto-scroll to latest: instant on conversation switch, smooth within it,
   // but only while the user is already at the bottom, so scrolling up to
   // re-read mid-stream isn't yanked back down on every token.
   const lastScrollConvIdRef = useRef<string | null>(null);
@@ -624,9 +647,15 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
 
   const handleNew = async () => {
     setMobileListOpen(false);
-    // createConversation already sets it active with an empty thread — no need
+    // In a drilled view a new quick chat goes into that folder's own "Quick
+    // chats" subfolder; otherwise the shared one (createConversation handles
+    // null → shared).
+    const target = chatRootFolderId
+      ? await ensureQuickChatsFolder(chatRootFolderId)
+      : null;
+    // createConversation already sets it active with an empty thread, no need
     // for a second openConversation round-trip (that was the visible lag).
-    await createConversation("", null, scopeSource);
+    await createConversation("", target, scopeSource);
   };
 
   const handleNewInFolder = useCallback(
@@ -967,6 +996,24 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
               </p>
             ) : (
               <>
+                {drilledFolder && (
+                  <button
+                    type="button"
+                    onClick={() => setChatRootFolderId(null)}
+                    className="mb-1 flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-medium text-accent transition-colors hover:bg-accent/10 cursor-pointer"
+                  >
+                    <ChevronLeft size={14} className="shrink-0" />
+                    <span className="truncate">
+                      {t("chat.folders.backToAll", {
+                        defaultValue: "All chats",
+                      })}
+                    </span>
+                    <span className="mx-1 text-text-muted">/</span>
+                    <span className="min-w-0 flex-1 truncate text-text-primary">
+                      {drilledFolder.name}
+                    </span>
+                  </button>
+                )}
                 <RootDropZone label={t("chat.folders.dropToRoot")} />
                 <ChatTree
                   folders={filteredConversationData.folders}
@@ -988,6 +1035,8 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
                   onEditTitleChange={setEditTitle}
                   onDelete={handleDeleteConversation}
                   onMove={moveConversationToFolder}
+                  rootFolderId={chatRootFolderId}
+                  onEnterFolder={setChatRootFolderId}
                   onRequestRenameFolder={handleRequestRenameFolder}
                   onRequestDeleteFolder={handleRequestDeleteFolder}
                   t={t}
@@ -995,31 +1044,37 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
               </>
             )}
           </div>
-          {/* drag preview that follows the cursor, empty when nothing is dragging */}
-          <DragOverlay dropAnimation={null}>
-            {activeDragConv && (
-              <div className="pointer-events-none flex items-center gap-2 rounded-md border border-accent/60 bg-bg-secondary/95 px-3 py-1.5 text-xs text-text-primary shadow-lg backdrop-blur-md">
-                <MessagesSquare
-                  size={12}
-                  className="shrink-0 text-accent"
-                />
-                <span className="truncate max-w-[200px]">
-                  {activeDragConv.title || t("chat.untitled")}
-                </span>
-              </div>
-            )}
-            {activeDragFolder && (
-              <div className="pointer-events-none flex items-center gap-2 rounded-md border border-accent/60 bg-bg-secondary/95 px-3 py-1.5 text-xs text-text-primary shadow-lg backdrop-blur-md">
-                <FolderIcon
-                  size={12}
-                  className="shrink-0 text-accent"
-                />
-                <span className="truncate max-w-[200px]">
-                  {activeDragFolder.name}
-                </span>
-              </div>
-            )}
-          </DragOverlay>
+          {/* drag preview that follows the cursor, empty when nothing is dragging.
+              Portaled to <body> so it escapes the sidebar's backdrop-blur, which
+              would otherwise become the fixed-position containing block and shove
+              the overlay far to the right of the cursor. */}
+          {createPortal(
+            <DragOverlay dropAnimation={null}>
+              {activeDragConv && (
+                <div className="pointer-events-none flex items-center gap-2 rounded-md border border-accent/60 bg-bg-secondary/95 px-3 py-1.5 text-xs text-text-primary shadow-lg backdrop-blur-md">
+                  <MessagesSquare
+                    size={12}
+                    className="shrink-0 text-accent"
+                  />
+                  <span className="truncate max-w-[200px]">
+                    {activeDragConv.title || t("chat.untitled")}
+                  </span>
+                </div>
+              )}
+              {activeDragFolder && (
+                <div className="pointer-events-none flex items-center gap-2 rounded-md border border-accent/60 bg-bg-secondary/95 px-3 py-1.5 text-xs text-text-primary shadow-lg backdrop-blur-md">
+                  <FolderIcon
+                    size={12}
+                    className="shrink-0 text-accent"
+                  />
+                  <span className="truncate max-w-[200px]">
+                    {activeDragFolder.name}
+                  </span>
+                </div>
+              )}
+            </DragOverlay>,
+            document.body,
+          )}
         </DndContext>
         )}
         {/* resize handle, desktop only (mobile drawer is fixed width) */}
@@ -1402,8 +1457,8 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
                     <BookOpen size={12} />
                     <span className="min-w-0 flex-1 truncate">
                       {t("chat.sourceContext", {
-                        title: activeConversation.source_doc_title ?? "—",
-                        page: activeConversation.source_page ?? "—",
+                        title: activeConversation.source_doc_title ?? "-",
+                        page: activeConversation.source_page ?? "-",
                       })}
                     </span>
                     <a

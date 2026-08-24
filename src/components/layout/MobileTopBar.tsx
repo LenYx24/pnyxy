@@ -51,7 +51,7 @@ export function MobileTopBar() {
     >
       <div className="flex items-center gap-2">
         {/* Global nav drawer trigger. Opens the same Sidebar overlay
-            the BottomNav's "More" entry does — having both entry
+            the BottomNav's "More" entry does, having both entry
             points means routes that hide the BottomNav (reader,
             chat) still have a one-tap path to every destination. */}
         <button

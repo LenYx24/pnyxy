@@ -234,7 +234,7 @@ export function ResourcesTab() {
         }),
         body: t("book.resources.deleteBody", {
           defaultValue:
-            "The link is removed only from your library — the original page is untouched.",
+            "The link is removed only from your library, the original page is untouched.",
         }),
         confirmLabel: t("common.delete", { defaultValue: "Delete" }),
         danger: true,

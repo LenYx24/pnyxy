@@ -11,7 +11,7 @@
 -- Migration shape:
 --   1. Copy chat_folders rows into the library `folders` table,
 --      preserving primary keys AND assigning each one to the user's
---      default org (folders.org_id is NOT NULL since 00027 — chat
+--      default org (folders.org_id is NOT NULL since 00027, chat
 --      folders never had that column, so we have to backfill it).
 --   2. Re-point chat_conversations.folder_id's foreign key to
 --      `folders` instead of `chat_folders`.
@@ -46,7 +46,7 @@ alter table public.chat_conversations
 -- ── 3. Backfill an "LLM chats" folder per user with loose convos ─
 -- The folder lives in the user's default org. Same join pattern as
 -- above; if a user somehow has no default org we skip them rather
--- than abort the whole migration (defensive — shouldn't happen).
+-- than abort the whole migration (defensive, shouldn't happen).
 do $$
 declare
   v_user_id uuid;

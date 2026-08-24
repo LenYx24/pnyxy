@@ -6,7 +6,7 @@
 -- Done in three explicit steps so the migration is safe to apply
 -- to a populated database:
 --   1. Add `org_id` as NULLABLE.
---   2. Backfill — every existing row gets its user's default org.
+--   2. Backfill: every existing row gets its user's default org.
 --   3. Tighten to NOT NULL and add the (user_id, org_id) index
 --      that the app's filtered fetches will use.
 --
@@ -18,7 +18,7 @@
 
 -- Step 1: add nullable columns. ON DELETE CASCADE so dropping an
 -- org also drops its content (which the user can recover by
--- creating a new org and re-importing — same model as Notion's
+-- creating a new org and re-importing, same model as Notion's
 -- workspace deletion).
 alter table public.folders
   add column org_id uuid references public.organizations(id) on delete cascade;

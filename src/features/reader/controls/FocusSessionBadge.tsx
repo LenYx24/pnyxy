@@ -80,7 +80,7 @@ export function FocusSessionBadge() {
     >
       <div className="relative flex h-12 w-12 shrink-0 items-center justify-center">
         {/* Progress ring. Rotated -90° so 0% starts at the top
-            (12 o'clock), increasing clockwise — the universal
+            (12 o'clock), increasing clockwise, the universal
             countdown convention. */}
         <svg
           width="48"

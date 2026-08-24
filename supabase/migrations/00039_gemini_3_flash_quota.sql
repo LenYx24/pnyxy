@@ -12,7 +12,7 @@
 -- worst case, with a 500 request ceiling. The earlier 2.5 Flash
 -- bucket (200k × $0.0025/1k ≈ $0.50/day) is still in place.
 --
--- The anon bucket stays tight — anonymous users can't sign costs
+-- The anon bucket stays tight, anonymous users can't sign costs
 -- away from us, so a generous limit on a more expensive model
 -- would be the wrong tradeoff.
 
@@ -31,7 +31,7 @@ BEGIN
     IF p_model = 'gemini-2.5-flash' THEN
       RETURN QUERY SELECT 20000, 20;
     ELSIF p_model = 'gemini-3-flash-preview' THEN
-      -- Newer model, pricier per token — tighter anon bucket.
+      -- Newer model, pricier per token, tighter anon bucket.
       RETURN QUERY SELECT 10000, 10;
     ELSE
       RETURN QUERY SELECT 5000, 5;

@@ -191,7 +191,7 @@ export function ChatRow({
           />
         </div>
 
-        {/* Icon — bare chat glyph, no tinted tile. */}
+        {/* Icon: bare chat glyph, no tinted tile. */}
         <div className="mr-2.5 flex h-8 w-7 shrink-0 items-center justify-center sm:h-9">
           <MessageSquare size={density.icon + 4} className="text-sky-400" />
         </div>
@@ -208,7 +208,7 @@ export function ChatRow({
           {t("library.allBooks.chatLabel")}
         </span>
 
-        {/* Menu — placed right after the name (Nextcloud puts row
+        {/* Menu: placed right after the name (Nextcloud puts row
             actions here), not at the far edge. */}
         <div className="relative mr-2 shrink-0">
           <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
@@ -252,12 +252,12 @@ export function ChatRow({
           </ContextMenu>
         </div>
 
-        {/* Size — n/a for chats. */}
+        {/* Size: n/a for chats. */}
         <span
           className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
           style={{ width: columnWidths.size }}
         >
-          —
+          -
         </span>
 
         {/* Date */}

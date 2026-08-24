@@ -14,10 +14,10 @@ function isLockNoise(error: unknown): boolean {
 }
 
 export function logError(context: string, error: unknown) {
-  if (import.meta.env.DEV) {
-    if (isLockNoise(error)) return;
-    console.error(`[${context}]`, error);
-  }
+  if (isLockNoise(error)) return;
+  // Also logs in production: a silent error path is worse than a console
+  // line. A remote sink can hook in here later.
+  console.error(`[${context}]`, error);
 }
 
 export function logWarn(context: string, message: string, data?: unknown) {

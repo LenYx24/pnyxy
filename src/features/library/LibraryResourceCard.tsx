@@ -12,6 +12,8 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { Checkbox, FloatingMenu } from "@/components/ui";
+import { useContextMenu } from "@/hooks/use-context-menu";
+import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { cn } from "@/lib/cn";
 import { logError } from "@/lib/logger";
 import { useLibraryStore } from "@/stores/library-store";
@@ -96,6 +98,32 @@ export function LibraryResourceCard({
     open();
   };
 
+  const contextHandlers = useContextMenu((): ContextMenuEntry[] => [
+    {
+      id: "open",
+      label: t("library.resource.open", { defaultValue: "Open resource" }),
+      icon: ExternalLink,
+      onClick: () => open(),
+    },
+    {
+      id: "move",
+      label: t("library.actions.moveToFolder"),
+      icon: FolderInput,
+      onClick: () => setMoveOpen(true),
+    },
+    { id: "div-1", divider: true },
+    {
+      id: "delete",
+      label: t("common.delete"),
+      icon: Trash2,
+      danger: true,
+      onClick: () =>
+        void deleteResource(resource.id).catch((err) =>
+          logError("library:deleteResource", err),
+        ),
+    },
+  ]);
+
   return (
     <div
       ref={setNodeRef}
@@ -108,6 +136,7 @@ export function LibraryResourceCard({
       {...listeners}
     >
       <div
+        {...contextHandlers}
         className={cn(
           "group relative",
           selected && "ring-2 ring-accent rounded-md",

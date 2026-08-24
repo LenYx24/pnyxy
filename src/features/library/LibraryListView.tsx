@@ -130,7 +130,7 @@ export function LibraryListView({
 
   return (
     <LibraryListContainer>
-      {/* Column headers — Size/Added carry a right-edge resize handle
+      {/* Column headers: Size/Added carry a right-edge resize handle
           when `setColumnWidth` is wired. Mouse-only; mobile hides these
           columns anyway. No background fill so the header reads as part
           of the same surface as the rows (Nextcloud-style). */}
@@ -157,7 +157,7 @@ export function LibraryListView({
         />
       </div>
 
-      {/* Render rows in `orderedKeys` order when supplied — interleaved
+      {/* Render rows in `orderedKeys` order when supplied: interleaved
           folders/books so SortableContext index positions match the
           visual order and DnD reorder works. Falls back to folders-
           then-books if no order was provided. */}

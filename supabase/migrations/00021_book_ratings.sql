@@ -82,7 +82,7 @@ create trigger book_ratings_aggregate_trigger
 
 alter table public.book_ratings enable row level security;
 
--- Anyone (including anon) can read ratings — aggregates are public.
+-- Anyone (including anon) can read ratings, aggregates are public.
 create policy "Ratings are readable by anyone"
   on public.book_ratings for select
   using (true);

@@ -6,8 +6,8 @@ import { useBook } from "./BookPageContext";
  *
  * Uploaded books are inherently the user's own, so they're always
  * "in library". A catalog book only counts once the user has added it
- * (tracked in browse-store.userLibraryIds). Library-only actions —
- * generating quizzes/whiteboards/exams, picking a reading status —
+ * (tracked in browse-store.userLibraryIds). Library-only actions,
+ * generating quizzes/whiteboards/exams, picking a reading status,
  * gate on this so they aren't available for a catalog book the user
  * is merely previewing.
  */

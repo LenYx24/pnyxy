@@ -113,24 +113,38 @@ export function useBookData(bookId: string | undefined) {
         return;
       }
 
-      // Uploaded book (RLS restricts to user's own books)
-      const uploaded = await supabase
+      // Uploaded book (RLS restricts to user's own books). Look up by row
+      // id first, then by file_hash: the reader's doc id for an uploaded
+      // book is the file's content hash, so a title-click in the reader
+      // lands here with the hash instead of the row id.
+      let uploaded = await supabase
         .from("books")
         .select("*")
         .eq("id", bookId)
         .maybeSingle();
 
+      if (!cancelled && !uploaded.data) {
+        uploaded = await supabase
+          .from("books")
+          .select("*")
+          .eq("file_hash", bookId)
+          .limit(1)
+          .maybeSingle();
+      }
+
       if (cancelled) return;
 
       if (uploaded.data) {
+        // related rows are keyed by the real row id, not the hash
+        const realId = (uploaded.data as Book).id;
         const [file, categories] = await Promise.all([
           supabase
             .from("book_files")
             .select("storage_path, file_name, size_bytes")
-            .eq("book_id", bookId)
+            .eq("book_id", realId)
             .eq("is_primary", true)
             .maybeSingle(),
-          fetchCategoriesViaJunction("book_categories", "book_id", bookId),
+          fetchCategoriesViaJunction("book_categories", "book_id", realId),
         ]);
         if (cancelled) return;
         commit({

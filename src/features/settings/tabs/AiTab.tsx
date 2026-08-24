@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
+  ArrowLeft,
   BotMessageSquare,
   Eye,
   EyeOff,
@@ -71,7 +73,7 @@ const COMPARISON_ROWS: ComparisonRow[] = [
     model: "Gemini 3 Flash (preview)",
     provider: "Pnyxy free · pin to use",
     cost: "Free (daily quota · smaller bucket)",
-    bestFor: "Newest Google chat model — matches gemini.google.com",
+    bestFor: "Newest Google chat model, matches gemini.google.com",
     status: "active",
   },
   {
@@ -135,6 +137,15 @@ export function AiTab() {
   const setLocalApiKey = useSettingsStore((s) => s.setLocalApiKey);
 
   const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
+
+  // Show a back affordance when we arrived here with in-app history
+  // (e.g. from a chat's "view quota" link), where the settings shell's
+  // tab list isn't an obvious way back, especially on mobile.
+  const canGoBack =
+    typeof window !== "undefined" &&
+    typeof (window.history.state as { idx?: number } | null)?.idx === "number" &&
+    (window.history.state as { idx: number }).idx > 0;
 
   const [showAnthropicKey, setShowAnthropicKey] = useState(false);
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
@@ -171,6 +182,16 @@ export function AiTab() {
   // no outer card, SettingsPage handles padding/max-width. groups separated by spacing.
   return (
     <div className="space-y-8">
+      {canGoBack && (
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="-ml-1 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+        >
+          <ArrowLeft size={16} />
+          {t("common.back", { defaultValue: "Back" })}
+        </button>
+      )}
       <header className="space-y-1.5">
         <div className="flex items-center gap-2">
           <BotMessageSquare size={18} className="text-accent" />

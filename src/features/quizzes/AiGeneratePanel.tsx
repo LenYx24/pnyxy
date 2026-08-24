@@ -118,7 +118,7 @@ export function AiGeneratePanel({
       // Typical causes: CORS on a third-party URL, 404 on IA format
       // fallback, corrupt PDF. Give the user something actionable.
       throw new QuizGenerationError(
-        "Couldn't read the book PDF. If it's a catalog book, the host may block cross-origin access — try pasting text instead.",
+        "Couldn't read the book PDF. If it's a catalog book, the host may block cross-origin access, try pasting text instead.",
         "provider_error",
         err,
       );
@@ -154,7 +154,7 @@ export function AiGeneratePanel({
       setSourceText("");
       setOpen(false);
     } catch (err) {
-      // Abort is a deliberate user cancel, not an error — stay silent.
+      // Abort is a deliberate user cancel, not an error, stay silent.
       if (err instanceof DOMException && err.name === "AbortError") {
         // no-op
       } else if (err instanceof QuizGenerationError) {
@@ -476,7 +476,7 @@ function BookRange({
       {bookMeta && (
         <p className="truncate text-xs text-text-muted">
           <span className="text-text-secondary">{bookMeta.title}</span>
-          {total > 0 && ` — ${total} pages`}
+          {total > 0 && ` - ${total} pages`}
         </p>
       )}
       <div className="flex flex-wrap items-end gap-3">

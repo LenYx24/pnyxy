@@ -18,6 +18,7 @@ import { BottomNav } from "./BottomNav";
 import { MobileTopBar } from "./MobileTopBar";
 import { Footer } from "./Footer";
 import { OfflineBanner } from "./OfflineBanner";
+import { DocumentLoadingOverlay } from "./DocumentLoadingOverlay";
 import { ContextMenu } from "@/components/ui";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { BannedScreen } from "@/features/admin/BannedScreen";
@@ -171,6 +172,7 @@ export function AppLayout() {
       <ContextMenu />
       <CommandPalette />
       <TtsMiniPlayer />
+      <DocumentLoadingOverlay />
     </div>
   );
 }

@@ -242,7 +242,12 @@ export function ExamsTab() {
           .from("book-files")
           .download(exam.storage_path);
         if (dlError || !blob) {
-          setError(dlError?.message ?? "Failed to download exam.");
+          setError(
+            dlError?.message ??
+              t("book.exams.errorDownload", {
+                defaultValue: "Failed to download exam.",
+              }),
+          );
           return;
         }
         const file = new File([blob], exam.file_name, {
@@ -251,10 +256,16 @@ export function ExamsTab() {
         await openFile(file);
       } catch (err) {
         logError("ExamsTab:open", err);
-        setError(err instanceof Error ? err.message : "Failed to open exam.");
+        setError(
+          err instanceof Error
+            ? err.message
+            : t("book.exams.errorOpen", {
+                defaultValue: "Failed to open exam.",
+              }),
+        );
       }
     },
-    [openFile],
+    [openFile, t],
   );
 
   const handleGenerateQuiz = useCallback(
@@ -277,7 +288,11 @@ export function ExamsTab() {
         });
         const text = await extractPdfText(file);
         if (text.trim().length < 80) {
-          throw new Error("Exam text is too short to generate from.");
+          throw new Error(
+            t("book.exams.errorTooShort", {
+              defaultValue: "Exam text is too short to generate from.",
+            }),
+          );
         }
 
         // 2. Generate via the existing quiz-ai pipeline. The framing
@@ -298,19 +313,28 @@ export function ExamsTab() {
           }),
           description: t("book.exams.generatedQuizDescription", {
             defaultValue:
-              "Auto-generated from a past exam — practice the same topics with fresh questions.",
+              "Auto-generated from a past exam, practice the same topics with fresh questions.",
           }),
           visibility: "private",
           uploaded_book_id: data.source === "catalog" ? null : data.book.id,
           catalog_book_id: data.source === "catalog" ? data.book.id : null,
           questions,
         });
-        if (!quizId) throw new Error("Quiz save failed.");
+        if (!quizId)
+          throw new Error(
+            t("book.exams.errorQuizSave", { defaultValue: "Quiz save failed." }),
+          );
 
         navigate(`/quizzes/${quizId}`);
       } catch (err) {
         logError("ExamsTab:generateQuiz", err);
-        setError(err instanceof Error ? err.message : "Quiz generation failed.");
+        setError(
+          err instanceof Error
+            ? err.message
+            : t("book.exams.errorQuizGen", {
+                defaultValue: "Quiz generation failed.",
+              }),
+        );
       } finally {
         setGeneratingFor(null);
       }
@@ -450,7 +474,7 @@ export function ExamsTab() {
           <p className="mt-1 text-xs text-text-muted">
             {t("book.exams.emptyHint", {
               defaultValue:
-                "Past papers tied to this book — practice, see the topics they cover, generate a similar quiz.",
+                "Past papers tied to this book, practice, see the topics they cover, generate a similar quiz.",
             })}
           </p>
         </div>
@@ -617,7 +641,7 @@ function ExamRow({
           <p className="mt-2 text-2xs text-text-muted">
             {t("book.exams.topicsEmpty", {
               defaultValue:
-                "AI couldn't identify clear topics — the PDF may be too short or not a typical exam.",
+                "AI couldn't identify clear topics, the PDF may be too short or not a typical exam.",
             })}
           </p>
         )}

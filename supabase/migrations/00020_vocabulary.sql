@@ -1,10 +1,10 @@
 -- ============================================================
 -- 00020_vocabulary.sql
--- Vocabulary builder — captured dictionary lookups + FSRS flashcards.
+-- Vocabulary builder, captured dictionary lookups + FSRS flashcards.
 --
 -- A `vocab_entry` is created every time a user defines a word in
 -- the reader. Each entry carries the source sentence, the book it
--- came from (as plain text refs — no FK, because users may look
+-- came from (as plain text refs, no FK, because users may look
 -- words up in documents that aren't formally in the library yet),
 -- and an FSRS state blob used to schedule reviews.
 --
@@ -35,7 +35,7 @@ create table public.vocab_entries (
   source_title         text,
   source_page          int,
 
-  -- FSRS state blob — { due, stability, difficulty, elapsed_days,
+  -- FSRS state blob, { due, stability, difficulty, elapsed_days,
   -- scheduled_days, reps, lapses, state, last_review }.
   -- Opaque to the server; the client owns the schema.
   fsrs_state           jsonb not null,

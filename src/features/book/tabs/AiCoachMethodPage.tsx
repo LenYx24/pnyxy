@@ -25,7 +25,7 @@ interface CoachConfig {
 const CONFIGS: Record<string, CoachConfig> = {
   feynman: {
     framing: (title) =>
-      `[Feynman session — I'm going to teach you a concept from "${title}". Play a curious student: after each of my explanations, ask one specific clarifying question that probes the weakest part of what I just said. Keep it short — one question per turn.]\n\nI want to teach you about: `,
+      `[Feynman session, I'm going to teach you a concept from "${title}". Play a curious student: after each of my explanations, ask one specific clarifying question that probes the weakest part of what I just said. Keep it short, one question per turn.]\n\nI want to teach you about: `,
     preview:
       "You explain a concept; the AI plays a curious student who probes the weakest part.",
     example:
@@ -33,17 +33,17 @@ const CONFIGS: Record<string, CoachConfig> = {
   },
   socratic: {
     framing: (title) =>
-      `[Socratic mode — instead of answering my question directly, ask me a single probing question that nudges me toward figuring it out myself. If I get stuck after two of your questions, then explain. Keep your questions short and specific. Use "${title}" as the source material.]\n\nMy question: `,
+      `[Socratic mode, instead of answering my question directly, ask me a single probing question that nudges me toward figuring it out myself. If I get stuck after two of your questions, then explain. Keep your questions short and specific. Use "${title}" as the source material.]\n\nMy question: `,
     preview:
-      "The AI replies with questions, not answers — guiding you to the answer yourself.",
+      "The AI replies with questions, not answers, guiding you to the answer yourself.",
     example:
       "Tip: ask the question you'd normally Google. Socratic shines when there's something you don't fully grasp yet.",
   },
   eli5: {
     framing: (title) =>
-      `[ELI5 mode — explain the following concept from "${title}" as if I were five years old. Use everyday analogies, avoid jargon, keep sentences short. After the explanation, give one tiny example a kid could relate to.]\n\nConcept: `,
+      `[ELI5 mode, explain the following concept from "${title}" as if I were five years old. Use everyday analogies, avoid jargon, keep sentences short. After the explanation, give one tiny example a kid could relate to.]\n\nConcept: `,
     preview:
-      "Get an explanation calibrated for a five-year-old — a quick check on whether you really got it.",
+      "Get an explanation calibrated for a five-year-old, a quick check on whether you really got it.",
     example:
       "Tip: try a topic you can already explain to an adult. If the ELI5 version makes you laugh-cry, you've found a soft spot worth re-reading.",
   },
@@ -144,7 +144,7 @@ export function AiCoachMethodPage() {
         </Button>
         <p className="mt-2 text-2xs text-text-muted">
           Opens a fresh conversation tied to this book. The first
-          message is pre-drafted with the methodology — you finish
+          message is pre-drafted with the methodology, you finish
           the sentence and hit send.
         </p>
       </div>
@@ -175,7 +175,7 @@ export function AiCoachMethodPage() {
                   {m.label}
                   {hoverSlug === slug && (
                     <span className="text-2xs text-text-muted">
-                      — {m.tagline}
+                      - {m.tagline}
                     </span>
                   )}
                 </Link>

@@ -2,7 +2,7 @@
 -- Migration 00043: billing columns + tier-tampering protection
 --
 -- Adds the columns the Lemon Squeezy webhook will write when a
--- subscription is created / updated / cancelled, and — critically —
+-- subscription is created / updated / cancelled, and, critically,
 -- closes a privilege-escalation hole.
 --
 -- The "Users can update own profile" RLS policy (00001) is

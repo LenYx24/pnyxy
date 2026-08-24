@@ -74,14 +74,11 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
     }
     const trimmedTitle = title.trim();
     // Authors are comma-separated; store the structured list and keep
-    // the joined string in `author` for legacy readers.
+    // the joined string in `author` for legacy readers. Authors are
+    // optional, only a title is required.
     const parsedAuthors = parseAuthorsInput(author);
     if (!trimmedTitle) {
       setError(t("library.addManual.titleRequired"));
-      return;
-    }
-    if (parsedAuthors.length === 0) {
-      setError(t("library.addManual.authorRequired"));
       return;
     }
 
@@ -179,7 +176,7 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
 
           <div>
             <label htmlFor="manual-author" className="mb-1 block text-sm font-medium text-text-secondary">
-              {t("library.addManual.authorLabel")} *
+              {t("library.addManual.authorLabel")}
             </label>
             <input
               id="manual-author"
@@ -267,7 +264,7 @@ export function AddManualBookModal({ open, onClose }: AddManualBookModalProps) {
             </Button>
             <Button
               type="submit"
-              disabled={submitting || !title.trim() || !author.trim()}
+              disabled={submitting || !title.trim()}
             >
               {submitting ? (
                 <>

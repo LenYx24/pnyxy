@@ -2,20 +2,20 @@
 
 **[pnyxy.com](https://pnyxy.com)** · AI-assisted reading and learning platform.
 
-A modern PDF and EPUB reader with annotations, notes, AI chat, vocabulary flashcards, and community discussions. Built with React, TypeScript, Supabase, and Tauri — runs on web, desktop, and mobile.
+A modern PDF and EPUB reader with annotations, notes, AI chat, vocabulary flashcards, and community discussions. Built with React, TypeScript, Supabase, and Tauri; runs on web, desktop, and mobile.
 
 ## Features
 
-- **PDF Reader** — zoom, search, print, screenshot, fullscreen, keyboard navigation
-- **Annotations** — highlight text, add comments, view in a sidebar
-- **Whiteboard** — draw over PDF pages with a canvas overlay
-- **Notes** — create and edit notes alongside your reading
-- **Library** — organize books into folders, upload PDFs, grid/list views, bulk operations
-- **Catalog** — browse a community-shared book collection with category filters
-- **AI chat** — ask questions about the current page/document via a multi-provider chat panel (see [below](#ai-chat))
-- **Auth & Profiles** — user accounts, admin moderation dashboard, report system
-- **Themes & Plugins** — runtime theme switching plus sandboxed community plugins (see [below](#themes--plugins))
-- **Desktop & Mobile** — Tauri v2 wraps the web app for native builds on all platforms
+- **PDF Reader**: zoom, search, print, screenshot, fullscreen, keyboard navigation
+- **Annotations**: highlight text, add comments, view in a sidebar
+- **Whiteboard**: draw over PDF pages with a canvas overlay
+- **Notes**: create and edit notes alongside your reading
+- **Library**: organize books into folders, upload PDFs, grid/list views, bulk operations
+- **Catalog**: browse a community-shared book collection with category filters
+- **AI chat**: ask questions about the current page/document via a multi-provider chat panel (see [below](#ai-chat))
+- **Auth & Profiles**: user accounts, admin moderation dashboard, report system
+- **Themes & Plugins**: runtime theme switching plus sandboxed community plugins (see [below](#themes--plugins))
+- **Desktop & Mobile**: Tauri v2 wraps the web app for native builds on all platforms
 
 ## Tech Stack
 
@@ -55,7 +55,7 @@ cp .env.example .env
 ```
 
 The committed `.env.example` already points at the hosted Pnyxy Supabase
-project — that's enough to run the reader against real data. Replace the
+project, that's enough to run the reader against real data. Replace the
 values if you want to run against your own Supabase project:
 
 ```
@@ -63,7 +63,7 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 ```
 
-The publishable key is safe to commit — it's the same thing Supabase used to
+The publishable key is safe to commit, it's the same thing Supabase used to
 call the "anon key", designed to be shipped to the browser. All data access is
 gated by Row Level Security in the migrations under `supabase/migrations/`.
 
@@ -86,7 +86,7 @@ pnpm preview      # Preview the production build locally
 pnpm deploy:worker
 ```
 
-Or push to `main` — the GitHub Actions workflow handles build + deploy automatically.
+Or push to `main`, the GitHub Actions workflow handles build + deploy automatically.
 
 ### Desktop (Tauri)
 
@@ -158,7 +158,7 @@ git tag v0.2.0
 git push && git push --tags
 ```
 
-### 2. Web — Cloudflare Workers
+### 2. Web - Cloudflare Workers
 
 Push to `main` and GitHub Actions builds + deploys automatically. To deploy manually:
 
@@ -168,7 +168,7 @@ pnpm deploy:worker         # runs `pnpm build` then `wrangler deploy`
 
 Before the first deploy, set the Worker secrets listed under [Cloudflare Worker / Pages secrets](#cloudflare-worker--pages-secrets).
 
-### 3. Desktop — Tauri binaries
+### 3. Desktop - Tauri binaries
 
 ```sh
 pnpm tauri:build           # builds .exe / .msi (Windows), .dmg (macOS), .AppImage / .deb (Linux)
@@ -176,7 +176,7 @@ pnpm tauri:build           # builds .exe / .msi (Windows), .dmg (macOS), .AppIma
 
 Artefacts land under `src-tauri/target/release/bundle/`. For signed, multi-platform builds, use the release workflow in `.github/workflows/` or run `pnpm tauri:build` on each host OS.
 
-### 4. Mobile — Tauri Android / iOS
+### 4. Mobile - Tauri Android / iOS
 
 ```sh
 # One-time per machine
@@ -212,8 +212,8 @@ Alternatively, paste the HTML from `supabase/templates/*.html` into **Auth → E
 To enable the "Continue with Google" button on the sign-in page:
 
 1. Create OAuth credentials in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (Web application). Add the authorized redirect URI `<SUPABASE_URL>/auth/v1/callback`.
-2. In Supabase, set the Google provider to **Enabled** and paste the Client ID / Client Secret — either via the dashboard (**Authentication → Providers → Google**) or by exporting `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` before running `supabase config push` (the provided `supabase/config.toml` reads them via `env(...)`).
-3. Make sure your app origin (`http://localhost:5173` in dev) is listed under **Authentication → URL Configuration → Site URL / Redirect URLs** — the provided config already adds `/auth/welcome`, `/auth/reset-password`, and `/library`.
+2. In Supabase, set the Google provider to **Enabled** and paste the Client ID / Client Secret, either via the dashboard (**Authentication → Providers → Google**) or by exporting `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` before running `supabase config push` (the provided `supabase/config.toml` reads them via `env(...)`).
+3. Make sure your app origin (`http://localhost:5173` in dev) is listed under **Authentication → URL Configuration → Site URL / Redirect URLs**, the provided config already adds `/auth/welcome`, `/auth/reset-password`, and `/library`.
 
 ## AI chat
 
@@ -223,7 +223,7 @@ The reader ships with a chat panel that can talk to three providers:
 |----------|---------------|--------------------|
 | **Pnyxy proxy** | Hosted Supabase Edge Function with rate limits, good for anonymous and signed-in users. Picks OpenAI first, falls back to Anthropic. | `supabase/functions/ai-chat-proxy` |
 | **Anthropic (BYO key)** | Direct, browser-to-API. User supplies the key in Settings → AI; stored only in the browser. | `src/lib/ai-client.ts` |
-| **OpenAI (BYO key)** | Same as Anthropic — user-supplied key, direct call. | `src/lib/ai-client.ts` |
+| **OpenAI (BYO key)** | Same as Anthropic, user-supplied key, direct call. | `src/lib/ai-client.ts` |
 
 Responses stream as Anthropic-style SSE events, regardless of which upstream
 was used; the proxy translates OpenAI's format on the server.
@@ -260,12 +260,12 @@ If you deploy via `pnpm deploy:worker`, the GitHub Actions workflow in
 
 | Secret | Purpose |
 |--------|---------|
-| `VITE_SUPABASE_URL` | Same as the `.env` var — baked into the build. |
+| `VITE_SUPABASE_URL` | Same as the `.env` var, baked into the build. |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Same as the `.env` var. |
 | `CLOUDFLARE_API_TOKEN` | Token with Workers deploy permission. |
 | `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID. |
 
-Local dev doesn't need any of these — `pnpm dev` uses the `.env` file only.
+Local dev doesn't need any of these, `pnpm dev` uses the `.env` file only.
 
 ## Themes & Plugins
 
@@ -306,7 +306,7 @@ file like this into the community registry repo
 }
 ```
 
-The 11 token keys above are the full theme contract — they map 1:1 to
+The 11 token keys above are the full theme contract, they map 1:1 to
 the `@theme` block in `src/styles/index.css`. Switching themes is
 instant (no reload) because the host writes them onto
 `document.documentElement` via `style.setProperty`.
@@ -374,7 +374,7 @@ which is enforced host-side against the manifest's `permissions`:
 
 Calling a method without the matching permission throws
 `PermissionDeniedError`. Every argument and return value MUST be
-JSON-serializable — that's what lets the same `PluginAPI` work in both
+JSON-serializable, that's what lets the same `PluginAPI` work in both
 the sandboxed iframe runtime and (eventually) the native runtime
 without any glue code.
 
@@ -383,25 +383,25 @@ without any glue code.
 Two plugins ship in-tree as reference implementations
 (`src/lib/plugins/core/`):
 
-- **`reading-stats`** — counts unique pages read per document
-- **`keyboard-cheatsheet`** — registers `?` to show all shortcuts
+- **`reading-stats`**: counts unique pages read per document
+- **`keyboard-cheatsheet`**: registers `?` to show all shortcuts
 
 Both are disabled by default; toggle them in Settings → Plugins.
 
 ## Contributing & security
 
-- [CONTRIBUTING.md](./CONTRIBUTING.md) — dev setup, style, what's in scope
-- [SECURITY.md](./SECURITY.md) — how to report vulnerabilities privately
+- [CONTRIBUTING.md](./CONTRIBUTING.md): dev setup, style, what's in scope
+- [SECURITY.md](./SECURITY.md): how to report vulnerabilities privately
 
 ## A note on LLM assistance
 
 Built with assistance from LLM agents like Claude. Architectural decisions,
 reviews, and final code are mine. If you spot something that reads like it
-was hallucinated rather than understood, open an issue — I'd rather fix it
+was hallucinated rather than understood, open an issue, I'd rather fix it
 than paper over it.
 
 ## License
 
-[MIT](./LICENSE) — © 2026 Foki Lénárd. Permissive: use, modify, and
+[MIT](./LICENSE). © 2026 Foki Lénárd. Permissive: use, modify, and
 redistribute commercially, provided you keep the copyright notice. No
 warranty.

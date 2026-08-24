@@ -60,7 +60,7 @@ async function translateViaMyMemory(
 }
 
 /**
- * Translate panel — MyMemory free API. Both source and target languages
+ * Translate panel: MyMemory free API. Both source and target languages
  * are user-selectable and persisted in settings-store; the source
  * defaults to "auto" (detected from the text). Re-translates whenever
  * either language changes so the user can flip langs in place.

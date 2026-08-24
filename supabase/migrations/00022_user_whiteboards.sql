@@ -4,7 +4,7 @@
 --
 -- One row per whiteboard. The primary key matches the client-side
 -- WhiteboardData.id (UUID) so local IDB and Supabase share the same
--- identifiers — the client upserts by id and nothing else changes.
+-- identifiers, the client upserts by id and nothing else changes.
 --
 -- Data is stored as jsonb (the full WhiteboardData blob including
 -- elements[], background, title, etc.). We don't break out elements
@@ -36,7 +36,7 @@ create trigger user_whiteboards_set_updated_at
 -- ── Quota: 50 whiteboards per user on the free tier ──────────
 --
 -- Runs BEFORE INSERT so the row never lands when the user is over
--- the cap. Upserts (same id) are fine — they hit UPDATE, not INSERT.
+-- the cap. Upserts (same id) are fine, they hit UPDATE, not INSERT.
 --
 -- SECURITY DEFINER because the counting query needs to see all
 -- rows for that user_id regardless of the invoking policy set.

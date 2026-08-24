@@ -415,7 +415,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
     // opaque surface so the dark dockview backdrop doesn't wash it gray in light theme
     <div
       // no transition on paddingBottom: it's driven by the keyboard inset,
-      // which ticks rapidly as the on-screen keyboard animates in — animating
+      // which ticks rapidly as the on-screen keyboard animates in, animating
       // it too made the whole panel reflow-lag behind the keyboard
       className="relative flex h-full flex-col bg-bg-secondary"
       style={{
@@ -729,7 +729,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           <p className="rounded-md border border-glass-border bg-glass-bg/40 px-2 py-1.5 text-2xs text-text-muted">
             {t("reader.aiChat.pagesContextNote", {
               defaultValue:
-                'Pages with no text layer are sent as page images; figures on text pages aren\'t attached automatically — turn on "Send as images" in the page picker if you need them.',
+                'Pages with no text layer are sent as page images; figures on text pages aren\'t attached automatically, turn on "Send as images" in the page picker if you need them.',
             })}
           </p>
         )}

@@ -80,7 +80,7 @@ export function Shelf({
               {seeAllLabel}
             </Link>
           )}
-          {/* Arrows — desktop only; mobile uses swipe */}
+          {/* Arrows: desktop only; mobile uses swipe */}
           <button
             type="button"
             onClick={() => scrollBy(-1)}

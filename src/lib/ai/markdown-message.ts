@@ -119,7 +119,7 @@ marked.use(
 // separation. Without this, models routinely indent a $$...$$ under a list
 // item (4-space indent = a Markdown code block, so it renders as raw text) or
 // place it flush against a preceding sentence with no blank line (parses as
-// block only intermittently) — the classic "sometimes it renders, sometimes
+// block only intermittently), the classic "sometimes it renders, sometimes
 // it doesn't". A leading/trailing newline guarantees the block tokenizer wins.
 function toDisplayBlock(inner: string): string {
   return `\n\n$$\n${inner.trim()}\n$$\n\n`;

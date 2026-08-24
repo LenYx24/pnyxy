@@ -5,6 +5,7 @@ import { useUIStore } from "@/stores/ui-store";
 import { ThumbnailToc } from "./panels/ThumbnailToc";
 import { BookmarksPanel } from "./panels/BookmarksPanel";
 import { cn } from "@/lib/cn";
+import { useFeatures } from "@/lib/use-features";
 import { noteDisplayTitle, whiteboardDisplayTitle } from "@/lib/entity-title";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 import { useNoteStore } from "@/stores/note-store";
@@ -420,11 +421,14 @@ export function ReaderSidebarContent({
 
   const docEntries = Array.from(documents.entries());
 
+  // Notes + Whiteboards moved to the right-hand tools panel; the left
+  // sidebar keeps document structure (contents) and bookmarks.
+  const features = useFeatures();
   const tabItems: { key: SidebarTab; icon: typeof List; label: string }[] = [
     { key: "contents", icon: tocViewMode === "thumbnail" ? LayoutGrid : List, label: t("reader.sidebar.tabContents") },
-    { key: "bookmarks", icon: Bookmark, label: t("reader.sidebar.tabBookmarks") },
-    { key: "notes", icon: StickyNote, label: t("reader.sidebar.tabNotes") },
-    { key: "whiteboards", icon: PenTool, label: t("reader.sidebar.tabWhiteboards") },
+    ...(features.bookmarks
+      ? [{ key: "bookmarks" as const, icon: Bookmark, label: t("reader.sidebar.tabBookmarks") }]
+      : []),
   ];
 
   return (

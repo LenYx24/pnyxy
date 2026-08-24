@@ -227,19 +227,28 @@ export function RoadmapDetailPage() {
               </div>
             </div>
           ) : (
-            <RoadmapGraph
-              roadmap={roadmap}
-              enrollment={enrollment}
-              mode="view"
-              selectedNodeId={selectedNodeId}
-              autoProgress={autoProgress}
-              onSelectNode={setSelectedNodeId}
-              onNodeClick={handleNodeClick}
-            />
+            <div className="relative h-full">
+              {enrollment && (
+                <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full border border-glass-border bg-bg-secondary/90 px-3 py-1 text-xs text-text-secondary shadow-sm backdrop-blur">
+                  {t("roadmaps.nodeClickHint", {
+                    defaultValue: "Tip: click a node to mark it complete",
+                  })}
+                </div>
+              )}
+              <RoadmapGraph
+                roadmap={roadmap}
+                enrollment={enrollment}
+                mode="view"
+                selectedNodeId={selectedNodeId}
+                autoProgress={autoProgress}
+                onSelectNode={setSelectedNodeId}
+                onNodeClick={handleNodeClick}
+              />
+            </div>
           )}
         </div>
 
-        {/* Side panel — always shown while enrolled (carries the
+        {/* Side panel: always shown while enrolled (carries the
             deadline picker that applies to the whole roadmap), with
             the per-node section appended below when a node is also
             selected. */}

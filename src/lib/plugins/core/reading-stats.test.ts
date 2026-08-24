@@ -113,7 +113,7 @@ afterEach(async () => {
   await module.onUnload?.();
 });
 
-describe("reading-stats — onLoad", () => {
+describe("reading-stats - onLoad", () => {
   it("subscribes to reader:page-change", () => {
     expect(fake.api.events.on).toHaveBeenCalledWith("reader:page-change");
   });
@@ -129,7 +129,7 @@ describe("reading-stats — onLoad", () => {
   });
 });
 
-describe("reading-stats — page tracking", () => {
+describe("reading-stats - page tracking", () => {
   it("counts unique pages per doc", async () => {
     fake.emitPageChange({ docId: "doc-a", page: 1, from: 0 });
     fake.emitPageChange({ docId: "doc-a", page: 2, from: 1 });
@@ -155,7 +155,7 @@ describe("reading-stats — page tracking", () => {
   });
 });
 
-describe("reading-stats — onUnload", () => {
+describe("reading-stats - onUnload", () => {
   it("calls events.off with the subscription id and stops accepting events", async () => {
     fake.emitPageChange({ docId: "doc-a", page: 1, from: 0 });
     await module.onUnload?.();

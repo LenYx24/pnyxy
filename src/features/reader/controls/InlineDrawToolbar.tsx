@@ -24,7 +24,7 @@ import { cn } from "@/lib/cn";
 /**
  * Floating tool palette for inline draw mode, pinned bottom-center.
  * Tools: select (move/resize placed items), pen, rectangle, ellipse,
- * line, arrow, eraser — plus a stroke-width picker, colour palette,
+ * line, arrow, eraser, plus a stroke-width picker, colour palette,
  * delete-selected, undo, clear-page, clear-all and exit.
  */
 const TOOLS: {

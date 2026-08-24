@@ -1,4 +1,5 @@
 import { useSettingsStore } from "@/stores/settings-store";
+import { getFeatures } from "@/lib/use-features";
 import { hostEventBus } from "./api/events";
 import { buildHostApi, type CommandRegistry, type NotificationSink, type PluginStorageAdapter } from "./api/host-api";
 import { CORE_PLUGINS, type CorePluginEntry } from "./core-registry";
@@ -91,8 +92,12 @@ export class PluginManager {
     const installed = state.installedPlugins;
 
     const targetIds = new Set<string>();
-    for (const [id, on] of Object.entries(enabled)) {
-      if (on) targetIds.add(id);
+    // Pilot gate: with the plugins feature off nothing loads, regardless
+    // of per-plugin toggles.
+    if (getFeatures().plugins) {
+      for (const [id, on] of Object.entries(enabled)) {
+        if (on) targetIds.add(id);
+      }
     }
 
     // Unload plugins that are no longer enabled.

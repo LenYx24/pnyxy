@@ -5,11 +5,11 @@
 // email + id to the message so we can reply.
 //
 // Env vars (set via `supabase secrets set`):
-//   RESEND_API_KEY    — required; from https://resend.com/api-keys
-//   FEEDBACK_FROM     — "Name <sender@verified-domain>" (default:
-//                       "Pnyxy Feedback <onboarding@resend.dev>" — the
+//   RESEND_API_KEY    - required; from https://resend.com/api-keys
+//   FEEDBACK_FROM     - "Name <sender@verified-domain>" (default:
+//                       "Pnyxy Feedback <onboarding@resend.dev>", the
 //                       Resend sandbox; swap for your verified domain)
-//   FEEDBACK_TO       — destination inbox (default: feedback@pnyxy.com)
+//   FEEDBACK_TO       - destination inbox (default: feedback@pnyxy.com)
 
 // @ts-expect-error Deno-only import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";

@@ -7,13 +7,13 @@
 // The browser calls this function with an authenticated JWT and a
 // `url` query param. We:
 //   1. Verify the caller is signed in.
-//   2. Confirm the target host is on a tight whitelist — this is NOT
+//   2. Confirm the target host is on a tight whitelist, this is NOT
 //      a general-purpose HTTP proxy.
 //   3. HEAD the target to sanity-check size before we stream (prevents
 //      multi-GB files from pinning the edge function).
 //   4. Stream the body back with the upstream content-type.
 //
-// Not a streaming SSE endpoint — this just forwards the octet-stream
+// Not a streaming SSE endpoint, this just forwards the octet-stream
 // with a permissive CORS response header so the browser can blob() it.
 //
 // Env vars (auto-populated):
@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
   }
 
   // ── Pre-flight size check via HEAD ─────────────────────────
-  // Not all hosts answer HEAD (MEK sometimes returns 405) — treat
+  // Not all hosts answer HEAD (MEK sometimes returns 405), treat
   // a non-2xx HEAD as "size unknown" and fall through to streaming.
   try {
     const head = await fetch(targetUrl.toString(), {
@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
       }
     }
   } catch {
-    // HEAD failures aren't fatal — fall through to GET.
+    // HEAD failures aren't fatal, fall through to GET.
   }
 
   // ── Stream the file back ───────────────────────────────────

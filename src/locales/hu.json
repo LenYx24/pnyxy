@@ -6,7 +6,7 @@
     },
     "read": {
       "title": "Olvass PDF-eket és kérdezd az AI-t",
-      "body": "Nyiss meg egy PDF-et, és tegyél fel kérdéseket a chatben. A válaszok az oldalra hivatkoznak – kattints a hivatkozásra, és rögtön odaugrasz."
+      "body": "Nyiss meg egy PDF-et, és tegyél fel kérdéseket a chatben. A válaszok az oldalra hivatkoznak, kattints a hivatkozásra, és rögtön odaugrasz."
     },
     "memory": {
       "title": "Alakítsd az olvasást tudássá",
@@ -14,7 +14,7 @@
     },
     "ready": {
       "title": "Minden készen áll",
-      "body": "Ingyenesen indulhatsz – az AI-modellt bármikor kiválaszthatod a Beállításokban. Jó tanulást!"
+      "body": "Ingyenesen indulhatsz, az AI-modellt bármikor kiválaszthatod a Beállításokban. Jó tanulást!"
     },
     "skip": "Bemutató átugrása",
     "back": "Vissza",
@@ -25,7 +25,16 @@
     "eyebrow": "Tanulási eszközök",
     "title": "Gyakorold, amit olvastál",
     "subtitle": "Válassz egy tanulási módszert a könyv átismétléséhez és elmélyítéséhez.",
-    "methodComingSoon": "Ez a tanulási eszköz hamarosan érkezik."
+    "methodComingSoon": "Ez a tanulási eszköz hamarosan érkezik.",
+    "backToHub": "Tanulóközpont",
+    "flashcards": {
+      "generate": "Tanulókártyák generálása MI-vel",
+      "hint": "A tanulókártyák rövid válaszos kvízként mentődnek lentebb. Nyiss meg egyet a kártyák átnézéséhez.",
+      "vocabDeck": "Szókincs pakli"
+    },
+    "methodComingSoonTitle": "Hamarosan",
+    "soonBadge": "Hamarosan",
+    "unknownMethod": "Ismeretlen tanulási módszer."
   },
   "resources": {
     "back": "Vissza",
@@ -38,7 +47,7 @@
   },
   "spaces": {
     "title": "Terek",
-    "subtitle": "Közösségek és kurzusok – szervezetek, kurzusok és témák.",
+    "subtitle": "Közösségek és kurzusok, szervezetek, kurzusok és témák.",
     "signInPrompt": "Jelentkezz be a terek böngészéséhez és létrehozásához.",
     "createHeading": "Tér létrehozása",
     "namePlaceholder": "Név (pl. BME, BSz1, Health)",
@@ -64,7 +73,7 @@
     "sharedAnswers": "Megosztott válaszok",
     "askAi": "Kérdezd az AI-t a kurzusról",
     "childrenHeading": "Kurzusok és terek",
-    "childrenEmptyOwner": "Még nincs kurzus itt – hozz létre egyet.",
+    "childrenEmptyOwner": "Még nincs kurzus itt, hozz létre egyet.",
     "addChild": "Új tér",
     "childName": "Név",
     "childKind": "Típus",
@@ -72,14 +81,14 @@
     "openSource": "Forrás megnyitása",
     "openStudyFolder": "Tanulómappa megnyitása",
     "offeringsHeading": "Félévek",
-    "offeringsEmptyOwner": "Még nincs félév – adj hozzá egyet, hogy látszódjon, mikor fut a kurzus.",
+    "offeringsEmptyOwner": "Még nincs félév, adj hozzá egyet, hogy látszódjon, mikor fut a kurzus.",
     "addTerm": "Félév hozzáadása",
     "removeTerm": "Félév eltávolítása",
     "termLabel": "Félév",
     "termStarts": "Kezdés (opcionális)",
     "termEnds": "Vége (opcionális)",
     "termStatus": "Állapot",
-    "contentEmptyOwner": "Még nincs tartalom – adj hozzá könyveket, kvízeket vagy linkeket a kurzushoz.",
+    "contentEmptyOwner": "Még nincs tartalom, adj hozzá könyveket, kvízeket vagy linkeket a kurzushoz.",
     "contentTitlePlaceholder": "pl. Bevezető előadás videó",
     "offeringStatus": {
       "active": "Aktív",
@@ -102,7 +111,7 @@
     "title": "Megosztott válaszok",
     "titleScoped": "Kurzus válaszai",
     "subtitle": "A felhasználók itt osztják meg a hasznos AI-válaszokat, hogy másoknak is segítsenek.",
-    "empty": "Még nincs megosztott válasz – ossz meg egy hasznos választ egy beszélgetésből a Megosztás gombbal.",
+    "empty": "Még nincs megosztott válasz, ossz meg egy hasznos választ egy beszélgetésből a Megosztás gombbal.",
     "signInPrompt": "Jelentkezz be a megosztott válaszok megtekintéséhez.",
     "showMore": "Több megjelenítése",
     "showLess": "Kevesebb megjelenítése",
@@ -129,7 +138,8 @@
     "ok": "OK",
     "expand": "Kibontás",
     "collapse": "Összecsukás",
-    "requiredField": "Ez a mező nem lehet üres."
+    "requiredField": "Ez a mező nem lehet üres.",
+    "open": "Megnyitás"
   },
   "sidebar": {
     "home": "Kezdőlap",
@@ -442,7 +452,19 @@
       "checkUsageAnthropic": "Fogyasztás ellenőrzése az Anthropic konzolban ↗",
       "checkUsageOpenAI": "Fogyasztás ellenőrzése az OpenAI panelen ↗",
       "moreActions": "További műveletek",
-      "openQuotas": "Kvóták"
+      "openQuotas": "Kvóták",
+      "colBestFor": "Mire jó",
+      "colCost": "Költség",
+      "colModel": "Modell",
+      "colProvider": "Szolgáltató",
+      "modelsHeading": "Elérhető modellek",
+      "modelsSubtitle": "Az árak 1M tokenre vonatkoznak (bemenet / kimenet).",
+      "providersHeading": "Szolgáltatók",
+      "providersSubtitle": "A sorrend a prioritás. Az első engedélyezett, érvényes kulccsal rendelkező szolgáltató kezeli az egyes beszélgetéseket. Átrendezés a nyíl gombokkal.",
+      "statusActive": "Aktív",
+      "statusByok": "Saját kulcs",
+      "statusLocal": "Helyi",
+      "statusSoon": "Hamarosan"
     },
     "aiContext": {
       "heading": "AI kontextus",
@@ -454,6 +476,18 @@
       "attachTocHint": "Ha be van kapcsolva, a tartalomjegyzék automatikusan minden könyves chathez csatolódik. Olcsó, de nagyon hasznos kontextus.",
       "surroundingLabel": "„Jelenlegi oldal körüli” oldalak száma",
       "surroundingHint": "Hány oldalt jelöljön ki a „jelenlegi körül” gomb a TOC-ban a jelenlegi oldal körül mindkét irányba."
+    },
+    "aiModels": {
+      "heading": "Részletes modellinformációk"
+    },
+    "features": {
+      "heading": "Funkciók (admin)",
+      "description": "Pilot kapuzás. A felhasználók csak az alap kört látják (olvasó, chat, sorozat); a többit felhasználónként a profiles.preferences.features nyitja, vagy itt előnézhető.",
+      "showAll": "Minden funkció látszódjon nálam",
+      "showAllHint": "Csak adminnak. Kikapcsolva úgy látod az appot, ahogy egy pilot-felhasználó.",
+      "serverUnlocked": "szerveren feloldva",
+      "overridden": "helyi felülírás",
+      "reset": "vissza"
     }
   },
   "landing": {
@@ -518,7 +552,8 @@
           "OCR beszkennelt tankönyvekhez: kereshető, AI által olvasható",
           "X-Ray: szereplő- és fogalomindex a saját feltöltésekhez",
           "Prioritásos támogatás és korai hozzáférés az új funkciókhoz"
-        ]
+        ],
+        "paidNote": "Fizetős csomag, nem ingyenes"
       },
       "footnote": "Az árak még nem véglegesek. A kezdésről a GitHub repón és a fórumon értesítünk."
     },
@@ -739,7 +774,10 @@
       "moveToFolder": "Áthelyezés mappába",
       "exportMarkdown": "Exportálás Markdownként",
       "exportJson": "Exportálás JSON-ként",
-      "exportGift": "Exportálás GIFT-ként"
+      "exportGift": "Exportálás GIFT-ként",
+      "fileInfo": "Fájlinformációk",
+      "manageTags": "Címkék kezelése",
+      "shareToCommunity": "Megosztás a közösséggel"
     },
     "addManual": {
       "title": "Könyv hozzáadása kézzel",
@@ -885,7 +923,8 @@
         "title": "Mappa törlése",
         "body": "Biztos? A mappában lévő könyvek a gyökérszintre kerülnek. Az almappák is törlődnek.",
         "action": "Törlés"
-      }
+      },
+      "emptyDragHint": "Csak húzz be egy könyvet bárhová, a feltöltés azonnal indul."
     },
     "selection": {
       "countSelected": "{{count}} kijelölve",
@@ -947,6 +986,15 @@
       "emptyBody": "Böngéssz a katalógusban, hogy könyveket adj hozzá.",
       "browseCatalog": "Katalógus böngészése",
       "noSearchResults": "Nincs találat erre: „{{query}}”"
+    },
+    "create": {
+      "new": "Új",
+      "createHeading": "Létrehozás",
+      "addHeading": "Hozzáadás / feltöltés",
+      "note": "Jegyzet",
+      "whiteboard": "Tábla",
+      "quiz": "Kvíz",
+      "chat": "Beszélgetés"
     }
   },
   "download": {
@@ -1278,7 +1326,14 @@
       "weekendMultiplier": "Hétvégi vs. hétköznapi tempó",
       "weekendMultiplierHint": "A hétvégi napok a hétköznapi terhelés {{multiplier}}×-osát viszik.",
       "weekendMultiplierZeroHint": "Hétvégén nincs tanulás - minden a hétköznapokra esik."
-    }
+    },
+    "node": {
+      "clickToCheck": "Kattints a késznek jelöléshez",
+      "clickToUncheck": "Kattints a nem késznek jelöléshez",
+      "done": "Kész",
+      "notDone": "Nincs kész"
+    },
+    "nodeClickHint": "Tipp: kattints egy csomópontra a késznek jelöléséhez"
   },
   "chat": {
     "title": "Csevegés",
@@ -1286,7 +1341,7 @@
     "newConversation": "Új beszélgetés",
     "newConversationHint": "Küldj egy üzenetet a kezdéshez.",
     "scrollToBottom": "Ugrás a legújabbra",
-    "emptyResponse": "A modell üres választ adott – próbáld újra.",
+    "emptyResponse": "A modell üres választ adott, próbáld újra.",
     "book": {
       "backToBook": "Vissza a könyvhöz",
       "empty": "Még nincs beszélgetés erről a könyvről. Indíts egyet lent.",
@@ -1310,7 +1365,7 @@
     "regenerate": "Újragenerálás",
     "graph": {
       "title": "Beszélgetés-gráf",
-      "empty": "Még nincs beszélgetés — kezdj el csevegni, és itt megjelennek.",
+      "empty": "Még nincs beszélgetés, kezdj el csevegni, és itt megjelennek.",
       "emptyMessages": "Ebben a beszélgetésben még nincs üzenet.",
       "back": "Vissza",
       "fit": "Nézetbe igazítás",
@@ -1347,7 +1402,10 @@
     "editingRoadmap": "Útvonal szerkesztése: {{title}}",
     "openInEditor": "Megnyitás a szerkesztőben",
     "sidebar": {
-      "empty": "Még nincs beszélgetés."
+      "empty": "Még nincs beszélgetés.",
+      "collapseAll": "Minden mappa összecsukása",
+      "expandAll": "Minden mappa kinyitása",
+      "resize": "Oldalsáv átméretezése"
     },
     "composer": {
       "modelLabel": "Modell",
@@ -1380,7 +1438,9 @@
       "root": "Gyökér (nincs mappa)",
       "dropToRoot": "Húzd ide a gyökérbe helyezéshez",
       "newSubfolder": "Új almappa",
-      "openInLibrary": "Megnyitás a könyvtárban"
+      "openInLibrary": "Megnyitás a könyvtárban",
+      "enter": "Belépés a mappába",
+      "backToAll": "Összes csevegés"
     },
     "flashcards": {
       "title": "Mentés tanulókártyaként",
@@ -1409,7 +1469,10 @@
       "recentHint": "A legutóbbi 10 könyv",
       "weekIntro": "Íme amit ezen a héten olvastam:",
       "recentIntro": "Íme a legutóbbi olvasási aktivitásom:"
-    }
+    },
+    "confirmDeleteMessageBody": "Az üzenet alatti minden válasz és folytatás is törlődik. A törlés végleges.",
+    "confirmDeleteMessageTitle": "Törlöd ezt az üzenetet?",
+    "hideSourceChip": "Elrejtés erre a munkamenetre"
   },
   "readingPlans": {
     "section": {
@@ -1498,7 +1561,10 @@
   "notes": {
     "notFound": "A jegyzet nem található",
     "titlePlaceholder": "Jegyzet címe…",
-    "contentPlaceholder": "Kezdj el írni…"
+    "contentPlaceholder": "Kezdj el írni…",
+    "editor": {
+      "linkPrompt": "Link URL"
+    }
   },
   "book": {
     "notFound": "A könyv nem található.",
@@ -1522,7 +1588,8 @@
       "bookmarks": "Könyvjelzők",
       "whiteboards": "Táblák",
       "resources": "Források",
-      "exams": "Vizsgák"
+      "exams": "Vizsgák",
+      "reading": "Olvasás"
     },
     "bookmarks": {
       "heading": "Könyvjelzők",
@@ -1546,7 +1613,8 @@
       "notStarted": "Még nem kezdted",
       "currentOnly": "{{current}}. oldal",
       "progress": "{{current}} / {{total}}. oldal",
-      "editTitle": "Állítsd be, hányadik oldalon tartasz"
+      "editTitle": "Állítsd be, hányadik oldalon tartasz",
+      "notStartedOf": "Nincs elkezdve · {{total}} oldal"
     },
     "tabs": {
       "notesHeading": "Jegyzetek",
@@ -1569,7 +1637,9 @@
       "untitled": "Névtelen jegyzet",
       "emptyNote": "Még üres",
       "emptyTitle": "Még semmi sincs itt",
-      "emptyBody": "Emelj ki szöveget, írj megjegyzést vagy hozz létre jegyzetet olvasás közben - itt fognak megjelenni."
+      "emptyBody": "Emelj ki szöveget, írj megjegyzést vagy hozz létre jegyzetet olvasás közben - itt fognak megjelenni.",
+      "contentPlaceholder": "Írd ide a jegyzetedet… A Markdown támogatott.",
+      "titlePlaceholder": "Jegyzet címe…"
     },
     "discuss": {
       "heading": "Beszélgetés",
@@ -1678,8 +1748,40 @@
         "finishLabel": "Várható befejezés",
         "finishUnknown": "Az oldalszám-adatok hiányoznak a becsléshez.",
         "percentComplete": "{{percent}}% olvasva"
-      }
-    }
+      },
+      "studyTools": "Tanulóeszközök",
+      "readingSession": "Olvasási munkamenet",
+      "openBookPage": "Könyv oldala"
+    },
+    "exams": {
+      "aiFailed": "Elemzés sikertelen:",
+      "analyze": "Témák azonosítása MI-vel",
+      "analyzeShort": "Azonosítás",
+      "deleteBody": "A PDF és az MI által kinyert témák véglegesen törlődnek.",
+      "deleteTitle": "Törlöd ezt a vizsgát?",
+      "description": "Tölts fel korábbi vizsga PDF-eket ehhez a könyvhöz. Az MI segítségével kinyerheted, melyik vizsga milyen témákat mér, hasonló kvízt generálhatsz, vagy visszajelzéssel gyakorolhatsz.",
+      "emptyHint": "A könyvhöz kapcsolódó korábbi vizsgák, gyakorolj, nézd meg a lefedett témákat, generálj hasonló kvízt.",
+      "emptyTitle": "Még nincs feltöltött vizsga",
+      "errorDownload": "A vizsga letöltése sikertelen.",
+      "errorOpen": "A vizsga megnyitása sikertelen.",
+      "errorPdfOnly": "Egyelőre csak PDF vizsgák támogatottak.",
+      "errorQuizGen": "A kvíz generálása sikertelen.",
+      "errorQuizSave": "A kvíz mentése sikertelen.",
+      "errorTooLarge": "A vizsga PDF-ek legfeljebb 25 MB méretűek lehetnek.",
+      "errorTooShort": "A vizsga szövege túl rövid a generáláshoz.",
+      "generateQuiz": "Generálj gyakorló kvízt hasonló kérdésekkel ugyanazokból a témákból",
+      "generateQuizShort": "Kvíz",
+      "generatedQuizDescription": "Korábbi vizsgából automatikusan generálva, gyakorold ugyanazokat a témákat friss kérdésekkel.",
+      "generatedQuizTitle": "Gyakorló kvíz: {{name}}",
+      "heading": "Vizsgák és korábbi tételsorok",
+      "practice": "Gyakorold minden kérdést szókratészi tutor visszajelzéssel",
+      "practiceShort": "Gyakorlás",
+      "reanalyze": "Újraelemzés",
+      "topics": "Lefedett témák",
+      "topicsEmpty": "Az MI nem tudott egyértelmű témákat azonosítani, lehet, hogy a PDF túl rövid vagy nem tipikus vizsga.",
+      "upload": "PDF feltöltése"
+    },
+    "libraryRequired": "Előbb add hozzá ezt a könyvet a könyvtáradhoz"
   },
   "admin": {
     "banned": {
@@ -1721,7 +1823,9 @@
       "replies_other": "{{count}} válasz",
       "backToCommunity": "Vissza a közösséghez",
       "postedBy": "Közzétette: {{name}}",
-      "removed": "[eltávolítva]"
+      "removed": "[eltávolítva]",
+      "deleteBody": "Ez mindenki számára eltávolítja a bejegyzésedet. Ezt nem lehet visszavonni.",
+      "deleteTitle": "Törlöd ezt a bejegyzést?"
     },
     "community": {
       "join": "Csatlakozás",
@@ -1876,7 +1980,8 @@
       "dictionaryPlaceholder": "Szó keresése…",
       "translatePlaceholder": "Fordítandó szöveg…",
       "emptyDictionary": "Írj be egy szót fentre a definícióhoz.",
-      "emptyTranslate": "Írj be szöveget fentre a fordításhoz."
+      "emptyTranslate": "Írj be szöveget fentre a fordításhoz.",
+      "openInNewTab": "Megnyitás új lapon"
     },
     "toolbar": {
       "backToLibrary": "Vissza a könyvtárba",
@@ -1941,7 +2046,31 @@
       "zenMode": "Zen mód",
       "toggleSidebar": "Oldalsáv ki/be",
       "fullscreen": "Teljes képernyő",
-      "exitFullscreen": "Kilépés a teljes képernyőből"
+      "exitFullscreen": "Kilépés a teljes képernyőből",
+      "inlineDrawOff": "Rajzolás leállítása",
+      "inlineDrawOn": "Gyors rajz az oldalra",
+      "rectToAi": "Kivágás MI-hez",
+      "customize": "Eszköztár testreszabása",
+      "customizeTitle": "Eszköztár testreszabása",
+      "customizeHint": "Húzd az ikonokat a bal / közép / jobb zónák és a ⋮ menü között. A palettáról húzva adhatsz hozzá, visszahúzva eltávolíthatsz.",
+      "customizeDone": "Kész",
+      "customizeReset": "Alaphelyzet",
+      "customizePalette": "Elérhető ikonok",
+      "customizeDropHere": "Húzz ide ikonokat",
+      "customizePaletteEmpty": "Minden ikon el van helyezve. Húzz ide egyet az eltávolításhoz.",
+      "zoneLeft": "Bal",
+      "zoneCenter": "Közép",
+      "zoneRight": "Jobb",
+      "zoneOverflow": "Továbbiak menü (⋮)",
+      "bookTitle": "Könyv címe",
+      "pageNav": "Oldalnavigáció",
+      "readingTracker": "Olvasáskövető",
+      "focusTimer": "Fókusz időzítő",
+      "readerThemeShort": "Téma",
+      "separator": "Elválasztó",
+      "addSeparator": "Elválasztó",
+      "iconPadding": "Ikon-térköz",
+      "dragHeight": "Húzd a magasság állításához"
     },
     "bookmarks": {
       "addAt": "{{page}}. oldal megjelölése",
@@ -1999,7 +2128,8 @@
       "savedToVocab": "Mentve a szótárba",
       "undo": "Visszavonás",
       "share": "Megosztás…",
-      "sendToChat": "Küldés AI csevegésre"
+      "sendToChat": "Küldés AI csevegésre",
+      "addToVocab": "Hozzáadás a szókincshez"
     },
     "aiChat": {
       "title": "AI chat",
@@ -2021,7 +2151,7 @@
       "newConversationFailed": "Nem sikerült új beszélgetést indítani. Ellenőrizd a kapcsolatot, és próbáld újra.",
       "resumeSummary": "Foglald össze, hol tartottam (o. {{page}})",
       "resumeSummaryPrompt": "Foglald össze a könyv eddig elolvasott részét, a(z) {{page}}. oldalig. Emeld ki a fő gondolatokat és azok kapcsolódását, hogy folytatni tudjam ott, ahol abbahagytam.",
-      "pagesContextNote": "A szövegréteg nélküli oldalak képként mennek; a szöveges oldalakon lévő ábrák nem csatolódnak automatikusan – kapcsold be a „képként küldés”-t az oldalválasztóban, ha kellenek.",
+      "pagesContextNote": "A szövegréteg nélküli oldalak képként mennek; a szöveges oldalakon lévő ábrák nem csatolódnak automatikusan, kapcsold be a „képként küldés”-t az oldalválasztóban, ha kellenek.",
       "noConversationsForDoc": "Még nincs beszélgetés erről a könyvről.",
       "loadingConversation": "Betöltés…",
       "signInRequired": "Az olvasó AI chat használatához jelentkezz be.",
@@ -2036,6 +2166,19 @@
       "pickPagesEmpty": "Koppints egy oldalra a hozzáadáshoz",
       "pickPagesSelected_one": "{{count}} oldal kiválasztva",
       "pickPagesSelected_other": "{{count}} oldal kiválasztva"
+    },
+    "comments": {
+      "close": "Megjegyzések bezárása",
+      "empty": "Még nincsenek megjegyzések",
+      "emptyHint": "Jelölj ki szöveget a dokumentumban megjegyzés hozzáadásához",
+      "title": "Megjegyzések"
+    },
+    "empty": {
+      "body": "Tölts fel egy könyvet vagy nyiss meg egy fájlt az olvasás megkezdéséhez, amit megnyitsz, megjelenik a könyvtáradban.",
+      "continue": "Olvasás folytatása",
+      "fromLibrary": "Könyvtárból",
+      "openFile": "Fájl megnyitása",
+      "title": "Nincs megnyitott könyv"
     }
   },
   "quizzes": {
@@ -2101,7 +2244,8 @@
       "kind": {
         "mcq4": "Feleletválasztós",
         "true_false": "Igaz / Hamis",
-        "short_answer": "Rövid válasz"
+        "short_answer": "Rövid válasz",
+        "multi_select": "Több helyes válasz"
       },
       "optionPlaceholder": "{{letter}} válasz",
       "markCorrect": "Helyesnek jelöl",
@@ -2119,8 +2263,10 @@
         "needAllOptions": "A(z) {{n}}. kérdéshez mind a négy válasz kitöltése szükséges.",
         "pickTrueFalse": "{{n}}. kérdés: válaszd ki, hogy Igaz vagy Hamis.",
         "needCorrectText": "A(z) {{n}}. kérdéshez helyes választ kell megadni.",
-        "saveFailed": "Nem sikerült menteni a kvízt."
-      }
+        "saveFailed": "Nem sikerült menteni a kvízt.",
+        "needCorrectAnswer": "{{n}}. kérdés: jelölj be legalább egy helyes választ."
+      },
+      "multiSelectHint": "Jelöld be az összes helyes opciót. A kitöltőknek mindet ki kell választaniuk."
     },
     "ai": {
       "generate": "Kérdések készítése mesterséges intelligenciával",
@@ -2161,7 +2307,10 @@
       "correct": "Helyes",
       "blank": "(üres)",
       "noQuestions": "Ehhez a kvízhez nincs kérdés.",
-      "yourAnswer": "Te válaszod:"
+      "yourAnswer": "Te válaszod:",
+      "previous": "Előző",
+      "skip": "Kihagyás",
+      "skipToFinishHint": "Ugrás a végére az eredmények megtekintéséhez."
     },
     "attemptReview": {
       "title": "Kitöltés áttekintése",

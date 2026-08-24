@@ -1,5 +1,5 @@
 -- ============================================================
--- Migration 00052: Spaces — public community / course hierarchy
+-- Migration 00052: Spaces, public community / course hierarchy
 --
 -- A nestable, multi-user "space" tree that covers BOTH university
 -- structure (BME org → VIK subspace → BSz1 course) AND subreddit-style
@@ -33,7 +33,7 @@ create table public.spaces (
   slug        text,
   description text,
   visibility  space_visibility not null default 'public',
-  -- Verified/official badge (e.g. the real BME). Admin-only — enforced
+  -- Verified/official badge (e.g. the real BME). Admin-only, enforced
   -- by protect_space_official() below; never self-grantable.
   official    boolean not null default false,
   created_at  timestamptz not null default now(),

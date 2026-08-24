@@ -14,7 +14,7 @@ alter table public.books
   add column authors text[] not null default '{}';
 
 -- Backfill: wrap each existing non-empty author as a single array
--- element. We deliberately DON'T split on commas — a stored value like
+-- element. We deliberately DON'T split on commas, a stored value like
 -- "Kosztolányi, Dezső" is one person, and splitting would corrupt it.
 -- Books that actually have multiple authors can be re-edited.
 update public.books

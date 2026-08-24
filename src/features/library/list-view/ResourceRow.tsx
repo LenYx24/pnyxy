@@ -179,7 +179,7 @@ export function ResourceRow({
           />
         </div>
 
-        {/* Icon — web globe / youtube glyph. */}
+        {/* Icon: web globe / youtube glyph. */}
         <div className="mr-2.5 flex h-8 w-7 shrink-0 items-center justify-center sm:h-9">
           <Icon size={density.icon + 4} className="text-sky-400" />
         </div>
@@ -199,7 +199,7 @@ export function ResourceRow({
           {t("library.resource.beta", { defaultValue: "Beta" })}
         </span>
 
-        {/* Menu — placed right after the name. */}
+        {/* Menu: placed right after the name. */}
         <div className="relative mr-2 shrink-0">
           <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
             <MenuItem
@@ -232,12 +232,12 @@ export function ResourceRow({
           </ContextMenu>
         </div>
 
-        {/* Size — n/a for resources. */}
+        {/* Size: n/a for resources. */}
         <span
           className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
           style={{ width: columnWidths.size }}
         >
-          —
+          -
         </span>
 
         {/* Date */}

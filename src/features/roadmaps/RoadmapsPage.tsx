@@ -130,7 +130,7 @@ export function RoadmapsPage() {
         </div>
       )}
 
-      {/* In-progress enrollments — always visible. */}
+      {/* In-progress enrollments: always visible. */}
       {inProgress.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
@@ -172,7 +172,7 @@ export function RoadmapsPage() {
         </section>
       )}
 
-      {/* Completed enrollments — collapsed by default to keep the list tidy. */}
+      {/* Completed enrollments: collapsed by default to keep the list tidy. */}
       {completed.length > 0 && (
         <section className="space-y-3">
           <button

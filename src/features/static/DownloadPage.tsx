@@ -207,7 +207,7 @@ export function DownloadPage() {
 
       {release && (
         <>
-          {/* Primary card — detected OS gets the spotlight */}
+          {/* Primary card: detected OS gets the spotlight */}
           {primaryPlatform && (
             <PlatformCard
               platform={primaryPlatform}
@@ -216,7 +216,7 @@ export function DownloadPage() {
             />
           )}
 
-          {/* Detected something we can't ship to (android/ios/unknown) — tell the user */}
+          {/* Detected something we can't ship to (android/ios/unknown): tell the user */}
           {!primaryPlatform && detectedOs === "android" && (
             <MobileNoticeCard os="android" />
           )}
@@ -224,7 +224,7 @@ export function DownloadPage() {
             <MobileNoticeCard os="ios" />
           )}
 
-          {/* Secondary grid — "other platforms" */}
+          {/* Secondary grid: "other platforms" */}
           <section className="space-y-3">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
               {primaryPlatform

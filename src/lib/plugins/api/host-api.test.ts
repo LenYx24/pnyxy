@@ -56,14 +56,14 @@ function build(perms: Permission[] = [], deliverEvent = vi.fn()) {
   return { api, dispose, storage, commands, notifications, hostEventBus, manifest: m };
 }
 
-describe("buildHostApi — app", () => {
+describe("buildHostApi - app", () => {
   it("exposes the app version verbatim", () => {
     const { api } = build();
     expect(api.app.version).toBe("1.2.3");
   });
 });
 
-describe("buildHostApi — storage", () => {
+describe("buildHostApi - storage", () => {
   it("requires the 'storage' permission", async () => {
     const { api } = build([]);
     await expect(api.storage.get("k")).rejects.toBeInstanceOf(
@@ -102,7 +102,7 @@ describe("buildHostApi — storage", () => {
   });
 });
 
-describe("buildHostApi — notifications", () => {
+describe("buildHostApi - notifications", () => {
   it("requires the 'notifications' permission", async () => {
     const { api } = build([]);
     await expect(api.notifications.show("hi")).rejects.toBeInstanceOf(
@@ -125,7 +125,7 @@ describe("buildHostApi — notifications", () => {
   });
 });
 
-describe("buildHostApi — commands", () => {
+describe("buildHostApi - commands", () => {
   it("requires the 'commands' permission for both register and execute", async () => {
     const { api } = build([]);
     await expect(api.commands.register("a", "A")).rejects.toBeInstanceOf(
@@ -161,7 +161,7 @@ describe("buildHostApi — commands", () => {
   });
 });
 
-describe("buildHostApi — events", () => {
+describe("buildHostApi - events", () => {
   it("requires events:reader for reader:page-change", async () => {
     const { api } = build([]);
     await expect(api.events.on("reader:page-change")).rejects.toBeInstanceOf(
@@ -222,7 +222,7 @@ describe("buildHostApi — events", () => {
   });
 });
 
-describe("buildHostApi — dispose", () => {
+describe("buildHostApi - dispose", () => {
   it("dispose unsubscribes every event subscription", async () => {
     const deliver = vi.fn();
     const { api, hostEventBus, dispose } = build(["events:book"], deliver);

@@ -1,10 +1,12 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Folder, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Folder, FolderOpen, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox, FloatingMenu, PromptModal } from "@/components/ui";
+import { useContextMenu } from "@/hooks/use-context-menu";
+import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { cn } from "@/lib/cn";
 import type { Folder as FolderType } from "@/types/database";
 
@@ -79,6 +81,29 @@ export function FolderCard({
     onNavigate(folder.id);
   };
 
+  const contextHandlers = useContextMenu((): ContextMenuEntry[] => [
+    {
+      id: "open",
+      label: t("library.actions.open"),
+      icon: FolderOpen,
+      onClick: () => onNavigate(folder.id),
+    },
+    {
+      id: "rename",
+      label: t("library.folderCard.rename"),
+      icon: Pencil,
+      onClick: () => setRenameOpen(true),
+    },
+    { id: "div-1", divider: true },
+    {
+      id: "delete",
+      label: t("library.folderCard.delete"),
+      icon: Trash2,
+      danger: true,
+      onClick: () => onDelete(folder.id),
+    },
+  ]);
+
   // Matches LibraryBookCard's content-visibility setup so the grid
   // skips layout/paint for offscreen folder tiles. Folders share the
   // book cover's 5:7 ratio and the same ~80px label block, so their
@@ -99,6 +124,7 @@ export function FolderCard({
           a label block underneath, so folder and book tiles are the
           same height in a mixed grid row. */}
       <div
+        {...contextHandlers}
         className={cn(
           "group relative",
           selected && "ring-2 ring-accent rounded-md",
@@ -128,7 +154,7 @@ export function FolderCard({
               className="text-accent/85 transition-transform group-hover:scale-[1.02]"
             />
 
-            {/* Selection checkbox — sits on the cover so it shows
+            {/* Selection checkbox: sits on the cover so it shows
                 cleanly on dark backgrounds, same as books. */}
             {onToggleSelect && (
               <div
@@ -148,7 +174,7 @@ export function FolderCard({
             )}
           </div>
 
-          {/* Info — same mt-2 / mt-1.5 + truncate as LibraryBookCard
+          {/* Info: same mt-2 / mt-1.5 + truncate as LibraryBookCard
               so heights line up to the pixel. */}
           <div className={cn("mt-2 min-w-0", compact && "mt-1.5")}>
             <h3
@@ -170,7 +196,7 @@ export function FolderCard({
           </div>
         </div>
 
-        {/* 3-dot menu — sits over the cover. */}
+        {/* 3-dot menu, sits over the cover. */}
         <div className="absolute right-1.5 top-1.5">
           <button
             ref={triggerRef}

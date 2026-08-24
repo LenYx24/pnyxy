@@ -5,7 +5,6 @@ import { ArrowLeft, BookOpen, Pencil } from "lucide-react";
 import { Button, PromptModal } from "@/components/ui";
 import { BookPageContext } from "./BookPageContext";
 import { BookPageSidebar } from "./BookPageSidebar";
-import { PageTracker } from "./PageTracker";
 import { useBookData } from "./useBookData";
 import { trackRecentlyViewed } from "@/features/browse/recently-viewed";
 import { bookIdSegment, parseBookIdSegment } from "@/lib/slugify";
@@ -137,15 +136,6 @@ export function BookPage() {
                 )}
               </div>
             </div>
-
-            <PageTracker
-              docId={bookId}
-              pageCount={
-                data.source === "catalog"
-                  ? data.book.page_count ?? null
-                  : data.book.page_count ?? null
-              }
-            />
 
             {/* pass slug-suffixed segment so sub-tab clicks avoid a redirect bounce */}
             <BookPageSidebar bookId={rawBookId ?? bookId} />

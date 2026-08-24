@@ -10,7 +10,7 @@ export function HeroSection() {
 
   return (
     <section className="relative flex min-h-screen items-center overflow-hidden px-6 pt-24 pb-16">
-      {/* Scattered geometric accents — asymmetric, off to the side. */}
+      {/* Scattered geometric accents: asymmetric, off to the side. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <span className="absolute left-[7%] top-[28%] size-1.5 rounded-full bg-accent" />
         <span className="absolute left-[12%] top-[32%] size-1 rounded-full bg-accent/50" />

@@ -3,7 +3,7 @@
 --
 -- One row per (user_id, question_id) tracks the user's FSRS state for
 -- that question. Written client-side via ts-fsrs after each grading.
--- No server-side algorithm — this table is just persistence.
+-- No server-side algorithm, this table is just persistence.
 --
 -- RLS: users can only read/write their own reviews.
 -- ============================================================

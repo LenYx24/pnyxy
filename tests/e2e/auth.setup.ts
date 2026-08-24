@@ -8,7 +8,7 @@ import { dirname } from "node:path";
 // tests don't pay the sign-in cost themselves.
 //
 // Credentials come from .env.test (gitignored). When that file is
-// absent the setup test is skipped — playwright.config.ts also gates
+// absent the setup test is skipped, playwright.config.ts also gates
 // the authed projects on the same env vars, so the suite degrades
 // gracefully to just the public smoke tests.
 
@@ -23,7 +23,7 @@ setup("sign in test user and persist session", async ({ page }) => {
     "TEST_USER_EMAIL / TEST_USER_PASSWORD not set in .env.test",
   );
 
-  // Ensure the destination directory exists — Playwright won't create
+  // Ensure the destination directory exists, Playwright won't create
   // nested directories for storageState writes.
   mkdirSync(dirname(STORAGE_STATE), { recursive: true });
 
@@ -43,7 +43,7 @@ setup("sign in test user and persist session", async ({ page }) => {
   // Successful sign-in routes through /auth/welcome before landing
   // elsewhere; either is fine, but waiting for the URL to change off
   // /auth proves the session was accepted. If credentials are wrong
-  // we stay on /auth with an error banner — the timeout below catches
+  // we stay on /auth with an error banner, the timeout below catches
   // that case and surfaces it as a setup failure.
   await page.waitForURL((url) => !url.pathname.startsWith("/auth/forgot") && !url.pathname.startsWith("/auth/reset") && url.pathname !== "/auth", {
     timeout: 15_000,

@@ -7,6 +7,7 @@ import { PublicLayout } from "@/components/layout/PublicLayout";
 import { isTauri } from "@/lib/tauri";
 import { RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { lazyWithRetry as lazy } from "@/lib/lazy-with-retry";
+import { FeatureGate } from "@/components/FeatureGate";
 
 // Eager routes: on the first-paint path, keep them in the main bundle
 import { LandingPage } from "@/features/landing/LandingPage";
@@ -38,6 +39,11 @@ const OverviewTab = lazy(() =>
 const LearnHubTab = lazy(() =>
   import("@/features/book/tabs/LearnHubTab").then((m) => ({
     default: m.LearnHubTab,
+  })),
+);
+const ReadingTab = lazy(() =>
+  import("@/features/book/tabs/ReadingTab").then((m) => ({
+    default: m.ReadingTab,
   })),
 );
 const LearnMethodPlaceholder = lazy(() =>
@@ -342,33 +348,34 @@ export const router = createBrowserRouter([
         element: <BookPage />,
         children: [
           { index: true, element: <OverviewTab /> },
-          { path: "learn", element: <LearnHubTab /> },
-          { path: "learn/:methodSlug", element: <LearnMethodPlaceholder /> },
-          { path: "discuss", element: <DiscussTab /> },
-          { path: "notes", element: <NotesTab /> },
-          { path: "bookmarks", element: <BookmarksTab /> },
-          { path: "whiteboards", element: <WhiteboardsTab /> },
+          { path: "reading", element: <ReadingTab /> },
+          { path: "learn", element: <FeatureGate feature="learnHub"><LearnHubTab /></FeatureGate> },
+          { path: "learn/:methodSlug", element: <FeatureGate feature="learnHub"><LearnMethodPlaceholder /></FeatureGate> },
+          { path: "discuss", element: <FeatureGate feature="forum"><DiscussTab /></FeatureGate> },
+          { path: "notes", element: <FeatureGate feature="notes"><NotesTab /></FeatureGate> },
+          { path: "bookmarks", element: <FeatureGate feature="bookmarks"><BookmarksTab /></FeatureGate> },
+          { path: "whiteboards", element: <FeatureGate feature="whiteboard"><WhiteboardsTab /></FeatureGate> },
           { path: "resources", element: <ResourcesTab /> },
-          { path: "exams", element: <ExamsTab /> },
+          { path: "exams", element: <FeatureGate feature="quizzes"><ExamsTab /></FeatureGate> },
         ],
       },
       // full-screen book-scoped chat (separate from the book layout above)
       { path: "books/:bookId/chat", element: <BookChatPage /> },
       { path: "library", element: <LibraryPage /> },
-      { path: "notes/:noteId", element: <NotePage /> },
+      { path: "notes/:noteId", element: <FeatureGate feature="notes"><NotePage /></FeatureGate> },
       { path: "resources/:resourceId", element: <ResourceViewerPage /> },
       { path: "workspace", element: <Navigate to="/library" replace /> },
       { path: "streaks", element: <StreaksPage /> },
       { path: "plans/new", element: <PlanDetailPage /> },
       { path: "plans/:planId", element: <PlanDetailPage /> },
-      { path: "roadmaps", element: <RoadmapsPage /> },
-      { path: "roadmaps/:roadmapId", element: <RoadmapDetailPage /> },
-      { path: "roadmaps/:roadmapId/edit", element: <RoadmapEditorPage /> },
-      { path: "forum", element: <ForumPage /> },
-      { path: "forum/explore", element: <ForumExplorePage /> },
-      { path: "forum/c/:slug", element: <CommunityPage /> },
-      { path: "forum/c/:slug/p/:postId", element: <PostPage /> },
-      { path: "forum/c/:slug/new", element: <PostComposer /> },
+      { path: "roadmaps", element: <FeatureGate feature="roadmaps"><RoadmapsPage /></FeatureGate> },
+      { path: "roadmaps/:roadmapId", element: <FeatureGate feature="roadmaps"><RoadmapDetailPage /></FeatureGate> },
+      { path: "roadmaps/:roadmapId/edit", element: <FeatureGate feature="roadmaps"><RoadmapEditorPage /></FeatureGate> },
+      { path: "forum", element: <FeatureGate feature="forum"><ForumPage /></FeatureGate> },
+      { path: "forum/explore", element: <FeatureGate feature="forum"><ForumExplorePage /></FeatureGate> },
+      { path: "forum/c/:slug", element: <FeatureGate feature="forum"><CommunityPage /></FeatureGate> },
+      { path: "forum/c/:slug/p/:postId", element: <FeatureGate feature="forum"><PostPage /></FeatureGate> },
+      { path: "forum/c/:slug/new", element: <FeatureGate feature="forum"><PostComposer /></FeatureGate> },
       { path: "reader", element: <ReaderPage /> },
       { path: "reader/:bookId", element: <ReaderPage /> },
       {
@@ -382,7 +389,7 @@ export const router = createBrowserRouter([
           { path: "ai", element: <AiTab /> },
           { path: "organizations", element: <OrganizationsTab /> },
           { path: "tags", element: <TagsTab /> },
-          { path: "plugins", element: <PluginsTab /> },
+          { path: "plugins", element: <FeatureGate feature="plugins"><PluginsTab /></FeatureGate> },
           { path: "shortcuts", element: <ShortcutsTab /> },
           { path: "feedback", element: <FeedbackTab /> },
           { path: "about", element: <AboutTab /> },
@@ -390,21 +397,21 @@ export const router = createBrowserRouter([
       },
       { path: "profile", element: <ProfilePage /> },
       { path: "admin", element: <AdminPage /> },
-      { path: "vocabulary", element: <VocabularyPage /> },
-      { path: "spaces", element: <SpacesPage /> },
-      { path: "spaces/:spaceId", element: <CourseSpacePage /> },
-      { path: "spaces/:spaceId/gallery", element: <PromptGalleryPage /> },
-      { path: "gallery", element: <PromptGalleryPage /> },
-      { path: "whiteboards/:whiteboardId", element: <WhiteboardPage /> },
-      { path: "quizzes", element: <QuizzesPage /> },
-      { path: "quizzes/review", element: <QuizReviewPage /> },
-      { path: "quizzes/new", element: <QuizEditorPage /> },
-      { path: "quizzes/:quizId", element: <QuizDetailPage /> },
-      { path: "quizzes/:quizId/edit", element: <QuizEditorPage /> },
-      { path: "quizzes/:quizId/take", element: <QuizTakePage /> },
+      { path: "vocabulary", element: <FeatureGate feature="vocabulary"><VocabularyPage /></FeatureGate> },
+      { path: "spaces", element: <FeatureGate feature="spaces"><SpacesPage /></FeatureGate> },
+      { path: "spaces/:spaceId", element: <FeatureGate feature="spaces"><CourseSpacePage /></FeatureGate> },
+      { path: "spaces/:spaceId/gallery", element: <FeatureGate feature="spaces"><PromptGalleryPage /></FeatureGate> },
+      { path: "gallery", element: <FeatureGate feature="spaces"><PromptGalleryPage /></FeatureGate> },
+      { path: "whiteboards/:whiteboardId", element: <FeatureGate feature="whiteboard"><WhiteboardPage /></FeatureGate> },
+      { path: "quizzes", element: <FeatureGate feature="quizzes"><QuizzesPage /></FeatureGate> },
+      { path: "quizzes/review", element: <FeatureGate feature="quizzes"><QuizReviewPage /></FeatureGate> },
+      { path: "quizzes/new", element: <FeatureGate feature="quizzes"><QuizEditorPage /></FeatureGate> },
+      { path: "quizzes/:quizId", element: <FeatureGate feature="quizzes"><QuizDetailPage /></FeatureGate> },
+      { path: "quizzes/:quizId/edit", element: <FeatureGate feature="quizzes"><QuizEditorPage /></FeatureGate> },
+      { path: "quizzes/:quizId/take", element: <FeatureGate feature="quizzes"><QuizTakePage /></FeatureGate> },
       {
         path: "quizzes/:quizId/attempts/:attemptId",
-        element: <QuizAttemptReviewPage />,
+        element: <FeatureGate feature="quizzes"><QuizAttemptReviewPage /></FeatureGate>,
       },
       { path: "about", element: <AboutPage /> },
       { path: "privacy", element: <PrivacyPage /> },
@@ -412,7 +419,7 @@ export const router = createBrowserRouter([
       { path: "help", element: <HelpPage /> },
       { path: "tutorial", element: <TutorialPage /> },
       { path: "download", element: <DownloadPage /> },
-      { path: "leaderboards", element: <LeaderboardsPage /> },
+      { path: "leaderboards", element: <FeatureGate feature="leaderboards"><LeaderboardsPage /></FeatureGate> },
       { path: "chat", element: <ChatPage /> },
     ],
   },

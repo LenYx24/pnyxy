@@ -52,7 +52,7 @@ export function PricingSection() {
           </ul>
         </div>
 
-        {/* Premium — highlighted */}
+        {/* Premium: highlighted */}
         <div className="relative flex flex-col overflow-hidden rounded-xl border border-accent/40 bg-bg-secondary p-6">
           {/* faint accent top-glow */}
           <div
@@ -79,6 +79,13 @@ export function PricingSection() {
                 {t("landing.pricing.premium.priceSuffix")}
               </span>
             </div>
+            {/* explicit "this tier costs money" note so nobody mistakes
+                Premium for another free plan */}
+            <span className="mt-2 inline-flex w-fit items-center rounded-full border border-accent/40 bg-accent/10 px-2.5 py-0.5 text-2xs font-semibold uppercase tracking-wide text-accent">
+              {t("landing.pricing.premium.paidNote", {
+                defaultValue: "Paid plan, not free",
+              })}
+            </span>
             <p className="mt-2 text-xs text-text-muted">
               {t("landing.pricing.premium.tagline")}
             </p>

@@ -55,7 +55,7 @@ export function AnnotationMenuExplainPanel({ selectedText, onBack }: Props) {
       `Reply in ${replyLang}.`,
       "First sentence: a plain-language gloss / translation if the passage is in another language.",
       "Then: context, definitions of key terms, and why this matters.",
-      "Stay grounded in the passage — do not invent facts that aren't in it.",
+      "Stay grounded in the passage, do not invent facts that aren't in it.",
     ].join(" ");
 
     const userPrompt = bookTitle

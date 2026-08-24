@@ -3,7 +3,7 @@
 -- Reading phases / semesters.
 --
 -- A `reading_plan` is a time-boxed goal with one or more
--- `reading_plan_items` — a plan can target a single book, a page
+-- `reading_plan_items`, a plan can target a single book, a page
 -- range, multiple books, or mixed ranges across books.
 --
 -- Progress is computed on the fly from `reading_progress`; this

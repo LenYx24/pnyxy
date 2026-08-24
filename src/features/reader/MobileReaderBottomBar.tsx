@@ -7,6 +7,7 @@ import {
   Search,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useFeatures } from "@/lib/use-features";
 
 interface MobileReaderBottomBarProps {
   /** Slide off-screen when chrome is hidden (matches the top toolbar). */
@@ -34,6 +35,7 @@ export function MobileReaderBottomBar({
   onToggleAiChat,
 }: MobileReaderBottomBarProps) {
   const { t } = useTranslation();
+  const features = useFeatures();
 
   const items = [
     {
@@ -50,20 +52,28 @@ export function MobileReaderBottomBar({
       onClick: onToggleSearch,
       active: false,
     },
-    {
-      key: "bookmark" as const,
-      icon: BookmarkPlus,
-      label: t("reader.bottomBar.bookmark"),
-      onClick: onBookmark,
-      active: false,
-    },
-    {
-      key: "comments" as const,
-      icon: MessageSquare,
-      label: t("reader.bottomBar.comments"),
-      onClick: onToggleComments,
-      active: activePanel === "comments",
-    },
+    ...(features.bookmarks
+      ? [
+          {
+            key: "bookmark" as const,
+            icon: BookmarkPlus,
+            label: t("reader.bottomBar.bookmark"),
+            onClick: onBookmark,
+            active: false,
+          },
+        ]
+      : []),
+    ...(features.comments
+      ? [
+          {
+            key: "comments" as const,
+            icon: MessageSquare,
+            label: t("reader.bottomBar.comments"),
+            onClick: onToggleComments,
+            active: activePanel === "comments",
+          },
+        ]
+      : []),
     {
       key: "ai" as const,
       icon: BotMessageSquare,

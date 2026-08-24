@@ -17,7 +17,7 @@
 -- but matches request-cap denials exactly and is the honest best we
 -- can do without an event log. Tier is the user's CURRENT tier (no
 -- historical tier is stored), so a recent up/downgrade re-scores past
--- days — acceptable for a trend dashboard.
+-- days, acceptable for a trend dashboard.
 -- ============================================================
 
 -- ── 1. Daily: active users, how many bumped the ceiling, avg usage ──

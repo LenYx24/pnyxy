@@ -393,7 +393,7 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
               </p>
               <p className="text-center text-xs text-text-muted">
                 Every PDF inside the folder (and its subfolders) is shown as
-                a tree. Everything is ticked by default — uncheck the ones
+                a tree. Everything is ticked by default, uncheck the ones
                 you don't want, then click Import.
               </p>
               {scanError && (
@@ -454,7 +454,7 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
                   <AlertTriangle size={16} className="mt-0.5 shrink-0 text-danger" />
                   <p className="text-xs text-danger">
                     The selected files exceed your remaining storage (
-                    {storageUsage ? formatBytes(remainingBytes) : "—"} left).
+                    {storageUsage ? formatBytes(remainingBytes) : "-"} left).
                     Uncheck some files or upgrade to Premium.
                   </p>
                 </div>

@@ -12,7 +12,7 @@ const MAX_QUESTIONS = 15;
 
 const SYSTEM_PROMPT = `You read an exam paper and extract its distinct questions for a student practice session.
 
-Output ONLY valid JSON in this exact shape — no prose, no markdown fences, no commentary:
+Output ONLY valid JSON in this exact shape, no prose, no markdown fences, no commentary:
 
 { "questions": [ "question 1 text", "question 2 text", … ] }
 

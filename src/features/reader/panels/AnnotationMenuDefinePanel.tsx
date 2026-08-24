@@ -92,29 +92,6 @@ export function AnnotationMenuDefinePanel({
         if (cancelled) return;
         if (entry) {
           setDefinition(entry);
-          // Silently save to vocabulary for later review. Only capture
-          // on a successful single-word lookup, long-phrase "defines"
-          // would pollute the flashcard deck.
-          if (!word.includes(" ")) {
-            const primaryDef =
-              entry.meanings[0]?.definitions[0]?.definition ?? "";
-            const activeDoc = useReaderStore.getState().getActiveDoc();
-            try {
-              const saved = await captureFromLookup({
-                word: entry.word,
-                definition: primaryDef,
-                contextSentence:
-                  selectedText.length > word.length ? selectedText : "",
-                sourceDocumentId: activeDoc?.meta.id ?? null,
-                sourceTitle:
-                  activeDoc?.customTitle ?? activeDoc?.meta.title ?? null,
-                sourcePage: activeDoc?.currentPage ?? null,
-              });
-              if (!cancelled) setCapturedVocabId(saved.id);
-            } catch {
-              // Capture is best-effort, surface nothing to the user.
-            }
-          }
         } else {
           setError("not_found");
         }
@@ -127,7 +104,39 @@ export function AnnotationMenuDefinePanel({
     return () => {
       cancelled = true;
     };
-  }, [selectedText, captureFromLookup]);
+  }, [selectedText]);
+
+  // Explicit save to the vocabulary deck. Previously this fired silently on any
+  // single-word lookup; now the user opts in so words aren't captured behind
+  // their back (and multi-word selections can be saved too if they choose).
+  const [capturing, setCapturing] = useState(false);
+  const handleAddToVocab = useCallback(async () => {
+    if (capturing) return;
+    // Works with OR without a dictionary hit: fall back to the raw
+    // selection so the user can always save a word and define it later.
+    const word = (definition?.word ?? selectedText).trim();
+    if (!word) return;
+    setCapturing(true);
+    const primaryDef =
+      definition?.meanings[0]?.definitions[0]?.definition ?? "";
+    const activeDoc = useReaderStore.getState().getActiveDoc();
+    try {
+      const saved = await captureFromLookup({
+        word,
+        definition: primaryDef,
+        contextSentence:
+          selectedText.trim().length > word.length ? selectedText : "",
+        sourceDocumentId: activeDoc?.meta.id ?? null,
+        sourceTitle: activeDoc?.customTitle ?? activeDoc?.meta.title ?? null,
+        sourcePage: activeDoc?.currentPage ?? null,
+      });
+      setCapturedVocabId(saved.id);
+    } catch {
+      // Best-effort; surface nothing.
+    } finally {
+      setCapturing(false);
+    }
+  }, [definition, capturing, selectedText, captureFromLookup]);
 
   const handleUndoCapture = useCallback(async () => {
     if (!capturedVocabId) return;
@@ -230,6 +239,17 @@ export function AnnotationMenuDefinePanel({
               {t("reader.annotationMenu.undo")}
             </button>
           </div>
+        ) : !defining && selectedText.trim() ? (
+          <button
+            className="flex items-center gap-1.5 rounded bg-accent/15 px-2 py-1 text-2xs font-medium text-accent transition-colors hover:bg-accent/25 disabled:opacity-40 cursor-pointer"
+            onClick={handleAddToVocab}
+            disabled={capturing}
+          >
+            <BookOpen size={12} />
+            {t("reader.annotationMenu.addToVocab", {
+              defaultValue: "Add to vocabulary",
+            })}
+          </button>
         ) : (
           <span />
         )}

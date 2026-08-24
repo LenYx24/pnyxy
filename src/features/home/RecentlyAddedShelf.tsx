@@ -79,7 +79,7 @@ function RecentlyAddedCard({
     <button
       type="button"
       onClick={onClick}
-      title={`${title}${author ? " — " + author : ""}`}
+      title={`${title}${author ? " - " + author : ""}`}
       className={cn(
         "group flex w-full flex-col text-left transition-transform",
         "cursor-pointer focus:outline-none",
@@ -110,7 +110,7 @@ function RecentlyAddedCard({
           {title}
         </h3>
         <p className="truncate text-2xs leading-tight text-text-muted">
-          {author || "—"}
+          {author || "-"}
         </p>
       </div>
     </button>

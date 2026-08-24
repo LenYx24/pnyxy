@@ -134,7 +134,7 @@ const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
 // Quota reference model when nothing is pinned (the model the auto-route bills
 // first). Reader Q&A (a doc is open → grounding off) bills flash-lite; standalone
 // chat (no doc → web grounding on) bills gemini-3-flash-preview. The bar has to
-// read whichever row the proxy actually records or it sits permanently at 0 —
+// read whichever row the proxy actually records or it sits permanently at 0,
 // which is exactly why it looked "broken" on the standalone chat page.
 const QUOTA_AUTO_DEFAULT_MODEL = "gemini-2.5-flash-lite";
 const QUOTA_AUTO_GROUNDED_MODEL = "gemini-3-flash-preview";
@@ -197,7 +197,7 @@ function QuotaBar({
       title={t("chat.composer.quota.tooltip", {
         defaultValue: isPinned
           ? "Today's free-tier {{unit}} used for {{model}}"
-          : "Today's free-tier {{unit}} used — auto-route default ({{model}})",
+          : "Today's free-tier {{unit}} used, auto-route default ({{model}})",
         unit,
         model: activeModel,
       })}
@@ -660,7 +660,7 @@ export const ChatComposer = forwardRef<
       }),
       body: t("chat.composer.wholeBook.confirmBody", {
         defaultValue:
-          "All {{count}} pages of this document will be attached to the next message. Large books eat through your daily AI quota fast — review the selection in the TOC if unsure.",
+          "All {{count}} pages of this document will be attached to the next message. Large books eat through your daily AI quota fast, review the selection in the TOC if unsure.",
         count: activeDoc.totalPages,
       }),
       confirmLabel: t("chat.composer.wholeBook.confirmLabel", {
@@ -693,7 +693,7 @@ export const ChatComposer = forwardRef<
     configuredProviders.includes("pnyxy");
   // Predict the billed model the SAME way the proxy routes it. Grounding
   // (web search → gemini-3) is on only when the turn carries NO document
-  // context — and the proxy keys that off the active conversation's
+  // context, and the proxy keys that off the active conversation's
   // source_doc_title, NOT the reader's open doc. Mirror that signal so
   // the bar tracks the bucket the proxy actually records; fall back to
   // the reader doc only when there's no conversation yet (a fresh
@@ -984,7 +984,7 @@ export const ChatComposer = forwardRef<
         }}
       />
       {isMobile ? (
-        /* Mobile: Gemini-style single row — "+" menu (attach + secondary
+        /* Mobile: Gemini-style single row, "+" menu (attach + secondary
            actions) on the left, a compact model square + mic/send on the
            right. Everything else lives behind the "+" so the common case is
            just type-and-send. */
@@ -1246,7 +1246,7 @@ export const ChatComposer = forwardRef<
             aria-pressed={reasoning}
             title={t("chat.composer.reasoning.button", {
               defaultValue:
-                "Reasoning mode — routes through OpenAI o3-mini for step-by-step math and logic. Slower and ~7× the per-token cost of GPT-4o-mini.",
+                "Reasoning mode, routes through OpenAI o3-mini for step-by-step math and logic. Slower and ~7× the per-token cost of GPT-4o-mini.",
             })}
             aria-label={t("chat.composer.reasoning.button", {
               defaultValue: "Reasoning mode",

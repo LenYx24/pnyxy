@@ -56,7 +56,7 @@ export function InlineAiPagePicker({ onClose }: { onClose: () => void }) {
       }),
       body: t("chat.composer.wholeBook.confirmBody", {
         defaultValue:
-          "All {{count}} pages of this document will be attached to the next message. Large books eat through your daily AI quota fast — review the selection in the TOC if unsure.",
+          "All {{count}} pages of this document will be attached to the next message. Large books eat through your daily AI quota fast, review the selection in the TOC if unsure.",
         count: totalPages,
       }),
       confirmLabel: t("chat.composer.wholeBook.confirmLabel", {

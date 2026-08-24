@@ -21,7 +21,7 @@
 --   4. Reissue the three RPCs:
 --        - check_and_record_ai_usage_user(p_tokens, p_model)
 --        - check_and_record_ai_usage_anon(p_ip_hash, p_tokens, p_model)
---        - get_my_ai_usage_today() — now SETOF rows, one per model
+--        - get_my_ai_usage_today(): now SETOF rows, one per model
 -- ============================================================
 
 -- ── 1. Column + PK swap ───────────────────────────────────────
@@ -43,7 +43,7 @@ ALTER TABLE ai_usage_anon ADD PRIMARY KEY (ip_hash, usage_date, model);
 -- ── 2. Per-model limits helper ────────────────────────────────
 --
 -- Single place to bump quotas. Anon (IP-bucketed) limits are
--- always small no matter the model — anon users can't sign costs
+-- always small no matter the model, anon users can't sign costs
 -- away from us, so we don't want a generous default landing on
 -- abuse traffic.
 
@@ -241,7 +241,7 @@ $$;
 
 -- ── 4. Read-only usage for the current user ───────────────────
 --
--- Now returns SETOF — one row per model the user has touched today,
+-- Now returns SETOF, one row per model the user has touched today,
 -- plus a synthetic row for every known model the user *hasn't* hit
 -- yet (so the settings UI can render zero-usage bars for the full
 -- catalog without a separate "what models exist" RPC). The set of

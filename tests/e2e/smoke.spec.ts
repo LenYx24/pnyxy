@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 // Smoke suite: cheap "did anything break at the bundle/route/layout
-// level" coverage. Deliberately avoids signed-in flows — those need
+// level" coverage. Deliberately avoids signed-in flows, those need
 // Supabase fixtures we don't have yet, and the unauthenticated
 // surface already catches the regressions we hit most often (broken
 // build, missing route, horizontal overflow on mobile, etc.).
@@ -9,7 +9,7 @@ import { test, expect } from "@playwright/test";
 test.describe("public pages render", () => {
   test("landing page loads and shows hero content", async ({ page }) => {
     await page.goto("/landing");
-    // Landing should render *some* h1 — the actual copy may change,
+    // Landing should render *some* h1, the actual copy may change,
     // but the page should never be blank. visible: true filters out
     // off-screen / hidden headings.
     await expect(page.locator("h1").first()).toBeVisible();
@@ -51,7 +51,7 @@ test.describe("visual regression", () => {
 
   test("auth card baseline", async ({ page }) => {
     await page.goto("/auth");
-    // Screenshot the auth card itself, not the page — the
+    // Screenshot the auth card itself, not the page, the
     // MeshBackground is canvas-generated decoration that won't be
     // pixel-stable across runs. The card is the user-facing
     // surface we actually care about regressing.
@@ -61,7 +61,7 @@ test.describe("visual regression", () => {
 
   test("appearance tab baseline", async ({ page }) => {
     await page.goto("/settings/appearance");
-    // Wait for the lazy chunk to settle — themes list renders
+    // Wait for the lazy chunk to settle, themes list renders
     // asynchronously and a screenshot snapped mid-render would
     // pin an incomplete baseline.
     await expect(page.locator("textarea").first()).toBeVisible();
@@ -74,7 +74,7 @@ test.describe("layout sanity", () => {
   test("mobile landing has no horizontal overflow", async ({ page }) => {
     // The mobile project sets the viewport to Pixel 7 (412×915).
     // A regression that introduces a `min-w-[420px]` somewhere would
-    // bump scrollWidth past innerWidth — that's exactly the kind of
+    // bump scrollWidth past innerWidth, that's exactly the kind of
     // bug screenshots-on-a-laptop miss.
     await page.goto("/landing");
     const { scrollWidth, innerWidth } = await page.evaluate(() => ({
@@ -87,7 +87,7 @@ test.describe("layout sanity", () => {
 
   test("library route boots without throwing", async ({ page }) => {
     // We don't assert on signed-in content (no fixtures yet), but we
-    // do assert the route resolves — i.e. either the library renders
+    // do assert the route resolves, i.e. either the library renders
     // or the app gracefully redirects to /auth. A runtime error in
     // the lazy chunk would surface as a blank screen with the route
     // error boundary; we'd fail to find any h1/h2 on the page.

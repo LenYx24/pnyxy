@@ -116,7 +116,9 @@ function NoteEditor({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onBlur={save}
-          placeholder={t("book.notes.titlePlaceholder")}
+          placeholder={t("book.notes.titlePlaceholder", {
+            defaultValue: "Note title…",
+          })}
           className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-1 text-sm font-semibold text-text-primary outline-none placeholder:text-text-muted focus:border-glass-border focus:bg-bg-primary/50"
         />
         <button
@@ -141,7 +143,9 @@ function NoteEditor({
         value={content}
         onChange={(e) => setContent(e.target.value)}
         onBlur={save}
-        placeholder={t("book.notes.contentPlaceholder")}
+        placeholder={t("book.notes.contentPlaceholder", {
+          defaultValue: "Write your note here… Markdown is supported.",
+        })}
         rows={6}
         className="block w-full resize-y rounded border border-glass-border bg-bg-primary/50 px-2 py-1.5 text-sm text-text-secondary outline-none placeholder:text-text-muted focus:border-accent/60"
       />
@@ -418,14 +422,19 @@ export function NotesTab() {
                     "group flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg/40 px-3 py-2 transition-colors hover:bg-glass-hover",
                   )}
                 >
-                  <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setEditingId(n.id)}
+                    className="min-w-0 flex-1 cursor-pointer text-left"
+                    aria-label={t("common.open", { defaultValue: "Open" })}
+                  >
                     <p className="truncate text-sm font-medium text-text-primary">
                       {n.title || t("book.notes.untitled")}
                     </p>
                     <p className="line-clamp-2 text-xs text-text-muted">
                       {n.content || t("book.notes.emptyNote")}
                     </p>
-                  </div>
+                  </button>
                   <span className="shrink-0 text-2xs text-text-muted">
                     {formatDate(n.updatedAt)}
                   </span>

@@ -38,6 +38,7 @@ import {
   Type,
   GripVertical,
   Shuffle,
+  CheckSquare,
 } from "lucide-react";
 import { Button, Checkbox, Toggle } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -48,6 +49,7 @@ import type {
   QuizQuestionKind,
   QuizVisibility,
 } from "@/types/quiz";
+import { parseCorrectIndices } from "@/types/quiz";
 import { AiGeneratePanel } from "./AiGeneratePanel";
 
 function emptyQuestion(kind: QuizQuestionKind = "mcq4"): QuizQuestionDraft {
@@ -59,6 +61,7 @@ function emptyQuestion(kind: QuizQuestionKind = "mcq4"): QuizQuestionDraft {
     option_d: "",
     correct_index: 0,
     correct_text: "",
+    correct_indices: [],
     explanation: null,
   };
   if (kind === "true_false") {
@@ -151,7 +154,12 @@ export function QuizEditorPage() {
                 option_c: q.option_c ?? "",
                 option_d: q.option_d ?? "",
                 correct_index: q.correct_index ?? 0,
-                correct_text: q.correct_text ?? "",
+                correct_text:
+                  q.kind === "multi_select" ? "" : (q.correct_text ?? ""),
+                correct_indices:
+                  q.kind === "multi_select"
+                    ? parseCorrectIndices(q.correct_text)
+                    : [],
                 explanation: q.explanation,
               }),
             )
@@ -237,7 +245,7 @@ export function QuizEditorPage() {
     if (drafts.length === 0) return;
     // Seed the title from the generation source (book title / pasted
     // topic) so the happy path can Save without the user hand-typing a
-    // title — but never clobber one they've already entered.
+    // title, but never clobber one they've already entered.
     if (sourceTitle && !title.trim()) {
       setTitle(sourceTitle.slice(0, 140));
     }
@@ -297,7 +305,7 @@ export function QuizEditorPage() {
     for (const [i, q] of drafts.entries()) {
       if (!q.question_text.trim())
         return setError(t("quizzes.editor.errors.questionText", { n: i + 1 }));
-      if (q.kind === "mcq4") {
+      if (q.kind === "mcq4" || q.kind === "multi_select") {
         if (
           !q.option_a.trim() ||
           !q.option_b.trim() ||
@@ -306,6 +314,14 @@ export function QuizEditorPage() {
         )
           return setError(
             t("quizzes.editor.errors.needAllOptions", { n: i + 1 }),
+          );
+        if (q.kind === "multi_select" && q.correct_indices.length === 0)
+          return setError(
+            t("quizzes.editor.errors.needCorrectAnswer", {
+              n: i + 1,
+              defaultValue:
+                "Question {{n}}: mark at least one correct answer.",
+            }),
           );
       } else if (q.kind === "true_false") {
         if (q.correct_index !== 0 && q.correct_index !== 1)
@@ -461,10 +477,13 @@ export function QuizEditorPage() {
         // expanded so the user lands directly on the form.
         autoOpen={searchParams.get("aiOpen") === "1"}
         // `?kind=short_answer` flips the panel into flashcard mode
-        // (used by the "Generate flashcards" shortcut). Anything
-        // else (or the param absent) keeps the default multi-choice.
+        // (used by the "Generate flashcards" shortcut). Otherwise the
+        // generator produces a MIX of question types (single-choice,
+        // multiple-answer, true/false, short answer).
         kind={
-          searchParams.get("kind") === "short_answer" ? "short_answer" : "mcq4"
+          searchParams.get("kind") === "short_answer"
+            ? "short_answer"
+            : "mixed"
         }
       />
 
@@ -718,6 +737,78 @@ function SortableQuestionCard({
         </div>
       )}
 
+      {q.kind === "multi_select" && (
+        <div className="space-y-2">
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(["option_a", "option_b", "option_c", "option_d"] as const).map(
+              (key, idx) => {
+                const isCorrect = q.correct_indices.includes(idx);
+                const toggle = () =>
+                  onPatch({
+                    correct_indices: isCorrect
+                      ? q.correct_indices.filter((n) => n !== idx)
+                      : [...q.correct_indices, idx],
+                  });
+                return (
+                  <div
+                    key={key}
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-colors",
+                      isCorrect
+                        ? "border-success/50 bg-success/5"
+                        : "border-glass-border bg-bg-primary/40",
+                    )}
+                  >
+                    <button
+                      type="button"
+                      onClick={toggle}
+                      className={cn(
+                        "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-colors cursor-pointer",
+                        isCorrect
+                          ? "border-success bg-success text-white"
+                          : "border-text-muted/40 text-text-muted hover:border-accent",
+                      )}
+                      aria-label={t("quizzes.editor.markCorrect")}
+                      title={
+                        isCorrect
+                          ? t("quizzes.editor.correctAnswerLabel")
+                          : t("quizzes.editor.markCorrect")
+                      }
+                    >
+                      {isCorrect ? (
+                        <Check size={12} />
+                      ) : (
+                        <span className="text-2xs font-semibold">
+                          {"ABCD"[idx]}
+                        </span>
+                      )}
+                    </button>
+                    <input
+                      value={q[key]}
+                      onChange={(e) =>
+                        onPatch({
+                          [key]: e.target.value,
+                        } as Partial<QuizQuestionDraft>)
+                      }
+                      placeholder={t("quizzes.editor.optionPlaceholder", {
+                        letter: "ABCD"[idx],
+                      })}
+                      className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
+                    />
+                  </div>
+                );
+              },
+            )}
+          </div>
+          <p className="text-2xs text-text-muted">
+            {t("quizzes.editor.multiSelectHint", {
+              defaultValue:
+                "Tick every correct option. Takers must select all of them.",
+            })}
+          </p>
+        </div>
+      )}
+
       {q.kind === "true_false" && (
         <div className="grid grid-cols-2 gap-2">
           {[0, 1].map((idx) => {
@@ -779,6 +870,13 @@ function KindTabs({
   const { t } = useTranslation();
   const tabs: { kind: QuizQuestionKind; icon: typeof ListChecks; label: string }[] = [
     { kind: "mcq4", icon: ListChecks, label: t("quizzes.editor.kind.mcq4") },
+    {
+      kind: "multi_select",
+      icon: CheckSquare,
+      label: t("quizzes.editor.kind.multi_select", {
+        defaultValue: "Multiple answers",
+      }),
+    },
     { kind: "true_false", icon: ToggleLeft, label: t("quizzes.editor.kind.true_false") },
     { kind: "short_answer", icon: Type, label: t("quizzes.editor.kind.short_answer") },
   ];

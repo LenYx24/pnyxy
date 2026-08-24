@@ -54,6 +54,8 @@ import {
 } from "lucide-react";
 import { Button, GlassCard, ConfirmModal } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { useFeatures } from "@/lib/use-features";
+import type { FeatureKey } from "@/lib/features";
 import { useLibraryStore } from "@/stores/library-store";
 import { useNoteStore, type Note } from "@/stores/note-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
@@ -86,33 +88,32 @@ import {
 } from "./bookCountCache";
 import { useOrgStore } from "@/stores/org-store";
 import { applySort } from "./useLibraryPrefs";
-import type { ViewMode, ListColumnWidths } from "./useLibraryPrefs";
+import type {
+  ViewMode,
+  ListColumnWidths,
+  LibraryTypeFilter,
+} from "./useLibraryPrefs";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import type { BookStatusTag } from "@/types/database";
 import type { Folder as FolderType } from "@/types/database";
 
 /** Which kind of library item to show. "all" shows everything.
- *  Folders are navigation and stay visible regardless of the pick. */
-type ItemTypeFilter =
-  | "all"
-  | "books"
-  | "notes"
-  | "whiteboards"
-  | "quizzes"
-  | "chats"
-  | "resources";
+ *  Folders are navigation and stay visible regardless of the pick.
+ *  Lives in useLibraryPrefs so the pick persists (book-first default). */
+type ItemTypeFilter = LibraryTypeFilter;
 
 const ITEM_TYPE_FILTERS: {
   value: ItemTypeFilter;
   icon: LucideIcon;
   labelKey: string;
   defaultLabel: string;
+  feature?: FeatureKey;
 }[] = [
   { value: "all", icon: LayoutGrid, labelKey: "library.typeFilter.all", defaultLabel: "All" },
   { value: "books", icon: BookOpen, labelKey: "library.typeFilter.books", defaultLabel: "Books" },
-  { value: "notes", icon: FileText, labelKey: "library.typeFilter.notes", defaultLabel: "Notes" },
-  { value: "whiteboards", icon: Shapes, labelKey: "library.typeFilter.whiteboards", defaultLabel: "Whiteboards" },
-  { value: "quizzes", icon: ListChecks, labelKey: "library.typeFilter.quizzes", defaultLabel: "Quizzes" },
+  { value: "notes", icon: FileText, labelKey: "library.typeFilter.notes", defaultLabel: "Notes", feature: "notes" },
+  { value: "whiteboards", icon: Shapes, labelKey: "library.typeFilter.whiteboards", defaultLabel: "Whiteboards", feature: "whiteboard" },
+  { value: "quizzes", icon: ListChecks, labelKey: "library.typeFilter.quizzes", defaultLabel: "Quizzes", feature: "quizzes" },
   { value: "chats", icon: MessageSquare, labelKey: "library.typeFilter.chats", defaultLabel: "Chats" },
   { value: "resources", icon: Globe, labelKey: "library.typeFilter.resources", defaultLabel: "Resources" },
 ];
@@ -137,6 +138,9 @@ interface AllBooksTabProps {
   isLoading?: boolean;
   /** Right-click handler for the library area (new folder / upload). */
   onContextMenu?: (e: React.MouseEvent) => void;
+  /** Persisted item-type filter (book-first by default). */
+  typeFilter: ItemTypeFilter;
+  setTypeFilter: (type: ItemTypeFilter) => void;
 }
 
 export function AllBooksTab({
@@ -156,6 +160,8 @@ export function AllBooksTab({
   setListColumnWidth,
   isLoading = false,
   onContextMenu,
+  typeFilter,
+  setTypeFilter,
 }: AllBooksTabProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -187,7 +193,7 @@ export function AllBooksTab({
     if (lastSyncedFolderRef.current === cur) return;
     // On the very first run the store is still at its default (root) while a
     // deep-link URL may already carry ?folder=X. Don't wipe that param before
-    // the URL->store effect gets to consume it — let it drive instead.
+    // the URL->store effect gets to consume it, let it drive instead.
     if (lastSyncedFolderRef.current === undefined && cur === null) {
       const inUrl = new URLSearchParams(window.location.search).get("folder");
       if (inUrl) {
@@ -269,13 +275,21 @@ export function AllBooksTab({
     [resources, currentFolderId],
   );
 
-  // Item-type filter (Books / Notes / … / All). When not "all", only that
-  // type's items render; folders always stay visible (they're navigation).
-  const [typeFilter, setTypeFilter] = useState<ItemTypeFilter>("all");
+  // Item-type filter (Books / Notes / … / All), persisted in prefs,
+  // book-first by default. When not "all", only that type's items render;
+  // folders always stay visible (they're navigation).
+  const features = useFeatures();
+  const typeEnabled = useCallback(
+    (type: ItemTypeFilter) => {
+      const def = ITEM_TYPE_FILTERS.find((f) => f.value === type);
+      return !def?.feature || features[def.feature];
+    },
+    [features],
+  );
   const showType = useCallback(
     (type: Exclude<ItemTypeFilter, "all">) =>
-      typeFilter === "all" || typeFilter === type,
-    [typeFilter],
+      typeEnabled(type) && (typeFilter === "all" || typeFilter === type),
+    [typeFilter, typeEnabled],
   );
 
   // Apply search + tag filter
@@ -812,7 +826,7 @@ export function AllBooksTab({
       {/* item-type filter chips: show only one kind of item at a time.
           Folders always render regardless of the active type. */}
       <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
-        {ITEM_TYPE_FILTERS.map(({ value, icon: Icon, labelKey, defaultLabel }) => {
+        {ITEM_TYPE_FILTERS.filter((f) => typeEnabled(f.value)).map(({ value, icon: Icon, labelKey, defaultLabel }) => {
           const isActive = typeFilter === value;
           return (
             <button
@@ -865,39 +879,48 @@ export function AllBooksTab({
 
       {/* type filter yielded nothing here (folder isn't really empty
           when it holds folders, which stay visible above) */}
-      {isEmpty && !query && !isLoading && !activeTag && typeFilter !== "all" && (
-        <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <p className="text-sm text-text-muted">
-            {t("library.typeFilter.noItems", {
-              defaultValue: "No items of this type here.",
-            })}
-          </p>
-        </div>
-      )}
-
-      {isEmpty && !query && !isLoading && !activeTag && typeFilter === "all" && (
-        <div className="flex flex-col items-center gap-4 py-16 text-center">
-          <BookOpen size={48} className="text-text-muted/50" />
-          <div>
-            <p className="text-lg font-medium text-text-primary">
-              {t("library.allBooks.emptyFolder")}
+      {isEmpty &&
+        !query &&
+        !isLoading &&
+        !activeTag &&
+        typeFilter !== "all" &&
+        typeFilter !== "books" && (
+          <div className="flex flex-col items-center gap-2 py-16 text-center">
+            <p className="text-sm text-text-muted">
+              {t("library.typeFilter.noItems", {
+                defaultValue: "No items of this type here.",
+              })}
             </p>
-            {!currentFolderId && (
-              <p className="mt-1 text-sm text-text-muted">
-                {t("library.allBooks.emptyRootHint")}
+          </div>
+        )}
+
+      {isEmpty &&
+        !query &&
+        !isLoading &&
+        !activeTag &&
+        (typeFilter === "all" || typeFilter === "books") && (
+          <div className="flex flex-col items-center gap-4 py-16 text-center">
+            <BookOpen size={48} className="text-text-muted/50" />
+            <div>
+              <p className="text-lg font-medium text-text-primary">
+                {t("library.allBooks.emptyFolder")}
               </p>
+              {!currentFolderId && (
+                <p className="mx-auto mt-1 max-w-sm text-sm text-text-muted">
+                  {t("library.allBooks.emptyDragHint", {
+                    defaultValue:
+                      "Just drag & drop a book anywhere to add it, the upload starts right away.",
+                  })}
+                </p>
+              )}
+            </div>
+            {!currentFolderId && (
+              <Button variant="secondary" onClick={() => navigate("/browse")}>
+                {t("library.allBooks.browseCatalog")}
+              </Button>
             )}
           </div>
-          {!currentFolderId && (
-            <Button
-              variant="secondary"
-              onClick={() => navigate("/browse")}
-            >
-              {t("library.allBooks.browseCatalog")}
-            </Button>
-          )}
-        </div>
-      )}
+        )}
 
       {/* Content */}
       {!isEmpty && (

@@ -13,7 +13,7 @@
 -- Design notes:
 --   * The AI helper is re-keyed from (model, is_anon boolean) to
 --     (model, tier text) where tier in ('anon','free','premium').
---     This collapses the anon flag into the tier and — crucially —
+--     This collapses the anon flag into the tier and, crucially,
 --     makes adding a THIRD paid tier later (e.g. 'pro') a one-branch
 --     change, no enum churn. `storage_tier` is the de-facto plan
 --     column; it drives both storage and AI now.
@@ -71,7 +71,7 @@ BEGIN
 
   -- Premium tier. ~4x the free buckets. Worst-case daily spend at
   -- the cap (output-heavy): 2.5-flash ~$1.9, 3-flash ~$1.2,
-  -- haiku ~$1.0, 4o-mini ~$0.10 — bounded, request caps included.
+  -- haiku ~$1.0, 4o-mini ~$0.10, bounded, request caps included.
   IF p_tier = 'premium' THEN
     IF p_model = 'gemini-2.5-flash' THEN
       RETURN QUERY SELECT 750000, 3000;

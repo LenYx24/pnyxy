@@ -12,6 +12,8 @@ import {
   Pencil,
 } from "lucide-react";
 import { Checkbox, FloatingMenu } from "@/components/ui";
+import { useContextMenu } from "@/hooks/use-context-menu";
+import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { cn } from "@/lib/cn";
 import { noteDisplayTitle } from "@/lib/entity-title";
 import { useLibraryStore } from "@/stores/library-store";
@@ -106,6 +108,35 @@ export function LibraryNoteCard({
     navigate(`/notes/${note.id}`);
   };
 
+  const contextHandlers = useContextMenu((): ContextMenuEntry[] => [
+    {
+      id: "open",
+      label: t("library.allBooks.openNote"),
+      icon: Pencil,
+      onClick: () => navigate(`/notes/${note.id}`),
+    },
+    {
+      id: "move",
+      label: t("library.actions.moveToFolder"),
+      icon: FolderInput,
+      onClick: () => setMoveOpen(true),
+    },
+    {
+      id: "export",
+      label: t("library.actions.exportMarkdown"),
+      icon: Download,
+      onClick: () => downloadNoteMarkdown(note),
+    },
+    { id: "div-1", divider: true },
+    {
+      id: "delete",
+      label: t("common.delete"),
+      icon: Trash2,
+      danger: true,
+      onClick: () => deleteNote(note.id),
+    },
+  ]);
+
   return (
     <div
       ref={setNodeRef}
@@ -118,6 +149,7 @@ export function LibraryNoteCard({
       {...listeners}
     >
       <div
+        {...contextHandlers}
         className={cn(
           "group relative",
           selected && "ring-2 ring-accent rounded-md",
@@ -125,7 +157,7 @@ export function LibraryNoteCard({
         )}
       >
         <div onClick={handleClick} title={title} className="cursor-pointer">
-          {/* Cover — a faint snippet of the note's own text reads as a
+          {/* Cover: a faint snippet of the note's own text reads as a
               document preview when there's content, falling back to a
               small glyph for an empty note. The corner badge below
               still marks the item type. */}

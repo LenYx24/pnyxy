@@ -117,7 +117,7 @@ export function ReadingSessionCard({ docId, pageCount }: Props) {
           </p>
         </div>
 
-        {/* Action — Start when idle, Stop when running. Mobile-
+        {/* Action: Start when idle, Stop when running. Mobile-
             sized hit area; the chip-style buttons sit on a high-
             contrast background so they read on the dark surface. */}
         {isActiveForThisBook ? (
@@ -166,7 +166,7 @@ export function ReadingSessionCard({ docId, pageCount }: Props) {
         </p>
       )}
 
-      {/* Stats grid — single column on mobile, 2x2 at sm+. The
+      {/* Stats grid: single column on mobile, 2x2 at sm+. The
           finish-date / pace cells gracefully degrade when there
           isn't enough history yet. */}
       <StatsGrid

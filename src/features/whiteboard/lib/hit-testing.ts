@@ -16,13 +16,16 @@ function toLocalPoint(el: WhiteboardElement, p: Point): Point {
   return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
 }
 
-/** Hit-test a single element. Returns true if the world-space point is on/near the element. */
+/** Hit-test a single element. Returns true if the world-space point is on/near the element.
+ *  `extra` widens the hit threshold in world units, used by the smart
+ *  eraser so its round tip catches strokes it merely brushes past. */
 function hitTestElement(
   el: WhiteboardElement,
   p: Point,
   zoom: number,
+  extra = 0,
 ): boolean {
-  const threshold = el.strokeWidth / 2 + 5 / zoom;
+  const threshold = el.strokeWidth / 2 + 5 / zoom + extra;
   // Translate the test point into element-local (un-rotated) space.
   p = toLocalPoint(el, p);
 
@@ -113,11 +116,30 @@ export function hitTest(
   elements: WhiteboardElement[],
   p: Point,
   zoom: number,
+  extra = 0,
 ): WhiteboardElement | null {
   for (let i = elements.length - 1; i >= 0; i--) {
-    if (hitTestElement(elements[i], p, zoom)) {
+    if (hitTestElement(elements[i], p, zoom, extra)) {
       return elements[i];
     }
   }
   return null;
+}
+
+/**
+ * Every element on/near a world-space point (not just the topmost).
+ * The smart eraser uses this so a single pass wipes out every stroke
+ * under its tip, including stacked/overlapping ones.
+ */
+export function hitTestAll(
+  elements: WhiteboardElement[],
+  p: Point,
+  zoom: number,
+  extra = 0,
+): WhiteboardElement[] {
+  const out: WhiteboardElement[] = [];
+  for (const el of elements) {
+    if (hitTestElement(el, p, zoom, extra)) out.push(el);
+  }
+  return out;
 }

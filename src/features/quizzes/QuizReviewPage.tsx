@@ -14,9 +14,15 @@ import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useQuizStore } from "@/stores/quiz-store";
 import { useAuthStore } from "@/stores/auth-store";
-import { gradeAnswer, type DueReview } from "@/types/quiz";
+import {
+  gradeAnswer,
+  parseCorrectIndices,
+  serializeIndices,
+  type DueReview,
+} from "@/types/quiz";
 import {
   McqOptions,
+  MultiSelectOptions,
   ShortAnswerInput,
   TrueFalseOptions,
 } from "./QuizTakePage";
@@ -36,6 +42,7 @@ export function QuizReviewPage() {
   const [correctCount, setCorrectCount] = useState(0);
 
   const [pickedIndex, setPickedIndex] = useState<number | null>(null);
+  const [multiPicked, setMultiPicked] = useState<number[]>([]);
   const [typedText, setTypedText] = useState("");
   const [revealed, setRevealed] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -71,8 +78,11 @@ export function QuizReviewPage() {
     if (current.question.kind === "short_answer") {
       return typedText.trim().length > 0;
     }
+    if (current.question.kind === "multi_select") {
+      return multiPicked.length > 0;
+    }
     return pickedIndex !== null;
-  }, [current, typedText, pickedIndex]);
+  }, [current, typedText, pickedIndex, multiPicked]);
 
   if (!user) {
     return (
@@ -137,6 +147,7 @@ export function QuizReviewPage() {
               setIndex(0);
               setCorrectCount(0);
               setPickedIndex(null);
+              setMultiPicked([]);
               setTypedText("");
               setRevealed(false);
               const due = await fetchDueReviews(DEFAULT_BATCH);
@@ -159,7 +170,10 @@ export function QuizReviewPage() {
     if (!canReveal) return;
     const isCorrect = gradeAnswer(question, {
       selected_index: pickedIndex,
-      selected_text: typedText,
+      selected_text:
+        question.kind === "multi_select"
+          ? serializeIndices(multiPicked)
+          : typedText,
     });
     setWasCorrect(isCorrect);
     setRevealed(true);
@@ -191,6 +205,7 @@ export function QuizReviewPage() {
     recordedRef.current = false;
     setIndex((i) => i + 1);
     setPickedIndex(null);
+    setMultiPicked([]);
     setTypedText("");
     setRevealed(false);
     setWasCorrect(false);
@@ -246,6 +261,24 @@ export function QuizReviewPage() {
           selected={pickedIndex}
           revealed={revealed}
           onSelect={setPickedIndex}
+        />
+      )}
+      {question.kind === "multi_select" && (
+        <MultiSelectOptions
+          options={[
+            question.option_a,
+            question.option_b,
+            question.option_c,
+            question.option_d,
+          ]}
+          correctIndices={parseCorrectIndices(question.correct_text)}
+          selected={multiPicked}
+          revealed={revealed}
+          onToggle={(i) =>
+            setMultiPicked((prev) =>
+              prev.includes(i) ? prev.filter((n) => n !== i) : [...prev, i],
+            )
+          }
         />
       )}
       {question.kind === "true_false" && (

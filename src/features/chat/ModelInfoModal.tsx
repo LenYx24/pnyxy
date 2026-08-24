@@ -66,7 +66,7 @@ export function ModelInfoModal({ open, onClose }: ModelInfoModalProps) {
           <p className="text-xs text-text-muted">
             {t("chat.modelHelp.intro", {
               defaultValue:
-                "Az alábbi modellek közül választhatsz a chat-ben. A „Default” opció az engedélyezett providereket sorrendben próbálja, és átesik a következőre, ha valamelyik elérhetetlen vagy elfogyott a kvóta. Ha kifejezett modellt választasz, csak az fut — fallback nélkül.",
+                "Az alábbi modellek közül választhatsz a chat-ben. A „Default” opció az engedélyezett providereket sorrendben próbálja, és átesik a következőre, ha valamelyik elérhetetlen vagy elfogyott a kvóta. Ha kifejezett modellt választasz, csak az fut, fallback nélkül.",
             })}
           </p>
 

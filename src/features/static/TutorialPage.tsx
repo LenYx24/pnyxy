@@ -52,7 +52,7 @@ export function TutorialPage() {
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[12rem_1fr]">
-        {/* Sticky TOC — desktop only. The sections are short enough
+        {/* Sticky TOC: desktop only. The sections are short enough
             that scrolling is fine, but jumping around is faster when
             the user knows what they're looking for. */}
         <aside className="hidden lg:block">
@@ -80,7 +80,7 @@ export function TutorialPage() {
             <TutorialSection key={section.id} section={section} />
           ))}
 
-          {/* Footer CTA — points at the help page for FAQs and at the
+          {/* Footer CTA: points at the help page for FAQs and at the
               GitHub link in the site footer for issue reports. */}
           <section className="rounded-xl border border-glass-border bg-glass-bg/50 p-5 text-sm leading-relaxed text-text-secondary">
             <div className="mb-2 flex items-center gap-2">

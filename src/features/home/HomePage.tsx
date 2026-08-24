@@ -55,7 +55,7 @@ export function HomePage() {
       </header>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_18rem]">
-        {/* Main column — stacked shelves */}
+        {/* Main column: stacked shelves */}
         <main className="min-w-0">
           {/* "Today" aggregator: reading-plan targets, roadmap nodes
               due, quiz reviews queued, continue-reading hand-off. The
@@ -64,7 +64,7 @@ export function HomePage() {
               don't see an empty shell. */}
           {user && <TodayPanel />}
 
-          {/* User's own books first — what they care about most when
+          {/* User's own books first, what they care about most when
               they land on home. The shelf renders nothing if the
               library is empty, so signed-out / first-run users go
               straight into the catalog content below. */}
@@ -119,7 +119,7 @@ export function HomePage() {
           ))}
         </main>
 
-        {/* Right-side panel — sticky on desktop so it stays visible
+        {/* Right-side panel, sticky on desktop so it stays visible
             while the user scrolls through shelves. Collapses to a
             regular block on mobile. */}
         <aside className="lg:sticky lg:top-4 lg:self-start">

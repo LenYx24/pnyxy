@@ -69,7 +69,7 @@ afterEach(async () => {
   document.body.innerHTML = "";
 });
 
-describe("keyboard-cheatsheet — onLoad", () => {
+describe("keyboard-cheatsheet - onLoad", () => {
   it("registers the toggle-cheatsheet command", () => {
     expect(fake.registered).toEqual([
       ["keyboard-cheatsheet:show", "Keyboard: Toggle cheatsheet"],
@@ -81,7 +81,7 @@ describe("keyboard-cheatsheet — onLoad", () => {
   });
 });
 
-describe("keyboard-cheatsheet — command handler", () => {
+describe("keyboard-cheatsheet - command handler", () => {
   it("appends the overlay to the body on first invocation", async () => {
     await module.handleCommand?.("keyboard-cheatsheet:show");
     expect(document.getElementById(OVERLAY_ID)).not.toBeNull();
@@ -99,7 +99,7 @@ describe("keyboard-cheatsheet — command handler", () => {
   });
 });
 
-describe("keyboard-cheatsheet — `?` keyboard listener", () => {
+describe("keyboard-cheatsheet - `?` keyboard listener", () => {
   it("opens the overlay when `?` is pressed outside an input", () => {
     const event = new KeyboardEvent("keydown", { key: "?" });
     window.dispatchEvent(event);
@@ -126,7 +126,7 @@ describe("keyboard-cheatsheet — `?` keyboard listener", () => {
   });
 });
 
-describe("keyboard-cheatsheet — onUnload", () => {
+describe("keyboard-cheatsheet - onUnload", () => {
   it("removes the overlay from the DOM", async () => {
     await module.handleCommand?.("keyboard-cheatsheet:show");
     expect(document.getElementById(OVERLAY_ID)).not.toBeNull();

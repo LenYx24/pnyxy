@@ -3,7 +3,7 @@
 -- Public leaderboards: per-user aggregate reading stats.
 --
 -- The source of truth for daily records stays in the client
--- (localStorage via streak-store) — this table is a cached
+-- (localStorage via streak-store), this table is a cached
 -- rollup for fast leaderboard queries. Clients upsert their
 -- own row; RLS allows anyone to read.
 -- ============================================================

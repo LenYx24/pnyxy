@@ -24,7 +24,8 @@ import {
   PenTool,
   Pencil,
   Camera,
-  Crop,
+  SquareDashedMousePointer,
+  ImagePlus,
   Printer,
   Search,
   BotMessageSquare,
@@ -52,12 +53,16 @@ import { useIsMobile } from "@/hooks/use-media-query";
 import { ReadingTrackerControl } from "./controls/ReadingTrackerControl";
 import { FocusSessionControl } from "./controls/FocusSessionControl";
 import type { HighlightColor } from "@/types/annotation";
+import { Settings2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   useToolbarLayout,
+  useToolbarStyle,
   isSeparator,
   type ToolbarZone,
 } from "./toolbar/toolbar-config";
+import { ToolbarEditor } from "./toolbar/ToolbarEditor";
+import { useFeatures } from "@/lib/use-features";
 
 function nextReaderTheme(t: "light" | "dark" | "sepia"): "light" | "dark" | "sepia" {
   return t === "light" ? "dark" : t === "dark" ? "sepia" : "light";
@@ -284,6 +289,7 @@ export function ReaderToolbar({
     else navigate("/library");
   }, [fromPath, navigate]);
   const activeDoc = useActiveDocument();
+  const features = useFeatures();
   const inlineDrawActive = useInlineDrawStore((s) => s.active);
   const toggleInlineDraw = useInlineDrawStore((s) => s.toggleActive);
   const goToPage = useReaderStore((s) => s.goToPage);
@@ -381,7 +387,9 @@ export function ReaderToolbar({
 
   const isMobile = useIsMobile();
   // persisted arrangement that drives the non-mobile bar
-  const { layout } = useToolbarLayout();
+  const { layout, setLayout, resetLayout } = useToolbarLayout();
+  const { style: toolbarStyle, setStyle: setToolbarStyle } = useToolbarStyle();
+  const [editingToolbar, setEditingToolbar] = useState(false);
   // desktop expands the app sidebar, mobile opens the nav drawer
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const setMobileSidebarOpen = useUIStore((s) => s.setMobileSidebarOpen);
@@ -411,7 +419,7 @@ export function ReaderToolbar({
 
   // Mobile-only overflow list (desktop uses the configurable overflowMenuSlots).
   // Deliberately trimmed: bookmark / search / comments / AI already live in the
-  // bottom bar, and pinch-zoom replaces the zoom buttons — so those, plus rarely-
+  // bottom bar, and pinch-zoom replaces the zoom buttons, so those, plus rarely-
   // used JSON export and print, are dropped here to cut the menu down.
   const overflowActions = [
     {
@@ -421,11 +429,6 @@ export function ReaderToolbar({
       }),
       icon: Palette,
       onClick: cycleReaderTheme,
-    },
-    {
-      label: t("reader.toolbar.exportHighlightsMarkdown"),
-      icon: FileDown,
-      onClick: () => exportHighlights("markdown"),
     },
     { label: t("reader.toolbar.fitMode"), icon: Columns2, onClick: () => setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width") },
     // PDF-only: rotate, night mode, reflow
@@ -453,24 +456,28 @@ export function ReaderToolbar({
         ]
       : []),
     { label: t("reader.toolbar.highlight"), icon: Highlighter, onClick: () => { setShowOverflowMenu(false); setShowColorPicker(!showColorPicker); } },
-    {
-      label: inlineDrawActive
-        ? t("reader.toolbar.inlineDrawOff", { defaultValue: "Stop drawing" })
-        : t("reader.toolbar.inlineDrawOn", {
-            defaultValue: "Quick draw on page",
-          }),
-      icon: Pencil,
-      onClick: () => {
-        setShowOverflowMenu(false);
-        toggleInlineDraw();
-      },
-    },
-    ...(onToggleDrawMode ? [{ label: isDrawMode ? t("reader.toolbar.exitDraw") : t("reader.toolbar.draw"), icon: PenTool, onClick: onToggleDrawMode }] : []),
+    ...(features.whiteboard
+      ? [
+          {
+            label: inlineDrawActive
+              ? t("reader.toolbar.inlineDrawOff", { defaultValue: "Stop drawing" })
+              : t("reader.toolbar.inlineDrawOn", {
+                  defaultValue: "Quick draw on page",
+                }),
+            icon: Pencil,
+            onClick: () => {
+              setShowOverflowMenu(false);
+              toggleInlineDraw();
+            },
+          },
+        ]
+      : []),
+    ...(onToggleDrawMode && features.whiteboard ? [{ label: isDrawMode ? t("reader.toolbar.exitDraw") : t("reader.toolbar.draw"), icon: PenTool, onClick: onToggleDrawMode }] : []),
     { label: t("reader.toolbar.undo"), icon: Undo2, onClick: performUndo, disabled: !canUndo },
     { label: t("reader.toolbar.screenshot"), icon: Camera, onClick: onScreenshot },
-    { label: t("reader.toolbar.screenshotArea"), icon: Crop, onClick: onScreenshotRect },
+    { label: t("reader.toolbar.screenshotArea"), icon: SquareDashedMousePointer, onClick: onScreenshotRect },
     ...(onRectToAi
-      ? [{ label: t("reader.toolbar.rectToAi", { defaultValue: "Crop to AI" }), icon: BotMessageSquare, onClick: onRectToAi }]
+      ? [{ label: t("reader.toolbar.rectToAi", { defaultValue: "Crop to AI" }), icon: ImagePlus, onClick: onRectToAi }]
       : []),
     ...(onToggleSidebar ? [{ label: t("reader.toolbar.toggleSidebar"), icon: PanelLeft, onClick: onToggleSidebar }] : []),
     { label: t("reader.toolbar.zenMode"), icon: Focus, onClick: onToggleZenMode },
@@ -643,18 +650,19 @@ export function ReaderToolbar({
         : t("reader.toolbar.inlineDrawOn", { defaultValue: "Quick draw on page" }),
       onClick: () => toggleInlineDraw(),
       active: inlineDrawActive,
+      available: features.whiteboard,
     },
     whiteboardDraw: {
       icon: PenTool,
       label: isDrawMode ? t("reader.toolbar.exitDraw") : t("reader.toolbar.draw"),
       onClick: onToggleDrawMode,
       active: isDrawMode,
-      available: !!onToggleDrawMode,
+      available: !!onToggleDrawMode && features.whiteboard,
     },
-    comments: { icon: MessageSquare, label: t("reader.toolbar.commentsTitle"), onClick: onToggleComments },
+    comments: { icon: MessageSquare, label: t("reader.toolbar.commentsTitle"), onClick: onToggleComments, available: features.comments },
     zen: { icon: Focus, label: t("reader.toolbar.zenMode"), onClick: onToggleZenMode },
     search: { icon: Search, label: t("reader.toolbar.search"), onClick: onToggleSearch },
-    bookmark: { icon: BookmarkPlus, label: t("reader.toolbar.bookmarkPage"), onClick: handleBookmarkPage },
+    bookmark: { icon: BookmarkPlus, label: t("reader.toolbar.bookmarkPage"), onClick: handleBookmarkPage, available: features.bookmarks },
     highlight: {
       icon: Highlighter,
       label: t("reader.toolbar.highlight"),
@@ -686,9 +694,9 @@ export function ReaderToolbar({
       available: isPdf,
     },
     screenshot: { icon: Camera, label: t("reader.toolbar.screenshotTitle"), onClick: onScreenshot },
-    screenshotArea: { icon: Crop, label: t("reader.toolbar.screenshotAreaTitle"), onClick: onScreenshotRect },
+    screenshotArea: { icon: SquareDashedMousePointer, label: t("reader.toolbar.screenshotAreaTitle"), onClick: onScreenshotRect },
     cropToAi: {
-      icon: BotMessageSquare,
+      icon: ImagePlus,
       label: t("reader.toolbar.rectToAi", { defaultValue: "Crop to AI" }),
       onClick: onRectToAi,
       available: !!onRectToAi,
@@ -728,8 +736,12 @@ export function ReaderToolbar({
         disabled={def.disabled}
         title={def.label}
         aria-label={def.label}
+        style={{
+          paddingTop: toolbarStyle.paddingY,
+          paddingBottom: toolbarStyle.paddingY,
+        }}
         className={cn(
-          "rounded-md p-1 transition-colors cursor-pointer",
+          "rounded-md px-1 transition-colors cursor-pointer",
           def.disabled
             ? "text-text-secondary opacity-30 cursor-not-allowed"
             : def.active
@@ -750,19 +762,34 @@ export function ReaderToolbar({
     (id) => isSeparator(id) || (iconDefs[id] && isItemAvailable(id)),
   );
 
+  // In-place WYSIWYG customizer replaces the real bar at the same spot.
+  if (editingToolbar) {
+    return (
+      <ToolbarEditor
+        layout={layout}
+        onChange={setLayout}
+        onReset={resetLayout}
+        onDone={() => setEditingToolbar(false)}
+        style={toolbarStyle}
+        onStyleChange={setToolbarStyle}
+      />
+    );
+  }
+
   return (
     <div className="border-b border-glass-border bg-bg-secondary/60 backdrop-blur-md pt-safe-top pl-safe-left pr-safe-right">
       <div
         className={cn(
           "flex items-center justify-between gap-2 px-2 sm:px-4",
-          isMobile ? "h-11" : "h-10",
+          isMobile && "h-11",
         )}
+        style={isMobile ? undefined : { height: toolbarStyle.height }}
       >
         {isMobile ? (
           /* MOBILE */
           <>
             {/* left: just the app-nav hamburger. Back arrow + book title
-                removed on mobile — the hamburger opens full app nav, and the
+                removed on mobile, the hamburger opens full app nav, and the
                 title barely fit 3 chars anyway. */}
             <div className="flex shrink-0 items-center gap-1">
               {menuButton}
@@ -802,7 +829,7 @@ export function ReaderToolbar({
                         setShowOverflowMenu(false);
                       }}
                       disabled={disabled}
-                      className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary disabled:opacity-30 cursor-pointer"
+                      className="flex w-full items-center justify-start gap-3 px-3 py-2.5 text-left text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary disabled:opacity-30 cursor-pointer"
                     >
                       <Icon size={16} />
                       {label}
@@ -861,13 +888,26 @@ export function ReaderToolbar({
                         setShowOverflowMenu(false);
                       }}
                       disabled={def.disabled}
-                      className="flex w-full items-center gap-2.5 px-2.5 py-1.5 text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary disabled:opacity-30 cursor-pointer"
+                      className="flex w-full items-center justify-start gap-2.5 px-2.5 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary disabled:opacity-30 cursor-pointer"
                     >
                       <Icon size={14} />
                       {def.label}
                     </button>
                   );
                 })}
+                <div className="my-1 h-px bg-glass-border" />
+                <button
+                  onClick={() => {
+                    setEditingToolbar(true);
+                    setShowOverflowMenu(false);
+                  }}
+                  className="flex w-full items-center justify-start gap-2.5 px-2.5 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                >
+                  <Settings2 size={14} />
+                  {t("reader.toolbar.customize", {
+                    defaultValue: "Customize toolbar",
+                  })}
+                </button>
               </FloatingMenu>
             </div>
           </>

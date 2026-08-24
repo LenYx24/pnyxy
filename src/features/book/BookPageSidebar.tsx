@@ -12,17 +12,21 @@ import {
   Bookmark as BookmarkIcon,
   Pencil,
   ScrollText,
+  Timer,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { cn } from "@/lib/cn";
 import { LEARN_METHODS } from "./LEARN_METHODS";
+import { useFeatures } from "@/lib/use-features";
+import type { FeatureKey } from "@/lib/features";
 
 interface NavItem {
   to: string;
   /** i18n key under `book.nav`. */
   labelKey:
     | "overview"
+    | "reading"
     | "chats"
     | "learn"
     | "discuss"
@@ -33,30 +37,35 @@ interface NavItem {
     | "exams";
   icon: LucideIcon;
   end?: boolean;
+  feature?: FeatureKey;
 }
 
 function useNavItems(bookId: string): NavItem[] {
+  const features = useFeatures();
   return useMemo<NavItem[]>(
-    () => [
+    () => ([
       { to: `/books/${bookId}`, labelKey: "overview", icon: Info, end: true },
+      { to: `/books/${bookId}/reading`, labelKey: "reading", icon: Timer },
       { to: `/books/${bookId}/chat`, labelKey: "chats", icon: Bot },
-      { to: `/books/${bookId}/learn`, labelKey: "learn", icon: GraduationCap },
-      { to: `/books/${bookId}/discuss`, labelKey: "discuss", icon: MessageSquare },
-      { to: `/books/${bookId}/notes`, labelKey: "notes", icon: StickyNote },
+      { to: `/books/${bookId}/learn`, labelKey: "learn", icon: GraduationCap, feature: "learnHub" },
+      { to: `/books/${bookId}/discuss`, labelKey: "discuss", icon: MessageSquare, feature: "forum" },
+      { to: `/books/${bookId}/notes`, labelKey: "notes", icon: StickyNote, feature: "notes" },
       {
         to: `/books/${bookId}/bookmarks`,
         labelKey: "bookmarks",
         icon: BookmarkIcon,
+        feature: "bookmarks",
       },
       {
         to: `/books/${bookId}/whiteboards`,
         labelKey: "whiteboards",
         icon: Pencil,
+        feature: "whiteboard",
       },
       { to: `/books/${bookId}/resources`, labelKey: "resources", icon: LinkIcon },
-      { to: `/books/${bookId}/exams`, labelKey: "exams", icon: ScrollText },
-    ],
-    [bookId],
+      { to: `/books/${bookId}/exams`, labelKey: "exams", icon: ScrollText, feature: "quizzes" },
+    ] as NavItem[]).filter((i) => !i.feature || features[i.feature]),
+    [bookId, features],
   );
 }
 
@@ -70,6 +79,7 @@ function resolveActive(items: NavItem[], pathname: string): NavItem {
 
 export function BookPageSidebar({ bookId }: { bookId: string }) {
   const { t } = useTranslation();
+  const features = useFeatures();
   const isMobile = useIsMobile();
   const items = useNavItems(bookId);
   const { pathname } = useLocation();
@@ -101,7 +111,7 @@ export function BookPageSidebar({ bookId }: { bookId: string }) {
           </NavLink>
           {item.labelKey === "learn" && learnExpanded && (
             <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-glass-border pl-2">
-              {LEARN_METHODS.map((m) => (
+              {LEARN_METHODS.filter((m) => !m.feature || features[m.feature]).map((m) => (
                 <NavLink
                   key={m.slug}
                   to={`/books/${bookId}/learn/${m.slug}`}

@@ -3,7 +3,7 @@ import { cn } from "@/lib/cn";
 /**
  * Shared landing section header: a tracked-out monospace eyebrow with a
  * short accent rule, then a display-font title. Left-aligned on purpose
- * — the editorial, asymmetric rhythm is what keeps the page from
+ * (the editorial, asymmetric rhythm is what keeps the page from
  * reading as a generic centered-everything template.
  */
 export function SectionHeading({

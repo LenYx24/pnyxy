@@ -49,8 +49,10 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
-  // nav rail starts collapsed; not persisted so every load opens collapsed.
-  sidebarCollapsed: true,
+  // nav rail starts expanded so new users can read the labels and learn
+  // the app's surfaces; not persisted, so every load opens expanded
+  // (the reader route still auto-collapses it via AppLayout).
+  sidebarCollapsed: false,
   readerSidebarCollapsed: false,
   isLoadingDocument: false,
   loadingMessage: "",

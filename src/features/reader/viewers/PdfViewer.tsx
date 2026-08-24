@@ -22,6 +22,7 @@ import { SearchHighlightLayer } from "../layers/SearchHighlightLayer";
 import { CommentMarkers } from "../layers/CommentMarkers";
 import { InlineDrawLayer } from "../layers/InlineDrawLayer";
 import { ReadProgressStrip } from "../controls/ReadProgressStrip";
+import { useFeature } from "@/lib/use-features";
 import { AnnotationContextMenu } from "../popovers/AnnotationContextMenu";
 import { CommentPopover } from "../popovers/CommentPopover";
 import {
@@ -124,6 +125,12 @@ pdfjs.GlobalWorkerOptions.workerSrc = "/pdf-assets/pdf.worker.min.mjs";
 
 const PAGE_GAP = 12;
 const A4_RATIO = 1.4142;
+// pdf.js viewport units are PostScript points; CSS px at 100% = pt * 96/72
+// (same CSS_UNITS pdf.js's own viewer uses for "actual size").
+const PDF_CSS_UNITS = 96 / 72;
+// getPage() per page is cheap (metadata only) but a 1000-page book adds up,
+// so resolve in awaited batches to keep the main thread responsive.
+const DIMS_BATCH_SIZE = 24;
 const STORE_COMMIT_DEBOUNCE_MS = 250;
 // liveScale bounds, matches store ZOOM_MIN/MAX (25/1000)
 const MIN_SCALE = 0.25;
@@ -149,6 +156,43 @@ interface PageDimensions {
   height: number;
 }
 
+// Unrotated CSS-px dims of every page, resolved once per document right
+// after load and cached across re-opens (keyed by docId, validated by page
+// count). Layout must come from these, not from per-page render
+// measurements: measured heights replacing A4 estimates mid-scroll shifted
+// pageOffsets/totalContentHeight under the user's scrollbar drag.
+const resolvedDimsCache = new Map<string, PageDimensions[]>();
+
+async function resolveAllPageDims(
+  pdf: pdfjs.PDFDocumentProxy,
+  isCancelled: () => boolean,
+): Promise<PageDimensions[] | null> {
+  const n = pdf.numPages;
+  const out: PageDimensions[] = new Array(n);
+  for (let start = 1; start <= n; start += DIMS_BATCH_SIZE) {
+    if (isCancelled()) return null;
+    const end = Math.min(n, start + DIMS_BATCH_SIZE - 1);
+    const batch: Promise<void>[] = [];
+    for (let i = start; i <= end; i++) {
+      batch.push(
+        pdf.getPage(i).then((page) => {
+          // rotation: 0 to match what PageSlot renders: it always passes
+          // rotate={rotation}, which overrides the page's own /Rotate in
+          // react-pdf, and getPageHeight swaps for the viewer rotation.
+          const vp = page.getViewport({ scale: 1, rotation: 0 });
+          out[i - 1] = {
+            width: vp.width * PDF_CSS_UNITS,
+            height: vp.height * PDF_CSS_UNITS,
+          };
+        }),
+      );
+    }
+    await Promise.all(batch);
+  }
+  if (isCancelled()) return null;
+  return out;
+}
+
 interface PdfViewerProps {
   documentId?: string;
 }
@@ -159,6 +203,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   const doc = useDocumentState(docId ?? "");
 
   const setCurrentPage = useReaderStore((s) => s.setCurrentPage);
+  const readProgressEnabled = useFeature("readProgress");
   const setScrollOffset = useReaderStore((s) => s.setScrollOffset);
   const clearScrollRequest = useReaderStore((s) => s.clearScrollRequest);
   const setZoomLevel = useReaderStore((s) => s.setZoomLevel);
@@ -186,7 +231,45 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   const [dimensions, setDimensions] = useState<Map<number, PageDimensions>>(
     () => new Map(),
   );
+  // Authoritative unrotated dims for every page (index = pageNum - 1), set
+  // once resolveAllPageDims finishes. Null until then (estimate path). Once
+  // set, page layout never changes again for this document.
+  const [resolvedDims, setResolvedDims] = useState<PageDimensions[] | null>(
+    () => (docId ? (resolvedDimsCache.get(docId) ?? null) : null),
+  );
+  const resolvedDimsRef = useRef<PageDimensions[] | null>(resolvedDims);
+  resolvedDimsRef.current = resolvedDims;
+  // Bumped when the document changes/unmounts so an in-flight resolve for a
+  // previous document is dropped instead of landing on the new one.
+  const dimsJobRef = useRef(0);
   const rafRef = useRef<number>(0);
+
+  // True while the user is driving the scroll: set on every non-programmatic
+  // scroll event and cleared 150ms after the last one, and held for the
+  // whole time the mouse button is down on the container's scrollbar (a
+  // thumb drag fires scroll events with gaps larger than the timer). Effects
+  // that re-anchor scrollTop skip their write while this is true so nothing
+  // fights the user's input.
+  const userScrollActiveRef = useRef(false);
+  const userScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollbarDragRef = useRef(false);
+  const isUserScrolling = useCallback(
+    () => userScrollActiveRef.current || scrollbarDragRef.current,
+    [],
+  );
+  const markUserScroll = useCallback(() => {
+    userScrollActiveRef.current = true;
+    if (userScrollTimerRef.current) clearTimeout(userScrollTimerRef.current);
+    userScrollTimerRef.current = setTimeout(() => {
+      userScrollTimerRef.current = null;
+      userScrollActiveRef.current = false;
+    }, 150);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (userScrollTimerRef.current) clearTimeout(userScrollTimerRef.current);
+    };
+  }, []);
 
   // Source of truth for visual zoom. Lives in ref + DOM; mirrored to the
   // store only after idle so gesture frames don't churn React.
@@ -278,13 +361,65 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   // tray, so reflow never moves scrollTop.)
   const lastResumeWriteRef = useRef<number | null>(null);
 
+  // While a panel/viewport resize settles, the browser can clamp scrollTop
+  // and fire a *non-programmatic* scroll event before the re-anchor restores
+  // the position. handleScroll must not treat that as a real user scroll,
+  // it would flip currentPage to a different page and clobber topAnchorRef
+  // (the very value the re-anchor needs). Set to now+window on a size change.
+  const resizeGuardUntilRef = useRef(0);
+
   const prevRotationRef = useRef(rotation);
   useLayoutEffect(() => {
     if (prevRotationRef.current === rotation) return;
     prevRotationRef.current = rotation;
-    // rotation swaps width/height, so cached dims are stale; re-measure
+    // rotation swaps width/height, so measured dims are stale; re-measure.
+    // Resolved dims are stored unrotated and swapped in getPageHeight.
     setDimensions(new Map());
   }, [rotation]);
+
+  // New document: drop the previous document's dims (measured + resolved)
+  // and cancel any resolve still running for it.
+  const prevDocIdRef = useRef(docId);
+  useLayoutEffect(() => {
+    if (prevDocIdRef.current === docId) return;
+    prevDocIdRef.current = docId;
+    dimsJobRef.current += 1;
+    setDimensions(new Map());
+    setResolvedDims(docId ? (resolvedDimsCache.get(docId) ?? null) : null);
+  }, [docId]);
+  useEffect(() => {
+    return () => {
+      dimsJobRef.current += 1;
+    };
+  }, []);
+
+  // Resolve every page's dims right after the document loads. Until it
+  // finishes the A4-estimate / measured path below stands in.
+  const handleDocumentLoadSuccess = useCallback(
+    (pdf: pdfjs.PDFDocumentProxy) => {
+      const key = docId;
+      if (key) {
+        const cached = resolvedDimsCache.get(key);
+        if (cached && cached.length === pdf.numPages) {
+          setResolvedDims(cached);
+          return;
+        }
+      }
+      const job = ++dimsJobRef.current;
+      const isCancelled = () => dimsJobRef.current !== job;
+      void resolveAllPageDims(pdf, isCancelled)
+        .then((dims) => {
+          if (!dims || isCancelled()) return;
+          if (key) resolvedDimsCache.set(key, dims);
+          setResolvedDims(dims);
+        })
+        .catch((error: unknown) => {
+          // keep the estimate path; pages still lay out, just less stable
+          logError(`pdf:resolvePageDims:${docId ?? "?"}`, error);
+        });
+    },
+    [docId],
+  );
 
   // Track container size, rAF-throttled (not debounced). renderWidth is
   // window-based and constant, so a resize step is pure CSS with no
@@ -345,16 +480,35 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   // Estimate page height from cached dims or A4 ratio. A stray cache entry
   // with width=0 / non-finite values would propagate NaN into pageOffsets
   // and every downstream top: style, so validate and fall back to A4.
+  const swapForRotation = rotation === 90 || rotation === 270;
+  // Intrinsic (tray-independent) dims of a page: resolved pdf.js dims first
+  // (rotation applied here), measured dims as the pre-resolve stand-in.
+  const getIntrinsicDims = useCallback(
+    (pageNum: number): PageDimensions | null => {
+      const resolved = resolvedDims?.[pageNum - 1];
+      const d = resolved
+        ? swapForRotation
+          ? { width: resolved.height, height: resolved.width }
+          : resolved
+        : dimensions.get(pageNum);
+      if (
+        d &&
+        Number.isFinite(d.width) &&
+        Number.isFinite(d.height) &&
+        d.width > 0 &&
+        d.height > 0
+      ) {
+        return d;
+      }
+      return null;
+    },
+    [resolvedDims, swapForRotation, dimensions],
+  );
+
   const getPageHeight = useCallback(
     (pageNum: number): number => {
-      const cached = dimensions.get(pageNum);
-      if (
-        cached &&
-        Number.isFinite(cached.width) &&
-        Number.isFinite(cached.height) &&
-        cached.width > 0 &&
-        cached.height > 0
-      ) {
+      const cached = getIntrinsicDims(pageNum);
+      if (cached) {
         const scale = baselineWidth / cached.width;
         const height = cached.height * scale;
         if (Number.isFinite(height) && height > 0) return height;
@@ -364,7 +518,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
         ? fallback
         : 600 * A4_RATIO;
     },
-    [baselineWidth, dimensions],
+    [baselineWidth, getIntrinsicDims],
   );
 
   // pageOffsets and totalContentHeight are tray-local (pre-scale) coords.
@@ -429,6 +583,11 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     }
   });
 
+  // Container scrollTop as React sees it, drives virtualization together
+  // with liveScaleTrigger. Updated from the scroll handler (rAF) and, so the
+  // pair never goes out of sync mid-zoom, synchronously by applyScale.
+  const [scrollTop, setScrollTop] = useState(0);
+
   // Apply the scale + scroll math imperatively. Runs 60x/sec during a
   // gesture, so it touches only DOM and refs; setLiveScaleTrigger's
   // functional updater returns prev when sub-threshold to avoid re-renders.
@@ -485,6 +644,15 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
 
       // Bump the React trigger only when the scale moved enough to matter
       // for virtualization; sub-threshold changes skip the re-render.
+      //
+      // scrollTop MUST land in the same render as the scale. The scroll
+      // event (and the rAF inside handleScroll) arrives frames later, so
+      // without this visiblePages would divide the OLD scrollTop by the NEW
+      // scale: deep in a long document that is off by dozens of pages, the
+      // pages under the viewport unmount, then remount blank a frame later
+      // (the zoom flicker that only showed on 100+ page PDFs). Both setState
+      // calls run in one rAF/effect tick, so React batches them.
+      setScrollTop(containerEl.scrollTop);
       setLiveScaleTrigger((prev) =>
         Math.abs(prev - clampedScale) > 0.005 ? clampedScale : prev,
       );
@@ -839,7 +1007,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
   }, [applyScale, scheduleStoreCommit, setZoomBoost]);
 
   // Visible pages, virtualized in tray-local coords (scrollTop / scale).
-  const [scrollTop, setScrollTop] = useState(0);
+  // (scrollTop state is declared above applyScale, which writes it.)
 
   const [scrollVelocity, setScrollVelocity] = useState(0);
   const lastScrollSampleRef = useRef<{ y: number; t: number } | null>(null);
@@ -905,12 +1073,41 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     return set;
   }, [scrollToPage, totalPages]);
 
+  // Pages mounted before the current zoom gesture started. While the
+  // gesture runs the mounted set only grows (union with the new window), so
+  // no already-rendered canvas is unmounted mid-zoom; the set collapses back
+  // to the plain window once zoomBoostActive drops.
+  const gestureMountedRef = useRef<number[] | null>(null);
+
   const renderedPages = useMemo(() => {
-    if (jumpPrefetchPages.size === 0) return visiblePages;
-    const set = new Set(visiblePages);
-    for (const p of jumpPrefetchPages) set.add(p);
-    return Array.from(set).sort((a, b) => a - b);
-  }, [visiblePages, jumpPrefetchPages]);
+    let pages = visiblePages;
+    if (jumpPrefetchPages.size > 0) {
+      const set = new Set(visiblePages);
+      for (const p of jumpPrefetchPages) set.add(p);
+      pages = Array.from(set).sort((a, b) => a - b);
+    }
+    if (!zoomBoostActive) {
+      gestureMountedRef.current = null;
+      return pages;
+    }
+    const kept = gestureMountedRef.current;
+    if (kept && kept.length > 0) {
+      const set = new Set(kept);
+      let grew = false;
+      for (const p of pages) {
+        if (!set.has(p)) {
+          set.add(p);
+          grew = true;
+        }
+      }
+      if (!grew) {
+        return kept;
+      }
+      pages = Array.from(set).sort((a, b) => a - b);
+    }
+    gestureMountedRef.current = pages;
+    return pages;
+  }, [visiblePages, jumpPrefetchPages, zoomBoostActive]);
 
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
@@ -926,6 +1123,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     if (!isProgrammatic) {
       userScrolledRef.current = true;
       resumeTargetRef.current = null;
+      markUserScroll();
       // Axis-lock: during a vertical-dominant single-finger touch pan, cancel
       // sideways drift so an imperfect up/down swipe on a zoomed page doesn't
       // slide it left/right. Correcting scrollLeft here (not preventDefault)
@@ -943,7 +1141,11 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
 
       const now = performance.now();
       const prev = lastScrollSampleRef.current;
-      if (prev) {
+      // A zoom pivot write moves scrollTop by a lot in one step (deep in a
+      // long document: thousands of px). Feeding that into the velocity
+      // would flag a "fast scroll" and mount up to 6 viewports of extra
+      // pages mid-gesture, so only user scrolls contribute.
+      if (prev && !isProgrammatic) {
         const dt = now - prev.t;
         if (dt > 0) {
           const dy = st - prev.y;
@@ -961,6 +1163,9 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
 
       if (isProgrammatic) return;
       if (pageOffsets.length === 0) return;
+      // A resize just fired this via a scrollTop clamp, don't repaginate or
+      // overwrite topAnchorRef; the re-anchor effect will restore position.
+      if (performance.now() < resizeGuardUntilRef.current) return;
 
       const scale = liveScaleRef.current;
       const viewportCenterTrayY = (st + containerHeight / 2) / scale;
@@ -997,7 +1202,28 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
         fraction: Math.min(1, Math.max(0, topFraction)),
       };
     });
-  }, [containerHeight, pageOffsets, getPageHeight, setCurrentPage, docId]);
+  }, [containerHeight, pageOffsets, getPageHeight, setCurrentPage, docId, markUserScroll]);
+
+  // Scrollbar drag detection. A mousedown whose offset lies beyond the
+  // client box (on the vertical or horizontal scrollbar) starts a drag that
+  // no wheel/touch/pointer-move handler sees; hold the flag until mouseup.
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const el = containerRef.current;
+    if (!el || e.target !== e.currentTarget) return;
+    const { offsetX, offsetY } = e.nativeEvent;
+    if (offsetX < el.clientWidth && offsetY < el.clientHeight) return;
+    scrollbarDragRef.current = true;
+    userScrolledRef.current = true;
+    resumeTargetRef.current = null;
+    const onUp = () => {
+      scrollbarDragRef.current = false;
+      window.removeEventListener("mouseup", onUp);
+      // the last drag scroll events may still be pending, keep the timer
+      // based flag alive so a queued re-anchor doesn't fire on release
+      markUserScroll();
+    };
+    window.addEventListener("mouseup", onUp);
+  }, [markUserScroll]);
 
   // Touch pan axis-lock: decide a dominant axis a few px into the drag; a
   // vertical-dominant drag pins horizontal scroll (applied in handleScroll).
@@ -1130,8 +1356,11 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     const prevWidth = lastAnchorWidthRef.current;
     lastAnchorWidthRef.current = baselineWidth;
     if (prevWidth === baselineWidth) return; // only act on a width change
+    // suppress the clamp-induced repaginate for this settle (see handleScroll)
+    resizeGuardUntilRef.current = performance.now() + 250;
     if (zoomMode === "fit-page") return; // applyScale owns this re-anchor
     if (scrollToPage !== null || resumeTargetRef.current) return; // resume owns the scroll
+    if (scrollbarDragRef.current) return; // never fight a thumb drag
     const el = containerRef.current;
     if (!el || pageOffsets.length === 0) return;
 
@@ -1167,8 +1396,11 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     const prevHeight = lastAnchorHeightRef.current;
     lastAnchorHeightRef.current = containerHeight;
     if (prevHeight === containerHeight) return; // only act on a height change
+    // suppress the clamp-induced repaginate for this settle (see handleScroll)
+    resizeGuardUntilRef.current = performance.now() + 250;
     if (zoomMode === "fit-page") return; // applyScale owns this re-anchor
     if (scrollToPage !== null || resumeTargetRef.current) return; // resume owns the scroll
+    if (scrollbarDragRef.current) return; // never fight a thumb drag
     const el = containerRef.current;
     if (!el || pageOffsets.length === 0) return;
 
@@ -1192,6 +1424,32 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     writeProgrammaticScroll(el, desired);
     setScrollTop(desired);
   }, [containerHeight, zoomMode, scrollToPage, pageOffsets, getPageHeight, docId]);
+
+  // One-shot re-anchor when the resolved dims land: this is the last time
+  // pageOffsets can change for the document, and if the user already
+  // scrolled away from the resume target the content under the viewport
+  // would otherwise shift once. Pin the top-anchored page/fraction back.
+  // Skipped while the user is actively scrolling (their input wins, the
+  // shift is a one-off) and when resume still owns the scroll.
+  const prevResolvedDimsRef = useRef(resolvedDims);
+  useLayoutEffect(() => {
+    const prev = prevResolvedDimsRef.current;
+    prevResolvedDimsRef.current = resolvedDims;
+    if (prev === resolvedDims || resolvedDims === null) return; // only on resolve
+    if (scrollToPage !== null || resumeTargetRef.current) return;
+    if (isUserScrolling()) return;
+    const el = containerRef.current;
+    const anchor = topAnchorRef.current;
+    if (!el || !anchor || pageOffsets.length === 0) return;
+    const pageTop = pageOffsets[anchor.page - 1];
+    if (pageTop === undefined) return;
+    const desired =
+      (pageTop + anchor.fraction * getPageHeight(anchor.page)) *
+      liveScaleRef.current;
+    if (Math.abs(el.scrollTop - desired) <= 1) return;
+    writeProgrammaticScroll(el, desired);
+    setScrollTop(desired);
+  }, [resolvedDims, scrollToPage, pageOffsets, getPageHeight, isUserScrolling]);
 
   // Save scroll fraction to store for resume sync. Skip when the scroll
   // came from us, so a re-applied value doesn't overwrite the saved
@@ -1241,11 +1499,8 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
 
     // Page-1 intrinsic width (tray-local). page1Width / baselineWidth is
     // the scale that renders it at actual size, basis for actual/auto modes.
-    const page1Dims = dimensions.get(1);
-    const page1Width =
-      page1Dims && Number.isFinite(page1Dims.width) && page1Dims.width > 0
-        ? page1Dims.width
-        : 0;
+    const page1Dims = getIntrinsicDims(1);
+    const page1Width = page1Dims ? page1Dims.width : 0;
 
     const last = lastAppliedRef.current;
     // What each mode's target scale depends on:
@@ -1320,10 +1575,13 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     containerWidth,
     applyScale,
     getPageHeight,
-    dimensions,
+    getIntrinsicDims,
   ]);
 
   const handlePageRenderSuccess = useCallback((pageNum: number) => {
+    // Layout is fixed by the resolved dims; a render measurement must not
+    // touch it (that is what moved the layout under a scrollbar drag).
+    if (resolvedDimsRef.current) return;
     const el = containerRef.current;
     if (!el) return;
     const pageEl = el.querySelector(
@@ -1389,6 +1647,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     <div
       ref={containerRef}
       onScroll={handleScroll}
+      onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -1404,8 +1663,9 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
         // the tray's transform:scale makes this a GPU-composited scroller,
         // and the compositor ignores the -webkit pseudo (falling back to the
         // fat OS bar mid-scroll) but does honour scrollbar-width/color.
-        scrollbarWidth: "thin",
-        scrollbarColor: "var(--color-glass-border) transparent",
+        scrollbarWidth: "auto",
+        scrollbarColor:
+          "color-mix(in srgb, var(--color-text-primary) 55%, transparent) color-mix(in srgb, var(--color-text-primary) 12%, transparent)",
         // Disable native scroll-anchoring: in a virtualized scroller its
         // scrollTop adjustments fight both the user's drag and our math.
         overflowAnchor: "none",
@@ -1425,6 +1685,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
             Failed to load PDF. The file may be corrupted.
           </div>
         }
+        onLoadSuccess={handleDocumentLoadSuccess}
         onLoadError={(error) =>
           logError(`pdf:documentLoadError:${docId ?? "?"}`, error)
         }
@@ -1492,7 +1753,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
       <AnnotationContextMenu />
       <CommentPopover />
     </div>
-      <ReadProgressStrip />
+      {readProgressEnabled && <ReadProgressStrip />}
     </div>
   );
 }

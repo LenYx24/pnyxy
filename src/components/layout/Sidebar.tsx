@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -11,9 +11,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
+import { useFeatures } from "@/lib/use-features";
 import { useAuthStore } from "@/stores/auth-store";
 import { useReaderStore } from "@/stores/reader-store";
 import { useIsDesktop } from "@/hooks/use-media-query";
+import { FloatingMenu } from "@/components/ui";
 import { OrgSwitcher } from "./OrgSwitcher";
 import { visibleSidebarItems, type NavItem } from "@/lib/navigation";
 
@@ -30,13 +32,37 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const collapsed = isDesktop && sidebarCollapsed;
   const isAdmin = profile?.role === "admin";
 
-  const allItems = visibleSidebarItems({ hasActiveBook, isAdmin });
+  const features = useFeatures();
+  const allItems = visibleSidebarItems({
+    hasActiveBook,
+    isAdmin,
+    isAuthed: !!user,
+    features,
+  });
   const primaryItems = allItems.filter((i) => i.group === "primary");
   const studyItems = allItems.filter((i) => i.group === "study");
   const profileGroupItems = allItems.filter((i) => i.group === "profile");
 
   // study submenu, collapsed by default, session-only
   const [studyOpen, setStudyOpen] = useState(false);
+  // collapsed rail: the study group opens as a side flyout instead of
+  // expanding the whole sidebar. Opens on click AND hover; a short close
+  // delay bridges the gap between the trigger and the portaled menu so the
+  // pointer can travel across without it snapping shut.
+  const studyBtnRef = useRef<HTMLButtonElement>(null);
+  const [studyFlyoutOpen, setStudyFlyoutOpen] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openFlyout = () => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+    setStudyFlyoutOpen(true);
+  };
+  const scheduleCloseFlyout = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setStudyFlyoutOpen(false), 140);
+  };
 
   const initial = (
     profile?.display_name?.[0] ?? user?.email?.[0] ?? "?"
@@ -99,9 +125,24 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             {item.key === "chat" && studyItems.length > 0 && (
               <>
                 <button
+                  ref={studyBtnRef}
                   type="button"
-                  onClick={() => setStudyOpen((v) => !v)}
+                  // Collapsed rail: open a side flyout (keeps the rail
+                  // narrow). Click opens rather than toggles so it agrees
+                  // with hover-open, closing is via click-outside / Escape /
+                  // pointer-leave. Expanded: toggle the inline indented list.
+                  onClick={() => {
+                    if (collapsed) {
+                      openFlyout();
+                    } else {
+                      setStudyOpen((v) => !v);
+                    }
+                  }}
+                  onMouseEnter={collapsed ? openFlyout : undefined}
+                  onMouseLeave={collapsed ? scheduleCloseFlyout : undefined}
                   title={t("sidebar.study")}
+                  aria-haspopup={collapsed ? "menu" : undefined}
+                  aria-expanded={collapsed ? studyFlyoutOpen : studyOpen}
                   className="mt-1 flex w-full items-center rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
                 >
                   <GraduationCap size={20} className="shrink-0" />
@@ -118,20 +159,65 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                     />
                   )}
                 </button>
-                {/* collapsed rail: icon-only rows; expanded: indented list */}
-                {studyOpen && (
-                  <div
-                    className={cn("mt-1 space-y-1", !collapsed && "pl-3")}
-                  >
+                {/* indented list, expanded rail only: the collapsed rail
+                    has no width for a legible submenu, so we never render
+                    the old icon-only stack (it looked broken). */}
+                {studyOpen && !collapsed && (
+                  <div className="mt-1 space-y-1 pl-3">
                     {studyItems.map((studyItem) => (
                       <SidebarNavItem
                         key={studyItem.to}
                         item={studyItem}
-                        collapsed={collapsed}
+                        collapsed={false}
                         onNavigate={onNavigate}
                       />
                     ))}
                   </div>
+                )}
+                {/* collapsed rail: side flyout with full labels, keeps the
+                    sidebar narrow. Only rendered on the desktop collapsed rail. */}
+                {collapsed && (
+                  <FloatingMenu
+                    open={studyFlyoutOpen}
+                    anchorRef={studyBtnRef}
+                    placement="right"
+                    onClose={() => setStudyFlyoutOpen(false)}
+                    onMouseEnter={openFlyout}
+                    onMouseLeave={scheduleCloseFlyout}
+                    className="min-w-[12rem] px-1"
+                  >
+                    <div className="px-2 py-1 text-2xs font-semibold uppercase tracking-wide text-text-muted">
+                      {t("sidebar.study")}
+                    </div>
+                    {studyItems.map((studyItem) => {
+                      const StudyIcon = studyItem.icon;
+                      return (
+                        <NavLink
+                          key={studyItem.to}
+                          to={studyItem.to}
+                          end
+                          role="menuitem"
+                          onClick={() => {
+                            setStudyFlyoutOpen(false);
+                            onNavigate?.();
+                          }}
+                          className={({ isActive }) =>
+                            cn(
+                              "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
+                              isActive
+                                ? "bg-accent/15 text-accent"
+                                : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+                            )
+                          }
+                        >
+                          <StudyIcon size={18} className="shrink-0" />
+                          <span className="whitespace-nowrap">
+                            {t(`sidebar.${studyItem.key}`)}
+                          </span>
+                        </NavLink>
+                      );
+                    })}
+                  </FloatingMenu>
                 )}
               </>
             )}

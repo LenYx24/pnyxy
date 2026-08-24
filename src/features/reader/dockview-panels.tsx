@@ -1,133 +1,36 @@
-import { useCallback } from "react";
+import { lazy, Suspense, useCallback } from "react";
 import { type IDockviewPanelProps } from "dockview";
+import { X } from "lucide-react";
 import i18n from "@/lib/i18n";
-import { NoteEditor } from "@/features/notes/NoteEditor";
-import { useNoteStore } from "@/stores/note-store";
-import { useReaderStore } from "@/stores/reader-store";
-import { useSettingsStore } from "@/stores/settings-store";
-import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import { useOpenDocument } from "@/hooks/use-open-document";
+
+// Lazy so the reader route doesn't eagerly bundle the note editor's heavy
+// CodeMirror stack, it loads only when a note panel is actually opened.
+// (An eager import made opening a book pull in + optimize CodeMirror,
+// which blanked the reader in dev until Vite finished re-optimizing.)
+const NoteEditor = lazy(() =>
+  import("@/features/notes/NoteEditor").then((m) => ({ default: m.NoteEditor })),
+);
 import { ReaderSidebarContent } from "./ReaderSidebar";
 import { ActiveViewer } from "./viewers/ActiveViewer";
 import { SearchOverlay } from "./popovers/SearchOverlay";
 import { CommentsSidebar } from "./panels/CommentsSidebar";
 
 /**
- * Sidebar TOC panel, wired with the dockview container API so its
- * children (note / whiteboard launchers) can add and remove
- * dockview panels imperatively.
+ * Sidebar TOC panel. Notes/whiteboards now live in the right tools
+ * panel; the left sidebar keeps contents + bookmarks and the
+ * open-another-file launcher.
  */
-export function TocPanel(props: IDockviewPanelProps) {
-  const dockviewApi = props.containerApi;
+export function TocPanel() {
   const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenDocument();
 
   const handleOpenFile = useCallback(() => {
     triggerFilePicker();
   }, [triggerFilePicker]);
 
-  const handleOpenNote = useCallback(
-    (noteId: string) => {
-      const panelId = `note-${noteId}`;
-      const existing = dockviewApi.getPanel(panelId);
-      if (existing) {
-        existing.api.setActive();
-        return;
-      }
-      dockviewApi.addPanel({
-        id: panelId,
-        component: "note",
-        title: i18n.t("reader.page.panelNote"),
-        params: { noteId },
-        position: { direction: "right" },
-      });
-    },
-    [dockviewApi],
-  );
-
-  const handleCreateNote = useCallback(() => {
-    const noteId = useNoteStore.getState().createNote();
-    const panelId = `note-${noteId}`;
-    dockviewApi.addPanel({
-      id: panelId,
-      component: "note",
-      title: i18n.t("reader.page.panelNewNote"),
-      params: { noteId },
-      position: { direction: "right" },
-    });
-  }, [dockviewApi]);
-
-  const handleOpenWhiteboard = useCallback(
-    (whiteboardId: string) => {
-      const panelId = `whiteboard-${whiteboardId}`;
-      const existing = dockviewApi.getPanel(panelId);
-      if (existing) {
-        existing.api.setActive();
-        return;
-      }
-      dockviewApi.addPanel({
-        id: panelId,
-        component: "whiteboard",
-        title: i18n.t("reader.page.panelWhiteboard"),
-        params: { whiteboardId },
-        position: { direction: "right" },
-      });
-    },
-    [dockviewApi],
-  );
-
-  const handleCreateWhiteboard = useCallback(() => {
-    const activeDoc = useReaderStore.getState().getActiveDoc();
-    const allowAll = useSettingsStore.getState()
-      .experimental_allowWhiteboardForAllFormats;
-    if (activeDoc && !activeDoc.meta.capabilities.paginated && !allowAll) {
-      return;
-    }
-    // Tag the new whiteboard with the active doc so the reader sidebar
-    // can filter to "this book only", without it, every reader-created
-    // whiteboard would still show up across every other book.
-    const activeDocId = useReaderStore.getState().activeDocumentId ?? undefined;
-    const whiteboardId = useWhiteboardStore
-      .getState()
-      .createWhiteboard({ bookId: activeDocId });
-    const panelId = `whiteboard-${whiteboardId}`;
-    dockviewApi.addPanel({
-      id: panelId,
-      component: "whiteboard",
-      title: i18n.t("reader.page.panelNewWhiteboard"),
-      params: { whiteboardId },
-      position: { direction: "right" },
-    });
-  }, [dockviewApi]);
-
-  const handleDeleteNote = useCallback(
-    (noteId: string) => {
-      const panelId = `note-${noteId}`;
-      const existing = dockviewApi.getPanel(panelId);
-      if (existing) dockviewApi.removePanel(existing);
-    },
-    [dockviewApi],
-  );
-
-  const handleDeleteWhiteboard = useCallback(
-    (whiteboardId: string) => {
-      const panelId = `whiteboard-${whiteboardId}`;
-      const existing = dockviewApi.getPanel(panelId);
-      if (existing) dockviewApi.removePanel(existing);
-    },
-    [dockviewApi],
-  );
-
   return (
     <>
-      <ReaderSidebarContent
-        onOpenFile={handleOpenFile}
-        onOpenNote={handleOpenNote}
-        onCreateNote={handleCreateNote}
-        onOpenWhiteboard={handleOpenWhiteboard}
-        onCreateWhiteboard={handleCreateWhiteboard}
-        onDeleteNote={handleDeleteNote}
-        onDeleteWhiteboard={handleDeleteWhiteboard}
-      />
+      <ReaderSidebarContent onOpenFile={handleOpenFile} />
       <input
         ref={fileInputRef}
         type="file"
@@ -156,8 +59,13 @@ export function ViewerPanel(
   );
 }
 
-export function CommentsPanel(_props: IDockviewPanelProps) {
-  return <CommentsSidebar />;
+export function CommentsPanel(props: IDockviewPanelProps) {
+  const dockviewApi = props.containerApi;
+  const handleClose = useCallback(() => {
+    const panel = dockviewApi.getPanel("comments");
+    if (panel) dockviewApi.removePanel(panel);
+  }, [dockviewApi]);
+  return <CommentsSidebar onClose={handleClose} />;
 }
 
 export function NotePanelWrapper(
@@ -165,5 +73,24 @@ export function NotePanelWrapper(
 ) {
   const noteId = props.params?.noteId;
   if (!noteId) return null;
-  return <NoteEditor noteId={noteId} />;
+  // Single-panel groups hide the dockview tab bar (and its close X), so
+  // give the note panel its own close affordance.
+  return (
+    <div className="relative h-full w-full">
+      <Suspense
+        fallback={<div className="p-4 text-sm text-text-muted">Loading…</div>}
+      >
+        <NoteEditor noteId={noteId} />
+      </Suspense>
+      <button
+        type="button"
+        onClick={() => props.api.close()}
+        aria-label={i18n.t("common.close", { defaultValue: "Close" })}
+        title={i18n.t("common.close", { defaultValue: "Close" })}
+        className="absolute right-2 top-2 z-20 flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+      >
+        <X size={16} />
+      </button>
+    </div>
+  );
 }

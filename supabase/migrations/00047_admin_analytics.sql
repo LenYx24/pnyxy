@@ -4,7 +4,7 @@
 -- Aggregate read-models for the admin dashboard's Analytics tab.
 -- Every function is SECURITY DEFINER (so it can read across all
 -- users, bypassing the per-user RLS on the base tables) but gated
--- behind public.is_admin() (00004) — a non-admin caller gets an
+-- behind public.is_admin() (00004), a non-admin caller gets an
 -- exception, never data. Crucially these return ONLY aggregates
 -- (counts, sums, percentiles, histogram buckets); no prompt/response
 -- content and no per-row user data except the heavy-user leaderboard,

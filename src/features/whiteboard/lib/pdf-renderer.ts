@@ -26,7 +26,7 @@ export async function loadPdfDocument(
 }
 
 /**
- * Compute each page's dimensions at the given scale WITHOUT rasterizing —
+ * Compute each page's dimensions at the given scale WITHOUT rasterizing,
  * `getViewport` only reads the page's metadata, so this is cheap even for a
  * few-hundred-page book. Lets us lay out the whole document up front and
  * rasterize pages lazily as they scroll into view.

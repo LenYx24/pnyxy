@@ -4,7 +4,7 @@ import { logError } from "@/lib/logger";
 import type { SharedAnswer } from "@/types/space";
 
 /**
- * Public "prompt gallery" — shared {question, answer} pairs (migration
+ * Public "prompt gallery": shared {question, answer} pairs (migration
  * 00055). A Share button on an assistant message publishes here; the gallery
  * page (optionally scoped to a space) lists them so others can learn from
  * useful answers.

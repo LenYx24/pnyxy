@@ -74,7 +74,7 @@ create unique index idx_one_pending_report_per_pair
 
 alter table public.user_reports enable row level security;
 
--- Users can insert reports (but not self-reports — enforced by check constraint)
+-- Users can insert reports (but not self-reports, enforced by check constraint)
 create policy "Users can create reports"
   on public.user_reports for insert
   with check ( auth.uid() = reporter_id );

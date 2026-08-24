@@ -1,4 +1,4 @@
-import type { Quiz, QuizQuestion } from "@/types/quiz";
+import { parseCorrectIndices, type Quiz, type QuizQuestion } from "@/types/quiz";
 
 /**
  * Serialize a quiz to GIFT, Moodle's plain-text quiz format, the most
@@ -11,6 +11,9 @@ import type { Quiz, QuizQuestion } from "@/types/quiz";
  *                   `#feedback` on the correct answer.
  *   - true_false  → `{ TRUE }` / `{ FALSE }` (correct_index 0 = option_a,
  *                   which is the "True" slot), explanation as a comment.
+ *   - multi_select→ `{ ~%pct%opt ... }` GIFT multiple-answer, correct
+ *                   options split +100% between them, wrong options
+ *                   each -100% (so only the exact set scores full).
  *   - short_answer→ `{ =answer#feedback }`.
  */
 
@@ -50,6 +53,26 @@ export function quizToGift(
           const correct = idx === q.correct_index;
           const fb = correct && explanation ? `#${explanation}` : "";
           return `  ${correct ? "=" : "~"}${giftEscape(opt.trim())}${fb}`;
+        })
+        .filter((line): line is string => line !== null)
+        .join("\n");
+      out.push(`${titleTag} ${stem} {`);
+      out.push(body);
+      out.push("}");
+    } else if (q.kind === "multi_select") {
+      const opts = [q.option_a, q.option_b, q.option_c, q.option_d];
+      const correctSet = parseCorrectIndices(q.correct_text);
+      const numCorrect = correctSet.length || 1;
+      const numWrong = opts.filter((o) => o != null).length - numCorrect;
+      const correctPct = Number((100 / numCorrect).toFixed(5));
+      const wrongPct = numWrong > 0 ? Number((100 / numWrong).toFixed(5)) : 100;
+      const body = opts
+        .map((opt, idx) => {
+          if (opt == null) return null;
+          const isCorrect = correctSet.includes(idx);
+          const pct = isCorrect ? correctPct : -wrongPct;
+          const fb = isCorrect && explanation ? `#${explanation}` : "";
+          return `  ~%${pct}%${giftEscape(opt.trim())}${fb}`;
         })
         .filter((line): line is string => line !== null)
         .join("\n");

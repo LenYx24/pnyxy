@@ -81,8 +81,8 @@ export function PrivacyPage() {
             2.1 Account data
           </h3>
           <p>
-            Email address, display name, optional avatar, and — if you
-            sign in with Google — a Google account identifier. Collected
+            Email address, display name, optional avatar, and, if you
+            sign in with Google, a Google account identifier. Collected
             to create and secure your account. Legal basis: performance
             of a contract (Art. 6(1)(b) GDPR).
           </p>
@@ -108,7 +108,7 @@ export function PrivacyPage() {
             you are signed in, we log per-day token usage against your
             account to enforce daily quotas. If you use the chat
             without an account, we hash your IP address with a server
-            secret and use the hash solely as a per-day quota key — the
+            secret and use the hash solely as a per-day quota key, the
             original IP is not stored. Legal basis: performance of a
             contract and our legitimate interest in preventing abuse
             (Art. 6(1)(b) and (f) GDPR).
@@ -157,21 +157,21 @@ export function PrivacyPage() {
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>
-              <strong>Supabase Inc.</strong> — database, authentication,
+              <strong>Supabase Inc.</strong>, database, authentication,
               file storage, edge functions. Hosting region configured
               by us.
             </li>
             <li>
-              <strong>Cloudflare, Inc.</strong> — static hosting (Workers
+              <strong>Cloudflare, Inc.</strong>, static hosting (Workers
               Assets) and CDN.
             </li>
             <li>
-              <strong>Google LLC</strong> — OAuth sign-in, if you choose
+              <strong>Google LLC</strong>, OAuth sign-in, if you choose
               to sign in with Google.
             </li>
             <li>
               <strong>OpenAI, L.L.C.</strong> and{" "}
-              <strong>Anthropic, PBC</strong> — AI chat providers. Only
+              <strong>Anthropic, PBC</strong>, AI chat providers. Only
               the specific content and prompt you submit through the AI
               chat is sent; by default these providers do not train on
               API inputs, though you should review their current terms.
@@ -233,7 +233,7 @@ export function PrivacyPage() {
             <em>
               Nemzeti Adatvédelmi és Információszabadság Hatóság (NAIH)
             </em>{" "}
-            — <span className="font-mono">naih.hu</span>.
+            (<span className="font-mono">naih.hu</span>.
           </p>
         </div>
 
@@ -245,7 +245,7 @@ export function PrivacyPage() {
             We do not set tracking cookies. Authentication uses a
             session cookie set by Supabase, strictly necessary for
             keeping you signed in. We use the browser's localStorage to
-            store your UI preferences — not for tracking.
+            store your UI preferences, not for tracking.
           </p>
         </div>
 

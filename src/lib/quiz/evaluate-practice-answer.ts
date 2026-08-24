@@ -26,7 +26,7 @@ Output rules:
 - If incorrect: do NOT reveal the full solution. Point at WHERE the gap is, give a single concrete hint, end with a leading question.
 - Reply in the SAME LANGUAGE as the question.
 - Reference the exam context only when the answer can be grounded in something concrete from it.
-- Never tell the student to "ask the teacher" — you ARE the tutor.`;
+- Never tell the student to "ask the teacher", you ARE the tutor.`;
 
 interface EvaluateArgs {
   /** The question shown to the student. */
@@ -56,11 +56,11 @@ export async function* evaluatePracticeAnswer(
       : args.examContext;
 
   const userPrompt = [
-    `Exam context (background only — don't repeat verbatim):\n---\n${exam}\n---`,
+    `Exam context (background only, don't repeat verbatim):\n---\n${exam}\n---`,
     "",
     `Question:\n${args.question}`,
     "",
-    `Student's answer:\n${args.userAnswer.trim() || "(blank — they didn't attempt yet)"}`,
+    `Student's answer:\n${args.userAnswer.trim() || "(blank, they didn't attempt yet)"}`,
   ].join("\n");
 
   for await (const { delta } of streamChatResponse(

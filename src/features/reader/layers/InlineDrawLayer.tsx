@@ -266,7 +266,10 @@ export function InlineDrawLayer({ pageNum }: InlineDrawLayerProps) {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      onPointerLeave={handlePointerUp}
+      // NB: no onPointerLeave, the SVG is sized to a single page, and we take
+      // pointer capture on down, so a stroke dragged past the page's bottom
+      // edge stays live. Ending it on leave made freehand strokes cut off the
+      // moment the cursor crossed the page boundary.
       style={{
         position: "absolute",
         inset: 0,

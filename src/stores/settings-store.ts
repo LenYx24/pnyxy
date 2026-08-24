@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { BookStatusTag } from "@/types/database";
 import type { ColorKey } from "@/lib/tag-colors";
+import type { FeatureKey } from "@/lib/features";
 import {
   DEFAULT_TRACKER_ID,
   buildDefaultTrackerSettings,
@@ -107,6 +108,12 @@ interface SettingsState {
   /** When true, the whiteboard/draw-mode button is enabled for non-PDF docs. */
   experimental_allowWhiteboardForAllFormats: boolean;
 
+  // Feature gating (see lib/features.ts). Local overrides win over the
+  // server unlock list; adminShowAllFeatures lets an admin see the full
+  // app without touching overrides.
+  featureOverrides: Partial<Record<FeatureKey, boolean>>;
+  adminShowAllFeatures: boolean;
+
   /** PDF night-mode: invert(1) hue-rotate(180deg). hue-rotate keeps image colors roughly right. Local-only. */
   pdfInvertColors: boolean;
   /** Whether the reader's secondary action row is open. Desktop only; persisted per-user. */
@@ -162,6 +169,8 @@ interface SettingsState {
   // Experimental toggles
   setExperimentalAnnotations: (v: boolean) => void;
   setExperimentalWhiteboard: (v: boolean) => void;
+  setFeatureOverride: (key: FeatureKey, v: boolean | undefined) => void;
+  setAdminShowAllFeatures: (v: boolean) => void;
   setPdfInvertColors: (v: boolean) => void;
   setPdfReflowMode: (v: boolean) => void;
   setReaderSecondaryPanelOpen: (v: boolean) => void;
@@ -211,6 +220,9 @@ export const useSettingsStore = create<SettingsState>()(
 
       experimental_allowAnnotationsForAllFormats: false,
       experimental_allowWhiteboardForAllFormats: false,
+
+      featureOverrides: {},
+      adminShowAllFeatures: true,
 
       pdfInvertColors: false,
       pdfReflowMode: false,
@@ -387,6 +399,14 @@ export const useSettingsStore = create<SettingsState>()(
         set({ experimental_allowAnnotationsForAllFormats: v }),
       setExperimentalWhiteboard: (v) =>
         set({ experimental_allowWhiteboardForAllFormats: v }),
+      setFeatureOverride: (key, v) =>
+        set((s) => {
+          const next = { ...s.featureOverrides };
+          if (v === undefined) delete next[key];
+          else next[key] = v;
+          return { featureOverrides: next };
+        }),
+      setAdminShowAllFeatures: (v) => set({ adminShowAllFeatures: v }),
       setPdfInvertColors: (v) => set({ pdfInvertColors: v }),
       setPdfReflowMode: (v) => set({ pdfReflowMode: v }),
       setReaderSecondaryPanelOpen: (v) => set({ readerSecondaryPanelOpen: v }),
@@ -492,7 +512,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "pnyxy-reader:settings",
-      version: 12,
+      version: 13,
       partialize: (state) => {
         // persist everything; pluginStorage stays local-only, never synced to Supabase
         return state;
@@ -663,6 +683,15 @@ export const useSettingsStore = create<SettingsState>()(
         // Brand-new users start from the initial `false` and see it once.
         if (version < 12) {
           state.onboardingCompleted = true;
+        }
+        // v13: feature gating fields
+        if (version < 13) {
+          if (!state.featureOverrides || typeof state.featureOverrides !== "object") {
+            state.featureOverrides = {};
+          }
+          if (typeof state.adminShowAllFeatures !== "boolean") {
+            state.adminShowAllFeatures = true;
+          }
         }
         return state as unknown as SettingsState;
       },

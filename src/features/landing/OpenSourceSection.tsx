@@ -41,7 +41,7 @@ export function OpenSourceSection() {
           href={REPO_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="group block rounded-xl border border-glass-border bg-bg-secondary p-6 transition-colors hover:border-accent/40"
+          className="group flex h-full flex-col rounded-xl border border-glass-border bg-bg-secondary p-6 transition-colors hover:border-accent/40"
         >
           <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-accent/12 text-accent">
             <GithubGlyph size={20} />
@@ -52,7 +52,7 @@ export function OpenSourceSection() {
           <p className="text-sm leading-relaxed text-text-secondary">
             {t("landing.openSource.repo.description")}
           </p>
-          <p className="mt-4 font-mono text-2xs text-accent">
+          <p className="mt-auto pt-4 font-mono text-2xs text-accent">
             github.com/LenYx24/pnyxy →
           </p>
         </a>
@@ -61,7 +61,7 @@ export function OpenSourceSection() {
           href={COMMUNITY_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="group block rounded-xl border border-glass-border bg-bg-secondary p-6 transition-colors hover:border-accent/40"
+          className="group flex h-full flex-col rounded-xl border border-glass-border bg-bg-secondary p-6 transition-colors hover:border-accent/40"
         >
           <div className="mb-4 flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/12 text-accent">
@@ -77,7 +77,7 @@ export function OpenSourceSection() {
           <p className="text-sm leading-relaxed text-text-secondary">
             {t("landing.openSource.community.description")}
           </p>
-          <p className="mt-4 font-mono text-2xs text-accent">
+          <p className="mt-auto pt-4 font-mono text-2xs text-accent">
             github.com/LenYx24/pnyxy-community →
           </p>
         </a>

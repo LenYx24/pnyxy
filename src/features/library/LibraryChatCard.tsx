@@ -11,6 +11,8 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { Checkbox, FloatingMenu } from "@/components/ui";
+import { useContextMenu } from "@/hooks/use-context-menu";
+import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { cn } from "@/lib/cn";
 import { conversationDisplayTitle } from "@/lib/entity-title";
 import { logError } from "@/lib/logger";
@@ -103,6 +105,41 @@ export function LibraryChatCard({
     open();
   };
 
+  const contextHandlers = useContextMenu((): ContextMenuEntry[] => [
+    {
+      id: "open",
+      label: t("library.allBooks.openChat"),
+      icon: MessageSquare,
+      onClick: () => open(),
+    },
+    {
+      id: "move",
+      label: t("library.actions.moveToFolder"),
+      icon: FolderInput,
+      onClick: () => setMoveOpen(true),
+    },
+    {
+      id: "export",
+      label: t("library.actions.exportMarkdown"),
+      icon: Download,
+      onClick: () =>
+        void downloadConversationMarkdownById(conversation).catch((err) =>
+          logError("library:exportChatMarkdown", err),
+        ),
+    },
+    { id: "div-1", divider: true },
+    {
+      id: "delete",
+      label: t("common.delete"),
+      icon: Trash2,
+      danger: true,
+      onClick: () =>
+        void deleteConversation(conversation.id).catch((err) =>
+          logError("library:deleteConversation", err),
+        ),
+    },
+  ]);
+
   return (
     <div
       ref={setNodeRef}
@@ -115,6 +152,7 @@ export function LibraryChatCard({
       {...listeners}
     >
       <div
+        {...contextHandlers}
         className={cn(
           "group relative",
           selected && "ring-2 ring-accent rounded-md",

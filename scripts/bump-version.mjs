@@ -24,7 +24,7 @@ if (!version) {
   process.exit(1);
 }
 
-// Strict semver — major.minor.patch, optional -prerelease, optional +build.
+// Strict semver, major.minor.patch, optional -prerelease, optional +build.
 // Rejects leading 'v' on purpose: the TAG has a 'v', the versions in
 // source files don't.
 const SEMVER =
@@ -34,7 +34,7 @@ if (!SEMVER.test(version)) {
   process.exit(1);
 }
 
-// Fail on dirty tree — the commit message gets written referring to
+// Fail on dirty tree, the commit message gets written referring to
 // this version, a dirty tree means the commit will pick up unrelated
 // changes too.
 const dirty = execSync("git status --porcelain", {
@@ -84,7 +84,7 @@ for (let i = 0; i < cargoLines.length; i++) {
   }
   if (inPackage) {
     // Bare `version = "..."` at the start of the line (no indent and
-    // no inline-table wrapping it — that would be a dependency).
+    // no inline-table wrapping it, that would be a dependency).
     const m = line.match(/^version\s*=\s*"([^"]+)"\s*$/);
     if (m) {
       oldCargoVersion = m[1];
@@ -94,7 +94,7 @@ for (let i = 0; i < cargoLines.length; i++) {
   }
 }
 if (oldCargoVersion == null) {
-  console.error("Could not find [package] version in Cargo.toml — aborting.");
+  console.error("Could not find [package] version in Cargo.toml, aborting.");
   process.exit(1);
 }
 writeFileSync(cargoPath, cargoLines.join("\n"));

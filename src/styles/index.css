@@ -5,7 +5,7 @@
    the bg-bg-tertiary surface and renders consistently across the
    curated language list registered in lib/markdown-message.ts. */
 @import "highlight.js/styles/github-dark.css";
-/* KaTeX's own stylesheet — required for $...$ / $$...$$ math to
+/* KaTeX's own stylesheet, required for $...$ / $$...$$ math to
    render correctly; the marked-katex-extension only emits the
    structure, KaTeX's CSS supplies the typography, font-loading and
    spacing rules. Loaded once at the global level so every chat
@@ -24,17 +24,17 @@
 
   /* Semantic state colors. One token per intent, used at full
      strength for text/icons and at low opacity (e.g. bg-danger/15)
-     for tinted surfaces — replaces the ad-hoc red-400/red-500/
+     for tinted surfaces, replaces the ad-hoc red-400/red-500/
      amber-400/green-400/emerald-400 scatter. Static across themes
      (a warning is amber everywhere), unlike the runtime-themed
      accent. */
-  --color-danger: #f87171;   /* red-400  — destructive / error */
-  --color-warning: #fbbf24;  /* amber-400 — caution / quota near limit */
-  --color-success: #4ade80;  /* green-400 — confirmed / saved / on-track */
-  --color-info: #60a5fa;     /* blue-400  — neutral informational */
+  --color-danger: #f87171;   /* red-400 : destructive / error */
+  --color-warning: #fbbf24;  /* amber-400: caution / quota near limit */
+  --color-success: #4ade80;  /* green-400: confirmed / saved / on-track */
+  --color-info: #60a5fa;     /* blue-400 : neutral informational */
 
   /* Text colors. Kept in sync with `pnyxy-dark` in
-     src/lib/themes/core.ts — these are the initial @theme defaults
+     src/lib/themes/core.ts, these are the initial @theme defaults
      before user-selected theme tokens are applied at runtime. */
   --color-text-primary: #eaf2ff;
   --color-text-secondary: #d8e1f5;
@@ -132,7 +132,7 @@
    Sortable cards/rows carry inline `content-visibility: auto` for
    offscreen-render perf on big libraries. But dnd-kit measures each
    item via getBoundingClientRect, and content-visibility:auto collapses
-   offscreen items to their contain-intrinsic-size *guess* — so reorder
+   offscreen items to their contain-intrinsic-size *guess*, so reorder
    drops landed in the wrong slot / snapped back. While a drag is active
    (AllBooksTab toggles `.library-dnd-active`) we force every item to
    render fully so measurements are exact. The stylesheet `!important`
@@ -163,9 +163,21 @@ html.tauri-app {
   }
 }
 
+/* Subtle opacity-only entrance for list items (e.g. catalog cards). No
+ * transform, so items that persist across a re-search don't shift; only
+ * genuinely new items (keyed by id) mount and fade in. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /*
  * Slow breathing glow used by the focus session badge. Tailwind's
- * animate-pulse cycles in 2s and ramps opacity hard — too anxious
+ * animate-pulse cycles in 2s and ramps opacity hard, too anxious
  * for a calm focus mode. This goes 4s and modulates a coloured
  * box-shadow instead, so the badge feels like it's gently
  * inhaling/exhaling rather than blinking.
@@ -204,7 +216,7 @@ html.tauri-app {
 
 /*
  * Chat "aurora" backdrop. A few oversized, heavily-blurred colour
- * blobs that drift on long, offset cycles behind the message thread —
+ * blobs that drift on long, offset cycles behind the message thread,
  * the result is a slow, abstract shift of light rather than a flat
  * fill. Each blob has its own keyframe + period so they never line up
  * into an obvious loop. Colours come from the accent tokens via
@@ -245,7 +257,7 @@ html.tauri-app {
   filter: blur(80px);
   will-change: transform;
 }
-/* Respect users who ask for less motion — keep the colour wash, drop
+/* Respect users who ask for less motion, keep the colour wash, drop
    the drift. */
 @media (prefers-reduced-motion: reduce) {
   .chat-aurora__blob {
@@ -272,11 +284,11 @@ html.tauri-app {
     -webkit-overflow-scrolling: touch;
     /* Firefox scrollbar styling (it ignores ::-webkit-scrollbar). The
      * thumb is a theme-token mix so it stays visible in BOTH light and
-     * dark — the old glass-border thumb was near-invisible on the light
+     * dark, the old glass-border thumb was near-invisible on the light
      * public pages. Inherits to all scroll containers. */
-    scrollbar-width: thin;
-    scrollbar-color: color-mix(in srgb, var(--color-text-muted) 45%, transparent)
-      transparent;
+    scrollbar-width: auto;
+    scrollbar-color: color-mix(in srgb, var(--color-text-primary) 55%, transparent)
+      color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   }
 
   body {
@@ -285,22 +297,30 @@ html.tauri-app {
   }
 
   *::-webkit-scrollbar {
-    width: 6px;
+    width: 12px;
+    height: 12px;
   }
 
   *::-webkit-scrollbar-track {
-    background: transparent;
+    /* faint rail so the thumb has something to sit in */
+    background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   }
 
   *::-webkit-scrollbar-thumb {
     /* text-muted mix, not glass-border: the latter is ~10% ink on the
        light theme and effectively invisible. */
-    background: color-mix(in srgb, var(--color-text-muted) 45%, transparent);
-    border-radius: 3px;
+    background: color-mix(in srgb, var(--color-text-primary) 55%, transparent);
+    border-radius: 6px;
+    /* inset border keeps a gap from the rail without shrinking the hit area */
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    min-height: 40px;
   }
 
-  *::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in srgb, var(--color-text-muted) 70%, transparent);
+  *::-webkit-scrollbar-thumb:hover,
+  *::-webkit-scrollbar-thumb:active {
+    background: color-mix(in srgb, var(--color-text-primary) 80%, transparent);
+    background-clip: padding-box;
   }
 
   /* PDF text layer: keep text invisible for selection.
@@ -309,7 +329,7 @@ html.tauri-app {
      mobile WebViews suppresses long-press selection unless the
      selectable element itself opts back in.
      We deliberately do NOT override font-family on the per-span
-     elements here — pdfjs sets a calibrated font on each span and
+     elements here, pdfjs sets a calibrated font on each span and
      uses `transform: scaleX(N)` to align the invisible selection
      boxes with the visible canvas glyphs. Forcing `font-family:
      inherit` made the browser measure with a different font, so
@@ -401,7 +421,7 @@ html.tauri-app {
 }
 
 /* Markdown rendering inside AI chat bubbles. Tight vertical
- * rhythm — chat is dense — and readable code blocks. */
+ * rhythm (chat is dense) and readable code blocks. */
 .ai-message > * + * { margin-top: 0.5rem; }
 .ai-message p { margin: 0; }
 .ai-message h1, .ai-message h2, .ai-message h3 {
@@ -447,6 +467,31 @@ html.tauri-app {
 .ai-message ul { list-style: disc; }
 .ai-message ol { list-style: decimal; }
 .ai-message li + li { margin-top: 0.15rem; }
+
+/* CodeMirror note editor, Obsidian-style live-preview classes. The
+   document stays raw markdown; these style the rendered spans/lines
+   while livePreview hides the syntax markers on inactive lines. */
+.cm-md-h1 { font-size: 1.5rem; font-weight: 700; line-height: 1.35; }
+.cm-md-h2 { font-size: 1.3rem; font-weight: 700; line-height: 1.35; }
+.cm-md-h3 { font-size: 1.15rem; font-weight: 600; }
+.cm-md-h4, .cm-md-h5, .cm-md-h6 { font-weight: 600; }
+.cm-md-strong { font-weight: 700; color: var(--color-text-primary); }
+.cm-md-em { font-style: italic; }
+.cm-md-strike { text-decoration: line-through; opacity: 0.7; }
+.cm-md-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+  padding: 0.1em 0.3em;
+  border-radius: 0.25rem;
+  background: var(--color-glass-bg);
+}
+.cm-md-link { color: var(--color-accent); cursor: pointer; }
+.cm-md-quote {
+  border-left: 3px solid var(--color-glass-border);
+  padding-left: 0.6rem;
+  color: var(--color-text-secondary);
+}
+.cm-editor .cm-placeholder { color: var(--color-text-muted); }
 .ai-message code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.85em;
@@ -471,7 +516,7 @@ html.tauri-app {
   display: block;
   overflow-x: auto;
 }
-/* Code block toolbar — language badge + Copy button. Sits above the
+/* Code block toolbar, language badge + Copy button. Sits above the
    <code> element inside the same <pre>; the <pre>'s own scroll is
    on the <code> child via overflow-x: auto so the toolbar stays
    pinned regardless of horizontal scroll position. */
@@ -522,7 +567,7 @@ html.tauri-app {
   /* A wide multi-column table renders at its min-content width and, with
      no scroll container, drags page-level horizontal scroll on mobile.
      display:block + overflow-x lets the table scroll inside the bubble
-     instead — mirroring what `pre code` already does for code blocks. */
+     instead, mirroring what `pre code` already does for code blocks. */
   display: block;
   max-width: 100%;
   overflow-x: auto;
@@ -574,7 +619,7 @@ html.tauri-app {
 }
 
 /* ----------------------------------------------------------------- */
-/* xyflow / @xyflow/react — themed for the app's glass dark surface.  */
+/* xyflow / @xyflow/react, themed for the app's glass dark surface.  */
 /* The library ships a light default; we override CSS variables so   */
 /* the controls and minimap blend into Pnyxy's theme.                 */
 /* ----------------------------------------------------------------- */
@@ -591,7 +636,7 @@ html.tauri-app {
   --xy-selection-border: 1px dashed var(--color-accent);
 }
 
-/* The Controls container itself — glass card on hover. */
+/* The Controls container itself, glass card on hover. */
 .react-flow__controls {
   box-shadow: none;
   border: 1px solid var(--color-glass-border);
@@ -624,7 +669,7 @@ html.tauri-app {
   stroke-width: 18 !important;
 }
 
-/* Drag feedback on nodes — subtle lift while user is dragging. */
+/* Drag feedback on nodes, subtle lift while user is dragging. */
 .react-flow__node {
   transition:
     transform 120ms ease,
@@ -652,7 +697,7 @@ html.tauri-app {
 }
 
 /* ----------------------------------------------------------------- */
-/* Hide native number input spinners globally — they're inconsistent  */
+/* Hide native number input spinners globally, they're inconsistent  */
 /* across browsers and clash with the dark theme. Components that      */
 /* need explicit +/- controls use the NumberInput component.           */
 /* ----------------------------------------------------------------- */

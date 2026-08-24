@@ -17,7 +17,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("GitHubRegistry — URL construction", () => {
+describe("GitHubRegistry - URL construction", () => {
   it("uses the default base URL when no override is given", async () => {
     fetchCachedMock.mockResolvedValueOnce(
       JSON.stringify({ apiVersion: 1, plugins: [], themes: [] }),
@@ -92,7 +92,7 @@ describe("GitHubRegistry — URL construction", () => {
   });
 });
 
-describe("GitHubRegistry — index parsing", () => {
+describe("GitHubRegistry - index parsing", () => {
   it("returns plugins/themes from the parsed index", async () => {
     fetchCachedMock.mockResolvedValue(
       JSON.stringify({

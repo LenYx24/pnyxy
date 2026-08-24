@@ -2,12 +2,12 @@
 
 All notable changes to Pnyxy are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
-adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — though
+adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html), though
 while the project is on 0.x, minor bumps may still include breaking changes.
 
 ## [Unreleased]
 
-## [0.2.1] — 2026-04-24
+## [0.2.1], 2026-04-24
 
 ### Fixed
 - Mobile: AI chat, TOC, and Comments panels no longer render their content
@@ -15,7 +15,7 @@ while the project is on 0.x, minor bumps may still include breaking changes.
   visualViewport listeners) fired on every reader mount and leaked onto the
   main view on Android WebView, which looked like the panel auto-opening.
 
-## [0.2.0] — 2026-04-24
+## [0.2.0], 2026-04-24
 
 ### Added
 - **Vocabulary builder.** Dictionary lookups in the reader are now captured
@@ -28,7 +28,7 @@ while the project is on 0.x, minor bumps may still include breaking changes.
 - **PWA install.** Manifest + 192/512 icons + maskable variant so the site
   installs cleanly to Android home screens with the correct logo.
 - **Library pull-to-refresh** on mobile.
-- **Web Share API** in the annotation context menu — "Share…" opens the
+- **Web Share API** in the annotation context menu, "Share…" opens the
   native share sheet on mobile with the selected text + book attribution.
 - **Overscroll hygiene.** `overscroll-behavior: none` on `html` so the
   browser's default pull-to-refresh doesn't fire inside the app.

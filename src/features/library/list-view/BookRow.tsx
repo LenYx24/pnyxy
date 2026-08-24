@@ -303,7 +303,7 @@ export function BookRow({
           />
         </div>
 
-        {/* Icon — no tinted tile. A fixed-height box keeps every row the
+        {/* Icon: no tinted tile. A fixed-height box keeps every row the
             same height and aligns the name column across types. Books keep
             their real cover art when present; otherwise a plain book glyph. */}
         <div className="mr-2.5 flex h-8 w-7 shrink-0 items-center justify-center sm:h-9">
@@ -333,7 +333,7 @@ export function BookRow({
             "min-w-0 flex-1 truncate font-medium text-text-primary",
             density.text,
           )}
-          title={`${title}${author ? " — " + author : ""}`}
+          title={`${title}${author ? " - " + author : ""}`}
         >
           {title}
         </span>
@@ -383,7 +383,7 @@ export function BookRow({
           </button>
         )}
 
-        {/* Menu — placed right after the name (Nextcloud puts row
+        {/* Menu: placed right after the name (Nextcloud puts row
             actions here), not at the far edge. */}
         <div ref={tagAnchorRef} className="relative mr-2 shrink-0">
           <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
@@ -460,12 +460,12 @@ export function BookRow({
           )}
         </div>
 
-        {/* Size — real file size, larger + higher contrast. */}
+        {/* Size: real file size, larger + higher contrast. */}
         <span
           className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
           style={{ width: columnWidths.size }}
         >
-          {getFileSize(entry) ?? "—"}
+          {getFileSize(entry) ?? "-"}
         </span>
 
         {/* Date */}

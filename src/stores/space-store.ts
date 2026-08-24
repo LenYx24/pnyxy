@@ -45,7 +45,7 @@ interface SpaceState {
   leaveSpace: (spaceId: string) => Promise<void>;
   /**
    * Enroll in a course: join it AND build a library folder tree so chats,
-   * quizzes and notes about each resource have a home — `<course>/<resource>`.
+   * quizzes and notes about each resource have a home, `<course>/<resource>`.
    * Idempotent (find-or-create by name). Relies on activeSpaceContent being
    * loaded (call after loadSpace).
    */

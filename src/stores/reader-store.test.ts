@@ -35,6 +35,13 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
+// The store tests exercise multi-document behaviour; the pilot default
+// (single-document mode) is covered separately below.
+const featuresMock = vi.hoisted(() => ({ multiDoc: true }));
+vi.mock("@/lib/use-features", () => ({
+  getFeatures: () => featuresMock,
+}));
+
 vi.mock("@/stores/auth-store", () => ({
   useAuthStore: { getState: () => ({ user: null, profile: null }) },
 }));
@@ -204,6 +211,23 @@ describe("removeDocument", () => {
 
     useReaderStore.getState().removeDocument("c");
     expect(useReaderStore.getState().activeDocumentId).toBe("b");
+  });
+
+  it("single-document mode: opening a book replaces and disposes the open one", async () => {
+    featuresMock.multiDoc = false;
+    try {
+      const { useReaderStore } = await loadStores();
+      const first = makeAdapter({ id: "a" });
+      await useReaderStore.getState().addDocument(first, FAKE_FILE);
+      await useReaderStore
+        .getState()
+        .addDocument(makeAdapter({ id: "b" }), FAKE_FILE);
+      expect(first.dispose).toHaveBeenCalledTimes(1);
+      expect(Array.from(useReaderStore.getState().documents.keys())).toEqual(["b"]);
+      expect(useReaderStore.getState().activeDocumentId).toBe("b");
+    } finally {
+      featuresMock.multiDoc = true;
+    }
   });
 
   it("keeps the active doc when removing a different one", async () => {

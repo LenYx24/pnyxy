@@ -30,7 +30,7 @@ export async function promptOpenAiLink(
         <p>
           {t("chat.linkWarning.body", {
             defaultValue:
-              "The AI suggested this URL. AI models can hallucinate links — verify the domain looks right before opening.",
+              "The AI suggested this URL. AI models can hallucinate links, verify the domain looks right before opening.",
           })}
         </p>
         <p className="break-all rounded bg-bg-primary/40 p-2 font-mono text-xs text-text-primary">

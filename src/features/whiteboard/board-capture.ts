@@ -1,7 +1,7 @@
 // Lets the whiteboard chat panel grab a snapshot of the current board so the
 // AI can "see" what the user drew. The canvas registers itself here on mount
 // (there's only ever one active board canvas), and the chat panel reads a PNG
-// data URL from it on demand — cheap, since the board is already a <canvas>
+// data URL from it on demand, cheap, since the board is already a <canvas>
 // (no html2canvas needed). The snapshot is the current viewport of the board.
 
 let activeBoardCanvas: HTMLCanvasElement | null = null;
@@ -21,7 +21,7 @@ export function captureBoardImage(): { data: string; media_type: string } | null
       media_type: "image/png",
     };
   } catch {
-    // tainted canvas (shouldn't happen — all content is same-origin) etc.
+    // tainted canvas (shouldn't happen, all content is same-origin) etc.
     return null;
   }
 }

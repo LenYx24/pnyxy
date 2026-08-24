@@ -64,7 +64,7 @@ function BookCard({ book }: { book: RecommendedBook }) {
         throw new Error(
           t("chat.recommend.noActiveOrg", {
             defaultValue:
-              "You need an active workspace to add books — sign in or create one.",
+              "You need an active workspace to add books, sign in or create one.",
           }),
         );
       }

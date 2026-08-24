@@ -1,6 +1,6 @@
 -- ============================================================
 -- 00056_offerings.sql
--- Course "offerings": the time axis for a course space — its runs per
+-- Course "offerings": the time axis for a course space, its runs per
 -- term/year (e.g. "2025 ősz"). MVP is informational (term label + dates
 -- + status shown on the course page); per-offering enrollment +
 -- scheduling of due dates lands later.

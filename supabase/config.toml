@@ -3,20 +3,16 @@ project_id = "pnyxy-reader"
 [functions.ai-chat-proxy]
 verify_jwt = false
 
-# Lemon Squeezy calls this with its own HMAC signature, not a user JWT.
-[functions.lemonsqueezy-webhook]
-verify_jwt = false
-
 # Stripe calls this with its own signature (Stripe-Signature), not a user JWT.
 [functions.stripe-webhook]
 verify_jwt = false
 
 # stripe-checkout is called by a signed-in user; keep the gateway's JWT
-# check (default) — the function re-reads the JWT to get the user id.
+# check (default), the function re-reads the JWT to get the user id.
 [functions.stripe-checkout]
 verify_jwt = true
 
-# stripe-portal (manage/cancel subscription) — same as stripe-checkout.
+# stripe-portal (manage/cancel subscription), same as stripe-checkout.
 [functions.stripe-portal]
 verify_jwt = true
 
@@ -40,7 +36,7 @@ enable_confirmations = true
 secure_password_change = true
 
 [auth.email.template.confirmation]
-subject       = "Welcome to Pnyxy — confirm your email"
+subject       = "Welcome to Pnyxy: confirm your email"
 content_path  = "./supabase/templates/confirmation.html"
 
 [auth.email.template.recovery]

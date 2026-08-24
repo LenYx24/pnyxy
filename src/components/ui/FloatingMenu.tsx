@@ -15,6 +15,11 @@ interface FloatingMenuProps {
   /** Forwarded to the menu container so hover-triggered parents can track the portaled menu. */
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  /** "bottom" (default): dropdown below the anchor. "right": side flyout
+   *  to the right of the anchor, top-aligned, used by the collapsed
+   *  sidebar rail, where a dropdown would have no width. Both flip to the
+   *  opposite side when the viewport has no room. */
+  placement?: "bottom" | "right";
 }
 
 /** Menu rendered into document.body to escape clipping ancestors; positioned from the anchor rect. */
@@ -26,6 +31,7 @@ export function FloatingMenu({
   children,
   onMouseEnter,
   onMouseLeave,
+  placement = "bottom",
 }: FloatingMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{
@@ -44,6 +50,27 @@ export function FloatingMenu({
     const m = menu.getBoundingClientRect();
     const vw = window.innerWidth;
     const vh = window.innerHeight;
+
+    // Side flyout: sit to the right of the anchor, top-aligned. Flip to the
+    // left when the right side would overflow; clamp/cap vertically so a tall
+    // menu scrolls instead of running off-screen.
+    if (placement === "right") {
+      let left = a.right + 4;
+      if (left + m.width > vw - MARGIN) {
+        const leftSide = a.left - m.width - 4;
+        left = leftSide >= MARGIN ? leftSide : Math.max(MARGIN, vw - m.width - MARGIN);
+      }
+      let top = a.top;
+      let maxHeight = m.height;
+      if (m.height > vh - 2 * MARGIN) {
+        top = MARGIN;
+        maxHeight = vh - 2 * MARGIN;
+      } else if (top + m.height > vh - MARGIN) {
+        top = vh - m.height - MARGIN;
+      }
+      setPos({ left, top, maxHeight });
+      return;
+    }
 
     // right-align with trigger, place below
     let left = a.right - m.width;
@@ -70,7 +97,7 @@ export function FloatingMenu({
     }
 
     setPos({ left, top, maxHeight });
-  }, [open, anchorRef]);
+  }, [open, anchorRef, placement]);
 
   useEffect(() => {
     if (!open) return;

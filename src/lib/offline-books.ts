@@ -3,8 +3,8 @@
 //
 // The open hooks keep an in-memory `blobCache` that only survives the current
 // session; this store survives reloads. Keyed by the same identifier the open
-// path already uses — uploaded books by `storage_path`, catalog books by their
-// id — so a lookup is a single get with no extra bookkeeping.
+// path already uses, uploaded books by `storage_path`, catalog books by their
+// id, so a lookup is a single get with no extra bookkeeping.
 //
 // Kept in its own IndexedDB (not the `pnyxy-annotations` DB) so large binaries
 // don't bloat that DB or couple to its version/upgrade cycle. Wiped on sign-out
@@ -43,7 +43,7 @@ export async function saveBookBlob(key: string, blob: Blob): Promise<void> {
       tx.onerror = () => reject(tx.error);
     });
   } catch {
-    // quota exceeded / private mode — offline persistence is best-effort
+    // quota exceeded / private mode, offline persistence is best-effort
   }
 }
 

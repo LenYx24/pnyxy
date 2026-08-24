@@ -128,7 +128,7 @@ export function CreateFolderModal({
             />
             <p className="mt-1 text-xs text-text-muted">
               {/* `<slash/>` and `<ex/>` are placeholder elements the
-                  translation mustn't touch — Trans swaps them for the
+                  translation mustn't touch, Trans swaps them for the
                   real styled <span>s at render time. */}
               <Trans
                 i18nKey="library.createFolder.nestedTip"

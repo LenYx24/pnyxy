@@ -2,12 +2,12 @@ import { cn } from "@/lib/cn";
 
 /**
  * The landing's signature motif: slanted accent bars. Deliberately
- * skewed (never horizontal) and asymmetric — a nod to the bold diagonal
+ * skewed (never horizontal) and asymmetric, a nod to the bold diagonal
  * stripe bands the design brief liked. Decorative only, so it's always
  * aria-hidden and pointer-events-none. Colour is the teal --color-accent.
  */
 
-/** A dense cluster of slanted bars — sits BEHIND the hero product mock
+/** A dense cluster of slanted bars, sits BEHIND the hero product mock
  *  so the mock overlaps them (that Prebook-style diagonal band look). */
 export function HeroStripes({ className }: { className?: string }) {
   return (
@@ -25,7 +25,7 @@ export function HeroStripes({ className }: { className?: string }) {
   );
 }
 
-/** A full-width slanted accent band used as a section divider — the
+/** A full-width slanted accent band used as a section divider, the
  *  page's recurring beat. Two offset bars so it reads as motion. */
 export function SlantDivider({ className }: { className?: string }) {
   return (

@@ -19,6 +19,11 @@ import type { PluginHandle, PluginRuntime } from "./runtime/types";
 
 // Skip the supabase/auth side imports, the manager doesn't touch them
 // directly, but the settings store does via syncPreferences.
+// The manager tests exercise plugin loading; the pilot default gates it off.
+vi.mock("@/lib/use-features", () => ({
+  getFeatures: () => ({ plugins: true }),
+}));
+
 vi.mock("@/lib/supabase", () => ({
   supabase: {
     from: vi.fn().mockReturnThis(),
@@ -82,7 +87,7 @@ async function loadModules() {
   return { PluginManager, useSettingsStore };
 }
 
-describe("PluginManager — core plugin lifecycle", () => {
+describe("PluginManager - core plugin lifecycle", () => {
   it("loads a core plugin when it gets enabled", async () => {
     const { PluginManager, useSettingsStore } = await loadModules();
     const mgr = new PluginManager();
@@ -124,7 +129,7 @@ describe("PluginManager — core plugin lifecycle", () => {
   });
 });
 
-describe("PluginManager — community plugin error path", () => {
+describe("PluginManager - community plugin error path", () => {
   it("marks an enabled-but-not-installed community plugin as 'error'", async () => {
     const { PluginManager, useSettingsStore } = await loadModules();
     const mgr = new PluginManager();
@@ -184,7 +189,7 @@ describe("PluginManager — community plugin error path", () => {
   });
 });
 
-describe("PluginManager — status listeners", () => {
+describe("PluginManager - status listeners", () => {
   it("emits the current statuses on subscribe and on every change", async () => {
     const { PluginManager, useSettingsStore } = await loadModules();
     const mgr = new PluginManager();
@@ -206,7 +211,7 @@ describe("PluginManager — status listeners", () => {
   });
 });
 
-describe("PluginManager — command registry", () => {
+describe("PluginManager - command registry", () => {
   it("dispatches an executed command back to the loaded plugin handle", async () => {
     const { PluginManager } = await loadModules();
     const mgr = new PluginManager();

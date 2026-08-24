@@ -157,7 +157,7 @@ export function RoadmapEditorPage() {
           )}
         </div>
 
-        {/* Right side panel — node editor */}
+        {/* Right side panel: node editor */}
         <aside className="hidden w-80 shrink-0 overflow-y-auto border-l border-glass-border bg-bg-secondary/50 p-4 lg:block">
           {selectedNode ? (
             <NodeEditor

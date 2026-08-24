@@ -2,6 +2,18 @@ import { useState, useCallback } from "react";
 
 export type ViewMode = "grid" | "list";
 
+/** Library item-type filter. "books" is the default so the library stays
+ *  book-first at scale; the other kinds are attached to books and reached
+ *  from the book page (or via these filter chips). */
+export type LibraryTypeFilter =
+  | "all"
+  | "books"
+  | "notes"
+  | "whiteboards"
+  | "quizzes"
+  | "chats"
+  | "resources";
+
 const STORAGE_KEY = "pnyxy-library-prefs";
 const SORT_ORDERS_KEY = "pnyxy-library-sort-orders";
 
@@ -17,6 +29,7 @@ interface LibraryPrefs {
   // default is platform-aware (mobile collapsed, desktop expanded) until user toggles
   controlsExpanded: boolean;
   listColumnWidths: ListColumnWidths;
+  typeFilter: LibraryTypeFilter;
 }
 
 // keys are "folder:<id>" or "book:<id>"
@@ -37,6 +50,9 @@ const DEFAULT_PREFS: LibraryPrefs = {
   cardSize: DEFAULT_CARD_SIZE,
   controlsExpanded: true,
   listColumnWidths: DEFAULT_LIST_COLUMN_WIDTHS,
+  // book-first by default; existing users (no stored typeFilter) also get
+  // this via the DEFAULT_PREFS merge in loadPrefs.
+  typeFilter: "books",
 };
 
 function loadPrefs(): LibraryPrefs {
@@ -136,6 +152,14 @@ export function useLibraryPrefs() {
     });
   }, []);
 
+  const setTypeFilter = useCallback((typeFilter: LibraryTypeFilter) => {
+    setPrefs((p) => {
+      const next = { ...p, typeFilter };
+      savePrefs(next);
+      return next;
+    });
+  }, []);
+
   const setListColumnWidth = useCallback(
     (key: keyof ListColumnWidths, width: number) => {
       setPrefs((p) => {
@@ -163,6 +187,7 @@ export function useLibraryPrefs() {
     setViewMode,
     setCardSize,
     setControlsExpanded,
+    setTypeFilter,
     setListColumnWidth,
     sortOrders,
     setSortOrder,

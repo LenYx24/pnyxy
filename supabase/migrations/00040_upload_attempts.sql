@@ -8,7 +8,7 @@
 -- ignored, which means we have no data on demand.
 --
 -- Privacy: we deliberately do NOT store filenames (too
--- identifying — e.g. "Szakdolgozat_v3.docx") or content. Only
+-- identifying, e.g. "Szakdolgozat_v3.docx") or content. Only
 -- the extension, MIME type, size, and an outcome status. The
 -- user_id link is `on delete set null` so GDPR erasure leaves
 -- aggregate counts intact without back-linking to a person.
@@ -41,7 +41,7 @@ CREATE INDEX upload_attempts_ext_status_idx
 ALTER TABLE public.upload_attempts ENABLE ROW LEVEL SECURITY;
 
 -- Authenticated users can record their own attempts. No update /
--- delete policies — the row is write-once from the client side.
+-- delete policies, the row is write-once from the client side.
 CREATE POLICY "users insert own upload attempts"
   ON public.upload_attempts FOR INSERT
   TO authenticated

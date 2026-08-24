@@ -5,7 +5,7 @@
 # as an HTML <foreignObject> conic-gradient and whose <path> has fill="none"
 # with only a stroke. Most rasterizers (and Android's launcher) cannot render
 # that foreignObject, so the icons came out as a transparent canvas with a
-# barely-visible outline and a small filled triangle — which the Android
+# barely-visible outline and a small filled triangle, which the Android
 # launcher then wraps in a white circle, producing the "white circle with a
 # black dot" look on the home screen.
 #
@@ -18,7 +18,7 @@ SRC="$(mktemp --suffix=.svg)"
 SRC_INNER="$(mktemp --suffix=.svg)"
 trap 'rm -f "$SRC" "$SRC_INNER"' EXIT
 
-# Full-bleed icon — used for the "any" purpose and apple-touch-icon. The P
+# Full-bleed icon, used for the "any" purpose and apple-touch-icon. The P
 # occupies the canvas as in the original logo (~75% width/height), with a
 # solid #0a0a0f background filling all 1024x1024 so the launcher doesn't
 # wrap it in a white circle.
@@ -36,7 +36,7 @@ cat > "$SRC" <<'SVG'
 </svg>
 SVG
 
-# Maskable icon — same content but scaled to ~70% inside an 1024x1024 frame
+# Maskable icon, same content but scaled to ~70% inside an 1024x1024 frame
 # so it stays within the Android adaptive-icon safe zone (inner 80%). The
 # launcher mask can crop the outer 20% without eating into the P.
 cat > "$SRC_INNER" <<'SVG'

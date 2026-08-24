@@ -1,4 +1,4 @@
-# Learn page — design plan: Flashcards + FAQ + shared AI definitions
+# Learn page: design plan, Flashcards + FAQ + shared AI definitions
 
 This is a **design plan only**. Nothing here is built; the goal is to
 have a clear shape we can implement (or push back on) when feature
@@ -11,22 +11,22 @@ Status legend: ✅ shipped, 🟡 in-flight, ⬜ open question.
 ### Goal
 
 Spaced-repetition deck per book. Cards review a concept, definition,
-or chunk the user wants to overlearn. Distinct from Quizzes — quizzes
+or chunk the user wants to overlearn. Distinct from Quizzes, quizzes
 are graded one-shot tests; flashcards are an ongoing review habit.
 
-### Quizlet / Anki / Brainscape — features worth copying
+### Quizlet / Anki / Brainscape, features worth copying
 
 | Feature | Source | Worth copying? | Why |
 |---|---|---|---|
 | Front/back cards | All | ✅ Yes | The base unit. |
-| Cloze (fill-the-blank) | Anki | ✅ Yes | Strong for definitions in the book — `The {{c1::heap}} is invariant under {{c2::insertion}}`. |
+| Cloze (fill-the-blank) | Anki | ✅ Yes | Strong for definitions in the book, `The {{c1::heap}} is invariant under {{c2::insertion}}`. |
 | Image occlusion | Anki addons | 🟡 Maybe later | High-effort UI (canvas masks). Skip v1, revisit if students ask. |
 | Pre-made decks (community) | Quizlet | ✅ Yes (v2) | Great fit for our shared-context philosophy. Per-book public deck = "the deck for chapter 3 of Cormen". |
 | Multiple-choice / write / match modes | Quizlet | ⬜ Probably not v1 | Quizlet uses these as gamification; we already have Quizzes for that. Keep flashcards focused on review. |
-| FSRS scheduling | Anki / RemNote | ✅ Yes | We already use FSRS for Vocabulary — reuse. |
+| FSRS scheduling | Anki / RemNote | ✅ Yes | We already use FSRS for Vocabulary, reuse. |
 | Heatmap of review streak | Anki | ✅ Yes | The streak heatmap on `/streaks` already does this; flashcard reviews should *count* toward it. |
 | Audio for pronunciation | Quizlet | ❌ No | Off-mission for textbook study. |
-| AI auto-generation from a chapter | None directly | ✅ Yes | Differentiator — "give me 20 cards on chapter 4". Aligns with Pnyxy's AI-first identity. |
+| AI auto-generation from a chapter | None directly | ✅ Yes | Differentiator, "give me 20 cards on chapter 4". Aligns with Pnyxy's AI-first identity. |
 
 ### Data model (proposed)
 
@@ -80,7 +80,7 @@ create table flashcard_reviews (
 ### v0 scope (smallest useful build)
 
 1. List + create decks per book (`/books/<id>/learn/flashcards`).
-2. Manual card add (front/back only — cloze in v1).
+2. Manual card add (front/back only, cloze in v1).
 3. Review surface: one card at a time, "again / good / easy" buttons,
    FSRS update via the existing `lib/fsrs.ts`.
 4. Daily review reminder badge on the Home page.
@@ -89,7 +89,7 @@ create table flashcard_reviews (
 ### v1 nice-to-haves
 
 - Cloze cards (`{{c1::}}` syntax with reveal-one-cluster-at-a-time UI).
-- AI auto-generation: "Generate 10 cards on chapter 3" — uses the
+- AI auto-generation: "Generate 10 cards on chapter 3", uses the
   existing AI-context plumbing (TOC + selected pages) plus a system
   prompt that forces JSON output (cf. quiz generation in
   `lib/quiz-tools.ts`).
@@ -99,7 +99,7 @@ create table flashcard_reviews (
 ### Decisions
 
 - ✅ **Cloned public deck = fresh reviews per user.** Each user gets
-  their own FSRS schedule on a cloned deck — no shared review state.
+  their own FSRS schedule on a cloned deck, no shared review state.
   Decided 2026-05-07. Easy to revisit later: it's a one-off behavior
   in the clone code path, not a schema constraint.
 - ⬜ Should we let users *export* a deck to Anki `.apkg`? Probably
@@ -144,7 +144,7 @@ shared / community treatment. Plain chat conversations stay private.
 3. The AI's response was a definition / clarification (we'll know
    because of how the system prompt is structured).
 4. After the AI answers, the user is asked: **share this with other
-   readers?** (default: no — explicit opt-in).
+   readers?** (default: no, explicit opt-in).
 
 If shared:
 - Stored as `ai_annotations` row (new table) keyed by
@@ -172,7 +172,7 @@ create table ai_annotations (
   -- a page break. Lookup on page N becomes:
   --   where start_page <= N and end_page >= N
   -- Both are integer indexes; no per-page rows, no parent/child
-  -- table — the range fits on one row and matches how PDF text
+  -- table, the range fits on one row and matches how PDF text
   -- selection actually behaves.
   start_page integer not null,
   end_page integer not null check (end_page >= start_page),
@@ -214,16 +214,16 @@ create unique index ai_annotations_dedup
 
 1. User selects a word/phrase → annotation menu shows **Explain this**
    alongside the existing Highlight / Comment / Send to AI chat
-   options. Selection can span pages — when it does, the existing
+   options. Selection can span pages, when it does, the existing
    PDF.js range selection already gives us start/end page; we just
    record both on the row.
 2. Clicking opens an inline popover: AI answer streams in.
 3. After the stream completes, a footer: `Share with other readers?`
-   [Yes — public] / [Keep private] / [Discard].
+   [Yes, public] / [Keep private] / [Discard].
 4. If shared: a small AI-marked pin appears in the margin at that
    selection. Other users see it pre-filled.
-5. Pin colour distinct from regular comments — pale violet with a
-   tiny robot icon — so it's clearly machine-generated.
+5. Pin colour distinct from regular comments (pale violet with a
+   tiny robot icon) so it's clearly machine-generated.
 6. Multi-page pins render on the **start page** with a "spans
    p.X–Y" badge under the icon, so a reader on page X sees a
    single anchor rather than a duplicate pin per spanned page.
@@ -238,9 +238,9 @@ create unique index ai_annotations_dedup
 ### What we explicitly do NOT save
 
 - Open-ended chat conversations (those stay in `/chat`).
-- Prompts that aren't selection-anchored ("summarize chapter 4" —
+- Prompts that aren't selection-anchored ("summarize chapter 4",
   too broad to share usefully).
-- Anything from uploaded (non-catalog) books — sharing is
+- Anything from uploaded (non-catalog) books, sharing is
   catalog-only because the catalog is the shared corpus.
 
 ### Cost / abuse / quality
@@ -270,7 +270,7 @@ create unique index ai_annotations_dedup
   whose `source_doc_id` is a *catalog* book and whose immediately
   preceding user message has a quoted selection (the existing
   `> ...` block from "Send to AI chat"). Reuses the same
-  `ai_annotations` row shape — the chat path just supplies the
+  `ai_annotations` row shape, the chat path just supplies the
   same fields the reader's "Explain this" path does. Decided
   2026-05-07: this widens the entry point so users who reflexively
   open the full chat surface (vs. a popover) still contribute to
@@ -303,7 +303,7 @@ create unique index ai_annotations_dedup
   a range overlap. Pin renders on `start_page` with a "spans p.X–Y"
   badge plus a "continued from" label on the end page. Decided
   2026-05-07 (the user explicitly flagged this as important).
-  Practical cap: refuse selections that span more than 5 pages —
+  Practical cap: refuse selections that span more than 5 pages,
   beyond that the prompt blows up the context window for a
   "definition" use case, and the user is really doing chapter Q&A
   (regular AI chat).
@@ -314,8 +314,8 @@ create unique index ai_annotations_dedup
 
 - The exact spaced-repetition cadence visualization on the Home page.
 - Whether flashcard decks should sit inside the `quizzes` table
-  schema (probably not — quizzes are graded one-shots, decks are
-  ongoing schedules — the existing `vocabulary_entries` table is a
+  schema (probably not: quizzes are graded one-shots, decks are
+  ongoing schedules; the existing `vocabulary_entries` table is a
   closer analog).
-- The model-routing rules for "Explain this" — should the cheapest
+- The model-routing rules for "Explain this", should the cheapest
   model always run, or pick by user-tier? Decide when implementing.
