@@ -46,7 +46,8 @@ const DEFAULT_CARD_SIZE = 150;
 const LEGACY_CARD_SIZE = 200;
 
 const DEFAULT_PREFS: LibraryPrefs = {
-  viewMode: "grid",
+  // list is the default for new users; existing users keep their stored pick
+  viewMode: "list",
   cardSize: DEFAULT_CARD_SIZE,
   controlsExpanded: true,
   listColumnWidths: DEFAULT_LIST_COLUMN_WIDTHS,
@@ -87,9 +88,8 @@ function loadPrefs(): LibraryPrefs {
   } catch {
     // ignore
   }
-  // mobile defaults to list, desktop to grid
   if (isMobile) {
-    return { ...DEFAULT_PREFS, viewMode: "list", controlsExpanded: false };
+    return { ...DEFAULT_PREFS, controlsExpanded: false };
   }
   return DEFAULT_PREFS;
 }

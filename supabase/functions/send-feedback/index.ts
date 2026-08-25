@@ -1,30 +1,11 @@
-// Pnyxy feedback relay.
-//
-// Accepts a subject + body from the browser and sends it to the
-// feedback inbox via Resend. Optionally attaches the signed-in user's
-// email + id to the message so we can reply.
-//
-// Env vars (set via `supabase secrets set`):
-//   RESEND_API_KEY    - required; from https://resend.com/api-keys
-//   FEEDBACK_FROM     - "Name <sender@verified-domain>" (default:
-//                       "Pnyxy Feedback <onboarding@resend.dev>", the
-//                       Resend sandbox; swap for your verified domain)
-//   FEEDBACK_TO       - destination inbox (default: feedback@pnyxy.com)
+// Pnyxy feedback relay: accepts a subject + body from the browser and
+// sends it to the feedback inbox via Resend. Attaches the signed-in
+// user's email + id when a session is present; anonymous is allowed.
+// Env: RESEND_API_KEY, FEEDBACK_FROM, FEEDBACK_TO. See ../README.md.
 
-// @ts-expect-error Deno-only import
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-declare const Deno: {
-  env: { get(key: string): string | undefined };
-  serve(handler: (req: Request) => Promise<Response> | Response): void;
-};
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import "../_shared/deno-shim.ts";
+import { corsFor, handleOptions, json, jsonError as jsonErrorWith } from "../_shared/http.ts";
+import { requireUser } from "../_shared/auth.ts";
 
 const MAX_SUBJECT = 200;
 const MAX_BODY = 10_000;
@@ -38,17 +19,14 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function jsonError(status: number, code: string, message: string): Response {
-  return new Response(
-    JSON.stringify({ error: { code, message } }),
-    { status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-  );
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleOptions(req);
   }
+  const corsHeaders = corsFor(req);
+  const jsonError = (status: number, code: string, message: string): Response =>
+    jsonErrorWith(status, code, message, corsHeaders);
+
   if (req.method !== "POST") {
     return jsonError(405, "method_not_allowed", "POST only");
   }
@@ -83,18 +61,12 @@ Deno.serve(async (req) => {
   // Try to attribute to signed-in user so we can reply. Anonymous is OK.
   let userEmail: string | null = null;
   let userId: string | null = null;
-  const authHeader = req.headers.get("Authorization") ?? "";
-  if (authHeader.startsWith("Bearer ") && authHeader.length > "Bearer ".length) {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const client = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data } = await client.auth.getUser();
-    if (data?.user) {
-      userEmail = data.user.email ?? null;
-      userId = data.user.id;
-    }
+  const auth = await requireUser(req, {
+    onError: () => new Response(null, { status: 401 }),
+  });
+  if (auth.ok) {
+    userEmail = auth.user.email ?? null;
+    userId = auth.user.id;
   }
 
   const attribution = userEmail
@@ -142,8 +114,5 @@ Deno.serve(async (req) => {
     return jsonError(502, "upstream_error", `Resend error (${upstream.status})`);
   }
 
-  return new Response(JSON.stringify({ ok: true }), {
-    status: 200,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  return json(200, { ok: true }, corsHeaders);
 });

@@ -11,6 +11,8 @@ interface AddResourceModalProps {
   onClose: () => void;
   /** Folder the new resource lands in (the folder the user is currently viewing). */
   folderId: string | null;
+  /** Pre-filled URL (a link pasted onto the library page). */
+  initialUrl?: string;
 }
 
 /**
@@ -18,7 +20,12 @@ interface AddResourceModalProps {
  * web page / YouTube link via the resource store, then navigates to the
  * resource viewer. Mirrors the OpenFromUrlModal shell.
  */
-export function AddResourceModal({ open, onClose, folderId }: AddResourceModalProps) {
+export function AddResourceModal({
+  open,
+  onClose,
+  folderId,
+  initialUrl = "",
+}: AddResourceModalProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const createResource = useResourceStore((s) => s.createResource);
@@ -30,12 +37,12 @@ export function AddResourceModal({ open, onClose, folderId }: AddResourceModalPr
   // Reset + autofocus when opened.
   useEffect(() => {
     if (!open) return;
-    setUrl("");
+    setUrl(initialUrl);
     setError(null);
     setLoading(false);
     const timer = setTimeout(() => inputRef.current?.focus(), 0);
     return () => clearTimeout(timer);
-  }, [open]);
+  }, [open, initialUrl]);
 
   // Esc to close (when not actively loading).
   useEffect(() => {

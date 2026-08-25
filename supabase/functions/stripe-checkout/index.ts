@@ -1,75 +1,35 @@
-// Pnyxy: create a Stripe Checkout Session (subscription mode).
-//
-// The PlanTab "Upgrade" button calls this for the signed-in user. We:
-//   1. Verify the caller is signed in and read their user id + email.
-//   2. Reuse their existing Stripe customer if we already have one
-//      (so repeat upgrades don't create duplicate customers).
-//   3. Create a subscription Checkout Session via the Stripe REST API,
-//      attaching our user_id as metadata on BOTH the session and the
-//      resulting subscription (subscription_data[metadata]) so every
-//      later webhook event can map back to this account.
-//   4. Return { url } for the browser to redirect to Stripe's hosted,
-//      PCI-compliant checkout page. We never touch card data.
-//
-// Env vars (set via `supabase secrets set`):
-//   STRIPE_SECRET_KEY - the `sk_...` secret key (test or live).
-//   STRIPE_PRICE_ID   - the recurring Price id for Premium (`price_...`).
-//   SITE_URL          - optional fallback origin for success/cancel URLs
-//                       when the request doesn't carry a usable origin.
-//   SUPABASE_URL / SUPABASE_ANON_KEY - provided by the platform.
-//
-// Left with the default `verify_jwt = true`; the Supabase gateway
-// validates the caller's JWT and we re-read it to get the user id.
+// Pnyxy: create a Stripe Checkout Session (subscription mode) for the
+// signed-in user, reusing their Stripe customer when known and tagging
+// session + subscription metadata with user_id so webhooks map back.
+// Returns { url }. Env: STRIPE_SECRET_KEY, STRIPE_PRICE_ID, SITE_URL.
+// See ../README.md.
 
-// @ts-expect-error Deno-only import
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-declare const Deno: {
-  env: { get(key: string): string | undefined };
-  serve(handler: (req: Request) => Promise<Response> | Response): void;
-};
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-function jsonError(status: number, message: string): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
+import "../_shared/deno-shim.ts";
+import { corsFor, handleOptions, json } from "../_shared/http.ts";
+import { requireUser } from "../_shared/auth.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleOptions(req);
   }
+  const corsHeaders = corsFor(req);
+  const jsonError = (status: number, message: string): Response =>
+    json(status, { error: message }, corsHeaders);
+
   if (req.method !== "POST") {
     return jsonError(405, "method_not_allowed");
   }
 
   // ── Auth: require a signed-in user ─────────────────────────
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return jsonError(401, "not_authenticated");
-  }
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return jsonError(500, "server_misconfigured");
-  }
-  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { persistSession: false },
+  const auth = await requireUser(req, {
+    persistSession: false,
+    onError: (reason) =>
+      reason === "misconfigured"
+        ? jsonError(500, "server_misconfigured")
+        : jsonError(401, "not_authenticated"),
   });
-  const { data: userData, error: userErr } = await userClient.auth.getUser();
-  if (userErr || !userData?.user) {
-    return jsonError(401, "not_authenticated");
-  }
-  const user = userData.user;
+  if (!auth.ok) return auth.response;
+  const { user, client: userClient } = auth;
 
   // ── Config ─────────────────────────────────────────────────
   const secretKey = Deno.env.get("STRIPE_SECRET_KEY");
@@ -146,7 +106,5 @@ Deno.serve(async (req) => {
     return jsonError(502, "stripe_error");
   }
 
-  return new Response(JSON.stringify({ url: data.url }), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  return json(200, { url: data.url }, corsHeaders);
 });

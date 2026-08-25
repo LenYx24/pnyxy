@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #131315; color: #ececee; font-family: "Inter", ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #5fb3c6; text-decoration: none; } a:hover { color: #5fb3c6; opacity: .8; }
+  </style>
+</helmet>
+<div style="width:1440px;height:1000px;box-sizing:border-box;display:flex;flex-direction:column;gap:36px;padding:44px 56px;background:#131315;color:#ececee">
+  <div style="display:flex;flex-direction:column;gap:6px"><span style="font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700">Pnyxy Neutral</span><span style="font-size:14px;color:#9a9aa3">Semleges asztal, világos lap, a színt a tartalom adja. Nincs border, van tónus és árnyék. 12 / 16 / 24 px lekerekítés. 20 px ikonok, egységes 1.5 px vonal. Egy elsődleges akció oldalanként.</span></div>
+  <div style="display:flex;gap:20px"><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start"><div style="width:84px;height:56px;border-radius:12px;background:#131315;box-shadow:0 1px 0 rgba(255,255,255,.05) inset"></div><span style="font-size:11px;color:#9a9aa3">desk #131315</span></div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start"><div style="width:84px;height:56px;border-radius:12px;background:#1a1a1d;box-shadow:0 1px 0 rgba(255,255,255,.05) inset"></div><span style="font-size:11px;color:#9a9aa3">surface 1</span></div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start"><div style="width:84px;height:56px;border-radius:12px;background:#222226;box-shadow:0 1px 0 rgba(255,255,255,.05) inset"></div><span style="font-size:11px;color:#9a9aa3">surface 2</span></div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start"><div style="width:84px;height:56px;border-radius:12px;background:#2a2a2f;box-shadow:0 1px 0 rgba(255,255,255,.05) inset"></div><span style="font-size:11px;color:#9a9aa3">surface 3</span></div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start"><div style="width:84px;height:56px;border-radius:12px;background:#ececee;box-shadow:0 1px 0 rgba(255,255,255,.05) inset"></div><span style="font-size:11px;color:#9a9aa3">text</span></div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start"><div style="width:84px;height:56px;border-radius:12px;background:#9a9aa3;box-shadow:0 1px 0 rgba(255,255,255,.05) inset"></div><span style="font-size:11px;color:#9a9aa3">muted</span></div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start"><div style="width:84px;height:56px;border-radius:12px;background:#5fb3c6;box-shadow:0 1px 0 rgba(255,255,255,.05) inset"></div><span style="font-size:11px;color:#9a9aa3">accent, egy helyen</span></div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start"><div style="width:84px;height:56px;border-radius:12px;background:#e0a54a;box-shadow:0 1px 0 rgba(255,255,255,.05) inset"></div><span style="font-size:11px;color:#9a9aa3">streak, az egyetlen meleg szín</span></div></div>
+  <div style="display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:28px">
+    <div style="display:flex;flex-direction:column;gap:14px;padding:22px;border-radius:24px;background:#1a1a1d">
+      <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7d7d86">Tipográfia</span>
+      <span style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;line-height:1.15">Bevezetés a számításelméletbe</span>
+      <span style="font-size:15px;line-height:1.6;color:#ececee">Törzsszöveg 15 / 1.6, Inter. A címek Space Grotesk, ez a saját hang.</span>
+      <span style="font-size:13px;color:#9a9aa3">Másodlagos 13, muted.</span>
+      <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7d7d86">Szekció-címke 11 caps</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;padding:22px;border-radius:24px;background:#1a1a1d">
+      <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7d7d86">Kontrollok</span>
+      <div style="display:flex;gap:10px;align-items:center"><div style="padding:9px 16px;border-radius:12px;background:#ececee;color:#131315;font-size:13px;font-weight:600">Elsődleges</div><div style="padding:9px 16px;border-radius:12px;background:#222226;color:#ececee;font-size:13px">Másodlagos</div><div style="padding:9px 12px;border-radius:12px;color:#9a9aa3;font-size:13px">Csendes</div></div>
+      <div style="display:flex;gap:8px"><span style="padding:6px 12px;border-radius:999px;background:#222226;color:#c9c9cf;font-size:12px">chip</span><span style="padding:6px 12px;border-radius:999px;background:rgba(95,179,198,.14);color:#5fb3c6;font-size:12px">hivatkozás 84. o.</span><span style="padding:6px 12px;border-radius:999px;background:#2a2a2f;color:#ececee;font-size:12px">aktív</span></div>
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;background:#222226;color:#7d7d86;font-size:13px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7d7d86" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>Beviteli mező, border nélkül</div>
+      <div style="display:flex;align-items:center;gap:2px;padding:4px;border-radius:14px;background:#222226;align-self:flex-start"><div style="display:flex;align-items:center;justify-content:center;width:32px;height:28px;color:#9a9aa3"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9a9aa3" stroke-width="1.5" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg></div><div style="display:flex;align-items:center;justify-content:center;width:32px;height:28px;border-radius:10px;background:#2a2a2f;color:#ececee"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ececee" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg></div></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;padding:22px;border-radius:24px;background:#1a1a1d">
+      <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7d7d86">Rétegek</span>
+      <div style="padding:14px;border-radius:16px;background:#222226;box-shadow:0 8px 30px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;font-size:13px;color:#c9c9cf">Lap: surface 2 + árnyék. Ez emelkedik ki az asztalból.</div>
+      <div style="padding:14px;border-radius:16px;background:#222226;font-size:13px;color:#c9c9cf">Panel: surface 2, árnyék nélkül. Egy szinten van az asztallal.</div>
+      <div style="padding:14px;border-radius:16px;background:#1a1a1d;font-size:13px;color:#9a9aa3">Csoport: surface 1, csak tónus. Nincs vonal sehol.</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:28px">
+    <div style="display:flex;flex-direction:column;gap:10px;padding:22px;border-radius:24px;background:#1a1a1d"><span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7d7d86">Aláírás 1: a könyv színezi az appot</span><div style="display:flex;gap:12px;align-items:center"><div style="width:44px;height:62px;border-radius:4px;background:#1f4e79"></div><div style="flex:1;height:62px;border-radius:14px;background:#1a1a1d;position:relative;overflow:hidden"><div style="position:absolute;inset:0;background:rgba(72,124,176,.08)"></div><span style="position:absolute;left:14px;top:22px;font-size:13px;color:#c9c9cf">olvasó és chat felülete, 4-8% borító-tónussal</span></div></div></div>
+    <div style="display:flex;flex-direction:column;gap:10px;padding:22px;border-radius:24px;background:#1a1a1d"><span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7d7d86">Aláírás 2: a tutor a margón beszél</span><span style="font-size:13px;line-height:1.55;color:#c9c9cf">A könyv mellett nincs külön chat-app. A válaszok margó-jegyzetek a lap mellett, oldalhivatkozás-chippel, ami a bekezdésre ugrik és kiemeli. A teljes chat a Chat oldalon él.</span></div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

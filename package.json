@@ -14,6 +14,8 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:update": "playwright test --update-snapshots",
+    "test:e2e:fixtures": "node scripts/make-test-pdf.mjs",
+    "test:e2e:core": "playwright test tests/e2e/reader tests/e2e/authed/chat.spec.ts tests/e2e/authed/open-book.spec.ts",
     "preview": "vite preview",
     "postinstall": "node scripts/copy-pdf-assets.mjs",
     "preview:worker": "pnpm build && wrangler dev",

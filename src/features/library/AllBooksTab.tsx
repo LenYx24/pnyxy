@@ -1,4 +1,11 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -88,11 +95,7 @@ import {
 } from "./bookCountCache";
 import { useOrgStore } from "@/stores/org-store";
 import { applySort } from "./useLibraryPrefs";
-import type {
-  ViewMode,
-  ListColumnWidths,
-  LibraryTypeFilter,
-} from "./useLibraryPrefs";
+import type { ViewMode, LibraryTypeFilter } from "./useLibraryPrefs";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import type { BookStatusTag } from "@/types/database";
 import type { Folder as FolderType } from "@/types/database";
@@ -133,9 +136,13 @@ interface AllBooksTabProps {
   activeTag?: BookStatusTag | null;
   sortOrders: Record<string, string[]>;
   setSortOrder: (contextId: string, orderedKeys: string[]) => void;
-  listColumnWidths: ListColumnWidths;
-  setListColumnWidth: (key: keyof ListColumnWidths, width: number) => void;
   isLoading?: boolean;
+  /** Wraps the breadcrumb with the page toolbar. The breadcrumb has to
+   *  render inside this tab's DndContext (its crumbs are drop targets),
+   *  so the parent hands over the chrome and gets the crumbs back. */
+  renderHeader?: (breadcrumb: ReactNode) => ReactNode;
+  /** Extra filter chrome (the tag filter) shown in the filters row. */
+  filtersExtra?: ReactNode;
   /** Right-click handler for the library area (new folder / upload). */
   onContextMenu?: (e: React.MouseEvent) => void;
   /** Persisted item-type filter (book-first by default). */
@@ -156,9 +163,9 @@ export function AllBooksTab({
   activeTag = null,
   sortOrders,
   setSortOrder,
-  listColumnWidths,
-  setListColumnWidth,
   isLoading = false,
+  renderHeader,
+  filtersExtra,
   onContextMenu,
   typeFilter,
   setTypeFilter,
@@ -749,6 +756,54 @@ export function AllBooksTab({
     }),
   };
 
+  // "Library > All files" at the root, "Library > A > B" inside a folder.
+  // The h2 carries the page name for assistive tech (and the e2e header
+  // check) while the visible text is the crumb trail.
+  const breadcrumb = (
+    <h2
+      aria-label={t("library.yourLibrary")}
+      className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm font-normal"
+    >
+      {folderPath.length === 0 ? (
+        <span className="px-1 text-text-muted">
+          {t("library.list.breadcrumb.root")}
+        </span>
+      ) : (
+        <BreadcrumbDropTarget
+          dropId="breadcrumb:root"
+          onClick={() => navigateToFolder(null)}
+        >
+          {t("library.list.breadcrumb.root")}
+        </BreadcrumbDropTarget>
+      )}
+      <ChevronRight size={14} className="shrink-0 text-text-muted" />
+      {folderPath.length === 0 && (
+        <span className="truncate px-1 font-semibold text-text-primary">
+          {t("library.list.breadcrumb.allFiles")}
+        </span>
+      )}
+      {folderPath.map((folder, i) => (
+        <span key={folder.id} className="flex min-w-0 items-center gap-1">
+          {i > 0 && (
+            <ChevronRight size={14} className="shrink-0 text-text-muted" />
+          )}
+          {i === folderPath.length - 1 ? (
+            <span className="truncate px-1 font-semibold text-text-primary">
+              {folder.name}
+            </span>
+          ) : (
+            <BreadcrumbDropTarget
+              dropId={`breadcrumb:${folder.id}`}
+              onClick={() => navigateToFolder(folder.id)}
+            >
+              {folder.name}
+            </BreadcrumbDropTarget>
+          )}
+        </span>
+      ))}
+    </h2>
+  );
+
   return (
     <div
       onContextMenu={onContextMenu}
@@ -767,84 +822,50 @@ export function AllBooksTab({
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-      {/* Toolbar (breadcrumbs + actions), only inside a subfolder */}
-      {folderPath.length > 0 && (
-      <div className="mb-4 flex items-center justify-between gap-2">
-        {/* each non-current crumb is a drop target for moving items up a level */}
-        {folderPath.length > 0 ? (
-          <nav className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm">
-            <BreadcrumbDropTarget
-              dropId="breadcrumb:root"
-              onClick={() => navigateToFolder(null)}
-            >
-              {t("library.allBooks.breadcrumbRoot")}
-            </BreadcrumbDropTarget>
-            {folderPath.map((folder, i) => (
-              <span key={folder.id} className="flex items-center gap-1">
-                <ChevronRight size={14} className="text-text-muted" />
-                {i === folderPath.length - 1 ? (
-                  <span className="font-medium text-text-primary">
-                    {folder.name}
-                  </span>
-                ) : (
-                  <BreadcrumbDropTarget
-                    dropId={`breadcrumb:${folder.id}`}
-                    onClick={() => navigateToFolder(folder.id)}
-                  >
-                    {folder.name}
-                  </BreadcrumbDropTarget>
-                )}
-              </span>
-            ))}
-          </nav>
-        ) : (
-          // spacer to keep the right-side actions right-aligned
-          <span />
-        )}
-
-        <div className="flex shrink-0 items-center gap-2">
-          {/* Go to parent */}
-          {currentFolderId && (
-            <Button
-              variant="ghost"
-              className="gap-1 px-2 py-1.5 text-xs"
-              onClick={handleGoUp}
-              title={t("library.allBooks.upTitle", {
-                shortcut: formatShortcut({ key: "Backspace", alt: true }),
-              })}
-            >
-              <ArrowUp size={14} />
-              <span className="hidden sm:inline">
-                {t("library.allBooks.up")}
-              </span>
-            </Button>
-          )}
-        </div>
-      </div>
-      )}
+      {/* Header: breadcrumb (each non-current crumb is a drop target for
+          moving items up a level) wrapped in the parent's toolbar. */}
+      {renderHeader ? renderHeader(breadcrumb) : breadcrumb}
 
       {/* item-type filter chips: show only one kind of item at a time.
           Folders always render regardless of the active type. */}
-      <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
-        {ITEM_TYPE_FILTERS.filter((f) => typeEnabled(f.value)).map(({ value, icon: Icon, labelKey, defaultLabel }) => {
-          const isActive = typeFilter === value;
-          return (
-            <button
-              key={value}
-              onClick={() => setTypeFilter(value)}
-              aria-pressed={isActive}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap",
-                isActive
-                  ? "bg-accent/15 text-accent"
-                  : "bg-glass-bg text-text-muted hover:text-text-primary border border-glass-border",
-              )}
-            >
-              <Icon size={13} />
-              {t(labelKey, { defaultValue: defaultLabel })}
-            </button>
-          );
-        })}
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex gap-1 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+          {ITEM_TYPE_FILTERS.filter((f) => typeEnabled(f.value)).map(({ value, icon: Icon, labelKey, defaultLabel }) => {
+            const isActive = typeFilter === value;
+            return (
+              <button
+                key={value}
+                onClick={() => setTypeFilter(value)}
+                aria-pressed={isActive}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap",
+                  isActive
+                    ? "bg-accent/10 text-accent"
+                    : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
+                )}
+              >
+                <Icon size={13} />
+                {t(labelKey, { defaultValue: defaultLabel })}
+              </button>
+            );
+          })}
+        </div>
+        {filtersExtra}
+        {currentFolderId && (
+          <Button
+            variant="ghost"
+            className="ml-auto gap-1 px-2 py-1 text-xs"
+            onClick={handleGoUp}
+            title={t("library.allBooks.upTitle", {
+              shortcut: formatShortcut({ key: "Backspace", alt: true }),
+            })}
+          >
+            <ArrowUp size={14} />
+            <span className="hidden sm:inline">
+              {t("library.allBooks.up")}
+            </span>
+          </Button>
+        )}
       </div>
 
       {/* ghost rows for in-flight uploads in this folder */}
@@ -955,9 +976,6 @@ export function AllBooksTab({
                 onMoveBook={onMoveBook}
                 onRemoveBook={onRemoveBook}
                 onCreateSubfolder={handleCreateSubfolder}
-                cardSize={cardSize}
-                columnWidths={listColumnWidths}
-                setColumnWidth={setListColumnWidth}
               />
             )}
 

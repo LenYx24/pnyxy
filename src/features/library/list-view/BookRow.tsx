@@ -10,7 +10,6 @@ import {
   Share2,
   Tag,
   Trash2,
-  Upload,
 } from "lucide-react";
 import { useDndContext, useDraggable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
@@ -34,57 +33,50 @@ import { logError } from "@/lib/logger";
 import { TagPickerDropdown } from "../TagPickerDropdown";
 import { BookInfoModal } from "../modals/BookInfoModal";
 import { ShareBookModal } from "../modals/ShareBookModal";
-import {
-  DEFAULT_LIST_COLUMN_WIDTHS,
-  type ListColumnWidths,
-} from "../useLibraryPrefs";
 import { ContextMenu, MenuItem } from "./MenuButton";
+import { RowTile } from "./RowTile";
+import { BookDetailPanel, BookProgressCell } from "./BookDetailPanel";
 import {
-  formatDate,
+  LIST_GRID_CLASS,
+  formatRelative,
   getAuthor,
-  getFileSize,
+  getCoverUrl,
   getTitle,
-  type RowDensity,
+  getTypeLabel,
+  handleRowKeyDown,
 } from "./helpers";
 
 interface BookRowProps {
   entry: UnifiedLibraryItem;
   depth?: number;
   selected: boolean;
-  selectionActive: boolean;
   onToggleSelect: (
     id: string,
     event: { ctrlKey: boolean; shiftKey: boolean },
   ) => void;
   onMove: (entry: UnifiedLibraryItem) => void;
   onRemove: (entry: UnifiedLibraryItem) => void;
-  density?: RowDensity;
+  /** Whether this row's inline detail panel is open. */
+  expanded?: boolean;
+  /** Plain click on the row: the list decides which row expands. */
+  onActivate?: (selKey: string) => void;
   sortableId?: string;
-  columnWidths?: ListColumnWidths;
 }
 
 export function BookRow({
   entry,
   depth = 0,
   selected,
-  selectionActive,
   onToggleSelect,
   onMove,
   onRemove,
-  density = { py: "py-2.5", text: "text-sm", icon: 16, gap: "gap-2" },
+  expanded = false,
+  onActivate,
   sortableId,
-  columnWidths = DEFAULT_LIST_COLUMN_WIDTHS,
 }: BookRowProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { openUploadedBook } = useOpenUploadedDocument();
-  // Same in-progress check as the grid view; library-store hydrates
-  // the set on Library mount.
-  const isInProgress = useLibraryStore((s) =>
-    s.inProgressDocIds.has(
-      entry.source === "catalog" ? entry.catalog_book_id : entry.book.id,
-    ),
-  );
 
   const isTopLevel = depth === 0;
   // Top-level: sortable (sibling reorder + drag). Nested: draggable
@@ -114,11 +106,13 @@ export function BookRow({
   // content-visibility:auto skips off-screen rows for scroll perf, but
   // it collapses their measured rects, which breaks dnd-kit's collision
   // detection during a drag (the drop target resolves to the dragged row
-  // itself, so nothing reorders). Disable it while any drag is in flight.
+  // itself, so nothing reorders). Disable it while any drag is in flight
+  // and while the detail panel is open (its height is not the row's).
   const dragActive = useDndContext().active != null;
-  const cvStyle = dragActive
-    ? null
-    : { contentVisibility: "auto" as const, containIntrinsicSize: "auto 48px" };
+  const cvStyle =
+    dragActive || expanded
+      ? null
+      : { contentVisibility: "auto" as const, containIntrinsicSize: "auto 58px" };
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
@@ -136,10 +130,9 @@ export function BookRow({
   );
   const downloadLabel = (action: DownloadAction): string => {
     if (action.format === "original") {
-      return t("library.actions.download", { defaultValue: "Download" });
+      return t("library.actions.download");
     }
     return t("library.actions.downloadFormat", {
-      defaultValue: "Download {{format}}",
       format: action.format.toUpperCase(),
     });
   };
@@ -153,8 +146,7 @@ export function BookRow({
   };
   // Anchor for the tag picker. Wraps the ContextMenu's button area so
   // the picker pops near the 3-dots (which is the "Manage tags" entry
-  // they just clicked from). The 3-dots button itself is owned by
-  // ContextMenu so we can't ref it directly, wrapping is simpler.
+  // they just clicked from).
   const tagAnchorRef = useRef<HTMLDivElement>(null);
   const tagKey = bookKey(entry);
   const tags = useTagStore((s) => s.bookTags.get(tagKey)) ?? [];
@@ -162,24 +154,9 @@ export function BookRow({
   const selKey = `book:${entry.id}`;
   const title = getTitle(entry);
   const author = getAuthor(entry);
-  const coverUrl =
-    entry.source === "catalog"
-      ? entry.catalog_book.cover_url
-      : entry.book.cover_url;
+  const coverUrl = getCoverUrl(entry);
 
-  const handleClick = (e: React.MouseEvent) => {
-    if (e.shiftKey || e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      onToggleSelect(selKey, {
-        ctrlKey: e.ctrlKey || e.metaKey,
-        shiftKey: e.shiftKey,
-      });
-      return;
-    }
-    if (selectionActive) {
-      onToggleSelect(selKey, { ctrlKey: false, shiftKey: false });
-      return;
-    }
+  const openBookPage = () => {
     // Pre-bake slug, same reasoning as the grid card.
     if (entry.source === "catalog") {
       navigate(
@@ -190,41 +167,49 @@ export function BookRow({
     }
   };
 
-  const indent = Math.min(depth * 20, 80);
+  const toggle = (e?: { ctrlKey: boolean; shiftKey: boolean }) =>
+    onToggleSelect(selKey, e ?? { ctrlKey: false, shiftKey: false });
+
+  // Plain click expands the inline detail (and selects); modifier
+  // clicks only toggle selection; double-click goes straight to the
+  // book page.
+  const handleClick = (e: React.MouseEvent) => {
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      toggle({ ctrlKey: e.ctrlKey || e.metaKey, shiftKey: e.shiftKey });
+      return;
+    }
+    if (onActivate) {
+      onActivate(selKey);
+      if (!expanded && !selected) toggle();
+      return;
+    }
+    openBookPage();
+  };
 
   const contextHandlers = useContextMenu((): ContextMenuEntry[] => {
     const items: ContextMenuEntry[] = [
       {
         id: "open",
-        label: "Open",
+        label: t("library.actions.open"),
         icon: BookOpen,
-        onClick: () => {
-          if (entry.source === "catalog") {
-            navigate(
-              `/books/${bookIdSegment(entry.catalog_book_id, entry.catalog_book.title)}`,
-            );
-          } else {
-            navigate(
-              `/books/${bookIdSegment(entry.book.id, entry.book.title)}`,
-            );
-          }
-        },
+        onClick: openBookPage,
       },
       {
         id: "info",
-        label: "File info",
+        label: t("library.actions.fileInfo"),
         icon: Info,
         onClick: () => setInfoOpen(true),
       },
       {
         id: "tags",
-        label: "Manage tags",
+        label: t("library.actions.manageTags"),
         icon: Tag,
         onClick: () => setTagPickerOpen(true),
       },
       {
         id: "move",
-        label: "Move to folder…",
+        label: t("library.actions.moveToFolder"),
         icon: FolderInput,
         onClick: () => onMove(entry),
       },
@@ -232,7 +217,7 @@ export function BookRow({
     if (entry.source === "uploaded") {
       items.push({
         id: "rename",
-        label: t("library.actions.rename", { defaultValue: "Rename" }),
+        label: t("library.actions.rename"),
         icon: Pencil,
         onClick: () => setRenameOpen(true),
       });
@@ -248,7 +233,7 @@ export function BookRow({
     if (entry.source === "uploaded") {
       items.push({
         id: "share",
-        label: "Share with community",
+        label: t("library.actions.shareToCommunity"),
         icon: Share2,
         onClick: () => setShareOpen(true),
       });
@@ -256,7 +241,10 @@ export function BookRow({
     items.push({ id: "div-1", divider: true });
     items.push({
       id: "remove",
-      label: entry.source === "uploaded" ? "Delete" : "Remove from library",
+      label:
+        entry.source === "uploaded"
+          ? t("common.delete")
+          : t("library.confirm.removeAction"),
       icon: Trash2,
       danger: true,
       onClick: () => onRemove(entry),
@@ -272,124 +260,112 @@ export function BookRow({
         ...cvStyle,
       }}
       {...attributes}
+      data-list-row=""
+      onKeyDown={(e) =>
+        handleRowKeyDown(e, {
+          onOpen: () => (onActivate ? onActivate(selKey) : openBookPage()),
+          onToggleSelect: () => toggle(),
+        })
+      }
+      className="outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60"
     >
       <div
         {...contextHandlers}
         {...listeners}
         className={cn(
-          "group flex select-none items-center border-b border-glass-border/30 px-2 transition-colors hover:bg-glass-hover cursor-pointer sm:px-3",
-          density.py,
-          selected && "bg-accent/10",
+          LIST_GRID_CLASS,
+          "group h-[58px] select-none border-b border-glass-border text-sm transition-colors hover:bg-glass-hover cursor-pointer",
+          (selected || expanded) && "bg-accent/10",
+          expanded && "border-b-0",
           isDragging && "opacity-50",
         )}
-        style={{ paddingLeft: 8 + indent }}
         onClick={handleClick}
+        onDoubleClick={openBookPage}
+        aria-expanded={onActivate ? expanded : undefined}
       >
         {/* Checkbox */}
         <div
           className={cn(
-            "mr-1.5 flex shrink-0 items-center transition-opacity sm:mr-2",
-            selectionActive || selected
+            "flex items-center transition-opacity",
+            selected
               ? "opacity-100"
-              : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
+              : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
           )}
           onClick={(e) => e.stopPropagation()}
         >
-          <Checkbox
-            checked={selected}
-            onChange={() =>
-              onToggleSelect(selKey, { ctrlKey: false, shiftKey: false })
-            }
-          />
+          <Checkbox checked={selected} onChange={() => toggle()} />
         </div>
 
-        {/* Icon: no tinted tile. A fixed-height box keeps every row the
-            same height and aligns the name column across types. Books keep
-            their real cover art when present; otherwise a plain book glyph. */}
-        <div className="mr-2.5 flex h-8 w-7 shrink-0 items-center justify-center sm:h-9">
-          {coverUrl ? (
-            <img
-              src={coverUrl}
-              alt=""
-              aria-hidden="true"
-              // See LibraryBookCard: native image drag hijacks the
-              // pointer stream and breaks dnd-kit dragging.
-              draggable={false}
-              className="h-full w-auto max-w-full rounded-sm object-contain"
-              loading="lazy"
-            />
-          ) : (
-            <BookOpen
-              size={density.icon + 4}
-              className="text-accent"
-              strokeWidth={1.5}
-            />
-          )}
-        </div>
+        <RowTile kind="book" coverUrl={coverUrl} />
 
-        {/* Title */}
-        <span
-          className={cn(
-            "min-w-0 flex-1 truncate font-medium text-text-primary",
-            density.text,
-          )}
+        {/* Title + author, tags trail the title on wider screens. */}
+        <div
+          className="flex min-w-0 flex-col gap-0.5"
           title={`${title}${author ? " - " + author : ""}`}
         >
-          {title}
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate font-medium text-text-primary">
+              {title}
+            </span>
+            {(tags.length > 0 || customTags.length > 0) && (
+              <span className="hidden shrink-0 items-center gap-1 sm:flex">
+                {tags.slice(0, 2).map((tag) => (
+                  <TagBadge key={tag} tag={tag} size="sm" />
+                ))}
+                {customTags.slice(0, 2).map((label) => (
+                  <span
+                    key={label}
+                    className="inline-flex items-center rounded-full border border-glass-border bg-glass-bg px-1.5 py-0.5 text-2xs text-text-secondary"
+                    title={label}
+                  >
+                    {label}
+                  </span>
+                ))}
+              </span>
+            )}
+          </span>
+          <span className="truncate text-xs text-text-muted">{author}</span>
+        </div>
+
+        {/* Type */}
+        <span className="hidden truncate text-text-muted md:block">
+          {getTypeLabel(entry, t)}
         </span>
 
-        {/* Tag badges */}
-        {(tags.length > 0 || customTags.length > 0) && (
-          <div className="mr-2 hidden shrink-0 items-center gap-1 sm:flex">
-            {tags.slice(0, 2).map((tag) => (
-              <TagBadge key={tag} tag={tag} size="sm" />
-            ))}
-            {customTags.slice(0, 2).map((label) => (
-              <span
-                key={label}
-                className="inline-flex items-center rounded-full border border-glass-border bg-glass-bg px-1.5 py-0.5 text-2xs text-text-secondary"
-                title={label}
-              >
-                {label}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* Progress */}
+        <div className="hidden min-w-0 md:block">
+          <BookProgressCell entry={entry} />
+        </div>
 
-        {isInProgress && (
-          <span className="mr-2 hidden items-center gap-1 rounded bg-accent/85 px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide text-white sm:inline-flex">
-            {t("library.reading")}
-          </span>
-        )}
+        {/* Modified */}
+        <span className="hidden truncate text-text-muted md:block">
+          {formatRelative(entry.added_at, t)}
+        </span>
 
-        {entry.source === "uploaded" && (
-          <span className="mr-2 hidden items-center gap-1 rounded bg-accent/20 px-1.5 py-0.5 text-2xs font-semibold text-accent sm:inline-flex">
-            <Upload size={9} />
-            Uploaded
-          </span>
-        )}
-
-        {entry.source === "uploaded" && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              void openUploadedBook(entry);
-            }}
-            aria-label={t("library.actions.openInReader")}
-            title={t("library.actions.openInReader")}
-            className="mr-1.5 shrink-0 rounded-md bg-accent/15 p-1.5 text-accent transition-colors hover:bg-accent/25 cursor-pointer"
-          >
-            <BookOpen size={14} />
-          </button>
-        )}
-
-        {/* Menu: placed right after the name (Nextcloud puts row
-            actions here), not at the far edge. */}
-        <div ref={tagAnchorRef} className="relative mr-2 shrink-0">
+        {/* Menu */}
+        <div ref={tagAnchorRef} className="relative flex justify-end">
           <ContextMenu open={menuOpen} onToggle={() => setMenuOpen((v) => !v)}>
             <MenuItem
+              icon={BookOpen}
+              label={t("library.actions.open")}
+              onClick={() => {
+                setMenuOpen(false);
+                openBookPage();
+              }}
+            />
+            {entry.source === "uploaded" && entry.book.storage_path && (
+              <MenuItem
+                icon={BookOpen}
+                label={t("library.actions.openInReader")}
+                onClick={() => {
+                  setMenuOpen(false);
+                  void openUploadedBook(entry);
+                }}
+              />
+            )}
+            <MenuItem
               icon={Info}
-              label="File Info"
+              label={t("library.actions.fileInfo")}
               onClick={() => {
                 setMenuOpen(false);
                 setInfoOpen(true);
@@ -397,7 +373,7 @@ export function BookRow({
             />
             <MenuItem
               icon={Tag}
-              label="Manage Tags"
+              label={t("library.actions.manageTags")}
               onClick={() => {
                 setMenuOpen(false);
                 setTagPickerOpen(true);
@@ -405,7 +381,7 @@ export function BookRow({
             />
             <MenuItem
               icon={FolderInput}
-              label="Move to Folder"
+              label={t("library.actions.moveToFolder")}
               onClick={() => {
                 setMenuOpen(false);
                 onMove(entry);
@@ -414,7 +390,7 @@ export function BookRow({
             {entry.source === "uploaded" && (
               <MenuItem
                 icon={Pencil}
-                label={t("library.actions.rename", { defaultValue: "Rename" })}
+                label={t("library.actions.rename")}
                 onClick={() => {
                   setMenuOpen(false);
                   setRenameOpen(true);
@@ -432,7 +408,7 @@ export function BookRow({
             {entry.source === "uploaded" && (
               <MenuItem
                 icon={Share2}
-                label="Share with community"
+                label={t("library.actions.shareToCommunity")}
                 onClick={() => {
                   setMenuOpen(false);
                   setShareOpen(true);
@@ -442,7 +418,9 @@ export function BookRow({
             <MenuItem
               icon={Trash2}
               label={
-                entry.source === "uploaded" ? "Delete" : "Remove from Library"
+                entry.source === "uploaded"
+                  ? t("common.delete")
+                  : t("library.confirm.removeAction")
               }
               danger
               onClick={() => {
@@ -459,23 +437,10 @@ export function BookRow({
             />
           )}
         </div>
-
-        {/* Size: real file size, larger + higher contrast. */}
-        <span
-          className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
-          style={{ width: columnWidths.size }}
-        >
-          {getFileSize(entry) ?? "-"}
-        </span>
-
-        {/* Date */}
-        <span
-          className="mr-2 hidden shrink-0 truncate text-sm text-text-secondary lg:block"
-          style={{ width: columnWidths.added }}
-        >
-          {formatDate(entry.added_at)}
-        </span>
       </div>
+
+      {expanded && <BookDetailPanel entry={entry} />}
+
       {entry.source === "uploaded" && (
         <ShareBookModal
           open={shareOpen}
@@ -491,20 +456,14 @@ export function BookRow({
       {entry.source === "uploaded" && (
         <PromptModal
           open={renameOpen}
-          title={t("library.actions.renameBookTitle", {
-            defaultValue: "Rename book",
-          })}
+          title={t("library.actions.renameBookTitle")}
           defaultValue={entry.book.title}
           validate={(value) => {
             if (value.length > 200) {
-              return t("library.actions.renameTooLong", {
-                defaultValue: "Title is too long (max 200 characters).",
-              });
+              return t("library.actions.renameTooLong");
             }
             if (containsProfanity(value)) {
-              return t("library.actions.renameProfanity", {
-                defaultValue: "Title contains disallowed language.",
-              });
+              return t("library.actions.renameProfanity");
             }
             return null;
           }}

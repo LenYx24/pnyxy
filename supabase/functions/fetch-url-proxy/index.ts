@@ -1,30 +1,11 @@
-// Server-side URL → file proxy.
-//
-// Why this exists: many static document hosts (university pages, blog
-// uploads, archive servers) don't send the CORS headers a browser
-// fetch needs cross-origin. The client falls back to this function
-// when the direct fetch in url-to-file.ts fails. From the server side
-// CORS doesn't apply, so we can grab the bytes and stream them back
-// to the user with permissive CORS headers of our own.
-//
-// Security shape:
-// - Auth required. Anonymous abuse would turn this into a free
-//   public proxy.
-// - SSRF guard: blocks private IPs / loopback / link-local addresses
-//   so the function can't be used to scan internal Supabase
-//   infrastructure.
-// - 100 MB hard cap, matching the client's MAX_BYTES.
-// - 30 s timeout, Edge Functions have their own ceiling but we want
-//   a clear error before that hits.
-// - Mime allow-list aligned with the client (PDF / EPUB / TXT / MD).
+// Server-side URL to file proxy: fetches a document the browser could
+// not (missing upstream CORS) and streams it back. Auth required, SSRF
+// guard on private IPs, 100 MB cap, 30 s timeout, mime allow-list
+// aligned with the client (PDF / EPUB / TXT / MD). See ../README.md.
 
-// @ts-expect-error Deno-only import
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-declare const Deno: {
-  env: { get(key: string): string | undefined };
-  serve(handler: (req: Request) => Promise<Response> | Response): void;
-};
+import "../_shared/deno-shim.ts";
+import { corsFor, handleOptions, json } from "../_shared/http.ts";
+import { requireUser } from "../_shared/auth.ts";
 
 const MAX_BYTES = 100 * 1024 * 1024;
 const TIMEOUT_MS = 30_000;
@@ -37,20 +18,6 @@ const SUPPORTED_MIME = new Set([
   "text/markdown",
   "application/octet-stream",
 ]);
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-function jsonError(status: number, code: string, message: string) {
-  return new Response(JSON.stringify({ error: code, message }), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
 
 // Reject private / loopback / link-local IPs to prevent SSRF.
 // Hostnames are allowed; the deno fetch will resolve them and use
@@ -111,30 +78,24 @@ function parseFilename(contentDisposition: string | null, url: URL): string {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleOptions(req);
   }
+  const corsHeaders = corsFor(req);
+  const jsonError = (status: number, code: string, message: string) =>
+    json(status, { error: code, message }, corsHeaders);
+
   if (req.method !== "POST") {
     return jsonError(405, "method_not_allowed", "Use POST.");
   }
 
   // ── Auth ──
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const authHeader = req.headers.get("Authorization") ?? "";
-
-  if (!authHeader.startsWith("Bearer ") || authHeader.length <= "Bearer ".length) {
-    return jsonError(401, "auth_required", "Sign in to import from a URL.");
-  }
-  const userClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
+  const auth = await requireUser(req, {
+    onError: (reason) =>
+      reason === "no_bearer"
+        ? jsonError(401, "auth_required", "Sign in to import from a URL.")
+        : jsonError(401, "auth_invalid", "Your session has expired."),
   });
-  const {
-    data: { user },
-    error: authError,
-  } = await userClient.auth.getUser();
-  if (authError || !user) {
-    return jsonError(401, "auth_invalid", "Your session has expired.");
-  }
+  if (!auth.ok) return auth.response;
 
   // ── Parse + validate input URL ──
   let body: { url?: string };

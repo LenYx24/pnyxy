@@ -856,11 +856,62 @@
       "streak_one": "{{count}} napos sorozat!",
       "streak_other": "{{count}} napos sorozat!"
     },
+    "list": {
+      "add": "Hozzáadás",
+      "breadcrumb": {
+        "root": "Könyvtár",
+        "allFiles": "Minden fájl"
+      },
+      "columns": {
+        "name": "Név",
+        "type": "Típus",
+        "progress": "Haladás",
+        "modified": "Módosítva"
+      },
+      "relative": {
+        "today": "ma",
+        "yesterday": "tegnap",
+        "daysAgo_one": "{{count}} napja",
+        "daysAgo_other": "{{count}} napja",
+        "weeksAgo_one": "{{count}} hete",
+        "weeksAgo_other": "{{count}} hete"
+      },
+      "type": {
+        "catalog": "Könyv",
+        "manual": "Kézi",
+        "article": "Cikk"
+      },
+      "pagesShort_one": "{{count}} o.",
+      "pagesShort_other": "{{count}} o.",
+      "pagesLong_one": "{{count}} oldal",
+      "pagesLong_other": "{{count}} oldal",
+      "saved": "mentve",
+      "itemCount_one": "{{count}} elem",
+      "itemCount_other": "{{count}} elem",
+      "folderCount_one": "{{count}} mappa",
+      "folderCount_other": "{{count}} mappa",
+      "selectedCount_one": "{{count}} kijelölve",
+      "selectedCount_other": "{{count}} kijelölve",
+      "dropZone": "Húzz ide PDF-et vagy illessz be egy linket",
+      "detail": {
+        "position": "{{current}} / {{total}} oldal",
+        "lastRead": "utoljára {{when}}",
+        "inProgress": "folyamatban",
+        "notStarted": "még nem kezdted el",
+        "continue": "Folytatás",
+        "newChat": "Új chat",
+        "quiz": "Kikérdezés",
+        "linked": "Kapcsolt fájlok · {{count}}",
+        "noLinked": "Még nincs kapcsolt fájl."
+      }
+    },
     "folderCard": {
       "folderLabel": "Mappa",
       "rename": "Átnevezés",
       "delete": "Törlés",
-      "renamePrompt": "Mappa átnevezése:"
+      "renamePrompt": "Mappa átnevezése:",
+      "open": "Megnyitás",
+      "newSubfolder": "Új almappa"
     },
     "typeFilter": {
       "all": "Mind",

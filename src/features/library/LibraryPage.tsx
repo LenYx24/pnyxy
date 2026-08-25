@@ -11,7 +11,6 @@ import {
   Globe,
   AlertTriangle,
   Plus,
-  ChevronDown,
   StickyNote,
   PenLine,
   FileQuestion,
@@ -50,6 +49,7 @@ import { LibraryToolbar } from "./LibraryToolbar";
 import { SelectionBar } from "./SelectionBar";
 import { TagFilterBar } from "./TagFilterBar";
 import { AllBooksTab } from "./AllBooksTab";
+import { LibraryDropZone } from "./LibraryDropZone";
 import { FolderPickerModal } from "./modals/FolderPickerModal";
 import { UploadPdfModal } from "./modals/UploadPdfModal";
 import { DeviceBookScanModal } from "./modals/DeviceBookScanModal";
@@ -153,8 +153,6 @@ export function LibraryPage() {
     setTypeFilter,
     sortOrders,
     setSortOrder,
-    listColumnWidths,
-    setListColumnWidth,
   } = useLibraryPrefs();
 
   // Search
@@ -171,6 +169,8 @@ export function LibraryPage() {
   // AllBooksTab. Range-select must span what the user actually sees,
   // not a rebuilt approximation, or the "between" items are wrong.
   const displayedOrderRef = useRef<string[]>([]);
+  // Visible folder / item counts for the footer line.
+  const [visibleCounts, setVisibleCounts] = useState({ folders: 0, items: 0 });
 
   // Fallback order if AllBooksTab hasn't reported yet.
   const getOrderedIds = useCallback((): string[] => {
@@ -232,6 +232,9 @@ export function LibraryPage() {
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
   const handleOrderedKeysChange = useCallback((keys: string[]) => {
     displayedOrderRef.current = keys;
+    let folderCount = 0;
+    for (const k of keys) if (k.startsWith("folder:")) folderCount++;
+    setVisibleCounts({ folders: folderCount, items: keys.length - folderCount });
   }, []);
 
   // Upload modal state. The primary upload action now picks files and
@@ -245,6 +248,12 @@ export function LibraryPage() {
   const [urlModalOpen, setUrlModalOpen] = useState(false);
   const [manualModalOpen, setManualModalOpen] = useState(false);
   const [resourceModalOpen, setResourceModalOpen] = useState(false);
+  // URL pasted onto the page, pre-fills the add-link modal.
+  const [pastedUrl, setPastedUrl] = useState("");
+  const handlePasteUrl = useCallback((url: string) => {
+    setPastedUrl(url);
+    setResourceModalOpen(true);
+  }, []);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
 
   // upload pipeline is PDF-only; other formats just open in the reader
@@ -813,111 +822,6 @@ export function LibraryPage() {
       )}
 
 
-      {/* header: title, controls, actions. import options live in the right-click menu */}
-      <LibraryToolbar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        onRefresh={handleRefresh}
-        isRefreshing={isLoading}
-        controlsExpanded={controlsExpanded}
-        onToggleControls={() => setControlsExpanded(!controlsExpanded)}
-        leading={
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-bold text-text-primary">
-              {t("library.yourLibrary")}
-            </h2>
-            <StreakPill />
-          </div>
-        }
-        trailing={
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              variant="primary"
-              onClick={triggerUpload}
-              title={t("library.actions.upload")}
-              className="px-3 py-1.5 sm:px-4 sm:py-2"
-            >
-              <Upload size={18} />
-              <span className="hidden sm:inline">
-                {t("library.actions.upload")}
-              </span>
-            </Button>
-            {/* "+ New" dropdown: create entities + the other upload modes +
-                new folder, so everything is one click from the header. */}
-            <span ref={createBtnRef} className="inline-flex">
-              <Button
-                variant="secondary"
-                onClick={() => setCreateMenuOpen((v) => !v)}
-                title={t("library.create.new", { defaultValue: "New" })}
-                aria-haspopup="menu"
-                aria-expanded={createMenuOpen}
-                className="px-3 py-1.5 sm:px-4 sm:py-2"
-              >
-                <Plus size={18} />
-                <span className="hidden sm:inline">
-                  {t("library.create.new", { defaultValue: "New" })}
-                </span>
-                <ChevronDown size={14} className="opacity-70" />
-              </Button>
-            </span>
-            <FloatingMenu
-              open={createMenuOpen}
-              anchorRef={createBtnRef}
-              onClose={() => setCreateMenuOpen(false)}
-              className="min-w-[13rem] pb-1"
-            >
-              <CreateMenuHeading>
-                {t("library.create.createHeading", { defaultValue: "Create" })}
-              </CreateMenuHeading>
-              {createEntries.map((e) => (
-                <CreateMenuRow
-                  key={e.id}
-                  icon={e.icon}
-                  label={e.label}
-                  onClick={() => {
-                    setCreateMenuOpen(false);
-                    e.onClick();
-                  }}
-                />
-              ))}
-              <div className="my-1 border-t border-glass-border" />
-              <CreateMenuHeading>
-                {t("library.create.addHeading", { defaultValue: "Add / upload" })}
-              </CreateMenuHeading>
-              <CreateMenuRow
-                icon={Upload}
-                label={t("library.actions.upload")}
-                onClick={() => {
-                  setCreateMenuOpen(false);
-                  triggerUpload();
-                }}
-              />
-              {uploadEntries.map((e) => (
-                <CreateMenuRow
-                  key={e.id}
-                  icon={e.icon}
-                  label={e.label}
-                  onClick={() => {
-                    setCreateMenuOpen(false);
-                    e.onClick();
-                  }}
-                />
-              ))}
-              <div className="my-1 border-t border-glass-border" />
-              <CreateMenuRow
-                icon={FolderPlus}
-                label={t("library.allBooks.newFolder")}
-                onClick={() => {
-                  setCreateMenuOpen(false);
-                  handleNewFolder();
-                }}
-              />
-            </FloatingMenu>
-          </div>
-        }
-      />
       <input
         ref={fileInputRef}
         type="file"
@@ -935,11 +839,6 @@ export function LibraryPage() {
         onChange={handleUploadPick}
       />
 
-      {/* tag filter bar, collapses with controlsExpanded */}
-      {controlsExpanded && (
-        <TagFilterBar activeTag={activeTag} onTagChange={setActiveTag} />
-      )}
-
       <AllBooksTab
         onMoveBook={handleMoveBook}
         onRemoveBook={handleRemoveBook}
@@ -953,13 +852,110 @@ export function LibraryPage() {
         activeTag={activeTag}
         sortOrders={sortOrders}
         setSortOrder={setSortOrder}
-        listColumnWidths={listColumnWidths}
-        setListColumnWidth={setListColumnWidth}
         isLoading={isLoading}
         onContextMenu={libraryMenu.onContextMenu}
         typeFilter={typeFilter}
         setTypeFilter={setTypeFilter}
+        renderHeader={(breadcrumb) => (
+          <LibraryToolbar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            onRefresh={handleRefresh}
+            isRefreshing={isLoading}
+            controlsExpanded={controlsExpanded}
+            onToggleControls={() => setControlsExpanded(!controlsExpanded)}
+            leading={
+              <div className="flex min-w-0 items-center gap-2">
+                {breadcrumb}
+                <StreakPill />
+              </div>
+            }
+            trailing={
+              <div className="flex shrink-0 items-center gap-2">
+                {/* Primary "Add" dropdown: upload + the other add modes,
+                    create entities and new folder, one click from the header.
+                    Ctrl+U still uploads directly. */}
+                <span ref={createBtnRef} className="inline-flex">
+                  <Button
+                    variant="primary"
+                    onClick={() => setCreateMenuOpen((v) => !v)}
+                    title={t("library.list.add")}
+                    aria-haspopup="menu"
+                    aria-expanded={createMenuOpen}
+                    className="px-3 py-2 sm:px-3.5"
+                  >
+                    <Plus size={16} />
+                    <span className="hidden sm:inline">{t("library.list.add")}</span>
+                  </Button>
+                </span>
+                <FloatingMenu
+                  open={createMenuOpen}
+                  anchorRef={createBtnRef}
+                  onClose={() => setCreateMenuOpen(false)}
+                  className="min-w-[13rem] pb-1"
+                >
+                  <CreateMenuHeading>
+                    {t("library.create.createHeading", { defaultValue: "Create" })}
+                  </CreateMenuHeading>
+                  {createEntries.map((e) => (
+                    <CreateMenuRow
+                      key={e.id}
+                      icon={e.icon}
+                      label={e.label}
+                      onClick={() => {
+                        setCreateMenuOpen(false);
+                        e.onClick();
+                      }}
+                    />
+                  ))}
+                  <div className="my-1 border-t border-glass-border" />
+                  <CreateMenuHeading>
+                    {t("library.create.addHeading", { defaultValue: "Add / upload" })}
+                  </CreateMenuHeading>
+                  <CreateMenuRow
+                    icon={Upload}
+                    label={t("library.actions.upload")}
+                    onClick={() => {
+                      setCreateMenuOpen(false);
+                      triggerUpload();
+                    }}
+                  />
+                  {uploadEntries.map((e) => (
+                    <CreateMenuRow
+                      key={e.id}
+                      icon={e.icon}
+                      label={e.label}
+                      onClick={() => {
+                        setCreateMenuOpen(false);
+                        e.onClick();
+                      }}
+                    />
+                  ))}
+                  <div className="my-1 border-t border-glass-border" />
+                  <CreateMenuRow
+                    icon={FolderPlus}
+                    label={t("library.allBooks.newFolder")}
+                    onClick={() => {
+                      setCreateMenuOpen(false);
+                      handleNewFolder();
+                    }}
+                  />
+                </FloatingMenu>
+              </div>
+            }
+          />
+        )}
+        filtersExtra={
+          controlsExpanded ? (
+            <TagFilterBar activeTag={activeTag} onTagChange={setActiveTag} />
+          ) : null
+        }
       />
+
+      {/* dashed drop / paste target under the list (both views) */}
+      <LibraryDropZone onPickFiles={triggerUpload} onPasteUrl={handlePasteUrl} />
 
       {/* gap between last row and the footer divider */}
       <div aria-hidden className="h-8 shrink-0" />
@@ -967,7 +963,13 @@ export function LibraryPage() {
       {/* sticky bottom info row: book count + storage. offset above the
           mobile bottom nav (3.5rem + safe-bottom) so they don't overlap. */}
       <div className="sticky bottom-[calc(3.5rem+var(--spacing-safe-bottom,0px))] z-10 mt-auto flex flex-col gap-1.5 border-t border-glass-border bg-bg-primary/85 px-1 pb-2 pt-3 text-xs text-text-muted backdrop-blur-md md:bottom-0">
-        <p>{t("library.bookCount", { count: books.length })}</p>
+        <p>
+          {t("library.list.folderCount", { count: visibleCounts.folders })}
+          {", "}
+          {t("library.list.itemCount", { count: visibleCounts.items })}
+          {selectedIds.size > 0 &&
+            ` · ${t("library.list.selectedCount", { count: selectedIds.size })}`}
+        </p>
         {storageUsage && (
           <StorageUsageBar
             usedBytes={storageUsage.usedBytes}
@@ -1018,8 +1020,12 @@ export function LibraryPage() {
       {/* saved web page / YouTube link (beta), lands in the current folder */}
       <AddResourceModal
         open={resourceModalOpen}
-        onClose={() => setResourceModalOpen(false)}
+        onClose={() => {
+          setResourceModalOpen(false);
+          setPastedUrl("");
+        }}
         folderId={currentFolderId}
+        initialUrl={pastedUrl}
       />
 
       {/* new folder modal, creates in the current folder */}

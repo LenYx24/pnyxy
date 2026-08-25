@@ -1,11 +1,8 @@
 import { useCallback } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { supabase } from "@/lib/supabase";
-import { createAdapterForFile } from "@/features/reader/adapters";
-import { useReaderStore } from "@/stores/reader-store";
 import { useUIStore } from "@/stores/ui-store";
-import { registerFile } from "@/lib/file-store";
-import { saveLastOpenedBook } from "@/lib/last-opened-book";
+import { openDocumentFromFile } from "@/lib/open-document";
 import { loadBookBlob, saveBookBlob } from "@/lib/offline-books";
 import { logError } from "@/lib/logger";
 import { showToast } from "@/stores/toast-store";
@@ -145,22 +142,17 @@ export function useOpenUploadedDocument() {
           void saveBookBlob(storage_path, blob);
         }
 
-        setLoading(true, "Loading document...");
-
         // Convert to File so the adapter pipeline can pick the right format.
-        const file = new File([blob], file_name);
-
-        const adapter = createAdapterForFile(file);
-        setLoading(true, "Extracting table of contents...");
-        const docId = await useReaderStore.getState().addDocument(adapter, file);
-
-        registerFile(docId, file);
-        saveLastOpenedBook({
-          source: "uploaded",
-          id: entry.id,
-          title: entry.book.title,
+        await openDocumentFromFile({
+          file: new File([blob], file_name),
+          navigate,
+          openedFrom,
+          lastOpened: {
+            source: "uploaded",
+            id: entry.id,
+            title: entry.book.title,
+          },
         });
-        navigate(`/reader/${docId}`, { state: { from: openedFrom } });
       } catch (error) {
         logError("openUploadedBook", error);
         showToast(

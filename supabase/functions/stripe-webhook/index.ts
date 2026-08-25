@@ -1,44 +1,13 @@
-// Pnyxy: Stripe (Managed Payments) subscription webhook.
-//
-// Stripe is our Merchant of Record via Managed Payments: it sells to
-// the end customer, collects + remits VAT/sales tax worldwide, handles
-// disputes, and notifies us here when a subscription changes. We
-// translate those events into the only thing the app cares about:
-// `profiles.storage_tier` ('free' | 'premium') plus a few billing
-// bookkeeping columns.
-//
-// Flow:
-//   1. Verify the request really came from Stripe. Stripe signs the
-//      RAW body: the `Stripe-Signature` header carries `t=<unix>` and
-//      one or more `v1=<hex>` signatures, where the signed payload is
-//      `${t}.${rawBody}` HMAC-SHA256'd with STRIPE_WEBHOOK_SECRET. We
-//      also reject stale timestamps (replay protection).
-//   2. Read `event.type` + `event.data.object`.
-//   3. Resolve which of OUR users this is: prefer `metadata.user_id`
-//      (we attach it on the Checkout Session AND propagate it onto the
-//      subscription via subscription_data, see stripe-checkout), and
-//      fall back to a lookup by stripe_customer_id.
-//   4. Upsert the tier + status with the SERVICE ROLE, which bypasses
-//      RLS and the `protect_billing_columns` trigger (migration 00049).
-//
-// Env vars (set via `supabase secrets set`):
-//   STRIPE_WEBHOOK_SECRET     - the `whsec_...` signing secret Stripe
-//                               shows when you create the webhook
-//                               endpoint in the dashboard.
-//   SUPABASE_URL              - provided by the platform.
-//   SUPABASE_SERVICE_ROLE_KEY - provided by the platform; service key
-//                               so we may write the protected columns.
-//
-// Configure `verify_jwt = false` for this function (config.toml): the
-// caller is Stripe, not a signed-in user, so there is no JWT.
+// Pnyxy: Stripe subscription webhook. Verifies the Stripe-Signature
+// HMAC over the raw body (with replay tolerance), then translates
+// checkout / subscription events into profiles.storage_tier and the
+// billing columns using the service role. Server-to-server, no CORS,
+// verify_jwt = false. See ../README.md.
 
+import "../_shared/deno-shim.ts";
+import { json as jsonWith } from "../_shared/http.ts";
 // @ts-expect-error Deno-only import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-declare const Deno: {
-  env: { get(key: string): string | undefined };
-  serve(handler: (req: Request) => Promise<Response> | Response): void;
-};
 
 // Stripe subscription statuses that should keep premium access.
 // `active`/`trialing` are obvious; `past_due` is the grace period while
@@ -55,10 +24,7 @@ const PREMIUM_STATUSES = new Set(["active", "trialing", "past_due"]);
 const TOLERANCE_SECONDS = 5 * 60;
 
 function json(status: number, body: Record<string, unknown>): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
+  return jsonWith(status, body);
 }
 
 // Constant-time hex string comparison so we don't leak signature bytes

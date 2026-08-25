@@ -6,10 +6,13 @@ import { fileURLToPath } from "node:url";
 // Load .env.test (gitignored) before defining the config so authed
 // projects can see TEST_USER_*. Public/unauthenticated tests don't
 // need any env at all. We deliberately keep this inline rather than
-// pulling in `dotenv` — it's six lines and there's no value lost.
+// pulling in `dotenv`, it's six lines and there's no value lost.
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const envFile = resolve(__dirname, ".env.test");
-if (existsSync(envFile)) {
+// .env.test.local (also gitignored) is checked too, that is where the
+// local dev/e2e account password lives on the owner's machine.
+for (const name of [".env.test", ".env.test.local"]) {
+  const envFile = resolve(__dirname, name);
+  if (!existsSync(envFile)) continue;
   for (const line of readFileSync(envFile, "utf-8").split("\n")) {
     const match = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*?)\s*$/);
     if (match && !process.env[match[1]]) {
@@ -76,7 +79,9 @@ export default defineConfig({
     {
       name: "chromium-mobile",
       use: { ...devices["Pixel 7"] },
-      testIgnore: /\/authed\//,
+      // Reader regression specs drive a desktop scrollbar / ctrl+wheel,
+      // neither exists on a touch viewport, so they are desktop-only.
+      testIgnore: [/\/authed\//, /\/reader\//],
     },
     ...(HAS_TEST_CREDS
       ? [

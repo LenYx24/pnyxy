@@ -286,9 +286,10 @@ html.tauri-app {
      * thumb is a theme-token mix so it stays visible in BOTH light and
      * dark, the old glass-border thumb was near-invisible on the light
      * public pages. Inherits to all scroll containers. */
+    /* Theme-independent mid grey: readable on the black app chrome, the
+       off-white light theme and a white PDF page alike. */
     scrollbar-width: auto;
-    scrollbar-color: color-mix(in srgb, var(--color-text-primary) 55%, transparent)
-      color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+    scrollbar-color: #8a8f9e rgba(128, 128, 128, 0.16);
   }
 
   body {
@@ -303,13 +304,13 @@ html.tauri-app {
 
   *::-webkit-scrollbar-track {
     /* faint rail so the thumb has something to sit in */
-    background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+    background: rgba(128, 128, 128, 0.16);
   }
 
   *::-webkit-scrollbar-thumb {
     /* text-muted mix, not glass-border: the latter is ~10% ink on the
        light theme and effectively invisible. */
-    background: color-mix(in srgb, var(--color-text-primary) 55%, transparent);
+    background: #8a8f9e;
     border-radius: 6px;
     /* inset border keeps a gap from the rail without shrinking the hit area */
     border: 3px solid transparent;
@@ -319,7 +320,7 @@ html.tauri-app {
 
   *::-webkit-scrollbar-thumb:hover,
   *::-webkit-scrollbar-thumb:active {
-    background: color-mix(in srgb, var(--color-text-primary) 80%, transparent);
+    background: #b3b8c6;
     background-clip: padding-box;
   }
 

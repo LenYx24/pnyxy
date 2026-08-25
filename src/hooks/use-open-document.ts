@@ -1,11 +1,10 @@
 import { useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
-import { createAdapterForFile } from "@/features/reader/adapters";
-import { useReaderStore } from "@/stores/reader-store";
 import { useUIStore } from "@/stores/ui-store";
-import { registerFile } from "@/lib/file-store";
+import { openDocumentFromFile } from "@/lib/open-document";
 import { logUploadAttempt } from "@/lib/upload-telemetry";
 
+/** Open a local File (file picker / drag-drop) in the reader. */
 export function useOpenDocument() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
@@ -20,18 +19,13 @@ export function useOpenDocument() {
       setLoading(true, "Loading document...");
 
       try {
-        const adapter = createAdapterForFile(file);
-
-        setLoading(true, "Extracting table of contents...");
-        const docId = await useReaderStore.getState().addDocument(adapter, file);
-
-        registerFile(docId, file);
+        const docId = await openDocumentFromFile({
+          file,
+          navigate,
+          shouldNavigate,
+        });
 
         void logUploadAttempt({ file, status: "accepted" });
-
-        if (shouldNavigate) {
-          navigate(`/reader/${docId}`);
-        }
 
         return docId;
       } catch (err) {

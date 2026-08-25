@@ -779,11 +779,62 @@
       "streak_one": "{{count}} day streak!",
       "streak_other": "{{count}} day streak!"
     },
+    "list": {
+      "add": "Add",
+      "breadcrumb": {
+        "root": "Library",
+        "allFiles": "All files"
+      },
+      "columns": {
+        "name": "Name",
+        "type": "Type",
+        "progress": "Progress",
+        "modified": "Modified"
+      },
+      "relative": {
+        "today": "today",
+        "yesterday": "yesterday",
+        "daysAgo_one": "{{count}} day ago",
+        "daysAgo_other": "{{count}} days ago",
+        "weeksAgo_one": "{{count}} week ago",
+        "weeksAgo_other": "{{count}} weeks ago"
+      },
+      "type": {
+        "catalog": "Book",
+        "manual": "Manual",
+        "article": "Article"
+      },
+      "pagesShort_one": "{{count}} p.",
+      "pagesShort_other": "{{count}} p.",
+      "pagesLong_one": "{{count}} page",
+      "pagesLong_other": "{{count}} pages",
+      "saved": "saved",
+      "itemCount_one": "{{count}} item",
+      "itemCount_other": "{{count}} items",
+      "folderCount_one": "{{count}} folder",
+      "folderCount_other": "{{count}} folders",
+      "selectedCount_one": "{{count}} selected",
+      "selectedCount_other": "{{count}} selected",
+      "dropZone": "Drop a PDF here or paste a link",
+      "detail": {
+        "position": "{{current}} / {{total}} pages",
+        "lastRead": "last read {{when}}",
+        "inProgress": "in progress",
+        "notStarted": "not started yet",
+        "continue": "Continue",
+        "newChat": "New chat",
+        "quiz": "Quiz me",
+        "linked": "Linked files · {{count}}",
+        "noLinked": "No linked files yet."
+      }
+    },
     "folderCard": {
       "folderLabel": "Folder",
       "rename": "Rename",
       "delete": "Delete",
-      "renamePrompt": "Rename folder:"
+      "renamePrompt": "Rename folder:",
+      "open": "Open",
+      "newSubfolder": "New subfolder"
     },
     "resource": {
       "beta": "Beta",

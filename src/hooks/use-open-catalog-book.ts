@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { registerFile } from "@/lib/file-store";
-import { saveLastOpenedBook } from "@/lib/last-opened-book";
+import { openDocumentFromFile } from "@/lib/open-document";
 import { loadBookBlob, saveBookBlob } from "@/lib/offline-books";
 import { logError } from "@/lib/logger";
 import { supabase } from "@/lib/supabase";
@@ -89,15 +88,24 @@ export function useOpenCatalogBook() {
         return;
       }
 
+      // The catalog path registers the file under the book's own id and
+      // lets the reader parse it on mount (no adapter step here).
+      const openInReader = (file: File) =>
+        openDocumentFromFile({
+          file,
+          navigate,
+          openedFrom,
+          lastOpened: { source: "catalog", id: book.id, title: book.title },
+          docId: book.id,
+        });
+
       setError(null);
       setLoading(true);
       try {
         // Re-use cached file if we've already downloaded in-session.
         const cached = blobCache.get(book.id);
         if (cached) {
-          registerFile(book.id, cached);
-          saveLastOpenedBook({ source: "catalog", id: book.id, title: book.title });
-          navigate(`/reader/${book.id}`, { state: { from: openedFrom } });
+          await openInReader(cached);
           return;
         }
 
@@ -113,9 +121,7 @@ export function useOpenCatalogBook() {
                   type: offline.type || mimeFor(ext),
                 });
           blobCache.set(book.id, offlineFile);
-          registerFile(book.id, offlineFile);
-          saveLastOpenedBook({ source: "catalog", id: book.id, title: book.title });
-          navigate(`/reader/${book.id}`, { state: { from: openedFrom } });
+          await openInReader(offlineFile);
           return;
         }
 
@@ -148,9 +154,7 @@ export function useOpenCatalogBook() {
         blobCache.set(book.id, file);
         // persist for offline re-opening
         void saveBookBlob(book.id, file);
-        registerFile(book.id, file);
-        saveLastOpenedBook({ source: "catalog", id: book.id, title: book.title });
-        navigate(`/reader/${book.id}`, { state: { from: openedFrom } });
+        await openInReader(file);
       } catch (err) {
         logError("useOpenCatalogBook", err);
         setError("fetch-failed");

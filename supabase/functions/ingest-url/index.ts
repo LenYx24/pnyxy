@@ -1,37 +1,10 @@
-// Pnyxy: ingest a URL into a library "resource" (beta).
-//
-// Called by resource-store.createResource for a signed-in user. Given a URL:
-//   - YouTube  → metadata (title, author, thumbnail) via the public oEmbed API.
-//   - Web page → reduced to clean markdown via Jina Reader (r.jina.ai), which
-//                renders JS and strips chrome. No API key needed for the free
-//                tier (rate-limited); swap in a key/other extractor later.
-// Returns { kind, title, description, thumbnail_url, content, url }.
-//
-// The browser can't fetch arbitrary URLs (CORS), so this runs server-side.
-// The client degrades gracefully if this function is absent, saving a bare
-// link, so a missing deploy never blocks the feature.
-//
-// Env vars: none required (Jina + oEmbed are keyless). verify_jwt = true in
-// config.toml enforces a signed-in caller at the platform edge.
+// Pnyxy: ingest a URL into a library "resource" (beta). YouTube links
+// resolve via the public oEmbed API, other pages are reduced to markdown
+// via Jina Reader (r.jina.ai). Returns { kind, title, description,
+// thumbnail_url, content, url }. verify_jwt = true. See ../README.md.
 
-declare const Deno: {
-  env: { get(key: string): string | undefined };
-  serve(handler: (req: Request) => Promise<Response> | Response): void;
-};
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
+import "../_shared/deno-shim.ts";
+import { corsFor, handleOptions, json as jsonWith } from "../_shared/http.ts";
 
 const YT_HOSTS = [
   "youtube.com",
@@ -81,8 +54,12 @@ async function ingestWeb(url: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleOptions(req);
   }
+  const corsHeaders = corsFor(req);
+  const json = (status: number, body: unknown): Response =>
+    jsonWith(status, body, corsHeaders);
+
   if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
   const auth = req.headers.get("authorization");

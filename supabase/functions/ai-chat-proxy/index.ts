@@ -1,38 +1,14 @@
-// Pnyxy AI chat proxy.
-//
-// Streams an LLM response back to the browser via SSE while
-// enforcing per-user (or per-IP) daily quotas tracked in Postgres.
-//
-// Provider strategy: every configured OpenAI-compatible upstream is
-// tried in priority order (Gemini cheapest → OpenAI), and Anthropic
-// is the last fallback. Tool-use mode is Anthropic-only because
-// that's the only branch wired through Anthropic's structured tool
-// SSE events today. All upstreams are normalized to Anthropic-style
-// SSE events on the way out, so the browser parses one shape.
-//
-// Env vars (set via `supabase secrets set`):
-//   GEMINI_API_KEY          - Google AI Studio key. OpenAI-compatible
-//                             endpoint, cheapest option. Tried first.
-//   OPENAI_API_KEY          - OpenAI key. Second OpenAI-compat fallback.
-//   ANTHROPIC_API_KEY       - Anthropic key. Final fallback for plain
-//                             chat; required for tool-use mode.
-//   SUPABASE_URL            - auto-populated
-//   SUPABASE_ANON_KEY       - auto-populated
-//   SUPABASE_SERVICE_ROLE_KEY - auto-populated
-//
-// At least one of GEMINI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY
-// must be set.
+// Pnyxy AI chat proxy: streams LLM responses to the browser as
+// Anthropic-style SSE while enforcing per-user (or per-IP) daily quotas
+// in Postgres. OpenAI-compatible upstreams (Gemini, OpenAI) are tried in
+// priority order, Anthropic is the last fallback and the only tool-use
+// path. Env: GEMINI/OPENAI/ANTHROPIC_API_KEY, IP_HASH_SALT. See ../README.md.
 
+import "../_shared/deno-shim.ts";
+import { corsFor, handleOptions, jsonError as jsonErrorWith } from "../_shared/http.ts";
+import { estimateTokens, getClientIp, hashIp, ipHashSalt } from "../_shared/tokens.ts";
 // @ts-expect-error Deno-only import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-// Minimal Deno globals shim for editor type-checking. The actual
-// runtime is Deno; tsc never compiles this file (it lives outside
-// the Vite/tsconfig project root).
-declare const Deno: {
-  env: { get(key: string): string | undefined };
-  serve(handler: (req: Request) => Promise<Response> | Response): void;
-};
 
 const OPENAI_MODEL = "gpt-4o-mini";
 const ANTHROPIC_MODEL = "claude-haiku-4-5";
@@ -107,25 +83,15 @@ const HARD_MAX_OUTPUT_TOKENS = 4096;
 
 // ── helpers ──────────────────────────────────────────────────
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const sseHeaders = {
-  ...corsHeaders,
+const SSE_BASE_HEADERS = {
   "Content-Type": "text/event-stream",
   "Cache-Control": "no-cache",
   Connection: "keep-alive",
 };
 
-/** Cheap token estimate: ~4 chars per token. Good enough for
- * pre-flight quota checks. */
-function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
-}
+/** Bucket key for anonymous callers whose IP could not be determined.
+ *  They all share one (smallest) bucket instead of being rejected. */
+const NO_IP_SENTINEL = "no-ip";
 
 /** Both OpenAI and Anthropic bill an attached image as roughly
  *  this many tokens for a typical viewport-sized image (1024×1024
@@ -162,21 +128,6 @@ function toOpenAiContent(
     const dataUri = `data:${block.source.media_type};base64,${block.source.data}`;
     return { type: "image_url", image_url: { url: dataUri } };
   });
-}
-
-async function hashIp(ip: string, salt: string): Promise<string> {
-  const data = new TextEncoder().encode(`${salt}:${ip}`);
-  const buf = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function getClientIp(req: Request): string | null {
-  // Supabase Edge Runtime forwards the original IP via these headers.
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
-  return req.headers.get("x-real-ip");
 }
 
 interface QuotaResult {
@@ -349,8 +300,12 @@ function withToolCache<T extends Record<string, unknown>>(tools: T[]): T[] {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleOptions(req);
   }
+  const corsHeaders = corsFor(req);
+  const sseHeaders = { ...corsHeaders, ...SSE_BASE_HEADERS };
+  const jsonError = (status: number, code: string, message: string): Response =>
+    jsonErrorWith(status, code, message, corsHeaders);
 
   if (req.method !== "POST") {
     return jsonError(405, "method_not_allowed", "POST only");
@@ -442,11 +397,11 @@ Deno.serve(async (req) => {
     : null;
   let anonIpHash: string | null = null;
   if (!isAuthed) {
-    const ip = getClientIp(req);
-    if (!ip) {
-      return jsonError(400, "no_ip", "Could not determine client IP");
-    }
-    anonIpHash = await hashIp(ip, serviceKey);
+    // No derivable IP: fall into a single shared bucket rather than
+    // rejecting, so the anon path still works behind odd proxies but
+    // cannot be widened by header spoofing.
+    const ip = getClientIp(req) ?? NO_IP_SENTINEL;
+    anonIpHash = await hashIp(ip, ipHashSalt());
   }
   const adminClient = !isAuthed ? createClient(supabaseUrl, serviceKey) : null;
 
@@ -478,8 +433,7 @@ Deno.serve(async (req) => {
         ? { ok: true, quota }
         : { ok: false, quota };
     }
-    // Should never reach here, we've already returned 400 above
-    // if no IP was derivable on the anon path.
+    // Should never reach here: the anon path always has an ip hash.
     return { ok: false, rpcError: "no_quota_path" };
   }
 
@@ -889,14 +843,4 @@ async function tryAnthropicWithTools(
   }
 
   return upstream.body;
-}
-
-function jsonError(status: number, code: string, message: string): Response {
-  return new Response(
-    JSON.stringify({ error: { code, message } }),
-    {
-      status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    },
-  );
 }
