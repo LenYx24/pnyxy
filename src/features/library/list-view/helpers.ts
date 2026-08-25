@@ -10,6 +10,18 @@ import { formatAuthors } from "@/lib/library/format-authors";
 export const LIST_GRID_CLASS =
   "grid grid-cols-[36px_32px_minmax(0,1fr)_36px] items-center gap-3 px-3 md:grid-cols-[36px_32px_minmax(0,1fr)_110px_150px_110px_36px]";
 
+/** The only line the library draws: a 1 px tone step between rows
+ *  (surface-3 at low alpha), never a glass border. */
+export const ROW_SEPARATOR_CLASS = "border-b border-surface-3/60";
+
+/** Shared row chrome: 58 px, tone-step separator, hover is a soft
+ *  surface-3 wash, selected / expanded rows sit on surface-2. */
+export const ROW_BASE_CLASS =
+  "group h-[58px] select-none text-sm transition-colors hover:bg-surface-3/40 cursor-pointer";
+export const ROW_ACTIVE_CLASS = "bg-bg-tertiary";
+export const ROW_FOCUS_CLASS =
+  "outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-soft";
+
 /** The inline detail panel is inset with `md:pl-[104px]`: row padding
  *  (12) + checkbox (36) + gap (12) + tile (32) + gap (12), so its
  *  content lines up with the name column. */

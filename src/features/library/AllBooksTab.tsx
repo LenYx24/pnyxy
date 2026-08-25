@@ -24,29 +24,29 @@ import {
   type CollisionDetection,
   type DragStartEvent,
   type DragEndEvent,
+  type DragMoveEvent,
   type DropAnimation,
 } from "@dnd-kit/core";
 import {
   SortableContext,
-  rectSortingStrategy,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  arrayMove,
 } from "@dnd-kit/sortable";
+import { getEventCoordinates } from "@dnd-kit/utilities";
+import {
+  computeDropIntent,
+  noShiftStrategy,
+  DropIntentProvider,
+  type DropIntent,
+} from "./drag-intent";
 import {
   restrictToVerticalAxis,
   restrictToWindowEdges,
 } from "@/lib/dnd-modifiers";
 import {
-  conversationDisplayTitle,
-  noteDisplayTitle,
-  whiteboardDisplayTitle,
-} from "@/lib/entity-title";
-import {
   ChevronRight,
   ArrowUp,
+  CornerLeftUp,
   BookOpen,
-  Folder,
   FileText,
   Shapes,
   ListChecks,
@@ -59,7 +59,8 @@ import {
   AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
-import { Button, GlassCard, ConfirmModal } from "@/components/ui";
+import { Button, ConfirmModal, IconButton } from "@/components/ui";
+import { chipActiveClass, chipClass } from "@/components/ui/classes";
 import { cn } from "@/lib/cn";
 import { useFeatures } from "@/lib/use-features";
 import type { FeatureKey } from "@/lib/features";
@@ -73,7 +74,6 @@ import { useChatStore } from "@/stores/chat-store";
 import type { ChatConversation } from "@/types/chat";
 import { useResourceStore } from "@/stores/resource-store";
 import type { Resource } from "@/types/resource";
-import { displayHost } from "@/lib/resource-url";
 import { useTagStore } from "@/stores/tag-store";
 import { useUploadStore, type UploadJob } from "@/stores/upload-store";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
@@ -87,6 +87,8 @@ import { LibraryQuizCard } from "./LibraryQuizCard";
 import { LibraryChatCard } from "./LibraryChatCard";
 import { LibraryResourceCard } from "./LibraryResourceCard";
 import { LibraryListView } from "./LibraryListView";
+import { DragGhost } from "./DragGhost";
+import { LibraryOrgCrumb } from "./LibraryOrgCrumb";
 import { CreateFolderModal } from "./modals/CreateFolderModal";
 import { BookCardSkeleton } from "./BookCardSkeleton";
 import {
@@ -522,35 +524,101 @@ export function AllBooksTab({
     }),
   );
 
-  // nest/breadcrumb win when the cursor is inside them. The list-view nest
-  // droppable shares a row's center, so closestCenter alone ties and drops
-  // fall back to reorder. Everything else uses closestCenter.
+  // The target under the cursor wins (rows, cards, crumbs, the "up one
+  // level" placeholder); in the gaps between cards, or with the keyboard
+  // sensor (no pointer), fall back to the nearest center. Whether a hit
+  // means reorder or nest is decided afterwards from the pointer position
+  // (see computeDropIntent), not by overlapping droppables.
   const collisionDetection: CollisionDetection = useCallback((args) => {
     const pointerHits = pointerWithin(args);
-    const explicit = pointerHits.filter((c) => {
-      const id = String(c.id);
-      return id.startsWith("nest:") || id.startsWith("breadcrumb:");
-    });
-    if (explicit.length > 0) return explicit;
+    if (pointerHits.length > 0) return pointerHits;
     return closestCenter(args);
   }, []);
 
+  // Explicit drop intent: what would happen if the item were released
+  // now. State drives the indicator (insertion line / folder highlight /
+  // crumb chip), the ref is what handleDragEnd acts on.
+  const [dropIntent, setDropIntent] = useState<DropIntent | null>(null);
+  const dropIntentRef = useRef<DropIntent | null>(null);
+  const updateIntent = useCallback((next: DropIntent | null) => {
+    const prev = dropIntentRef.current;
+    if (
+      prev?.overId === next?.overId &&
+      prev?.position === next?.position
+    )
+      return;
+    dropIntentRef.current = next;
+    setDropIntent(next);
+  }, []);
+
+  // Live pointer position (mouse + touch) while a drag is in flight.
+  // dnd-kit's move event only carries the translate delta, and the
+  // vertical-axis modifier strips x, so track the raw pointer ourselves.
+  const pointerRef = useRef<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    if (!activeId) return;
+    const onMove = (e: PointerEvent) => {
+      pointerRef.current = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, [activeId]);
+
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+    const coords = event.activatorEvent
+      ? getEventCoordinates(event.activatorEvent)
+      : null;
+    pointerRef.current = coords ? { x: coords.x, y: coords.y } : null;
+    dropIntentRef.current = null;
+    setDropIntent(null);
   }, []);
+
+  const handleDragMove = useCallback(
+    (event: DragMoveEvent) => {
+      const { active, over } = event;
+      if (!over) {
+        updateIntent(null);
+        return;
+      }
+      const activeKey = active.id as string;
+      const overKey = over.id as string;
+      // keyboard sensor: no pointer, decide from sibling indices
+      const isKeyboard =
+        !!event.activatorEvent && event.activatorEvent.type === "keydown";
+      updateIntent(
+        computeDropIntent({
+          activeId: activeKey,
+          overId: overKey,
+          rect: over.rect,
+          pointer: isKeyboard ? null : pointerRef.current,
+          axis: viewMode === "list" ? "y" : "x",
+          activeIndex: orderedKeys.indexOf(activeKey),
+          overIndex: orderedKeys.indexOf(overKey),
+        }),
+      );
+    },
+    [orderedKeys, updateIntent, viewMode],
+  );
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       setActiveId(null);
+      const intent = dropIntentRef.current;
+      dropIntentRef.current = null;
+      setDropIntent(null);
       const { active, over } = event;
       if (!over || active.id === over.id) return;
 
       const activeId = active.id as string;
-      const overId = over.id as string;
+      // The intent computed on the last move is authoritative; fall back
+      // to dnd-kit's own `over` only if no move ever fired.
+      const overId = intent?.overId ?? (over.id as string);
+      const position = intent?.position ?? "after";
 
-      // nest droppable (middle of a folder row): move dragged item into it
-      if (overId.startsWith("nest:")) {
-        const targetFolderId = overId.slice("nest:".length);
+      // nest into a folder row / card (middle zone)
+      if (position === "inside" && overId.startsWith("folder:")) {
+        const targetFolderId = overId.slice("folder:".length);
         if (activeId.startsWith("book:")) {
           const book = bookMap.get(activeId);
           if (book) void moveBookToFolder(book, targetFolderId);
@@ -582,10 +650,10 @@ export function AllBooksTab({
         return;
       }
 
-      // drop onto a crumb (incl. root) to move to that level; only way to pull
-      // a nested folder back out to the top level.
-      if (overId.startsWith("breadcrumb:")) {
-        const tail = overId.slice("breadcrumb:".length);
+      // drop onto a crumb (incl. root) or the "up one level" placeholder
+      // to move the item to that level.
+      if (overId.startsWith("breadcrumb:") || overId.startsWith("parent:")) {
+        const tail = overId.slice(overId.indexOf(":") + 1);
         const targetFolderId = tail === "root" ? null : tail;
         if (activeId.startsWith("book:")) {
           const book = bookMap.get(activeId);
@@ -618,12 +686,19 @@ export function AllBooksTab({
         return;
       }
 
-      // sortable target: reorder the sibling list
+      // sortable target: insert before / after it in the sibling list
       const oldIndex = orderedKeys.indexOf(activeId);
-      const newIndex = orderedKeys.indexOf(overId);
-      if (oldIndex === -1 || newIndex === -1) return;
+      const targetIndex = orderedKeys.indexOf(overId);
+      if (oldIndex === -1 || targetIndex === -1) return;
 
-      const newOrder = arrayMove(orderedKeys, oldIndex, newIndex);
+      const without = orderedKeys.filter((k) => k !== activeId);
+      let insertAt = without.indexOf(overId);
+      if (position === "after") insertAt += 1;
+      const newOrder = [
+        ...without.slice(0, insertAt),
+        activeId,
+        ...without.slice(insertAt),
+      ];
       setSortOrder(contextId, newOrder);
     },
     [
@@ -643,6 +718,8 @@ export function AllBooksTab({
 
   const handleDragCancel = useCallback(() => {
     setActiveId(null);
+    dropIntentRef.current = null;
+    setDropIntent(null);
   }, []);
 
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -740,13 +817,6 @@ export function AllBooksTab({
       ? [restrictToVerticalAxis, restrictToWindowEdges]
       : [restrictToWindowEdges];
 
-  const activeDragFolder = activeId ? folderMap.get(activeId) : null;
-  const activeDragBook = activeId ? bookMap.get(activeId) : null;
-  const activeDragNote = activeId ? noteMap.get(activeId) : null;
-  const activeDragWhiteboard = activeId ? whiteboardMap.get(activeId) : null;
-  const activeDragQuiz = activeId ? quizMap.get(activeId) : null;
-  const activeDragChat = activeId ? chatMap.get(activeId) : null;
-  const activeDragResource = activeId ? resourceMap.get(activeId) : null;
   // keep the source row dimmed until the overlay finishes settling
   const dropAnimation: DropAnimation = {
     duration: 200,
@@ -756,44 +826,44 @@ export function AllBooksTab({
     }),
   };
 
-  // "Library > All files" at the root, "Library > A > B" inside a folder.
+  // "<Org> > All files" at the root, "<Org> > All files > A > B" inside a
+  // folder; the org crumb opens the workspace switcher.
   // The h2 carries the page name for assistive tech (and the e2e header
   // check) while the visible text is the crumb trail.
   const breadcrumb = (
     <h2
       aria-label={t("library.yourLibrary")}
-      className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm font-normal"
+      className="flex min-w-0 items-center gap-1 overflow-x-auto font-display text-sm font-normal"
     >
+      {/* root crumb: the active workspace, opens the org switcher */}
+      <LibraryOrgCrumb />
+      <ChevronRight size={14} strokeWidth={1.5} className="shrink-0 text-text-muted-2" />
       {folderPath.length === 0 ? (
-        <span className="px-1 text-text-muted">
-          {t("library.list.breadcrumb.root")}
+        <span className="truncate px-1 font-medium text-text-primary">
+          {t("library.list.breadcrumb.allFiles")}
         </span>
       ) : (
         <BreadcrumbDropTarget
           dropId="breadcrumb:root"
+          dragging={activeId != null}
           onClick={() => navigateToFolder(null)}
         >
-          {t("library.list.breadcrumb.root")}
-        </BreadcrumbDropTarget>
-      )}
-      <ChevronRight size={14} className="shrink-0 text-text-muted" />
-      {folderPath.length === 0 && (
-        <span className="truncate px-1 font-semibold text-text-primary">
           {t("library.list.breadcrumb.allFiles")}
-        </span>
+        </BreadcrumbDropTarget>
       )}
       {folderPath.map((folder, i) => (
         <span key={folder.id} className="flex min-w-0 items-center gap-1">
           {i > 0 && (
-            <ChevronRight size={14} className="shrink-0 text-text-muted" />
+            <ChevronRight size={14} strokeWidth={1.5} className="shrink-0 text-text-muted-2" />
           )}
           {i === folderPath.length - 1 ? (
-            <span className="truncate px-1 font-semibold text-text-primary">
+            <span className="truncate px-1 font-medium text-text-primary">
               {folder.name}
             </span>
           ) : (
             <BreadcrumbDropTarget
               dropId={`breadcrumb:${folder.id}`}
+              dragging={activeId != null}
               onClick={() => navigateToFolder(folder.id)}
             >
               {folder.name}
@@ -819,38 +889,46 @@ export function AllBooksTab({
         // intrinsic-size guess measured once at drag start.
         measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         onDragStart={handleDragStart}
+        onDragMove={handleDragMove}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
+      <DropIntentProvider value={dropIntent}>
       {/* Header: breadcrumb (each non-current crumb is a drop target for
           moving items up a level) wrapped in the parent's toolbar. */}
       {renderHeader ? renderHeader(breadcrumb) : breadcrumb}
 
       {/* item-type filter chips: show only one kind of item at a time.
           Folders always render regardless of the active type. */}
-      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex gap-1 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+      {/* One always-visible filter row: type chips, a hairline divider,
+          then the tag chips (filtersExtra). Same chip class / height on
+          both sides; wraps on narrow desktop widths and scrolls
+          horizontally on mobile. */}
+      <div className="mb-3 flex items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
           {ITEM_TYPE_FILTERS.filter((f) => typeEnabled(f.value)).map(({ value, icon: Icon, labelKey, defaultLabel }) => {
             const isActive = typeFilter === value;
             return (
               <button
                 key={value}
                 onClick={() => setTypeFilter(value)}
+                data-filter="type"
                 aria-pressed={isActive}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap",
-                  isActive
-                    ? "bg-accent/10 text-accent"
-                    : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
+                  "font-medium transition-colors cursor-pointer hover:text-text-primary",
+                  isActive ? chipActiveClass : chipClass,
                 )}
               >
-                <Icon size={13} />
+                <Icon size={14} strokeWidth={1.5} />
                 {t(labelKey, { defaultValue: defaultLabel })}
               </button>
             );
           })}
-        </div>
-        {filtersExtra}
+        {filtersExtra && (
+          <>
+            <div aria-hidden className="mx-1 h-4 w-px shrink-0 bg-surface-3" />
+            {filtersExtra}
+          </>
+        )}
         {currentFolderId && (
           <Button
             variant="ghost"
@@ -860,7 +938,7 @@ export function AllBooksTab({
               shortcut: formatShortcut({ key: "Backspace", alt: true }),
             })}
           >
-            <ArrowUp size={14} />
+            <ArrowUp size={16} strokeWidth={1.5} />
             <span className="hidden sm:inline">
               {t("library.allBooks.up")}
             </span>
@@ -871,10 +949,25 @@ export function AllBooksTab({
       {/* ghost rows for in-flight uploads in this folder */}
       <UploadGhostStrip currentFolderId={currentFolderId} />
 
+      {/* "Up to: <parent>" drop placeholder: only inside a folder, only
+          while dragging; lets an item leave the folder without aiming
+          at the breadcrumb. */}
+      {currentFolderId && (
+        <ParentDropZone
+          parentFolderId={parentFolderId}
+          parentName={
+            parentFolderId
+              ? (folderPath[folderPath.length - 2]?.name ?? "")
+              : t("library.list.breadcrumb.allFiles")
+          }
+          visible={activeId != null}
+        />
+      )}
+
       {/* Search empty state */}
       {isEmpty && query && (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <p className="text-sm text-text-muted">
+          <p className="font-display text-base font-medium text-text-primary">
             {t("library.allBooks.noSearchResults", { query: searchQuery })}
           </p>
         </div>
@@ -892,7 +985,7 @@ export function AllBooksTab({
       {/* tag filter hid everything (folder isn't really empty) */}
       {isEmpty && !query && !isLoading && activeTag && (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <p className="text-sm text-text-muted">
+          <p className="font-display text-base font-medium text-text-primary">
             {t("library.allBooks.noTagResults")}
           </p>
         </div>
@@ -907,7 +1000,7 @@ export function AllBooksTab({
         typeFilter !== "all" &&
         typeFilter !== "books" && (
           <div className="flex flex-col items-center gap-2 py-16 text-center">
-            <p className="text-sm text-text-muted">
+            <p className="font-display text-base font-medium text-text-primary">
               {t("library.typeFilter.noItems", {
                 defaultValue: "No items of this type here.",
               })}
@@ -921,9 +1014,8 @@ export function AllBooksTab({
         !activeTag &&
         (typeFilter === "all" || typeFilter === "books") && (
           <div className="flex flex-col items-center gap-4 py-16 text-center">
-            <BookOpen size={48} className="text-text-muted/50" />
             <div>
-              <p className="text-lg font-medium text-text-primary">
+              <p className="font-display text-lg font-medium text-text-primary">
                 {t("library.allBooks.emptyFolder")}
               </p>
               {!currentFolderId && (
@@ -935,8 +1027,8 @@ export function AllBooksTab({
                 </p>
               )}
             </div>
-            {!currentFolderId && (
-              <Button variant="secondary" onClick={() => navigate("/browse")}>
+            {!currentFolderId && features.catalog && (
+              <Button variant="ghost" onClick={() => navigate("/browse")}>
                 {t("library.allBooks.browseCatalog")}
               </Button>
             )}
@@ -946,10 +1038,7 @@ export function AllBooksTab({
       {/* Content */}
       {!isEmpty && (
         <>
-          <SortableContext
-            items={orderedKeys}
-            strategy={viewMode === "grid" ? rectSortingStrategy : verticalListSortingStrategy}
-          >
+          <SortableContext items={orderedKeys} strategy={noShiftStrategy}>
             {viewMode === "list" && (
               <LibraryListView
                 folders={orderedFolders}
@@ -1098,111 +1187,11 @@ export function AllBooksTab({
           </SortableContext>
 
           <DragOverlay dropAnimation={dropAnimation}>
-            {activeDragFolder && (
-              <div style={{ width: effectiveCardSize }} className="pointer-events-none">
-                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
-                  <div
-                    className="flex w-full items-center justify-center"
-                    style={{ height: coverHeight }}
-                  >
-                    <Folder
-                      size={Math.round(Math.min(Math.max(coverHeight * 0.35, 24), 48))}
-                      className="text-accent/60"
-                    />
-                  </div>
-                  <div className={coverHeight < 100 ? "p-2" : "p-3"}>
-                    <h3
-                      className={`mb-0.5 truncate font-semibold text-text-primary ${coverHeight < 100 ? "text-xs" : "text-sm"}`}
-                    >
-                      {activeDragFolder.name}
-                    </h3>
-                    <p
-                      className={`truncate text-text-muted ${coverHeight < 100 ? "text-2xs" : "text-xs"}`}
-                    >
-                      {t("library.allBooks.folderLabel")}
-                    </p>
-                  </div>
-                </GlassCard>
-              </div>
-            )}
-            {activeDragBook && (
-              <div style={{ width: effectiveCardSize }} className="pointer-events-none">
-                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
-                  <div className="flex items-center gap-3 p-3">
-                    <span className="text-sm font-medium text-text-primary truncate">
-                      {activeDragBook.source === "catalog"
-                        ? activeDragBook.catalog_book.title
-                        : activeDragBook.book.title}
-                    </span>
-                  </div>
-                </GlassCard>
-              </div>
-            )}
-            {activeDragNote && (
-              <div style={{ width: effectiveCardSize }} className="pointer-events-none">
-                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
-                  <div className="flex items-center gap-3 p-3">
-                    <FileText size={16} className="shrink-0 text-accent-blue/70" />
-                    <span className="text-sm font-medium text-text-primary truncate">
-                      {noteDisplayTitle(activeDragNote, t)}
-                    </span>
-                  </div>
-                </GlassCard>
-              </div>
-            )}
-            {activeDragWhiteboard && (
-              <div style={{ width: effectiveCardSize }} className="pointer-events-none">
-                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
-                  <div className="flex items-center gap-3 p-3">
-                    <Shapes size={16} className="shrink-0 text-success/80" />
-                    <span className="text-sm font-medium text-text-primary truncate">
-                      {whiteboardDisplayTitle(activeDragWhiteboard, t)}
-                    </span>
-                  </div>
-                </GlassCard>
-              </div>
-            )}
-            {activeDragQuiz && (
-              <div style={{ width: effectiveCardSize }} className="pointer-events-none">
-                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
-                  <div className="flex items-center gap-3 p-3">
-                    <ListChecks size={16} className="shrink-0 text-warning/80" />
-                    <span className="text-sm font-medium text-text-primary truncate">
-                      {activeDragQuiz.title.trim() ||
-                        t("library.allBooks.untitledQuiz")}
-                    </span>
-                  </div>
-                </GlassCard>
-              </div>
-            )}
-            {activeDragChat && (
-              <div style={{ width: effectiveCardSize }} className="pointer-events-none">
-                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
-                  <div className="flex items-center gap-3 p-3">
-                    <MessageSquare size={16} className="shrink-0 text-accent-blue/80" />
-                    <span className="text-sm font-medium text-text-primary truncate">
-                      {conversationDisplayTitle(activeDragChat, t)}
-                    </span>
-                  </div>
-                </GlassCard>
-              </div>
-            )}
-            {activeDragResource && (
-              <div style={{ width: effectiveCardSize }} className="pointer-events-none">
-                <GlassCard className="overflow-hidden opacity-90 shadow-2xl ring-2 ring-accent">
-                  <div className="flex items-center gap-3 p-3">
-                    <Globe size={16} className="shrink-0 text-accent-blue/80" />
-                    <span className="text-sm font-medium text-text-primary truncate">
-                      {activeDragResource.title ||
-                        displayHost(activeDragResource.url)}
-                    </span>
-                  </div>
-                </GlassCard>
-              </div>
-            )}
+            <DragGhost viewMode={viewMode} />
           </DragOverlay>
         </>
       )}
+      </DropIntentProvider>
       </DndContext>
 
       {/* Create folder modal */}
@@ -1303,39 +1292,34 @@ function UploadGhostRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-lg border bg-glass-bg/40 px-3 py-2 transition-colors",
-        isError
-          ? "border-danger/30"
-          : isSuccess
-            ? "border-success/30"
-            : "border-glass-border",
+        "flex items-center gap-3 rounded-panel bg-bg-tertiary px-3 py-2 transition-colors",
       )}
     >
       <div
         className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-control",
           isError
             ? "bg-danger/15 text-danger"
             : isSuccess
               ? "bg-success/15 text-success"
-              : "bg-accent/15 text-accent",
+              : "bg-surface-3 text-text-secondary",
         )}
       >
         {isError ? (
-          <AlertTriangle size={14} />
+          <AlertTriangle size={16} strokeWidth={1.5} />
         ) : isSuccess ? (
-          <Check size={14} />
+          <Check size={16} strokeWidth={1.5} />
         ) : (
-          <FileText size={14} />
+          <FileText size={16} strokeWidth={1.5} />
         )}
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm text-text-primary">{job.fileName}</p>
         {/* Progress bar (uploading) / status text (success/error). */}
         {job.status === "uploading" ? (
-          <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-glass-bg">
+          <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-surface-3">
             <div
-              className="h-full rounded-full bg-accent transition-[width] duration-200"
+              className="h-full rounded-full bg-text-secondary transition-[width] duration-200"
               style={{ width: `${job.progress}%` }}
             />
           </div>
@@ -1351,65 +1335,132 @@ function UploadGhostRow({
       </div>
       {/* cancel an in-flight upload; aborts the transfer and drops the row */}
       {isUploading && (
-        <button
+        <IconButton
+          size="sm"
           type="button"
           onClick={onCancel}
-          className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
           title={t("library.upload.cancel")}
           aria-label={t("library.upload.cancel")}
         >
-          <X size={14} />
-        </button>
+          <X size={16} strokeWidth={1.5} />
+        </IconButton>
       )}
       {isError && (
-        <button
+        <IconButton
+          size="sm"
           type="button"
           onClick={onRetry}
-          className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
           title={t("library.upload.retry")}
           aria-label={t("library.upload.retry")}
         >
-          <RotateCw size={14} />
-        </button>
+          <RotateCw size={16} strokeWidth={1.5} />
+        </IconButton>
       )}
       {(isError || isSuccess) && (
-        <button
+        <IconButton
+          size="sm"
           type="button"
           onClick={onDismiss}
-          className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
           title={t("common.close")}
           aria-label={t("common.close")}
         >
-          <X size={14} />
-        </button>
+          <X size={16} strokeWidth={1.5} />
+        </IconButton>
       )}
     </div>
   );
 }
 
-/** A breadcrumb nav button that's also a drop target; dropping here moves the item to that level. */
+/**
+ * A breadcrumb nav button that's also a drop target; dropping here moves
+ * the item to that level. While a drag is in flight every ancestor crumb
+ * lights up as a visible target, and the hovered one grows a "Drop here"
+ * chip so it is obvious the crumb will receive the item.
+ */
 function BreadcrumbDropTarget({
   dropId,
+  dragging,
   onClick,
   children,
 }: {
   dropId: string;
+  dragging: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
+  const { t } = useTranslation();
   const { setNodeRef, isOver } = useDroppable({ id: dropId });
   return (
     <button
       ref={setNodeRef}
       onClick={onClick}
+      data-drop-target={dropId}
+      data-drop-over={isOver || undefined}
       className={cn(
-        "shrink-0 rounded px-1.5 py-0.5 cursor-pointer transition-colors",
-        isOver
-          ? "bg-accent/20 text-accent ring-1 ring-accent/60"
-          : "text-text-muted hover:text-text-primary hover:bg-glass-hover",
+        "flex shrink-0 items-center gap-1 rounded-chip py-0.5 cursor-pointer transition-colors",
+        !dragging &&
+          "px-1.5 text-text-muted-2 hover:text-text-primary hover:bg-surface-3",
+        dragging && !isOver && "bg-surface-3 px-2 text-text-secondary",
+        dragging && isOver && "bg-accent-soft px-2 text-text-primary",
       )}
     >
+      {dragging && isOver && (
+        <CornerLeftUp size={12} strokeWidth={2} className="shrink-0" />
+      )}
       {children}
+      {dragging && isOver && (
+        <span className="ml-1 rounded-chip bg-bg-primary/70 px-1.5 text-2xs font-medium text-text-primary">
+          {t("library.dnd.dropHere")}
+        </span>
+      )}
     </button>
+  );
+}
+
+/**
+ * "Up to: <parent>" row shown above the list / grid while dragging
+ * inside a folder. Dropping on it moves the item to the parent level
+ * (root when the parent is the root). Always mounted so the opacity
+ * can fade in and out; collapsed and inert when no drag is running.
+ */
+function ParentDropZone({
+  parentFolderId,
+  parentName,
+  visible,
+}: {
+  parentFolderId: string | null;
+  parentName: string;
+  visible: boolean;
+}) {
+  const { t } = useTranslation();
+  const { setNodeRef, isOver } = useDroppable({
+    id: `parent:${parentFolderId ?? "root"}`,
+    disabled: !visible,
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      data-drop-target="parent"
+      data-drop-over={isOver || undefined}
+      aria-hidden={!visible}
+      className={cn(
+        "flex items-center gap-2 overflow-hidden rounded-panel border border-dashed px-3 text-sm transition-[opacity,max-height,margin,background-color,color,visibility] duration-120 ease-out",
+        visible
+          ? "mb-2 max-h-16 py-2 opacity-100"
+          : "invisible pointer-events-none mb-0 max-h-0 border-transparent py-0 opacity-0",
+        visible && !isOver && "border-surface-3 text-text-muted",
+        visible && isOver && "border-accent-soft bg-accent-soft text-text-primary",
+      )}
+    >
+      <ArrowUp size={16} strokeWidth={1.5} className="shrink-0" />
+      <span className="truncate">
+        {t("library.dnd.moveUp", { name: parentName })}
+      </span>
+      {isOver && (
+        <span className="ml-auto shrink-0 rounded-chip bg-bg-primary/70 px-1.5 text-2xs font-medium">
+          {t("library.dnd.dropHere")}
+        </span>
+      )}
+    </div>
   );
 }

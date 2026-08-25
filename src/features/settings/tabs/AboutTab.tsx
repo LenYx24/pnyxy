@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Info, ScrollText, Shield, HelpCircle, ExternalLink } from "lucide-react";
+import { Info, ScrollText, Shield, HelpCircle, ArrowUpRight } from "lucide-react";
+import { SettingsSection } from "../ui";
 
 interface LinkRowProps {
   to: string;
@@ -13,17 +14,17 @@ function LinkRow({ to, icon: Icon, label, description }: LinkRowProps) {
   return (
     <Link
       to={to}
-      className="group flex items-center gap-3 rounded-xl border border-glass-border bg-glass-bg/50 p-4 transition-colors hover:bg-glass-hover"
+      className="group flex items-center gap-3 rounded-panel bg-bg-tertiary p-4 transition-colors hover:bg-surface-3"
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
-        <Icon size={18} />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control bg-surface-3 text-text-secondary group-hover:bg-bg-tertiary">
+        <Icon size={20} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-text-primary">{label}</p>
-        <p className="text-xs text-text-muted">{description}</p>
+        <p className="text-[15px] font-medium text-text-primary">{label}</p>
+        <p className="text-[13px] text-text-muted">{description}</p>
       </div>
-      <ExternalLink
-        size={14}
+      <ArrowUpRight
+        size={16}
         className="shrink-0 text-text-muted opacity-0 transition-opacity group-hover:opacity-100"
       />
     </Link>
@@ -33,16 +34,10 @@ function LinkRow({ to, icon: Icon, label, description }: LinkRowProps) {
 export function AboutTab() {
   const { t } = useTranslation();
   return (
-    <div className="space-y-4">
-      <header>
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t("settings.aboutSection.heading")}
-        </h2>
-        <p className="text-sm text-text-muted">
-          {t("settings.aboutSection.description")}
-        </p>
-      </header>
-
+    <SettingsSection
+      description={t("settings.aboutSection.description")}
+      plain
+    >
       <div className="grid gap-3 sm:grid-cols-2">
         <LinkRow
           to="/about"
@@ -69,6 +64,6 @@ export function AboutTab() {
           description={t("settings.aboutSection.termsHint")}
         />
       </div>
-    </div>
+    </SettingsSection>
   );
 }

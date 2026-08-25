@@ -78,7 +78,7 @@ export function ContextMenu() {
       ref={ref}
       role="menu"
       onContextMenu={(e) => e.preventDefault()}
-      className="fixed z-[100] min-w-[12rem] overflow-hidden rounded-lg border border-glass-border bg-bg-secondary/95 py-1 shadow-xl backdrop-blur-xl"
+      className="fixed z-[100] min-w-[12rem] overflow-hidden rounded-panel bg-bg-tertiary py-1 shadow-page"
       style={{
         // Render off-screen on the first paint, then `pos` settles after
         // measurement. Avoids flash at top-left.
@@ -91,7 +91,7 @@ export function ContextMenu() {
           <div
             key={entry.id}
             role="separator"
-            className="my-1 h-px bg-glass-border"
+            className="my-1 h-px bg-surface-3"
           />
         ) : (
           <ContextMenuRow key={entry.id} item={entry} onSelect={close} />

@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
-import { Download, ExternalLink, LoaderCircle, WifiOff, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import {
+  Download,
+  ExternalLink,
+  LoaderCircle,
+  Trash2,
+  WifiOff,
+  X,
+} from "lucide-react";
 import { useSettingsStore } from "@/stores/settings-store";
+import { IconButton } from "@/components/ui";
 import { getRegistry } from "@/lib/registry";
 import type { RegistryIndexEntry, RegistryStatus } from "@/lib/registry";
 import { cn } from "@/lib/cn";
@@ -12,11 +21,19 @@ interface BrowseCommunityModalProps {
   onClose: () => void;
 }
 
-export function BrowseCommunityModal({ mode, onClose }: BrowseCommunityModalProps) {
+export function BrowseCommunityModal({
+  mode,
+  onClose,
+}: BrowseCommunityModalProps) {
   const installedThemes = useSettingsStore((s) => s.installedThemes);
   const installedPlugins = useSettingsStore((s) => s.installedPlugins);
   const installTheme = useSettingsStore((s) => s.installTheme);
   const installPlugin = useSettingsStore((s) => s.installPlugin);
+  // removal is immediate (no confirm): the theme can be downloaded again
+  // from this very list, and the store falls back to the default theme if
+  // the removed one was active
+  const uninstallTheme = useSettingsStore((s) => s.uninstallTheme);
+  const { t } = useTranslation();
 
   const [entries, setEntries] = useState<RegistryIndexEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +80,10 @@ export function BrowseCommunityModal({ mode, onClose }: BrowseCommunityModalProp
         installTheme(theme);
       } else {
         const manifest = await registry.fetchPluginManifest(entry.id);
-        const bundle = await registry.fetchPluginBundle(entry.id, manifest.version);
+        const bundle = await registry.fetchPluginBundle(
+          entry.id,
+          manifest.version,
+        );
         installPlugin(manifest, bundle);
       }
     } catch (err) {
@@ -82,7 +102,8 @@ export function BrowseCommunityModal({ mode, onClose }: BrowseCommunityModalProp
     return entry.id in installedPlugins;
   };
 
-  const title = mode === "themes" ? "Browse Community Themes" : "Browse Community Plugins";
+  const title =
+    mode === "themes" ? "Browse Community Themes" : "Browse Community Plugins";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -148,25 +169,42 @@ export function BrowseCommunityModal({ mode, onClose }: BrowseCommunityModalProp
                         </p>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleInstall(entry)}
-                      disabled={installed || inFlight}
-                      className={cn(
-                        "inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
-                        installed
-                          ? "bg-accent/20 text-accent cursor-default"
-                          : "bg-glass-bg text-text-secondary hover:bg-glass-hover hover:text-text-primary cursor-pointer",
-                        inFlight && "opacity-60",
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleInstall(entry)}
+                        disabled={installed || inFlight}
+                        className={cn(
+                          "inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+                          installed
+                            ? "bg-accent/20 text-accent cursor-default"
+                            : "bg-glass-bg text-text-secondary hover:bg-glass-hover hover:text-text-primary cursor-pointer",
+                          inFlight && "opacity-60",
+                        )}
+                      >
+                        {inFlight ? (
+                          <LoaderCircle size={12} className="animate-spin" />
+                        ) : (
+                          <Download size={12} />
+                        )}
+                        {installed
+                          ? t("settings.community.installed")
+                          : inFlight
+                            ? t("settings.community.installing")
+                            : t("settings.community.download")}
+                      </button>
+                      {installed && entry.kind === "theme" && (
+                        <IconButton
+                          size="sm"
+                          variant="danger"
+                          onClick={() => uninstallTheme(entry.id)}
+                          aria-label={t("common.remove")}
+                          title={t("common.remove")}
+                        >
+                          <Trash2 size={16} strokeWidth={1.5} />
+                        </IconButton>
                       )}
-                    >
-                      {inFlight ? (
-                        <LoaderCircle size={12} className="animate-spin" />
-                      ) : (
-                        <Download size={12} />
-                      )}
-                      {installed ? "Installed" : inFlight ? "Installing…" : "Install"}
-                    </button>
+                    </div>
                   </li>
                 );
               })}

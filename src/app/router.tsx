@@ -1,13 +1,20 @@
 // router config exports non-components next to lazy() consts, which trips this rule
 /* eslint-disable react-refresh/only-export-components */
 import type { ComponentType } from "react";
-import { Navigate, createBrowserRouter, redirect } from "react-router";
+import { Navigate, createBrowserRouter, redirect, useParams } from "react-router";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { isTauri } from "@/lib/tauri";
 import { RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { lazyWithRetry as lazy } from "@/lib/lazy-with-retry";
 import { FeatureGate } from "@/components/FeatureGate";
+
+/** /browse/:bookId -> /books/:bookId (element instead of a loader so the
+ *  catalog FeatureGate can wrap it). */
+function BrowseBookRedirect() {
+  const { bookId } = useParams();
+  return <Navigate to={`/books/${bookId}`} replace />;
+}
 
 // Eager routes: on the first-paint path, keep them in the main bundle
 import { LandingPage } from "@/features/landing/LandingPage";
@@ -336,12 +343,12 @@ export const router = createBrowserRouter([
           return redirect("/landing");
         },
       },
-      { path: "browse", element: <BrowsePage /> },
-      { path: "catalog", element: <BrowsePage /> },
-      { path: "catalog/import", element: <ImportCatalogPage /> },
+      { path: "browse", element: <FeatureGate feature="catalog"><BrowsePage /></FeatureGate> },
+      { path: "catalog", element: <FeatureGate feature="catalog"><BrowsePage /></FeatureGate> },
+      { path: "catalog/import", element: <FeatureGate feature="catalog"><ImportCatalogPage /></FeatureGate> },
       {
         path: "browse/:bookId",
-        loader: ({ params }) => redirect(`/books/${params.bookId}`),
+        element: <FeatureGate feature="catalog"><BrowseBookRedirect /></FeatureGate>,
       },
       {
         path: "books/:bookId",
@@ -366,8 +373,8 @@ export const router = createBrowserRouter([
       { path: "resources/:resourceId", element: <ResourceViewerPage /> },
       { path: "workspace", element: <Navigate to="/library" replace /> },
       { path: "streaks", element: <StreaksPage /> },
-      { path: "plans/new", element: <PlanDetailPage /> },
-      { path: "plans/:planId", element: <PlanDetailPage /> },
+      { path: "plans/new", element: <FeatureGate feature="readingPlans"><PlanDetailPage /></FeatureGate> },
+      { path: "plans/:planId", element: <FeatureGate feature="readingPlans"><PlanDetailPage /></FeatureGate> },
       { path: "roadmaps", element: <FeatureGate feature="roadmaps"><RoadmapsPage /></FeatureGate> },
       { path: "roadmaps/:roadmapId", element: <FeatureGate feature="roadmaps"><RoadmapDetailPage /></FeatureGate> },
       { path: "roadmaps/:roadmapId/edit", element: <FeatureGate feature="roadmaps"><RoadmapEditorPage /></FeatureGate> },

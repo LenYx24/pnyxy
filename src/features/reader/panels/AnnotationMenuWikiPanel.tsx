@@ -128,7 +128,7 @@ export function AnnotationMenuWikiPanel({
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("reader.annotationMenu.wikiQueryPlaceholder")}
           aria-label={t("reader.annotationMenu.wikiQueryLabel")}
-          className="flex-1 rounded border border-glass-border bg-glass-bg px-2 py-1 text-xs text-text-primary outline-none focus:border-accent"
+          className="flex-1 field px-2 py-1 text-xs"
         />
         <button
           type="submit"

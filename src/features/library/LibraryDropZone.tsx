@@ -44,9 +44,9 @@ export function LibraryDropZone({ onPickFiles, onPasteUrl }: LibraryDropZoneProp
     <button
       type="button"
       onClick={onPickFiles}
-      className="mt-4 flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-glass-border p-4 text-center text-[13px] text-text-muted transition-colors hover:border-accent/50 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+      className="mt-4 flex w-full items-center justify-center gap-2 rounded-panel outline-dotted outline-2 -outline-offset-2 outline-surface-3 p-4 text-center text-[13px] text-text-muted transition-colors hover:bg-surface-3/40 hover:text-text-primary cursor-pointer"
     >
-      <Upload size={18} strokeWidth={1.75} />
+      <Upload size={18} strokeWidth={1.5} />
       {t("library.list.dropZone")}
     </button>
   );

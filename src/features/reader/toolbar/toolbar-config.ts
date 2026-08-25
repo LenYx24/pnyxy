@@ -27,6 +27,7 @@ import {
   FileDown,
   PanelLeft,
   Maximize,
+  BookMarked,
   type LucideIcon,
 } from "lucide-react";
 
@@ -47,7 +48,10 @@ export const TOOLBAR_ZONES: ToolbarZone[] = [
 
 export type ToolbarLayout = Record<ToolbarZone, string[]>;
 
-const STORAGE_KEY = "pnyxy-reader-toolbar-layout";
+// v2: the UI v2 header (back/title | pill cluster | teacher | kebab).
+// Bumping the key drops the old five-zone arrangements, which no longer
+// map onto the header.
+const STORAGE_KEY = "pnyxy-reader-toolbar-layout-v2";
 const SEP_PREFIX = "separator:";
 
 export function isSeparator(id: string): boolean {
@@ -60,41 +64,42 @@ export function newSeparatorId(): string {
   return `${SEP_PREFIX}${sepCounter}-${Math.round(Math.random() * 1e6)}`;
 }
 
-// Default = the Phase A arrangement, with the inline dividers expressed
-// as separator slots. Keep ids in sync with the registry in
-// ReaderToolbar.
+// Default = the UI v2 header. Zones map onto the header like this:
+//   left     = back chevron + title block (fixed, not customisable)
+//   center   = the pill cluster (search, page input, zoom, night)
+//   right    = the "Teacher" button (AI panel toggle)
+//   overflow = everything else, in the kebab menu
+// Keep ids in sync with the registry in ReaderToolbar.
 export const DEFAULT_LAYOUT: ToolbarLayout = {
-  left: ["menu", "back", "title", "separator:def-1", "pageNav"],
-  center: ["zoom", "separator:def-2", "aiChat"],
-  right: [
+  left: ["back", "title"],
+  center: ["search", "pageNav", "zoom", "night"],
+  right: ["aiChat"],
+  overflow: [
     "undo",
-    "separator:def-3",
-    "inPageDraw",
-    "whiteboardDraw",
     "cropToAi",
-    "separator:def-4",
-    "search",
-    "bookmark",
-    "comments",
-    "night",
-    "separator:def-5",
+    "separator:def-1",
     "readingTracker",
     "focusTimer",
     "zen",
-  ],
-  // Only the genuinely rarely-used actions live here; the common ones
-  // (search, bookmark, crop-to-AI, night mode) were promoted to the bar,
-  // and the highlight-export buttons were dropped from the reader entirely.
-  overflow: [
+    "separator:def-2",
     "highlight",
     "theme",
     "rotate",
     "reflow",
+    "inPageDraw",
+    "whiteboardDraw",
+    "bookmark",
+    "comments",
+    "separator:def-3",
     "screenshot",
     "screenshotArea",
     "print",
+    "exportMd",
+    "exportJson",
+    "separator:def-4",
     "sidebar",
     "fullscreen",
+    "bookPage",
   ],
 };
 
@@ -265,6 +270,7 @@ export const ALL_ITEM_IDS = [
   "exportJson",
   "sidebar",
   "fullscreen",
+  "bookPage",
 ] as const;
 
 export type ToolbarItemId = (typeof ALL_ITEM_IDS)[number];
@@ -308,4 +314,5 @@ export const TOOLBAR_ITEM_META: Record<string, ToolbarItemMeta> = {
   exportJson: { icon: FileDown, labelKey: "reader.toolbar.exportHighlightsJson", labelDefault: "Export highlights (JSON)" },
   sidebar: { icon: PanelLeft, labelKey: "reader.toolbar.toggleSidebar", labelDefault: "Toggle sidebar" },
   fullscreen: { icon: Maximize, labelKey: "reader.toolbar.fullscreen", labelDefault: "Fullscreen" },
+  bookPage: { icon: BookMarked, labelKey: "reader.toolbar.openBookPage", labelDefault: "Open book page" },
 };

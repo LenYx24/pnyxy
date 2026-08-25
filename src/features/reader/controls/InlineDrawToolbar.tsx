@@ -106,7 +106,7 @@ export function InlineDrawToolbar() {
         "bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] md:bottom-6",
       )}
     >
-      <div className="pointer-events-auto flex max-w-[95vw] flex-wrap items-center justify-center gap-1 rounded-2xl border border-glass-border bg-bg-secondary/95 px-2 py-1.5 shadow-xl backdrop-blur-xl">
+      <div className="pointer-events-auto flex max-w-[95vw] flex-wrap items-center justify-center gap-1 rounded-panel bg-bg-tertiary px-2 py-1.5 shadow-page">
         {/* Tools */}
         {TOOLS.map(({ tool: tl, Icon, key, fallback }) => (
           <button

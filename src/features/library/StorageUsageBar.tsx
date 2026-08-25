@@ -29,7 +29,8 @@ export function StorageUsageBar({
   const isOver = pct >= 100;
   const isHigh = pct > 80;
   const isWarn = pct > 65;
-  const barColor = isHigh || isOver ? "bg-danger" : isWarn ? "bg-warning" : "bg-accent";
+  // Neutral fill by default: the accent is reserved for reading progress.
+  const barColor = isHigh || isOver ? "bg-danger" : isWarn ? "bg-warning" : "bg-text-muted";
   const tierLabel =
     tier === "premium"
       ? t("library.storage.tierPremium")
@@ -42,15 +43,15 @@ export function StorageUsageBar({
   return (
     <div className={cn("space-y-1", className)}>
       <div className="flex items-center justify-between text-xs">
-        <span className={cn(isOver ? "text-danger" : "text-text-muted")}>
+        <span className={cn(isOver ? "text-danger" : "text-text-muted-2")}>
           {isOver
             ? `${t("library.storage.overLimit")} · ${usedLabel}`
             : usedLabel}
         </span>
-        <span className="text-text-muted">{tierLabel}</span>
+        <span className="text-text-muted-2">{tierLabel}</span>
       </div>
       <div
-        className="h-2 w-full overflow-hidden rounded-full bg-glass-border"
+        className="h-1.5 w-full overflow-hidden rounded-full bg-surface-3"
         role="progressbar"
         aria-valuenow={Math.round(Math.min(pct, 100))}
         aria-valuemin={0}

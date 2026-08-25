@@ -104,7 +104,7 @@ export function PromptModal({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/50"
         onClick={onClose}
       />
       <form
@@ -115,7 +115,7 @@ export function PromptModal({
           e.preventDefault();
           handleSubmit();
         }}
-        className="relative z-10 w-full max-w-sm rounded-xl border border-glass-border bg-bg-secondary/95 p-6 backdrop-blur-xl"
+        className="relative z-10 w-full max-w-sm rounded-page bg-bg-tertiary p-6 shadow-page"
       >
         <h3
           id="prompt-modal-title"
@@ -137,7 +137,7 @@ export function PromptModal({
             if (error) setError(null);
           }}
           placeholder={placeholder}
-          className="mb-1 w-full rounded-md border border-glass-border bg-bg-primary px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-accent"
+          className="field mb-1 bg-bg-secondary"
         />
         {error && (
           <p className="mb-2 text-xs text-danger" role="alert">
@@ -150,7 +150,7 @@ export function PromptModal({
           </Button>
           <button
             type="submit"
-            className="cursor-pointer rounded-lg bg-accent/20 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/30"
+            className="cursor-pointer rounded-control bg-text-primary px-4 py-2 text-sm font-semibold text-bg-primary transition-opacity hover:opacity-90"
           >
             {confirmLabel ?? t("common.save")}
           </button>

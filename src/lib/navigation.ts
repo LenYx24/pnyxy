@@ -56,9 +56,10 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/", icon: Home, key: "home", group: "hidden" },
 
   // Primary destinations, the everyday surfaces.
-  { to: "/library", icon: LibraryIcon, key: "library", group: "primary" },
+  // Chat is the first stop, the library second (the logo covers home).
   { to: "/chat", icon: Bot, key: "chat", group: "primary" },
-  { to: "/browse", icon: Compass, key: "browse", group: "primary" },
+  { to: "/library", icon: LibraryIcon, key: "library", group: "primary" },
+  { to: "/browse", icon: Compass, key: "browse", group: "primary", feature: "catalog" },
   { to: "/forum", icon: MessagesSquare, key: "forum", group: "primary", feature: "forum" },
   {
     to: "/spaces",

@@ -105,7 +105,7 @@ export function InlineAiPagePicker({ onClose }: { onClose: () => void }) {
   if (!meta) return null;
 
   return (
-    <div className="border-t border-glass-border bg-bg-secondary/95 backdrop-blur-md">
+    <div className="border-t border-glass-border bg-bg-secondary/95 ">
       <div className="flex items-center justify-between gap-2 px-3 py-1.5">
         <span className="truncate text-2xs text-text-muted">
           {selectedCount > 0

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FolderOpen, FolderPlus, Pencil, Trash2 } from "lucide-react";
-import { useDndContext, useDroppable } from "@dnd-kit/core";
+import { useDndContext } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox, PromptModal } from "@/components/ui";
@@ -11,7 +11,17 @@ import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import type { Folder as FolderType } from "@/types/database";
 import { ContextMenu, MenuItem } from "./MenuButton";
 import { RowTile } from "./RowTile";
-import { LIST_GRID_CLASS, formatRelative, handleRowKeyDown } from "./helpers";
+import { NEST_TARGET_CLASS, useDropIntent } from "../drag-intent";
+import { DropIndicator } from "../DropIndicator";
+import {
+  LIST_GRID_CLASS,
+  ROW_ACTIVE_CLASS,
+  ROW_BASE_CLASS,
+  ROW_FOCUS_CLASS,
+  ROW_SEPARATOR_CLASS,
+  formatRelative,
+  handleRowKeyDown,
+} from "./helpers";
 
 interface FolderRowProps {
   folder: FolderType;
@@ -31,9 +41,10 @@ interface FolderRowProps {
 }
 
 /**
- * Folder row at the top of the list. Click navigates into the folder;
- * the middle of the row is a nest drop target so items can be dragged
- * in, the edges stay with the sortable for reordering.
+ * Folder row at the top of the list. Click navigates into the folder.
+ * While dragging, the middle 50% of the row nests the item (highlight),
+ * the top / bottom quarters reorder (insertion line); the zone is
+ * decided in AllBooksTab from the pointer position.
  */
 export function FolderRow({
   folder,
@@ -56,10 +67,8 @@ export function FolderRow({
     transform,
     transition,
   } = useSortable({ id: sortableId ?? `folder:${folder.id}` });
-  const nest = useDroppable({
-    id: `nest:${folder.id}`,
-    data: { type: "folder", folderId: folder.id },
-  });
+  // before / after: insertion line at the edge, inside: nest highlight
+  const dropPosition = useDropIntent(sortableId ?? `folder:${folder.id}`);
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -137,28 +146,23 @@ export function FolderRow({
       onKeyDown={(e) =>
         handleRowKeyDown(e, { onOpen: open, onToggleSelect: () => toggle() })
       }
-      className="outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60"
+      className={ROW_FOCUS_CLASS}
     >
       <div
         {...contextHandlers}
         {...listeners}
         className={cn(
           LIST_GRID_CLASS,
-          "group relative h-[58px] select-none border-b border-glass-border text-sm transition-colors hover:bg-glass-hover cursor-pointer",
-          selected && "bg-accent/10",
-          isDragging && "opacity-50",
-          nest.isOver && "bg-accent/15 ring-1 ring-inset ring-accent/50",
+          ROW_BASE_CLASS,
+          ROW_SEPARATOR_CLASS,
+          "relative",
+          selected && ROW_ACTIVE_CLASS,
+          isDragging && "opacity-40",
+          dropPosition === "inside" && NEST_TARGET_CLASS,
         )}
         onClick={handleClick}
       >
-        {/* Nest drop zone: middle of the row only, so top/bottom edges
-            stay with the outer sortable. */}
-        <div
-          ref={nest.setNodeRef}
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0"
-          style={{ top: 6, bottom: 6 }}
-        />
+        <DropIndicator position={dropPosition} orientation="row" />
 
         {/* Checkbox */}
         <div

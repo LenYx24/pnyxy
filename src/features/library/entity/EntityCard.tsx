@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSortable } from "@dnd-kit/sortable";
+import { useDropIntent } from "../drag-intent";
+import { DropIndicator } from "../DropIndicator";
 import { CSS } from "@dnd-kit/utilities";
 import { MoreVertical } from "lucide-react";
 import { Checkbox, FloatingMenu } from "@/components/ui";
@@ -49,6 +51,7 @@ export function EntityCard({
   });
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     sortable;
+  const dropPosition = useDropIntent(sortableId);
   const style = sortableId
     ? { transform: CSS.Transform.toString(transform), transition }
     : undefined;
@@ -94,14 +97,15 @@ export function EntityCard({
         {...contextHandlers}
         className={cn(
           "group relative",
-          selected && "ring-2 ring-accent rounded-md",
-          isDragging && "opacity-50",
+          selected && "rounded-md ring-2 ring-text-muted",
+          isDragging && "opacity-40",
         )}
       >
+        <DropIndicator position={dropPosition} orientation="card" />
         <div onClick={handleClick} title={d.title} className="cursor-pointer">
           <div
             className={cn(
-              "relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md border border-glass-border shadow-sm transition-shadow group-hover:shadow-md",
+              "relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md shadow-page transition-[transform,box-shadow] duration-200 group-hover:-translate-y-0.5",
               d.card.tintClass,
             )}
           >
@@ -132,8 +136,8 @@ export function EntityCard({
           <div className={cn("mt-2 min-w-0", compact && "mt-1.5")}>
             <h3
               className={cn(
-                "truncate font-semibold leading-tight text-text-primary",
-                compact ? "text-xs" : "text-sm",
+                "truncate font-medium leading-tight text-text-primary",
+                compact ? "text-xs" : "text-[13px]",
               )}
             >
               {d.title}
@@ -183,7 +187,7 @@ export function EntityCard({
                   a.onClick();
                 }}
                 className={cn(
-                  "flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-glass-hover cursor-pointer",
+                  "flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-surface-3 cursor-pointer",
                   a.danger
                     ? "text-danger"
                     : "text-text-secondary hover:text-text-primary",

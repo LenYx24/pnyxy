@@ -87,7 +87,7 @@ export function ReadingTrackerControl({ compact = false }: { compact?: boolean }
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-lg border border-glass-border bg-bg-secondary/95 backdrop-blur-xl shadow-xl p-3">
+          <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-panel bg-bg-tertiary shadow-page p-3">
             <div className="mb-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs uppercase tracking-wide text-text-muted">
@@ -141,7 +141,7 @@ export function ReadingTrackerControl({ compact = false }: { compact?: boolean }
                 manualSetProgress(activeDoc.currentPage);
                 setOpen(false);
               }}
-              className="mt-2 w-full flex items-center justify-center gap-2 rounded-md border border-glass-border bg-glass-bg px-3 py-2 text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              className="mt-2 w-full flex items-center justify-center gap-2 rounded-control bg-bg-tertiary px-3 py-2 text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
             >
               <BookCheck size={14} />
               Set progress to page {activeDoc.currentPage}

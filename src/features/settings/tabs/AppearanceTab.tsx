@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Library as LibraryIcon, Palette, Plus, Code2 } from "lucide-react";
-import { Slider } from "@/components/ui";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui";
 import { useSettingsStore } from "@/stores/settings-store";
 import { CORE_THEMES } from "@/lib/themes";
 import type { Theme } from "@/lib/themes";
@@ -9,6 +9,7 @@ import { ThemeCard } from "../ThemeCard";
 import { BrowseCommunityModal } from "../BrowseCommunityModal";
 import { useLibraryPrefs } from "@/features/library/useLibraryPrefs";
 import { getUserCss, setUserCss } from "@/lib/user-css";
+import { SectionCaption, SettingRow, SettingsSection, SliderWithInput } from "../ui";
 
 export function AppearanceTab() {
   const { t } = useTranslation();
@@ -45,88 +46,82 @@ export function AppearanceTab() {
   );
 
   return (
-    <section className="space-y-4 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
-      <div className="flex items-center gap-2">
-        <Palette size={18} className="text-accent" />
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t("settings.appearanceSection.heading")}
-        </h2>
-      </div>
-      <p className="text-xs text-text-muted">
-        {t("settings.appearanceSection.description")}
-      </p>
-
-      <div>
-        <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
-          {t("settings.appearanceSection.coreThemes")}
-        </h3>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {coreList.map((theme) => (
-            <ThemeCard
-              key={theme.id}
-              theme={theme}
-              isActive={theme.id === activeThemeId}
-              onApply={() => setActiveTheme(theme.id)}
-            />
-          ))}
-        </div>
-      </div>
-
-      {communityList.length > 0 && (
-        <div>
-          <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
-            {t("settings.appearanceSection.installedThemes")}
-          </h3>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {communityList.map((theme) => (
-              <ThemeCard
-                key={theme.id}
-                theme={theme}
-                isActive={theme.id === activeThemeId}
-                onApply={() => setActiveTheme(theme.id)}
-                onUninstall={() => uninstallTheme(theme.id)}
-              />
-            ))}
+    <section className="space-y-8">
+      <SettingsSection
+        description={t("settings.appearanceSection.description")}
+        actions={
+          <Button variant="secondary" size="sm" onClick={() => setBrowseOpen(true)}>
+            <Plus size={14} />
+            {t("settings.appearanceSection.browseCommunity")}
+          </Button>
+        }
+        plain
+      >
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <SectionCaption className="px-1">
+              {t("settings.appearanceSection.coreThemes")}
+            </SectionCaption>
+            {/* Neutral themes are listed first (CORE_THEMES object order). */}
+            <p className="px-1 text-[13px] text-text-muted">
+              {t("settings.appearanceSection.neutralHint")}
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {coreList.map((theme) => (
+                <ThemeCard
+                  key={theme.id}
+                  theme={theme}
+                  isActive={theme.id === activeThemeId}
+                  onApply={() => setActiveTheme(theme.id)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      )}
 
-      <div>
-        <button
-          type="button"
-          onClick={() => setBrowseOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-        >
-          <Plus size={14} />
-          {t("settings.appearanceSection.browseCommunity")}
-        </button>
-      </div>
+          {communityList.length > 0 && (
+            <div className="space-y-2">
+              <SectionCaption className="px-1">
+                {t("settings.appearanceSection.installedThemes")}
+              </SectionCaption>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {communityList.map((theme) => (
+                  <ThemeCard
+                    key={theme.id}
+                    theme={theme}
+                    isActive={theme.id === activeThemeId}
+                    onApply={() => setActiveTheme(theme.id)}
+                    onUninstall={() => uninstallTheme(theme.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </SettingsSection>
 
       {browseOpen && (
         <BrowseCommunityModal mode="themes" onClose={() => setBrowseOpen(false)} />
       )}
 
-      <div className="border-t border-glass-border pt-4">
-        <div className="mb-2 flex items-center gap-2">
-          <LibraryIcon size={16} className="text-accent" />
-          <h3 className="text-sm font-semibold text-text-primary">
-            {t("settings.appearanceSection.library.heading")}
-          </h3>
-        </div>
-        <p className="mb-3 text-xs text-text-muted">
-          {t("settings.appearanceSection.library.coverSizeHelp")}
-        </p>
-        <Slider
-          value={cardSize}
-          onChange={setCardSize}
-          min={140}
-          max={320}
-          step={10}
+      <SettingsSection title={t("settings.appearanceSection.library.heading")}>
+        <SettingRow
           label={t("settings.appearanceSection.library.coverSize", {
             value: cardSize,
           })}
-        />
-      </div>
+          hint={t("settings.appearanceSection.library.coverSizeHelp")}
+          stacked
+        >
+          <SliderWithInput
+            value={cardSize}
+            onChange={setCardSize}
+            min={140}
+            max={320}
+            step={10}
+            unit="px"
+            ariaLabel={t("settings.appearanceSection.library.coverSizeHelp")}
+          />
+        </SettingRow>
+      </SettingsSection>
 
       {/* Custom CSS: power-user escape hatch. Rules go into a
           single <style> tag in <head> on every page load. Tailwind
@@ -134,34 +129,30 @@ export function AppearanceTab() {
           on :root (--accent, --bg-primary, …) are the
           friendlier surface to override. Stored to localStorage
           per-device. */}
-      <div className="border-t border-glass-border pt-4">
-        <div className="mb-2 flex items-center gap-2">
-          <Code2 size={16} className="text-accent" />
-          <h3 className="text-sm font-semibold text-text-primary">
-            {t("settings.appearanceSection.customCss.heading")}
-          </h3>
-        </div>
-        <p className="mb-2 text-xs text-text-muted">
-          {t("settings.appearanceSection.customCss.help")}
-        </p>
-        <textarea
-          value={customCss}
-          onChange={(e) => handleCssChange(e.target.value)}
-          placeholder={t("settings.appearanceSection.customCss.placeholder")}
-          spellCheck={false}
-          className="block min-h-[140px] w-full rounded-lg border border-glass-border bg-bg-secondary p-3 font-mono text-xs text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-accent/50"
-        />
-        <div className="mt-2 flex justify-end">
-          <button
-            type="button"
-            onClick={handleCssReset}
-            disabled={customCss.length === 0}
-            className="rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
-          >
-            {t("settings.appearanceSection.customCss.reset")}
-          </button>
-        </div>
-      </div>
+      <SettingsSection title={t("settings.appearanceSection.customCss.heading")}>
+        <SettingRow
+          label={t("settings.appearanceSection.customCss.heading")}
+          hint={t("settings.appearanceSection.customCss.help")}
+          control={
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCssReset}
+              disabled={customCss.length === 0}
+            >
+              {t("settings.appearanceSection.customCss.reset")}
+            </Button>
+          }
+        >
+          <textarea
+            value={customCss}
+            onChange={(e) => handleCssChange(e.target.value)}
+            placeholder={t("settings.appearanceSection.customCss.placeholder")}
+            spellCheck={false}
+            className="field block min-h-[140px] resize-y bg-bg-secondary p-3 font-mono text-xs"
+          />
+        </SettingRow>
+      </SettingsSection>
     </section>
   );
 }

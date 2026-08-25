@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui";
+import { chipClass } from "@/components/ui/classes";
 import { cn } from "@/lib/cn";
 import { useFeatures } from "@/lib/use-features";
 import { bookIdSegment } from "@/lib/slugify";
@@ -22,6 +23,7 @@ import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
 import { useOpenCatalogBook } from "@/hooks/use-open-catalog-book";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import {
+  ROW_SEPARATOR_CLASS,
   formatRelative,
   getCoverUrl,
   getDocId,
@@ -184,19 +186,20 @@ export function BookDetailPanel({ entry }: BookDetailPanelProps) {
 
   return (
     <div
-      className="flex flex-col gap-4 border-b border-glass-border bg-accent/10 px-4 py-4 md:flex-row md:gap-6 md:py-[18px] md:pl-[104px]"
+      className={cn("px-3 pb-3", ROW_SEPARATOR_CLASS)}
       onClick={(e) => e.stopPropagation()}
     >
+    <div className="flex flex-col gap-4 rounded-panel bg-bg-tertiary px-4 py-4 md:ml-[92px] md:flex-row md:gap-6 md:py-[18px]">
       {/* Cover */}
       {coverUrl ? (
         <img
           src={coverUrl}
           alt=""
           draggable={false}
-          className="h-[126px] w-[90px] shrink-0 rounded-[5px] object-cover shadow-lg shadow-black/25"
+          className="h-[126px] w-[90px] shrink-0 rounded-[5px] object-cover shadow-page"
         />
       ) : (
-        <div className="flex h-[126px] w-[90px] shrink-0 items-center justify-center rounded-[5px] bg-bg-tertiary shadow-lg shadow-black/25">
+        <div className="flex h-[126px] w-[90px] shrink-0 items-center justify-center rounded-[5px] bg-surface-3 shadow-page">
           <BookOpen size={28} className="text-text-muted" strokeWidth={1.5} />
         </div>
       )}
@@ -215,7 +218,7 @@ export function BookDetailPanel({ entry }: BookDetailPanelProps) {
             onClick={() => void handleNewChat()}
             disabled={creatingChat}
           >
-            <MessageSquare size={15} />
+            <MessageSquare size={16} strokeWidth={1.5} />
             {t("library.list.detail.newChat")}
           </Button>
           {features.quizzes && (
@@ -230,7 +233,7 @@ export function BookDetailPanel({ entry }: BookDetailPanelProps) {
           )}
         </div>
 
-        <div className="pt-1 text-2xs font-semibold uppercase tracking-wider text-text-muted">
+        <div className="pt-1 text-2xs font-semibold uppercase tracking-wider text-text-muted-2">
           {t("library.list.detail.linked", { count: linked.length })}
         </div>
 
@@ -241,23 +244,22 @@ export function BookDetailPanel({ entry }: BookDetailPanelProps) {
                 key={item.key}
                 type="button"
                 onClick={item.open}
+                title={`${item.title} · ${item.meta}`}
                 className={cn(
-                  "flex min-w-0 items-center gap-2.5 rounded-lg border border-glass-border bg-bg-secondary px-3 py-2 text-left text-[13px] transition-colors hover:bg-glass-hover cursor-pointer",
-                  "w-full sm:w-auto sm:min-w-[220px] sm:max-w-[280px]",
+                  chipClass,
+                  "max-w-full cursor-pointer bg-bg-secondary transition-colors hover:bg-surface-3 hover:text-text-primary sm:max-w-[280px]",
                 )}
               >
-                <item.icon size={18} className="shrink-0 text-accent" strokeWidth={1.75} />
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate text-text-secondary">{item.title}</span>
-                  <span className="truncate text-2xs text-text-muted">{item.meta}</span>
-                </span>
+                <item.icon size={16} className="shrink-0 text-text-muted" strokeWidth={1.5} />
+                <span className="truncate">{item.title}</span>
+                <span className="shrink-0 text-text-muted-2">{item.meta}</span>
               </button>
             ))}
             {overflow > 0 && (
               <button
                 type="button"
                 onClick={() => navigate(`${bookPagePath}/chat`)}
-                className="flex items-center rounded-lg border border-dashed border-glass-border px-3 py-2 text-[13px] text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                className={cn(chipClass, "cursor-pointer bg-bg-secondary text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary")}
               >
                 +{overflow}
               </button>
@@ -267,6 +269,7 @@ export function BookDetailPanel({ entry }: BookDetailPanelProps) {
           <span className="text-xs text-text-muted">{t("library.list.detail.noLinked")}</span>
         )}
       </div>
+    </div>
     </div>
   );
 }
@@ -291,7 +294,7 @@ export function BookProgressCell({ entry }: { entry: UnifiedLibraryItem }) {
     resume && pageCount ? Math.min(100, Math.round((resume.page / pageCount) * 100)) : 0;
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1 flex-1 rounded-full bg-glass-border">
+      <div className="h-1 flex-1 rounded-full bg-surface-3">
         <div className="h-1 rounded-full bg-accent" style={{ width: `${pct}%` }} />
       </div>
       <span className="w-[30px] text-xs text-text-muted">{pct}%</span>

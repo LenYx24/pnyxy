@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { PanelLeft, X } from "lucide-react";
+import { X } from "lucide-react";
 import { DockviewReact, type DockviewApi } from "dockview";
 import { PromptModal } from "@/components/ui";
 import type { TextSelection } from "@/types/annotation";
@@ -39,6 +39,7 @@ import { useReaderShortcuts } from "./hooks/useReaderShortcuts";
 import { useReaderDrawMode } from "./hooks/useReaderDrawMode";
 import { useReaderPrint } from "./hooks/useReaderPrint";
 import { useReaderStreakTimer } from "./hooks/useReaderStreakTimer";
+import { useReaderTint } from "./hooks/useReaderTint";
 
 export function ReaderPage() {
   const { t } = useTranslation();
@@ -196,24 +197,32 @@ export function ReaderPage() {
 
   useReaderStreakTimer(hasDocuments);
 
+  // 6% cover tint over the desk colour (see dockview-theme.css / .reader-shell)
+  const readerTint = useReaderTint(activeDocumentId);
+
   return (
     <div
       ref={readerContainerRef}
       // Full dynamic viewport on every breakpoint. `100dvh` accounts for the
       // URL-bar shrink/grow on mobile Safari; the bottom bar pads safe-area itself.
-      className="relative flex h-[100dvh] flex-col bg-bg-primary md:h-screen"
+      className="reader-shell relative flex h-[100dvh] flex-col md:h-screen"
+      style={
+        readerTint
+          ? ({ "--reader-tint": readerTint } as React.CSSProperties)
+          : undefined
+      }
     >
       {hasDocuments && zenMode ? (
-        <div className="relative flex-1 overflow-hidden bg-bg-primary">
+        <div className="relative flex-1 overflow-hidden">
           <ActiveViewer />
           <SearchOverlay />
           <button
             onClick={() => setZenMode(false)}
-            className="group fixed right-4 top-4 z-50 rounded-full border border-glass-border bg-bg-secondary/70 p-2 text-text-muted opacity-30 backdrop-blur-md transition-opacity hover:opacity-100 focus-visible:opacity-100 cursor-pointer"
+            className="group fixed right-4 top-4 z-50 rounded-full bg-bg-tertiary p-2 text-text-muted opacity-30 shadow-page transition-opacity hover:opacity-100 focus-visible:opacity-100 cursor-pointer"
             title={t("reader.page.exitZenTitle")}
             aria-label={t("reader.page.exitZen")}
           >
-            <X size={16} />
+            <X size={16} strokeWidth={1.5} />
           </button>
         </div>
       ) : hasDocuments ? (
@@ -253,18 +262,8 @@ export function ReaderPage() {
                 onReady={handleDockviewReady}
                 components={dockviewComponents}
               />
-              {/* Floating-circle toggle for the reader's TOC panel (same one
-                  Ctrl+\\ binds). Distinct from the top-bar hamburger, which is
-                  the global app sidebar. */}
-              <button
-                type="button"
-                onClick={toggleSidebar}
-                aria-label={t("reader.toolbar.toggleSidebar")}
-                title={t("reader.toolbar.toggleSidebar")}
-                className="absolute left-3 top-3 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-glass-border bg-bg-secondary/80 text-text-secondary shadow-md backdrop-blur-md transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              >
-                <PanelLeft size={16} />
-              </button>
+              {/* The TOC toggle lives in the header (next to the back
+                  chevron) and in the kebab; Ctrl+\\ binds the same. */}
               {/* SearchOverlay lives inside ViewerPanel, not here: its `right-4`
                   would pin to the dockview edge and overlap the open AI chat panel. */}
             </div>

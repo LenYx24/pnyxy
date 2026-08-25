@@ -1,14 +1,100 @@
 import type { Theme } from "./types";
 
 /**
- * Built-in themes. `pnyxy-dark` reproduces the current `@theme` block
- * verbatim, switching to it is a no-op visually, but it lets us treat
- * themes uniformly in the registry.
+ * Built-in themes. `pnyxy-neutral` reproduces the `@theme` block in
+ * styles/index.css verbatim; the two Neutral entries come first because
+ * Settings > Appearance lists them in object order.
  *
  * To add a core theme: add a new entry here. It immediately appears in
  * Settings → Appearance.
  */
 export const CORE_THEMES = {
+  "pnyxy-neutral": {
+    id: "pnyxy-neutral",
+    name: "Pnyxy Neutral",
+    description:
+      "Neutral desk, content brings the color. No borders, depth from tone steps and one shadow.",
+    author: "Pnyxy",
+    apiVersion: 1,
+    variant: "dark",
+    tokens: {
+      // desk / surface-1 / surface-2 / surface-3
+      "--color-bg-primary": "#131315",
+      "--color-bg-secondary": "#1a1a1d",
+      "--color-bg-tertiary": "#222226",
+      "--color-surface-3": "#2a2a2f",
+      "--color-accent": "#5fb3c6",
+      "--color-accent-blue": "#5fb3c6",
+      "--color-accent-soft": "rgba(95, 179, 198, 0.14)",
+      "--color-streak": "#e0a54a",
+      "--color-text-primary": "#ececee",
+      "--color-text-secondary": "#c9c9cf",
+      "--color-text-muted": "#9a9aa3",
+      "--color-text-muted-2": "#7d7d86",
+      "--color-glass-bg": "rgba(255, 255, 255, 0.04)",
+      "--color-glass-border": "rgba(255, 255, 255, 0.04)",
+      "--color-glass-hover": "#2a2a2f",
+      "--shadow-page":
+        "0 8px 30px rgba(0, 0, 0, 0.45)",
+    },
+  },
+  "pnyxy-neutral-light": {
+    id: "pnyxy-neutral-light",
+    name: "Pnyxy Neutral Light",
+    description:
+      "The neutral desk in daylight: soft grey desk, white pages, same single accent.",
+    author: "Pnyxy",
+    apiVersion: 1,
+    variant: "light",
+    tokens: {
+      "--color-bg-primary": "#ececec",
+      "--color-bg-secondary": "#f4f4f4",
+      "--color-bg-tertiary": "#ffffff",
+      "--color-surface-3": "#f0f0f1",
+      "--color-accent": "#2f8fa5",
+      "--color-accent-blue": "#2f8fa5",
+      "--color-accent-soft": "rgba(47, 143, 165, 0.12)",
+      "--color-streak": "#e0a54a",
+      "--color-text-primary": "#1c1c1e",
+      "--color-text-secondary": "#3a3a3f",
+      "--color-text-muted": "#5f5f68",
+      "--color-text-muted-2": "#767680",
+      "--color-glass-bg": "rgba(0, 0, 0, 0.03)",
+      "--color-glass-border": "rgba(0, 0, 0, 0.04)",
+      "--color-glass-hover": "#e4e4e6",
+      "--shadow-page":
+        "0 8px 30px rgba(0, 0, 0, 0.10)",
+    },
+  },
+  "pnyxy-neutral-well": {
+    id: "pnyxy-neutral-well",
+    name: "Pnyxy Neutral Well",
+    description:
+      "Inverted neutral: lighter chrome as the frame, darker content area as the stage (the Gemini arrangement).",
+    author: "Pnyxy",
+    apiVersion: 1,
+    variant: "dark",
+    tokens: {
+      // desk (rail, panels) is the lighter step; the sheet is the dark well
+      "--color-bg-primary": "#1c1c1f",
+      "--color-bg-secondary": "#121214",
+      "--color-bg-tertiary": "#242428",
+      "--color-surface-3": "#2d2d32",
+      "--color-accent": "#5fb3c6",
+      "--color-accent-blue": "#5fb3c6",
+      "--color-accent-soft": "rgba(95, 179, 198, 0.14)",
+      "--color-streak": "#e0a54a",
+      "--color-text-primary": "#ececee",
+      "--color-text-secondary": "#c9c9cf",
+      "--color-text-muted": "#9a9aa3",
+      "--color-text-muted-2": "#7d7d86",
+      "--color-glass-bg": "rgba(255, 255, 255, 0.04)",
+      "--color-glass-border": "rgba(255, 255, 255, 0.04)",
+      "--color-glass-hover": "#2d2d32",
+      // a well does not lift; a faint edge shadow keeps the corner readable
+      "--shadow-page": "0 0 0 1px rgba(0, 0, 0, 0.35)",
+    },
+  },
   "pnyxy-dark": {
     id: "pnyxy-dark",
     name: "Pnyxy Dark",
@@ -249,4 +335,8 @@ export const CORE_THEMES = {
 
 export type CoreThemeId = keyof typeof CORE_THEMES;
 
-export const DEFAULT_THEME_ID: CoreThemeId = "pnyxy-dark";
+/**
+ * Default for new installs. Existing users keep whatever `activeThemeId`
+ * the settings store persisted; the store never overwrites a stored id.
+ */
+export const DEFAULT_THEME_ID: CoreThemeId = "pnyxy-neutral";

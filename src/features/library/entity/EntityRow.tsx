@@ -10,8 +10,14 @@ import { useContextMenu } from "@/hooks/use-context-menu";
 import { FolderPickerModal } from "../modals/FolderPickerModal";
 import { ContextMenu, MenuItem } from "../list-view/MenuButton";
 import { RowTile } from "../list-view/RowTile";
+import { useDropIntent } from "../drag-intent";
+import { DropIndicator } from "../DropIndicator";
 import {
   LIST_GRID_CLASS,
+  ROW_ACTIVE_CLASS,
+  ROW_BASE_CLASS,
+  ROW_FOCUS_CLASS,
+  ROW_SEPARATOR_CLASS,
   formatRelative,
   handleRowKeyDown,
 } from "../list-view/helpers";
@@ -48,8 +54,10 @@ export function EntityRow({
     id: sortableId ?? d.selKey,
     disabled: !isTopLevel,
   });
+  // Namespaced id while disabled: a registered-but-unattached node
+  // under the sortable's id would clobber its entry (see BookRow).
   const draggable = useDraggable({
-    id: d.selKey,
+    id: isTopLevel ? `unused:${d.selKey}` : d.selKey,
     disabled: isTopLevel,
   });
   const setNodeRef = isTopLevel ? sortable.setNodeRef : draggable.setNodeRef;
@@ -58,6 +66,9 @@ export function EntityRow({
   const isDragging = isTopLevel ? sortable.isDragging : draggable.isDragging;
   const transform = isTopLevel ? sortable.transform : draggable.transform;
   const transition = isTopLevel ? sortable.transition : undefined;
+  const dropPosition = useDropIntent(
+    isTopLevel ? (sortableId ?? d.selKey) : undefined,
+  );
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -112,19 +123,22 @@ export function EntityRow({
       onKeyDown={(e) =>
         handleRowKeyDown(e, { onOpen: d.open, onToggleSelect: () => toggle() })
       }
-      className="outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60"
+      className={ROW_FOCUS_CLASS}
     >
       <div
         {...contextHandlers}
         {...listeners}
         className={cn(
           LIST_GRID_CLASS,
-          "group h-[58px] select-none border-b border-glass-border text-sm transition-colors hover:bg-glass-hover cursor-pointer",
-          selected && "bg-accent/10",
-          isDragging && "opacity-50",
+          ROW_BASE_CLASS,
+          ROW_SEPARATOR_CLASS,
+          "relative",
+          selected && ROW_ACTIVE_CLASS,
+          isDragging && "opacity-40",
         )}
         onClick={handleClick}
       >
+        <DropIndicator position={dropPosition} orientation="row" />
         {/* Checkbox */}
         <div
           className={cn(

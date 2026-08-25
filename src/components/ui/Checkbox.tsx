@@ -28,12 +28,12 @@ export function Checkbox({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        "inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-all duration-150 cursor-pointer",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary",
+        "inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[6px] transition-all duration-150 cursor-pointer",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-soft",
         "disabled:cursor-not-allowed disabled:opacity-50",
         visuallyOn
-          ? "border-accent bg-accent text-white"
-          : "border-glass-border bg-glass-bg text-transparent hover:border-accent/50",
+          ? "bg-text-primary text-bg-primary"
+          : "bg-surface-3 text-transparent hover:bg-text-muted-2/40",
         className,
       )}
     >

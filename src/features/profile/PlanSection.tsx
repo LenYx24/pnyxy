@@ -6,6 +6,8 @@ import { useAuthStore } from "@/stores/auth-store";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
 import { cn } from "@/lib/cn";
+import { Button, chipClass } from "@/components/ui";
+import { SettingsSection } from "@/features/settings/ui";
 
 /**
  * Plan / billing card, rendered on the Profile page.
@@ -116,119 +118,100 @@ export function PlanSection() {
     }
   };
 
+  const badge = (
+    <span className={cn(chipClass, "px-2.5 py-1 text-xs", isPremium && "chip-active")}>
+      {isPremium
+        ? t("settings.plan_section.premiumBadge")
+        : t("settings.plan_section.freeBadge")}
+    </span>
+  );
+
   return (
-    <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10">
-          <Sparkles size={20} className="text-accent" />
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold text-text-primary">
-            {t("settings.plan_section.heading")}
-          </h2>
-          <p className="text-xs text-text-muted">
-            {isPremium
-              ? t("settings.plan_section.currentPremium")
-              : t("settings.plan_section.currentFree")}
-          </p>
-        </div>
-        <span
-          className={cn(
-            "ml-auto rounded-full px-3 py-1 text-xs font-semibold",
-            isPremium
-              ? "bg-accent/15 text-accent"
-              : "bg-glass-bg text-text-secondary",
-          )}
-        >
-          {isPremium
-            ? t("settings.plan_section.premiumBadge")
-            : t("settings.plan_section.freeBadge")}
-        </span>
-      </div>
-
-      {isPremium ? (
-        <div className="space-y-3">
-          <p className="text-sm text-text-secondary">
-            {t("settings.plan_section.manageHint")}
-          </p>
-          {BILLING_ENABLED && (
-            <button
-              type="button"
-              onClick={handleManage}
-              disabled={managing}
-              className="inline-flex items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-4 py-2.5 text-sm font-semibold text-text-primary transition-colors hover:bg-glass-hover disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {managing ? (
-                <>
-                  <Loader2 size={15} className="animate-spin" />
-                  {t("settings.plan_section.openingPortal")}
-                </>
-              ) : (
-                <>
-                  <Settings2 size={15} />
-                  {t("settings.plan_section.manageButton")}
-                </>
-              )}
-            </button>
-          )}
-          {error && <p className="text-xs text-danger">{error}</p>}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <ul className="space-y-2">
-            {PREMIUM_FEATURE_KEYS.map((key) => (
-              <li
-                key={key}
-                className="flex items-start gap-2 text-sm text-text-secondary"
-              >
-                <Check size={16} className="mt-0.5 shrink-0 text-accent" />
-                {t(`settings.plan_section.features.${key}`)}
-              </li>
-            ))}
-          </ul>
-
-          {justReturned && (
-            <p className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-text-secondary">
-              {t("settings.plan_section.processingUpgrade")}
+    <SettingsSection title={t("settings.plan_section.heading")} plain>
+      <div className="space-y-5 rounded-panel bg-bg-tertiary p-5 sm:p-6">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-medium text-text-primary">
+              {isPremium
+                ? t("settings.plan_section.currentPremium")
+                : t("settings.plan_section.currentFree")}
             </p>
-          )}
-
-          {BILLING_ENABLED ? (
-            <button
-              type="button"
-              onClick={handleUpgrade}
-              disabled={starting || !user}
-              className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {starting ? (
-                <>
-                  <Loader2 size={15} className="animate-spin" />
-                  {t("settings.plan_section.startingCheckout")}
-                </>
-              ) : (
-                <>
-                  <Sparkles size={15} />
-                  {t("settings.plan_section.upgradeButton")}
-                </>
-              )}
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled
-              className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-glass-border bg-glass-bg px-4 py-2.5 text-sm font-semibold text-text-muted"
-            >
-              {t("settings.plan_section.comingSoon")}
-            </button>
-          )}
-
-          {error && <p className="text-xs text-danger">{error}</p>}
-
-          <p className="text-xs text-text-muted">
-            {t("settings.plan_section.securedBy")}
-          </p>
+            <p className="text-[13px] text-text-muted">
+              {isPremium
+                ? t("settings.plan_section.manageHint")
+                : t("settings.plan_section.securedBy")}
+            </p>
+          </div>
+          {badge}
         </div>
-      )}
-    </section>
+
+        {isPremium ? (
+          <div className="space-y-3">
+            {BILLING_ENABLED && (
+              <Button variant="primary" onClick={handleManage} disabled={managing}>
+                {managing ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    {t("settings.plan_section.openingPortal")}
+                  </>
+                ) : (
+                  <>
+                    <Settings2 size={15} />
+                    {t("settings.plan_section.manageButton")}
+                  </>
+                )}
+              </Button>
+            )}
+            {error && <p className="text-[13px] text-danger">{error}</p>}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <ul className="space-y-1.5">
+              {PREMIUM_FEATURE_KEYS.map((key) => (
+                <li
+                  key={key}
+                  className="flex items-start gap-2 text-[15px] leading-relaxed text-text-secondary"
+                >
+                  <Check size={16} className="mt-1 shrink-0 text-text-muted" />
+                  {t(`settings.plan_section.features.${key}`)}
+                </li>
+              ))}
+            </ul>
+
+            {justReturned && (
+              <p className="rounded-control bg-surface-3 px-3 py-2 text-[13px] text-text-secondary">
+                {t("settings.plan_section.processingUpgrade")}
+              </p>
+            )}
+
+            {BILLING_ENABLED ? (
+              <Button
+                variant="primary"
+                onClick={handleUpgrade}
+                disabled={starting || !user}
+              >
+                {starting ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    {t("settings.plan_section.startingCheckout")}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={15} />
+                    {t("settings.plan_section.upgradeButton")}
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button variant="secondary" disabled>
+                {t("settings.plan_section.comingSoon")}
+              </Button>
+            )}
+
+            {error && <p className="text-[13px] text-danger">{error}</p>}
+          </div>
+        )}
+      </div>
+    </SettingsSection>
   );
 }

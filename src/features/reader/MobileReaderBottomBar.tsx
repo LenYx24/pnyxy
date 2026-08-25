@@ -94,7 +94,7 @@ export function MobileReaderBottomBar({
         visible ? "translate-y-0" : "translate-y-full",
       )}
     >
-      <div className="border-t border-glass-border bg-bg-secondary/85 backdrop-blur-md pl-safe-left pr-safe-right pb-safe-bottom">
+      <div className="bg-bg-primary pl-safe-left pr-safe-right pb-safe-bottom">
         <nav className="flex items-stretch justify-around">
           {items.map(({ key, icon: Icon, label, onClick, active }) => (
             <button
@@ -105,11 +105,11 @@ export function MobileReaderBottomBar({
               className={cn(
                 "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-2xs font-medium transition-colors touch-target",
                 active
-                  ? "text-accent"
+                  ? "text-text-primary"
                   : "text-text-muted hover:text-text-primary",
               )}
             >
-              <Icon size={20} />
+              <Icon size={20} strokeWidth={1.5} />
               <span className="truncate">{label}</span>
             </button>
           ))}

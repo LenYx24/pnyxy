@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Folder, FolderOpen, MoreVertical, Pencil, Trash2 } from "lucide-react";
-import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Checkbox, FloatingMenu, PromptModal } from "@/components/ui";
@@ -9,6 +8,8 @@ import { useContextMenu } from "@/hooks/use-context-menu";
 import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { cn } from "@/lib/cn";
 import type { Folder as FolderType } from "@/types/database";
+import { NEST_TARGET_CLASS, useDropIntent } from "./drag-intent";
+import { DropIndicator } from "./DropIndicator";
 
 interface FolderCardProps {
   folder: FolderType;
@@ -43,15 +44,9 @@ export function FolderCard({
     isDragging,
   } = useSortable({ id: sortableId ?? folder.id, disabled: !sortableId });
 
-  // "Nest into me" drop target, fires the nest branch in
-  // AllBooksTab.handleDragEnd so dropping a book/folder onto a card
-  // moves it inside this folder. Without this, the cover only acted
-  // as a sortable position and drops did sibling reorder only.
-  const nest = useDroppable({
-    id: `nest:${folder.id}`,
-    disabled: !sortableId,
-    data: { type: "folder", folderId: folder.id },
-  });
+  // Drop intent from AllBooksTab: "inside" highlights the card as a
+  // nest target, before / after draw the insertion line in the gap.
+  const dropPosition = useDropIntent(sortableId);
 
   const style = sortableId
     ? { transform: CSS.Transform.toString(transform), transition }
@@ -127,10 +122,11 @@ export function FolderCard({
         {...contextHandlers}
         className={cn(
           "group relative",
-          selected && "ring-2 ring-accent rounded-md",
-          isDragging && "opacity-50",
+          selected && "rounded-md ring-2 ring-text-muted",
+          isDragging && "opacity-40",
         )}
       >
+        <DropIndicator position={dropPosition} orientation="card" />
         <div
           onClick={handleClick}
           title={folder.name}
@@ -141,17 +137,16 @@ export function FolderCard({
               doesn't blend into the background. Hover bumps the tint up
               one notch + adds shadow for the same lift book covers get. */}
           <div
-            ref={nest.setNodeRef}
             className={cn(
-              "relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md bg-accent/[0.12] shadow-sm transition-all group-hover:bg-accent/[0.18] group-hover:shadow-md",
-              nest.isOver &&
-                "bg-accent/30 ring-2 ring-inset ring-accent/70",
+              "relative flex aspect-[5/7] w-full items-center justify-center overflow-hidden rounded-md bg-bg-tertiary shadow-page transition-[transform,box-shadow] duration-200 group-hover:-translate-y-0.5 group-hover:bg-surface-3",
+              dropPosition === "inside" && NEST_TARGET_CLASS,
             )}
           >
             <Folder
               size={iconSize}
               fill="currentColor"
-              className="text-accent/85 transition-transform group-hover:scale-[1.02]"
+              // Same cyan as the folder RowTile so both views agree.
+              className="text-[#0891b2] transition-transform group-hover:scale-[1.02]"
             />
 
             {/* Selection checkbox: sits on the cover so it shows
@@ -179,8 +174,8 @@ export function FolderCard({
           <div className={cn("mt-2 min-w-0", compact && "mt-1.5")}>
             <h3
               className={cn(
-                "truncate font-semibold leading-tight text-text-primary",
-                compact ? "text-xs" : "text-sm",
+                "truncate font-medium leading-tight text-text-primary",
+                compact ? "text-xs" : "text-[13px]",
               )}
             >
               {folder.name}
@@ -227,7 +222,7 @@ export function FolderCard({
                 setMenuOpen(false);
                 setRenameOpen(true);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
             >
               <Pencil size={14} />
               {t("library.folderCard.rename")}
@@ -238,7 +233,7 @@ export function FolderCard({
                 setMenuOpen(false);
                 onDelete(folder.id);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger transition-colors hover:bg-glass-hover cursor-pointer"
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger transition-colors hover:bg-surface-3 cursor-pointer"
             >
               <Trash2 size={14} />
               {t("library.folderCard.delete")}

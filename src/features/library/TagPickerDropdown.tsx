@@ -1,10 +1,19 @@
-import { useState, type RefObject } from "react";
+import { useMemo, useState, type RefObject } from "react";
 import { Check, Plus, X } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { ALL_STATUS_TAGS, getTagLabel, getTagColor } from "@/components/ui/TagBadge";
+import {
+  ALL_STATUS_TAGS,
+  CustomTagBadge,
+  getTagLabel,
+  getTagColor,
+  getCustomTagColor,
+} from "@/components/ui/TagBadge";
 import { FloatingMenu } from "@/components/ui";
 import { useTagStore, bookKey, CUSTOM_TAG_MAX_LENGTH } from "@/stores/tag-store";
+import { useSettingsStore } from "@/stores/settings-store";
 import type { UnifiedLibraryItem } from "@/types/catalog";
+
+const EMPTY_LABELS: string[] = [];
 
 interface TagPickerDropdownProps {
   item: UnifiedLibraryItem;
@@ -22,11 +31,26 @@ export function TagPickerDropdown({
 }: TagPickerDropdownProps) {
   const tagKey = bookKey(item);
   const tags = useTagStore((s) => s.bookTags.get(tagKey)) ?? [];
-  const customTags = useTagStore((s) => s.customTagsByBook.get(tagKey)) ?? [];
+  const customTags =
+    useTagStore((s) => s.customTagsByBook.get(tagKey)) ?? EMPTY_LABELS;
   const addTag = useTagStore((s) => s.addTag);
   const removeTag = useTagStore((s) => s.removeTag);
   const addCustomTag = useTagStore((s) => s.addCustomTag);
   const removeCustomTag = useTagStore((s) => s.removeCustomTag);
+  // Subscribe so chips repaint when a color changes in Settings > Tags
+  useSettingsStore((s) => s.customTagColors);
+  const customTagsByBook = useTagStore((s) => s.customTagsByBook);
+  const customTagLibrary = useSettingsStore((s) => s.customTagLibrary);
+  // Known labels not yet on this book: one-click suggestions.
+  const suggestions = useMemo(() => {
+    const all = new Set<string>(customTagLibrary);
+    for (const list of customTagsByBook.values()) for (const l of list) all.add(l);
+    const mine = new Set(customTags.map((l) => l.toLowerCase()));
+    return Array.from(all)
+      .filter((l) => !mine.has(l.toLowerCase()))
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+      .slice(0, 12);
+  }, [customTagLibrary, customTagsByBook, customTags]);
 
   const [draft, setDraft] = useState("");
 
@@ -52,7 +76,7 @@ export function TagPickerDropdown({
       onClose={onClose}
       className="w-56"
     >
-      <div className="px-3 py-1.5 text-2xs font-semibold uppercase tracking-wider text-text-muted">
+      <div className="px-3 py-1.5 text-2xs font-semibold uppercase tracking-wider text-text-muted-2">
         Reading Status
       </div>
       {ALL_STATUS_TAGS.map((tag) => {
@@ -63,52 +87,72 @@ export function TagPickerDropdown({
             key={tag}
             onClick={() => handleToggle(tag)}
             className={cn(
-              "flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-glass-hover cursor-pointer",
+              "flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-surface-3 cursor-pointer",
               active
-                ? "text-accent"
+                ? "text-text-primary"
                 : "text-text-secondary hover:text-text-primary",
             )}
           >
             <div
               className={cn(
-                "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-                active
-                  ? "border-accent bg-accent"
-                  : "border-glass-border",
+                "flex h-4 w-4 shrink-0 items-center justify-center rounded transition-colors",
+                active ? "bg-text-primary" : "bg-surface-3",
               )}
             >
-              {active && <Check size={10} className="text-white" />}
+              {active && <Check size={10} className="text-bg-primary" />}
             </div>
             {/* Colored dot */}
-            <span className={cn("h-2 w-2 shrink-0 rounded-full", colors.dot)} />
+            <span
+              className={cn("h-2 w-2 shrink-0 rounded-full", colors.dotClassName)}
+              style={colors.dotStyle}
+            />
             {getTagLabel(tag)}
           </button>
         );
       })}
 
-      <div className="my-1 border-t border-glass-border" />
+      <div className="my-1 h-px bg-surface-3" />
 
-      <div className="px-3 py-1.5 text-2xs font-semibold uppercase tracking-wider text-text-muted">
+      <div className="px-3 py-1.5 text-2xs font-semibold uppercase tracking-wider text-text-muted-2">
         Custom Tags
       </div>
 
       {customTags.length > 0 && (
         <div className="flex flex-wrap gap-1 px-3 pb-2">
           {customTags.map((label) => (
-            <span
-              key={label}
-              className="inline-flex items-center gap-1 rounded-full border border-glass-border bg-glass-bg px-2 py-0.5 text-xs text-text-secondary"
-            >
-              {label}
+            <CustomTagBadge key={label} label={label} className="gap-1">
               <button
                 onClick={() => removeCustomTag(item, label)}
-                className="rounded-full p-0.5 text-text-muted transition-colors hover:bg-danger/10 hover:text-danger cursor-pointer"
+                className="rounded-full p-0.5 opacity-70 transition-opacity hover:opacity-100 cursor-pointer"
                 aria-label={`Remove tag ${label}`}
               >
                 <X size={10} />
               </button>
-            </span>
+            </CustomTagBadge>
           ))}
+        </div>
+      )}
+
+      {suggestions.length > 0 && (
+        <div className="flex flex-wrap gap-1 px-3 pb-2">
+          {suggestions.map((label) => {
+            const style = getCustomTagColor(label);
+            return (
+              <button
+                key={label}
+                type="button"
+                onClick={() => addCustomTag(item, label)}
+                className="chip gap-1 px-2 py-0.5 cursor-pointer transition-colors hover:text-text-primary"
+                title={`Add tag ${label}`}
+              >
+                <span
+                  className={cn("h-1.5 w-1.5 rounded-full", style.dotClassName)}
+                  style={style.dotStyle}
+                />
+                {label}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -125,13 +169,13 @@ export function TagPickerDropdown({
             }
           }}
           placeholder="Add tag…"
-          className="w-full rounded-md border border-glass-border bg-bg-primary/50 px-2 py-1 text-xs text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50"
+          className="field px-2 py-1 text-xs"
           maxLength={CUSTOM_TAG_MAX_LENGTH}
         />
         <button
           onClick={handleAddCustom}
           disabled={!draft.trim()}
-          className="shrink-0 rounded-md bg-accent/15 p-1 text-accent transition-colors hover:bg-accent/25 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          className="shrink-0 rounded-control bg-surface-3 p-1 text-text-secondary transition-colors hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           aria-label="Add custom tag"
         >
           <Plus size={12} />

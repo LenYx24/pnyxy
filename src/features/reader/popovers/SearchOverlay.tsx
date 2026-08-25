@@ -95,7 +95,7 @@ export function SearchOverlay() {
 
   return (
     <div
-      className="pointer-events-auto absolute left-2 right-2 top-3 z-50 flex flex-col gap-1 rounded-md border border-glass-border bg-bg-secondary/95 px-2 py-2 shadow-lg backdrop-blur-xl sm:left-auto sm:right-4 sm:min-w-[22rem]"
+      className="pointer-events-auto absolute left-2 right-2 top-3 z-50 flex flex-col gap-1 rounded-panel bg-bg-tertiary px-2 py-2 shadow-lg  sm:left-auto sm:right-4 sm:min-w-[22rem]"
       onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="flex flex-wrap items-center gap-1">
@@ -107,7 +107,7 @@ export function SearchOverlay() {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleFindKey}
           placeholder="Find"
-          className="min-w-0 flex-1 rounded border border-glass-border bg-glass-bg px-2 py-1 text-sm text-text-primary outline-none focus:border-accent placeholder:text-text-muted"
+          className="min-w-0 flex-1 field px-2 py-1 text-sm placeholder:text-text-muted"
         />
         <OptionButton
           label="Match case"
@@ -159,7 +159,7 @@ export function SearchOverlay() {
             onChange={(e) => setReplacement(e.target.value)}
             onKeyDown={handleReplaceKey}
             placeholder="Replace"
-            className="min-w-0 flex-1 rounded border border-glass-border bg-glass-bg px-2 py-1 text-sm text-text-primary outline-none focus:border-accent placeholder:text-text-muted"
+            className="min-w-0 flex-1 field px-2 py-1 text-sm placeholder:text-text-muted"
           />
           <IconButton
             label="Replace (Enter)"

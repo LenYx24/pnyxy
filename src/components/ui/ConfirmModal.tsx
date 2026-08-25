@@ -54,14 +54,14 @@ export function ConfirmModal({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/50"
         onClick={onClose}
       />
       <div
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-modal-title"
-        className="relative z-10 w-full max-w-sm rounded-xl border border-glass-border bg-bg-secondary/95 p-6 backdrop-blur-xl"
+        className="relative z-10 w-full max-w-sm rounded-page bg-bg-tertiary p-6 shadow-page"
       >
         <h3
           id="confirm-modal-title"
@@ -85,10 +85,10 @@ export function ConfirmModal({
               onClose();
             }}
             className={cn(
-              "cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+              "cursor-pointer rounded-control px-4 py-2 text-sm font-medium transition-colors",
               danger
                 ? "bg-danger/20 text-danger hover:bg-danger/30"
-                : "bg-accent/20 text-accent hover:bg-accent/30",
+                : "bg-text-primary font-semibold text-bg-primary hover:opacity-90",
             )}
           >
             {confirmLabel ?? t("common.ok")}

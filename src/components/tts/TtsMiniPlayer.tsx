@@ -87,7 +87,7 @@ export function TtsMiniPlayer() {
       className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center pb-[max(env(safe-area-inset-bottom),0.5rem)] md:bottom-4 md:pb-0"
       aria-live="polite"
     >
-      <div className="pointer-events-auto relative mx-3 flex w-full max-w-md items-center gap-1 rounded-2xl border border-glass-border bg-bg-secondary/95 px-2 py-2 shadow-xl backdrop-blur-md md:gap-2 md:px-3">
+      <div className="pointer-events-auto relative mx-3 flex w-full max-w-md items-center gap-1 rounded-panel bg-bg-tertiary shadow-page px-2 py-2 shadow-xl backdrop-blur-md md:gap-2 md:px-3">
         <button
           type="button"
           onClick={skipPrev}
@@ -141,7 +141,7 @@ export function TtsMiniPlayer() {
         {showSettings && (
           <div
             ref={settingsRef}
-            className="absolute bottom-full right-0 mb-2 w-72 rounded-xl border border-glass-border bg-bg-secondary/95 p-3 shadow-xl backdrop-blur-md"
+            className="absolute bottom-full right-0 mb-2 w-72 rounded-panel bg-bg-tertiary p-3 shadow-page"
           >
             <div className="mb-2">
               <label
@@ -154,7 +154,7 @@ export function TtsMiniPlayer() {
                 id="tts-voice"
                 value={voiceUri ?? ""}
                 onChange={(e) => setVoiceUri(e.target.value || null)}
-                className="w-full cursor-pointer rounded border border-glass-border bg-glass-bg px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent"
+                className="field cursor-pointer px-2 py-1.5 text-xs"
               >
                 <option value="">{t("tts.voiceDefault")}</option>
                 {voices.map((v) => (

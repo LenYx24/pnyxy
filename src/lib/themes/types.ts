@@ -25,17 +25,23 @@ export type ThemeTokenKey =
   | "--color-bg-primary"
   | "--color-bg-secondary"
   | "--color-bg-tertiary"
+  | "--color-surface-3"
   // Accent colors
   | "--color-accent"
   | "--color-accent-blue"
+  | "--color-accent-soft"
+  | "--color-streak"
   // Text colors
   | "--color-text-primary"
   | "--color-text-secondary"
   | "--color-text-muted"
+  | "--color-text-muted-2"
   // Glass/border
   | "--color-glass-bg"
   | "--color-glass-border"
   | "--color-glass-hover"
+  // Depth
+  | "--shadow-page"
   // Font
   | "--font-sans";
 

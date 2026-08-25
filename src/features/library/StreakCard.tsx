@@ -14,7 +14,7 @@ export function StreakPill({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-glass-border bg-glass-bg/60 px-2 py-0.5",
+        "chip gap-1 px-2 py-0.5",
         className,
       )}
       title={t("library.streak.dayStreak", { count: currentStreak })}
@@ -22,7 +22,8 @@ export function StreakPill({ className }: { className?: string }) {
     >
       <Flame
         size={14}
-        className={currentStreak > 0 ? "text-orange-400" : "text-text-muted"}
+        strokeWidth={1.5}
+        className={currentStreak > 0 ? "text-streak" : "text-text-muted"}
       />
       <span className="text-xs font-semibold text-text-primary">
         {currentStreak}
@@ -44,15 +45,16 @@ export function StreakCard() {
   const progress = Math.min(today.seconds / 300, 1);
 
   return (
-    <div className="rounded-xl border border-glass-border bg-glass-bg/50 p-4">
+    <div className="rounded-panel bg-bg-tertiary p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
             <Flame
               size={20}
-              className={currentStreak > 0 ? "text-orange-400" : "text-text-muted"}
+              strokeWidth={1.5}
+              className={currentStreak > 0 ? "text-streak" : "text-text-muted"}
             />
-            <span className="text-lg font-bold text-text-primary">
+            <span className="font-display text-lg font-semibold text-text-primary">
               {currentStreak}
             </span>
             <span className="text-xs text-text-muted">
@@ -60,7 +62,7 @@ export function StreakCard() {
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <Trophy size={16} className="text-warning" />
+            <Trophy size={16} strokeWidth={1.5} className="text-text-muted" />
             <span className="text-sm font-medium text-text-secondary">
               {longestStreak}
             </span>
@@ -80,12 +82,12 @@ export function StreakCard() {
             {t("library.streak.goalMinutes", { minutes: goalMinutes })}
           </span>
         </div>
-        <div className="h-2 rounded-full bg-glass-bg overflow-hidden">
+        <div className="h-1.5 rounded-full bg-surface-3 overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${
               today.goalCompleted
                 ? "bg-success"
-                : "bg-accent"
+                : "bg-streak"
             }`}
             style={{ width: `${progress * 100}%` }}
           />

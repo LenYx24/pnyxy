@@ -162,7 +162,7 @@ export function AnnotationMenuTranslatePanel({
           title={t("reader.annotationMenu.translateSwap", {
             defaultValue: "Swap languages",
           })}
-          className="mb-0.5 shrink-0 rounded-md border border-glass-border bg-glass-bg p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-accent cursor-pointer"
+          className="mb-0.5 shrink-0 rounded-control bg-bg-tertiary p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-accent cursor-pointer"
         >
           <ArrowLeftRight size={13} />
         </button>

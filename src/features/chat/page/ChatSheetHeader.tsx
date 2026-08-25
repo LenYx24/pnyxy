@@ -1,0 +1,189 @@
+/**
+ * Top of the sheet: the desktop title bar (title, book subtitle, kebab)
+ * and the mobile top bar (drawer hamburger, title, kebab, new chat). Both
+ * kebabs share one menu: graph (feature-gated), export Markdown, quotas.
+ * Also mounts the graph overlay it opens.
+ */
+import { useRef, useState } from "react";
+import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
+import {
+  Download,
+  Gauge,
+  Menu,
+  MoreHorizontal,
+  Network,
+  SquarePen,
+} from "lucide-react";
+import { FloatingMenu, IconButton, Tooltip } from "@/components/ui";
+import { useFeature } from "@/lib/use-features";
+import { ChatGraphOverlay } from "./ChatGraphOverlay";
+
+const menuRowClass =
+  "flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-secondary hover:bg-glass-hover hover:text-text-primary cursor-pointer";
+
+interface ChatSheetHeaderProps {
+  activeTitle: string;
+  /** Book subtitle after the title, when the thread is about a book. */
+  headerBook?: string;
+  /** Export entry is offered only while a conversation is open. */
+  canExport: boolean;
+  onExport: () => void;
+  onNew: () => void;
+  /** Mobile: opens the conversation drawer. */
+  onOpenDrawer: () => void;
+  scopeDocId?: string;
+}
+
+export function ChatSheetHeader({
+  activeTitle,
+  headerBook,
+  canExport,
+  onExport,
+  onNew,
+  onOpenDrawer,
+  scopeDocId,
+}: ChatSheetHeaderProps) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const graphEnabled = useFeature("graph");
+
+  // separate overflow-menu state for desktop and mobile
+  const overflowAnchorRef = useRef<HTMLSpanElement>(null);
+  const overflowAnchorMobileRef = useRef<HTMLSpanElement>(null);
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const [overflowOpenMobile, setOverflowOpenMobile] = useState(false);
+  const [showGraph, setShowGraph] = useState(false);
+
+  // header overflow entries, shared by the desktop and mobile kebabs
+  const renderOverflowItems = (close: () => void) => (
+    <>
+      {graphEnabled && (
+        <button
+          type="button"
+          onClick={() => {
+            close();
+            setShowGraph(true);
+          }}
+          className={menuRowClass}
+        >
+          <Network size={16} strokeWidth={1.5} />
+          {t("chat.graph.title")}
+        </button>
+      )}
+      {canExport && (
+        <button
+          type="button"
+          onClick={() => {
+            close();
+            onExport();
+          }}
+          className={menuRowClass}
+        >
+          <Download size={16} strokeWidth={1.5} />
+          {t("chat.exportMarkdown")}
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => {
+          close();
+          navigate("/settings/ai");
+        }}
+        className={menuRowClass}
+      >
+        <Gauge size={16} strokeWidth={1.5} />
+        {t("settings.aiSection.openQuotas")}
+      </button>
+    </>
+  );
+
+  return (
+    <>
+      {graphEnabled && showGraph && (
+        <ChatGraphOverlay
+          scopeDocId={scopeDocId}
+          onClose={() => setShowGraph(false)}
+        />
+      )}
+
+      {/* desktop sheet header: title · book, overflow kebab */}
+      <div className="hidden items-center gap-2.5 px-7 py-4 sm:flex">
+        <span
+          className="min-w-0 truncate font-display text-base font-semibold text-text-primary"
+          title={activeTitle}
+        >
+          {activeTitle}
+        </span>
+        {headerBook && (
+          <span className="min-w-0 truncate text-xs text-text-muted" title={headerBook}>
+            · {headerBook}
+          </span>
+        )}
+        <div className="flex-1" />
+        <span ref={overflowAnchorRef} className="inline-flex">
+          <IconButton
+            size="sm"
+            onClick={() => setOverflowOpen((v) => !v)}
+            aria-label={t("settings.aiSection.moreActions")}
+            title={t("settings.aiSection.moreActions")}
+            aria-haspopup="menu"
+            aria-expanded={overflowOpen}
+          >
+            <MoreHorizontal size={18} strokeWidth={1.5} />
+          </IconButton>
+        </span>
+        <FloatingMenu
+          open={overflowOpen}
+          anchorRef={overflowAnchorRef}
+          onClose={() => setOverflowOpen(false)}
+        >
+          {renderOverflowItems(() => setOverflowOpen(false))}
+        </FloatingMenu>
+      </div>
+
+      {/* mobile header: the only top bar on /chat. hamburger opens the
+          conversation drawer. owns the safe-area top inset itself. */}
+      <div
+        className="flex items-center gap-1 px-2 pb-2 sm:hidden"
+        style={{ paddingTop: "calc(0.5rem + var(--spacing-safe-top, 0px))" }}
+      >
+        <IconButton
+          size="sm"
+          onClick={onOpenDrawer}
+          aria-label={t("chat.title")}
+        >
+          <Menu size={20} strokeWidth={1.5} />
+        </IconButton>
+        <span className="min-w-0 flex-1 truncate px-1 font-display text-[15px] font-semibold text-text-primary">
+          {activeTitle}
+        </span>
+        <span ref={overflowAnchorMobileRef} className="inline-flex">
+          <IconButton
+            size="sm"
+            onClick={() => setOverflowOpenMobile((v) => !v)}
+            aria-label={t("settings.aiSection.moreActions")}
+          >
+            <MoreHorizontal size={20} strokeWidth={1.5} />
+          </IconButton>
+        </span>
+        <FloatingMenu
+          open={overflowOpenMobile}
+          anchorRef={overflowAnchorMobileRef}
+          onClose={() => setOverflowOpenMobile(false)}
+        >
+          {renderOverflowItems(() => setOverflowOpenMobile(false))}
+        </FloatingMenu>
+        <Tooltip label={t("chat.newConversation")} shortcut="chat:new" side="bottom">
+          <IconButton
+            size="sm"
+            onClick={onNew}
+            aria-label={t("chat.newConversation")}
+          >
+            <SquarePen size={20} strokeWidth={1.5} />
+          </IconButton>
+        </Tooltip>
+      </div>
+    </>
+  );
+}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { X, FolderPlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui";
+import { modalBackdropClass, modalSurfaceClass } from "@/components/ui/classes";
 
 interface CreateFolderModalProps {
   open: boolean;
@@ -74,18 +75,18 @@ export function CreateFolderModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className={`absolute inset-0 ${modalBackdropClass}`}
         onClick={() => !submitting && onClose()}
       />
 
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-glass-border bg-bg-secondary/95 backdrop-blur-xl">
+      <div className={`relative z-10 w-full max-w-md ${modalSurfaceClass}`}>
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-glass-border p-4">
+        <div className="flex items-center justify-between p-4 pb-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15">
-              <FolderPlus size={16} className="text-accent" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-control bg-surface-3">
+              <FolderPlus size={16} strokeWidth={1.5} className="text-text-secondary" />
             </div>
-            <h2 className="text-lg font-semibold text-text-primary">
+            <h2 className="font-display text-lg font-semibold text-text-primary">
               {t("library.createFolder.title")}
             </h2>
           </div>
@@ -93,7 +94,7 @@ export function CreateFolderModal({
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="rounded-lg p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer disabled:opacity-50"
+            className="rounded-control p-1 text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer disabled:opacity-50"
             aria-label={t("common.close")}
           >
             <X size={20} />
@@ -124,30 +125,25 @@ export function CreateFolderModal({
               onChange={(e) => setName(e.target.value)}
               placeholder={t("library.createFolder.namePlaceholder")}
               maxLength={240}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
+              className="field"
             />
             <p className="mt-1 text-xs text-text-muted">
-              {/* `<slash/>` and `<ex/>` are placeholder elements the
-                  translation mustn't touch, Trans swaps them for the
-                  real styled <span>s at render time. */}
+              {/* `<slash>/</slash>` and `<ex>p1/p2/p3</ex>` in the
+                  translation are wrapped by Trans in the styled spans
+                  below; the text has to live in the string, an empty
+                  tag renders empty. */}
               <Trans
                 i18nKey="library.createFolder.nestedTip"
                 components={{
-                  slash: (
-                    <span className="font-mono text-text-secondary">/</span>
-                  ),
-                  ex: (
-                    <span className="font-mono text-text-secondary">
-                      p1/p2/p3
-                    </span>
-                  ),
+                  slash: <span className="font-mono text-text-secondary" />,
+                  ex: <span className="font-mono text-text-secondary" />,
                 }}
               />
             </p>
           </div>
 
           {error && (
-            <p className="rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">
+            <p className="rounded-control bg-danger/10 px-3 py-2 text-xs text-danger">
               {error}
             </p>
           )}

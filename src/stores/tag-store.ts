@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
 import type { BookStatusTag } from "@/types/database";
 import type { UnifiedLibraryItem } from "@/types/catalog";
+import { useSettingsStore } from "@/stores/settings-store";
 
 const EMPTY_STATUS_TAGS: BookStatusTag[] = [];
 const EMPTY_CUSTOM_TAGS: string[] = [];
@@ -34,6 +35,30 @@ interface TagState {
   addCustomTag: (item: UnifiedLibraryItem, label: string) => Promise<void>;
   removeCustomTag: (item: UnifiedLibraryItem, label: string) => Promise<void>;
   getCustomTagsForBook: (item: UnifiedLibraryItem) => string[];
+
+  /** Every distinct custom label: on any book, or created in Settings. */
+  getAllCustomLabels: () => string[];
+  /** Rename a label on every book that has it (plus its color / library entry). */
+  renameCustomTagEverywhere: (from: string, to: string) => Promise<void>;
+  /** Remove a label from every book, its color and the library entry. */
+  deleteCustomTagEverywhere: (label: string) => Promise<void>;
+}
+
+/** "catalog:{id}" / "uploaded:{id}" back to the insert columns. */
+function keyToRefs(key: string): {
+  catalog_book_id: string | null;
+  book_id: string | null;
+} {
+  const [kind, id] = key.split(":");
+  return kind === "catalog"
+    ? { catalog_book_id: id, book_id: null }
+    : { catalog_book_id: null, book_id: id };
+}
+
+function sortLabels(labels: Iterable<string>): string[] {
+  return Array.from(new Set(labels)).sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" }),
+  );
 }
 
 export const useTagStore = create<TagState>((set, get) => ({
@@ -242,5 +267,112 @@ export const useTagStore = create<TagState>((set, get) => ({
 
   getCustomTagsForBook: (item) => {
     return get().customTagsByBook.get(bookKey(item)) ?? EMPTY_CUSTOM_TAGS;
+  },
+
+  getAllCustomLabels: () => {
+    const labels: string[] = [...useSettingsStore.getState().customTagLibrary];
+    for (const list of get().customTagsByBook.values()) labels.push(...list);
+    return sortLabels(labels);
+  },
+
+  renameCustomTagEverywhere: async (from, to) => {
+    const next = to.trim();
+    if (!next || next.length > CUSTOM_TAG_MAX_LENGTH || next === from) return;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Which books carry the old label. The table has no UPDATE policy,
+    // so a rename is delete + re-insert per book.
+    const affected: string[] = [];
+    for (const [key, list] of get().customTagsByBook) {
+      if (list.includes(from)) affected.push(key);
+    }
+
+    if (affected.length > 0) {
+      const { error: delError } = await supabase
+        .from("user_book_custom_tags")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("label", from);
+      if (delError) {
+        logError("tag-store:renameCustomTag:delete", delError.message);
+        throw delError;
+      }
+      // skip books that already have the target label (unique constraint)
+      const rows = affected
+        .filter((key) => {
+          const list = get().customTagsByBook.get(key) ?? [];
+          return !list.some(
+            (l) => l !== from && l.toLowerCase() === next.toLowerCase(),
+          );
+        })
+        .map((key) => ({ user_id: user.id, ...keyToRefs(key), label: next }));
+      if (rows.length > 0) {
+        const { error: insError } = await supabase
+          .from("user_book_custom_tags")
+          .insert(rows);
+        if (insError) {
+          logError("tag-store:renameCustomTag:insert", insError.message);
+          throw insError;
+        }
+      }
+    }
+
+    set((state) => {
+      const map = new Map(state.customTagsByBook);
+      for (const key of affected) {
+        const list = map.get(key) ?? [];
+        const without = list.filter((l) => l !== from);
+        const hasTarget = without.some(
+          (l) => l.toLowerCase() === next.toLowerCase(),
+        );
+        map.set(key, hasTarget ? without : [...without, next]);
+      }
+      return { customTagsByBook: map };
+    });
+
+    const settings = useSettingsStore.getState();
+    const color = settings.customTagColors[from];
+    if (color) {
+      settings.setCustomTagColor(from, undefined);
+      settings.setCustomTagColor(next, color);
+    }
+    settings.setCustomTagLibrary(
+      sortLabels(settings.customTagLibrary.map((l) => (l === from ? next : l))),
+    );
+  },
+
+  deleteCustomTagEverywhere: async (label) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("user_book_custom_tags")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("label", label);
+    if (error) {
+      logError("tag-store:deleteCustomTagEverywhere", error.message);
+      throw error;
+    }
+
+    set((state) => {
+      const map = new Map(state.customTagsByBook);
+      for (const [key, list] of map) {
+        if (list.includes(label)) map.set(key, list.filter((l) => l !== label));
+      }
+      return { customTagsByBook: map };
+    });
+
+    const settings = useSettingsStore.getState();
+    settings.setCustomTagColor(label, undefined);
+    settings.setCustomTagLibrary(
+      settings.customTagLibrary.filter((l) => l !== label),
+    );
   },
 }));

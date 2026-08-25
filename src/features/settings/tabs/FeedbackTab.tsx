@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Mail, MessageSquarePlus, Send, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Mail, Send, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
+import { SettingRow, SettingsSection } from "../ui";
 
 const FEEDBACK_EMAIL = "feedback@pnyxy.com";
 
@@ -80,38 +81,26 @@ export function FeedbackTab() {
   }
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t("settings.feedbackSection.heading")}
-        </h2>
-        <p className="text-sm text-text-muted">
-          {t("settings.feedbackSection.description")}
-        </p>
-      </header>
+    <SettingsSection
+      description={t("settings.feedbackSection.description")}
+    >
+      <SettingRow
+        label={t("settings.feedbackSection.formLabel")}
+        hint={
+          <span className="inline-flex items-center gap-1.5">
+            <Mail size={13} />
+            {t("settings.feedbackSection.deliversTo", {
+              email: FEEDBACK_EMAIL,
+            })}
+          </span>
+        }
+      />
 
-      <div className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
-            <MessageSquarePlus size={18} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-text-primary">
-              {t("settings.feedbackSection.formLabel")}
-            </p>
-            <p className="flex items-center gap-1.5 text-xs text-text-muted">
-              <Mail size={12} />
-              {t("settings.feedbackSection.deliversTo", {
-                email: FEEDBACK_EMAIL,
-              })}
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-2">
+      <div className="space-y-4 pb-4">
+        <div className="space-y-1.5">
           <label
             htmlFor="feedback-subject"
-            className="block text-xs font-medium text-text-secondary"
+            className="block text-[13px] font-medium text-text-secondary"
           >
             {t("settings.feedbackSection.subjectLabel")}
           </label>
@@ -123,14 +112,14 @@ export function FeedbackTab() {
             placeholder={t("settings.feedbackSection.subjectPlaceholder")}
             maxLength={200}
             disabled={status.kind === "sending"}
-            className="w-full rounded-lg border border-glass-border bg-bg-secondary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent disabled:opacity-60"
+            className="field bg-bg-secondary"
           />
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <label
             htmlFor="feedback-body"
-            className="block text-xs font-medium text-text-secondary"
+            className="block text-[13px] font-medium text-text-secondary"
           >
             {t("settings.feedbackSection.bodyLabel")}
           </label>
@@ -142,12 +131,12 @@ export function FeedbackTab() {
             rows={7}
             maxLength={10000}
             disabled={status.kind === "sending"}
-            className="w-full resize-y rounded-lg border border-glass-border bg-bg-secondary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent disabled:opacity-60"
+            className="field resize-y bg-bg-secondary"
           />
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div aria-live="polite" className="min-w-0 flex-1 text-xs">
+          <div aria-live="polite" className="min-w-0 flex-1 text-[13px]">
             {status.kind === "sent" && (
               <span className="inline-flex items-center gap-1.5 text-success">
                 <CheckCircle2 size={14} />
@@ -161,12 +150,7 @@ export function FeedbackTab() {
               </span>
             )}
           </div>
-          <Button
-            variant="primary"
-            onClick={handleSend}
-            disabled={!canSend}
-            className="gap-2"
-          >
+          <Button variant="primary" onClick={handleSend} disabled={!canSend}>
             {status.kind === "sending" ? (
               <Loader2 size={16} className="animate-spin" />
             ) : (
@@ -178,6 +162,6 @@ export function FeedbackTab() {
           </Button>
         </div>
       </div>
-    </div>
+    </SettingsSection>
   );
 }

@@ -14,7 +14,7 @@ import { QuizRow } from "./list-view/QuizRow";
 import { ChatRow } from "./list-view/ChatRow";
 import { ResourceRow } from "./list-view/ResourceRow";
 import { FolderRow } from "./list-view/FolderRow";
-import { LIST_GRID_CLASS } from "./list-view/helpers";
+import { LIST_GRID_CLASS, ROW_SEPARATOR_CLASS } from "./list-view/helpers";
 
 interface LibraryListViewProps {
   folders: FolderType[];
@@ -157,7 +157,7 @@ export function LibraryListView({
       {/* Column headers. Same grid as the rows, no background fill so
           the header reads as part of the list surface. */}
       <div
-        className={`${LIST_GRID_CLASS} border-b border-glass-border py-2 text-[11px] font-semibold uppercase tracking-wider text-text-muted`}
+        className={`${LIST_GRID_CLASS} ${ROW_SEPARATOR_CLASS} py-2 text-2xs font-semibold uppercase tracking-wider text-text-muted-2`}
       >
         <span />
         <span />

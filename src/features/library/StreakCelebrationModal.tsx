@@ -95,22 +95,23 @@ export function StreakCelebrationModal() {
         role="status"
         aria-live="polite"
         // bottom-20 on mobile clears the ~64px BottomNav
-        className="fixed bottom-20 left-1/2 z-[100] -translate-x-1/2 sm:left-6 sm:bottom-6 sm:translate-x-0 animate-[celebration-pop_0.35s_ease-out] w-[calc(100vw-2rem)] max-w-sm rounded-2xl border border-glass-border bg-bg-secondary p-4 shadow-2xl"
+        className="fixed bottom-20 left-1/2 z-[100] -translate-x-1/2 sm:left-6 sm:bottom-6 sm:translate-x-0 animate-[celebration-pop_0.35s_ease-out] w-[calc(100vw-2rem)] max-w-sm rounded-page bg-bg-tertiary p-4 shadow-page"
       >
         <div className="flex items-start gap-3">
           <Flame
             size={28}
-            className="shrink-0 text-orange-400 animate-[celebration-fire-pulse_1.2s_ease-in-out_infinite]"
+            strokeWidth={1.5}
+            className="shrink-0 text-streak animate-[celebration-fire-pulse_1.2s_ease-in-out_infinite]"
           />
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-bold text-text-primary">
+            <h2 className="font-display text-base font-semibold text-text-primary">
               {t("library.celebration.title")}
             </h2>
             <p className="text-xs text-text-secondary">
               {t("library.celebration.body")}
             </p>
             {streak > 1 && (
-              <p className="mt-1 text-xs font-medium text-accent">
+              <p className="mt-1 text-xs font-medium text-streak">
                 {t("library.celebration.streak", { count: streak })}
               </p>
             )}
@@ -121,7 +122,7 @@ export function StreakCelebrationModal() {
           <button
             type="button"
             onClick={markCelebrationShown}
-            className="inline-flex items-center gap-1.5 rounded-md bg-success/15 px-3 py-1.5 text-xs font-medium text-success transition-colors hover:bg-success/25 cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-control bg-success/15 px-3 py-1.5 text-xs font-medium text-success transition-colors hover:bg-success/25 cursor-pointer"
           >
             <Check size={14} strokeWidth={2.5} />
             {t("library.celebration.acknowledge", { defaultValue: "Got it" })}

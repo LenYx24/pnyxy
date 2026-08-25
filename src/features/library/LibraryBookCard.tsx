@@ -15,8 +15,10 @@ import {
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { useSortable } from "@dnd-kit/sortable";
+import { useDropIntent } from "./drag-intent";
+import { DropIndicator } from "./DropIndicator";
 import { CSS } from "@dnd-kit/utilities";
-import { Checkbox, FloatingMenu, PromptModal, TagBadge } from "@/components/ui";
+import { Checkbox, CustomTagBadge, FloatingMenu, PromptModal, TagBadge } from "@/components/ui";
 import {
   canDownloadEntry,
   getDownloadActions,
@@ -74,6 +76,7 @@ export function LibraryBookCard({
   );
 
   const sortable = useSortable({ id: sortableId ?? entry.id, disabled: !sortableId });
+  const dropPosition = useDropIntent(sortableId);
   const {
     attributes,
     listeners,
@@ -307,10 +310,11 @@ export function LibraryBookCard({
         {...contextHandlers}
         className={cn(
           "group relative",
-          selected && "ring-2 ring-accent rounded-md",
-          isDragging && "opacity-50",
+          selected && "rounded-md ring-2 ring-text-muted",
+          isDragging && "opacity-40",
         )}
       >
+        <DropIndicator position={dropPosition} orientation="card" />
         <div
           onClick={handleClick}
           onMouseEnter={handleHoverStart}
@@ -320,7 +324,7 @@ export function LibraryBookCard({
           className="cursor-pointer"
         >
           {/* Cover, fixed 2:3 aspect so all cards match size */}
-          <div className="relative aspect-[5/7] w-full overflow-hidden rounded-md border border-glass-border bg-bg-tertiary shadow-sm transition-shadow group-hover:shadow-md">
+          <div className="relative aspect-[5/7] w-full overflow-hidden rounded-md bg-bg-tertiary shadow-page transition-[transform,box-shadow] duration-200 group-hover:-translate-y-0.5">
             {coverUrl ? (
               <img
                 src={coverUrl}
@@ -339,10 +343,10 @@ export function LibraryBookCard({
                 fallbackLetter={title.charAt(0)}
               />
             ) : (
-              <div className="flex h-full items-center justify-center bg-accent/10">
+              <div className="flex h-full items-center justify-center bg-bg-tertiary">
                 <span
                   className={cn(
-                    "font-bold text-white/20",
+                    "font-display font-semibold text-text-muted-2",
                     compact ? "text-2xl" : "text-4xl",
                   )}
                 >
@@ -372,7 +376,7 @@ export function LibraryBookCard({
             {/* uploaded-source corner glyph */}
             {entry.source === "uploaded" && (
               <span
-                className="absolute bottom-1.5 left-1.5 rounded bg-bg-primary/80 p-0.5 text-accent backdrop-blur-sm"
+                className="absolute bottom-1.5 left-1.5 rounded bg-bg-primary/80 p-0.5 text-text-secondary backdrop-blur-sm"
                 title="Uploaded file"
               >
                 <Upload size={10} />
@@ -383,7 +387,7 @@ export function LibraryBookCard({
                 overlap the checkbox in the same corner */}
             {isInProgress && !selectionActive && !selected && (
               <span
-                className="absolute left-1.5 top-1.5 rounded-full bg-accent/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur-sm sm:opacity-100 sm:group-hover:opacity-0"
+                className="absolute left-1.5 top-1.5 rounded-chip bg-bg-primary/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-text-primary backdrop-blur-sm sm:opacity-100 sm:group-hover:opacity-0"
                 title={t("library.reading")}
               >
                 {t("library.reading")}
@@ -432,8 +436,8 @@ export function LibraryBookCard({
           <div className={cn("mt-2 min-w-0", compact && "mt-1.5")}>
             <h3
               className={cn(
-                "truncate font-semibold leading-tight text-text-primary",
-                compact ? "text-xs" : "text-sm",
+                "truncate font-medium leading-tight text-text-primary",
+                compact ? "text-xs" : "text-[13px]",
               )}
             >
               {title}
@@ -452,13 +456,7 @@ export function LibraryBookCard({
                   <TagBadge key={tag} tag={tag} size="sm" />
                 ))}
                 {customTags.slice(0, 3).map((label) => (
-                  <span
-                    key={label}
-                    className="inline-flex items-center rounded-full border border-glass-border bg-glass-bg px-1.5 py-0.5 text-2xs text-text-secondary"
-                    title={label}
-                  >
-                    {label}
-                  </span>
+                  <CustomTagBadge key={label} label={label} title={label} />
                 ))}
               </div>
             )}
@@ -496,7 +494,7 @@ export function LibraryBookCard({
                 setMenuOpen(false);
                 setInfoOpen(true);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
             >
               <Info size={14} />
               File Info
@@ -507,7 +505,7 @@ export function LibraryBookCard({
                 setMenuOpen(false);
                 setTagPickerOpen(true);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
             >
               <Tag size={14} />
               Manage Tags
@@ -518,7 +516,7 @@ export function LibraryBookCard({
                 setMenuOpen(false);
                 onMove(entry);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
             >
               <FolderInput size={14} />
               Move to Folder
@@ -530,7 +528,7 @@ export function LibraryBookCard({
                   setMenuOpen(false);
                   setRenameOpen(true);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
               >
                 <Pencil size={14} />
                 {t("library.actions.rename", { defaultValue: "Rename" })}
@@ -543,7 +541,7 @@ export function LibraryBookCard({
                   e.stopPropagation();
                   void runDownload(action);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
               >
                 <Download size={14} />
                 {downloadLabel(action)}
@@ -556,7 +554,7 @@ export function LibraryBookCard({
                   setMenuOpen(false);
                   setShareOpen(true);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
               >
                 <Share2 size={14} />
                 Share with community
@@ -568,7 +566,7 @@ export function LibraryBookCard({
                 setMenuOpen(false);
                 onRemove(entry);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger transition-colors hover:bg-glass-hover cursor-pointer"
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger transition-colors hover:bg-surface-3 cursor-pointer"
             >
               <Trash2 size={14} />
               {entry.source === "uploaded" ? "Delete" : "Remove from Library"}

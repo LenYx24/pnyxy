@@ -3,16 +3,27 @@ import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   Check,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   GitBranch,
+  Layers,
+  MoreHorizontal,
   Pencil,
   RefreshCw,
   Share2,
   Sparkles,
   Trash2,
   Volume2,
+  VolumeX,
 } from "lucide-react";
-import { TypingIndicator } from "@/components/ui";
+import {
+  Button,
+  IconButton,
+  TypingIndicator,
+  chipClass,
+  fieldClass,
+} from "@/components/ui";
 import {
   renderMarkdown,
   handleCodeBlockCopy,
@@ -23,8 +34,10 @@ import { usePageCitationDispatch } from "@/hooks/use-page-citation";
 import { useReadAloud, markdownToSpeech } from "@/hooks/use-read-aloud";
 import { extractRecommendations } from "@/lib/ai/extract-recommendations";
 import { RecommendationCards } from "./RecommendationsRenderer";
+import { openMenuAtButton } from "./menu-anchor";
 import { cn } from "@/lib/cn";
 import type { ChatMessage } from "@/types/chat";
+import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import {
   countBranches,
   childrenOf,
@@ -41,6 +54,27 @@ export type BubbleConfirmFn = (opts: {
   cancelLabel?: string;
   danger?: boolean;
 }) => Promise<boolean>;
+
+/**
+ * Page citations ([p.42]) come out of renderMarkdown as `/reader/...`
+ * anchors styled by the global `.ai-message a[href^="/reader/"]` rule
+ * (which still carries a 1 px border). Override them here into the
+ * neutral-language accent pill: the one accent on the screen.
+ */
+const CITATION_CHIP_CLASS = cn(
+  "[&_a[href^='/reader/']]:inline-flex!",
+  "[&_a[href^='/reader/']]:items-center",
+  "[&_a[href^='/reader/']]:rounded-chip!",
+  "[&_a[href^='/reader/']]:border-0!",
+  "[&_a[href^='/reader/']]:bg-accent-soft!",
+  "[&_a[href^='/reader/']]:px-2!",
+  "[&_a[href^='/reader/']]:py-0.5!",
+  "[&_a[href^='/reader/']]:text-xs!",
+  "[&_a[href^='/reader/']]:font-medium!",
+  "[&_a[href^='/reader/']]:leading-4!",
+  "[&_a[href^='/reader/']]:align-middle",
+  "[&_a[href^='/reader/']:hover]:bg-accent/25!",
+);
 
 interface MessageBubbleProps {
   msg: ChatMessage;
@@ -90,8 +124,8 @@ export function MessageBubble({
   const { t } = useTranslation();
   const isUser = msg.role === "user";
   const isStreaming = msg.id === streamingMessageId;
+  const anyStreaming = streamingMessageId !== null;
   const branches = countBranches(messages, msg.id);
-  const [showBranches, setShowBranches] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(msg.content);
   const handleCitationClick = usePageCitationDispatch();
@@ -128,35 +162,205 @@ export function MessageBubble({
 
   // which child of this message sits on the active path
   const activePath = pathFromRoot(messages, activeLeafId).map((m) => m.id);
-  const activeChildId = childrenOf(messages, msg.id).find((c) =>
-    activePath.includes(c.id),
-  )?.id;
+  const children = childrenOf(messages, msg.id);
+  const activeChildIndex = children.findIndex((c) => activePath.includes(c.id));
 
-  return (
+  const hasText = msg.content.trim().length > 0;
+  const speaking = tts.speakingId === msg.id;
+
+  const submitEdit = () => {
+    const trimmed = editText.trim();
+    if (trimmed.length > 0 && trimmed !== msg.content.trim() && onEdit) {
+      onEdit(trimmed);
+    }
+    setIsEditing(false);
+  };
+
+  // secondary actions behind the per-message kebab
+  const overflowItems = (): ContextMenuEntry[] => {
+    const items: ContextMenuEntry[] = [];
+    if (!isUser && !isStreaming && hasText) {
+      items.push({
+        id: "share",
+        label: shared
+          ? t("chat.shareAnswer.shared", { defaultValue: "Shared" })
+          : t("chat.shareAnswer.action", { defaultValue: "Share" }),
+        icon: Share2,
+        disabled: shared,
+        onClick: () => void handleShare(),
+      });
+    }
+    if (!isUser && !isStreaming && tts.supported && hasText) {
+      items.push({
+        id: "read-aloud",
+        label: speaking ? t("chat.readAloudStop") : t("chat.readAloud"),
+        icon: speaking ? VolumeX : Volume2,
+        onClick: () => {
+          if (speaking) tts.stop();
+          else tts.read(msg.id, markdownToSpeech(msg.content));
+        },
+      });
+    }
+    if (
+      !isUser &&
+      !isStreaming &&
+      msg.content.trim().length > 40 &&
+      onSaveAsFlashcards
+    ) {
+      items.push({
+        id: "flashcards",
+        label: t("chat.flashcards.saveAction"),
+        icon: Layers,
+        onClick: onSaveAsFlashcards,
+      });
+    }
+    if (onDuplicate && !isStreaming) {
+      if (items.length > 0) items.push({ id: "div-dup", divider: true });
+      items.push({
+        id: "duplicate",
+        label: t("chat.duplicateFromHere", {
+          defaultValue: "Duplicate from here",
+        }),
+        icon: Copy,
+        disabled: anyStreaming,
+        onClick: onDuplicate,
+      });
+    }
+    if (onDelete && !isStreaming) {
+      items.push({
+        id: "delete",
+        label: t("chat.deleteMessage", { defaultValue: "Delete" }),
+        icon: Trash2,
+        danger: true,
+        disabled: anyStreaming,
+        onClick: onDelete,
+      });
+    }
+    return items;
+  };
+
+  const actionRow = !isEditing && !isStreaming && (
     <div
       className={cn(
-        "group flex",
-        isUser ? "justify-end" : "justify-start",
+        "-ml-1 flex items-center gap-0.5 text-text-muted transition-opacity",
+        "opacity-0 group-hover:opacity-100 focus-within:opacity-100",
+        isUser && "justify-end",
       )}
     >
-      <div
-        className={cn(
-          // min-w-0 lets content shrink below its intrinsic width; without it a
-          // wide code block/table blows past the width and scrolls sideways.
-          "min-w-0 text-sm",
-          isUser
-            // the user's question keeps a bubble
-            ? "max-w-[85%] rounded-2xl rounded-br-md bg-accent/20 px-3.5 py-2 text-text-primary backdrop-blur-md"
-            // assistant answer: no bubble, full width (Gemini-style) so long
-            // answers get the whole panel instead of an 85% pill
-            : "w-full text-text-primary",
-        )}
+      {!isUser && hasText && <CopyButton text={msg.content} />}
+      {isUser && onEdit && (
+        <IconButton
+          size="sm"
+          disabled={anyStreaming}
+          onClick={() => {
+            setEditText(msg.content);
+            setIsEditing(true);
+          }}
+          aria-label={t("chat.editAction")}
+          title={t("chat.editAction")}
+        >
+          <Pencil size={16} strokeWidth={1.5} />
+        </IconButton>
+      )}
+      {!isUser && onRegenerate && (
+        <IconButton
+          size="sm"
+          disabled={anyStreaming}
+          onClick={onRegenerate}
+          aria-label={t("chat.regenerate")}
+          title={t("chat.regenerate")}
+        >
+          <RefreshCw size={16} strokeWidth={1.5} />
+        </IconButton>
+      )}
+      <IconButton
+        size="sm"
+        onClick={onBranchHere}
+        aria-label={t("chat.branchHere")}
+        title={t("chat.branchHere")}
       >
-        {/* User text is preformatted; assistant text goes through marked + DOMPurify. */}
-        {isUser ? (
-          isEditing ? (
+        <GitBranch size={16} strokeWidth={1.5} />
+      </IconButton>
+      {overflowItems().length > 0 && (
+        <IconButton
+          size="sm"
+          onClick={(e) => openMenuAtButton(e, overflowItems())}
+          aria-label={t("chat.messageActions")}
+          title={t("chat.messageActions")}
+        >
+          <MoreHorizontal size={16} strokeWidth={1.5} />
+        </IconButton>
+      )}
+    </div>
+  );
+
+  // branch switcher: small pager, always visible when this turn has siblings
+  const branchPager = branches > 1 && (
+    <div
+      className={cn(
+        "flex items-center gap-0.5 text-2xs tabular-nums text-text-muted",
+        isUser && "justify-end",
+      )}
+      role="group"
+      aria-label={t("chat.branchesCount", { count: branches })}
+    >
+      <IconButton
+        size="sm"
+        disabled={activeChildIndex <= 0}
+        onClick={() => onPickBranch(children[activeChildIndex - 1].id)}
+        aria-label={t("chat.branchPrev")}
+        title={t("chat.branchPrev")}
+      >
+        <ChevronLeft size={16} strokeWidth={1.5} />
+      </IconButton>
+      <span>
+        {Math.max(activeChildIndex, 0) + 1} / {children.length}
+      </span>
+      <IconButton
+        size="sm"
+        disabled={activeChildIndex >= children.length - 1}
+        onClick={() => onPickBranch(children[activeChildIndex + 1].id)}
+        aria-label={t("chat.branchNext")}
+        title={t("chat.branchNext")}
+      >
+        <ChevronRight size={16} strokeWidth={1.5} />
+      </IconButton>
+    </div>
+  );
+
+  const attachments = msg.attachments && msg.attachments.length > 0 && (
+    <div className="flex flex-wrap gap-1.5">
+      {msg.attachments.map((att, idx) =>
+        att.kind === "image" ? (
+          <a
+            key={idx}
+            href={`data:${att.media_type};base64,${att.data}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block"
+            title={att.name ?? ""}
+          >
+            <img
+              src={`data:${att.media_type};base64,${att.data}`}
+              alt={att.name ?? (isUser ? "attachment" : "generated image")}
+              className={cn(
+                "max-w-full rounded-control object-cover",
+                isUser ? "max-h-48" : "max-h-96 object-contain",
+              )}
+            />
+          </a>
+        ) : null,
+      )}
+    </div>
+  );
+
+  if (isUser) {
+    return (
+      <div className="group flex w-full justify-end">
+        <div className="flex min-w-0 max-w-[560px] flex-col items-end gap-1.5">
+          {isEditing ? (
             // save branches a sibling under the same parent, original stays in the picker
-            <div className="space-y-2">
+            <div className="flex w-full flex-col gap-2">
               <textarea
                 autoFocus
                 value={editText}
@@ -164,15 +368,7 @@ export function MessageBubble({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    const trimmed = editText.trim();
-                    if (
-                      trimmed.length > 0 &&
-                      trimmed !== msg.content.trim() &&
-                      onEdit
-                    ) {
-                      onEdit(trimmed);
-                    }
-                    setIsEditing(false);
+                    submitEdit();
                   } else if (e.key === "Escape") {
                     e.preventDefault();
                     setEditText(msg.content);
@@ -180,103 +376,70 @@ export function MessageBubble({
                   }
                 }}
                 rows={Math.min(8, Math.max(2, msg.content.split("\n").length))}
-                className="block w-full resize-none rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60"
+                aria-label={t("chat.editAction")}
+                className={cn(fieldClass, "block resize-none text-[15px]")}
               />
-              <div className="flex justify-end gap-1.5 text-2xs">
-                <button
-                  type="button"
+              <div className="flex justify-end gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     setEditText(msg.content);
                     setIsEditing(false);
                   }}
-                  className="rounded px-2 py-0.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
                 >
                   {t("common.cancel")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const trimmed = editText.trim();
-                    if (
-                      trimmed.length > 0 &&
-                      trimmed !== msg.content.trim() &&
-                      onEdit
-                    ) {
-                      onEdit(trimmed);
-                    }
-                    setIsEditing(false);
-                  }}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={submitEdit}
                   disabled={
                     !editText.trim() ||
                     editText.trim() === msg.content.trim()
                   }
-                  className="rounded bg-accent/80 px-2 py-0.5 font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
                 >
                   {t("chat.editSaveAndSend")}
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
-            <div className="space-y-2">
-              {msg.attachments && msg.attachments.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {msg.attachments.map((att, idx) =>
-                    att.kind === "image" ? (
-                      <a
-                        key={idx}
-                        href={`data:${att.media_type};base64,${att.data}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block"
-                        title={att.name ?? ""}
-                      >
-                        <img
-                          src={`data:${att.media_type};base64,${att.data}`}
-                          alt={att.name ?? "attachment"}
-                          className="max-h-48 max-w-full rounded-md object-cover"
-                        />
-                      </a>
-                    ) : null,
-                  )}
-                </div>
-              )}
+            <div className="flex min-w-0 max-w-full flex-col gap-2 rounded-[18px] rounded-br-[4px] bg-bg-tertiary px-4 py-3 text-[15px] leading-normal text-text-primary">
+              {attachments}
               {msg.content && (
                 <div className="whitespace-pre-wrap break-words">
                   {msg.content}
                 </div>
               )}
             </div>
-          )
-        ) : isStreaming && msg.content.trim().length === 0 ? (
+          )}
+          {actionRow}
+          {branchPager}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="group flex w-full max-w-[720px] gap-3.5">
+      {/* sparkle avatar tile */}
+      <div
+        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] bg-bg-tertiary text-text-primary"
+        aria-hidden="true"
+      >
+        <Sparkles size={15} strokeWidth={1.5} />
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-3 text-[15px] leading-relaxed text-text-primary">
+        {isStreaming && !hasText ? (
           // placeholder while waiting for the first delta
           <div className="text-text-muted">
-            <TypingIndicator label={t("chat.thinking", { defaultValue: "Thinking…" })} />
+            <TypingIndicator
+              label={t("chat.thinking", { defaultValue: "Thinking…" })}
+            />
           </div>
         ) : (
-          <div className="space-y-2">
+          <>
             {/* attachments above the markdown so the image reads first */}
-            {msg.attachments && msg.attachments.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {msg.attachments.map((att, idx) =>
-                  att.kind === "image" ? (
-                    <a
-                      key={idx}
-                      href={`data:${att.media_type};base64,${att.data}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block"
-                      title={att.name ?? ""}
-                    >
-                      <img
-                        src={`data:${att.media_type};base64,${att.data}`}
-                        alt={att.name ?? "generated image"}
-                        className="max-h-96 max-w-full rounded-md object-contain"
-                      />
-                    </a>
-                  ) : null,
-                )}
-              </div>
-            )}
+            {attachments}
             {msg.content && (
               <AssistantContent
                 content={msg.content}
@@ -286,200 +449,35 @@ export function MessageBubble({
                 handleCitationClick={handleCitationClick}
               />
             )}
-          </div>
-        )}
-
-        {/* Actions: visible on hover or when there are branches */}
-        <div
-          className={cn(
-            "mt-1.5 flex items-center gap-2 text-2xs text-text-muted transition-opacity",
-            branches > 1 || showBranches
-              ? "opacity-100"
-              : "opacity-0 group-hover:opacity-100",
-          )}
-        >
-          <button
-            onClick={onBranchHere}
-            className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-            title={t("chat.branchHere")}
-          >
-            <GitBranch size={10} />
-            {t("chat.branchHere")}
-          </button>
-          {/* fork the thread up to here into a new conversation */}
-          {onDuplicate && !isStreaming && (
-            <button
-              onClick={onDuplicate}
-              disabled={streamingMessageId !== null}
-              className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-              title={t("chat.duplicateFromHere", {
-                defaultValue:
-                  "Duplicate as new conversation from this point",
-              })}
-            >
-              <Copy size={10} />
-              {t("chat.duplicateFromHere", {
-                defaultValue: "Duplicate from here",
-              })}
-            </button>
-          )}
-          {/* delete this message and its descendants */}
-          {onDelete && !isStreaming && (
-            <button
-              onClick={onDelete}
-              disabled={streamingMessageId !== null}
-              className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-danger disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-              title={t("chat.deleteMessage", {
-                defaultValue: "Delete message + descendants",
-              })}
-            >
-              <Trash2 size={10} />
-              {t("chat.deleteMessage", {
-                defaultValue: "Delete",
-              })}
-            </button>
-          )}
-          {/* edit, user messages only */}
-          {isUser && !isStreaming && onEdit && !isEditing && (
-            <button
-              onClick={() => {
-                setEditText(msg.content);
-                setIsEditing(true);
-              }}
-              disabled={streamingMessageId !== null}
-              className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-              title={t("chat.editAction")}
-            >
-              <Pencil size={10} />
-              {t("chat.editAction")}
-            </button>
-          )}
-          {/* copy, assistant messages only, hidden mid-stream */}
-          {!isUser && !isStreaming && msg.content.trim().length > 0 && (
-            <CopyButton text={msg.content} />
-          )}
-          {/* share to the public prompt gallery, assistant only */}
-          {!isUser && !isStreaming && msg.content.trim().length > 0 && (
-            <button
-              onClick={handleShare}
-              disabled={shared}
-              className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
-              title={t("chat.shareAnswer.action", {
-                defaultValue: "Share this answer to the gallery",
-              })}
-            >
-              <Share2 size={10} />
-              {shared
-                ? t("chat.shareAnswer.shared", { defaultValue: "Shared" })
-                : t("chat.shareAnswer.action", { defaultValue: "Share" })}
-            </button>
-          )}
-          {/* regenerate, assistant messages only */}
-          {!isUser && !isStreaming && onRegenerate && (
-            <button
-              onClick={onRegenerate}
-              disabled={streamingMessageId !== null}
-              className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-              title={t("chat.regenerate")}
-            >
-              <RefreshCw size={10} />
-              {t("chat.regenerate")}
-            </button>
-          )}
-          {/* read aloud, only when Web Speech API is supported and stream is done */}
-          {!isUser && !isStreaming && tts.supported && msg.content.trim() && (
-            <button
-              onClick={() => {
-                if (tts.speakingId === msg.id) {
-                  tts.stop();
-                } else {
-                  tts.read(msg.id, markdownToSpeech(msg.content));
-                }
-              }}
-              className={cn(
-                "inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary cursor-pointer",
-                tts.speakingId === msg.id && "text-accent",
-              )}
-              title={
-                tts.speakingId === msg.id
-                  ? t("chat.readAloudStop")
-                  : t("chat.readAloud")
-              }
-            >
-              <Volume2 size={10} />
-              {tts.speakingId === msg.id
-                ? t("chat.readAloudStop")
-                : t("chat.readAloud")}
-            </button>
-          )}
-          {/* save-as-flashcards, assistant messages only, after the stream ends */}
-          {!isUser &&
-            !isStreaming &&
-            msg.content.trim().length > 40 &&
-            onSaveAsFlashcards && (
-              <button
-                onClick={onSaveAsFlashcards}
-                className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-                title={t("chat.flashcards.saveAction")}
-              >
-                <Sparkles size={10} />
-                {t("chat.flashcards.saveAction")}
-              </button>
-            )}
-          {branches > 1 && (
-            <button
-              onClick={() => setShowBranches((v) => !v)}
-              className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-            >
-              {t("chat.branchesCount", { count: branches })}
-            </button>
-          )}
-        </div>
-
-        {/* Branch switcher */}
-        {showBranches && branches > 1 && (
-          <div className="mt-1 flex flex-wrap gap-1">
-            {childrenOf(messages, msg.id).map((child, i) => {
-              const isActiveChild = child.id === activeChildId;
-              return (
-                <button
-                  key={child.id}
-                  onClick={() => onPickBranch(child.id)}
-                  className={cn(
-                    "rounded border px-2 py-0.5 text-2xs transition-colors cursor-pointer",
-                    isActiveChild
-                      ? "border-accent bg-accent/15 text-accent"
-                      : "border-glass-border text-text-muted hover:border-accent/40 hover:text-text-primary",
-                  )}
-                  title={child.content.slice(0, 80)}
-                >
-                  {t("chat.branchN", { n: i + 1 })}
-                </button>
-              );
-            })}
-          </div>
+          </>
         )}
 
         {/* follow-up chips, hidden once the user has already replied (branches === 0) */}
-        {!isUser &&
-          !isStreaming &&
+        {!isStreaming &&
           suggestions &&
           suggestions.length > 0 &&
           branches === 0 &&
           onPickSuggestion && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2 pt-0.5">
               {suggestions.map((q, i) => (
                 <button
                   key={i}
+                  type="button"
                   onClick={() => onPickSuggestion(q)}
-                  disabled={streamingMessageId !== null}
-                  className="inline-flex items-center rounded-full border border-glass-border bg-glass-bg/40 px-2.5 py-1 text-2xs text-text-secondary transition-colors hover:border-accent/50 hover:bg-accent/10 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
+                  disabled={anyStreaming}
+                  className={cn(
+                    chipClass,
+                    "whitespace-normal px-3 py-[7px] text-left text-[13px] leading-4 transition-colors cursor-pointer hover:bg-surface-3 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30",
+                  )}
                 >
                   {q}
                 </button>
               ))}
             </div>
           )}
+
+        {actionRow}
+        {branchPager}
       </div>
     </div>
   );
@@ -551,7 +549,7 @@ const AssistantContent = memo(function AssistantContent({
   return (
     <>
       <div
-        className="ai-message break-words"
+        className={cn("ai-message break-words", CITATION_CHIP_CLASS)}
         onClick={(e) => {
           handleCodeBlockCopy(e);
           if (e.defaultPrevented) return;
@@ -579,6 +577,7 @@ const AssistantContent = memo(function AssistantContent({
   );
 });
 
+/** Quiet icon copy button; flips to a check for 1.5 s after copying. */
 export function CopyButton({ text }: { text: string }) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
@@ -589,17 +588,23 @@ export function CopyButton({ text }: { text: string }) {
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
       // clipboard blocked, surface it instead of failing silently
-      window.alert(t("chat.copy.failed"));
+      showToast(t("chat.copy.failed"), "error");
     }
   };
+  const label = copied ? t("chat.copy.copied") : t("chat.copy.action");
   return (
-    <button
+    <IconButton
+      size="sm"
       onClick={handleClick}
-      className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-      title={copied ? t("chat.copy.copied") : t("chat.copy.action")}
+      aria-label={label}
+      title={label}
+      className={cn(copied && "text-success")}
     >
-      {copied ? <Check size={10} /> : <Copy size={10} />}
-      {copied ? t("chat.copy.copied") : t("chat.copy.action")}
-    </button>
+      {copied ? (
+        <Check size={16} strokeWidth={1.5} />
+      ) : (
+        <Copy size={16} strokeWidth={1.5} />
+      )}
+    </IconButton>
   );
 }

@@ -11,17 +11,27 @@ import {
 // Guards: the plain /chat send -> stream -> render loop and Stop. The
 // ai-chat-proxy edge function is mocked in-page, see ai-proxy-mock.ts.
 
-/** Conversation rows in the sidebar tree (title + hover actions). */
+/** Conversation rows in the sidebar tree: the dnd-kit row (role=button) that
+ *  contains the hover kebab ("Conversation actions"). */
 function conversationRows(page: Page) {
-  return page.getByRole("button", { name: /Move to folder/ });
+  const kebab = page.getByRole("button", {
+    name: "Conversation actions",
+    exact: true,
+  });
+  return page
+    .getByRole("button", { name: /Conversation actions/ })
+    .filter({ has: kebab });
 }
 
-/** Delete the newest (top) conversation row through its hover action + confirm. */
+/** Delete the newest (top) conversation row through its kebab menu + confirm. */
 async function deleteTopConversation(page: Page) {
   const row = conversationRows(page).first();
   if ((await row.count()) === 0) return;
   await row.hover();
-  await row.getByRole("button", { name: "Delete", exact: true }).click();
+  await row
+    .getByRole("button", { name: "Conversation actions", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
   const dialog = page.locator('[aria-modal="true"]');
   await dialog.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(dialog).toHaveCount(0);

@@ -24,7 +24,7 @@ export function RouteErrorBoundary() {
       <p className="max-w-md text-sm text-text-secondary">{message}</p>
       <div className="flex gap-3 mt-2">
         <button
-          className="inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-all duration-200 cursor-pointer bg-glass-bg border border-glass-border hover:bg-glass-hover text-text-primary backdrop-blur-md"
+          className="inline-flex items-center justify-center gap-2 rounded-control px-5 py-2.5 text-sm font-medium transition-all duration-200 cursor-pointer bg-bg-tertiary hover:bg-surface-3 text-text-primary"
           onClick={() => window.location.reload()}
         >
           <RotateCcw size={16} />
@@ -32,7 +32,7 @@ export function RouteErrorBoundary() {
         </button>
         <Link
           to="/"
-          className="inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-all duration-200 bg-glass-bg border border-glass-border hover:bg-glass-hover text-text-primary backdrop-blur-md"
+          className="inline-flex items-center justify-center gap-2 rounded-control px-5 py-2.5 text-sm font-medium transition-all duration-200 bg-bg-tertiary hover:bg-surface-3 text-text-primary"
         >
           <Home size={16} />
           Go home

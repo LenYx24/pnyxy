@@ -160,7 +160,7 @@ export function CommentPopover() {
     <div
       ref={popoverRef}
       data-comment-popover
-      className="rounded-lg border border-glass-border bg-bg-secondary/95 backdrop-blur-md shadow-xl overflow-hidden"
+      className="rounded-panel bg-bg-tertiary shadow-page overflow-hidden"
       style={{
         position: "fixed",
         zIndex: 100,
@@ -204,7 +204,7 @@ export function CommentPopover() {
             onChange={(e) => setReplyText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Reply..."
-            className="w-full h-12 rounded border border-glass-border bg-glass-bg px-2 py-1.5 text-xs text-text-primary outline-none resize-none focus:border-accent"
+            className="w-full h-12 field px-2 py-1.5 text-xs"
           />
           <div className="flex justify-end mt-1">
             <button

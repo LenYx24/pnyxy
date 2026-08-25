@@ -11,6 +11,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { Button, Checkbox } from "@/components/ui";
+import { modalBackdropClass, modalSurfaceClass } from "@/components/ui/classes";
 import { cn } from "@/lib/cn";
 import { useUploadStore } from "@/stores/upload-store";
 import { useLibraryStore } from "@/stores/library-store";
@@ -359,19 +360,19 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className={`absolute inset-0 ${modalBackdropClass}`}
         onClick={handleClose}
       />
-      <div className="relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl border border-glass-border bg-bg-secondary/95 backdrop-blur-xl">
+      <div className={`relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col ${modalSurfaceClass}`}>
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-glass-border p-4">
-          <h2 className="text-lg font-semibold text-text-primary">
+        <div className="flex shrink-0 items-center justify-between p-4 pb-3">
+          <h2 className="font-display text-lg font-semibold text-text-primary">
             Scan folder for books
           </h2>
           <button
             onClick={handleClose}
             disabled={importing}
-            className="rounded-lg p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer disabled:opacity-50"
+            className="rounded-control p-1 text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer disabled:opacity-50"
           >
             <X size={20} />
           </button>
@@ -383,11 +384,12 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
             <div
               onClick={isScanning ? undefined : triggerScan}
               className={cn(
-                "flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed border-glass-border p-10 transition-colors hover:border-accent/50",
+                "flex cursor-pointer flex-col items-center gap-3 rounded-panel bg-bg-secondary p-10 transition-colors hover:bg-surface-3/40",
+                "outline-dotted outline-2 -outline-offset-2 outline-surface-3",
                 isScanning && "cursor-wait",
               )}
             >
-              <FolderSearch size={32} className="text-text-muted" />
+              <FolderSearch size={32} strokeWidth={1.5} className="text-text-muted" />
               <p className="text-sm text-text-primary">
                 Pick a folder to scan for PDFs
               </p>
@@ -397,7 +399,7 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
                 you don't want, then click Import.
               </p>
               {scanError && (
-                <p className="mt-2 rounded-lg bg-warning/10 px-3 py-1.5 text-xs text-warning">
+                <p className="mt-2 rounded-control bg-warning/10 px-3 py-1.5 text-xs text-warning">
                   {scanError}
                 </p>
               )}
@@ -416,31 +418,31 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
                   <div className="flex flex-wrap gap-2 text-xs">
                     <button
                       onClick={selectAll}
-                      className="rounded border border-glass-border px-2 py-0.5 text-text-secondary hover:text-text-primary cursor-pointer"
+                      className="chip cursor-pointer transition-colors hover:bg-surface-3 hover:text-text-primary"
                     >
                       Select all
                     </button>
                     <button
                       onClick={selectNone}
-                      className="rounded border border-glass-border px-2 py-0.5 text-text-secondary hover:text-text-primary cursor-pointer"
+                      className="chip cursor-pointer transition-colors hover:bg-surface-3 hover:text-text-primary"
                     >
                       Select none
                     </button>
                     <button
                       onClick={expandAll}
-                      className="rounded border border-glass-border px-2 py-0.5 text-text-secondary hover:text-text-primary cursor-pointer"
+                      className="chip cursor-pointer transition-colors hover:bg-surface-3 hover:text-text-primary"
                     >
                       Expand all
                     </button>
                     <button
                       onClick={collapseAll}
-                      className="rounded border border-glass-border px-2 py-0.5 text-text-secondary hover:text-text-primary cursor-pointer"
+                      className="chip cursor-pointer transition-colors hover:bg-surface-3 hover:text-text-primary"
                     >
                       Collapse all
                     </button>
                     <button
                       onClick={triggerScan}
-                      className="rounded border border-glass-border px-2 py-0.5 text-text-secondary hover:text-text-primary cursor-pointer"
+                      className="chip cursor-pointer transition-colors hover:bg-surface-3 hover:text-text-primary"
                     >
                       Rescan
                     </button>
@@ -450,7 +452,7 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
 
               {/* Storage warning */}
               {wouldExceed && !importing && !importDone && (
-                <div className="flex items-start gap-2 rounded-lg bg-danger/10 p-3">
+                <div className="flex items-start gap-2 rounded-control bg-danger/10 p-3">
                   <AlertTriangle size={16} className="mt-0.5 shrink-0 text-danger" />
                   <p className="text-xs text-danger">
                     The selected files exceed your remaining storage (
@@ -469,7 +471,7 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
               )}
 
               {/* Tree */}
-              <div className="overflow-hidden rounded-lg border border-glass-border">
+              <div className="overflow-hidden rounded-panel bg-bg-secondary">
                 <ul>
                   {tree.map((node) => (
                     <TreeRow
@@ -490,7 +492,7 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
 
               {/* Import summary after run */}
               {importDone && (
-                <div className="rounded-lg border border-glass-border bg-glass-bg/50 p-3 text-sm">
+                <div className="rounded-panel bg-bg-secondary p-3 text-sm">
                   <p className="text-text-primary">
                     Imported <strong>{successCount}</strong>, skipped{" "}
                     <strong>{skippedCount}</strong> (already in library),
@@ -503,7 +505,7 @@ export function DeviceBookScanModal({ open, onClose }: DeviceBookScanModalProps)
         </div>
 
         {/* Footer */}
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-glass-border p-4">
+        <div className="flex shrink-0 items-center justify-end gap-2 p-4 pt-2">
           {importDone ? (
             <Button onClick={handleClose}>Done</Button>
           ) : (
@@ -584,7 +586,7 @@ function TreeRow({
     return (
       <li
         className={cn(
-          "flex items-center gap-2 px-2 py-1.5 text-sm transition-colors hover:bg-glass-hover",
+          "flex items-center gap-2 px-2 py-1.5 text-sm transition-colors hover:bg-surface-3",
           node.status === "done" && "bg-success/5",
           node.status === "error" && "bg-danger/5",
           node.status === "skipped" && "bg-warning/5",
@@ -599,7 +601,7 @@ function TreeRow({
         )}
         {/* spacer matching folder chevron */}
         <span className="inline-block w-4" />
-        <FileText size={14} className="shrink-0 text-accent" />
+        <FileText size={14} strokeWidth={1.5} className="shrink-0 text-text-secondary" />
         <span className="min-w-0 flex-1 truncate text-text-primary">
           {node.name}
         </span>
@@ -617,7 +619,7 @@ function TreeRow({
   return (
     <>
       <li
-        className="flex items-center gap-2 px-2 py-1.5 text-sm transition-colors hover:bg-glass-hover"
+        className="flex items-center gap-2 px-2 py-1.5 text-sm transition-colors hover:bg-surface-3"
         style={{ paddingLeft: 8 + indent }}
       >
         {!readOnly && (
@@ -641,9 +643,9 @@ function TreeRow({
           />
         </button>
         {isExpanded ? (
-          <FolderOpen size={14} className="shrink-0 text-accent/70" />
+          <FolderOpen size={14} strokeWidth={1.5} className="shrink-0 text-text-muted" />
         ) : (
-          <FolderClosed size={14} className="shrink-0 text-accent/70" />
+          <FolderClosed size={14} strokeWidth={1.5} className="shrink-0 text-text-muted" />
         )}
         <span className="min-w-0 flex-1 truncate font-medium text-text-primary">
           {node.name}

@@ -25,6 +25,13 @@ import {
   type EpubFontFamily,
 } from "@/lib/epub-typography";
 import { useAuthStore } from "@/stores/auth-store";
+import {
+  emptyAiContextBindings,
+  newAiContextPresetId,
+  type AiContextBindingKind,
+  type AiContextBindings,
+  type AiContextPreset,
+} from "@/features/settings/ai-context/types";
 import { supabase } from "@/lib/supabase";
 
 export type FitMode = "fit-width" | "fit-page";
@@ -60,6 +67,11 @@ interface SettingsState {
   /** Reader content palette, independent of app chrome. PDF only themes the gutter + dark canvas filter. */
   readerTheme: ReaderTheme;
   tagColors: Partial<Record<BookStatusTag, ColorKey>>;
+  /** Color per custom (free-text) tag label. Unset = default gray. */
+  customTagColors: Record<string, ColorKey>;
+  /** Custom tag labels created in Settings that may not be on any book
+   *  yet; the picker offers them as one-click suggestions. */
+  customTagLibrary: string[];
   enabledProviders: AiProvider[];
   anthropicApiKey: string;
   openaiApiKey: string;
@@ -73,8 +85,15 @@ interface SettingsState {
   localApiKey: string;
 
   // AI context (chat-store reads these to build the system prompt)
-  /** Free-form notes injected as a paragraph in every chat turn's system prompt. Empty = none. */
+  /** Legacy single free-text context. Migrated into `aiContexts` in v14;
+   *  kept one version as a read-only fallback, no longer written. */
   aiCustomDefaultContext: string;
+  /** Named markdown context presets (see features/settings/ai-context). */
+  aiContexts: AiContextPreset[];
+  /** Preset used when no book / folder / org binding matches. */
+  aiDefaultContextId: string | null;
+  /** book > folder > org bindings, each maps an entity id to a preset id. */
+  aiContextBindings: AiContextBindings;
   /** Book-tied chats auto-include the book's TOC in the system prompt. */
   aiAttachToc: boolean;
   /** Default N for the "select pages [current-N, current+N] around current" button. */
@@ -133,6 +152,8 @@ interface SettingsState {
   setEpubColumnWidth: (v: EpubColumnWidth) => void;
   setReaderTheme: (v: ReaderTheme) => void;
   setTagColor: (tag: BookStatusTag, color: ColorKey) => void;
+  setCustomTagColor: (label: string, color: ColorKey | undefined) => void;
+  setCustomTagLibrary: (labels: string[]) => void;
   setEnabledProviders: (list: AiProvider[]) => void;
   toggleProvider: (provider: AiProvider) => void;
   moveProvider: (provider: AiProvider, direction: -1 | 1) => void;
@@ -143,6 +164,20 @@ interface SettingsState {
   setLocalModel: (v: string) => void;
   setLocalApiKey: (v: string) => void;
   setAiCustomDefaultContext: (v: string) => void;
+  // AI context presets
+  createAiContext: (name: string, body?: string) => string;
+  updateAiContext: (
+    id: string,
+    patch: Partial<Pick<AiContextPreset, "name" | "body">>,
+  ) => void;
+  duplicateAiContext: (id: string, copyName: string) => string | null;
+  deleteAiContext: (id: string) => void;
+  setAiDefaultContextId: (id: string | null) => void;
+  bindAiContext: (
+    kind: AiContextBindingKind,
+    entityId: string,
+    presetId: string | null,
+  ) => void;
   setAiAttachToc: (v: boolean) => void;
   setAiSurroundingPagesCount: (v: number) => void;
   setActiveTracker: (id: string) => void;
@@ -194,6 +229,8 @@ export const useSettingsStore = create<SettingsState>()(
       epubColumnWidth: "full",
       readerTheme: "light",
       tagColors: {},
+      customTagColors: {},
+      customTagLibrary: [],
       enabledProviders: ["pnyxy"],
       anthropicApiKey: "",
       openaiApiKey: "",
@@ -202,6 +239,9 @@ export const useSettingsStore = create<SettingsState>()(
       localModel: "",
       localApiKey: "",
       aiCustomDefaultContext: "",
+      aiContexts: [],
+      aiDefaultContextId: null,
+      aiContextBindings: emptyAiContextBindings(),
       aiAttachToc: true,
       aiSurroundingPagesCount: 5,
       activeTrackerId: DEFAULT_TRACKER_ID,
@@ -254,6 +294,14 @@ export const useSettingsStore = create<SettingsState>()(
         }),
       setTagColor: (tag, color) =>
         set((state) => ({ tagColors: { ...state.tagColors, [tag]: color } })),
+      setCustomTagColor: (label, color) =>
+        set((state) => {
+          const next = { ...state.customTagColors };
+          if (color === undefined) delete next[label];
+          else next[label] = color;
+          return { customTagColors: next };
+        }),
+      setCustomTagLibrary: (labels) => set({ customTagLibrary: labels }),
       setEnabledProviders: (list) =>
         set({ enabledProviders: dedupeProviders(list) }),
       toggleProvider: (provider) => {
@@ -280,6 +328,73 @@ export const useSettingsStore = create<SettingsState>()(
       setLocalModel: (v) => set({ localModel: v }),
       setLocalApiKey: (v) => set({ localApiKey: v }),
       setAiCustomDefaultContext: (v) => set({ aiCustomDefaultContext: v }),
+
+      // AI context presets. Every mutation syncs, these are the kind of
+      // prefs a user expects to follow them across devices.
+      createAiContext: (name, body = "") => {
+        const id = newAiContextPresetId();
+        const now = new Date().toISOString();
+        set((s) => ({
+          aiContexts: [
+            ...s.aiContexts,
+            { id, name: name.trim() || "Untitled", body, createdAt: now, updatedAt: now },
+          ],
+          // first preset becomes the default so it takes effect right away
+          aiDefaultContextId: s.aiDefaultContextId ?? id,
+        }));
+        queueSync(get);
+        return id;
+      },
+      updateAiContext: (id, patch) => {
+        set((s) => ({
+          aiContexts: s.aiContexts.map((p) =>
+            p.id === id
+              ? {
+                  ...p,
+                  ...(patch.name !== undefined ? { name: patch.name } : {}),
+                  ...(patch.body !== undefined ? { body: patch.body } : {}),
+                  updatedAt: new Date().toISOString(),
+                }
+              : p,
+          ),
+        }));
+        queueSync(get);
+      },
+      duplicateAiContext: (id, copyName) => {
+        const src = get().aiContexts.find((p) => p.id === id);
+        if (!src) return null;
+        return get().createAiContext(copyName, src.body);
+      },
+      deleteAiContext: (id) => {
+        set((s) => {
+          const strip = (rec: Record<string, string>) =>
+            Object.fromEntries(Object.entries(rec).filter(([, v]) => v !== id));
+          return {
+            aiContexts: s.aiContexts.filter((p) => p.id !== id),
+            aiDefaultContextId:
+              s.aiDefaultContextId === id ? null : s.aiDefaultContextId,
+            aiContextBindings: {
+              books: strip(s.aiContextBindings.books),
+              folders: strip(s.aiContextBindings.folders),
+              orgs: strip(s.aiContextBindings.orgs),
+            },
+          };
+        });
+        queueSync(get);
+      },
+      setAiDefaultContextId: (id) => {
+        set({ aiDefaultContextId: id });
+        queueSync(get);
+      },
+      bindAiContext: (kind, entityId, presetId) => {
+        set((s) => {
+          const next = { ...s.aiContextBindings[kind] };
+          if (presetId) next[entityId] = presetId;
+          else delete next[entityId];
+          return { aiContextBindings: { ...s.aiContextBindings, [kind]: next } };
+        });
+        queueSync(get);
+      },
       setAiAttachToc: (v) => set({ aiAttachToc: v }),
       // clamp 0..50 so one click can't flood the prompt with pages
       setAiSurroundingPagesCount: (v) =>
@@ -432,6 +547,11 @@ export const useSettingsStore = create<SettingsState>()(
             installedPluginManifests,
             pluginSettings: state.pluginSettings,
           },
+          aiContext: {
+            presets: state.aiContexts,
+            defaultId: state.aiDefaultContextId,
+            bindings: state.aiContextBindings,
+          },
         };
         try {
           // merge, don't overwrite existing preferences
@@ -464,7 +584,35 @@ export const useSettingsStore = create<SettingsState>()(
             }
           | undefined;
 
+        const aiContext = (preferences as Record<string, unknown>).aiContext as
+          | {
+              presets?: AiContextPreset[];
+              defaultId?: string | null;
+              bindings?: Partial<AiContextBindings>;
+            }
+          | undefined;
+
         const patch: Partial<SettingsState> = {};
+        if (aiContext && typeof aiContext === "object") {
+          if (Array.isArray(aiContext.presets)) {
+            // remote wins per id, local-only presets (not yet synced) survive
+            const remote = aiContext.presets.filter(isAiContextPreset);
+            const remoteIds = new Set(remote.map((p) => p.id));
+            patch.aiContexts = [
+              ...remote,
+              ...get().aiContexts.filter((p) => !remoteIds.has(p.id)),
+            ];
+          }
+          if (aiContext.defaultId === null || typeof aiContext.defaultId === "string") {
+            patch.aiDefaultContextId = aiContext.defaultId;
+          }
+          if (aiContext.bindings && typeof aiContext.bindings === "object") {
+            patch.aiContextBindings = {
+              ...emptyAiContextBindings(),
+              ...aiContext.bindings,
+            };
+          }
+        }
         if (appearance) {
           if (typeof appearance.activeThemeId === "string") {
             patch.activeThemeId = appearance.activeThemeId;
@@ -512,7 +660,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "pnyxy-reader:settings",
-      version: 13,
+      version: 14,
       partialize: (state) => {
         // persist everything; pluginStorage stays local-only, never synced to Supabase
         return state;
@@ -545,10 +693,12 @@ export const useSettingsStore = create<SettingsState>()(
           }
           state.trackerSettings = merged;
         }
-        // v3: seed themes + plugins
+        // v3: seed themes + plugins. Pre-v3 installs were running the
+        // Pnyxy Dark look, so they keep it explicitly; DEFAULT_THEME_ID
+        // (Pnyxy Neutral) is only for fresh installs.
         if (version < 3) {
           if (typeof state.activeThemeId !== "string") {
-            state.activeThemeId = DEFAULT_THEME_ID;
+            state.activeThemeId = "pnyxy-dark";
           }
           if (
             !state.installedThemes ||
@@ -693,11 +843,75 @@ export const useSettingsStore = create<SettingsState>()(
             state.adminShowAllFeatures = true;
           }
         }
+        // v14: context presets. The legacy free-text context becomes one
+        // preset named "Default" and is set as the default. The old
+        // string is kept one version as a fallback but no longer written.
+        if (version < 14) {
+          if (!Array.isArray(state.aiContexts)) state.aiContexts = [];
+          if (typeof state.aiDefaultContextId !== "string") {
+            state.aiDefaultContextId = null;
+          }
+          state.aiContextBindings = {
+            ...emptyAiContextBindings(),
+            ...((state.aiContextBindings as Partial<AiContextBindings>) ?? {}),
+          };
+          const legacy =
+            typeof state.aiCustomDefaultContext === "string"
+              ? state.aiCustomDefaultContext.trim()
+              : "";
+          if (legacy && (state.aiContexts as AiContextPreset[]).length === 0) {
+            const now = new Date().toISOString();
+            const preset: AiContextPreset = {
+              id: newAiContextPresetId(),
+              name: legacyDefaultPresetName(),
+              body: legacy,
+              createdAt: now,
+              updatedAt: now,
+            };
+            state.aiContexts = [preset];
+            state.aiDefaultContextId = preset.id;
+          }
+        }
         return state as unknown as SettingsState;
       },
     },
   ),
 );
+
+/** Debounced sync for the preset actions, so a burst of edits (the editor
+ *  emits every 300 ms) doesn't hammer the profiles row. */
+let aiContextSyncTimer: ReturnType<typeof setTimeout> | null = null;
+function queueSync(get: () => SettingsState) {
+  if (aiContextSyncTimer) clearTimeout(aiContextSyncTimer);
+  aiContextSyncTimer = setTimeout(() => {
+    aiContextSyncTimer = null;
+    void get().syncPreferences();
+  }, 1500);
+}
+
+function isAiContextPreset(v: unknown): v is AiContextPreset {
+  if (!v || typeof v !== "object") return false;
+  const p = v as Record<string, unknown>;
+  return (
+    typeof p.id === "string" &&
+    typeof p.name === "string" &&
+    typeof p.body === "string"
+  );
+}
+
+/** Localized name for the migrated legacy preset, without pulling i18n
+ *  into the store: read the persisted UI language directly. */
+function legacyDefaultPresetName(): string {
+  try {
+    const lang =
+      (typeof localStorage !== "undefined" &&
+        localStorage.getItem("pnyxy-reader:language")) ||
+      "";
+    return lang.startsWith("hu") ? "Alapértelmezett" : "Default";
+  } catch {
+    return "Default";
+  }
+}
 
 function dedupeProviders(list: AiProvider[]): AiProvider[] {
   const seen = new Set<AiProvider>();

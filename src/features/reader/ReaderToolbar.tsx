@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState, useCallback, Fragment, type ReactNode } from "react";
 import { FloatingMenu } from "@/components/ui/FloatingMenu";
+import { Toggle, Tooltip } from "@/components/ui";
 import { getZoomControls } from "./gestures/pinch-zoom-controller";
 import { useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
-  ArrowLeft,
   ChevronLeft,
-  ChevronRight,
-  ChevronDown,
   Sun,
   Moon,
   RotateCw,
@@ -28,13 +26,17 @@ import {
   ImagePlus,
   Printer,
   Search,
-  BotMessageSquare,
   BookmarkPlus,
   PanelLeft,
   Menu,
   AlignLeft,
   Palette,
   FileDown,
+  ZoomIn,
+  Sparkles,
+  BookMarked,
+  Settings2,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
@@ -53,8 +55,7 @@ import { useIsMobile } from "@/hooks/use-media-query";
 import { ReadingTrackerControl } from "./controls/ReadingTrackerControl";
 import { FocusSessionControl } from "./controls/FocusSessionControl";
 import type { HighlightColor } from "@/types/annotation";
-import { Settings2 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import type { TocItem } from "@/types/document";
 import {
   useToolbarLayout,
   useToolbarStyle,
@@ -63,6 +64,7 @@ import {
 } from "./toolbar/toolbar-config";
 import { ToolbarEditor } from "./toolbar/ToolbarEditor";
 import { useFeatures } from "@/lib/use-features";
+import { useCoverTintPref } from "./hooks/useReaderTint";
 
 function nextReaderTheme(t: "light" | "dark" | "sepia"): "light" | "dark" | "sepia" {
   return t === "light" ? "dark" : t === "dark" ? "sepia" : "light";
@@ -77,6 +79,43 @@ const COLOR_HEX: Record<HighlightColor, string> = {
   orange: "#fb923c",
 };
 
+/** Deepest TOC entry whose page is at or before the current page. */
+/** Bar icon slot -> shortcut catalog id, rendered as Kbd chips in the tooltip. */
+const BAR_ITEM_SHORTCUTS: Record<string, string> = {
+  search: "reader:search",
+  zen: "reader:zen-mode",
+  fullscreen: "reader:fullscreen",
+  sidebar: "reader:toggle-toc",
+  comments: "reader:toggle-comments",
+  bookmark: "reader:bookmark-page",
+  print: "reader:print",
+  screenshot: "reader:screenshot",
+  undo: "reader:undo",
+  theme: "reader:cycle-theme",
+};
+
+function currentSectionLabel(toc: TocItem[], page: number): string | null {
+  let best: { page: number; title: string } | null = null;
+  const walk = (items: TocItem[]) => {
+    for (const it of items) {
+      const p = it.pageIndex + 1;
+      if (p <= page && (!best || p >= best.page)) best = { page: p, title: it.title };
+      if (it.children.length) walk(it.children);
+    }
+  };
+  walk(toc);
+  return best ? (best as { title: string }).title : null;
+}
+
+/** Shared look for the 36x32 icon buttons inside the header pill cluster. */
+const clusterBtnCls =
+  "inline-flex h-8 w-9 shrink-0 items-center justify-center rounded-[10px] text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed";
+
+/** Menu row inside the kebab / popovers. */
+const menuRowCls =
+  "flex w-full items-center justify-start gap-2.5 rounded-[10px] px-2.5 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer";
+
+/** Editable zoom % (typed value or the named mode). */
 function ZoomInput({
   zoomMode,
   zoomLevel,
@@ -93,17 +132,7 @@ function ZoomInput({
   const [inputValue, setInputValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // display only; store keeps zoomLevel as a float
-  const displayText =
-    zoomMode === "custom"
-      ? `${Math.round(zoomLevel)}%`
-      : zoomMode === "fit-width"
-        ? t("reader.toolbar.fitWidth")
-        : zoomMode === "fit-page"
-          ? t("reader.toolbar.fitPage")
-          : zoomMode === "auto"
-            ? t("reader.toolbar.zoomAutoShort", { defaultValue: "Auto" })
-            : t("reader.toolbar.zoomActualShort", { defaultValue: "100%" });
+  const displayText = zoomDisplayText(zoomMode, zoomLevel, t);
 
   const handleStartEdit = useCallback(() => {
     setInputValue(String(Math.round(zoomLevel)));
@@ -131,7 +160,7 @@ function ZoomInput({
           if (e.key === "Enter") handleSubmit();
           if (e.key === "Escape") setEditing(false);
         }}
-        className="w-12 rounded border border-glass-border bg-glass-bg px-1 py-0.5 text-center text-xs text-text-primary outline-none focus:border-accent"
+        className="field w-16 px-2 py-1 text-center text-xs"
         autoFocus
       />
     );
@@ -144,7 +173,7 @@ function ZoomInput({
         e.preventDefault();
         onCycleMode();
       }}
-      className="min-w-[3rem] rounded px-1 py-0.5 text-center text-xs font-medium text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+      className="min-w-[4rem] rounded-[10px] px-2 py-1 text-center text-xs font-medium text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
       title={t("reader.toolbar.zoomCustomTitle")}
     >
       {displayText}
@@ -152,17 +181,41 @@ function ZoomInput({
   );
 }
 
-// Editable % box + chevron dropdown of named presets.
+function zoomDisplayText(
+  zoomMode: ZoomMode,
+  zoomLevel: number,
+  t: (k: string, o?: Record<string, unknown>) => string,
+): string {
+  return zoomMode === "custom"
+    ? `${Math.round(zoomLevel)}%`
+    : zoomMode === "fit-width"
+      ? t("reader.toolbar.fitWidth")
+      : zoomMode === "fit-page"
+        ? t("reader.toolbar.fitPage")
+        : zoomMode === "auto"
+          ? t("reader.toolbar.zoomAutoShort", { defaultValue: "Auto" })
+          : t("reader.toolbar.zoomActualShort", { defaultValue: "100%" });
+}
+
+/**
+ * One cluster button that opens the zoom popover: presets, the editable
+ * % box, and the +/- steppers. The trigger keeps the "Zoom presets"
+ * title (e2e hooks) and shows the live zoom text next to the icon.
+ */
 function ZoomSelect({
   zoomMode,
   zoomLevel,
   setZoomMode,
   setZoomLevel,
+  onZoomIn,
+  onZoomOut,
 }: {
   zoomMode: ZoomMode;
   zoomLevel: number;
   setZoomMode: (mode: ZoomMode) => void;
   setZoomLevel: (level: number) => void;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -179,42 +232,51 @@ function ZoomSelect({
 
   const rowCls = (active: boolean) =>
     cn(
-      "flex w-full items-center rounded px-2 py-1 text-xs transition-colors cursor-pointer",
+      "flex w-full items-center rounded-[10px] px-2 py-1 text-xs transition-colors cursor-pointer",
       active
-        ? "bg-accent/15 text-accent"
-        : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+        ? "bg-surface-3 text-text-primary"
+        : "text-text-secondary hover:bg-surface-3 hover:text-text-primary",
     );
 
   return (
-    <div className="flex items-center rounded-md border border-glass-border bg-glass-bg">
-      <ZoomInput
-        zoomMode={zoomMode}
-        zoomLevel={zoomLevel}
-        onSubmit={(level) => setZoomLevel(level)}
-        onCycleMode={() =>
-          setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width")
-        }
-      />
+    <div className="flex items-center">
       <button
         ref={anchorRef}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex items-center rounded-r-md px-0.5 py-1 transition-colors cursor-pointer",
+          "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[10px] px-2.5 text-xs font-medium transition-colors cursor-pointer",
           open
-            ? "text-accent"
-            : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
+            ? "bg-bg-tertiary text-text-primary"
+            : "text-text-muted hover:bg-bg-tertiary hover:text-text-primary",
         )}
         title={t("reader.toolbar.zoomPresets", { defaultValue: "Zoom presets" })}
         aria-expanded={open}
       >
-        <ChevronDown size={14} />
+        <ZoomIn size={18} strokeWidth={1.5} />
+        <span className="tabular-nums">{zoomDisplayText(zoomMode, zoomLevel, t)}</span>
       </button>
       <FloatingMenu
         open={open}
         anchorRef={anchorRef}
         onClose={() => setOpen(false)}
-        className="w-44 p-1"
+        className="w-48 p-1.5"
       >
+        <div className="mb-1 flex items-center justify-between gap-1 px-0.5">
+          <button onClick={onZoomOut} className={clusterBtnCls} title={t("reader.toolbar.zoomOut")} aria-label={t("reader.toolbar.zoomOut")}>
+            <Minus size={16} strokeWidth={1.5} />
+          </button>
+          <ZoomInput
+            zoomMode={zoomMode}
+            zoomLevel={zoomLevel}
+            onSubmit={(level) => setZoomLevel(level)}
+            onCycleMode={() =>
+              setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width")
+            }
+          />
+          <button onClick={onZoomIn} className={clusterBtnCls} title={t("reader.toolbar.zoomIn")} aria-label={t("reader.toolbar.zoomIn")}>
+            <Plus size={16} strokeWidth={1.5} />
+          </button>
+        </div>
         {presets.map((p) => (
           <button
             key={p.mode}
@@ -227,7 +289,7 @@ function ZoomSelect({
             {p.label}
           </button>
         ))}
-        <div className="my-1 h-px bg-glass-border" />
+        <div className="my-1 h-1" />
         {ZOOM_LEVELS.map((lvl) => (
           <button
             key={lvl}
@@ -330,14 +392,9 @@ export function ReaderToolbar({
   const readerTheme = useSettingsStore((s) => s.readerTheme);
   const setReaderTheme = useSettingsStore((s) => s.setReaderTheme);
   const cycleReaderTheme = useCallback(() => {
-    setReaderTheme(
-      readerTheme === "light"
-        ? "dark"
-        : readerTheme === "dark"
-          ? "sepia"
-          : "light",
-    );
+    setReaderTheme(nextReaderTheme(readerTheme));
   }, [readerTheme, setReaderTheme]);
+  const [coverTint, toggleCoverTint] = useCoverTintPref();
 
   // export highlights/comments/bookmarks for the active doc
   const exportHighlights = useCallback(
@@ -378,11 +435,12 @@ export function ReaderToolbar({
   const [pageInputFocused, setPageInputFocused] = useState(false);
   const currentPageForSync = activeDoc?.currentPage ?? 1;
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mirrors the store page into the draft while the box isn't focused; cannot cascade
     if (!pageInputFocused) setPageInput(String(currentPageForSync));
   }, [currentPageForSync, pageInputFocused]);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
-  // portaled to body so it escapes the toolbar's z-20 stacking context
+  // portaled to body so it escapes the toolbar's stacking context
   const overflowRef = useRef<HTMLDivElement>(null);
 
   const isMobile = useIsMobile();
@@ -391,13 +449,14 @@ export function ReaderToolbar({
   const { style: toolbarStyle, setStyle: setToolbarStyle } = useToolbarStyle();
   const [editingToolbar, setEditingToolbar] = useState(false);
   // desktop expands the app sidebar, mobile opens the nav drawer
-  const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const setMobileSidebarOpen = useUIStore((s) => s.setMobileSidebarOpen);
-  const showAppSidebarToggle = isMobile || sidebarCollapsed;
+  // the reader hides the global rail, so the app-menu button is mobile-only
+  const showAppSidebarToggle = isMobile;
 
   if (!activeDoc) return null;
 
   const { currentPage, totalPages, zoomMode, zoomLevel } = activeDoc;
+  const sectionLabel = currentSectionLabel(activeDoc.toc, currentPage);
 
   const submitPageInput = () => {
     const page = parseInt(pageInput, 10);
@@ -415,6 +474,14 @@ export function ReaderToolbar({
   const handleBookmarkPage = () => {
     if (!activeDoc) return;
     addBookmark(activeDoc.currentPage);
+  };
+
+  // open the book's overview page
+  const goToDescription = () => {
+    if (!activeDoc) return;
+    navigate(`/books/${activeDoc.meta.id}`, {
+      state: { from: location.pathname + location.search },
+    });
   };
 
   // Mobile-only overflow list (desktop uses the configurable overflowMenuSlots).
@@ -482,23 +549,8 @@ export function ReaderToolbar({
     ...(onToggleSidebar ? [{ label: t("reader.toolbar.toggleSidebar"), icon: PanelLeft, onClick: onToggleSidebar }] : []),
     { label: t("reader.toolbar.zenMode"), icon: Focus, onClick: onToggleZenMode },
     { label: isFullscreen ? t("reader.toolbar.exitFullscreen") : t("reader.toolbar.fullscreen"), icon: isFullscreen ? Minimize : Maximize, onClick: onToggleFullscreen },
+    { label: t("reader.toolbar.openBookPage", { defaultValue: "Open book page" }), icon: BookMarked, onClick: goToDescription },
   ];
-
-  // open the book's overview page
-  const goToDescription = () => {
-    if (!activeDoc) return;
-    navigate(`/books/${activeDoc.meta.id}`, {
-      state: { from: location.pathname + location.search },
-    });
-  };
-
-  // mobile shrinks height, icons, and padding
-  const iconSize = isMobile ? 14 : 16;
-  const btnPad = isMobile ? "p-1" : "p-1.5";
-
-  // shared by both layouts
-  const iconBtnCls =
-    "rounded-md text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer shrink-0";
 
   const menuButton = showAppSidebarToggle ? (
     <button
@@ -506,118 +558,143 @@ export function ReaderToolbar({
         if (isMobile) setMobileSidebarOpen(true);
         else useUIStore.getState().toggleSidebar();
       }}
-      className={cn(iconBtnCls, btnPad)}
+      className="inline-flex h-9 w-9 items-center justify-center rounded-control text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
       title={t("reader.toolbar.toggleAppSidebar")}
+      aria-label={t("reader.toolbar.toggleAppSidebar")}
     >
-      <Menu size={iconSize} />
+      <Menu size={20} strokeWidth={1.5} />
     </button>
   ) : null;
 
-  // title links to the book's overview page
-  const titleEl = (
+  // ---- header pieces --------------------------------------------------
+
+  const backEl = (
     <button
-      onClick={goToDescription}
-      className="block w-full truncate text-left text-xs text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
-      title={t("reader.toolbar.openBookPage", { defaultValue: "Open book page" })}
+      onClick={handleBack}
+      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
+      title={t("reader.toolbar.backToLibrary")}
+      aria-label={t("reader.toolbar.backToLibrary")}
     >
-      {getDisplayTitle()}
+      <ChevronLeft size={20} strokeWidth={1.5} />
     </button>
   );
 
-  const pageNavEl = (
-    <div className="flex shrink-0 items-center gap-0.5">
+  const sidebarEl = onToggleSidebar ? (
+    <Tooltip label={t("reader.toolbar.toggleSidebar")} shortcut="reader:toggle-toc" side="bottom">
       <button
-        onClick={() => prevPage()}
-        disabled={currentPage <= 1}
-        className={cn(
-          "inline-flex items-center justify-center rounded-md transition-colors cursor-pointer touch-target",
-          btnPad,
-          "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
-          "disabled:opacity-30 disabled:cursor-not-allowed",
-        )}
+        onClick={onToggleSidebar}
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
+        aria-label={t("reader.toolbar.toggleSidebar")}
       >
-        <ChevronLeft size={iconSize} />
+        <PanelLeft size={20} strokeWidth={1.5} />
       </button>
-      <form onSubmit={handlePageSubmit} className="flex items-center gap-1">
-        <input
-          data-page-input
-          type="text"
-          inputMode="numeric"
-          value={pageInput}
-          onChange={(e) => setPageInput(e.target.value)}
-          onFocus={(e) => {
-            setPageInputFocused(true);
-            const el = e.currentTarget;
-            requestAnimationFrame(() => el.select());
-          }}
-          onBlur={() => setPageInputFocused(false)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              submitPageInput();
-              (e.currentTarget as HTMLInputElement).blur();
-            } else if (e.key === "Escape") {
-              e.preventDefault();
-              setPageInput(String(currentPage));
-              (e.currentTarget as HTMLInputElement).blur();
-            }
-          }}
-          className={cn(
-            "rounded border border-glass-border bg-glass-bg px-1.5 py-0.5 text-center font-semibold text-text-primary outline-none focus:border-accent",
-            isMobile ? "w-10 text-xs" : "w-12 text-sm",
-          )}
-        />
-        <span
-          className={cn(
-            "font-medium text-text-secondary",
-            isMobile ? "text-xs" : "text-sm",
-          )}
-        >
-          / {totalPages}
-        </span>
-      </form>
-      <button
-        onClick={() => nextPage()}
-        disabled={currentPage >= totalPages}
-        className={cn(
-          "inline-flex items-center justify-center rounded-md transition-colors cursor-pointer touch-target",
-          btnPad,
-          "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
-          "disabled:opacity-30 disabled:cursor-not-allowed",
-        )}
-      >
-        <ChevronRight size={iconSize} />
-      </button>
-    </div>
+    </Tooltip>
+  ) : null;
+
+  // title (+ current section) links to the book's overview page
+  const titleEl = (
+    <button
+      onClick={goToDescription}
+      className="flex min-w-0 flex-col items-start text-left cursor-pointer"
+      title={t("reader.toolbar.openBookPage", { defaultValue: "Open book page" })}
+    >
+      <span className="w-full truncate font-display text-[15px] font-semibold leading-tight text-text-primary">
+        {getDisplayTitle()}
+      </span>
+      <span className="w-full truncate text-xs leading-tight text-text-muted">
+        {sectionLabel ?? t("reader.sidebar.page", { n: currentPage })}
+      </span>
+    </button>
   );
 
-  const desktopIconBtn =
-    "rounded-md p-1 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer";
-
-  // composite widgets are bar-only; icon items can also go in the overflow menu
-  const zoomEl = (
-    <div className="flex items-center gap-1">
-      <button onClick={handleZoomOut} className={desktopIconBtn} title={t("reader.toolbar.zoomOut")}>
-        <Minus size={14} />
-      </button>
-      <ZoomSelect
-        zoomMode={zoomMode}
-        zoomLevel={zoomLevel}
-        setZoomMode={setZoomMode}
-        setZoomLevel={setZoomLevel}
+  // "84 / 312" editable page box; Ctrl+G focuses it (data-page-input)
+  const pageNavEl = (
+    <form
+      onSubmit={handlePageSubmit}
+      className="flex shrink-0 items-center gap-1 rounded-[10px] px-1.5 text-[13px]"
+    >
+      <button
+        type="button"
+        onClick={() => prevPage()}
+        disabled={currentPage <= 1}
+        className="sr-only"
+        aria-label={t("reader.toolbar.prevPage", { defaultValue: "Previous page" })}
       />
-      <button onClick={handleZoomIn} className={desktopIconBtn} title={t("reader.toolbar.zoomIn")}>
-        <Plus size={14} />
+      <input
+        data-page-input
+        type="text"
+        inputMode="numeric"
+        value={pageInput}
+        onChange={(e) => setPageInput(e.target.value)}
+        onFocus={(e) => {
+          setPageInputFocused(true);
+          const el = e.currentTarget;
+          requestAnimationFrame(() => el.select());
+        }}
+        onBlur={() => setPageInputFocused(false)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            submitPageInput();
+            (e.currentTarget as HTMLInputElement).blur();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            setPageInput(String(currentPage));
+            (e.currentTarget as HTMLInputElement).blur();
+          }
+        }}
+        title={t("reader.toolbar.pageNav")}
+        aria-label={t("reader.toolbar.pageNav")}
+        className={cn(
+          "rounded-[8px] bg-transparent py-1 text-center font-medium tabular-nums text-text-secondary outline-none transition-colors hover:bg-bg-tertiary focus:bg-bg-tertiary focus:text-text-primary",
+          isMobile ? "w-9 text-xs" : "w-11",
+        )}
+      />
+      <span className="tabular-nums text-text-muted-2">/ {totalPages}</span>
+      <button
+        type="button"
+        onClick={() => nextPage()}
+        disabled={currentPage >= totalPages}
+        className="sr-only"
+        aria-label={t("reader.toolbar.nextPage", { defaultValue: "Next page" })}
+      />
+    </form>
+  );
+
+  const zoomEl = (
+    <ZoomSelect
+      zoomMode={zoomMode}
+      zoomLevel={zoomLevel}
+      setZoomMode={setZoomMode}
+      setZoomLevel={setZoomLevel}
+      onZoomIn={handleZoomIn}
+      onZoomOut={handleZoomOut}
+    />
+  );
+
+  // The "Teacher" button: today it toggles the AI margin (Ctrl+I); the
+  // teacher mode itself is a later feature.
+  const teacherEl = (
+    <Tooltip label={t("reader.toolbar.aiChatTitle")} shortcut="reader:toggle-ai-chat" side="bottom">
+      <button
+        onClick={onToggleAiChat}
+        className="inline-flex h-9 shrink-0 items-center gap-2 rounded-control bg-text-primary px-3.5 text-[13px] font-semibold text-bg-primary transition-opacity hover:opacity-90 cursor-pointer"
+        aria-label={t("reader.toolbar.aiChatTitle")}
+      >
+        <Sparkles size={15} strokeWidth={1.5} />
+        {t("reader.tools.teacher", { defaultValue: "Teacher" })}
       </button>
-    </div>
+    </Tooltip>
   );
 
   const compositeNodes: Record<string, ReactNode> = {
+    back: backEl,
     title: (
-      <div className="min-w-0 max-w-[10rem] lg:max-w-[16rem] shrink">{titleEl}</div>
+      <div className="min-w-0 max-w-[14rem] shrink lg:max-w-[24rem]">{titleEl}</div>
     ),
     pageNav: pageNavEl,
     zoom: zoomEl,
+    aiChat: teacherEl,
     readingTracker: <ReadingTrackerControl />,
     focusTimer: <FocusSessionControl />,
   };
@@ -640,8 +717,6 @@ export function ReaderToolbar({
       },
       available: showAppSidebarToggle,
     },
-    back: { icon: ArrowLeft, label: t("reader.toolbar.backToLibrary"), onClick: handleBack },
-    aiChat: { icon: BotMessageSquare, label: t("reader.toolbar.aiChatTitle"), onClick: onToggleAiChat },
     undo: { icon: Undo2, label: t("reader.toolbar.undoTitle"), onClick: performUndo, disabled: !canUndo },
     inPageDraw: {
       icon: Pencil,
@@ -710,6 +785,11 @@ export function ReaderToolbar({
       label: isFullscreen ? t("reader.toolbar.exitFullscreen") : t("reader.toolbar.fullscreen"),
       onClick: onToggleFullscreen,
     },
+    bookPage: {
+      icon: BookMarked,
+      label: t("reader.toolbar.openBookPage", { defaultValue: "Open book page" }),
+      onClick: goToDescription,
+    },
   };
 
   const isItemAvailable = (id: string): boolean => {
@@ -719,9 +799,11 @@ export function ReaderToolbar({
     return def ? def.available ?? true : false;
   };
 
+  // Bar items: composites render as themselves, icon items as 36x32
+  // cluster buttons. Separators are a 4 px breath (no lines on chrome).
   const renderBarItem = (slotId: string) => {
     if (isSeparator(slotId)) {
-      return <div key={slotId} className="mx-1 h-4 w-px shrink-0 bg-glass-border" />;
+      return <div key={slotId} className="w-1 shrink-0" />;
     }
     const composite = compositeNodes[slotId];
     if (composite !== undefined) {
@@ -729,38 +811,54 @@ export function ReaderToolbar({
     }
     const def = iconDefs[slotId];
     if (!def || !(def.available ?? true)) return null;
-    return (
+    const shortcutId = BAR_ITEM_SHORTCUTS[slotId];
+    const btn = (
       <button
         key={slotId}
         onClick={() => def.onClick?.()}
         disabled={def.disabled}
-        title={def.label}
+        title={shortcutId ? undefined : def.label}
         aria-label={def.label}
+        aria-pressed={def.active}
         style={{
           paddingTop: toolbarStyle.paddingY,
           paddingBottom: toolbarStyle.paddingY,
         }}
         className={cn(
-          "rounded-md px-1 transition-colors cursor-pointer",
-          def.disabled
-            ? "text-text-secondary opacity-30 cursor-not-allowed"
-            : def.active
-              ? "text-accent bg-accent/10"
-              : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+          clusterBtnCls,
+          def.active && "bg-bg-tertiary text-text-primary",
         )}
       >
-        <def.icon size={14} />
+        <def.icon size={18} strokeWidth={1.5} />
       </button>
+    );
+    if (!shortcutId) return btn;
+    return (
+      <Tooltip key={slotId} label={def.label} shortcut={shortcutId} side="bottom">
+        {btn}
+      </Tooltip>
     );
   };
 
   const renderZone = (zone: ToolbarZone) =>
     layout[zone].map((slotId) => renderBarItem(slotId));
 
-  // overflow shows available icon-items plus separators as dividers
+  // The kebab lists every available overflow slot; composites (tracker,
+  // timer) render their own control next to a label.
   const overflowMenuSlots = layout.overflow.filter(
-    (id) => isSeparator(id) || (iconDefs[id] && isItemAvailable(id)),
+    (id) =>
+      isSeparator(id) ||
+      (id in compositeNodes && id !== "title" && id !== "back" && id !== "aiChat") ||
+      (iconDefs[id] && isItemAvailable(id)),
   );
+
+  const overflowLabelFor = (id: string): string => {
+    if (id === "readingTracker") return t("reader.toolbar.readingTracker", { defaultValue: "Reading tracker" });
+    if (id === "focusTimer") return t("reader.toolbar.focusTimer", { defaultValue: "Focus timer" });
+    if (id === "pageNav") return t("reader.toolbar.pageNav");
+    if (id === "zoom") return t("reader.toolbar.zoom");
+    return id;
+  };
 
   // In-place WYSIWYG customizer replaces the real bar at the same spot.
   if (editingToolbar) {
@@ -776,26 +874,39 @@ export function ReaderToolbar({
     );
   }
 
+  const kebabEl = (
+    <div className="relative" ref={overflowRef}>
+      <button
+        onClick={() => setShowOverflowMenu(!showOverflowMenu)}
+        className={cn(clusterBtnCls, showOverflowMenu && "bg-bg-tertiary text-text-primary")}
+        title={t("reader.toolbar.moreActions", { defaultValue: "More" })}
+        aria-label={t("reader.toolbar.moreActions", { defaultValue: "More" })}
+        aria-expanded={showOverflowMenu}
+      >
+        <MoreVertical size={18} strokeWidth={1.5} />
+      </button>
+    </div>
+  );
+
   return (
-    <div className="border-b border-glass-border bg-bg-secondary/60 backdrop-blur-md pt-safe-top pl-safe-left pr-safe-right">
+    <div className="pt-safe-top pl-safe-left pr-safe-right">
       <div
         className={cn(
-          "flex items-center justify-between gap-2 px-2 sm:px-4",
-          isMobile && "h-11",
+          "flex items-center gap-3 px-2 sm:px-4",
+          isMobile ? "h-12" : "py-2",
         )}
-        style={isMobile ? undefined : { height: toolbarStyle.height }}
+        style={isMobile ? undefined : { minHeight: toolbarStyle.height + 16 }}
       >
         {isMobile ? (
-          /* MOBILE */
+          /* MOBILE: hamburger, page box, tracker/timer, kebab */
           <>
-            {/* left: just the app-nav hamburger. Back arrow + book title
-                removed on mobile, the hamburger opens full app nav, and the
-                title barely fit 3 chars anyway. */}
             <div className="flex shrink-0 items-center gap-1">
               {menuButton}
             </div>
             <div className="flex min-w-0 flex-1 items-center justify-center gap-1">
-              {pageNavEl}
+              <div className="flex items-center rounded-[14px] bg-bg-secondary p-1">
+                {pageNavEl}
+              </div>
             </div>
             <div className="flex flex-1 items-center justify-end gap-1">
               <ReadingTrackerControl compact />
@@ -803,22 +914,19 @@ export function ReaderToolbar({
               <div className="relative" ref={overflowRef}>
                 <button
                   onClick={() => setShowOverflowMenu(!showOverflowMenu)}
-                  className={cn(
-                    iconBtnCls,
-                    "inline-flex h-9 w-9 items-center justify-center touch-target",
-                  )}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-control text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer touch-target"
                   aria-label={t("reader.toolbar.moreActions", {
                     defaultValue: "More",
                   })}
                 >
-                  <MoreVertical size={20} />
+                  <MoreVertical size={20} strokeWidth={1.5} />
                 </button>
               </div>
               <FloatingMenu
                 open={showOverflowMenu}
                 anchorRef={overflowRef}
                 onClose={() => setShowOverflowMenu(false)}
-                className="w-48"
+                className="w-52 p-1"
               >
                 {overflowActions.map(
                   ({ label, icon: Icon, onClick, disabled }) => (
@@ -829,9 +937,9 @@ export function ReaderToolbar({
                         setShowOverflowMenu(false);
                       }}
                       disabled={disabled}
-                      className="flex w-full items-center justify-start gap-3 px-3 py-2.5 text-left text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary disabled:opacity-30 cursor-pointer"
+                      className={cn(menuRowCls, "gap-3 px-3 py-2.5 text-sm")}
                     >
-                      <Icon size={16} />
+                      <Icon size={16} strokeWidth={1.5} />
                       {label}
                     </button>
                   ),
@@ -840,76 +948,101 @@ export function ReaderToolbar({
             </div>
           </>
         ) : (
-          /* DESKTOP / TABLET */
+          /* DESKTOP / TABLET: back + title | pill cluster | Teacher */
           <>
-            {/* LEFT zone */}
+            {/* LEFT: back chevron, TOC toggle, title block */}
             <div className="flex min-w-0 flex-1 items-center gap-1">
-              {renderZone("left")}
+              {layout.left.includes("back") ? backEl : null}
+              {sidebarEl}
+              {layout.left.includes("title") ? compositeNodes.title : null}
+              {layout.left
+                .filter((id) => id !== "back" && id !== "title")
+                .map((id) => renderBarItem(id))}
             </div>
 
-            {/* CENTER zone */}
-            <div className="flex shrink-0 items-center gap-1">
+            {/* CENTER: the pill cluster (surface 1, radius 14, 4 px pad) + kebab */}
+            <div className="flex shrink-0 items-center gap-0.5 rounded-[14px] bg-bg-secondary p-1">
               {renderZone("center")}
+              {kebabEl}
             </div>
 
-            {/* RIGHT zone + overflow trigger */}
+            {/* RIGHT: the Teacher button (+ anything the user dragged here) */}
             <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
               {renderZone("right")}
-              <div className="relative" ref={overflowRef}>
-                <button
-                  onClick={() => setShowOverflowMenu(!showOverflowMenu)}
-                  className={desktopIconBtn}
-                  title={t("reader.toolbar.moreActions", { defaultValue: "More" })}
-                  aria-label={t("reader.toolbar.moreActions", { defaultValue: "More" })}
-                >
-                  <MoreVertical size={14} />
-                </button>
-              </div>
-              {/* portaled so the PDF dockview can't paint over it */}
-              <FloatingMenu
-                open={showOverflowMenu}
-                anchorRef={overflowRef}
-                onClose={() => setShowOverflowMenu(false)}
-                className="w-44"
-              >
-                {overflowMenuSlots.map((id) => {
-                  if (isSeparator(id)) {
-                    return (
-                      <div key={id} className="my-1 h-px bg-glass-border" />
-                    );
-                  }
-                  const def = iconDefs[id];
-                  const Icon = def.icon;
-                  return (
-                    <button
-                      key={id}
-                      onClick={() => {
-                        def.onClick?.();
-                        setShowOverflowMenu(false);
-                      }}
-                      disabled={def.disabled}
-                      className="flex w-full items-center justify-start gap-2.5 px-2.5 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary disabled:opacity-30 cursor-pointer"
-                    >
-                      <Icon size={14} />
-                      {def.label}
-                    </button>
-                  );
-                })}
-                <div className="my-1 h-px bg-glass-border" />
-                <button
-                  onClick={() => {
-                    setEditingToolbar(true);
-                    setShowOverflowMenu(false);
-                  }}
-                  className="flex w-full items-center justify-start gap-2.5 px-2.5 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-                >
-                  <Settings2 size={14} />
-                  {t("reader.toolbar.customize", {
-                    defaultValue: "Customize toolbar",
-                  })}
-                </button>
-              </FloatingMenu>
             </div>
+
+            {/* portaled so the PDF dockview can't paint over it */}
+            <FloatingMenu
+              open={showOverflowMenu}
+              anchorRef={overflowRef}
+              onClose={() => setShowOverflowMenu(false)}
+              className="reader-overflow-menu w-56 p-1"
+            >
+              {overflowMenuSlots.map((id) => {
+                if (isSeparator(id)) {
+                  return <div key={id} className="my-1 h-1" />;
+                }
+                const composite = compositeNodes[id];
+                if (composite !== undefined) {
+                  return (
+                    <div
+                      key={id}
+                      className="flex w-full items-center gap-2 rounded-[10px] px-1 py-0.5 text-xs text-text-secondary"
+                    >
+                      {composite}
+                      <span className="min-w-0 flex-1 truncate">
+                        {overflowLabelFor(id)}
+                      </span>
+                    </div>
+                  );
+                }
+                const def = iconDefs[id];
+                const Icon = def.icon;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => {
+                      def.onClick?.();
+                      setShowOverflowMenu(false);
+                    }}
+                    disabled={def.disabled}
+                    aria-pressed={def.active}
+                    className={cn(
+                      menuRowCls,
+                      def.active && "bg-bg-tertiary text-text-primary",
+                    )}
+                  >
+                    <Icon size={16} strokeWidth={1.5} />
+                    {def.label}
+                  </button>
+                );
+              })}
+              <div className="my-1 h-1" />
+              {/* cover tint preference (reader-only, default on) */}
+              <div className={cn(menuRowCls, "justify-between cursor-default hover:bg-transparent")}>
+                <span className="flex items-center gap-2.5">
+                  <Palette size={16} strokeWidth={1.5} />
+                  {t("reader.toolbar.coverTint", { defaultValue: "Cover tint" })}
+                </span>
+                <Toggle
+                  checked={coverTint}
+                  onChange={toggleCoverTint}
+                  label={t("reader.toolbar.coverTint", { defaultValue: "Cover tint" })}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  setEditingToolbar(true);
+                  setShowOverflowMenu(false);
+                }}
+                className={menuRowCls}
+              >
+                <Settings2 size={16} strokeWidth={1.5} />
+                {t("reader.toolbar.customize", {
+                  defaultValue: "Customize toolbar",
+                })}
+              </button>
+            </FloatingMenu>
           </>
         )}
       </div>
@@ -919,23 +1052,23 @@ export function ReaderToolbar({
         open={showColorPicker}
         anchorRef={overflowRef}
         onClose={() => setShowColorPicker(false)}
-        className="!min-w-0 flex gap-1 p-2"
+        className="!min-w-0 flex gap-1.5 p-2"
       >
         {HIGHLIGHT_COLORS.map((color) => (
           <button
             key={color}
             className={cn(
-              "rounded-full border-2 transition-colors cursor-pointer hover:scale-110",
+              "rounded-full transition-transform cursor-pointer hover:scale-110",
               isMobile ? "h-7 w-7 touch-target" : "h-5 w-5",
-              activeHighlightColor === color
-                ? "border-white/60"
-                : "border-transparent",
+              activeHighlightColor === color && "ring-2 ring-text-primary/60 ring-offset-2 ring-offset-bg-tertiary",
             )}
             style={{ backgroundColor: COLOR_HEX[color] }}
             onClick={() => {
               setActiveHighlightColor(color);
               setShowColorPicker(false);
             }}
+            title={color}
+            aria-label={color}
           />
         ))}
       </FloatingMenu>

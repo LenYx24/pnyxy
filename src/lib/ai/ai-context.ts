@@ -1,9 +1,10 @@
 // Builds the per-turn context pack injected into the system prompt:
-// custom default context (persona/prefs from Settings), TOC outline,
+// the resolved context preset (persona/prefs from Settings), TOC outline,
 // and extracted text from the currently-selected pages.
 
 import { useReaderStore } from "@/stores/reader-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { resolveAiContextForConversation } from "@/features/settings/ai-context/resolve-runtime";
 import { extractPdfText, renderPdfPagesToImages } from "@/lib/ai/ai-client";
 import type { TocItem } from "@/types/document";
 import type { ChatMessageAttachment } from "@/types/chat";
@@ -146,12 +147,17 @@ async function extractSelectedPages(
 }
 
 /** Build the AI context pack for `docId`. Returns empty strings when
- *  there's nothing to include. */
+ *  there's nothing to include. The persona block comes from the context
+ *  preset resolved for this conversation (book > folder > org > default),
+ *  see features/settings/ai-context. */
 export async function buildAiContextPack(
   docId: string | null | undefined,
+  conversationId?: string | null,
 ): Promise<AiContextPack> {
   const settings = useSettingsStore.getState();
-  const customContext = settings.aiCustomDefaultContext.trim();
+  const customContext =
+    resolveAiContextForConversation({ docId, conversationId })?.preset.body.trim() ??
+    "";
 
   if (!docId) {
     // Plain chat, no source doc, but still surface the user persona.

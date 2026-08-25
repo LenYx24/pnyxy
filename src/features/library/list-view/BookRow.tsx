@@ -14,7 +14,7 @@ import {
 import { useDndContext, useDraggable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Checkbox, PromptModal, TagBadge } from "@/components/ui";
+import { Checkbox, CustomTagBadge, PromptModal, TagBadge } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useLibraryStore } from "@/stores/library-store";
 import { bookKey, useTagStore } from "@/stores/tag-store";
@@ -35,9 +35,15 @@ import { BookInfoModal } from "../modals/BookInfoModal";
 import { ShareBookModal } from "../modals/ShareBookModal";
 import { ContextMenu, MenuItem } from "./MenuButton";
 import { RowTile } from "./RowTile";
+import { useDropIntent } from "../drag-intent";
+import { DropIndicator } from "../DropIndicator";
 import { BookDetailPanel, BookProgressCell } from "./BookDetailPanel";
 import {
   LIST_GRID_CLASS,
+  ROW_ACTIVE_CLASS,
+  ROW_BASE_CLASS,
+  ROW_FOCUS_CLASS,
+  ROW_SEPARATOR_CLASS,
   formatRelative,
   getAuthor,
   getCoverUrl,
@@ -85,8 +91,12 @@ export function BookRow({
     id: sortableId ?? `book:${entry.id}`,
     disabled: !isTopLevel,
   });
+  // The disabled hook still registers its (never attached) node ref
+  // under its id and would overwrite the sortable's entry, leaving
+  // dnd-kit without an activeNode and the DragOverlay blank. Park it
+  // on a namespaced id while the sortable owns the real one.
   const draggable = useDraggable({
-    id: `book:${entry.id}`,
+    id: isTopLevel ? `unused:book:${entry.id}` : `book:${entry.id}`,
     disabled: isTopLevel,
   });
   const setNodeRef = isTopLevel ? sortable.setNodeRef : draggable.setNodeRef;
@@ -95,6 +105,9 @@ export function BookRow({
   const isDragging = isTopLevel ? sortable.isDragging : draggable.isDragging;
   const transform = isTopLevel ? sortable.transform : draggable.transform;
   const transition = isTopLevel ? sortable.transition : undefined;
+  const dropPosition = useDropIntent(
+    isTopLevel ? (sortableId ?? `book:${entry.id}`) : undefined,
+  );
 
   // Apply the drag transform regardless of nesting so the row visibly
   // follows the cursor while being dragged.
@@ -267,22 +280,24 @@ export function BookRow({
           onToggleSelect: () => toggle(),
         })
       }
-      className="outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60"
+      className={ROW_FOCUS_CLASS}
     >
       <div
         {...contextHandlers}
         {...listeners}
         className={cn(
           LIST_GRID_CLASS,
-          "group h-[58px] select-none border-b border-glass-border text-sm transition-colors hover:bg-glass-hover cursor-pointer",
-          (selected || expanded) && "bg-accent/10",
-          expanded && "border-b-0",
-          isDragging && "opacity-50",
+          ROW_BASE_CLASS,
+          "relative",
+          expanded ? "hover:bg-bg-tertiary" : ROW_SEPARATOR_CLASS,
+          (selected || expanded) && ROW_ACTIVE_CLASS,
+          isDragging && "opacity-40",
         )}
         onClick={handleClick}
         onDoubleClick={openBookPage}
         aria-expanded={onActivate ? expanded : undefined}
       >
+        <DropIndicator position={dropPosition} orientation="row" />
         {/* Checkbox */}
         <div
           className={cn(
@@ -313,13 +328,7 @@ export function BookRow({
                   <TagBadge key={tag} tag={tag} size="sm" />
                 ))}
                 {customTags.slice(0, 2).map((label) => (
-                  <span
-                    key={label}
-                    className="inline-flex items-center rounded-full border border-glass-border bg-glass-bg px-1.5 py-0.5 text-2xs text-text-secondary"
-                    title={label}
-                  >
-                    {label}
-                  </span>
+                  <CustomTagBadge key={label} label={label} title={label} />
                 ))}
               </span>
             )}

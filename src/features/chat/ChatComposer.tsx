@@ -11,10 +11,11 @@ import {
 import { useTranslation } from "react-i18next";
 import {
   ArrowUp,
-  Bot,
+  BookOpen,
   BookOpenCheck,
+  Brain,
   Check,
-  ChevronDown,
+  ChevronRight,
   HelpCircle,
   History,
   Image as ImageIcon,
@@ -22,11 +23,17 @@ import {
   MicOff,
   Paperclip,
   Plus,
+  ScrollText,
   Sparkles,
   Square,
   X,
 } from "lucide-react";
-import { FloatingMenu } from "@/components/ui";
+import {
+  FloatingMenu,
+  IconButton,
+  chipActiveClass,
+  chipClass,
+} from "@/components/ui";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useIsMobile } from "@/hooks/use-media-query";
@@ -35,10 +42,22 @@ import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useChatStore } from "@/stores/chat-store";
 import { supabase } from "@/lib/supabase";
+import {
+  AI_CONTEXT_DRAFT_CONVERSATION_KEY,
+  useAiContextSessionStore,
+} from "@/features/settings/ai-context/session-overrides";
 import { getConfiguredProviders } from "@/lib/ai/ai-client";
 import type { RecommendationMode } from "@/lib/ai/recommendation-prompts";
 import type { ChatMessageAttachment } from "@/types/chat";
 import { ModelInfoModal } from "./ModelInfoModal";
+import { QuotaModal } from "./QuotaModal";
+import {
+  PNYXY_MODEL_OPTIONS,
+  questionsLeft as computeQuestionsLeft,
+  selectQuotaRow,
+  usageRatio,
+  type PnyxyQuotaRow,
+} from "./quota";
 import { cn } from "@/lib/cn";
 
 // Default (free quota) caps to 1 image for predictable cost; BYOK keys allow 4.
@@ -64,7 +83,7 @@ const PROVIDER_INFO: Record<
   local: { model: "Local model", routing: "Ollama / LM Studio" },
 };
 
-// Read a File as base64 (no `data:` prefix). Uint8Array→btoa breaks past the arg-count limit.
+// Read a File as base64 (no `data:` prefix). Uint8Array->btoa breaks past the arg-count limit.
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -82,161 +101,66 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-interface PnyxyQuotaRow {
-  model: string;
-  tokens_used: number;
-  request_count: number;
-  tokens_limit: number;
-  request_limit: number;
+/** Short display label for the model the next turn will use. */
+function modelDisplayLabel(
+  provider: AiProvider | null,
+  pnyxyModel: string | null,
+  autoModel: string,
+): string {
+  if (provider) return PROVIDER_INFO[provider].model;
+  const pinned = pnyxyModel
+    ? PNYXY_MODEL_OPTIONS.find((m) => m.id === pnyxyModel)
+    : null;
+  if (pinned) return pinned.label;
+  return PNYXY_MODEL_OPTIONS.find((m) => m.id === autoModel)?.label ?? autoModel;
 }
 
-// Free-tier models. Picking one pins the proxy to it instead of auto-routing.
-// ids must match `_ai_usage_limits_for_model` on the SQL side.
-const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
-  id: string;
-  label: string;
-  costTier: "cheap" | "mid" | "premium";
-  tagline: string;
-}> = [
-  {
-    id: "gemini-2.5-flash-lite",
-    label: "Gemini 2.5 Flash-Lite",
-    costTier: "cheap",
-    tagline: "Cheapest · auto-route default",
-  },
-  {
-    id: "gemini-2.5-flash",
-    label: "Gemini 2.5 Flash",
-    costTier: "cheap",
-    tagline: "Fuller Flash · step-up from Lite",
-  },
-  {
-    // mid tier: auto-route still prefers 2.5 Flash, pin this to force it
-    id: "gemini-3-flash-preview",
-    label: "Gemini 3 Flash (preview)",
-    costTier: "mid",
-    tagline: "Newest Google model · top casual chat",
-  },
-  {
-    id: "gpt-4o-mini",
-    label: "GPT-4o mini",
-    costTier: "mid",
-    tagline: "General-purpose fallback",
-  },
-  {
-    id: "claude-haiku-4-5",
-    label: "Claude Haiku 4.5",
-    costTier: "premium",
-    tagline: "Higher quality · used for quiz/roadmap",
-  },
-];
-
-// Quota reference model when nothing is pinned (the model the auto-route bills
-// first). Reader Q&A (a doc is open → grounding off) bills flash-lite; standalone
-// chat (no doc → web grounding on) bills gemini-3-flash-preview. The bar has to
-// read whichever row the proxy actually records or it sits permanently at 0,
-// which is exactly why it looked "broken" on the standalone chat page.
-const QUOTA_AUTO_DEFAULT_MODEL = "gemini-2.5-flash-lite";
-const QUOTA_AUTO_GROUNDED_MODEL = "gemini-3-flash-preview";
-
-// Free-tier quota meter. Signed-in only (anon uses an IP bucket we can't read).
-// Reports the most-constrained axis, tokens vs requests.
-function QuotaBar({
-  activeModel,
-  isPinned,
-  isStreaming,
-}: {
-  activeModel: string;
-  isPinned: boolean;
-  isStreaming: boolean;
-}) {
-  const { t } = useTranslation();
+/** Today's free-tier usage rows. Signed-in only (anon uses an IP bucket we can't read). */
+function useQuotaRows(isStreaming: boolean) {
   const user = useAuthStore((s) => s.user);
   const [rows, setRows] = useState<PnyxyQuotaRow[]>([]);
-
   const refresh = useCallback(() => {
     if (!user) return;
     void supabase.rpc("get_my_ai_usage_today").then(({ data, error }) => {
       if (!error && Array.isArray(data)) setRows(data as PnyxyQuotaRow[]);
     });
   }, [user]);
-
   useEffect(() => {
     refresh();
   }, [refresh]);
-  // refetch when streaming ends so the bar reflects the last turn
+  // refetch when the tab comes back: the buckets reset at UTC midnight and
+  // another tab / device may have spent quota meanwhile
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refresh]);
+  // refetch when streaming ends so the line reflects the last turn
   const prevStreaming = useRef(isStreaming);
   useEffect(() => {
     if (prevStreaming.current && !isStreaming) refresh();
     prevStreaming.current = isStreaming;
   }, [isStreaming, refresh]);
-
-  if (!user) return null;
-  const row = rows.find((r) => r.model === activeModel);
-  if (!row) return null;
-
-  const tokensRatio = row.tokens_limit ? row.tokens_used / row.tokens_limit : 0;
-  const reqRatio = row.request_limit ? row.request_count / row.request_limit : 0;
-  // Report whichever axis is closer to its ceiling.
-  const onTokens = tokensRatio >= reqRatio;
-  const used = onTokens ? row.tokens_used : row.request_count;
-  const limit = onTokens ? row.tokens_limit : row.request_limit;
-  const pct = Math.min(100, Math.round((onTokens ? tokensRatio : reqRatio) * 100));
-  const nearLimit = pct >= 80;
-  // With large free-tier ceilings the true fill can round to <1% and vanish;
-  // give any non-zero usage a visible sliver so the bar never looks broken.
-  const barWidth = used > 0 ? Math.max(pct, 4) : 0;
-
-  const unit = onTokens
-    ? t("chat.composer.quota.tokens", { defaultValue: "tokens" })
-    : t("chat.composer.quota.requests", { defaultValue: "requests" });
-
-  return (
-    <div
-      className="mt-2 flex items-center gap-2 px-1"
-      title={t("chat.composer.quota.tooltip", {
-        defaultValue: isPinned
-          ? "Today's free-tier {{unit}} used for {{model}}"
-          : "Today's free-tier {{unit}} used, auto-route default ({{model}})",
-        unit,
-        model: activeModel,
-      })}
-    >
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-text-muted/15">
-        <div
-          className={cn(
-            "h-full rounded-full transition-all",
-            nearLimit ? "bg-danger" : "bg-accent",
-          )}
-          style={{ width: `${barWidth}%` }}
-        />
-      </div>
-      <span
-        className={cn(
-          "shrink-0 text-2xs tabular-nums",
-          nearLimit ? "text-danger" : "text-text-muted",
-        )}
-      >
-        {used.toLocaleString()} / {limit.toLocaleString()}
-      </span>
-    </div>
-  );
+  return rows;
 }
 
 export function ModelPicker({
   value,
   options,
   onChange,
-  label,
-  compact = false,
+  autoModel,
+  quotaRows = [],
 }: {
   /** null = Default (full fallback chain). A provider = strict pick, no fallback. */
   value: AiProvider | null;
   options: AiProvider[];
   onChange: (next: AiProvider | null) => void;
-  label?: string;
-  /** Icon-only square trigger (mobile), no label / chevron / help button. */
-  compact?: boolean;
+  /** Model id the auto-route bills when nothing is pinned (footer label). */
+  autoModel: string;
+  /** Today's per-model usage (shared with the footer so it never goes stale). */
+  quotaRows?: ReadonlyArray<PnyxyQuotaRow>;
 }) {
   const { t } = useTranslation();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -249,88 +173,31 @@ export function ModelPicker({
     s.enabledProviders.includes("pnyxy"),
   );
 
-  // Per-model usage, fetched lazily on first dropdown open. Signed-in only.
-  const user = useAuthStore((s) => s.user);
-  const [quotaRows, setQuotaRows] = useState<PnyxyQuotaRow[]>([]);
-  const [quotaLoaded, setQuotaLoaded] = useState(false);
-  useEffect(() => {
-    if (!open || quotaLoaded || !user) return;
-    let cancelled = false;
-    supabase.rpc("get_my_ai_usage_today").then(({ data, error }) => {
-      if (cancelled) return;
-      if (!error && Array.isArray(data)) {
-        setQuotaRows(data as PnyxyQuotaRow[]);
-      }
-      setQuotaLoaded(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, quotaLoaded, user]);
   // Most-constrained model (higher of the tokens/requests ratios) headlines the Default subtitle.
   const quotaHeadline =
     quotaRows.length === 0
       ? null
       : quotaRows
-          .map((r) => {
-            const tokensRatio = r.tokens_limit
-              ? r.tokens_used / r.tokens_limit
-              : 0;
-            const requestsRatio = r.request_limit
-              ? r.request_count / r.request_limit
-              : 0;
-            return { row: r, ratio: Math.max(tokensRatio, requestsRatio) };
-          })
+          .map((r) => ({ row: r, ratio: usageRatio(r) }))
           .reduce((a, b) => (a.ratio > b.ratio ? a : b));
 
-  // BYOK provider name → pinned free-tier model → "Default".
-  const triggerLabel = value
-    ? PROVIDER_INFO[value].model
-    : pnyxyModel
-      ? `Pnyxy: ${PNYXY_MODEL_OPTIONS.find((m) => m.id === pnyxyModel)?.label ?? pnyxyModel}`
-      : t("chat.composer.modelDefault");
+  const triggerLabel = modelDisplayLabel(value, pnyxyModel, autoModel);
+  const pickerTitle = t("chat.composer.modelLabel");
 
   return (
-    <div className="flex min-w-0 items-center gap-1 text-2xs text-text-muted">
-      {label && !compact && (
-        <span className="font-medium uppercase tracking-wider">{label}</span>
-      )}
+    <>
       <button
         ref={triggerRef}
+        type="button"
         onClick={() => setOpen((v) => !v)}
-        className={
-          compact
-            ? "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-glass-border bg-bg-primary/50 text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-            : "inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md border border-glass-border bg-bg-primary/50 px-2 text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-        }
-        title={compact ? triggerLabel : undefined}
-        aria-label={compact ? triggerLabel : undefined}
+        className="rounded-control px-1 py-0.5 text-2xs text-text-muted-2 transition-colors hover:text-text-primary cursor-pointer"
+        title={pickerTitle}
+        aria-label={`${pickerTitle}: ${triggerLabel}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
       >
-        <Bot size={compact ? 18 : 12} className="shrink-0 text-accent/80" />
-        {!compact && (
-          <>
-            <span className="truncate max-w-[100px] sm:max-w-none">
-              {triggerLabel}
-            </span>
-            <ChevronDown size={11} className="shrink-0" />
-          </>
-        )}
+        {triggerLabel}
       </button>
-      {!compact && (
-        <button
-          type="button"
-          onClick={() => setInfoOpen(true)}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-          title={t("chat.composer.modelHelp", {
-            defaultValue: "Modellek leírása",
-          })}
-          aria-label={t("chat.composer.modelHelp", {
-            defaultValue: "Modellek leírása",
-          })}
-        >
-          <HelpCircle size={14} />
-        </button>
-      )}
       <ModelInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
       <FloatingMenu
         open={open}
@@ -351,22 +218,10 @@ export function ModelPicker({
         />
         {pnyxyConfigured && (
           <>
-            <div className="my-0.5 h-px bg-glass-border" />
+            <div className="my-0.5 h-px bg-surface-3" />
             {PNYXY_MODEL_OPTIONS.map((m) => {
               const row = quotaRows.find((q) => q.model === m.id);
-              const headline = row
-                ? {
-                    row,
-                    ratio: Math.max(
-                      row.tokens_limit
-                        ? row.tokens_used / row.tokens_limit
-                        : 0,
-                      row.request_limit
-                        ? row.request_count / row.request_limit
-                        : 0,
-                    ),
-                  }
-                : null;
+              const headline = row ? { row, ratio: usageRatio(row) } : null;
               return (
                 <ModelOption
                   key={m.id}
@@ -384,9 +239,7 @@ export function ModelPicker({
             })}
           </>
         )}
-        {options.length > 0 && (
-          <div className="my-0.5 h-px bg-glass-border" />
-        )}
+        {options.length > 0 && <div className="my-0.5 h-px bg-surface-3" />}
         {options.map((p) => (
           <ModelOption
             key={p}
@@ -399,8 +252,20 @@ export function ModelPicker({
             }}
           />
         ))}
+        <div className="my-0.5 h-px bg-surface-3" />
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            setInfoOpen(true);
+          }}
+          className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+        >
+          <HelpCircle size={14} strokeWidth={1.5} />
+          {t("chat.composer.modelHelp")}
+        </button>
       </FloatingMenu>
-    </div>
+    </>
   );
 }
 
@@ -431,26 +296,18 @@ function ModelOption({
           : "text-text-muted";
   return (
     <button
+      type="button"
       onClick={onClick}
       className={cn(
         "flex w-full items-start justify-between gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-glass-hover cursor-pointer",
-        active
-          ? "text-accent"
-          : "text-text-secondary hover:text-text-primary",
+        active ? "text-text-primary" : "text-text-secondary hover:text-text-primary",
       )}
     >
-      <span className="flex flex-col gap-0.5 min-w-0">
+      <span className="flex min-w-0 flex-col gap-0.5">
         <span className="font-medium">{label}</span>
-        <span
-          className={cn(
-            "text-2xs",
-            active ? "text-accent/70" : "text-text-muted",
-          )}
-        >
-          {subtitle}
-        </span>
+        <span className="text-2xs text-text-muted">{subtitle}</span>
         {quotaHeadline && (
-          <span className={cn("text-2xs font-mono", quotaColor)}>
+          <span className={cn("font-mono text-2xs", quotaColor)}>
             {quotaHeadline.row.tokens_used.toLocaleString()}/
             {quotaHeadline.row.tokens_limit.toLocaleString()} tok ·{" "}
             {quotaHeadline.row.request_count}/
@@ -458,89 +315,8 @@ function ModelOption({
           </span>
         )}
       </span>
-      {active && <Check size={12} className="mt-0.5 shrink-0" />}
+      {active && <Check size={14} strokeWidth={1.5} className="mt-0.5 shrink-0" />}
     </button>
-  );
-}
-
-function ModePicker({
-  value,
-  onChange,
-  allowImage,
-}: {
-  value: RecommendationMode;
-  onChange: (next: RecommendationMode) => void;
-  /** Hide the "Generate image" option when no OpenAI key is configured. */
-  allowImage: boolean;
-}) {
-  const { t } = useTranslation();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const [open, setOpen] = useState(false);
-
-  const labels: Record<RecommendationMode, string> = {
-    default: t("chat.composer.modeDefault", { defaultValue: "Chat" }),
-    books: t("chat.composer.modeBooks", { defaultValue: "Recommend books" }),
-    videos: t("chat.composer.modeVideos", {
-      defaultValue: "Recommend videos",
-    }),
-    image: t("chat.composer.modeImage", { defaultValue: "Generate image" }),
-  };
-  const subtitles: Record<RecommendationMode, string> = {
-    default: t("chat.composer.modeDefaultSubtitle", {
-      defaultValue: "Regular chat with the AI",
-    }),
-    books: t("chat.composer.modeBooksSubtitle", {
-      defaultValue: "AI suggests books on a topic",
-    }),
-    videos: t("chat.composer.modeVideosSubtitle", {
-      defaultValue: "AI suggests videos, courses, and guides on a topic",
-    }),
-    image: t("chat.composer.modeImageSubtitle", {
-      defaultValue: "AI generates an image from your prompt (OpenAI key)",
-    }),
-  };
-
-  return (
-    <div className="flex min-w-0 items-center gap-1.5 text-2xs text-text-muted">
-      <button
-        ref={triggerRef}
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          "inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors cursor-pointer",
-          value === "default"
-            ? "border-glass-border bg-bg-primary/50 text-text-secondary hover:bg-glass-hover hover:text-text-primary"
-            : "border-accent/40 bg-accent/15 text-accent hover:bg-accent/20",
-        )}
-      >
-        <Sparkles size={12} className="shrink-0" />
-        <span className="truncate max-w-[80px] sm:max-w-none">
-          {labels[value]}
-        </span>
-        <ChevronDown size={11} className="shrink-0" />
-      </button>
-      <FloatingMenu
-        open={open}
-        anchorRef={triggerRef}
-        onClose={() => setOpen(false)}
-        className="w-72"
-      >
-        {(allowImage
-          ? (["default", "books", "videos", "image"] as const)
-          : (["default", "books", "videos"] as const)
-        ).map((m) => (
-          <ModelOption
-            key={m}
-            active={value === m}
-            label={labels[m]}
-            subtitle={subtitles[m]}
-            onClick={() => {
-              onChange(m);
-              setOpen(false);
-            }}
-          />
-        ))}
-      </FloatingMenu>
-    </div>
   );
 }
 
@@ -551,21 +327,22 @@ function AttachmentCard({
   attachment: ChatMessageAttachment;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation();
   const dataUri = `data:${attachment.media_type};base64,${attachment.data}`;
   return (
     <div
-      className="group relative flex h-12 items-center gap-2 rounded-md border border-glass-border bg-glass-bg/60 pl-1.5 pr-7"
+      className="group relative flex h-12 items-center gap-2 rounded-control bg-surface-3 pl-1.5 pr-8"
       title={attachment.name ?? attachment.kind}
     >
       {attachment.kind === "image" ? (
         <img
           src={dataUri}
           alt={attachment.name ?? "attachment"}
-          className="h-9 w-9 shrink-0 rounded object-cover"
+          className="h-9 w-9 shrink-0 rounded-[8px] object-cover"
         />
       ) : (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-bg-primary text-text-muted">
-          <ImageIcon size={14} />
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-bg-primary text-text-muted">
+          <ImageIcon size={16} strokeWidth={1.5} />
         </div>
       )}
       {attachment.name && (
@@ -576,10 +353,11 @@ function AttachmentCard({
       <button
         type="button"
         onClick={onRemove}
-        aria-label="Remove attachment"
-        className="absolute right-1 top-1 rounded-full bg-bg-primary/80 p-0.5 text-text-muted transition-colors hover:bg-bg-primary hover:text-text-primary cursor-pointer"
+        aria-label={t("chat.composer.attachments.remove")}
+        title={t("chat.composer.attachments.remove")}
+        className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-text-muted transition-colors hover:bg-bg-primary/60 hover:text-text-primary cursor-pointer"
       >
-        <X size={11} />
+        <X size={12} strokeWidth={1.5} />
       </button>
     </div>
   );
@@ -590,13 +368,22 @@ export interface ChatComposerSubmitPayload {
   provider: AiProvider | null;
   mode: RecommendationMode;
   attachments: ChatMessageAttachment[];
-  /** Only the OpenAI BYOK path honors this (swaps gpt-4o-mini → o3-mini). */
+  /** Only the OpenAI BYOK path honors this (swaps gpt-4o-mini -> o3-mini). */
   reasoning: boolean;
 }
 
 /** forwardRef handle letting external surfaces (e.g. reader rect-to-AI) drop in attachments. */
 export interface ChatComposerHandle {
   addAttachments: (atts: ChatMessageAttachment[]) => void;
+}
+
+/** Source-document chip in the composer's bottom row (book + pages). */
+export interface ChatComposerContextChip {
+  label: string;
+  /** Click on the chip: jump into the reader. */
+  onOpen: () => void;
+  /** The x: hide for this session. */
+  onHide: () => void;
 }
 
 interface ChatComposerProps {
@@ -608,13 +395,18 @@ interface ChatComposerProps {
   /** When true the send button becomes a stop button. */
   isStreaming: boolean;
   onStop: () => void;
-  /** When set, renders the History button; returns prompt text to prepend to the input. */
+  /** When set, renders the reading-context entries in the "+" menu; returns prompt text to prepend to the input. */
   onLoadReadingContext?: (mode: "week" | "all") => Promise<string>;
   /** Override the textarea placeholder i18n key. */
   placeholderKey?: string;
-  /** Mobile-flush variant: drops side/bottom borders so the composer meets the screen edges. */
+  /** Mobile-flush variant: drops the bottom corners so the composer meets the screen edge. */
   edgeToEdgeOnMobile?: boolean;
+  /** Source-document chip (book + pages) at the left of the bottom row. */
+  contextChip?: ChatComposerContextChip | null;
 }
+
+const menuRowClass =
+  "flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
 
 export const ChatComposer = forwardRef<
   ChatComposerHandle,
@@ -629,6 +421,7 @@ export const ChatComposer = forwardRef<
     onLoadReadingContext,
     placeholderKey = "chat.composerPlaceholder",
     edgeToEdgeOnMobile = false,
+    contextChip = null,
   },
   ref,
 ) {
@@ -645,7 +438,7 @@ export const ChatComposer = forwardRef<
     [enabledProviders],
   );
 
-  // "Use whole book": only shown with an active reader doc. Confirm modal → selectAllAiPages.
+  // "Use whole book": only shown with an active reader doc. Confirm modal -> selectAllAiPages.
   const activeDoc = useActiveDocument();
   const selectAllAiPages = useReaderStore((s) => s.selectAllAiPages);
   const allPagesAlreadySelected =
@@ -682,20 +475,21 @@ export const ChatComposer = forwardRef<
   }, [configuredProviders, selectedProvider]);
 
   const [mode, setMode] = useState<RecommendationMode>("default");
-  // mobile "+" secondary-actions menu (attach / whole-book / reasoning / mode / usage)
+  // "+" secondary-actions menu (mode / reasoning / whole-book / reading context,
+  // plus attach on mobile)
   const plusBtnRef = useRef<HTMLButtonElement>(null);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
 
-  // Quota bar only applies when the turn bills the Pnyxy bucket (Default or proxy picked).
+  // Quota line only applies when the turn bills the Pnyxy bucket (Default or proxy picked).
   const pnyxyModel = useSettingsStore((s) => s.pnyxyModel);
   const usesPnyxyQuota =
     (selectedProvider === null || selectedProvider === "pnyxy") &&
     configuredProviders.includes("pnyxy");
   // Predict the billed model the SAME way the proxy routes it. Grounding
-  // (web search → gemini-3) is on only when the turn carries NO document
+  // (web search -> gemini-3) is on only when the turn carries NO document
   // context, and the proxy keys that off the active conversation's
   // source_doc_title, NOT the reader's open doc. Mirror that signal so
-  // the bar tracks the bucket the proxy actually records; fall back to
+  // the line tracks the bucket the proxy actually records; fall back to
   // the reader doc only when there's no conversation yet (a fresh
   // reader-panel chat will attach the doc).
   const convHasDoc = useChatStore((s) => {
@@ -704,9 +498,48 @@ export const ChatComposer = forwardRef<
     return conv ? !!conv.source_doc_title : undefined;
   });
   const turnHasDoc = convHasDoc ?? !!activeDoc;
-  const activeQuotaModel =
-    pnyxyModel ??
-    (turnHasDoc ? QUOTA_AUTO_DEFAULT_MODEL : QUOTA_AUTO_GROUNDED_MODEL);
+
+  // "Context" submenu in the "+" menu: pick a context preset for this
+  // conversation. With a book it binds the preset to the book (durable,
+  // settings-store); without one it is a session-only override.
+  const aiContexts = useSettingsStore((s) => s.aiContexts);
+  const aiContextBindings = useSettingsStore((s) => s.aiContextBindings);
+  const bindAiContext = useSettingsStore((s) => s.bindAiContext);
+  const activeConversationId = useChatStore((s) => s.activeConversationId);
+  const convDocId = useChatStore((s) => {
+    if (!s.activeConversationId) return null;
+    return s.conversations.find((c) => c.id === s.activeConversationId)?.source_doc_id ?? null;
+  });
+  const contextDocId = convDocId ?? activeDoc?.meta.id ?? null;
+  const sessionKey = activeConversationId ?? AI_CONTEXT_DRAFT_CONVERSATION_KEY;
+  const sessionOverride = useAiContextSessionStore((s) => s.overrides[sessionKey] ?? null);
+  const setSessionOverride = useAiContextSessionStore((s) => s.setOverride);
+  const pickedContextId = contextDocId
+    ? (aiContextBindings.books[contextDocId] ?? null)
+    : sessionOverride;
+  const [contextSubmenuOpen, setContextSubmenuOpen] = useState(false);
+  const handlePickContext = useCallback(
+    (presetId: string) => {
+      const next = pickedContextId === presetId ? null : presetId;
+      if (contextDocId) bindAiContext("books", contextDocId, next);
+      else setSessionOverride(sessionKey, next);
+      setPlusMenuOpen(false);
+    },
+    [pickedContextId, contextDocId, bindAiContext, setSessionOverride, sessionKey],
+  );
+  const quotaRows = useQuotaRows(isStreaming);
+  // The row that governs the next turn: the pinned model, or on the auto
+  // route the predicted bucket, walking the proxy's chain once it is
+  // exhausted (the proxy skips a full bucket rather than bouncing 429).
+  const quotaSelection = useMemo(
+    () => selectQuotaRow(quotaRows, { pinnedModel: pnyxyModel, turnHasDoc }),
+    [quotaRows, pnyxyModel, turnHasDoc],
+  );
+  const activeQuotaModel = quotaSelection.model;
+  const quotaRow = usesPnyxyQuota ? quotaSelection.row : null;
+  // null hides the line: BYOK provider, anon, or the RPC returned nothing
+  const questionsLeft = quotaRow ? computeQuestionsLeft(quotaRow) : null;
+  const [quotaModalOpen, setQuotaModalOpen] = useState(false);
 
   // Reasoning toggle persists across sends (unlike `mode`). Only routes when OpenAI is configured.
   const [reasoning, setReasoning] = useState(false);
@@ -738,8 +571,6 @@ export const ChatComposer = forwardRef<
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const readingContextBtnRef = useRef<HTMLButtonElement>(null);
-  const [readingMenuOpen, setReadingMenuOpen] = useState(false);
 
   const handleAddFiles = useCallback(
     async (files: FileList | File[]) => {
@@ -847,7 +678,7 @@ export const ChatComposer = forwardRef<
   const handleInsertReadingContext = useCallback(
     async (windowMode: "week" | "all") => {
       if (!onLoadReadingContext) return;
-      setReadingMenuOpen(false);
+      setPlusMenuOpen(false);
       const prompt = await onLoadReadingContext(windowMode);
       if (!prompt) return;
       onChange(value ? `${value}\n\n${prompt}` : prompt);
@@ -895,490 +726,476 @@ export const ChatComposer = forwardRef<
     !attachmentsBlocked &&
     (value.trim().length > 0 || pendingAttachments.length > 0);
 
-  // shared row style for the mobile "+" actions menu
-  const mobileMenuRow =
-    "flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
   const modeLabels: Record<RecommendationMode, string> = {
     default: t("chat.composer.modeDefault", { defaultValue: "Chat" }),
     books: t("chat.composer.modeBooks", { defaultValue: "Recommend books" }),
     videos: t("chat.composer.modeVideos", { defaultValue: "Recommend videos" }),
     image: t("chat.composer.modeImage", { defaultValue: "Generate image" }),
   };
+  const modeOptions = openAiConfigured
+    ? (["default", "books", "videos", "image"] as const)
+    : (["default", "books", "videos"] as const);
+  const wholeBookAvailable = !!activeDoc && activeDoc.totalPages > 0;
+  const showWholeBookChip = wholeBookAvailable && allPagesAlreadySelected;
+  const hasPlusEntries =
+    isMobile ||
+    aiContexts.length > 0 ||
+    openAiConfigured ||
+    wholeBookAvailable ||
+    !!onLoadReadingContext ||
+    modeOptions.length > 1;
+
+  const micButton = speech.supported && (
+    <IconButton
+      size="sm"
+      onClick={() => (speech.listening ? speech.stop() : speech.start())}
+      disabled={isStreaming}
+      variant={speech.listening ? "danger" : "ghost"}
+      className={cn(speech.listening && "bg-danger/15 text-danger")}
+      aria-label={
+        speech.listening
+          ? t("chat.composer.stopListening")
+          : t("chat.composer.startListening")
+      }
+      title={
+        speech.listening
+          ? t("chat.composer.stopListening")
+          : t("chat.composer.startListening")
+      }
+      aria-pressed={speech.listening}
+    >
+      {speech.listening ? (
+        <MicOff size={18} strokeWidth={1.5} />
+      ) : (
+        <Mic size={18} strokeWidth={1.5} />
+      )}
+    </IconButton>
+  );
+
+  // 34 px round send, turns into a stop square while streaming
+  const sendButton = (
+    <button
+      type="button"
+      onClick={() => {
+        if (isStreaming) onStop();
+        else void handleSendClick();
+      }}
+      disabled={!isStreaming && !canSend}
+      className={cn(
+        "inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-text-primary text-bg-primary transition-opacity cursor-pointer",
+        "hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30",
+      )}
+      aria-label={isStreaming ? t("chat.stop") : t("chat.send")}
+      title={isStreaming ? t("chat.stop") : t("chat.send")}
+    >
+      {isStreaming ? (
+        <Square size={14} fill="currentColor" strokeWidth={1.5} />
+      ) : (
+        <ArrowUp size={16} strokeWidth={1.5} />
+      )}
+    </button>
+  );
 
   return (
-    <div
-      className={cn(
-        "border bg-bg-tertiary p-2 shadow-md transition-colors sm:p-3",
-        // Mobile-flush: negative margin breaks out of the parent's px-3 to reach the viewport edge.
-        edgeToEdgeOnMobile
-          ? "-mx-3 rounded-t-2xl border-x-0 border-b-0 sm:mx-0 sm:rounded-2xl sm:border-x sm:border-b"
-          : "rounded-2xl",
-        speech.listening
-          ? "border-accent ring-2 ring-accent/30"
-          : "border-glass-border focus-within:border-accent/60",
-      )}
-    >
-      {pendingAttachments.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-2">
-          {pendingAttachments.map((att, idx) => (
-            <AttachmentCard
-              key={idx}
-              attachment={att}
-              onRemove={() => removeAttachment(idx)}
-            />
-          ))}
-        </div>
-      )}
-      {attachmentError && (
-        <p role="alert" className="mb-2 text-2xs text-danger">
-          {attachmentError}
-        </p>
-      )}
-      {attachmentsBlocked && !attachmentError && (
-        <p className="mb-2 text-2xs text-warning">
-          {t("chat.composer.attachments.needVisionModel")}
-        </p>
-      )}
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onPaste={handlePaste}
-        onKeyDown={(e) => {
-          if (e.key !== "Enter") return;
-          // IME composition guard: mid-composition Enter commits, it's not a send.
-          // keyCode 229 is the legacy equivalent some Android webviews still emit.
-          if (
-            (e.nativeEvent as KeyboardEvent).isComposing ||
-            e.keyCode === 229
-          ) {
-            return;
+    <div className="flex flex-col">
+      <div
+        className={cn(
+          "flex flex-col gap-2.5 rounded-page bg-bg-tertiary px-4 pb-3 pt-3.5 shadow-page transition-shadow",
+          // Mobile-flush: negative margin breaks out of the parent's px-3 to reach the viewport edge.
+          edgeToEdgeOnMobile &&
+            "-mx-3 rounded-b-none sm:mx-0 sm:rounded-page",
+          speech.listening && "ring-2 ring-accent-soft",
+        )}
+      >
+        {pendingAttachments.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {pendingAttachments.map((att, idx) => (
+              <AttachmentCard
+                key={idx}
+                attachment={att}
+                onRemove={() => removeAttachment(idx)}
+              />
+            ))}
+          </div>
+        )}
+        {attachmentError && (
+          <p role="alert" className="text-2xs text-danger">
+            {attachmentError}
+          </p>
+        )}
+        {attachmentsBlocked && !attachmentError && (
+          <p className="text-2xs text-warning">
+            {t("chat.composer.attachments.needVisionModel")}
+          </p>
+        )}
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onPaste={handlePaste}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            // IME composition guard: mid-composition Enter commits, it's not a send.
+            // keyCode 229 is the legacy equivalent some Android webviews still emit.
+            if (
+              (e.nativeEvent as KeyboardEvent).isComposing ||
+              e.keyCode === 229
+            ) {
+              return;
+            }
+            // Mobile: Ctrl/Cmd+Enter sends. Desktop: Enter sends, Shift+Enter newline.
+            const sendIntent = isMobile
+              ? e.ctrlKey || e.metaKey
+              : !e.shiftKey;
+            // Enter must not send while streaming (one turn at a time).
+            if (sendIntent && !isStreaming) {
+              e.preventDefault();
+              void handleSendClick();
+            }
+          }}
+          placeholder={
+            speech.listening
+              ? t("chat.composer.listeningPlaceholder")
+              : t(placeholderKey)
           }
-          // Mobile: Ctrl/Cmd+Enter sends. Desktop: Enter sends, Shift+Enter newline.
-          const sendIntent = isMobile
-            ? e.ctrlKey || e.metaKey
-            : !e.shiftKey;
-          // Enter must not send while streaming (one turn at a time).
-          if (sendIntent && !isStreaming) {
-            e.preventDefault();
-            void handleSendClick();
-          }
-        }}
-        placeholder={
-          speech.listening
-            ? t("chat.composer.listeningPlaceholder")
-            : t(placeholderKey)
-        }
-        rows={1}
-        className="block min-h-[2.25rem] w-full resize-none bg-transparent px-1 text-base text-text-primary placeholder:text-text-muted outline-none sm:min-h-[3rem] sm:text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      />
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/gif,image/webp"
-        multiple
-        className="hidden"
-        onChange={(e) => {
-          if (e.target.files) void handleAddFiles(e.target.files);
-          e.target.value = "";
-        }}
-      />
-      {isMobile ? (
-        /* Mobile: Gemini-style single row, "+" menu (attach + secondary
-           actions) on the left, a compact model square + mic/send on the
-           right. Everything else lives behind the "+" so the common case is
-           just type-and-send. */
-        <div className="mt-1.5 flex items-center gap-1.5">
-          <button
-            ref={plusBtnRef}
-            type="button"
-            onClick={() => setPlusMenuOpen((v) => !v)}
-            disabled={isStreaming}
-            aria-label={t("chat.composer.moreActions", { defaultValue: "More" })}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-glass-border bg-bg-primary/50 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Plus size={20} />
-          </button>
-          <FloatingMenu
-            open={plusMenuOpen}
-            anchorRef={plusBtnRef}
-            onClose={() => setPlusMenuOpen(false)}
-            className="w-64"
-          >
-            <button
-              type="button"
-              disabled={
-                isStreaming ||
-                pendingAttachments.length >= effectiveAttachmentCap
-              }
-              onClick={() => {
-                setPlusMenuOpen(false);
-                fileInputRef.current?.click();
-              }}
-              className={mobileMenuRow}
-            >
-              <Paperclip size={16} />
-              {t("chat.composer.attachments.add")}
-            </button>
-            {activeDoc && activeDoc.totalPages > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setPlusMenuOpen(false);
-                  void handleSelectWholeBook();
-                }}
-                className={mobileMenuRow}
-              >
-                <BookOpenCheck size={16} />
-                {t("chat.composer.wholeBook.button", {
-                  defaultValue: "Use the whole book as context",
-                })}
-                {allPagesAlreadySelected && (
-                  <Check size={14} className="ml-auto shrink-0 text-accent" />
-                )}
-              </button>
+          rows={1}
+          className="block min-h-[1.75rem] w-full resize-none bg-transparent px-1 py-0.5 text-[15px] leading-normal text-text-primary outline-none placeholder:text-text-muted-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files) void handleAddFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+
+        {/* bottom row: context chip + active option chips + "+" | mic, attach, send */}
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {contextChip && (
+              <span className={cn(chipActiveClass, "shrink-0 pr-1.5")}>
+                <button
+                  type="button"
+                  onClick={contextChip.onOpen}
+                  className="inline-flex min-w-0 items-center gap-1.5 cursor-pointer hover:text-text-primary"
+                  title={t("chat.openInReader")}
+                >
+                  <BookOpen size={14} strokeWidth={1.5} className="shrink-0" />
+                  <span className="max-w-[16rem] truncate">{contextChip.label}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={contextChip.onHide}
+                  aria-label={t("chat.hideSourceChip")}
+                  title={t("chat.hideSourceChip")}
+                  className="ml-0.5 rounded-full p-0.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+                >
+                  <X size={12} strokeWidth={1.5} />
+                </button>
+              </span>
             )}
-            {openAiConfigured && (
-              <button
-                type="button"
-                onClick={() => setReasoning((r) => !r)}
-                className={mobileMenuRow}
-              >
-                <Sparkles
-                  size={16}
-                  className={reasoning ? "text-accent" : undefined}
-                />
+            {mode !== "default" && (
+              <span className={cn(chipActiveClass, "shrink-0 pr-1.5")}>
+                <Sparkles size={14} strokeWidth={1.5} className="shrink-0" />
+                {modeLabels[mode]}
+                <button
+                  type="button"
+                  onClick={() => setMode("default")}
+                  aria-label={t("chat.composer.clearMode")}
+                  title={t("chat.composer.clearMode")}
+                  className="ml-0.5 rounded-full p-0.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+                >
+                  <X size={12} strokeWidth={1.5} />
+                </button>
+              </span>
+            )}
+            {reasoning && (
+              <span className={cn(chipActiveClass, "shrink-0 pr-1.5")}>
+                <Brain size={14} strokeWidth={1.5} className="shrink-0" />
                 {t("chat.composer.reasoning.label", {
                   defaultValue: "Reasoning mode",
                 })}
-                {reasoning && (
-                  <Check size={14} className="ml-auto shrink-0 text-accent" />
-                )}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setReasoning(false)}
+                  aria-label={t("chat.composer.reasoning.off")}
+                  title={t("chat.composer.reasoning.off")}
+                  className="ml-0.5 rounded-full p-0.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+                >
+                  <X size={12} strokeWidth={1.5} />
+                </button>
+              </span>
             )}
-            {onLoadReadingContext && (
+            {showWholeBookChip && (
+              <span
+                className={cn(chipActiveClass, "shrink-0")}
+                title={t("chat.composer.wholeBook.button", {
+                  defaultValue: "Use the whole book as context",
+                })}
+              >
+                <BookOpenCheck size={14} strokeWidth={1.5} className="shrink-0" />
+                {t("chat.composer.wholeBook.chip")}
+              </span>
+            )}
+            {hasPlusEntries && (
               <>
                 <button
+                  ref={plusBtnRef}
                   type="button"
-                  onClick={() => {
-                    setPlusMenuOpen(false);
-                    void handleInsertReadingContext("week");
-                  }}
-                  className={mobileMenuRow}
+                  onClick={() => setPlusMenuOpen((v) => !v)}
+                  disabled={isStreaming}
+                  aria-label={t("chat.composer.moreActions", {
+                    defaultValue: "More",
+                  })}
+                  title={t("chat.composer.moreActions", { defaultValue: "More" })}
+                  aria-haspopup="menu"
+                  aria-expanded={plusMenuOpen}
+                  className={cn(
+                    chipClass,
+                    "shrink-0 px-2 text-text-muted transition-colors cursor-pointer hover:bg-surface-3 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40",
+                  )}
                 >
-                  <History size={16} />
-                  {t("chat.readingContext.weekTitle")}
+                  <Plus size={16} strokeWidth={1.5} />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPlusMenuOpen(false);
-                    void handleInsertReadingContext("all");
-                  }}
-                  className={mobileMenuRow}
+                <FloatingMenu
+                  open={plusMenuOpen}
+                  anchorRef={plusBtnRef}
+                  onClose={() => setPlusMenuOpen(false)}
+                  className="w-64"
                 >
-                  <History size={16} />
-                  {t("chat.readingContext.recentTitle")}
-                </button>
+                  {isMobile && (
+                    <button
+                      type="button"
+                      disabled={
+                        isStreaming ||
+                        pendingAttachments.length >= effectiveAttachmentCap
+                      }
+                      onClick={() => {
+                        setPlusMenuOpen(false);
+                        fileInputRef.current?.click();
+                      }}
+                      className={menuRowClass}
+                    >
+                      <Paperclip size={16} strokeWidth={1.5} />
+                      {t("chat.composer.attachments.add")}
+                    </button>
+                  )}
+                  {wholeBookAvailable && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPlusMenuOpen(false);
+                        void handleSelectWholeBook();
+                      }}
+                      className={menuRowClass}
+                    >
+                      <BookOpenCheck size={16} strokeWidth={1.5} />
+                      {t("chat.composer.wholeBook.button", {
+                        defaultValue: "Use the whole book as context",
+                      })}
+                      {allPagesAlreadySelected && (
+                        <Check size={14} strokeWidth={1.5} className="ml-auto shrink-0" />
+                      )}
+                    </button>
+                  )}
+                  {openAiConfigured && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReasoning((r) => !r);
+                        setPlusMenuOpen(false);
+                      }}
+                      className={menuRowClass}
+                      title={t("chat.composer.reasoning.button", {
+                        defaultValue:
+                          "Reasoning mode, routes through OpenAI o3-mini for step-by-step math and logic. Slower and ~7x the per-token cost of GPT-4o-mini.",
+                      })}
+                    >
+                      <Brain size={16} strokeWidth={1.5} />
+                      {t("chat.composer.reasoning.label", {
+                        defaultValue: "Reasoning mode",
+                      })}
+                      {reasoning && (
+                        <Check size={14} strokeWidth={1.5} className="ml-auto shrink-0" />
+                      )}
+                    </button>
+                  )}
+                  {onLoadReadingContext && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void handleInsertReadingContext("week")}
+                        className={menuRowClass}
+                        title={t("chat.readingContext.weekHint")}
+                      >
+                        <History size={16} strokeWidth={1.5} />
+                        {t("chat.readingContext.weekTitle")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleInsertReadingContext("all")}
+                        className={menuRowClass}
+                        title={t("chat.readingContext.recentHint")}
+                      >
+                        <History size={16} strokeWidth={1.5} />
+                        {t("chat.readingContext.recentTitle")}
+                      </button>
+                    </>
+                  )}
+                  {aiContexts.length > 0 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setContextSubmenuOpen((v) => !v)}
+                        aria-expanded={contextSubmenuOpen}
+                        className={menuRowClass}
+                        title={t("chat.composer.context.hint", {
+                          defaultValue:
+                            "Which saved context the AI gets for this conversation. With a book it is remembered for the book, otherwise only for this session.",
+                        })}
+                      >
+                        <ScrollText size={16} strokeWidth={1.5} />
+                        <span className="min-w-0 flex-1 truncate">
+                          {t("chat.composer.context.label", { defaultValue: "Context" })}
+                          {pickedContextId && (
+                            <span className="text-text-muted">
+                              {": "}
+                              {aiContexts.find((p) => p.id === pickedContextId)?.name}
+                            </span>
+                          )}
+                        </span>
+                        <ChevronRight
+                          size={14}
+                          strokeWidth={1.5}
+                          className={cn(
+                            "ml-auto shrink-0 transition-transform",
+                            contextSubmenuOpen && "rotate-90",
+                          )}
+                        />
+                      </button>
+                      {contextSubmenuOpen &&
+                        aiContexts.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => handlePickContext(p.id)}
+                            className={cn(menuRowClass, "pl-9")}
+                          >
+                            <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                            {pickedContextId === p.id && (
+                              <Check size={14} strokeWidth={1.5} className="ml-auto shrink-0" />
+                            )}
+                          </button>
+                        ))}
+                    </>
+                  )}
+                  {(isMobile ||
+                    wholeBookAvailable ||
+                    openAiConfigured ||
+                    aiContexts.length > 0 ||
+                    onLoadReadingContext) && (
+                    <div className="my-1 h-px bg-surface-3" />
+                  )}
+                  <p className="px-3 pb-1 pt-1 text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
+                    {t("chat.composer.modeLabel", { defaultValue: "Mode" })}
+                  </p>
+                  {modeOptions.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => {
+                        setMode(m);
+                        setPlusMenuOpen(false);
+                      }}
+                      className={menuRowClass}
+                    >
+                      <Sparkles size={16} strokeWidth={1.5} />
+                      {modeLabels[m]}
+                      {mode === m && (
+                        <Check size={14} strokeWidth={1.5} className="ml-auto shrink-0" />
+                      )}
+                    </button>
+                  ))}
+                </FloatingMenu>
               </>
             )}
-            <div className="my-1 border-t border-glass-border" />
-            <p className="px-3 pb-1 text-2xs font-medium uppercase tracking-wider text-text-muted">
-              {t("chat.composer.modeLabel", { defaultValue: "Mode" })}
-            </p>
-            {(openAiConfigured
-              ? (["default", "books", "videos", "image"] as const)
-              : (["default", "books", "videos"] as const)
-            ).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => {
-                  setMode(m);
-                  setPlusMenuOpen(false);
-                }}
-                className={mobileMenuRow}
-              >
-                <Sparkles
-                  size={16}
-                  className={
-                    mode === m && m !== "default" ? "text-accent" : undefined
-                  }
-                />
-                {modeLabels[m]}
-                {mode === m && (
-                  <Check size={14} className="ml-auto shrink-0 text-accent" />
-                )}
-              </button>
-            ))}
-            {usesPnyxyQuota && (
-              <div className="border-t border-glass-border px-3 pb-2 pt-2">
-                <QuotaBar
-                  activeModel={activeQuotaModel}
-                  isPinned={pnyxyModel !== null}
-                  isStreaming={isStreaming}
-                />
-              </div>
-            )}
-          </FloatingMenu>
+          </div>
 
-          <div className="min-w-0 flex-1" />
-
-          <ModelPicker
-            compact
-            value={selectedProvider}
-            options={configuredProviders}
-            onChange={setSelectedProvider}
-          />
-
-          {isStreaming ? (
-            <button
-              type="button"
-              onClick={onStop}
-              aria-label={t("chat.stop")}
-              title={t("chat.stop")}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-white transition-colors hover:bg-accent/80 cursor-pointer"
-            >
-              <Square size={14} fill="currentColor" />
-            </button>
-          ) : canSend ? (
-            <button
-              type="button"
-              onClick={() => void handleSendClick()}
-              aria-label={t("chat.send")}
-              title={t("chat.send")}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-white transition-colors hover:bg-accent/80 cursor-pointer"
-            >
-              <ArrowUp size={18} strokeWidth={2.5} />
-            </button>
-          ) : speech.supported ? (
-            <button
-              type="button"
-              onClick={() => (speech.listening ? speech.stop() : speech.start())}
-              aria-label={
-                speech.listening
-                  ? t("chat.composer.stopListening")
-                  : t("chat.composer.startListening")
-              }
-              title={
-                speech.listening
-                  ? t("chat.composer.stopListening")
-                  : t("chat.composer.startListening")
-              }
-              className={cn(
-                "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors cursor-pointer",
-                speech.listening
-                  ? "border-danger/40 bg-danger/20 text-danger hover:bg-danger/30"
-                  : "border-glass-border bg-bg-primary/50 text-text-muted hover:bg-glass-hover hover:text-text-primary",
-              )}
-            >
-              {speech.listening ? <MicOff size={18} /> : <Mic size={18} />}
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled
-              aria-label={t("chat.send")}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-glass-bg text-text-muted cursor-not-allowed"
-            >
-              <ArrowUp size={18} strokeWidth={2.5} />
-            </button>
+          {speech.error && (
+            <span className="truncate text-2xs text-danger">
+              {speech.error === "not-allowed"
+                ? t("chat.composer.micDenied")
+                : t("chat.composer.micError")}
+            </span>
           )}
+          <div className="flex shrink-0 items-center gap-1">
+            {micButton}
+            {!isMobile && (
+              <IconButton
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={
+                  isStreaming ||
+                  pendingAttachments.length >= effectiveAttachmentCap
+                }
+                title={t("chat.composer.attachments.add")}
+                aria-label={t("chat.composer.attachments.add")}
+              >
+                <Paperclip size={18} strokeWidth={1.5} />
+              </IconButton>
+            )}
+            {sendButton}
+          </div>
         </div>
-      ) : (
-        <>
-      {/* Toolbar: one row when wide, two stacked rows below the 30rem @container
-          threshold. Container width, not viewport, since Dockview sizes the panel freely. */}
-      <div className="@container/cm mt-1.5 sm:mt-2">
-      <div className="flex flex-col gap-1.5 @[30rem]/cm:flex-row @[30rem]/cm:items-center">
-      <div className="flex min-w-0 items-center gap-1.5 @[30rem]/cm:contents">
+      </div>
+
+      {/* quota + model line: count opens the quota modal, model opens the picker.
+          On a BYOK provider the Pnyxy quota is irrelevant, say so instead. */}
+      <div className="flex items-center justify-center gap-1 pt-2 text-2xs text-text-muted-2">
+        {questionsLeft !== null ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setQuotaModalOpen(true)}
+              className={cn(
+                "rounded-control px-1 py-0.5 transition-colors hover:text-text-primary cursor-pointer",
+                questionsLeft === 0 && "text-danger",
+              )}
+              title={t("chat.quotaModal.title")}
+              aria-haspopup="dialog"
+            >
+              {t("chat.composer.quota.remaining", { count: questionsLeft })}
+            </button>
+            <span aria-hidden="true">·</span>
+          </>
+        ) : selectedProvider && selectedProvider !== "pnyxy" ? (
+          <>
+            <span className="px-1 py-0.5">
+              {t("chat.composer.quota.ownKey")}
+            </span>
+            <span aria-hidden="true">·</span>
+          </>
+        ) : null}
         <ModelPicker
           value={selectedProvider}
           options={configuredProviders}
           onChange={setSelectedProvider}
-        />
-        <ModePicker
-          value={mode}
-          onChange={setMode}
-          allowImage={openAiConfigured}
+          autoModel={activeQuotaModel}
+          quotaRows={quotaRows}
         />
       </div>
-      <div className="flex items-center gap-1.5 @[30rem]/cm:contents">
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={
-            isStreaming || pendingAttachments.length >= effectiveAttachmentCap
-          }
-          title={t("chat.composer.attachments.add")}
-          aria-label={t("chat.composer.attachments.add")}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-glass-border bg-bg-primary/50 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <Paperclip size={14} />
-        </button>
-        {activeDoc && activeDoc.totalPages > 0 && (
-          <button
-            type="button"
-            onClick={() => void handleSelectWholeBook()}
-            disabled={isStreaming}
-            title={t("chat.composer.wholeBook.button", {
-              defaultValue: "Use the whole book as context",
-            })}
-            aria-label={t("chat.composer.wholeBook.button", {
-              defaultValue: "Use the whole book as context",
-            })}
-            aria-pressed={allPagesAlreadySelected}
-            className={cn(
-              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40",
-              allPagesAlreadySelected
-                ? "border-text-muted/40 bg-glass-bg text-text-primary"
-                : "border-glass-border bg-bg-primary/50 text-text-muted hover:bg-glass-hover hover:text-text-primary",
-            )}
-          >
-            <BookOpenCheck size={14} />
-          </button>
-        )}
-        {openAiConfigured && (
-          <button
-            type="button"
-            onClick={() => setReasoning((r) => !r)}
-            disabled={isStreaming}
-            aria-pressed={reasoning}
-            title={t("chat.composer.reasoning.button", {
-              defaultValue:
-                "Reasoning mode, routes through OpenAI o3-mini for step-by-step math and logic. Slower and ~7× the per-token cost of GPT-4o-mini.",
-            })}
-            aria-label={t("chat.composer.reasoning.button", {
-              defaultValue: "Reasoning mode",
-            })}
-            className={cn(
-              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40",
-              reasoning
-                ? "border-accent/50 bg-accent/15 text-accent"
-                : "border-glass-border bg-bg-primary/50 text-text-muted hover:bg-glass-hover hover:text-text-primary",
-            )}
-          >
-            <Sparkles size={14} />
-          </button>
-        )}
-        {onLoadReadingContext && (
-          <>
-            <button
-              ref={readingContextBtnRef}
-              onClick={() => setReadingMenuOpen((v) => !v)}
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-glass-border bg-bg-primary/50 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              title={t("chat.readingContext.title")}
-              aria-label={t("chat.readingContext.button")}
-            >
-              <History size={14} />
-            </button>
-            <FloatingMenu
-              open={readingMenuOpen}
-              anchorRef={readingContextBtnRef}
-              onClose={() => setReadingMenuOpen(false)}
-              className="w-56"
-            >
-              <button
-                onClick={() => void handleInsertReadingContext("week")}
-                className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              >
-                <span className="font-medium">
-                  {t("chat.readingContext.weekTitle")}
-                </span>
-                <span className="text-2xs text-text-muted">
-                  {t("chat.readingContext.weekHint")}
-                </span>
-              </button>
-              <button
-                onClick={() => void handleInsertReadingContext("all")}
-                className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-              >
-                <span className="font-medium">
-                  {t("chat.readingContext.recentTitle")}
-                </span>
-                <span className="text-2xs text-text-muted">
-                  {t("chat.readingContext.recentHint")}
-                </span>
-              </button>
-            </FloatingMenu>
-          </>
-        )}
-        {speech.error && (
-          <span className="ml-auto truncate text-2xs text-danger">
-            {speech.error === "not-allowed"
-              ? t("chat.composer.micDenied")
-              : t("chat.composer.micError")}
-          </span>
-        )}
-        <div
-          className={cn(
-            "flex items-center gap-1.5",
-            !speech.error && "ml-auto",
-          )}
-        >
-          {speech.supported && (
-            <button
-              onClick={() =>
-                speech.listening ? speech.stop() : speech.start()
-              }
-              disabled={isStreaming}
-              className={cn(
-                "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors cursor-pointer",
-                speech.listening
-                  ? "border-danger/40 bg-danger/20 text-danger hover:bg-danger/30"
-                  : "border-glass-border bg-bg-primary/50 text-text-muted hover:bg-glass-hover hover:text-text-primary",
-              )}
-              aria-label={
-                speech.listening
-                  ? t("chat.composer.stopListening")
-                  : t("chat.composer.startListening")
-              }
-              title={
-                speech.listening
-                  ? t("chat.composer.stopListening")
-                  : t("chat.composer.startListening")
-              }
-            >
-              {speech.listening ? <MicOff size={14} /> : <Mic size={14} />}
-            </button>
-          )}
-          <button
-            onClick={() => {
-              if (isStreaming) {
-                onStop();
-              } else {
-                void handleSendClick();
-              }
-            }}
-            disabled={!isStreaming && !canSend}
-            className={cn(
-              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors cursor-pointer",
-              isStreaming || canSend
-                ? "bg-accent text-white hover:bg-accent/80"
-                : "bg-glass-bg text-text-muted disabled:cursor-not-allowed",
-            )}
-            aria-label={isStreaming ? t("chat.stop") : t("chat.send")}
-            title={isStreaming ? t("chat.stop") : t("chat.send")}
-          >
-            {isStreaming ? (
-              <Square size={12} fill="currentColor" />
-            ) : (
-              <ArrowUp size={16} strokeWidth={2.5} />
-            )}
-          </button>
-        </div>
-      </div>
-      </div>
-      </div>
-      {usesPnyxyQuota && (
-        <QuotaBar
-          activeModel={activeQuotaModel}
-          isPinned={pnyxyModel !== null}
-          isStreaming={isStreaming}
-        />
-      )}
-        </>
-      )}
+      <QuotaModal
+        open={quotaModalOpen}
+        onClose={() => setQuotaModalOpen(false)}
+        rows={quotaRows}
+        activeModel={activeQuotaModel}
+        pinnedModel={pnyxyModel}
+        fellThrough={quotaSelection.fellThrough}
+      />
       {ConfirmModalElement}
     </div>
   );

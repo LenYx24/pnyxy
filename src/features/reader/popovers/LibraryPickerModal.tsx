@@ -116,11 +116,11 @@ export function LibraryPickerModal({ onClose }: LibraryPickerModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4  sm:items-center"
       onClick={onClose}
     >
       <div
-        className="flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-glass-border bg-bg-secondary shadow-xl"
+        className="flex w-full max-w-2xl flex-col overflow-hidden rounded-page bg-bg-tertiary shadow-page"
         onClick={(e) => e.stopPropagation()}
         style={{ maxHeight: "80vh" }}
       >
@@ -138,7 +138,7 @@ export function LibraryPickerModal({ onClose }: LibraryPickerModalProps) {
         </div>
 
         <div className="border-b border-glass-border px-4 py-2">
-          <div className="flex items-center gap-2 rounded-md border border-glass-border bg-bg-secondary px-3 py-1.5 focus-within:border-accent">
+          <div className="flex items-center gap-2 rounded-control bg-surface-3 px-3 py-1.5 focus-within:border-accent">
             <Search size={14} className="text-text-muted" />
             <input
               autoFocus

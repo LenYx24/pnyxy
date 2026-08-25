@@ -83,7 +83,7 @@ export function NumberInput({
       )}
       <div
         className={cn(
-          "mt-1 flex items-center overflow-hidden rounded-md border border-glass-border bg-bg-secondary transition-colors focus-within:border-accent",
+          "field mt-1 flex items-center overflow-hidden p-0",
           disabled && "opacity-50",
           label ? "" : "mt-0",
         )}

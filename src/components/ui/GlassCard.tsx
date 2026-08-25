@@ -11,8 +11,9 @@ export function GlassCard({ children, className, onClick }: GlassCardProps) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-glass-border bg-glass-bg backdrop-blur-md",
-        "transition-colors hover:bg-glass-hover",
+        // panel: surface-2, no border, 16 px radius (UI v2)
+        "rounded-panel bg-bg-tertiary",
+        "transition-colors hover:bg-surface-3",
         className,
       )}
       onClick={onClick}

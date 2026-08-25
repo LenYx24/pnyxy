@@ -140,7 +140,7 @@ export function FloatingMenu({
       onMouseLeave={onMouseLeave}
       className={cn(
         // overflow-y-auto + maxHeight lets tall menus scroll instead of clipping
-        "fixed z-[100] min-w-[11rem] overflow-x-hidden overflow-y-auto rounded-lg border border-glass-border bg-bg-secondary/95 py-1 shadow-xl backdrop-blur-xl",
+        "fixed z-[100] min-w-[11rem] overflow-x-hidden overflow-y-auto rounded-panel bg-bg-tertiary py-1 shadow-page",
         className,
       )}
       style={{

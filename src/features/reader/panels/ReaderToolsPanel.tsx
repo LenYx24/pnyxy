@@ -18,6 +18,11 @@ import { useChatStore } from "@/stores/chat-store";
 import { useReaderStore } from "@/stores/reader-store";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { cn } from "@/lib/cn";
+import {
+  segmentedGroupClass,
+  segmentedItemActiveClass,
+  segmentedItemClass,
+} from "@/components/ui/classes";
 import { useFeatures } from "@/lib/use-features";
 import { AiChatPanelContent } from "./AiChatPanel";
 import { AnnotationMenuDefinePanel } from "./AnnotationMenuDefinePanel";
@@ -76,21 +81,21 @@ function LookupQueryBar({
         if (!value.trim()) return;
         onSubmit();
       }}
-      className="flex items-stretch gap-1 p-2"
+      className="flex items-center gap-1 px-3 py-2"
     >
       <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="flex-1 rounded border border-glass-border bg-glass-bg px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent"
+        className="field min-w-0 flex-1 px-3 py-1.5 text-xs"
       />
       <button
         type="submit"
         disabled={!value.trim()}
-        className="flex items-center gap-1 rounded bg-accent/20 px-2.5 py-1.5 text-xs text-accent transition-colors hover:bg-accent/30 cursor-pointer disabled:opacity-50"
+        className="chip inline-flex items-center gap-1 px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary cursor-pointer disabled:opacity-50"
       >
-        <Search size={12} />
+        <Search size={14} strokeWidth={1.5} />
         {t("reader.tools.search")}
       </button>
     </form>
@@ -182,36 +187,40 @@ export function ReaderToolsPanelContent({
   // toggle / new / overflow / close), so the close button still works.
   if (isMobile) {
     return (
-      <div className="flex h-full flex-col bg-bg-secondary">
+      <div className="flex h-full flex-col bg-bg-primary">
         <AiChatPanelContent onClose={onClose} />
       </div>
     );
   }
 
   return (
-    // opaque surface so the dark dockview backdrop can't bleed through and
-    // wash the panel gray in light theme
-    <div className="flex h-full flex-col bg-bg-secondary">
-      {/* Tab bar */}
-      <div className="flex items-center gap-1 border-b border-glass-border px-1.5 py-1">
-        <div className="flex flex-1 items-center gap-0.5 overflow-x-auto">
-          {tabs.map(({ key, icon: Icon, label }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setTab(key)}
-              className={cn(
-                "flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors cursor-pointer",
-                tab === key
-                  ? "bg-accent/15 text-accent"
-                  : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
-              )}
-              title={label}
-            >
-              <Icon size={18} />
-              <span className="hidden sm:inline">{label}</span>
-            </button>
-          ))}
+    <div className="flex h-full flex-col">
+      {/* Caption row: "Margin" + the tools as a compact segmented control */}
+      <div className="flex items-center gap-2 pl-3 pr-2 pb-1 pt-3.5">
+        <span className="shrink-0 px-1 text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
+          {t("reader.tools.margin", { defaultValue: "Margin" })}
+        </span>
+        <div className="min-w-0 flex-1 overflow-x-auto">
+          <div className={cn(segmentedGroupClass, "w-max")}>
+            {tabs.map(({ key, icon: Icon, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTab(key)}
+                className={cn(
+                  segmentedItemClass,
+                  "flex items-center gap-1.5 py-1",
+                  tab === key ? cn("px-2.5", segmentedItemActiveClass) : "px-1.5",
+                )}
+                title={label}
+                aria-label={label}
+                aria-pressed={tab === key}
+              >
+                <Icon size={16} strokeWidth={1.5} />
+                {tab === key && <span className="whitespace-nowrap">{label}</span>}
+              </button>
+            ))}
+          </div>
         </div>
         {/* pop the chat out into its own browser tab (multi-tab reading) */}
         {tab === "chat" && (
@@ -225,19 +234,19 @@ export function ReaderToolsPanelContent({
             aria-label={t("reader.tools.openInNewTab", {
               defaultValue: "Open in new tab",
             })}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] text-text-muted-2 transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
           >
-            <ExternalLink size={16} />
+            <ExternalLink size={16} strokeWidth={1.5} />
           </a>
         )}
         {onClose && (
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] text-text-muted-2 transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
             aria-label={t("reader.aiChat.closeAria")}
           >
-            <X size={18} />
+            <X size={16} strokeWidth={1.5} />
           </button>
         )}
       </div>
@@ -273,7 +282,7 @@ export function ReaderToolsPanelContent({
           {dictQuery ? (
             <AnnotationMenuDefinePanel selectedText={dictQuery} fullWidth />
           ) : (
-            <p className="px-3 py-6 text-center text-xs text-text-muted">
+            <p className="px-3 py-6 text-center text-xs text-text-muted-2">
               {t("reader.tools.emptyDictionary")}
             </p>
           )}
@@ -299,7 +308,7 @@ export function ReaderToolsPanelContent({
           {transQuery ? (
             <AnnotationMenuTranslatePanel selectedText={transQuery} fullWidth />
           ) : (
-            <p className="px-3 py-6 text-center text-xs text-text-muted">
+            <p className="px-3 py-6 text-center text-xs text-text-muted-2">
               {t("reader.tools.emptyTranslate")}
             </p>
           )}

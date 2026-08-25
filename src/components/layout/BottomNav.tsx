@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
+import { useFeature } from "@/lib/use-features";
 
 // Mobile bottom nav: four core surfaces + a "More" entry that opens
 // the sidebar drawer for every other destination (workspace, forum,
@@ -17,22 +18,24 @@ import { useUIStore } from "@/stores/ui-store";
 // extra tap so the rail doesn't grow into a six-icon scrum that
 // outranks the content it sits beneath.
 const navItems = [
-  { to: "/library", icon: Library, key: "library" as const },
   { to: "/chat", icon: BotMessageSquare, key: "chat" as const },
+  { to: "/library", icon: Library, key: "library" as const },
   { to: "/reader", icon: BookOpen, key: "reader" as const },
-  { to: "/browse", icon: Compass, key: "browse" as const },
+  { to: "/browse", icon: Compass, key: "browse" as const, feature: "catalog" as const },
 ];
 
 export function BottomNav() {
   const { t } = useTranslation();
   const setMobileSidebarOpen = useUIStore((s) => s.setMobileSidebarOpen);
+  const catalogOn = useFeature("catalog");
+  const items = navItems.filter((i) => !("feature" in i) || catalogOn);
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-glass-border bg-bg-secondary/90 backdrop-blur-xl pb-safe-bottom md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around bg-bg-primary pb-safe-bottom md:hidden"
       style={{ height: "calc(3.5rem + var(--spacing-safe-bottom, 0px))" }}
     >
-      {navItems.map(({ to, icon: Icon, key }) => {
+      {items.map(({ to, icon: Icon, key }) => {
         const label = t(`sidebar.${key}`, { defaultValue: key });
         return (
           <NavLink
@@ -41,11 +44,11 @@ export function BottomNav() {
             className={({ isActive }) =>
               cn(
                 "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-2xs font-medium transition-colors touch-target",
-                isActive ? "text-accent" : "text-text-muted",
+                isActive ? "text-text-primary" : "text-text-muted",
               )
             }
           >
-            <Icon size={18} />
+            <Icon size={20} strokeWidth={1.5} />
             <span className="truncate">{label}</span>
           </NavLink>
         );
@@ -56,7 +59,7 @@ export function BottomNav() {
         className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-2xs font-medium text-text-muted transition-colors touch-target hover:text-text-primary cursor-pointer"
         aria-label={t("sidebar.more", { defaultValue: "More" })}
       >
-        <Menu size={18} />
+        <Menu size={20} strokeWidth={1.5} />
         <span className="truncate">
           {t("sidebar.more", { defaultValue: "More" })}
         </span>

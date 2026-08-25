@@ -1,0 +1,105 @@
+/* MarkdownEditor: Neutral field-like surface. Tokens come from
+   styles/index.css (@theme), the block has a 1 px tone outline (no border,
+   so the box size never changes) and the same focus ring as `.field`. */
+.md-editor {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  cursor: text;
+  /* editable fields are the one exception to the no-lines rule: a 1 px tone
+     outline keeps the empty box visible on a same-tone parent (settings
+     sections are surface-2 too, so fill alone disappears) */
+  outline: 1px solid var(--color-surface-3);
+  outline-offset: -1px;
+  transition: background-color 150ms, box-shadow 150ms, outline-color 150ms;
+}
+.md-editor:focus-within {
+  background: var(--color-surface-3);
+  outline-color: transparent;
+  box-shadow: 0 0 0 2px var(--color-accent-soft);
+}
+.md-editor__scroll {
+  flex: 1;
+  display: flex;
+}
+.md-editor__scroll > div {
+  flex: 1;
+}
+.md-editor__content {
+  outline: none;
+  padding: 0.75rem 0.875rem 1.75rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  min-height: inherit;
+}
+.md-editor__content > * + * {
+  margin-top: 0.5em;
+}
+.md-editor__content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--color-text-muted-2);
+}
+.md-editor__content h1,
+.md-editor__content h2,
+.md-editor__content h3 {
+  font-family: var(--font-display, inherit);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-text-primary);
+}
+.md-editor__content h1 { font-size: 1.25rem; }
+.md-editor__content h2 { font-size: 1.1rem; }
+.md-editor__content h3 { font-size: 1rem; }
+.md-editor__content ul,
+.md-editor__content ol {
+  padding-left: 1.25rem;
+}
+.md-editor__content ul { list-style: disc; }
+.md-editor__content ol { list-style: decimal; }
+.md-editor__content li + li { margin-top: 0.15em; }
+.md-editor__content blockquote {
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--color-surface-3);
+  color: var(--color-text-secondary);
+}
+.md-editor:focus-within .md-editor__content blockquote {
+  border-left-color: var(--color-text-muted-2);
+}
+.md-editor__content code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.8em;
+  padding: 0.1em 0.35em;
+  border-radius: 6px;
+  background: var(--color-bg-secondary);
+}
+.md-editor__content pre {
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-control);
+  background: var(--color-bg-secondary);
+  overflow-x: auto;
+}
+.md-editor__content pre code {
+  padding: 0;
+  background: transparent;
+}
+.md-editor__content hr {
+  border: 0;
+  height: 1px;
+  background: var(--color-surface-3);
+}
+.md-editor__content strong { font-weight: 600; }
+.md-editor__hint {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.625rem;
+  color: var(--color-text-muted-2);
+  background: var(--color-bg-secondary);
+  pointer-events: none;
+  user-select: none;
+}

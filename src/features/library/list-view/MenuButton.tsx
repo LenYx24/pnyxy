@@ -29,13 +29,13 @@ export function ContextMenu({
           onToggle();
         }}
         className={cn(
-          "rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer",
+          "rounded-control p-1.5 text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer",
           open
             ? "opacity-100"
             : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
         )}
       >
-        <MoreVertical size={14} />
+        <MoreVertical size={16} strokeWidth={1.5} />
       </button>
       <FloatingMenu
         open={open}
@@ -67,11 +67,11 @@ export function MenuItem({
         onClick();
       }}
       className={cn(
-        "flex w-full items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-glass-hover cursor-pointer",
+        "flex w-full items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-surface-3 cursor-pointer",
         danger ? "text-danger" : "text-text-secondary hover:text-text-primary",
       )}
     >
-      <Icon size={14} />
+      <Icon size={16} strokeWidth={1.5} />
       {label}
     </button>
   );

@@ -26,6 +26,7 @@ import { useChatStore } from "@/stores/chat-store";
 import { useReaderStore } from "@/stores/reader-store";
 import { useTtsStore } from "@/stores/tts-store";
 import { useUIStore } from "@/stores/ui-store";
+import { useFeatures } from "@/lib/use-features";
 import type { HighlightColor } from "@/types/annotation";
 import { AnnotationMenuDefinePanel } from "../panels/AnnotationMenuDefinePanel";
 import { AnnotationMenuTranslatePanel } from "../panels/AnnotationMenuTranslatePanel";
@@ -56,6 +57,7 @@ type ActivePanel =
 export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const features = useFeatures();
   const contextMenu = useAnnotationStore((s) => s.contextMenu);
   const addHighlight = useAnnotationStore((s) => s.addHighlight);
   const addComment = useAnnotationStore((s) => s.addComment);
@@ -265,7 +267,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
     <div
       ref={menuRef}
       data-annotation-context-menu
-      className="fixed z-50 flex flex-col gap-1 rounded-lg border border-glass-border bg-bg-secondary/95 backdrop-blur-md p-2 shadow-xl"
+      className="fixed z-50 flex flex-col gap-1 rounded-panel bg-bg-tertiary p-1.5 shadow-page"
       style={{ left: menuPos.x, top: menuPos.y }}
     >
       {/* Color row: pick a color to highlight, or on an existing highlight
@@ -276,7 +278,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
             {COLORS.map(({ color, hex }) => (
               <button
                 key={color}
-                className="h-6 w-6 rounded-full border-2 border-transparent transition-colors cursor-pointer hover:border-white/40 hover:scale-110"
+                className="h-6 w-6 rounded-full border-2 border-transparent transition-transform cursor-pointer hover:scale-110"
                 style={{
                   backgroundColor: hex,
                   borderColor:
@@ -299,7 +301,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
             {hasHighlight && (
               <button
                 onClick={handleRemoveHighlight}
-                className="ml-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-transparent bg-danger/15 text-danger transition-colors cursor-pointer hover:border-danger/60 hover:bg-danger/25 hover:scale-110"
+                className="ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-danger/15 text-danger transition-transform cursor-pointer hover:bg-danger/25 hover:scale-110"
                 title={t("reader.annotationMenu.removeHighlight")}
                 aria-label={t("reader.annotationMenu.removeHighlight")}
               >
@@ -307,7 +309,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
               </button>
             )}
           </div>
-          <div className="h-px bg-glass-border my-0.5" />
+          <div className="my-0.5 h-0.5" />
         </>
       )}
 
@@ -315,7 +317,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
         <div className="flex flex-col gap-0.5">
           {trimmedSelected && (
             <button
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              className="flex items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
               onClick={() => setActivePanel("define")}
             >
               <BookOpen size={14} />
@@ -330,7 +332,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
 
           {trimmedSelected && (
             <button
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              className="flex items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
               onClick={() => setActivePanel("translate")}
             >
               <Languages size={14} />
@@ -340,7 +342,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
 
           {trimmedSelected && (
             <button
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              className="flex items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
               onClick={handleReadAloud}
             >
               <Volume2 size={14} />
@@ -350,7 +352,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
 
           {trimmedSelected && (
             <button
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              className="flex items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
               onClick={() => setActivePanel("wiki")}
             >
               <Globe size={14} />
@@ -360,7 +362,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
 
           {trimmedSelected && (
             <button
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              className="flex items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
               onClick={() => setActivePanel("explain")}
             >
               <Sparkles size={14} />
@@ -368,19 +370,21 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
             </button>
           )}
 
-          {trimmedSelected && <div className="h-px bg-glass-border my-0.5" />}
+          {trimmedSelected && <div className="my-0.5 h-0.5" />}
 
-          <button
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
-            onClick={() => setActivePanel("comment")}
-          >
-            <MessageSquare size={14} />
-            {t("reader.annotationMenu.addComment")}
-          </button>
+          {features.comments && (
+            <button
+              className="flex items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
+              onClick={() => setActivePanel("comment")}
+            >
+              <MessageSquare size={14} />
+              {t("reader.annotationMenu.addComment")}
+            </button>
+          )}
 
           {(hasSelection || hasHighlight) && (
             <button
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              className="flex items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
               onClick={handleSendToChat}
             >
               <Bot size={14} />
@@ -390,7 +394,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
 
           {(hasSelection || hasHighlight) && (
             <button
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              className="flex items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
               onClick={handleCopy}
             >
               <Copy size={14} />
@@ -400,7 +404,7 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
 
           {(hasSelection || hasHighlight) && (
             <button
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+              className="flex items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
               onClick={handleShare}
             >
               <Share2 size={14} />
@@ -446,17 +450,17 @@ export const AnnotationContextMenu = memo(function AnnotationContextMenu() {
             onChange={(e) => setCommentText(e.target.value)}
             onKeyDown={handleCommentKeyDown}
             placeholder={t("reader.annotationMenu.commentPlaceholder")}
-            className="w-48 h-16 rounded border border-glass-border bg-glass-bg px-2 py-1.5 text-xs text-text-primary outline-none resize-none focus:border-accent"
+            className="field h-16 w-48 resize-none px-2.5 py-1.5 text-xs"
           />
           <div className="flex justify-end gap-1">
             <button
-              className="rounded px-2 py-1 text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
+              className="rounded-[8px] px-2 py-1 text-xs text-text-muted transition-colors hover:text-text-primary cursor-pointer"
               onClick={backToActions}
             >
               {t("common.cancel")}
             </button>
             <button
-              className="rounded bg-accent/20 px-2 py-1 text-xs text-accent hover:bg-accent/30 transition-colors cursor-pointer disabled:opacity-40"
+              className="rounded-[8px] bg-text-primary px-2.5 py-1 text-xs font-medium text-bg-primary transition-opacity hover:opacity-90 cursor-pointer disabled:opacity-40"
               disabled={!commentText.trim()}
               onClick={handleSubmitComment}
             >

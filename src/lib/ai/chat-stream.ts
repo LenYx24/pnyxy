@@ -56,7 +56,7 @@ export async function sendOrBranch(
   const sourceDocId = convForBuild?.source_doc_id ?? null;
   let contextPack: Awaited<ReturnType<typeof buildAiContextPack>>;
   try {
-    contextPack = await buildAiContextPack(sourceDocId);
+    contextPack = await buildAiContextPack(sourceDocId, conversationId);
   } catch (err) {
     logError("chat:sendMessage:contextPack", err);
     contextPack = { customContext: "", pageContext: "", imageAttachments: [] };

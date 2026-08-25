@@ -1,5 +1,7 @@
 import { useCallback, useEffect } from "react";
+import { useNavigate } from "react-router";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
+import { unregisterFile } from "@/lib/file-store";
 import { useReaderStore } from "@/stores/reader-store";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useBookmarkStore } from "@/stores/bookmark-store";
@@ -70,6 +72,26 @@ export function useReaderShortcuts({
     ctrl: true,
     description: "Open PDF file",
     handler: triggerFilePicker,
+  });
+
+  // Ctrl+Shift+W: close the active document and go back to the library.
+  // Plain Ctrl+W is the browser's close-tab, so it cannot be intercepted.
+  const navigate = useNavigate();
+  useKeyboardShortcut({
+    id: "reader:close-book",
+    key: "w",
+    ctrl: true,
+    shift: true,
+    description: "Close book",
+    handler: useCallback(() => {
+      const store = useReaderStore.getState();
+      const id = store.activeDocumentId;
+      if (id) {
+        store.removeDocument(id);
+        unregisterFile(id);
+      }
+      navigate("/library");
+    }, [navigate]),
   });
 
   useKeyboardShortcut({

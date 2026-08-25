@@ -13,14 +13,26 @@
 @import "katex/dist/katex.min.css";
 
 @theme {
-  /* Background colors */
-  --color-bg-primary: #0a0a0f;
-  --color-bg-secondary: #111118;
-  --color-bg-tertiary: #1a1a24;
+  /* Pnyxy Neutral (UI v2) is the default palette. The old names are
+     kept so every existing utility keeps working; they are mapped
+     onto the neutral tone steps:
+       bg-primary   = desk        bg-secondary = surface-1
+       bg-tertiary  = surface-2   surface-3    = the hover / active step
+     Kept in sync with `pnyxy-neutral` in src/lib/themes/core.ts, these
+     are the initial defaults before the user-selected theme tokens are
+     applied at runtime. */
+  --color-bg-primary: #131315;
+  --color-bg-secondary: #1a1a1d;
+  --color-bg-tertiary: #222226;
+  --color-surface-3: #2a2a2f;
 
-  /* Accent colors */
-  --color-accent: #0891b2;
-  --color-accent-blue: #60a5fa;
+  /* Accent colors. One accent, used at most once per screen; the
+     soft variant is its tinted chip / focus-ring form. */
+  --color-accent: #5fb3c6;
+  --color-accent-blue: #5fb3c6;
+  --color-accent-soft: rgba(95, 179, 198, 0.14);
+  /* Streak warmth, the only warm color in the neutral palette. */
+  --color-streak: #e0a54a;
 
   /* Semantic state colors. One token per intent, used at full
      strength for text/icons and at low opacity (e.g. bg-danger/15)
@@ -33,21 +45,32 @@
   --color-success: #4ade80;  /* green-400: confirmed / saved / on-track */
   --color-info: #60a5fa;     /* blue-400 : neutral informational */
 
-  /* Text colors. Kept in sync with `pnyxy-dark` in
-     src/lib/themes/core.ts, these are the initial @theme defaults
-     before user-selected theme tokens are applied at runtime. */
-  --color-text-primary: #eaf2ff;
-  --color-text-secondary: #d8e1f5;
-  --color-text-muted: #b0bbd8;
+  /* Text colors: text / text-2 / muted / muted-2. */
+  --color-text-primary: #ececee;
+  --color-text-secondary: #c9c9cf;
+  --color-text-muted: #9a9aa3;
+  --color-text-muted-2: #7d7d86;
 
-  /* Glass/border */
-  --color-glass-bg: rgba(255, 255, 255, 0.05);
-  --color-glass-border: rgba(255, 255, 255, 0.1);
-  --color-glass-hover: rgba(255, 255, 255, 0.08);
+  /* Glass tokens. No 1 px borders on chrome in the neutral language:
+     glass-border is a near-invisible 0.04 alpha so legacy `border
+     border-glass-border` call sites fade out instead of breaking,
+     glass-bg is a surface-2-ish tint and glass-hover is surface-3. */
+  --color-glass-bg: rgba(255, 255, 255, 0.04);
+  --color-glass-border: rgba(255, 255, 255, 0.04);
+  --color-glass-hover: #2a2a2f;
+
+  /* Depth comes from tone steps plus this one shadow. */
+  --shadow-page: 0 8px 30px rgba(0, 0, 0, 0.45);
+
+  /* Radii: controls 12, panels 16, page surfaces 24, chips 999. */
+  --radius-control: 12px;
+  --radius-panel: 16px;
+  --radius-page: 24px;
+  --radius-chip: 999px;
 
   /* Sidebar widths */
   --spacing-sidebar-expanded: 16rem;
-  --spacing-sidebar-collapsed: 4rem;
+  --spacing-sidebar-collapsed: 3.5rem;
 
   /* Bottom nav */
   --spacing-bottom-nav: 3.5rem;
@@ -273,6 +296,11 @@ html.tauri-app {
      * text on white background even when the closed control is themed.
      */
     color-scheme: dark;
+    /* Light app themes flip native popups (select lists, pickers) to
+       the light palette; the theme system stamps the variant on <html>. */
+    &[data-theme-variant="light"] {
+      color-scheme: light;
+    }
     /* Kill the browser's default pull-to-refresh and sideways history
      * gestures: the reader implements its own tap/swipe/pinch model
      * and Library has a bespoke pull-to-refresh. Without this, a
@@ -410,6 +438,71 @@ html.tauri-app {
        the "every piece is at the same Y at any given moment" stripe
        that used to happen when every piece shared identical timing. */
     transform: translate(var(--confetti-drift, 0), 100vh) rotate(720deg);
+  }
+}
+
+/* Pnyxy Neutral shared control classes. Form fields never use the
+   native look: surface-2 fill, no border, 12 px radius; focus is one
+   tone step up plus a 2 px accent-soft ring. Chips are 999 radius.
+   TS consumers can import the same strings from
+   src/components/ui/classes.ts. */
+@layer components {
+  .field {
+    width: 100%;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    /* editable fields are the one place a boundary is allowed: a tone
+       outline keeps the box visible on a same-tone parent */
+    outline: 1px solid var(--color-surface-3);
+    outline-offset: -1px;
+    outline: none;
+    transition: background-color 150ms, box-shadow 150ms;
+  }
+  .field::placeholder {
+    color: var(--color-text-muted-2);
+  }
+  .field:focus,
+  .field:focus-within {
+    background: var(--color-surface-3);
+    outline-color: transparent;
+    box-shadow: 0 0 0 2px var(--color-accent-soft);
+  }
+  .field:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  select.field {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 2rem;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239a9aa3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: var(--radius-chip);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    white-space: nowrap;
+  }
+  .chip-active {
+    background: var(--color-surface-3);
+    color: var(--color-text-primary);
+  }
+  .chip-accent {
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
   }
 }
 

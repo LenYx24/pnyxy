@@ -389,7 +389,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           <button
             type="button"
             onClick={() => navigate("/auth")}
-            className="rounded-full bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent/80 cursor-pointer"
+            className="rounded-chip bg-text-primary px-4 py-1.5 text-xs font-medium text-bg-primary transition-opacity hover:opacity-90 cursor-pointer"
           >
             {t("chat.signInRequired")}
           </button>
@@ -417,20 +417,19 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       // no transition on paddingBottom: it's driven by the keyboard inset,
       // which ticks rapidly as the on-screen keyboard animates in, animating
       // it too made the whole panel reflow-lag behind the keyboard
-      className="relative flex h-full flex-col bg-bg-secondary"
+      className="relative flex h-full flex-col"
       style={{
         paddingBottom: keyboardInset > 0 ? keyboardInset : undefined,
       }}
     >
-      {/* Header: list toggle, active title, trash + overflow + close */}
-      <div className="flex items-center justify-between gap-1 border-b border-glass-border pl-1 pr-1 py-1">
+      {/* Header: list toggle, active title, overflow + close */}
+      <div className="flex items-center justify-between gap-1 px-2 py-1">
         <div className="flex min-w-0 flex-1 items-center gap-1">
-          {/* bordered pill + caret so it reads as a "switch conversation"
-              dropdown rather than a bare icon */}
+          {/* chip + caret so it reads as a "switch conversation" dropdown */}
           <button
             type="button"
             onClick={() => setListOpen(true)}
-            className="flex h-9 shrink-0 items-center gap-1 rounded-md border border-glass-border px-2 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            className="chip flex h-8 shrink-0 items-center gap-1 px-2.5 text-text-muted hover:text-text-primary cursor-pointer"
             aria-label={t("reader.aiChat.showConversations")}
             title={t("reader.aiChat.showConversations")}
           >
@@ -461,16 +460,16 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                   setIsEditingTitle(false);
                 }
               }}
-              className="min-w-0 flex-1 rounded border border-glass-border bg-glass-bg px-2 py-0.5 text-sm font-medium text-text-primary outline-none focus:border-accent"
+              className="field min-w-0 flex-1 px-2 py-0.5 text-sm font-medium"
               autoFocus
             />
           ) : (
             <span
               className={cn(
-                "min-w-0 flex-1 truncate text-sm font-medium text-text-primary",
+                "min-w-0 flex-1 truncate text-[13px] font-medium text-text-secondary",
                 activeIsForThisDoc &&
                   activeConversation &&
-                  "cursor-text hover:text-accent",
+                  "cursor-text hover:text-text-primary",
               )}
               title={
                 activeIsForThisDoc
@@ -494,26 +493,27 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           <button
             type="button"
             onClick={handleNewConversation}
-            className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+            className="flex h-8 w-8 items-center justify-center rounded-[8px] text-text-muted-2 transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
             title={t("reader.aiChat.newConversationForDoc")}
             aria-label={t("reader.aiChat.newConversationForDoc")}
           >
-            <Plus size={18} />
+            <Plus size={16} strokeWidth={1.5} />
           </button>
           <button
             ref={overflowAnchorRef}
             type="button"
             onClick={() => setOverflowOpen((v) => !v)}
-            className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+            className="flex h-8 w-8 items-center justify-center rounded-[8px] text-text-muted-2 transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
             title={t("settings.aiSection.moreActions")}
             aria-label={t("settings.aiSection.moreActions")}
           >
-            <MoreVertical size={16} />
+            <MoreVertical size={16} strokeWidth={1.5} />
           </button>
           <FloatingMenu
             open={overflowOpen}
             anchorRef={overflowAnchorRef}
             onClose={() => setOverflowOpen(false)}
+            className="p-1"
           >
             {activeIsForThisDoc && activeConversation && (
               <button
@@ -530,7 +530,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                     md,
                   );
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-secondary hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                className="flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-left text-sm text-text-secondary hover:bg-surface-3 hover:text-text-primary cursor-pointer"
               >
                 <Download size={14} />
                 {t("chat.exportMarkdown")}
@@ -542,7 +542,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                 setOverflowOpen(false);
                 navigate("/settings/ai");
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-secondary hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              className="flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-left text-sm text-text-secondary hover:bg-surface-3 hover:text-text-primary cursor-pointer"
             >
               <Gauge size={14} />
               {t("settings.aiSection.openQuotas")}
@@ -555,7 +555,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                   setOverflowOpen(false);
                   void handleDeleteActive();
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-danger hover:bg-danger/10 cursor-pointer"
+                className="flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-left text-sm text-danger hover:bg-danger/10 cursor-pointer"
               >
                 <Trash2 size={14} />
                 {t("reader.aiChat.deleteConversation")}
@@ -566,10 +566,10 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             <button
               type="button"
               onClick={onClose}
-              className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+              className="flex h-8 w-8 items-center justify-center rounded-[8px] text-text-muted-2 transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
               aria-label={t("reader.aiChat.closeAria")}
             >
-              <X size={16} />
+              <X size={16} strokeWidth={1.5} />
             </button>
           )}
         </div>
@@ -578,12 +578,20 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       {/* Messages */}
       <div
         ref={messagesContainerRef}
-        className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-3 space-y-3"
+        className="min-w-0 flex-1 space-y-2.5 overflow-y-auto overflow-x-hidden overscroll-contain px-3 pb-3 pt-1"
       >
         {!activeIsForThisDoc && (
-          <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <BotMessageSquare size={24} className="text-text-muted/50" />
-            <p className="text-xs text-text-muted">
+          <div className="flex flex-col gap-2.5 rounded-panel bg-bg-secondary px-3.5 py-3">
+            <div className="flex items-center gap-2 text-xs text-text-muted">
+              <Sparkles size={14} strokeWidth={1.5} />
+              <span>
+                {t("reader.tools.teacher", { defaultValue: "Teacher" })}
+                {activeDoc?.currentPage
+                  ? ` · ${t("reader.sidebar.page", { n: activeDoc.currentPage })}`
+                  : ""}
+              </span>
+            </div>
+            <p className="text-[13px] leading-relaxed text-text-secondary">
               {t("reader.aiChat.emptyPrompt")}
             </p>
             {showResume && (
@@ -598,9 +606,9 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                     reasoning: false,
                   })
                 }
-                className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20 cursor-pointer"
+                className="chip inline-flex w-max items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary cursor-pointer"
               >
-                <Sparkles size={13} />
+                <Sparkles size={13} strokeWidth={1.5} />
                 {t("reader.aiChat.resumeSummary", {
                   defaultValue: "Summarize where I left off (p.{{page}})",
                   page: activeDoc?.currentPage ?? 1,
@@ -636,8 +644,25 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                 }
               : undefined;
           return (
-            <MessageBubble
+            <div
               key={msg.id}
+              className={cn(
+                msg.role === "assistant" &&
+                  "reader-margin-card rounded-panel bg-bg-tertiary px-3.5 py-3 text-[13.5px] leading-[1.55] shadow-page",
+              )}
+            >
+              {msg.role === "assistant" && (
+                <div className="mb-2 flex items-center gap-2 text-xs text-text-muted">
+                  <Sparkles size={14} strokeWidth={1.5} />
+                  <span className="truncate">
+                    {t("reader.tools.teacher", { defaultValue: "Teacher" })}
+                    {activeConversation?.source_page
+                      ? ` · ${t("reader.sidebar.page", { n: activeConversation.source_page })}`
+                      : ""}
+                  </span>
+                </div>
+              )}
+            <MessageBubble
               msg={msg}
               messages={messages}
               activeLeafId={activeLeafId}
@@ -670,6 +695,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                   .duplicateFromMessage(msg.id);
               }}
             />
+            </div>
           );
         })}
 
@@ -677,7 +703,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         {isStreaming &&
           path[path.length - 1]?.id === streamingMessageId &&
           path[path.length - 1]?.role !== "assistant" && (
-            <div className="mr-auto rounded-2xl rounded-bl-md bg-glass-bg px-3.5 py-3 text-sm text-text-muted">
+            <div className="mr-auto rounded-panel bg-bg-tertiary px-3.5 py-3 text-sm text-text-muted shadow-page">
               <TypingIndicator label={t("reader.aiChat.thinking")} />
             </div>
           )}
@@ -700,10 +726,10 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         <InlineAiPagePicker onClose={() => setPagePickerOpen(false)} />
       )}
       {/* reading-context omitted here since the current book is the context */}
-      <div className="p-3 space-y-2">
+      <div className="space-y-2 px-3 pb-3 pt-1">
         {/* branch banner: next submit branches from the picked bubble */}
         {branchFromId && messages.get(branchFromId) && (
-          <div className="flex items-center justify-between gap-2 rounded-md border border-accent/30 bg-accent/10 px-2 py-1.5 text-xs text-accent">
+          <div className="flex items-center justify-between gap-2 rounded-control bg-bg-tertiary px-2.5 py-1.5 text-xs text-text-secondary">
             <span className="flex items-center gap-1.5 min-w-0">
               <GitBranch size={12} className="shrink-0" />
               <span className="truncate">
@@ -718,7 +744,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             </span>
             <button
               onClick={() => setBranchFromId(null)}
-              className="shrink-0 rounded p-0.5 hover:bg-accent/20 cursor-pointer"
+              className="shrink-0 rounded p-0.5 hover:bg-surface-3 cursor-pointer"
               aria-label={t("common.cancel")}
             >
               <X size={12} />
@@ -726,40 +752,43 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           </div>
         )}
         {(activeDoc?.aiSelectedPages.size ?? 0) > 0 && (
-          <p className="rounded-md border border-glass-border bg-glass-bg/40 px-2 py-1.5 text-2xs text-text-muted">
+          <p className="rounded-control bg-bg-secondary px-2.5 py-1.5 text-2xs text-text-muted">
             {t("reader.aiChat.pagesContextNote", {
               defaultValue:
                 'Pages with no text layer are sent as page images; figures on text pages aren\'t attached automatically, turn on "Send as images" in the page picker if you need them.',
             })}
           </p>
         )}
-        <ChatComposer
-          ref={composerRef}
-          value={input}
-          onChange={setInput}
-          onSubmit={handleSubmit}
-          isStreaming={isStreaming}
-          onStop={() => useChatStore.getState().stopStreaming()}
-          placeholderKey="reader.aiChat.placeholder"
-        />
+        {/* the ask pill: surface 2 + the one shadow, wraps the shared composer */}
+        <div className="reader-ask-pill rounded-[22px] bg-bg-tertiary p-1.5 shadow-page">
+          <ChatComposer
+            ref={composerRef}
+            value={input}
+            onChange={setInput}
+            onSubmit={handleSubmit}
+            isStreaming={isStreaming}
+            onStop={() => useChatStore.getState().stopStreaming()}
+            placeholderKey="reader.aiChat.placeholder"
+          />
+        </div>
       </div>
 
       {/* Conversation list overlay. Dismissed only via its header X, no
           tap-outside (avoids accidental mid-scroll close). */}
       <div
         className={cn(
-          "absolute inset-0 z-20 flex flex-col bg-bg-secondary transition-transform duration-200",
+          "absolute inset-0 z-20 flex flex-col bg-bg-primary transition-transform duration-200",
           listOpen ? "translate-x-0" : "-translate-x-full pointer-events-none",
         )}
       >
-        <div className="flex items-center justify-between gap-1 border-b border-glass-border pl-1 pr-1 py-1">
+        <div className="flex items-center justify-between gap-1 px-2 py-1">
           <button
             type="button"
             onClick={() => setListOpen(false)}
-            className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+            className="flex h-8 w-8 items-center justify-center rounded-[8px] text-text-muted-2 transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
             aria-label={t("common.close")}
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={18} strokeWidth={1.5} />
           </button>
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">
             {t("reader.aiChat.conversations")}
@@ -767,11 +796,11 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           <button
             type="button"
             onClick={handleNewConversation}
-            className="flex h-11 w-11 items-center justify-center rounded-md text-accent transition-colors hover:bg-glass-hover cursor-pointer"
+            className="flex h-8 w-8 items-center justify-center rounded-[8px] text-text-muted-2 transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
             title={t("reader.aiChat.newConversationForDoc")}
             aria-label={t("reader.aiChat.newConversationForDoc")}
           >
-            <Plus size={18} />
+            <Plus size={18} strokeWidth={1.5} />
           </button>
         </div>
 
@@ -791,10 +820,10 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                       setListOpen(false);
                     }}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors cursor-pointer",
+                      "flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-left text-sm transition-colors cursor-pointer",
                       c.id === activeConversationId
-                        ? "bg-accent/15 text-text-primary"
-                        : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+                        ? "bg-bg-tertiary text-text-primary"
+                        : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary",
                     )}
                   >
                     <span className="min-w-0 flex-1 truncate">

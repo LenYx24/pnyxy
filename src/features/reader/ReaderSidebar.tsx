@@ -5,6 +5,11 @@ import { useUIStore } from "@/stores/ui-store";
 import { ThumbnailToc } from "./panels/ThumbnailToc";
 import { BookmarksPanel } from "./panels/BookmarksPanel";
 import { cn } from "@/lib/cn";
+import {
+  segmentedGroupClass,
+  segmentedItemActiveClass,
+  segmentedItemClass,
+} from "@/components/ui/classes";
 import { useFeatures } from "@/lib/use-features";
 import { noteDisplayTitle, whiteboardDisplayTitle } from "@/lib/entity-title";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
@@ -76,7 +81,7 @@ function TocReadDot({ state }: { state: TocReadState }) {
     return (
       <span
         aria-hidden="true"
-        className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
+        className="h-1.5 w-1.5 shrink-0 rounded-full bg-text-muted-2"
       />
     );
   }
@@ -84,7 +89,7 @@ function TocReadDot({ state }: { state: TocReadState }) {
     return (
       <span
         aria-hidden="true"
-        className="h-1.5 w-1.5 shrink-0 rounded-full border border-accent"
+        className="h-1.5 w-1.5 shrink-0 rounded-full border border-text-muted-2"
       />
     );
   }
@@ -119,10 +124,10 @@ function TocEntry({
     <>
       <div
         className={cn(
-          "flex w-full items-center gap-0.5 rounded-md transition-colors",
+          "flex w-full items-center gap-0.5 rounded-[8px] transition-colors",
           isActive
-            ? "bg-accent/15 text-accent"
-            : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+            ? "bg-bg-tertiary text-text-primary"
+            : "text-text-muted hover:bg-bg-secondary hover:text-text-primary",
         )}
         style={{ paddingLeft: indentPx }}
       >
@@ -150,8 +155,7 @@ function TocEntry({
         <button
           onClick={() => onNavigate(page)}
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-1.5 rounded-md py-1.5 pr-3 text-left transition-colors cursor-pointer",
-            depth === 0 ? "text-sm" : "text-xs",
+            "flex min-w-0 flex-1 items-center gap-1.5 rounded-[8px] py-1.5 pr-2.5 text-left text-[12.5px] transition-colors cursor-pointer",
             // fade already-read chapters
             state === "read" && !isActive && "opacity-60",
           )}
@@ -429,138 +433,67 @@ export function ReaderSidebarContent({
     ...(features.bookmarks
       ? [{ key: "bookmarks" as const, icon: Bookmark, label: t("reader.sidebar.tabBookmarks") }]
       : []),
+    ...(features.notes && onOpenNote
+      ? [{ key: "notes" as const, icon: StickyNote, label: t("reader.sidebar.tabNotes") }]
+      : []),
+    ...(features.whiteboard && onOpenWhiteboard
+      ? [{ key: "whiteboards" as const, icon: PenTool, label: t("reader.sidebar.tabWhiteboards") }]
+      : []),
   ];
+  // the segmented control only appears when a flagged tab joins Contents
+  const showTabs = tabItems.length > 1;
+  const quietBtn =
+    "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] text-text-muted-2 transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer";
 
   return (
-    <div className="h-full flex flex-col bg-bg-secondary/50">
-      {/* heading has extra left padding to clear the toolbar hamburger above it */}
-      <div className="p-4 border-b border-glass-border flex items-center justify-between">
-        <h3 className="pl-10 text-sm font-semibold text-text-muted uppercase tracking-wider">
-          {t("reader.sidebar.readerHeading")}
+    <div className="flex h-full flex-col">
+      {/* Caption row: "Contents" + quiet actions (view toggle, open) */}
+      <div className="flex items-center gap-0.5 px-3 pb-1 pt-3.5">
+        <h3 className="min-w-0 flex-1 truncate pl-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
+          {sidebarTab === "contents"
+            ? t("reader.sidebar.tabContents")
+            : tabItems.find((it) => it.key === sidebarTab)?.label}
         </h3>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => useUIStore.getState().setLibraryPickerOpen(true)}
-            className="rounded-md p-1 text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
-            title={t("reader.sidebar.openFromLibrary")}
-            aria-label={t("reader.sidebar.openFromLibrary")}
-          >
-            <Library size={16} />
-          </button>
-          {onOpenFile && (
-            <button
-              onClick={onOpenFile}
-              className="rounded-md p-1 text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
-              title={t("reader.sidebar.openAnotherPdf")}
-              aria-label={t("reader.sidebar.openAnotherPdf")}
-            >
-              <FilePlus size={16} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Open documents list, shown even with a single doc */}
-      {docEntries.length > 0 && (
-        <div className="border-b border-glass-border p-2 space-y-0.5">
-          <p className="px-3 py-1 text-2xs font-semibold uppercase tracking-wider text-text-muted">
-            {t("reader.sidebar.openDocuments")}
-          </p>
-          {docEntries.map(([id, _doc]) => (
-            <button
-              key={id}
-              onClick={() => setActiveDocument(id)}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors cursor-pointer",
-                activeDocumentId === id
-                  ? "bg-accent/15 text-accent"
-                  : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
-              )}
-            >
-              <FileText size={14} className="shrink-0" />
-              <span className="truncate">{getDisplayTitle(id)}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Tab bar, icon-only */}
-      <div className="border-b border-glass-border px-2 py-1.5 flex items-center gap-1 overflow-x-auto">
-        {tabItems.map(({ key, icon: Icon, label }) => (
-          <button
-            key={key}
-            onClick={() => setSidebarTab(key)}
-            className={cn(
-              "flex shrink-0 items-center justify-center rounded-md p-2 transition-colors cursor-pointer",
-              sidebarTab === key
-                ? "bg-accent/15 text-accent"
-                : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
-            )}
-            title={label}
-            aria-label={label}
-          >
-            <Icon size={16} />
-          </button>
-        ))}
-      </div>
-
-      {/* Per-tab actions row */}
-      <div className="border-b border-glass-border px-2 py-1 flex items-center gap-1 overflow-x-auto">
         {sidebarTab === "contents" && meta && (
-          <>
-            <button
-              onClick={() => setTocViewMode("outline")}
-              className={cn(
-                "flex shrink-0 items-center justify-center rounded-md p-1.5 transition-colors cursor-pointer",
-                tocViewMode === "outline"
-                  ? "text-accent bg-accent/10"
-                  : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
-              )}
-              title={t("reader.sidebar.outlineTitle")}
-              aria-label={t("reader.sidebar.outline")}
-            >
-              <List size={14} />
-            </button>
-            <button
-              onClick={() => setTocViewMode("thumbnail")}
-              className={cn(
-                "flex shrink-0 items-center justify-center rounded-md p-1.5 transition-colors cursor-pointer",
-                tocViewMode === "thumbnail"
-                  ? "text-accent bg-accent/10"
-                  : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
-              )}
-              title={t("reader.sidebar.thumbnailsTitle")}
-              aria-label={t("reader.sidebar.thumbnails")}
-            >
-              <LayoutGrid size={14} />
-            </button>
-          </>
-        )}
-        {sidebarTab === "contents" && !meta && (
-          <span className="px-1 py-0.5 text-xs text-text-muted/60">
-            {t("reader.sidebar.noDocumentOpen")}
-          </span>
+          <button
+            onClick={() =>
+              setTocViewMode(tocViewMode === "outline" ? "thumbnail" : "outline")
+            }
+            className={quietBtn}
+            title={
+              tocViewMode === "outline"
+                ? t("reader.sidebar.thumbnailsTitle")
+                : t("reader.sidebar.outlineTitle")
+            }
+            aria-label={
+              tocViewMode === "outline"
+                ? t("reader.sidebar.thumbnails")
+                : t("reader.sidebar.outline")
+            }
+            aria-pressed={tocViewMode === "thumbnail"}
+          >
+            {tocViewMode === "outline" ? (
+              <LayoutGrid size={16} strokeWidth={1.5} />
+            ) : (
+              <List size={16} strokeWidth={1.5} />
+            )}
+          </button>
         )}
         {sidebarTab === "notes" && onCreateNote && (
           <button
             onClick={onCreateNote}
-            className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-text-muted hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+            className={quietBtn}
             title={t("reader.sidebar.newNote")}
             aria-label={t("reader.sidebar.newNote")}
           >
-            <StickyNote size={14} />
+            <StickyNote size={16} strokeWidth={1.5} />
           </button>
         )}
         {sidebarTab === "whiteboards" && onCreateWhiteboard && (
           <button
             onClick={onCreateWhiteboard}
             disabled={!whiteboardCreationAllowed}
-            className={cn(
-              "flex shrink-0 items-center justify-center rounded-md p-1.5 transition-colors",
-              whiteboardCreationAllowed
-                ? "text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-                : "text-text-muted/40 cursor-not-allowed",
-            )}
+            className={cn(quietBtn, !whiteboardCreationAllowed && "opacity-40 cursor-not-allowed")}
             title={
               whiteboardCreationAllowed
                 ? t("reader.sidebar.newWhiteboard")
@@ -568,13 +501,85 @@ export function ReaderSidebarContent({
             }
             aria-label={t("reader.sidebar.newWhiteboard")}
           >
-            <PenTool size={14} />
+            <PenTool size={16} strokeWidth={1.5} />
+          </button>
+        )}
+        <button
+          onClick={() => useUIStore.getState().setLibraryPickerOpen(true)}
+          className={quietBtn}
+          title={t("reader.sidebar.openFromLibrary")}
+          aria-label={t("reader.sidebar.openFromLibrary")}
+        >
+          <Library size={16} strokeWidth={1.5} />
+        </button>
+        {onOpenFile && (
+          <button
+            onClick={onOpenFile}
+            className={quietBtn}
+            title={t("reader.sidebar.openAnotherPdf")}
+            aria-label={t("reader.sidebar.openAnotherPdf")}
+          >
+            <FilePlus size={16} strokeWidth={1.5} />
           </button>
         )}
       </div>
 
+      {/* Flagged tabs (bookmarks / notes / whiteboards) as a segmented control */}
+      {showTabs && (
+        <div className="px-4 pb-2 pt-1">
+          <div className={cn(segmentedGroupClass, "w-full")}>
+            {tabItems.map(({ key, icon: Icon, label }) => (
+              <button
+                key={key}
+                onClick={() => setSidebarTab(key)}
+                className={cn(
+                  segmentedItemClass,
+                  "flex flex-1 items-center justify-center px-2",
+                  sidebarTab === key && segmentedItemActiveClass,
+                )}
+                title={label}
+                aria-label={label}
+                aria-pressed={sidebarTab === key}
+              >
+                <Icon size={16} strokeWidth={1.5} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Open documents (multi-doc only) */}
+      {docEntries.length > 1 && (
+        <div className="space-y-0.5 px-3 pb-2">
+          <p className="px-2 py-1 text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
+            {t("reader.sidebar.openDocuments")}
+          </p>
+          {docEntries.map(([id, _doc]) => (
+            <button
+              key={id}
+              onClick={() => setActiveDocument(id)}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-left text-[12.5px] transition-colors cursor-pointer",
+                activeDocumentId === id
+                  ? "bg-bg-tertiary text-text-primary"
+                  : "text-text-muted hover:bg-bg-secondary hover:text-text-primary",
+              )}
+            >
+              <FileText size={14} strokeWidth={1.5} className="shrink-0" />
+              <span className="truncate">{getDisplayTitle(id)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {sidebarTab === "contents" && !meta && (
+        <span className="px-5 py-1 text-xs text-text-muted-2">
+          {t("reader.sidebar.noDocumentOpen")}
+        </span>
+      )}
+
       {/* Tab content */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+      <div className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-3">
         {/* Contents tab */}
         {sidebarTab === "contents" && (
           <>
@@ -609,10 +614,10 @@ export function ReaderSidebarContent({
                   key={i}
                   onClick={() => goToPage(i + 1)}
                   className={cn(
-                    "block w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors cursor-pointer",
+                    "block w-full rounded-[8px] px-2.5 py-1.5 text-left text-[12.5px] transition-colors cursor-pointer",
                     currentPage === i + 1
-                      ? "bg-accent/15 text-accent"
-                      : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+                      ? "bg-bg-tertiary text-text-primary"
+                      : "text-text-muted hover:bg-bg-secondary hover:text-text-primary",
                   )}
                 >
                   {t("reader.sidebar.page", { n: i + 1 })}
@@ -623,7 +628,7 @@ export function ReaderSidebarContent({
 
         {/* Bookmarks tab */}
         {sidebarTab === "bookmarks" && (
-          <div className="px-3 py-2">
+          <div className="px-1 py-1">
             <BookmarksPanel />
           </div>
         )}
@@ -640,7 +645,7 @@ export function ReaderSidebarContent({
                 <div
                   key={note.id}
                   onClick={(e) => handleNoteClick(note.id, index, e)}
-                  className="group flex items-center gap-2 w-full rounded-md px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+                  className="group flex w-full items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-left text-[12.5px] text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
                 >
                   {/* Checkbox */}
                   <div
@@ -657,14 +662,14 @@ export function ReaderSidebarContent({
                   >
                     <div
                       className={cn(
-                        "h-4 w-4 rounded border transition-colors",
+                        "h-4 w-4 rounded-[5px] transition-colors",
                         selectedNoteIds.has(note.id)
-                          ? "border-accent bg-accent"
-                          : "border-text-muted/40 hover:border-text-primary",
+                          ? "bg-text-primary text-bg-primary"
+                          : "bg-bg-tertiary hover:bg-surface-3",
                       )}
                     >
                       {selectedNoteIds.has(note.id) && (
-                        <svg viewBox="0 0 16 16" className="h-4 w-4 text-white">
+                        <svg viewBox="0 0 16 16" className="h-4 w-4">
                           <path
                             d="M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2.5-2.5a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z"
                             fill="currentColor"
@@ -707,7 +712,7 @@ export function ReaderSidebarContent({
                 <div
                   key={wb.id}
                   onClick={(e) => handleWhiteboardClick(wb.id, index, e)}
-                  className="group flex items-center gap-2 w-full rounded-md px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors cursor-pointer"
+                  className="group flex w-full items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-left text-[12.5px] text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
                 >
                   {/* Checkbox */}
                   <div
@@ -724,14 +729,14 @@ export function ReaderSidebarContent({
                   >
                     <div
                       className={cn(
-                        "h-4 w-4 rounded border transition-colors",
+                        "h-4 w-4 rounded-[5px] transition-colors",
                         selectedWhiteboardIds.has(wb.id)
-                          ? "border-accent bg-accent"
-                          : "border-text-muted/40 hover:border-text-primary",
+                          ? "bg-text-primary text-bg-primary"
+                          : "bg-bg-tertiary hover:bg-surface-3",
                       )}
                     >
                       {selectedWhiteboardIds.has(wb.id) && (
-                        <svg viewBox="0 0 16 16" className="h-4 w-4 text-white">
+                        <svg viewBox="0 0 16 16" className="h-4 w-4">
                           <path
                             d="M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2.5-2.5a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z"
                             fill="currentColor"
@@ -765,13 +770,13 @@ export function ReaderSidebarContent({
 
       {/* Selection action bar */}
       {sidebarTab === "notes" && noteSelectionActive && (
-        <div className="border-t border-glass-border p-2 flex items-center justify-between">
+        <div className="flex items-center justify-between rounded-panel bg-bg-secondary p-2 mx-3 mb-3">
           <span className="text-xs text-text-muted px-2">
             {t("reader.sidebar.countSelected", { count: selectedNoteIds.size })}
           </span>
           <button
             onClick={handleDeleteSelectedNotes}
-            className="flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-danger hover:bg-danger/10 transition-colors cursor-pointer"
+            className="flex items-center gap-1 rounded-[8px] px-2.5 py-1 text-xs font-medium text-danger transition-colors hover:bg-danger/10 cursor-pointer"
           >
             <Trash2 size={12} />
             {t("reader.sidebar.delete")}
@@ -779,13 +784,13 @@ export function ReaderSidebarContent({
         </div>
       )}
       {sidebarTab === "whiteboards" && whiteboardSelectionActive && (
-        <div className="border-t border-glass-border p-2 flex items-center justify-between">
+        <div className="flex items-center justify-between rounded-panel bg-bg-secondary p-2 mx-3 mb-3">
           <span className="text-xs text-text-muted px-2">
             {t("reader.sidebar.countSelected", { count: selectedWhiteboardIds.size })}
           </span>
           <button
             onClick={handleDeleteSelectedWhiteboards}
-            className="flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-danger hover:bg-danger/10 transition-colors cursor-pointer"
+            className="flex items-center gap-1 rounded-[8px] px-2.5 py-1 text-xs font-medium text-danger transition-colors hover:bg-danger/10 cursor-pointer"
           >
             <Trash2 size={12} />
             {t("reader.sidebar.delete")}
@@ -800,7 +805,7 @@ export function ReaderSidebarContent({
 /** Standalone sidebar with its sizing wrapper (non-Dockview use). */
 export function ReaderSidebar() {
   return (
-    <div className="h-full w-64 shrink-0 border-r border-glass-border">
+    <div className="h-full w-60 shrink-0">
       <ReaderSidebarContent />
     </div>
   );

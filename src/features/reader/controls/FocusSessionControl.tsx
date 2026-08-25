@@ -88,7 +88,7 @@ export function FocusSessionControl({ compact = false }: { compact?: boolean }) 
         className={cn(
           "rounded-md p-1.5 transition-colors cursor-pointer",
           open
-            ? "bg-accent/15 text-accent"
+            ? "bg-bg-tertiary text-text-primary"
             : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
         )}
       >
@@ -96,7 +96,7 @@ export function FocusSessionControl({ compact = false }: { compact?: boolean }) 
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-lg border border-glass-border bg-bg-secondary/95 backdrop-blur-xl shadow-xl">
+        <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-panel bg-bg-tertiary shadow-page">
           <div className="flex items-center justify-between border-b border-glass-border px-3 py-2">
             <span className="text-sm font-medium text-text-primary">
               Focus session
@@ -116,7 +116,7 @@ export function FocusSessionControl({ compact = false }: { compact?: boolean }) 
               className={cn(
                 "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors cursor-pointer",
                 mode === "time"
-                  ? "bg-accent/15 text-accent"
+                  ? "bg-bg-tertiary text-text-primary"
                   : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
               )}
             >
@@ -133,7 +133,7 @@ export function FocusSessionControl({ compact = false }: { compact?: boolean }) 
               className={cn(
                 "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors cursor-pointer",
                 mode === "pages" && pagesAvailable
-                  ? "bg-accent/15 text-accent"
+                  ? "bg-bg-tertiary text-text-primary"
                   : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
                 !pagesAvailable && "opacity-40 cursor-not-allowed",
               )}

@@ -12,6 +12,7 @@ import { GlassCard } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
 import { useAuthStore } from "@/stores/auth-store";
+import { useFeature } from "@/lib/use-features";
 import { useLibraryStore } from "@/stores/library-store";
 import { useRoadmapStore } from "@/stores/roadmap-store";
 import { useQuizStore } from "@/stores/quiz-store";
@@ -21,10 +22,7 @@ import {
   type BookProgressMap,
   type BookTotalsLookup,
 } from "@/stores/reading-plan-store";
-import {
-  computeSchedule,
-  ymd,
-} from "@/features/roadmaps/lib/scheduler";
+import { computeSchedule, ymd } from "@/features/roadmaps/lib/scheduler";
 import { bookIdSegment } from "@/lib/slugify";
 import type { Roadmap, Enrollment } from "@/types/roadmap";
 import type { UploadedLibraryItem, CatalogLibraryItem } from "@/types/catalog";
@@ -51,7 +49,13 @@ export function TodayPanel() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
 
-  const plans = useReadingPlanStore((s) => s.plans);
+  const readingPlansOn = useFeature("readingPlans");
+  const allPlans = useReadingPlanStore((s) => s.plans);
+  // reading plans are feature-gated: with the flag off the card never shows
+  const plans = useMemo(
+    () => (readingPlansOn ? allPlans : []),
+    [readingPlansOn, allPlans],
+  );
   const fetchPlans = useReadingPlanStore((s) => s.fetchMine);
 
   const roadmaps = useRoadmapStore((s) => s.roadmaps);
@@ -168,9 +172,11 @@ export function TodayPanel() {
           enrollment,
           roadmap,
           nodeId: node.id,
-          nodeTitle: node.title || t("home.today.untitledNode", {
-            defaultValue: "Untitled step",
-          }),
+          nodeTitle:
+            node.title ||
+            t("home.today.untitledNode", {
+              defaultValue: "Untitled step",
+            }),
           estimatedMinutes: node.estimatedMinutes ?? 0,
           dueDate: sched.dueDate,
         });
@@ -267,10 +273,7 @@ export function TodayPanel() {
       {hasAny ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {plansWithTodayWork.length > 0 && (
-            <ReadingPlanCard
-              plans={plansWithTodayWork}
-              lookup={lookup}
-            />
+            <ReadingPlanCard plans={plansWithTodayWork} lookup={lookup} />
           )}
           {roadmapDueItems.length > 0 && (
             <RoadmapDueCard items={roadmapDueItems} />
@@ -329,10 +332,7 @@ function ReadingPlanCard({
             progress.todayTarget - progress.pagesRead,
             0,
           );
-          const pct = Math.min(
-            Math.max(progress.completion * 100, 0),
-            100,
-          );
+          const pct = Math.min(Math.max(progress.completion * 100, 0), 100);
           return (
             <li key={plan.plan.id}>
               <button
@@ -342,7 +342,10 @@ function ReadingPlanCard({
               >
                 <div className="mb-1 flex items-center justify-between gap-2 text-xs">
                   <span className="truncate font-medium text-text-primary">
-                    {plan.plan.title || t("readingPlans.untitled", { defaultValue: "Untitled plan" })}
+                    {plan.plan.title ||
+                      t("readingPlans.untitled", {
+                        defaultValue: "Untitled plan",
+                      })}
                   </span>
                   <span className="shrink-0 text-text-muted">
                     {t("home.today.pagesLeft", {
@@ -472,7 +475,7 @@ function ContinueReadingCard({
     entry.source === "catalog" ? entry.catalog_book.title : entry.book.title;
   const author =
     entry.source === "catalog"
-      ? entry.catalog_book.authors[0] ?? null
+      ? (entry.catalog_book.authors[0] ?? null)
       : entry.book.author;
   const coverUrl =
     entry.source === "catalog"

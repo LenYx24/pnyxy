@@ -82,7 +82,7 @@ export function CommentsSidebar({ onClose }: CommentsSidebarProps) {
       <div className="flex-1 overflow-y-auto">
       {groupedComments.map(([pageNum, pageComments]) => (
         <div key={pageNum}>
-          <div className="sticky top-0 bg-bg-secondary/80 backdrop-blur-sm px-3 py-1.5 border-b border-glass-border">
+          <div className="sticky top-0 bg-bg-secondary/80  px-3 py-1.5 border-b border-glass-border">
             <span className="text-xs font-medium text-text-muted">
               Page {pageNum}
             </span>

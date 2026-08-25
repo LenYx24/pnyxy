@@ -9,9 +9,9 @@ const ICONS = {
 } as const;
 
 const ACCENT: Record<ToastType, string> = {
-  error: "border-danger/40 text-danger",
-  success: "border-success/40 text-success",
-  info: "border-glass-border text-accent",
+  error: "text-danger",
+  success: "text-success",
+  info: "text-text-secondary",
 };
 
 /**
@@ -31,7 +31,7 @@ export function Toaster() {
             key={toast.id}
             role="status"
             className={cn(
-              "pointer-events-auto flex w-full max-w-sm items-start gap-2 rounded-lg border bg-bg-secondary/95 px-3 py-2 text-sm shadow-lg backdrop-blur-md",
+              "pointer-events-auto flex w-full max-w-sm items-start gap-2 rounded-panel bg-bg-tertiary px-3 py-2 text-sm shadow-page",
               ACCENT[toast.type],
             )}
           >

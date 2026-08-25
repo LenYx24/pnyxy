@@ -29,6 +29,8 @@ export const FEATURE_KEYS = [
   "plugins",
   "bookmarks",
   "readProgress",
+  "catalog",
+  "readingPlans",
 ] as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
@@ -52,7 +54,13 @@ export const DEFAULT_FEATURES: FeatureSet = {
   plugins: false,
   bookmarks: false,
   readProgress: false,
+  catalog: false,
+  readingPlans: false,
 };
+
+// TODO(library agent): gate the library empty-state "Browse catalog"
+// action on `catalog` as well (src/features/library/AllBooksTab.tsx,
+// the `navigate("/browse")` Button in the empty state).
 
 /** Human labels for the admin toggle list (settings). Not translated on
  *  purpose: the list is admin-only and the keys are what you type in SQL. */
@@ -73,6 +81,8 @@ export const FEATURE_META: Record<FeatureKey, { label: string; hint: string }> =
   bookmarks: { label: "Bookmarks", hint: "Bookmark button, Ctrl+B, sidebar bookmarks tab, book bookmarks tab" },
   readProgress: { label: "Read progress strip", hint: "Thin overlay over the reader scrollbar showing how far you have read" },
   multiDoc: { label: "Multiple open documents", hint: "Reader document tabs; off = opening a book replaces the current one" },
+  catalog: { label: "Catalog", hint: "Public catalog / Browse: off = bring your own books" },
+  readingPlans: { label: "Reading plans", hint: "Reading plans on the streaks page" },
 };
 
 export function isFeatureKey(v: unknown): v is FeatureKey {

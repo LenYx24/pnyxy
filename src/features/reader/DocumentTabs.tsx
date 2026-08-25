@@ -52,7 +52,7 @@ export function DocumentTabs() {
             className={cn(
               "group flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
               isActive
-                ? "bg-accent/15 text-accent"
+                ? "bg-bg-tertiary text-text-primary"
                 : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
             )}
           >

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Folder, Home } from "lucide-react";
 import { Button } from "@/components/ui";
+import { modalBackdropClass, modalSurfaceClass } from "@/components/ui/classes";
 import { cn } from "@/lib/cn";
 import type { Folder as FolderType } from "@/types/database";
 
@@ -32,14 +33,14 @@ export function FolderPickerModal({
         <button
           onClick={() => setSelected(folder.id)}
           className={cn(
-            "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors cursor-pointer",
+            "flex w-full items-center gap-2 rounded-control px-3 py-2 text-sm transition-colors cursor-pointer",
             selected === folder.id
-              ? "bg-accent/15 text-accent"
-              : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+              ? "bg-surface-3 text-text-primary"
+              : "text-text-secondary hover:bg-surface-3 hover:text-text-primary",
           )}
           style={{ paddingLeft: `${12 + depth * 16}px` }}
         >
-          <Folder size={16} />
+          <Folder size={16} strokeWidth={1.5} />
           {folder.name}
         </button>
         {renderTree(folder.id, depth + 1)}
@@ -52,18 +53,18 @@ export function FolderPickerModal({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className={`absolute inset-0 ${modalBackdropClass}`}
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-sm rounded-xl border border-glass-border bg-bg-secondary/95 backdrop-blur-xl">
+      <div className={`relative z-10 w-full max-w-sm ${modalSurfaceClass}`}>
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-glass-border p-4">
-          <h2 className="text-lg font-semibold text-text-primary">
+        <div className="flex items-center justify-between p-4 pb-3">
+          <h2 className="font-display text-lg font-semibold text-text-primary">
             Move to Folder
           </h2>
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+            className="rounded-control p-1 text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
           >
             <X size={20} />
           </button>
@@ -75,13 +76,13 @@ export function FolderPickerModal({
           <button
             onClick={() => setSelected(null)}
             className={cn(
-              "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors cursor-pointer",
+              "flex w-full items-center gap-2 rounded-control px-3 py-2 text-sm transition-colors cursor-pointer",
               selected === null
-                ? "bg-accent/15 text-accent"
-                : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+                ? "bg-surface-3 text-text-primary"
+                : "text-text-secondary hover:bg-surface-3 hover:text-text-primary",
             )}
           >
-            <Home size={16} />
+            <Home size={16} strokeWidth={1.5} />
             Root (no folder)
           </button>
 
@@ -89,7 +90,7 @@ export function FolderPickerModal({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 border-t border-glass-border p-4">
+        <div className="flex justify-end gap-2 p-4 pt-2">
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>

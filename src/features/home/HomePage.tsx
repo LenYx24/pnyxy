@@ -13,18 +13,18 @@ import { RecentlyViewedShelf } from "@/features/browse/RecentlyViewedShelf";
 import { CategoryShelf } from "./CategoryShelf";
 import { RecentlyAddedShelf } from "./RecentlyAddedShelf";
 import { TodayPanel } from "./TodayPanel";
+import { ContinueHero } from "./ContinueHero";
+import { useFeature } from "@/lib/use-features";
 
 export function HomePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  // public catalog is feature-gated: off = every catalog shelf / CTA hidden
+  const catalogOn = useFeature("catalog");
 
-  const {
-    featuredBooks,
-    newThisWeekBooks,
-    fetchShelves,
-    checkUserLibrary,
-  } = useBrowseStore();
+  const { featuredBooks, newThisWeekBooks, fetchShelves, checkUserLibrary } =
+    useBrowseStore();
 
   const books = useLibraryStore((s) => s.books);
   const fetchLibrary = useLibraryStore((s) => s.fetchLibrary);
@@ -33,11 +33,20 @@ export function HomePage() {
   const fetchCategories = useCategoryStore((s) => s.fetchCategories);
 
   useEffect(() => {
-    fetchShelves();
-    fetchCategories();
-    checkUserLibrary();
+    if (catalogOn) {
+      fetchShelves();
+      fetchCategories();
+      checkUserLibrary();
+    }
     if (user) fetchLibrary();
-  }, [fetchShelves, fetchCategories, checkUserLibrary, fetchLibrary, user]);
+  }, [
+    catalogOn,
+    fetchShelves,
+    fetchCategories,
+    checkUserLibrary,
+    fetchLibrary,
+    user,
+  ]);
 
   // Pick up to 3 top-level categories to render as shelves. Filtering
   // to top-level keeps the Home page from getting overwhelming.
@@ -57,6 +66,9 @@ export function HomePage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_18rem]">
         {/* Main column: stacked shelves */}
         <main className="min-w-0">
+          {/* "Continue where you left off": last-opened book + streak */}
+          {user && <ContinueHero />}
+
           {/* "Today" aggregator: reading-plan targets, roadmap nodes
               due, quiz reviews queued, continue-reading hand-off. The
               panel renders nothing when none of those have content,
@@ -70,53 +82,57 @@ export function HomePage() {
               straight into the catalog content below. */}
           {user && <RecentlyAddedShelf />}
 
-          <Shelf
-            title={t("home.shelves.featured")}
-            itemCount={featuredBooks.length}
-            seeAllHref="/browse"
-            seeAllLabel={t("home.seeAll")}
-          >
-            {featuredBooks.map((book) => (
-              <div
-                key={book.id}
-                className="w-[7.5rem] shrink-0 snap-start sm:w-[8.5rem]"
+          {catalogOn && (
+            <>
+              <Shelf
+                title={t("home.shelves.featured")}
+                itemCount={featuredBooks.length}
+                seeAllHref="/browse"
+                seeAllLabel={t("home.seeAll")}
               >
-                <BrowseBookShelfCard
-                  book={book}
-                  onClick={() => navigate(`/books/${book.id}`)}
-                />
-              </div>
-            ))}
-          </Shelf>
+                {featuredBooks.map((book) => (
+                  <div
+                    key={book.id}
+                    className="w-[7.5rem] shrink-0 snap-start sm:w-[8.5rem]"
+                  >
+                    <BrowseBookShelfCard
+                      book={book}
+                      onClick={() => navigate(`/books/${book.id}`)}
+                    />
+                  </div>
+                ))}
+              </Shelf>
 
-          <Shelf
-            title={t("home.shelves.newThisWeek")}
-            itemCount={newThisWeekBooks.length}
-            seeAllHref="/browse"
-            seeAllLabel={t("home.seeAll")}
-          >
-            {newThisWeekBooks.map((book) => (
-              <div
-                key={book.id}
-                className="w-[7.5rem] shrink-0 snap-start sm:w-[8.5rem]"
+              <Shelf
+                title={t("home.shelves.newThisWeek")}
+                itemCount={newThisWeekBooks.length}
+                seeAllHref="/browse"
+                seeAllLabel={t("home.seeAll")}
               >
-                <BrowseBookShelfCard
-                  book={book}
-                  onClick={() => navigate(`/books/${book.id}`)}
+                {newThisWeekBooks.map((book) => (
+                  <div
+                    key={book.id}
+                    className="w-[7.5rem] shrink-0 snap-start sm:w-[8.5rem]"
+                  >
+                    <BrowseBookShelfCard
+                      book={book}
+                      onClick={() => navigate(`/books/${book.id}`)}
+                    />
+                  </div>
+                ))}
+              </Shelf>
+
+              <RecentlyViewedShelf />
+
+              {topCategories.map((cat) => (
+                <CategoryShelf
+                  key={cat.id}
+                  categoryId={cat.id}
+                  title={cat.name}
                 />
-              </div>
-            ))}
-          </Shelf>
-
-          <RecentlyViewedShelf />
-
-          {topCategories.map((cat) => (
-            <CategoryShelf
-              key={cat.id}
-              categoryId={cat.id}
-              title={cat.name}
-            />
-          ))}
+              ))}
+            </>
+          )}
         </main>
 
         {/* Right-side panel, sticky on desktop so it stays visible
@@ -164,25 +180,27 @@ export function HomePage() {
               )}
             </GlassCard>
 
-            <GlassCard className="p-4">
-              <div className="mb-2 flex items-center gap-2">
-                <Compass size={16} className="text-accent-blue" />
-                <h3 className="text-sm font-semibold text-text-primary">
-                  {t("home.sidePanel.discover")}
-                </h3>
-              </div>
-              <p className="mb-3 text-xs text-text-secondary">
-                {t("home.sidePanel.discoverHint")}
-              </p>
-              <Button
-                variant="secondary"
-                className="w-full"
-                onClick={() => navigate("/browse")}
-              >
-                {t("home.sidePanel.browseCatalog")}
-                <ArrowRight size={14} />
-              </Button>
-            </GlassCard>
+            {catalogOn && (
+              <GlassCard className="p-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <Compass size={16} className="text-accent-blue" />
+                  <h3 className="text-sm font-semibold text-text-primary">
+                    {t("home.sidePanel.discover")}
+                  </h3>
+                </div>
+                <p className="mb-3 text-xs text-text-secondary">
+                  {t("home.sidePanel.discoverHint")}
+                </p>
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => navigate("/browse")}
+                >
+                  {t("home.sidePanel.browseCatalog")}
+                  <ArrowRight size={14} />
+                </Button>
+              </GlassCard>
+            )}
           </div>
         </aside>
       </div>

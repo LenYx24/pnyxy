@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Building2, Plus, Trash2, X } from "lucide-react";
-import { Button } from "@/components/ui";
+import { Plus, Trash2, X } from "lucide-react";
+import { Button, IconButton, modalBackdropClass, modalSurfaceClass } from "@/components/ui";
+import { SettingsSection } from "../ui";
 import { cn } from "@/lib/cn";
 import { useAuthStore } from "@/stores/auth-store";
 import { useOrgStore } from "@/stores/org-store";
@@ -39,11 +40,11 @@ export function OrganizationsTab() {
 
   if (!user) {
     return (
-      <section className="rounded-xl border border-glass-border bg-glass-bg/50 p-6 text-center">
-        <p className="text-sm text-text-muted">
+      <SettingsSection>
+        <p className="py-3 text-center text-[13px] text-text-muted">
           {t("settings.organizationsSection.signInFirst")}
         </p>
-      </section>
+      </SettingsSection>
     );
   }
 
@@ -78,22 +79,17 @@ export function OrganizationsTab() {
   };
 
   return (
-    <section className="space-y-4 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
-      <div className="flex items-center gap-2">
-        <Building2 size={18} className="text-text-secondary" />
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t("settings.organizationsSection.heading")}
-        </h2>
-      </div>
-      <p className="text-xs text-text-muted">
-        {t("settings.organizationsSection.description")}
-      </p>
-      <p className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-text-secondary">
+    <SettingsSection
+      description={t("settings.organizationsSection.description")}
+      plain
+    >
+      <div className="space-y-4">
+      <p className="rounded-control bg-bg-tertiary px-4 py-3 text-[13px] text-text-secondary">
         {t("settings.organizationsSection.scopingNotice")}
       </p>
 
       {error && (
-        <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
+        <p className="rounded-control bg-danger/10 px-4 py-3 text-[13px] text-danger">
           {error}
         </p>
       )}
@@ -119,9 +115,9 @@ export function OrganizationsTab() {
 
       {/* Create form */}
       {creating ? (
-        <div className="space-y-3 rounded-lg border border-glass-border bg-bg-primary/40 p-3">
+        <div className="space-y-3 rounded-panel bg-bg-tertiary p-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-text-secondary">
+            <label className="mb-1.5 block text-[13px] font-medium text-text-secondary">
               {t("settings.organizationsSection.nameLabel")}
             </label>
             <input
@@ -131,11 +127,11 @@ export function OrganizationsTab() {
               placeholder={t("settings.organizationsSection.namePlaceholder")}
               maxLength={60}
               autoFocus
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent"
+              className="field bg-bg-secondary"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-text-secondary">
+            <label className="mb-1.5 block text-[13px] font-medium text-text-secondary">
               {t("settings.organizationsSection.colorLabel")}
             </label>
             <ColorPicker value={newColor} onChange={setNewColor} />
@@ -161,11 +157,7 @@ export function OrganizationsTab() {
           </div>
         </div>
       ) : (
-        <Button
-          variant="secondary"
-          onClick={() => setCreating(true)}
-          className="gap-1 text-xs"
-        >
+        <Button variant="secondary" onClick={() => setCreating(true)}>
           <Plus size={14} />
           {t("settings.organizationsSection.newOrg")}
         </Button>
@@ -174,11 +166,11 @@ export function OrganizationsTab() {
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className={cn("absolute inset-0", modalBackdropClass)}
             onClick={() => setConfirmDelete(null)}
           />
-          <div className="relative z-10 w-full max-w-sm rounded-xl border border-glass-border bg-bg-secondary/95 p-6 backdrop-blur-xl">
-            <h3 className="mb-2 text-lg font-semibold text-text-primary">
+          <div className={cn("relative z-10 w-full max-w-sm p-6", modalSurfaceClass)}>
+            <h3 className="mb-2 font-display text-lg font-semibold text-text-primary">
               {t("settings.organizationsSection.confirmDeleteTitle", {
                 name: confirmDelete.name,
               })}
@@ -194,20 +186,17 @@ export function OrganizationsTab() {
               >
                 {t("common.cancel")}
               </Button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="cursor-pointer rounded-lg bg-danger/20 px-4 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/30 disabled:cursor-not-allowed disabled:opacity-60"
-              >
+              <Button variant="danger" onClick={handleDelete} disabled={deleting}>
                 {deleting
                   ? t("common.deleting")
                   : t("settings.organizationsSection.deleteOrg")}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       )}
-    </section>
+      </div>
+    </SettingsSection>
   );
 
   function showErr(err: unknown) {
@@ -240,7 +229,7 @@ function OrgRow({
   };
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-glass-border bg-bg-primary/40 p-3 sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-2 rounded-panel bg-bg-tertiary p-3 sm:flex-row sm:items-center">
       <span
         className={cn(
           "inline-block h-3 w-3 shrink-0 rounded-full",
@@ -261,7 +250,7 @@ function OrgRow({
           }
         }}
         maxLength={60}
-        className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-2 py-1 text-sm text-text-primary outline-none focus:border-glass-border focus:bg-bg-primary/60"
+        className="field min-w-0 flex-1 bg-transparent py-1.5 hover:bg-bg-secondary"
       />
       <ColorPicker
         value={
@@ -273,19 +262,20 @@ function OrgRow({
         compact
       />
       {org.is_default ? (
-        <span className="shrink-0 rounded-full bg-glass-bg px-2 py-0.5 text-2xs font-medium uppercase tracking-wider text-text-muted">
+        <span className="chip shrink-0 px-2 py-0.5 text-2xs uppercase tracking-wider">
           {t("settings.organizationsSection.defaultBadge")}
         </span>
       ) : (
-        <button
-          type="button"
+        <IconButton
+          variant="danger"
+          size="sm"
           onClick={onDelete}
           aria-label={t("settings.organizationsSection.deleteOrg")}
           title={t("settings.organizationsSection.deleteOrg")}
-          className="shrink-0 rounded p-1.5 text-text-muted transition-colors hover:bg-danger/10 hover:text-danger cursor-pointer"
+          className="shrink-0"
         >
           <Trash2 size={14} />
-        </button>
+        </IconButton>
       )}
     </div>
   );
@@ -315,12 +305,12 @@ function ColorPicker({
           buttonSize,
           value === null
             ? "border-text-primary"
-            : "border-transparent hover:border-glass-border",
+            : "border-transparent hover:border-surface-3",
         )}
       >
         <span
           className={cn(
-            "inline-flex items-center justify-center rounded-full bg-glass-bg",
+            "inline-flex items-center justify-center rounded-full bg-surface-3",
             dotSize,
           )}
         >
@@ -342,7 +332,7 @@ function ColorPicker({
               buttonSize,
               active
                 ? "border-text-primary"
-                : "border-transparent hover:border-glass-border",
+                : "border-transparent hover:border-surface-3",
             )}
           >
             <span className={cn("block rounded-full", dotSize, cc.swatch)} />

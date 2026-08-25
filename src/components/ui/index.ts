@@ -14,7 +14,22 @@ export { Kbd } from "./Kbd";
 export { MeshBackground } from "./MeshBackground";
 export { Toggle } from "./Toggle";
 export { Slider } from "./Slider";
-export { TagBadge, getTagLabel, ALL_STATUS_TAGS } from "./TagBadge";
+export { TagBadge, CustomTagBadge, getTagLabel, ALL_STATUS_TAGS } from "./TagBadge";
 export { CategoryChip } from "./CategoryChip";
 export { StarRatingDisplay, StarRatingInput } from "./StarRating";
 export { TypingIndicator } from "./TypingIndicator";
+export {
+  fieldClass,
+  fieldSmClass,
+  chipClass,
+  chipActiveClass,
+  chipAccentClass,
+  segmentedGroupClass,
+  segmentedItemClass,
+  segmentedItemActiveClass,
+  modalSurfaceClass,
+  modalBackdropClass,
+} from "./classes";
+export { Tooltip } from "./Tooltip";
+export { ShortcutsSheet } from "./ShortcutsSheet";
+export { useShortcutsSheet } from "./shortcuts-sheet-store";

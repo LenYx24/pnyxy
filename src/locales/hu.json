@@ -278,12 +278,6 @@
       "en": "English",
       "hu": "Magyar"
     },
-    "navigation": {
-      "heading": "Navigáció",
-      "animatedScroll": "Animált oldalgörgetés",
-      "animatedScrollHint": "Sima animáció oldalak közötti lépéskor",
-      "animationDuration": "Animáció hossza"
-    },
     "reader": {
       "heading": "Olvasó",
       "fitMode": "Alapértelmezett illesztési mód",
@@ -314,7 +308,8 @@
       "epubColumnWidth_wide": "Széles",
       "epubColumnWidth_comfortable": "Kényelmes",
       "epubColumnWidth_narrow": "Keskeny",
-      "reset": "Visszaállítás"
+      "reset": "Visszaállítás",
+      "epubHeading": "EPUB beállítások"
     },
     "experimental": {
       "heading": "Kísérleti / Fejlesztői",
@@ -337,6 +332,7 @@
       "heading": "Megjelenés",
       "description": "Válassz egy témát. Közösségi témák is telepíthetők; a váltás azonnali és munkamenetek között is megmarad.",
       "coreThemes": "Alap témák",
+      "neutralHint": "Semleges asztal, a színt a tartalom adja",
       "installedThemes": "Telepített témák",
       "browseCommunity": "Közösségi témák böngészése",
       "library": {
@@ -379,7 +375,25 @@
     },
     "tagsSection": {
       "heading": "Címkék",
-      "description": "Állítsd be a színt minden olvasási állapot címkéhez."
+      "description": "Állítsd be a színt minden olvasási állapot címkéhez.",
+      "customColor": "Egyéni szín",
+      "pickColor": "Szín választása",
+      "hexLabel": "Hex szín",
+      "customHeading": "Egyéni címkék",
+      "customDescription": "Saját, szabad szöveges címkék. Itt vagy közvetlenül egy könyv címkeválasztójából hozhatod létre őket; az átnevezés és törlés minden könyvre vonatkozik.",
+      "newPlaceholder": "Új címke neve",
+      "create": "Létrehozás",
+      "customEmpty": "Még nincs egyéni címke.",
+      "bookCount_one": "{{count}} könyv",
+      "bookCount_other": "{{count}} könyv",
+      "rename": "Átnevezés",
+      "delete": "Törlés",
+      "renameTitle": "Címke átnevezése",
+      "deleteTitle": "Címke törlése",
+      "deleteBody": "Eltávolítod a(z) \"{{label}}\" címkét minden könyvről? Ez nem vonható vissza.",
+      "errEmpty": "Adj meg egy nevet.",
+      "errLong": "Túl hosszú (legfeljebb 50 karakter).",
+      "errExists": "Már létezik ilyen nevű címke."
     },
     "organizationsSection": {
       "heading": "Szervezetek",
@@ -460,22 +474,80 @@
       "modelsHeading": "Elérhető modellek",
       "modelsSubtitle": "Az árak 1M tokenre vonatkoznak (bemenet / kimenet).",
       "providersHeading": "Szolgáltatók",
-      "providersSubtitle": "A sorrend a prioritás. Az első engedélyezett, érvényes kulccsal rendelkező szolgáltató kezeli az egyes beszélgetéseket. Átrendezés a nyíl gombokkal.",
+      "providersSubtitle": "A Pnyxy beépített. Saját kulccsal közvetlenül az OpenAI-t vagy az Anthropic-ot is használhatod, vagy megadhatsz egy helyi modellt.",
       "statusActive": "Aktív",
       "statusByok": "Saját kulcs",
       "statusLocal": "Helyi",
-      "statusSoon": "Hamarosan"
+      "statusSoon": "Hamarosan",
+      "providersShort": "A Pnyxy beépített. Saját kulccsal közvetlenül az OpenAI-t vagy az Anthropic-ot is használhatod, vagy megadhatsz egy helyi modellt.",
+      "statusBuiltin": "Beépített",
+      "statusKeySet": "Kulcs megadva",
+      "statusNoKey": "Nincs kulcs",
+      "enableProvider": "{{name}} engedélyezése",
+      "apiKeyLabel": "API-kulcs",
+      "testKey": "Teszt",
+      "testing": "Tesztelés…",
+      "testOk": "A kapcsolat működik.",
+      "testFail": "A kapcsolat nem jött létre.",
+      "orderHeading": "Sorrend",
+      "orderHint": "Felül lévő szolgáltatót próbálja először.",
+      "dragHandle": "Húzd az átrendezéshez",
+      "defaultModelHeading": "Alapértelmezett modell",
+      "defaultModelLabel": "Modell",
+      "defaultModelHint": "A beépített Pnyxy útvonal használja. Az Auto a legolcsóbb működő modellt választja, és feljebb lép, ha elfogy a keret.",
+      "routingNote": "A kvíz- és roadmap-generálás mindig Claude Haiku 4.5-öt használ (tool-use).",
+      "autoModel": "Automatikus",
+      "autoModelNote": "legolcsóbb működő modell, kvóta után feljebb lép",
+      "noteCheap": "olcsó",
+      "noteFast": "gyors",
+      "noteSmart": "okos",
+      "noteBalanced": "kiegyensúlyozott",
+      "quotasHeading": "Kvóták",
+      "colReset": "Frissül",
+      "howItWorks": "Hogyan működik"
     },
     "aiContext": {
       "heading": "AI kontextus",
       "description": "Itt állíthatod be, hogy az AI alapból milyen kontextust kapjon. Az oldalankénti kiválasztás minden könyv TOC nézetében külön elérhető.",
-      "customLabel": "Alapértelmezett felhasználói kontextus",
+      "customLabel": "Kontextusok",
       "customPlaceholder": "pl. Műszaki egyetemi hallgató vagyok, vizsgára készülök. Tömör magyarázatokat szeretek, kidolgozott példákkal.",
-      "customHint": "Minden AI-üzenethez hozzáfűződik a könyv-kontextus mellé. Hagyd üresen, ha nem akarsz ilyet küldeni.",
+      "customHint": "Elnevezett jegyzetek rólad és arról, hogyan segítsen az AI. Könyvenként, mappánként vagy szervezetenként választhatod ki, melyik érvényes; a többit az alapértelmezett fedi le.",
       "attachTocLabel": "A könyv tartalomjegyzékének küldése",
       "attachTocHint": "Ha be van kapcsolva, a tartalomjegyzék automatikusan minden könyves chathez csatolódik. Olcsó, de nagyon hasznos kontextus.",
       "surroundingLabel": "„Jelenlegi oldal körüli” oldalak száma",
-      "surroundingHint": "Hány oldalt jelöljön ki a „jelenlegi körül” gomb a TOC-ban a jelenlegi oldal körül mindkét irányba."
+      "surroundingHint": "Hány oldalt jelöljön ki a „jelenlegi körül” gomb a TOC-ban a jelenlegi oldal körül mindkét irányba.",
+      "presets": {
+        "pick": "Válassz kontextust",
+        "search": "Keresés a kontextusok között",
+        "noMatch": "Nincs találat",
+        "new": "Új kontextus",
+        "untitled": "Új kontextus",
+        "copyName": "{{name}} (másolat)",
+        "default": "Alapértelmezett",
+        "defaultHint": "Ott érvényes, ahol nincs könyv-, mappa- vagy szervezet-hozzárendelés.",
+        "rename": "Átnevezés",
+        "duplicate": "Duplikálás",
+        "injectHint": "Minden olyan AI-beszélgetés elejére bekerül, ahol ez a kontextus érvényes. Markdown gyorsbillentyűk működnek: # címsor, **félkövér**, - lista.",
+        "emptyState": "Még nincs kontextus. Írd le az AI-nak, ki vagy és hogyan segítsen, ez minden beszélgetés elejére bekerül.",
+        "deleteTitle": "Törlöd ezt a kontextust?",
+        "deleteBody": "A(z) „{{name}}” és a hozzárendelései törlődnek. Az érintett beszélgetések a következő illeszkedő kontextusra esnek vissza.",
+        "defaultName": "Alapértelmezett",
+        "saved": "Mentve"
+      },
+      "bindings": {
+        "heading": "Hol érvényes",
+        "assign": "Hozzárendelés",
+        "assignTitle": "Kontextus hozzárendelése",
+        "kindBook": "Könyv",
+        "kindFolder": "Mappa",
+        "kindOrg": "Szervezet",
+        "search": "Keresés",
+        "empty": "Nincs megjeleníthető elem",
+        "bound": "Hozzárendelve",
+        "everywhereElse": "Minden máshol (alapértelmezett)",
+        "unknown": "Ismeretlen elem",
+        "none": "Még sehol sem érvényes. Jelöld alapértelmezettnek vagy rendeld hozzá valamihez."
+      }
     },
     "aiModels": {
       "heading": "Részletes modellinformációk"
@@ -487,7 +559,24 @@
       "showAllHint": "Csak adminnak. Kikapcsolva úgy látod az appot, ahogy egy pilot-felhasználó.",
       "serverUnlocked": "szerveren feloldva",
       "overridden": "helyi felülírás",
-      "reset": "vissza"
+      "reset": "vissza",
+      "adminCaption": "Admin"
+    },
+    "groups": {
+      "account": "Fiók",
+      "workspace": "Munkaterület",
+      "help": "Súgó"
+    },
+    "pageTurning": {
+      "heading": "Lapozás",
+      "animatedScroll": "Animált oldalgörgetés",
+      "animatedScrollHint": "Sima animáció oldalak közötti lépéskor",
+      "animationDuration": "Animáció hossza"
+    },
+    "community": {
+      "installed": "Telepítve",
+      "installing": "Letöltés...",
+      "download": "Letöltés"
     }
   },
   "landing": {
@@ -692,6 +781,20 @@
     }
   },
   "home": {
+    "hero": {
+      "caption": "Folytasd, ahol abbahagytad",
+      "position": "{{current}}. oldal / {{total}}",
+      "progress": "{{percent}}% elolvasva",
+      "read": "Olvasás",
+      "ask": "Kérdezz a könyvről",
+      "streakDays_one": "{{count}} napos sorozat",
+      "streakDays_other": "{{count}} napos sorozat",
+      "goalLeft": "Ma még {{minutes}} perc a célhoz",
+      "goalDone": "A mai cél teljesítve",
+      "emptyTitle": "Tölts fel egy jegyzetet",
+      "emptyBody": "Dobj be egy PDF-et a könyvtáradba, és legközelebb innen folytathatod.",
+      "emptyAction": "Könyvtár megnyitása"
+    },
     "title": "Kezdőlap",
     "subtitle": "Innen indul az olvasás.",
     "seeAll": "Összes →",
@@ -844,7 +947,7 @@
       "root": "Könyvtár",
       "nameLabel": "Név",
       "namePlaceholder": "pl. Fantasy  vagy  Szépirodalom/Sci-Fi/Űropera",
-      "nestedTip": "Tipp: a <slash></slash> karakterrel egyszerre hozhatsz létre egymásba ágyazott mappákat (pl. <ex></ex>).",
+      "nestedTip": "Tipp: a <slash>/</slash> karakterrel egyszerre hozhatsz létre egymásba ágyazott mappákat (pl. <ex>p1/p2/p3</ex>).",
       "nameRequired": "A mappa neve kötelező.",
       "failed": "Nem sikerült létrehozni a mappát.",
       "creating": "Létrehozás…",
@@ -1046,6 +1149,10 @@
       "whiteboard": "Tábla",
       "quiz": "Kvíz",
       "chat": "Beszélgetés"
+    },
+    "dnd": {
+      "dropHere": "Ide dobod",
+      "moveUp": "Feljebb: {{name}}"
     }
   },
   "download": {
@@ -1456,7 +1563,17 @@
       "empty": "Még nincs beszélgetés.",
       "collapseAll": "Minden mappa összecsukása",
       "expandAll": "Minden mappa kinyitása",
-      "resize": "Oldalsáv átméretezése"
+      "resize": "Oldalsáv átméretezése",
+      "title": "Beszélgetések",
+      "viewLabel": "Oldalsáv nézet",
+      "viewFolders": "Mappa nézet",
+      "viewQuick": "Gyors nézet (minden chat, legújabb elöl)",
+      "looseChats": "Gyors chatek",
+      "groupToday": "Ma",
+      "groupWeek": "Ezen a héten",
+      "groupEarlier": "Korábban",
+      "streak_one": "{{count}} napos sorozat",
+      "streak_other": "{{count}} napos sorozat"
     },
     "composer": {
       "modelLabel": "Modell",
@@ -1473,7 +1590,25 @@
         "tooLarge": "A képek nem lehetnek nagyobbak {{mb}}MB-nál.",
         "unsupported": "Csak JPEG, PNG, GIF és WebP képek támogatottak.",
         "readError": "Nem sikerült beolvasni a fájlt.",
-        "needVisionModel": "Az Alapértelmezett mód üzenetenként 1 képet támogat. Válaszd a Claude Sonnet 4.5 vagy GPT-4o mini modellt akár 4 képhez."
+        "needVisionModel": "Az Alapértelmezett mód üzenetenként 1 képet támogat. Válaszd a Claude Sonnet 4.5 vagy GPT-4o mini modellt akár 4 képhez.",
+        "remove": "Melléklet eltávolítása"
+      },
+      "modelHelp": "Modellek leírása",
+      "clearMode": "Vissza a chat módhoz",
+      "reasoning": {
+        "off": "Gondolkodó mód kikapcsolása"
+      },
+      "wholeBook": {
+        "chip": "Teljes könyv"
+      },
+      "quota": {
+        "remaining_one": "Ma még {{count}} kérdés",
+        "remaining_other": "Ma még {{count}} kérdés",
+        "ownKey": "Saját kulccsal, nem a Pnyxy keretből"
+      },
+      "context": {
+        "label": "Kontextus",
+        "hint": "Melyik mentett kontextust kapja az AI ebben a beszélgetésben. Könyvnél a könyvhöz jegyzi meg, egyébként csak erre a munkamenetre."
       }
     },
     "folders": {
@@ -1491,7 +1626,8 @@
       "newSubfolder": "Új almappa",
       "openInLibrary": "Megnyitás a könyvtárban",
       "enter": "Belépés a mappába",
-      "backToAll": "Összes csevegés"
+      "backToAll": "Összes csevegés",
+      "actions": "Mappa műveletei"
     },
     "flashcards": {
       "title": "Mentés tanulókártyaként",
@@ -1523,7 +1659,29 @@
     },
     "confirmDeleteMessageBody": "Az üzenet alatti minden válasz és folytatás is törlődik. A törlés végleges.",
     "confirmDeleteMessageTitle": "Törlöd ezt az üzenetet?",
-    "hideSourceChip": "Elrejtés erre a munkamenetre"
+    "hideSourceChip": "Elrejtés erre a munkamenetre",
+    "rowActions": "Beszélgetés műveletei",
+    "messageActions": "További műveletek",
+    "branchPrev": "Előző ág",
+    "branchNext": "Következő ág",
+    "emptyHeadline": "Mit tanuljunk ma?",
+    "emptySuggestion1": "Magyarázd el egyszerűen a Bayes-tételt",
+    "emptySuggestion2": "Tervezd meg a tanulási hetemet",
+    "emptySuggestion3": "Kérdezz ki az utoljára olvasott fejezetből",
+    "quotaModal": {
+      "title": "Napi keret",
+      "resetsAt": "Éjfélkor (UTC) nullázódik, nálad {{time}}-kor",
+      "tokens": "{{used}} / {{limit}} token",
+      "requests": "{{used}} / {{limit}} kérés",
+      "next": "következő kérdés",
+      "pinned": "rögzítve",
+      "fallback": "tartalék, az olcsóbb keret elfogyott",
+      "noData": "Még nincs használati adat",
+      "tierFree": "Ingyenes",
+      "tierPremium": "Prémium",
+      "upgrade": "Prémium",
+      "details": "Részletek a beállításokban"
+    }
   },
   "readingPlans": {
     "section": {
@@ -2032,7 +2190,9 @@
       "translatePlaceholder": "Fordítandó szöveg…",
       "emptyDictionary": "Írj be egy szót fentre a definícióhoz.",
       "emptyTranslate": "Írj be szöveget fentre a fordításhoz.",
-      "openInNewTab": "Megnyitás új lapon"
+      "openInNewTab": "Megnyitás új lapon",
+      "teacher": "Tanár",
+      "margin": "Margó"
     },
     "toolbar": {
       "backToLibrary": "Vissza a könyvtárba",
@@ -2103,7 +2263,7 @@
       "rectToAi": "Kivágás MI-hez",
       "customize": "Eszköztár testreszabása",
       "customizeTitle": "Eszköztár testreszabása",
-      "customizeHint": "Húzd az ikonokat a bal / közép / jobb zónák és a ⋮ menü között. A palettáról húzva adhatsz hozzá, visszahúzva eltávolíthatsz.",
+      "customizeHint": "Húzd az ikonokat a cím, a középső gombcsoport, a jobb oldal és a menü között. A palettáról húzva hozzáadhatsz, visszahúzva eltávolíthatsz.",
       "customizeDone": "Kész",
       "customizeReset": "Alaphelyzet",
       "customizePalette": "Elérhető ikonok",
@@ -2112,7 +2272,7 @@
       "zoneLeft": "Bal",
       "zoneCenter": "Közép",
       "zoneRight": "Jobb",
-      "zoneOverflow": "Továbbiak menü (⋮)",
+      "zoneOverflow": "Menü",
       "bookTitle": "Könyv címe",
       "pageNav": "Oldalnavigáció",
       "readingTracker": "Olvasáskövető",
@@ -2121,7 +2281,10 @@
       "separator": "Elválasztó",
       "addSeparator": "Elválasztó",
       "iconPadding": "Ikon-térköz",
-      "dragHeight": "Húzd a magasság állításához"
+      "dragHeight": "Húzd a magasság állításához",
+      "coverTint": "Borító-tónus",
+      "prevPage": "Előző oldal",
+      "nextPage": "Következő oldal"
     },
     "bookmarks": {
       "addAt": "{{page}}. oldal megjelölése",
@@ -2440,5 +2603,70 @@
     "voiceDefault": "Böngésző alapértelmezett",
     "noVoices": "Ezen az eszközön nincs elérhető hang.",
     "rate": "Sebesség"
+  },
+  "shortcuts": {
+    "modifierPc": "Windowson és Linuxon a Ctrl a módosítóbillentyű.",
+    "modifierMac": "Macen a ⌘ a módosítóbillentyű.",
+    "groups": {
+      "global": "Globális",
+      "library": "Könyvtár",
+      "chat": "Chat",
+      "reader": "Olvasó"
+    },
+    "items": {
+      "commandPalette": "Parancspaletta",
+      "openBook": "Könyv megnyitása a lemezről",
+      "newChat": "Új chat",
+      "openSettings": "Beállítások megnyitása",
+      "upload": "Feltöltés",
+      "newFolder": "Új mappa",
+      "scanDevice": "Eszköz átvizsgálása könyvekért",
+      "goUp": "Ugrás a szülőmappába",
+      "closeBook": "Könyv bezárása, vissza a könyvtárba",
+      "search": "Keresés a dokumentumban",
+      "replace": "Keresés és csere",
+      "goToPage": "Ugrás oldalra",
+      "toggleToc": "Tartalomjegyzék ki/be",
+      "toggleAiChat": "Tanár (AI chat) ki/be",
+      "toggleComments": "Megjegyzések panel ki/be",
+      "fullscreen": "Teljes képernyő ki/be",
+      "zenMode": "Zen mód ki/be",
+      "zoomIn": "Nagyítás",
+      "zoomOut": "Kicsinyítés",
+      "zoomReset": "Nagyítás visszaállítása",
+      "prevPage": "Előző oldal (nagyítva: görgetés)",
+      "nextPage": "Következő oldal (nagyítva: görgetés)",
+      "spaceNext": "Következő oldal",
+      "spacePrev": "Előző oldal",
+      "pageDown": "Görgetés egy képernyőt lefelé",
+      "pageUp": "Görgetés egy képernyőt felfelé",
+      "home": "Ugrás az elejére",
+      "end": "Ugrás a végére",
+      "vimH": "Előző oldal (vim)",
+      "vimL": "Következő oldal (vim)",
+      "vimJ": "Egy sor lefelé (vim)",
+      "vimK": "Egy sor felfelé (vim)",
+      "searchNext": "Következő találat",
+      "searchPrev": "Előző találat",
+      "highlightYellow": "Kiemelés színe: sárga",
+      "highlightGreen": "Kiemelés színe: zöld",
+      "highlightBlue": "Kiemelés színe: kék",
+      "highlightPink": "Kiemelés színe: rózsaszín",
+      "highlightOrange": "Kiemelés színe: narancs",
+      "addComment": "Megjegyzés a kijelöléshez",
+      "bookmarkPage": "Oldal könyvjelzőzése",
+      "cycleTheme": "Olvasótéma váltása",
+      "print": "Nyomtatás",
+      "screenshot": "Képernyőkép a nézetről",
+      "undo": "Utolsó jegyzetművelet visszavonása",
+      "shortcutsSheet": "Gyorsbillentyű-lista"
+    },
+    "sheet": {
+      "title": "Gyorsbillentyűk",
+      "search": "Keresés név vagy billentyű szerint",
+      "empty": "Nincs illeszkedő gyorsbillentyű.",
+      "openOverlay": "Megnyitás átfedésként",
+      "hint": "A Ctrl + / vagy a ? bárhol megnyitja ezt a listát, az Esc bezárja."
+    }
   }
 }

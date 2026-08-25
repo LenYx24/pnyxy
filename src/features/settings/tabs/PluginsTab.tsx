@@ -1,15 +1,14 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Puzzle } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useSettingsStore } from "@/stores/settings-store";
 import { CORE_PLUGINS } from "@/lib/plugins/core-registry";
 import type { PluginManifest } from "@/lib/plugins/types";
 import { usePluginHost } from "@/lib/plugins/host-context";
 import { PluginRow } from "../PluginRow";
 import { BrowseCommunityModal } from "../BrowseCommunityModal";
-import { cn } from "@/lib/cn";
-
-type SubTab = "installed" | "browse";
+import { Button } from "@/components/ui";
+import { SectionCaption, SettingsSection } from "../ui";
 
 export function PluginsTab() {
   const { t } = useTranslation();
@@ -20,7 +19,6 @@ export function PluginsTab() {
 
   const { statuses } = usePluginHost();
 
-  const [subTab, setSubTab] = useState<SubTab>("installed");
   const [browseOpen, setBrowseOpen] = useState(false);
 
   // Core manifests + community manifests, deduplicated by id.
@@ -32,40 +30,22 @@ export function PluginsTab() {
   );
 
   return (
-    <section className="space-y-4 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
-      <div className="flex items-center gap-2">
-        <Puzzle size={18} className="text-accent" />
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t("settings.pluginsSection.heading")}
-        </h2>
-      </div>
-      <p className="text-xs text-text-muted">
-        {t("settings.pluginsSection.description")}
-      </p>
-
-      <div className="flex gap-1 rounded-lg border border-glass-border bg-bg-primary/40 p-0.5">
-        <SubTabButton
-          active={subTab === "installed"}
-          onClick={() => setSubTab("installed")}
-          label={t("settings.pluginsSection.installedTab")}
-          count={coreManifests.length + communityManifests.length}
-        />
-        <SubTabButton
-          active={subTab === "browse"}
-          onClick={() => {
-            setSubTab("browse");
-            setBrowseOpen(true);
-          }}
-          label={t("settings.pluginsSection.browseTab")}
-        />
-      </div>
-
-      {subTab === "installed" && (
-        <div className="space-y-4">
-          <div>
-            <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
-              {t("settings.pluginsSection.coreHeading")}
-            </h3>
+    <div className="space-y-8">
+      <SettingsSection
+        description={t("settings.pluginsSection.description")}
+        actions={
+          <Button variant="secondary" size="sm" onClick={() => setBrowseOpen(true)}>
+            <Plus size={14} />
+            {t("settings.pluginsSection.browseTab")}
+          </Button>
+        }
+        plain
+      >
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <SectionCaption className="px-1">
+              {t("settings.pluginsSection.coreHeading")} ({coreManifests.length})
+            </SectionCaption>
             <div className="space-y-2">
               {coreManifests.map((manifest) => (
                 <PluginRow
@@ -79,23 +59,25 @@ export function PluginsTab() {
             </div>
           </div>
 
-          <div>
-            <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
-              {t("settings.pluginsSection.communityHeading")}
-            </h3>
+          <div className="space-y-2">
+            <SectionCaption className="px-1">
+              {t("settings.pluginsSection.communityHeading")} (
+              {communityManifests.length})
+            </SectionCaption>
             {communityManifests.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-glass-border bg-bg-primary/40 p-4 text-center">
-                <p className="text-sm text-text-secondary">
+              <div className="rounded-panel bg-bg-tertiary p-5 text-center">
+                <p className="text-[13px] text-text-muted">
                   {t("settings.pluginsSection.noCommunity")}
                 </p>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2"
                   onClick={() => setBrowseOpen(true)}
-                  className="mt-2 inline-flex items-center gap-1 text-xs text-accent hover:underline cursor-pointer"
                 >
-                  <Plus size={12} />
+                  <Plus size={14} />
                   {t("settings.pluginsSection.browseCommunity")}
-                </button>
+                </Button>
               </div>
             ) : (
               <div className="space-y-2">
@@ -113,47 +95,14 @@ export function PluginsTab() {
             )}
           </div>
         </div>
-      )}
+      </SettingsSection>
 
       {browseOpen && (
         <BrowseCommunityModal
           mode="plugins"
-          onClose={() => {
-            setBrowseOpen(false);
-            setSubTab("installed");
-          }}
+          onClose={() => setBrowseOpen(false)}
         />
       )}
-    </section>
-  );
-}
-
-function SubTabButton({
-  active,
-  onClick,
-  label,
-  count,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  count?: number;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer",
-        active
-          ? "bg-glass-bg text-text-primary"
-          : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
-      )}
-    >
-      {label}
-      {count !== undefined && (
-        <span className="ml-1 text-text-muted">({count})</span>
-      )}
-    </button>
+    </div>
   );
 }

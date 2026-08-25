@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { X, Link as LinkIcon, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui";
+import { modalBackdropClass, modalSurfaceClass } from "@/components/ui/classes";
 import { fetchUrlAsFile, UrlFetchError } from "@/lib/url-to-file";
 
 interface OpenFromUrlModalProps {
@@ -72,16 +73,16 @@ export function OpenFromUrlModal({ open, onClose, onFile }: OpenFromUrlModalProp
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className={`absolute inset-0 ${modalBackdropClass}`}
         onClick={loading ? undefined : onClose}
       />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-glass-border bg-bg-secondary/95 backdrop-blur-xl">
-        <div className="flex items-center justify-between border-b border-glass-border p-4">
+      <div className={`relative z-10 w-full max-w-md ${modalSurfaceClass}`}>
+        <div className="flex items-center justify-between p-4 pb-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15">
-              <LinkIcon size={16} className="text-accent" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-control bg-surface-3">
+              <LinkIcon size={16} strokeWidth={1.5} className="text-text-secondary" />
             </div>
-            <h2 className="text-lg font-semibold text-text-primary">
+            <h2 className="font-display text-lg font-semibold text-text-primary">
               Open from URL
             </h2>
           </div>
@@ -89,7 +90,7 @@ export function OpenFromUrlModal({ open, onClose, onFile }: OpenFromUrlModalProp
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="rounded-lg p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer disabled:opacity-50"
+            className="rounded-control p-1 text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer disabled:opacity-50"
             aria-label="Close"
           >
             <X size={20} />
@@ -99,7 +100,7 @@ export function OpenFromUrlModal({ open, onClose, onFile }: OpenFromUrlModalProp
         <form onSubmit={handleSubmit} className="space-y-4 p-4">
           <p className="text-xs text-text-muted">
             Paste a direct link to a PDF, EPUB, TXT, or Markdown file.
-            Local files (<code className="rounded bg-glass-bg px-1 py-0.5 text-2xs">file://</code>) can't be opened by URL,
+            Local files (<code className="rounded bg-surface-3 px-1 py-0.5 text-2xs">file://</code>) can't be opened by URL,
             drag them onto the library or use Upload instead.
           </p>
 
@@ -118,13 +119,13 @@ export function OpenFromUrlModal({ open, onClose, onFile }: OpenFromUrlModalProp
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com/paper.pdf"
               disabled={loading}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-50"
+              className="field disabled:opacity-50"
               autoComplete="off"
             />
           </div>
 
           {error && (
-            <div className="flex items-start gap-2 rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">
+            <div className="flex items-start gap-2 rounded-control bg-danger/10 px-3 py-2 text-xs text-danger">
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>

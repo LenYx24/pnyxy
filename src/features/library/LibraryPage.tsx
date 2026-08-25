@@ -18,12 +18,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useNavigate } from "react-router";
-import { Button, FloatingMenu } from "@/components/ui";
+import { Button, FloatingMenu, Kbd } from "@/components/ui";
+import { modalBackdropClass, modalSurfaceClass } from "@/components/ui/classes";
 import { useContextMenu } from "@/hooks/use-context-menu";
 import { CreateFolderModal } from "./modals/CreateFolderModal";
 import { cn } from "@/lib/cn";
 import { useOpenDocument } from "@/hooks/use-open-document";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
+import { getCatalogShortcut } from "@/lib/keyboard-shortcuts";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLibraryStore } from "@/stores/library-store";
@@ -66,27 +68,32 @@ function CreateMenuRow({
   icon: Icon,
   label,
   onClick,
+  shortcut,
 }: {
   icon: LucideIcon;
   label: string;
   onClick: () => void;
+  /** Shortcut catalog id, rendered as Kbd chips at the right edge. */
+  shortcut?: string;
 }) {
+  const spec = shortcut ? getCatalogShortcut(shortcut) : undefined;
   return (
     <button
       type="button"
       role="menuitem"
       onClick={onClick}
-      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
     >
-      <Icon size={16} className="shrink-0" />
+      <Icon size={16} strokeWidth={1.5} className="shrink-0" />
       <span className="truncate">{label}</span>
+      {spec && <Kbd shortcut={spec} variant="chips" className="ml-auto" />}
     </button>
   );
 }
 
 function CreateMenuHeading({ children }: { children: React.ReactNode }) {
   return (
-    <p className="px-3 pb-1 pt-2 text-2xs font-semibold uppercase tracking-wide text-text-muted">
+    <p className="px-3 pb-1 pt-2 text-2xs font-semibold uppercase tracking-wide text-text-muted-2">
       {children}
     </p>
   );
@@ -147,8 +154,6 @@ export function LibraryPage() {
     viewMode,
     cardSize,
     setViewMode,
-    controlsExpanded,
-    setControlsExpanded,
     typeFilter,
     setTypeFilter,
     sortOrders,
@@ -772,11 +777,12 @@ export function LibraryPage() {
             transition: isRefreshing ? "transform 150ms ease-out" : undefined,
           }}
         >
-          <div className="rounded-full border border-glass-border bg-bg-secondary/90 p-2 shadow-lg backdrop-blur-md">
+          <div className="rounded-chip bg-bg-tertiary p-2 shadow-page">
             <RefreshCw
               size={18}
+              strokeWidth={1.5}
               className={cn(
-                "text-accent",
+                "text-text-secondary",
                 isRefreshing && "animate-spin",
               )}
               style={
@@ -790,7 +796,7 @@ export function LibraryPage() {
       )}
       {/* notice for drops of unsupported formats, auto-dismisses */}
       {unsupportedNotice.length > 0 && (
-        <div className="mb-3 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+        <div className="mb-3 flex items-start gap-2 rounded-control bg-warning/10 px-3 py-2 text-xs text-warning">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <p>
             {t("library.upload.unsupportedFormat", {
@@ -803,9 +809,9 @@ export function LibraryPage() {
       {/* drop overlay while a file drag hovers */}
       {dragOver && (
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-bg-primary/70 backdrop-blur-sm">
-          <div className="mx-4 flex max-w-md flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-accent/60 bg-bg-secondary/90 px-8 py-10 text-center shadow-xl">
-            <UploadCloud size={40} className="text-accent" />
-            <p className="text-base font-semibold text-text-primary">
+          <div className="mx-4 flex max-w-md flex-col items-center gap-3 rounded-page bg-bg-tertiary px-8 py-10 text-center shadow-page outline-dotted outline-2 -outline-offset-8 outline-surface-3">
+            <UploadCloud size={40} strokeWidth={1.5} className="text-text-secondary" />
+            <p className="font-display text-base font-semibold text-text-primary">
               {t("library.dropOverlay.title")}
             </p>
             <p className="text-xs text-text-muted">
@@ -864,8 +870,6 @@ export function LibraryPage() {
             onViewModeChange={setViewMode}
             onRefresh={handleRefresh}
             isRefreshing={isLoading}
-            controlsExpanded={controlsExpanded}
-            onToggleControls={() => setControlsExpanded(!controlsExpanded)}
             leading={
               <div className="flex min-w-0 items-center gap-2">
                 {breadcrumb}
@@ -886,7 +890,7 @@ export function LibraryPage() {
                     aria-expanded={createMenuOpen}
                     className="px-3 py-2 sm:px-3.5"
                   >
-                    <Plus size={16} />
+                    <Plus size={16} strokeWidth={1.5} />
                     <span className="hidden sm:inline">{t("library.list.add")}</span>
                   </Button>
                 </span>
@@ -910,7 +914,7 @@ export function LibraryPage() {
                       }}
                     />
                   ))}
-                  <div className="my-1 border-t border-glass-border" />
+                  <div className="my-1 h-px bg-surface-3" />
                   <CreateMenuHeading>
                     {t("library.create.addHeading", { defaultValue: "Add / upload" })}
                   </CreateMenuHeading>
@@ -927,13 +931,14 @@ export function LibraryPage() {
                       key={e.id}
                       icon={e.icon}
                       label={e.label}
+                      shortcut={e.id === "open-file" ? "app:open-book" : undefined}
                       onClick={() => {
                         setCreateMenuOpen(false);
                         e.onClick();
                       }}
                     />
                   ))}
-                  <div className="my-1 border-t border-glass-border" />
+                  <div className="my-1 h-px bg-surface-3" />
                   <CreateMenuRow
                     icon={FolderPlus}
                     label={t("library.allBooks.newFolder")}
@@ -948,9 +953,7 @@ export function LibraryPage() {
           />
         )}
         filtersExtra={
-          controlsExpanded ? (
-            <TagFilterBar activeTag={activeTag} onTagChange={setActiveTag} />
-          ) : null
+          <TagFilterBar activeTag={activeTag} onTagChange={setActiveTag} />
         }
       />
 
@@ -962,7 +965,7 @@ export function LibraryPage() {
 
       {/* sticky bottom info row: book count + storage. offset above the
           mobile bottom nav (3.5rem + safe-bottom) so they don't overlap. */}
-      <div className="sticky bottom-[calc(3.5rem+var(--spacing-safe-bottom,0px))] z-10 mt-auto flex flex-col gap-1.5 border-t border-glass-border bg-bg-primary/85 px-1 pb-2 pt-3 text-xs text-text-muted backdrop-blur-md md:bottom-0">
+      <div className="sticky bottom-[calc(3.5rem+var(--spacing-safe-bottom,0px))] z-10 mt-auto flex flex-col gap-1.5 bg-bg-secondary/90 px-1 pb-2 pt-3 text-xs text-text-muted-2 backdrop-blur-md md:bottom-0">
         <p>
           {t("library.list.folderCount", { count: visibleCounts.folders })}
           {", "}
@@ -1064,11 +1067,11 @@ export function LibraryPage() {
       {removeEntry && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className={`absolute inset-0 ${modalBackdropClass}`}
             onClick={() => setRemoveEntry(null)}
           />
-          <div className="relative z-10 w-full max-w-sm rounded-xl border border-glass-border bg-bg-secondary/95 p-6 backdrop-blur-xl">
-            <h3 className="mb-2 text-lg font-semibold text-text-primary">
+          <div className={`relative z-10 w-full max-w-sm p-6 ${modalSurfaceClass}`}>
+            <h3 className="mb-2 font-display text-lg font-semibold text-text-primary">
               {isUploaded
                 ? t("library.confirm.deleteTitle")
                 : t("library.confirm.removeTitle")}
@@ -1085,14 +1088,11 @@ export function LibraryPage() {
               >
                 {t("common.cancel")}
               </Button>
-              <button
-                onClick={confirmRemove}
-                className="cursor-pointer rounded-lg bg-danger/20 px-4 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/30"
-              >
+              <Button variant="danger" onClick={confirmRemove}>
                 {isUploaded
                   ? t("library.confirm.deleteAction")
                   : t("library.confirm.removeAction")}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

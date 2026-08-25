@@ -191,7 +191,7 @@ function OccurrencePopover({
       />
       <div
         role="dialog"
-        className="fixed z-[61] flex w-72 flex-col gap-1 rounded-lg border border-glass-border bg-bg-secondary/95 p-1.5 shadow-xl backdrop-blur-md"
+        className="fixed z-[61] flex w-72 flex-col gap-1 rounded-panel bg-bg-tertiary p-1.5 shadow-page"
         style={{ top: Math.max(8, top), left: Math.max(8, left) }}
       >
         <div className="flex items-center gap-1.5 px-2 pb-1 pt-1 text-2xs font-semibold uppercase tracking-wider text-text-muted">

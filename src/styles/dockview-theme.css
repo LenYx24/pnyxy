@@ -1,89 +1,105 @@
-/* Dockview theme for the pnyxy reader. Colors resolve from the app's
-   semantic tokens so the reader chrome (backgrounds, separators, tabs)
-   follows the active theme instead of staying hardcoded dark, which in
-   light mode showed up as a harsh near-black frame around the panels. */
+/* Reader shell + Dockview theme (UI v2).
+
+   The whole reader is one desk colour; the open book's cover may tint
+   it by 6% through `--reader-tint` (set inline by ReaderPage when the
+   cover's average colour is known). Every piece of reader chrome paints
+   `var(--reader-desk)` so the tint reaches the header, the TOC, the
+   margin and the PDF gutter alike. Depth comes from tone steps only:
+   no 1 px borders, no separators, tabs hidden (the panels draw their
+   own captions). */
+
+.reader-shell {
+  --reader-desk: var(--color-bg-primary);
+  background-color: var(--reader-desk);
+}
+
+.reader-shell[style*="--reader-tint"] {
+  --reader-desk: color-mix(
+    in srgb,
+    var(--color-bg-primary) 94%,
+    var(--reader-tint) 6%
+  );
+}
+
+/* The kebab menu hosts the reading-tracker / focus-timer controls, whose
+   own popovers hang below their row; the menu must not clip them. */
+.reader-overflow-menu {
+  overflow: visible !important;
+}
+
 .pnyxy-dockview-theme {
   /* Base */
-  --dv-background-color: var(--color-bg-primary);
-  --dv-paneview-header-border-color: var(--color-glass-border);
+  --dv-background-color: var(--reader-desk);
+  --dv-paneview-header-border-color: transparent;
 
-  /* Tabs */
-  --dv-tabs-and-actions-container-background-color: color-mix(
-    in srgb,
-    var(--color-bg-secondary) 70%,
-    transparent
-  );
-  --dv-activegroup-visiblepanel-tab-background-color: color-mix(
-    in srgb,
-    var(--color-accent) 15%,
-    transparent
-  );
-  --dv-activegroup-hiddenpanel-tab-background-color: var(--color-glass-bg);
-  --dv-inactivegroup-visiblepanel-tab-background-color: color-mix(
-    in srgb,
-    var(--color-accent) 10%,
-    transparent
-  );
-  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--color-glass-bg);
-  --dv-activegroup-visiblepanel-tab-color: var(--color-accent);
+  /* Tabs (hidden below; the colours only matter for multi-panel groups) */
+  --dv-tabs-and-actions-container-background-color: var(--reader-desk);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--color-bg-tertiary);
+  --dv-activegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--color-bg-secondary);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-activegroup-visiblepanel-tab-color: var(--color-text-primary);
   --dv-activegroup-hiddenpanel-tab-color: var(--color-text-muted);
-  --dv-inactivegroup-visiblepanel-tab-color: var(--color-accent);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--color-text-secondary);
   --dv-inactivegroup-hiddenpanel-tab-color: var(--color-text-muted);
-  --dv-tab-divider-color: var(--color-glass-border);
+  --dv-tab-divider-color: transparent;
 
-  /* Separator / sash */
-  --dv-separator-border: var(--color-glass-border);
-  --dv-sash-hover-color: var(--color-accent);
+  /* Separator / sash: invisible, the tone difference does the work */
+  --dv-separator-border: transparent;
+  --dv-sash-hover-color: var(--color-surface-3);
 
   /* Drag overlay */
   --dv-drag-over-background-color: color-mix(
     in srgb,
-    var(--color-accent) 10%,
+    var(--color-text-primary) 6%,
     transparent
   );
-  --dv-drag-over-border-color: var(--color-accent);
+  --dv-drag-over-border-color: transparent;
 
   /* Group */
-  --dv-group-view-background-color: var(--color-bg-primary);
+  --dv-group-view-background-color: var(--reader-desk);
 }
 
-/* Glass effect on tab bar */
-.pnyxy-dockview-theme .dv-tabs-container {
-  backdrop-filter: blur(12px);
-}
-
-/* Themed border + rounded corners on panels */
 .pnyxy-dockview-theme .dv-groupview {
-  border: 1px solid var(--color-glass-border);
+  border: 0;
   border-radius: 0;
   overflow: hidden;
 }
 
-/* Tab styling refinements */
 .pnyxy-dockview-theme .dv-tab {
   font-size: 0.8125rem;
   font-weight: 500;
   padding: 0 12px;
 }
 
-/* Active tab indicator */
 .pnyxy-dockview-theme .dv-tab.dv-active-tab {
-  border-bottom: 2px solid var(--color-accent);
+  border-bottom: 0;
 }
 
-/* Hide tab header row when a group has only one panel, the
-   ReaderToolbar already provides all necessary navigation so the
-   dockview tab bar just wastes vertical space for single-tab groups. */
+/* Single-panel groups draw their own caption row (Contents / Margin),
+   so the dockview tab bar is pure noise there. */
 .pnyxy-dockview-theme .dv-tabs-and-actions-container:has(.dv-tab:only-child) {
   display: none;
 }
 
-/* Panel content fills available space */
-.pnyxy-dockview-theme .dv-content-container {
-  background-color: var(--color-bg-primary);
+.pnyxy-dockview-theme .dv-content-container,
+.pnyxy-dockview-theme .dv-view {
+  background-color: var(--reader-desk);
 }
 
-/* Prevent white flash in panel views during resize */
-.pnyxy-dockview-theme .dv-view {
-  background-color: var(--color-bg-primary);
+/* The page keeps its shadow; the gutter around it is the desk (+tint)
+   instead of the reader-theme grey. The viewer sets its gutter inline
+   from the reader palette, hence the override. */
+.pnyxy-dockview-theme [data-pdf-viewer] {
+  background-color: var(--reader-desk) !important;
+}
+
+.pnyxy-dockview-theme [data-pdf-viewer] .react-pdf__Page {
+  box-shadow: var(--shadow-page);
+}
+
+/* dockview paints a 1 px hairline before every non-first split view;
+   the desk has no lines, the panels are told apart by tone only. */
+.pnyxy-dockview-theme .dv-split-view-container .dv-view::before {
+  display: none;
 }

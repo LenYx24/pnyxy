@@ -12,10 +12,10 @@ export function CategoryChip({ category, active = false, onClick }: CategoryChip
     <button
       onClick={onClick}
       className={cn(
-        "rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap",
+        "chip font-medium transition-colors cursor-pointer",
         active
-          ? "bg-accent/15 text-accent"
-          : "bg-glass-bg text-text-muted hover:text-text-primary border border-glass-border",
+          ? "chip-active"
+          : "text-text-muted hover:bg-surface-3 hover:text-text-primary",
       )}
     >
       {category.name}

@@ -19,20 +19,20 @@ interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const variants: Record<IconButtonVariant, string> = {
   // Chromeless square, the default toolbar icon affordance.
   ghost: "text-text-muted hover:bg-glass-hover hover:text-text-primary",
-  // Glass-outlined square, sits on busy surfaces, reads as a control.
+  // Surface-2 filled square, sits on busy surfaces, reads as a control.
   secondary:
-    "border border-glass-border bg-bg-primary/50 text-text-muted hover:bg-glass-hover hover:text-text-primary",
+    "bg-bg-tertiary text-text-muted hover:bg-surface-3 hover:text-text-primary",
   // Tinted accent, quiet primary icon action.
-  soft: "bg-accent/15 text-accent hover:bg-accent/25",
+  soft: "bg-accent-soft text-accent hover:bg-accent/25",
   // Tinted danger, destructive icon action.
   danger: "text-text-muted hover:bg-danger/15 hover:text-danger",
   // Pressed / on state, for toggles that are currently active.
-  active: "border border-accent/50 bg-accent/15 text-accent",
+  active: "bg-bg-tertiary text-text-primary",
 };
 
 const sizes: Record<IconButtonSize, string> = {
   sm: "h-7 w-7",
-  md: "h-8 w-8",
+  md: "h-9 w-9",
 };
 
 /**
@@ -50,7 +50,8 @@ export function IconButton({
   return (
     <button
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-md transition-colors cursor-pointer",
+        "inline-flex shrink-0 items-center justify-center rounded-control transition-colors cursor-pointer",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-soft",
         "disabled:cursor-not-allowed disabled:opacity-40",
         sizes[size],
         variants[variant],

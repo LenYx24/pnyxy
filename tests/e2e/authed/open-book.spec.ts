@@ -40,8 +40,10 @@ async function deleteFixtureBooks(page: Page) {
     await card.hover();
     await card.locator("div.absolute > button").first().click();
     await page.getByRole("button", { name: "Delete", exact: true }).click();
+    // the confirm heading differs by path ("Delete Book" from the card
+    // menu, "Delete N item(s)?" from the selection flow); match either
     const dialog = page.locator("div", {
-      has: page.getByRole("heading", { name: "Delete Book" }),
+      has: page.getByRole("heading", { name: /^Delete\b/ }),
     });
     await dialog.getByRole("button", { name: "Delete", exact: true }).last().click();
     await expect(bookCards(page)).toHaveCount(

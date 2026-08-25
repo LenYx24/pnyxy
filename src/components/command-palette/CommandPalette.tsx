@@ -9,7 +9,7 @@ import {
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { BookOpen, Search, X, type LucideIcon } from "lucide-react";
+import { BookOpen, Keyboard, Search, X, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { NAV_ITEMS, type NavItem } from "@/lib/navigation";
@@ -17,6 +17,7 @@ import { useLibraryStore } from "@/stores/library-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useFeatures } from "@/lib/use-features";
 import { useReaderStore } from "@/stores/reader-store";
+import { useShortcutsSheet } from "@/components/ui/shortcuts-sheet-store";
 
 interface PaletteCommand {
   id: string;
@@ -43,6 +44,12 @@ export function CommandPalette() {
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  // The row under the resting pointer must not steal the highlight the
+  // moment the palette opens: hover-driven highlighting is ignored until
+  // the pointer has actually moved (> 2 px) since opening.
+  const pointerMoved = useRef(false);
+  const pointerOrigin = useRef<{ x: number; y: number } | null>(null);
+  const openShortcutsSheet = useShortcutsSheet((s) => s.setOpen);
 
   const isAdmin = useAuthStore((s) => s.profile?.role === "admin");
   const features = useFeatures();
@@ -64,11 +71,24 @@ export function CommandPalette() {
     ctrl: true,
     description: "Open command palette",
     handler: () => {
+      pointerMoved.current = false;
+      pointerOrigin.current = null;
       setOpen((v) => !v);
       setQuery("");
       setActiveIndex(0);
     },
   });
+
+  const handlePointerMove = (e: React.MouseEvent) => {
+    if (pointerMoved.current) return;
+    if (!pointerOrigin.current) {
+      pointerOrigin.current = { x: e.clientX, y: e.clientY };
+      return;
+    }
+    const dx = e.clientX - pointerOrigin.current.x;
+    const dy = e.clientY - pointerOrigin.current.y;
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) pointerMoved.current = true;
+  };
 
   const close = useCallback(() => {
     setOpen(false);
@@ -117,8 +137,20 @@ export function CommandPalette() {
           },
         };
       });
-    return [...navCommands, ...bookCommands];
-  }, [t, navigate, close, isAdmin, hasActiveBook, books, features]);
+    const misc: PaletteCommand[] = [
+      {
+        id: "cmd:shortcuts-sheet",
+        label: t("shortcuts.sheet.title"),
+        icon: Keyboard,
+        category: "command",
+        run: () => {
+          close();
+          openShortcutsSheet(true);
+        },
+      },
+    ];
+    return [...navCommands, ...bookCommands, ...misc];
+  }, [t, navigate, close, isAdmin, hasActiveBook, books, features, openShortcutsSheet]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -196,11 +228,11 @@ export function CommandPalette() {
       onClick={close}
     >
       <div
-        className="flex w-full max-w-xl flex-col overflow-hidden rounded-xl border border-glass-border bg-bg-secondary/95 shadow-2xl backdrop-blur-xl"
+        className="flex w-full max-w-xl flex-col overflow-hidden rounded-page bg-bg-tertiary shadow-page backdrop-blur-xl"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
-        <div className="flex items-center gap-2 border-b border-glass-border px-3 py-2">
+        <div className="flex items-center gap-2 px-3 py-2">
           <Search size={16} className="shrink-0 text-text-muted" />
           <input
             ref={inputRef}
@@ -223,7 +255,11 @@ export function CommandPalette() {
           </button>
         </div>
 
-        <div ref={listRef} className="max-h-[50vh] overflow-y-auto py-1">
+        <div
+          ref={listRef}
+          className="max-h-[50vh] overflow-y-auto py-1"
+          onMouseMove={handlePointerMove}
+        >
           {filtered.length === 0 ? (
             <div className="px-3 py-6 text-center text-sm text-text-muted">
               {t("commandPalette.empty")}
@@ -242,7 +278,9 @@ export function CommandPalette() {
                       key={cmd.id}
                       data-cmd-idx={cmd.idx}
                       type="button"
-                      onMouseEnter={() => setActiveIndex(cmd.idx)}
+                      onMouseEnter={() => {
+                        if (pointerMoved.current) setActiveIndex(cmd.idx);
+                      }}
                       onClick={cmd.run}
                       className={cn(
                         "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors cursor-pointer",
@@ -268,21 +306,21 @@ export function CommandPalette() {
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-3 border-t border-glass-border px-3 py-1.5 text-2xs text-text-muted">
+        <div className="flex items-center justify-end gap-3 px-3 py-1.5 text-2xs text-text-muted">
           <span>
-            <kbd className="rounded border border-glass-border bg-glass-bg px-1">
+            <kbd className="rounded-md bg-surface-3 px-1">
               ↑↓
             </kbd>{" "}
             {t("commandPalette.hint.navigate")}
           </span>
           <span>
-            <kbd className="rounded border border-glass-border bg-glass-bg px-1">
+            <kbd className="rounded-md bg-surface-3 px-1">
               ↵
             </kbd>{" "}
             {t("commandPalette.hint.select")}
           </span>
           <span>
-            <kbd className="rounded border border-glass-border bg-glass-bg px-1">
+            <kbd className="rounded-md bg-surface-3 px-1">
               Esc
             </kbd>{" "}
             {t("commandPalette.hint.close")}

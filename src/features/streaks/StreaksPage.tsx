@@ -5,6 +5,7 @@ import { Flame, Trophy, Target, Calendar, Brain, Plus } from "lucide-react";
 import { Button } from "@/components/ui";
 import { GOAL_SECONDS, useStreakStore } from "@/stores/streak-store";
 import { cn } from "@/lib/cn";
+import { useFeature } from "@/lib/use-features";
 import { ReadingPlansSection } from "./ReadingPlansSection";
 import { StreakHeatmap } from "./StreakHeatmap";
 import { LogReadingTimeModal } from "./LogReadingTimeModal";
@@ -18,7 +19,9 @@ function dateKey(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-function buildHistory(records: Record<string, { seconds: number; goalCompleted: boolean }>) {
+function buildHistory(
+  records: Record<string, { seconds: number; goalCompleted: boolean }>,
+) {
   const out: Array<{
     key: string;
     date: Date;
@@ -45,11 +48,14 @@ export function StreaksPage() {
   const { t } = useTranslation();
   const getCurrentStreak = useStreakStore((s) => s.getCurrentStreak);
   const longestStreak = useStreakStore((s) => s.longestStreak);
-  const longestAttentionSeconds = useStreakStore((s) => s.longestAttentionSeconds);
+  const longestAttentionSeconds = useStreakStore(
+    (s) => s.longestAttentionSeconds,
+  );
   const getTodayRecord = useStreakStore((s) => s.getTodayRecord);
   const dailyRecords = useStreakStore((s) => s.dailyRecords);
 
   const [logOpen, setLogOpen] = useState(false);
+  const readingPlansOn = useFeature("readingPlans");
 
   const currentStreak = getCurrentStreak();
   const today = getTodayRecord();
@@ -91,7 +97,14 @@ export function StreaksPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
-          icon={<Flame size={20} className={currentStreak > 0 ? "text-orange-400" : "text-text-muted"} />}
+          icon={
+            <Flame
+              size={20}
+              className={
+                currentStreak > 0 ? "text-orange-400" : "text-text-muted"
+              }
+            />
+          }
           label={t("streaks.currentStreak")}
           value={currentStreak}
           suffix={t("streaks.day", { count: currentStreak })}
@@ -158,11 +171,17 @@ export function StreaksPage() {
             {t("streaks.lastNDays", { days: HISTORY_DAYS })}
           </h2>
         </div>
-        <StreakHeatmap records={dailyRecords} />
-        <p className="text-xs text-text-muted">{t("streaks.historyHint")}</p>
+        {/* the 12-week strip is narrower than the card: center it and
+            its caption instead of leaving them hugging the left edge */}
+        <div className="flex flex-col items-center gap-3">
+          <StreakHeatmap records={dailyRecords} />
+          <p className="text-center text-xs text-text-muted">
+            {t("streaks.historyHint")}
+          </p>
+        </div>
       </section>
 
-      <ReadingPlansSection />
+      {readingPlansOn && <ReadingPlansSection />}
 
       <LogReadingTimeModal open={logOpen} onClose={() => setLogOpen(false)} />
     </div>

@@ -46,7 +46,7 @@ export function MobileTopBar() {
 
   return (
     <header
-      className="fixed left-0 right-0 top-0 z-40 flex h-12 items-center justify-between border-b border-glass-border bg-bg-secondary/90 px-3 backdrop-blur-xl pt-safe-top md:hidden"
+      className="fixed left-0 right-0 top-0 z-40 flex h-12 items-center justify-between bg-bg-primary px-3 pt-safe-top md:hidden"
       style={{ height: "calc(3rem + var(--spacing-safe-top, 0px))" }}
     >
       <div className="flex items-center gap-2">
@@ -58,9 +58,9 @@ export function MobileTopBar() {
           type="button"
           onClick={() => setMobileSidebarOpen(true)}
           aria-label={t("sidebar.openNav", { defaultValue: "Open navigation" })}
-          className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+          className="rounded-control p-2 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
         >
-          <Menu size={20} />
+          <Menu size={20} strokeWidth={1.5} />
         </button>
       </div>
 
@@ -70,7 +70,7 @@ export function MobileTopBar() {
             ref={triggerRef}
             onClick={() => setOpen((v) => !v)}
             aria-label={t("sidebar.profile", { defaultValue: "Profile" })}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/15 text-sm font-bold text-accent transition-colors hover:bg-accent/25"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-bg-tertiary text-sm font-semibold text-text-primary transition-colors hover:bg-surface-3 cursor-pointer"
           >
             {profile?.avatar_url ? (
               <img
@@ -108,7 +108,7 @@ export function MobileTopBar() {
       ) : (
         <Link
           to="/auth"
-          className="flex h-9 items-center gap-1.5 rounded-full border border-glass-border px-3 text-xs font-medium text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary"
+          className="chip h-9 font-medium transition-colors hover:bg-surface-3 hover:text-text-primary"
         >
           <LogIn size={14} />
           <span>{t("sidebar.signIn", { defaultValue: "Sign in" })}</span>
@@ -137,7 +137,7 @@ function MobileTopBarMenuItem({
         cn(
           "flex items-center gap-2 px-3 py-2 text-sm transition-colors",
           isActive
-            ? "bg-accent/15 text-accent"
+            ? "bg-surface-3 text-text-primary"
             : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
         )
       }

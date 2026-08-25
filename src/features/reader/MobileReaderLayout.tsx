@@ -258,7 +258,7 @@ export function MobileReaderLayout({
       {/* TOC panel - slides from left */}
       <div
         className={cn(
-          "absolute left-0 top-0 bottom-0 z-40 flex w-full flex-col border-r border-glass-border bg-bg-secondary transition-transform duration-300 pt-safe-top pb-safe-bottom pl-safe-left",
+          "absolute left-0 top-0 bottom-0 z-40 flex w-full flex-col bg-bg-primary transition-transform duration-300 pt-safe-top pb-safe-bottom pl-safe-left",
           mobileReaderPanel === "toc"
             ? "translate-x-0"
             : "-translate-x-full pointer-events-none",
@@ -266,16 +266,16 @@ export function MobileReaderLayout({
       >
         {mobileReaderPanel === "toc" && (
           <>
-            <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
+            <div className="flex items-center justify-between py-1 pl-3 pr-1">
               <span className="text-sm font-medium text-text-primary">
                 {t("reader.page.mobilePanelContents")}
               </span>
               <button
                 onClick={() => setMobileReaderPanel("none")}
                 aria-label={t("reader.page.closeContents")}
-                className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                className="flex h-11 w-11 items-center justify-center rounded-control text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
               >
-                <X size={20} />
+                <X size={20} strokeWidth={1.5} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -296,7 +296,7 @@ export function MobileReaderLayout({
         className={cn(
           // opaque (no backdrop-blur): a full-viewport blur repaints on every
           // keyboard-driven visualViewport resize, which made the composer lag
-          "absolute right-0 top-0 bottom-0 z-40 flex w-full flex-col border-l border-glass-border bg-bg-secondary transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
+          "absolute right-0 top-0 bottom-0 z-40 flex w-full flex-col bg-bg-primary transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
           mobileReaderPanel === "comments"
             ? "translate-x-0"
             : "translate-x-full pointer-events-none",
@@ -304,16 +304,16 @@ export function MobileReaderLayout({
       >
         {mobileReaderPanel === "comments" && (
           <>
-            <div className="flex items-center justify-between border-b border-glass-border pl-3 pr-1 py-1">
+            <div className="flex items-center justify-between py-1 pl-3 pr-1">
               <span className="text-sm font-medium text-text-primary">
                 {t("reader.page.mobilePanelComments")}
               </span>
               <button
                 onClick={() => setMobileReaderPanel("none")}
                 aria-label={t("reader.page.closeComments")}
-                className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+                className="flex h-11 w-11 items-center justify-center rounded-control text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
               >
-                <X size={20} />
+                <X size={20} strokeWidth={1.5} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -328,7 +328,7 @@ export function MobileReaderLayout({
         className={cn(
           // opaque (no backdrop-blur): a full-viewport blur repaints on every
           // keyboard-driven visualViewport resize, which made the composer lag
-          "absolute right-0 top-0 bottom-0 z-40 flex w-full flex-col border-l border-glass-border bg-bg-secondary transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
+          "absolute right-0 top-0 bottom-0 z-40 flex w-full flex-col bg-bg-primary transition-transform duration-300 pt-safe-top pb-safe-bottom pr-safe-right",
           mobileReaderPanel === "aiChat"
             ? "translate-x-0"
             : "translate-x-full pointer-events-none",

@@ -201,12 +201,6 @@
       "en": "English",
       "hu": "Magyar"
     },
-    "navigation": {
-      "heading": "Navigation",
-      "animatedScroll": "Animated page scroll",
-      "animatedScrollHint": "Smoothly animate when navigating between pages",
-      "animationDuration": "Animation duration"
-    },
     "reader": {
       "heading": "Reader",
       "fitMode": "Default fit mode",
@@ -237,7 +231,8 @@
       "epubColumnWidth_wide": "Wide",
       "epubColumnWidth_comfortable": "Comfortable",
       "epubColumnWidth_narrow": "Narrow",
-      "reset": "Reset"
+      "reset": "Reset",
+      "epubHeading": "EPUB settings"
     },
     "experimental": {
       "heading": "Experimental / Developer",
@@ -260,6 +255,7 @@
       "heading": "Appearance",
       "description": "Pick a theme. Custom themes can be installed from the community registry; switching is instant and persists across sessions.",
       "coreThemes": "Core themes",
+      "neutralHint": "Neutral desk, content brings the color",
       "installedThemes": "Installed themes",
       "browseCommunity": "Browse community themes",
       "library": {
@@ -302,7 +298,25 @@
     },
     "tagsSection": {
       "heading": "Tags",
-      "description": "Customize the color for each reading status tag."
+      "description": "Customize the color for each reading status tag.",
+      "customColor": "Custom color",
+      "pickColor": "Pick a color",
+      "hexLabel": "Hex color",
+      "customHeading": "Custom tags",
+      "customDescription": "Your own free-text tags. Create them here or straight from a book's tag picker; renaming or deleting applies to every book.",
+      "newPlaceholder": "New tag name",
+      "create": "Create",
+      "customEmpty": "No custom tags yet.",
+      "bookCount_one": "{{count}} book",
+      "bookCount_other": "{{count}} books",
+      "rename": "Rename",
+      "delete": "Delete",
+      "renameTitle": "Rename tag",
+      "deleteTitle": "Delete tag",
+      "deleteBody": "Remove \"{{label}}\" from every book? This cannot be undone.",
+      "errEmpty": "Enter a name.",
+      "errLong": "Too long (max 50 characters).",
+      "errExists": "A tag with this name already exists."
     },
     "organizationsSection": {
       "heading": "Organizations",
@@ -383,22 +397,80 @@
       "modelsHeading": "Available models",
       "modelsSubtitle": "Prices are per 1M tokens (input / output).",
       "providersHeading": "Providers",
-      "providersSubtitle": "Order = priority. First enabled provider with a valid key handles each chat. Drag-free reorder via the arrow buttons.",
+      "providersSubtitle": "Pnyxy is built in. Add your own key to talk to OpenAI or Anthropic directly, or point at a local model.",
       "statusActive": "Active",
       "statusByok": "BYOK",
       "statusLocal": "Local",
-      "statusSoon": "Soon"
+      "statusSoon": "Soon",
+      "providersShort": "Pnyxy is built in. Add your own key to talk to OpenAI or Anthropic directly, or point at a local model.",
+      "statusBuiltin": "Built in",
+      "statusKeySet": "Key set",
+      "statusNoKey": "No key",
+      "enableProvider": "Enable {{name}}",
+      "apiKeyLabel": "API key",
+      "testKey": "Test",
+      "testing": "Testing…",
+      "testOk": "Connection works.",
+      "testFail": "Connection failed.",
+      "orderHeading": "Order",
+      "orderHint": "The provider at the top is tried first.",
+      "dragHandle": "Drag to reorder",
+      "defaultModelHeading": "Default model",
+      "defaultModelLabel": "Model",
+      "defaultModelHint": "Used by the built-in Pnyxy route. Auto picks the cheapest working model and steps up when a quota runs out.",
+      "routingNote": "Quiz and roadmap generation always use Claude Haiku 4.5 (tool-use).",
+      "autoModel": "Auto",
+      "autoModelNote": "cheapest working model, steps up on quota",
+      "noteCheap": "cheap",
+      "noteFast": "fast",
+      "noteSmart": "smart",
+      "noteBalanced": "balanced",
+      "quotasHeading": "Quotas",
+      "colReset": "Reset",
+      "howItWorks": "How it works"
     },
     "aiContext": {
       "heading": "Context for the AI",
       "description": "Controls what context the AI receives by default. Per-page selection is done from each book's TOC view.",
-      "customLabel": "Default user context",
+      "customLabel": "Contexts",
       "customPlaceholder": "e.g. I'm a CS undergrad cramming for exams. Prefer concise answers with worked examples.",
-      "customHint": "Sent with every AI message in addition to the book context. Leave blank to skip.",
+      "customHint": "Named notes about you and how the AI should help. Pick which one applies per book, folder or organization; the default covers the rest.",
       "attachTocLabel": "Attach the book's table of contents",
       "attachTocHint": "When enabled, the TOC is included automatically in every chat about a book. Cheap context, very high leverage for navigation questions.",
       "surroundingLabel": "“Select around current” page count",
-      "surroundingHint": "How many pages on each side of the current page the “select around current” button selects in the TOC."
+      "surroundingHint": "How many pages on each side of the current page the “select around current” button selects in the TOC.",
+      "presets": {
+        "pick": "Pick a context",
+        "search": "Search contexts",
+        "noMatch": "No match",
+        "new": "New context",
+        "untitled": "New context",
+        "copyName": "{{name}} (copy)",
+        "default": "Default",
+        "defaultHint": "Used wherever no book, folder or organization binding applies.",
+        "rename": "Rename",
+        "duplicate": "Duplicate",
+        "injectHint": "Prepended to every AI conversation where this context applies. Markdown shortcuts work: # heading, **bold**, - list.",
+        "emptyState": "No context yet. Tell the AI who you are and how it should help, it is prepended to every conversation.",
+        "deleteTitle": "Delete this context?",
+        "deleteBody": "\"{{name}}\" and its assignments are removed. Conversations that used it fall back to the next matching context.",
+        "defaultName": "Default",
+        "saved": "Saved"
+      },
+      "bindings": {
+        "heading": "Where it applies",
+        "assign": "Assign",
+        "assignTitle": "Assign context",
+        "kindBook": "Book",
+        "kindFolder": "Folder",
+        "kindOrg": "Organization",
+        "search": "Search",
+        "empty": "Nothing to show",
+        "bound": "Bound",
+        "everywhereElse": "Everywhere else (default)",
+        "unknown": "Unknown item",
+        "none": "Not applied anywhere yet. Mark it as default or assign it."
+      }
     },
     "aiModels": {
       "heading": "Detailed model info"
@@ -410,7 +482,29 @@
       "showAllHint": "Admin-only preview switch. Turn off to see the app the way a pilot user does.",
       "serverUnlocked": "unlocked on server",
       "overridden": "local override",
-      "reset": "reset"
+      "reset": "reset",
+      "adminCaption": "Admin"
+    },
+    "onboarding": {
+      "heading": "Onboarding",
+      "description": "Replay the quick welcome tour of Pnyxy's main features.",
+      "restartButton": "Restart the tour"
+    },
+    "groups": {
+      "account": "Account",
+      "workspace": "Workspace",
+      "help": "Help"
+    },
+    "pageTurning": {
+      "heading": "Page turning",
+      "animatedScroll": "Animated page scroll",
+      "animatedScrollHint": "Smoothly animate when navigating between pages",
+      "animationDuration": "Animation duration"
+    },
+    "community": {
+      "installed": "Installed",
+      "installing": "Installing...",
+      "download": "Download"
     }
   },
   "landing": {
@@ -615,6 +709,20 @@
     }
   },
   "home": {
+    "hero": {
+      "caption": "Continue where you left off",
+      "position": "page {{current}} of {{total}}",
+      "progress": "{{percent}}% read",
+      "read": "Read",
+      "ask": "Ask about the book",
+      "streakDays_one": "{{count}} day streak",
+      "streakDays_other": "{{count}} day streak",
+      "goalLeft": "{{minutes}} more min to today's goal",
+      "goalDone": "Today's goal done",
+      "emptyTitle": "Upload a note or a book",
+      "emptyBody": "Drop a PDF into your library and pick up from here next time.",
+      "emptyAction": "Open library"
+    },
     "title": "Home",
     "subtitle": "Your reading starting point.",
     "seeAll": "See all →",
@@ -767,7 +875,7 @@
       "root": "Library",
       "nameLabel": "Name",
       "namePlaceholder": "e.g. Fantasy  or  Fiction/Sci-Fi/Space Opera",
-      "nestedTip": "Tip: use <slash></slash> to create nested folders at once (e.g. <ex></ex>).",
+      "nestedTip": "Tip: use <slash>/</slash> to create nested folders at once (e.g. <ex>p1/p2/p3</ex>).",
       "nameRequired": "Folder name is required.",
       "failed": "Failed to create folder.",
       "creating": "Creating…",
@@ -959,6 +1067,10 @@
       "whiteboard": "Whiteboard",
       "quiz": "Quiz",
       "chat": "Chat"
+    },
+    "dnd": {
+      "dropHere": "Drop here",
+      "moveUp": "Up to: {{name}}"
     }
   },
   "download": {
@@ -1356,7 +1468,17 @@
       "empty": "No conversations yet.",
       "collapseAll": "Collapse all folders",
       "expandAll": "Expand all folders",
-      "resize": "Resize sidebar"
+      "resize": "Resize sidebar",
+      "title": "Conversations",
+      "viewLabel": "Sidebar view",
+      "viewFolders": "Folder view",
+      "viewQuick": "Quick view (all chats, newest first)",
+      "looseChats": "Quick chats",
+      "groupToday": "Today",
+      "groupWeek": "This week",
+      "groupEarlier": "Earlier",
+      "streak_one": "{{count}} day streak",
+      "streak_other": "{{count}} day streak"
     },
     "composer": {
       "modelLabel": "Model",
@@ -1373,7 +1495,25 @@
         "tooLarge": "Images must be under {{mb}}MB.",
         "unsupported": "Only JPEG, PNG, GIF, and WebP images are supported.",
         "readError": "Couldn't read that file.",
-        "needVisionModel": "Default mode supports 1 image per message. Pick Claude Sonnet 4.5 or GPT-4o mini for up to 4."
+        "needVisionModel": "Default mode supports 1 image per message. Pick Claude Sonnet 4.5 or GPT-4o mini for up to 4.",
+        "remove": "Remove attachment"
+      },
+      "modelHelp": "About the models",
+      "clearMode": "Back to chat mode",
+      "reasoning": {
+        "off": "Turn off reasoning mode"
+      },
+      "wholeBook": {
+        "chip": "Whole book"
+      },
+      "quota": {
+        "remaining_one": "{{count}} question left today",
+        "remaining_other": "{{count}} questions left today",
+        "ownKey": "Using your own key, no Pnyxy quota"
+      },
+      "context": {
+        "label": "Context",
+        "hint": "Which saved context the AI gets for this conversation. With a book it is remembered for the book, otherwise only for this session."
       }
     },
     "folders": {
@@ -1391,7 +1531,8 @@
       "newSubfolder": "New subfolder",
       "openInLibrary": "Open in library",
       "enter": "Enter folder",
-      "backToAll": "All chats"
+      "backToAll": "All chats",
+      "actions": "Folder actions"
     },
     "flashcards": {
       "title": "Save as flashcards",
@@ -1423,7 +1564,29 @@
     },
     "confirmDeleteMessageBody": "Every reply and follow-up underneath this message will also be removed. The deletion is permanent.",
     "confirmDeleteMessageTitle": "Delete this message?",
-    "hideSourceChip": "Hide for this session"
+    "hideSourceChip": "Hide for this session",
+    "rowActions": "Conversation actions",
+    "messageActions": "More actions",
+    "branchPrev": "Previous branch",
+    "branchNext": "Next branch",
+    "emptyHeadline": "What are we learning today?",
+    "emptySuggestion1": "Explain Bayes' theorem simply",
+    "emptySuggestion2": "Plan my study week",
+    "emptySuggestion3": "Quiz me on the last chapter I read",
+    "quotaModal": {
+      "title": "Daily quota",
+      "resetsAt": "Resets at {{time}} (midnight UTC)",
+      "tokens": "{{used}} / {{limit}} tokens",
+      "requests": "{{used}} / {{limit}} requests",
+      "next": "next turn",
+      "pinned": "pinned",
+      "fallback": "fallback, cheaper bucket is used up",
+      "noData": "No usage data yet",
+      "tierFree": "Free",
+      "tierPremium": "Premium",
+      "upgrade": "Premium",
+      "details": "Details in Settings"
+    }
   },
   "readingPlans": {
     "section": {
@@ -1928,7 +2091,9 @@
       "translatePlaceholder": "Text to translate…",
       "emptyDictionary": "Type a word above to see its definition.",
       "emptyTranslate": "Type text above to translate it.",
-      "openInNewTab": "Open in new tab"
+      "openInNewTab": "Open in new tab",
+      "teacher": "Teacher",
+      "margin": "Margin"
     },
     "toolbar": {
       "backToLibrary": "Back to library",
@@ -1999,7 +2164,7 @@
       "rectToAi": "Crop to AI",
       "customize": "Customize toolbar",
       "customizeTitle": "Customize toolbar",
-      "customizeHint": "Drag icons between the left / center / right zones and the ⋮ menu. Pull from the palette below to add, drag back to remove.",
+      "customizeHint": "Drag icons between the title area, the pill cluster, the right side and the kebab menu. Pull from the palette to add, drag back to remove.",
       "customizeDone": "Done",
       "customizeReset": "Reset",
       "customizePalette": "Available icons",
@@ -2008,7 +2173,7 @@
       "zoneLeft": "Left",
       "zoneCenter": "Center",
       "zoneRight": "Right",
-      "zoneOverflow": "More menu (⋮)",
+      "zoneOverflow": "Kebab menu",
       "bookTitle": "Book title",
       "pageNav": "Page navigation",
       "readingTracker": "Reading tracker",
@@ -2017,7 +2182,10 @@
       "separator": "Separator",
       "addSeparator": "Separator",
       "iconPadding": "Icon padding",
-      "dragHeight": "Drag to resize height"
+      "dragHeight": "Drag to resize height",
+      "coverTint": "Cover tint",
+      "prevPage": "Previous page",
+      "nextPage": "Next page"
     },
     "bookmarks": {
       "addAt": "Bookmark page {{page}}",
@@ -2327,5 +2495,70 @@
     "voiceDefault": "Browser default",
     "noVoices": "No voices available on this device.",
     "rate": "Speed"
+  },
+  "shortcuts": {
+    "modifierPc": "Ctrl is the modifier key on Windows and Linux.",
+    "modifierMac": "⌘ is the modifier key on Mac.",
+    "groups": {
+      "global": "Global",
+      "library": "Library",
+      "chat": "Chat",
+      "reader": "Reader"
+    },
+    "items": {
+      "commandPalette": "Command palette",
+      "openBook": "Open a book from disk",
+      "newChat": "New chat",
+      "openSettings": "Open settings",
+      "upload": "Upload",
+      "newFolder": "New folder",
+      "scanDevice": "Scan device for books",
+      "goUp": "Go to parent folder",
+      "closeBook": "Close book and return to the library",
+      "search": "Find in document",
+      "replace": "Find and replace",
+      "goToPage": "Go to page",
+      "toggleToc": "Toggle table of contents",
+      "toggleAiChat": "Toggle Teacher (AI chat)",
+      "toggleComments": "Toggle comments panel",
+      "fullscreen": "Toggle fullscreen",
+      "zenMode": "Toggle zen mode",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "zoomReset": "Reset zoom",
+      "prevPage": "Previous page (pan when zoomed in)",
+      "nextPage": "Next page (pan when zoomed in)",
+      "spaceNext": "Next page",
+      "spacePrev": "Previous page",
+      "pageDown": "Scroll down one screen",
+      "pageUp": "Scroll up one screen",
+      "home": "Jump to start",
+      "end": "Jump to end",
+      "vimH": "Previous page (vim)",
+      "vimL": "Next page (vim)",
+      "vimJ": "Scroll down one line (vim)",
+      "vimK": "Scroll up one line (vim)",
+      "searchNext": "Next search match",
+      "searchPrev": "Previous search match",
+      "highlightYellow": "Highlight color: yellow",
+      "highlightGreen": "Highlight color: green",
+      "highlightBlue": "Highlight color: blue",
+      "highlightPink": "Highlight color: pink",
+      "highlightOrange": "Highlight color: orange",
+      "addComment": "Add comment to selection",
+      "bookmarkPage": "Bookmark current page",
+      "cycleTheme": "Cycle reader theme",
+      "print": "Print",
+      "screenshot": "Screenshot viewport",
+      "undo": "Undo last annotation",
+      "shortcutsSheet": "Keyboard shortcuts cheat sheet"
+    },
+    "sheet": {
+      "title": "Keyboard shortcuts",
+      "search": "Search by name or keys",
+      "empty": "No shortcut matches.",
+      "openOverlay": "Open as overlay",
+      "hint": "Ctrl + / or ? opens this sheet anywhere, Esc closes it."
+    }
   }
 }

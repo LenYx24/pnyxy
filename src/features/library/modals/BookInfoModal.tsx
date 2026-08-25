@@ -2,6 +2,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import { formatAuthors } from "@/lib/library/format-authors";
+import { modalBackdropClass, modalSurfaceClass } from "@/components/ui/classes";
 
 interface BookInfoModalProps {
   open: boolean;
@@ -43,25 +44,25 @@ export function BookInfoModal({ open, onClose, entry }: BookInfoModalProps) {
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className={`absolute inset-0 ${modalBackdropClass}`}
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-sm rounded-xl border border-glass-border bg-bg-secondary/95 p-5 backdrop-blur-xl">
+      <div className={`relative z-10 w-full max-w-sm p-5 ${modalSurfaceClass}`}>
         {/* Header */}
         <div className="mb-4 flex items-start justify-between gap-3">
-          <h3 className="text-base font-semibold text-text-primary truncate">
+          <h3 className="truncate font-display text-base font-semibold text-text-primary">
             File Information
           </h3>
           <button
             onClick={onClose}
-            className="shrink-0 rounded-md p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            className="shrink-0 rounded-control p-1 text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Info rows */}
-        <div className="divide-y divide-glass-border/50">
+        <div className="divide-y divide-surface-3/60">
           <InfoRow label="Title" value={title} />
           <InfoRow label="Author" value={author} />
           <InfoRow label="Pages" value={pageCount?.toString()} />

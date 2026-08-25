@@ -1,57 +1,51 @@
-import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Keyboard } from "lucide-react";
 import {
-  formatShortcut,
-  getRegisteredShortcuts,
+  SHORTCUT_CATALOG,
+  SHORTCUT_GROUP_ORDER,
+  isMac,
 } from "@/lib/keyboard-shortcuts";
+import { Keyboard } from "lucide-react";
+import { Button, Kbd } from "@/components/ui";
+import { useShortcutsSheet } from "@/components/ui/shortcuts-sheet-store";
+import { SettingsSection } from "../ui";
 
 export function ShortcutsTab() {
   const { t } = useTranslation();
-  const shortcuts = useMemo(() => {
-    const map = getRegisteredShortcuts();
-    return Array.from(map.values())
-      .filter((s) => s.description)
-      .map((s) => ({
-        id: s.id,
-        key: s.key,
-        ctrl: s.ctrl,
-        shift: s.shift,
-        alt: s.alt,
-        description: s.description!,
-      }));
-  }, []);
+  const modifierNote = isMac()
+    ? t("shortcuts.modifierMac")
+    : t("shortcuts.modifierPc");
+  const openSheet = useShortcutsSheet((s) => s.setOpen);
 
   return (
-    <section className="space-y-4 sm:rounded-xl sm:border sm:border-glass-border sm:bg-glass-bg/50 sm:p-6">
-      <div className="flex items-center gap-2">
-        <Keyboard size={18} className="text-text-secondary" />
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t("settings.shortcutsSection.heading")}
-        </h2>
-      </div>
-
-      {shortcuts.length === 0 ? (
-        <p className="text-sm text-text-muted">
-          {t("settings.shortcutsSection.empty")}
-        </p>
-      ) : (
-        <div className="divide-y divide-glass-border/50">
-          {shortcuts.map((s) => (
-            <div
-              key={s.id}
-              className="flex items-center justify-between py-2.5"
-            >
-              <span className="text-sm text-text-secondary">
-                {s.description}
-              </span>
-              <kbd className="whitespace-nowrap rounded bg-bg-primary/80 px-2 py-1 text-xs font-mono text-text-primary border border-glass-border">
-                {formatShortcut(s)}
-              </kbd>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
+    <div className="space-y-8">
+      <SettingsSection
+        description={modifierNote}
+        actions={
+          <Button variant="secondary" size="sm" onClick={() => openSheet(true)}>
+            <Keyboard size={14} />
+            {t("shortcuts.sheet.openOverlay")}
+          </Button>
+        }
+      />
+      {SHORTCUT_GROUP_ORDER.map((group) => {
+        const items = SHORTCUT_CATALOG.filter((s) => s.group === group);
+        if (items.length === 0) return null;
+        return (
+          <SettingsSection key={group} title={t(`shortcuts.groups.${group}`)}>
+            {items.map((s) => (
+              <div
+                key={s.id}
+                className="flex items-center justify-between gap-4 py-2.5"
+              >
+                <span className="text-[15px] text-text-primary">
+                  {t(`shortcuts.items.${s.labelKey}`)}
+                </span>
+                <Kbd shortcut={s} variant="chips" className="shrink-0" />
+              </div>
+            ))}
+          </SettingsSection>
+        );
+      })}
+    </div>
   );
 }

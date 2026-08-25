@@ -20,6 +20,8 @@ import { Footer } from "./Footer";
 import { OfflineBanner } from "./OfflineBanner";
 import { DocumentLoadingOverlay } from "./DocumentLoadingOverlay";
 import { ContextMenu } from "@/components/ui";
+import { ShortcutsSheet } from "@/components/ui/ShortcutsSheet";
+import { useShortcutsSheet } from "@/components/ui/shortcuts-sheet-store";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { BannedScreen } from "@/features/admin/BannedScreen";
 import { StreakCelebrationModal } from "@/features/library/StreakCelebrationModal";
@@ -27,10 +29,16 @@ import { FeedbackPrompt } from "@/features/feedback/FeedbackPrompt";
 import { TtsMiniPlayer } from "@/components/tts/TtsMiniPlayer";
 import { OnboardingTour } from "@/features/onboarding/OnboardingTour";
 
-const STATIC_PAGE_PATHS = ["/about", "/privacy", "/terms", "/help", "/tutorial"];
+const STATIC_PAGE_PATHS = [
+  "/about",
+  "/privacy",
+  "/terms",
+  "/help",
+  "/tutorial",
+];
 
 export function AppLayout() {
-  const { sidebarCollapsed, toggleSidebar, setSidebarCollapsed } = useUIStore();
+  const { sidebarCollapsed, setSidebarCollapsed } = useUIStore();
   const { isBanned, banInfo } = useAuthStore();
   const focusActive = useFocusStore((s) => s.active);
   const isDesktop = useIsDesktop();
@@ -56,13 +64,6 @@ export function AppLayout() {
     location.pathname.startsWith(p),
   );
 
-  useKeyboardShortcut({
-    id: "app:toggle-sidebar",
-    key: "b",
-    ctrl: true,
-    description: "Toggle sidebar",
-    handler: toggleSidebar,
-  });
   // Cmd/Ctrl+, opens settings (handler treats ctrl as cmd-or-ctrl)
   useKeyboardShortcut({
     id: "app:open-settings",
@@ -71,20 +72,62 @@ export function AppLayout() {
     description: "Open settings",
     handler: () => navigate("/settings"),
   });
+  // Ctrl+Shift+O: new chat from anywhere (Gemini's default). ChatPage
+  // reads the `newChat` state flag and starts a fresh conversation.
+  useKeyboardShortcut({
+    id: "app:new-chat",
+    key: "o",
+    ctrl: true,
+    shift: true,
+    description: "New chat",
+    handler: () => navigate("/chat", { state: { newChat: Date.now() } }),
+  });
 
-  // during a focus session only reader shortcuts and the sidebar toggle pass through
+  // Ctrl+/ (and a bare "?" outside of text fields) toggles the shortcuts
+  // cheat sheet. The registry already skips input/textarea targets; the
+  // "?" variant additionally stays out of contenteditable editors.
+  const toggleShortcutsSheet = useShortcutsSheet((s) => s.toggle);
+  useKeyboardShortcut({
+    id: "app:shortcuts-sheet",
+    key: "/",
+    ctrl: true,
+    description: "Keyboard shortcuts",
+    handler: toggleShortcutsSheet,
+  });
+  useKeyboardShortcut({
+    id: "app:shortcuts-sheet-help",
+    key: "?",
+    shift: true,
+    description: "Keyboard shortcuts",
+    preventDefault: false,
+    handler: () => {
+      const el = document.activeElement as HTMLElement | null;
+      if (el?.isContentEditable) return;
+      toggleShortcutsSheet();
+    },
+  });
+
+  // PDFs handed off by the OS via the PWA File Handlers API, route them into the reader
+  const { fileInputRef, triggerFilePicker, handleFileSelect, openFile } =
+    useOpenDocument();
+  // Ctrl+O: open a book from disk anywhere. The library and the reader
+  // register their own (scoped ids win over this global one).
+  useKeyboardShortcut({
+    id: "app:open-book",
+    key: "o",
+    ctrl: true,
+    description: "Open a file from disk",
+    handler: triggerFilePicker,
+  });
+
+  // during a focus session only reader shortcuts pass through
   useEffect(() => {
     if (focusActive) {
-      setShortcutGate(
-        (id) => id.startsWith("reader:") || id === "app:toggle-sidebar",
-      );
+      setShortcutGate((id) => id.startsWith("reader:"));
       return () => setShortcutGate(null);
     }
     return undefined;
   }, [focusActive]);
-
-  // PDFs handed off by the OS via the PWA File Handlers API, route them into the reader
-  const { openFile } = useOpenDocument();
   useEffect(() => {
     setLaunchedFilesListener((files) => {
       const first = files[0];
@@ -108,22 +151,43 @@ export function AppLayout() {
   const showMobileTopBar =
     !isReaderRoute && !isChatRoute && !focusActive && !showFooter;
   const sidebarMargin = showSidebar && isDesktop;
+  // chat and reader draw their own desk + sheet layout (conversation
+  // panel on the desk, the thread as the sheet; the reader is all desk),
+  // so the generic page surface would double-wrap them
+  const pageSurface = isDesktop && !focusActive && !isChatRoute && !isReaderRoute;
 
   return (
-    <div className="min-h-dvh bg-bg-primary">
+    // flex row: a spacer the width of the fixed rail + the page column.
+    // `min-w-0 flex-1` on <main> makes the sheet exactly viewport minus
+    // rail (a margin-based offset plus any w-full child would overflow
+    // to the right and clip the sheet's edge + shadow); overflow-x-clip
+    // on the root guards against a wide child adding a horizontal
+    // scrollbar.
+    <div className="flex min-h-dvh w-full overflow-x-clip bg-bg-primary">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.epub,.txt,.md,.html,.docx,.pptx,.xlsx,.mobi,.azw3,.fb2,.cbz,.cbr,.djvu"
+        onChange={handleFileSelect}
+        className="hidden"
+        tabIndex={-1}
+        aria-hidden="true"
+      />
       {/* renders nothing when online */}
       <OfflineBanner />
       {showSidebar && <Sidebar />}
       {showMobileTopBar && <MobileTopBar />}
+      {sidebarMargin && (
+        <div aria-hidden className="w-sidebar-collapsed shrink-0" />
+      )}
       {/* flex-col + min-h-screen lets the flex-1 wrapper pin the footer to the bottom on short pages */}
       <main
         className={cn(
-          "flex flex-col transition-[margin] duration-200 ease-out",
+          "flex min-w-0 flex-1 flex-col",
           // lock reader/chat to 100dvh + overflow-hidden: min-h-screen (100vh) lets mobile URL-bar chrome scroll the body and expose a black strip below the composer
           isReaderRoute || isChatRoute
             ? "h-[100dvh] overflow-hidden"
             : "min-h-dvh",
-          sidebarMargin && (sidebarCollapsed ? "ml-sidebar-collapsed" : "ml-sidebar-expanded"),
           // push content below the fixed mobile top bar
           showMobileTopBar && "pt-12 md:pt-0",
         )}
@@ -135,9 +199,19 @@ export function AppLayout() {
             : { minHeight: "calc(100dvh - var(--titlebar-h))" }),
         }}
       >
+        {/* "page" surface (UI v2): on desktop the content sits on a
+            surface-1 sheet lifted off the desk by the one shadow token,
+            rounded 24 px on the edge facing the rail, 10 px breathing
+            room above and below. Mobile stays flush and square. */}
         <div
           className={cn(
             "flex-1",
+            pageSurface &&
+              "my-2.5 mr-2.5 min-h-0 overflow-clip rounded-page bg-bg-secondary shadow-page",
+            // chat/reader: no sheet, but keep the flex/min-h-0/clip so the
+            // page itself never scrolls (their inner panes own scrolling)
+            !pageSurface && isDesktop && (isChatRoute || isReaderRoute) &&
+              "flex min-h-0 flex-col overflow-clip",
             useFlushContent ? "p-0" : "p-4 md:p-6",
             // library-only: flex column so LibraryPage (flex-1) grows to
             // fill and its bottom bar pins via mt-auto on short grids.
@@ -171,6 +245,7 @@ export function AppLayout() {
       <FeedbackPrompt />
       <ContextMenu />
       <CommandPalette />
+      <ShortcutsSheet />
       <TtsMiniPlayer />
       <DocumentLoadingOverlay />
     </div>

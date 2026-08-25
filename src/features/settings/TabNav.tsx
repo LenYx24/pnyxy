@@ -77,13 +77,14 @@ export function TabNav({ currentTo }: { currentTo: string }) {
   const tabs = useVisibleSettingsTabs();
   if (isMobile) return <TabDropdown currentTo={currentTo} />;
   return (
-    <nav className="sticky top-0 flex flex-col gap-0.5 self-start">
+    <nav className="sticky top-4 flex flex-col gap-1 self-start">
+      <span className="mb-1 px-3 text-[13px] font-semibold text-text-muted">
+        {t("settings.title")}
+      </span>
       {SETTINGS_GROUP_ORDER.map((group) => (
-        <div key={group} className="mb-1 flex flex-col gap-0.5">
-          <span className="px-3 pb-1 pt-3 text-2xs font-semibold uppercase tracking-wide text-text-muted first:pt-0">
-            {t(`settings.groups.${group}`, {
-              defaultValue: GROUP_FALLBACK[group],
-            })}
+        <div key={group} className="mb-2 flex flex-col gap-0.5">
+          <span className="px-3 pb-1.5 pt-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted-2">
+            {t(`settings.groups.${group}`)}
           </span>
           {tabs.filter((tab) => tab.group === group).map((tab) => (
             <NavLink
@@ -91,14 +92,14 @@ export function TabNav({ currentTo }: { currentTo: string }) {
               to={tab.to}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-2.5 rounded-control px-3 py-2 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-glass-bg text-text-primary"
-                    : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+                    ? "bg-bg-tertiary text-text-primary"
+                    : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary",
                 )
               }
             >
-              <tab.icon size={16} />
+              <tab.icon size={18} className="shrink-0" />
               <span>{t(`settings.${tab.labelKey}`)}</span>
             </NavLink>
           ))}
@@ -107,12 +108,6 @@ export function TabNav({ currentTo }: { currentTo: string }) {
     </nav>
   );
 }
-
-const GROUP_FALLBACK: Record<SettingsGroup, string> = {
-  account: "Account",
-  workspace: "Workspace",
-  help: "Help",
-};
 
 function TabDropdown({ currentTo }: { currentTo: string }) {
   const tabs = useVisibleSettingsTabs();
@@ -126,7 +121,7 @@ function TabDropdown({ currentTo }: { currentTo: string }) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-2 rounded-lg border border-glass-border bg-glass-bg/50 px-3 py-2.5 text-sm font-medium text-text-primary"
+        className="field flex w-full cursor-pointer items-center justify-between gap-2 py-2.5 text-sm font-medium"
       >
         <span className="flex items-center gap-2">
           <Icon size={16} />
@@ -135,7 +130,7 @@ function TabDropdown({ currentTo }: { currentTo: string }) {
         <ChevronDown size={16} className={cn("transition-transform", open && "rotate-180")} />
       </button>
       {open && (
-        <div className="absolute left-0 right-0 z-10 mt-1 overflow-hidden rounded-lg border border-glass-border bg-bg-secondary shadow-xl">
+        <div className="absolute left-0 right-0 z-10 mt-1 overflow-hidden rounded-panel bg-bg-tertiary p-1 shadow-page">
           {tabs.map((tab) => (
             <NavLink
               key={tab.to}
@@ -143,10 +138,10 @@ function TabDropdown({ currentTo }: { currentTo: string }) {
               onClick={() => setOpen(false)}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-2 px-3 py-2 text-sm transition-colors",
+                  "flex items-center gap-2 rounded-control px-3 py-2 text-sm transition-colors",
                   isActive
-                    ? "bg-glass-bg text-text-primary"
-                    : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+                    ? "bg-surface-3 text-text-primary"
+                    : "text-text-secondary hover:bg-surface-3/60 hover:text-text-primary",
                 )
               }
             >

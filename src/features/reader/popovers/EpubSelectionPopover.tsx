@@ -136,7 +136,7 @@ export function EpubSelectionPopover({
       ref={popoverRef}
       role="dialog"
       aria-label={t("reader.epubSelection.label")}
-      className="fixed z-[1000] rounded-xl border border-glass-border bg-glass-bg p-2 shadow-xl backdrop-blur-xl"
+      className="fixed z-[1000] rounded-panel bg-bg-tertiary p-2 shadow-page"
       style={{ top, left, width: POPOVER_WIDTH }}
     >
       <div className="flex items-center gap-1">

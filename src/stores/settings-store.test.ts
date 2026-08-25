@@ -300,3 +300,63 @@ describe("settings-store migrate - full chain", () => {
     expect(state.epubLineHeight).toBe(1.5);
   });
 });
+
+describe("settings-store migrate - v13 → v14 (AI context presets)", () => {
+  it("converts a non-empty legacy context into one default preset", async () => {
+    seedPersistedState(13, { aiCustomDefaultContext: "  I study CS, keep it short.  " });
+    const { useSettingsStore } = await import("./settings-store");
+    const state = useSettingsStore.getState();
+
+    expect(state.aiContexts).toHaveLength(1);
+    expect(state.aiContexts[0].body).toBe("I study CS, keep it short.");
+    expect(state.aiContexts[0].name).toBe("Default");
+    expect(state.aiDefaultContextId).toBe(state.aiContexts[0].id);
+    expect(state.aiContextBindings).toEqual({ books: {}, folders: {}, orgs: {} });
+    // legacy string survives one version as a fallback
+    expect(state.aiCustomDefaultContext).toBe("  I study CS, keep it short.  ");
+  });
+
+  it("names the migrated preset in Hungarian when the UI language is hu", async () => {
+    localStorage.setItem("pnyxy-reader:language", "hu");
+    seedPersistedState(13, { aiCustomDefaultContext: "Rövid válaszokat kérek." });
+    const { useSettingsStore } = await import("./settings-store");
+    expect(useSettingsStore.getState().aiContexts[0].name).toBe("Alapértelmezett");
+  });
+
+  it("leaves everything empty when the legacy context is blank", async () => {
+    seedPersistedState(13, { aiCustomDefaultContext: "   " });
+    const { useSettingsStore } = await import("./settings-store");
+    const state = useSettingsStore.getState();
+    expect(state.aiContexts).toEqual([]);
+    expect(state.aiDefaultContextId).toBeNull();
+  });
+
+  it("does not duplicate when presets already exist", async () => {
+    seedPersistedState(13, {
+      aiCustomDefaultContext: "legacy",
+      aiContexts: [{ id: "p1", name: "Mine", body: "x", createdAt: "", updatedAt: "" }],
+      aiDefaultContextId: "p1",
+    });
+    const { useSettingsStore } = await import("./settings-store");
+    const state = useSettingsStore.getState();
+    expect(state.aiContexts.map((p) => p.id)).toEqual(["p1"]);
+    expect(state.aiDefaultContextId).toBe("p1");
+  });
+
+  it("deleteAiContext clears the default and every binding to it", async () => {
+    seedPersistedState(14, {
+      aiContexts: [
+        { id: "a", name: "A", body: "", createdAt: "", updatedAt: "" },
+        { id: "b", name: "B", body: "", createdAt: "", updatedAt: "" },
+      ],
+      aiDefaultContextId: "a",
+      aiContextBindings: { books: { doc1: "a", doc2: "b" }, folders: { f: "a" }, orgs: {} },
+    });
+    const { useSettingsStore } = await import("./settings-store");
+    useSettingsStore.getState().deleteAiContext("a");
+    const state = useSettingsStore.getState();
+    expect(state.aiContexts.map((p) => p.id)).toEqual(["b"]);
+    expect(state.aiDefaultContextId).toBeNull();
+    expect(state.aiContextBindings).toEqual({ books: { doc2: "b" }, folders: {}, orgs: {} });
+  });
+});

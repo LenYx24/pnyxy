@@ -1,15 +1,9 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import {
-  UserCircle,
-  LogIn,
-  Upload,
-  Loader2,
-  Trash2,
-  ClipboardPaste,
-} from "lucide-react";
+import { LogIn, Upload, Loader2, Trash2, ClipboardPaste } from "lucide-react";
 import { Button } from "@/components/ui";
+import { SettingRow, SettingsSection, StatusLine } from "@/features/settings/ui";
 import { useAuthStore } from "@/stores/auth-store";
 import { containsProfanity } from "@/lib/profanity-filter";
 import { PlanSection } from "./PlanSection";
@@ -77,25 +71,20 @@ export function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="mx-auto max-w-2xl space-y-8">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-glass-bg">
-            <UserCircle size={20} className="text-accent" />
-          </div>
-          <h1 className="text-2xl font-bold text-text-primary">
-            {t("profile.title")}
-          </h1>
-        </div>
+      <div className="mx-auto w-full max-w-3xl space-y-6 px-3 py-4 sm:px-6 sm:py-6">
+        <h1 className="font-display text-[22px] font-semibold leading-tight text-text-primary">
+          {t("profile.title")}
+        </h1>
 
-        <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6 text-center">
-          <p className="text-text-secondary">{t("profile.signInPrompt")}</p>
+        <div className="space-y-4 rounded-panel bg-bg-tertiary p-6 text-center">
+          <p className="text-[15px] text-text-secondary">{t("profile.signInPrompt")}</p>
           <Link to="/auth">
             <Button>
               <LogIn size={16} />
               {t("auth.signIn")}
             </Button>
           </Link>
-        </section>
+        </div>
       </div>
     );
   }
@@ -183,145 +172,130 @@ export function ProfilePage() {
   ).toUpperCase();
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-glass-bg">
-          <UserCircle size={20} className="text-accent" />
-        </div>
-        <h1 className="text-2xl font-bold text-text-primary">
-          {t("profile.title")}
-        </h1>
-      </div>
+    <div className="mx-auto w-full max-w-3xl space-y-8 px-3 py-4 sm:px-6 sm:py-6">
+      <h1 className="font-display text-[22px] font-semibold leading-tight text-text-primary">
+        {t("profile.title")}
+      </h1>
 
-      <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
-        <div className="flex items-center gap-4">
+      <SettingsSection title={t("profile.editSection")}>
+        <div className="flex flex-col gap-4 py-3 sm:flex-row sm:items-center">
           {profile?.avatar_url ? (
             <img
               src={profile.avatar_url}
               alt=""
-              className="h-16 w-16 rounded-full object-cover"
+              className="h-20 w-20 shrink-0 rounded-panel object-cover"
             />
           ) : (
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/15">
-              <span className="text-2xl font-bold text-accent">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-panel bg-surface-3">
+              <span className="font-display text-3xl font-semibold text-text-primary">
                 {initial}
               </span>
             </div>
           )}
-          <div>
-            <p className="text-lg font-semibold text-text-primary">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[15px] font-medium text-text-primary">
               {profile?.display_name || t("profile.noDisplayName")}
             </p>
-            <p className="text-sm text-text-muted">{user.email}</p>
+            <p className="truncate text-[13px] text-text-muted">{user.email}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={triggerFilePicker}
+                disabled={avatarBusy}
+              >
+                {avatarBusy ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Upload size={14} />
+                )}
+                {profile?.avatar_url
+                  ? t("profile.changeAvatar")
+                  : t("profile.uploadAvatar")}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={pasteFromClipboard}
+                disabled={avatarBusy}
+                title={t("profile.pasteAvatarTitle")}
+              >
+                <ClipboardPaste size={14} />
+                {t("profile.pasteAvatar")}
+              </Button>
+              {profile?.avatar_url && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRemoveAvatar}
+                  disabled={avatarBusy}
+                >
+                  <Trash2 size={14} />
+                  {t("profile.removeAvatar")}
+                </Button>
+              )}
+            </div>
+            {avatarError && (
+              <p className="mt-2 text-[13px] text-danger">{avatarError}</p>
+            )}
+            <p className="mt-2 text-[13px] text-text-muted">
+              {t("profile.avatarHint")}
+            </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            className="hidden"
-            onChange={handleFileChange}
-          />
-          <Button
-            variant="secondary"
-            onClick={triggerFilePicker}
-            disabled={avatarBusy}
-          >
-            {avatarBusy ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Upload size={16} />
-            )}
-            {profile?.avatar_url
-              ? t("profile.changeAvatar")
-              : t("profile.uploadAvatar")}
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={pasteFromClipboard}
-            disabled={avatarBusy}
-            title={t("profile.pasteAvatarTitle")}
-          >
-            <ClipboardPaste size={16} />
-            {t("profile.pasteAvatar")}
-          </Button>
-          {profile?.avatar_url && (
-            <Button
-              variant="ghost"
-              onClick={handleRemoveAvatar}
-              disabled={avatarBusy}
-            >
-              <Trash2 size={16} />
-              {t("profile.removeAvatar")}
-            </Button>
-          )}
-        </div>
-
-        {avatarError && (
-          <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
-            {avatarError}
-          </p>
-        )}
-        <p className="text-xs text-text-muted">{t("profile.avatarHint")}</p>
-      </section>
-
-      <PlanSection />
-
-      <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t("profile.editSection")}
-        </h2>
-
-        <div>
-          <label
-            htmlFor="display-name"
-            className="mb-1 block text-sm font-medium text-text-secondary"
-          >
-            {t("profile.displayName")}
-          </label>
-          <input
-            id="display-name"
-            type="text"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted backdrop-blur-md outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
-            placeholder={t("profile.displayNamePlaceholder")}
-          />
+        <SettingRow
+          label={t("profile.displayName")}
+          htmlFor="display-name"
+          stacked
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <input
+              id="display-name"
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              className="field bg-bg-secondary sm:max-w-sm"
+              placeholder={t("profile.displayNamePlaceholder")}
+            />
+            <div className="flex items-center gap-3">
+              <Button onClick={handleSave} disabled={saving || displayNameFlagged}>
+                {saving ? t("profile.saving") : t("profile.save")}
+              </Button>
+              {saved && (
+                <StatusLine tone="success">{t("profile.savedToast")}</StatusLine>
+              )}
+              {saveError && <StatusLine tone="danger">{saveError}</StatusLine>}
+            </div>
+          </div>
           {displayNameFlagged && (
-            <p className="mt-1 text-xs text-warning">
+            <p className="mt-2 text-[13px] text-warning">
               {t("profile.displayNameFlagged")}
             </p>
           )}
-        </div>
+        </SettingRow>
+      </SettingsSection>
 
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={handleSave}
-            disabled={saving || displayNameFlagged}
-          >
-            {saving ? t("profile.saving") : t("profile.save")}
-          </Button>
-          {saved && (
-            <span className="text-sm text-success">
-              {t("profile.savedToast")}
-            </span>
-          )}
-          {saveError && (
-            <span className="text-sm text-danger">{saveError}</span>
-          )}
-        </div>
-      </section>
+      <PlanSection />
 
-      <section className="space-y-4 rounded-xl border border-glass-border bg-glass-bg/50 p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t("profile.accountSection")}
-        </h2>
-        <Button variant="secondary" onClick={handleSignOut}>
-          {t("profile.signOut")}
-        </Button>
-      </section>
+      <SettingsSection title={t("profile.accountSection")}>
+        <SettingRow
+          label={t("profile.accountSection")}
+          hint={user.email}
+          control={
+            <Button variant="secondary" onClick={handleSignOut}>
+              {t("profile.signOut")}
+            </Button>
+          }
+        />
+      </SettingsSection>
     </div>
   );
 }

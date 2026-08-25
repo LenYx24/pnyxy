@@ -36,9 +36,9 @@ test("navigating away and back within the SPA resumes the same page", async ({
   const before = await indicatorPage(page);
   expect(before).toBeGreaterThanOrEqual(59);
 
-  await spaNavigate(page, "/browse");
+  await spaNavigate(page, "/library");
   await expect(page.locator(VIEWER)).toHaveCount(0);
-  await expect(page).toHaveURL(/\/browse/);
+  await expect(page).toHaveURL(/\/library/);
 
   await spaNavigate(page, docUrl);
   await expect(page.locator(VIEWER)).toBeVisible({ timeout: 15_000 });

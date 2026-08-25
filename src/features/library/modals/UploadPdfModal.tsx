@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { X, Upload, FileText, AlertTriangle, Files, Folder } from "lucide-react";
 import { Button } from "@/components/ui";
+import { modalBackdropClass, modalSurfaceClass } from "@/components/ui/classes";
 import { cn } from "@/lib/cn";
 import { useUploadStore } from "@/stores/upload-store";
 import { useLibraryStore } from "@/stores/library-store";
@@ -260,18 +261,18 @@ export function UploadPdfModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className={`absolute inset-0 ${modalBackdropClass}`}
         onClick={handleClose}
       />
-      <div className="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col rounded-xl border border-glass-border bg-bg-secondary/95 backdrop-blur-xl">
+      <div className={`relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col ${modalSurfaceClass}`}>
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-glass-border p-4">
-          <h2 className="text-lg font-semibold text-text-primary">
+        <div className="flex shrink-0 items-center justify-between p-4 pb-3">
+          <h2 className="font-display text-lg font-semibold text-text-primary">
             {t("library.uploadModal.title")}
           </h2>
           <button
             onClick={handleClose}
-            className="rounded-lg p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+            className="rounded-control p-1 text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
           >
             <X size={20} />
           </button>
@@ -288,13 +289,12 @@ export function UploadPdfModal({
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
                 className={cn(
-                  "flex flex-col items-center gap-3 rounded-lg border-2 border-dashed p-8 transition-colors",
-                  dragOver
-                    ? "border-accent bg-accent/10"
-                    : "border-glass-border",
+                  "flex flex-col items-center gap-3 rounded-panel p-8 transition-colors",
+                  "outline-dotted outline-2 -outline-offset-2 outline-surface-3",
+                  dragOver ? "bg-surface-3" : "bg-bg-secondary",
                 )}
               >
-                <Upload size={32} className="text-text-muted" />
+                <Upload size={32} strokeWidth={1.5} className="text-text-muted" />
                 <p className="text-center text-sm text-text-primary">
                   {t("library.uploadModal.dropZone")}
                 </p>
@@ -322,7 +322,7 @@ export function UploadPdfModal({
                 </p>
               </div>
               {rejectedExts.length > 0 && (
-                <div className="mt-3 flex items-start gap-2 rounded-lg bg-warning/10 p-3">
+                <div className="mt-3 flex items-start gap-2 rounded-control bg-warning/10 p-3">
                   <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warning" />
                   <p className="text-xs text-warning">
                     {t("library.upload.unsupportedFormat", {
@@ -332,7 +332,7 @@ export function UploadPdfModal({
                 </div>
               )}
               {notice && (
-                <div className="mt-3 flex items-start gap-2 rounded-lg bg-warning/10 p-3">
+                <div className="mt-3 flex items-start gap-2 rounded-control bg-warning/10 p-3">
                   <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warning" />
                   <p className="text-xs text-warning">{notice}</p>
                 </div>
@@ -351,19 +351,19 @@ export function UploadPdfModal({
                 <div className="flex flex-wrap gap-2 text-xs">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="rounded border border-glass-border px-2 py-0.5 text-text-secondary hover:text-text-primary cursor-pointer"
+                    className="chip cursor-pointer transition-colors hover:bg-surface-3 hover:text-text-primary"
                   >
                     {t("library.uploadModal.addFiles")}
                   </button>
                   <button
                     onClick={() => folderInputRef.current?.click()}
-                    className="rounded border border-glass-border px-2 py-0.5 text-text-secondary hover:text-text-primary cursor-pointer"
+                    className="chip cursor-pointer transition-colors hover:bg-surface-3 hover:text-text-primary"
                   >
                     {t("library.uploadModal.addFolder")}
                   </button>
                   <button
                     onClick={() => setStaged([])}
-                    className="rounded border border-glass-border px-2 py-0.5 text-text-secondary hover:text-text-primary cursor-pointer"
+                    className="chip cursor-pointer transition-colors hover:bg-surface-3 hover:text-text-primary"
                   >
                     {t("library.uploadModal.clear")}
                   </button>
@@ -371,7 +371,7 @@ export function UploadPdfModal({
               </div>
 
               {notice && (
-                <div className="flex items-start gap-2 rounded-lg bg-warning/10 p-3">
+                <div className="flex items-start gap-2 rounded-control bg-warning/10 p-3">
                   <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warning" />
                   <p className="text-xs text-warning">{notice}</p>
                 </div>
@@ -380,7 +380,7 @@ export function UploadPdfModal({
               {/* Storage warning: synchronous pre-check so the user
                   sees this *here*, not on doomed ghost cards. */}
               {wouldExceed && (
-                <div className="flex items-start gap-2 rounded-lg bg-danger/10 p-3">
+                <div className="flex items-start gap-2 rounded-control bg-danger/10 p-3">
                   <AlertTriangle size={16} className="mt-0.5 shrink-0 text-danger" />
                   <p className="text-xs text-danger">
                     {t("library.uploadModal.wouldExceed")}
@@ -397,13 +397,13 @@ export function UploadPdfModal({
               )}
 
               {/* Staged file list */}
-              <ul className="overflow-hidden rounded-lg border border-glass-border">
+              <ul className="overflow-hidden rounded-panel bg-bg-secondary">
                 {staged.map((item) => (
                   <li
                     key={item.key}
-                    className="flex items-center gap-3 border-b border-glass-border px-3 py-2 last:border-b-0"
+                    className="flex items-center gap-3 border-b border-surface-3/60 px-3 py-2 last:border-b-0"
                   >
-                    <FileText size={18} className="shrink-0 text-accent" />
+                    <FileText size={16} strokeWidth={1.5} className="shrink-0 text-text-secondary" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-text-primary">
                         {item.file.name}
@@ -419,7 +419,7 @@ export function UploadPdfModal({
                     </span>
                     <button
                       onClick={() => removeStaged(item.key)}
-                      className="shrink-0 rounded-lg p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+                      className="shrink-0 rounded-control p-1 text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
                     >
                       <X size={16} />
                     </button>
@@ -432,7 +432,7 @@ export function UploadPdfModal({
 
         {/* Actions */}
         {staged.length > 0 && (
-          <div className="flex shrink-0 justify-end gap-2 border-t border-glass-border p-4">
+          <div className="flex shrink-0 justify-end gap-2 p-4 pt-2">
             <Button variant="secondary" onClick={handleClose}>
               {t("common.cancel")}
             </Button>

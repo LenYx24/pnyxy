@@ -85,10 +85,10 @@ function IconChip({ id, dragging }: { id: string; dragging?: boolean }) {
       <div
         title={t("reader.toolbar.separator", { defaultValue: "Separator" })}
         className={cn(
-          "flex h-6 w-5 items-center justify-center rounded-md border border-dashed select-none",
+          "flex h-7 w-5 items-center justify-center rounded-[8px] select-none",
           dragging
-            ? "cursor-grabbing border-accent bg-bg-secondary shadow-lg"
-            : "cursor-grab border-glass-border/70 hover:border-accent/60",
+            ? "cursor-grabbing bg-surface-3 shadow-page"
+            : "cursor-grab bg-bg-tertiary hover:bg-surface-3",
         )}
       >
         <div className="h-3.5 w-px bg-text-muted" />
@@ -101,10 +101,10 @@ function IconChip({ id, dragging }: { id: string; dragging?: boolean }) {
     <div
       title={t(meta.labelKey, { defaultValue: meta.labelDefault })}
       className={cn(
-        "flex h-6 w-6 items-center justify-center rounded-md border text-text-secondary select-none",
+        "flex h-7 w-7 items-center justify-center rounded-[8px] text-text-secondary select-none",
         dragging
-          ? "cursor-grabbing border-accent bg-bg-secondary shadow-lg"
-          : "cursor-grab border-glass-border bg-glass-bg/60 hover:border-accent/60 hover:text-text-primary",
+          ? "cursor-grabbing bg-surface-3 text-text-primary shadow-page"
+          : "cursor-grab bg-bg-tertiary hover:bg-surface-3 hover:text-text-primary",
       )}
     >
       <Icon size={15} />
@@ -148,9 +148,9 @@ function DropZone({
         ref={setNodeRef}
         className={cn(
           variant === "tray"
-            ? "flex min-h-[2.75rem] flex-wrap content-start gap-1.5 rounded-lg border border-dashed p-2"
-            : "flex h-full items-center gap-1 rounded-md border border-dashed px-1",
-          isOver ? "border-accent bg-accent/5" : "border-glass-border/60",
+            ? "flex min-h-[2.75rem] flex-wrap content-start gap-1.5 rounded-panel p-2"
+            : "flex h-full items-center gap-1 rounded-[14px] px-1",
+          isOver ? "bg-surface-3" : "bg-bg-secondary",
           variant === "bar" &&
             (align === "end"
               ? "justify-end"
@@ -283,9 +283,9 @@ export function ToolbarEditor({
   };
 
   return (
-    <div className="border-b border-glass-border bg-bg-secondary/95 backdrop-blur-md pt-safe-top">
+    <div className="pt-safe-top">
       {/* edit banner */}
-      <div className="flex items-center justify-between gap-3 border-b border-glass-border/60 bg-accent/5 px-3 py-1.5">
+      <div className="flex items-center justify-between gap-3 px-4 py-2">
         <span className="min-w-0 truncate text-2xs text-text-muted">
           {t("reader.toolbar.customizeHint", {
             defaultValue:
@@ -303,13 +303,13 @@ export function ToolbarEditor({
               onChange={(e) =>
                 onStyleChange({ paddingY: Number(e.target.value) })
               }
-              className="w-12 rounded border border-glass-border bg-glass-bg px-1.5 py-0.5 text-center text-2xs text-text-primary outline-none focus:border-accent"
+              className="field w-14 px-1.5 py-0.5 text-center text-2xs"
             />
           </label>
           <button
             type="button"
             onClick={handleAddSeparator}
-            className="flex items-center gap-1.5 rounded-md border border-glass-border px-2.5 py-1 text-2xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            className="chip flex items-center gap-1.5 px-2.5 py-1 text-2xs text-text-secondary hover:text-text-primary cursor-pointer"
           >
             <Plus size={13} />
             {t("reader.toolbar.addSeparator", { defaultValue: "Separator" })}
@@ -317,7 +317,7 @@ export function ToolbarEditor({
           <button
             type="button"
             onClick={handleReset}
-            className="flex items-center gap-1.5 rounded-md border border-glass-border px-2.5 py-1 text-2xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            className="chip flex items-center gap-1.5 px-2.5 py-1 text-2xs text-text-secondary hover:text-text-primary cursor-pointer"
           >
             <RotateCcw size={13} />
             {t("reader.toolbar.customizeReset", { defaultValue: "Reset" })}
@@ -325,7 +325,7 @@ export function ToolbarEditor({
           <button
             type="button"
             onClick={handleDone}
-            className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1 text-2xs font-medium text-white transition-colors hover:bg-accent/90 cursor-pointer"
+            className="flex items-center gap-1.5 rounded-chip bg-text-primary px-3 py-1 text-2xs font-medium text-bg-primary transition-opacity hover:opacity-90 cursor-pointer"
           >
             <Check size={13} />
             {t("reader.toolbar.customizeDone", { defaultValue: "Done" })}
@@ -344,7 +344,7 @@ export function ToolbarEditor({
             at the configured height */}
         <div
           className="flex items-center gap-2 overflow-hidden px-2 sm:px-4"
-          style={{ height: style.height }}
+          style={{ height: style.height + 16 }}
         >
           <DropZone id="left" items={containers.left} variant="bar" align="start" />
           <DropZone
@@ -368,24 +368,24 @@ export function ToolbarEditor({
           title={t("reader.toolbar.dragHeight", {
             defaultValue: "Drag to resize height",
           })}
-          className="group flex h-2.5 cursor-ns-resize items-center justify-center gap-2 border-y border-glass-border/60 bg-glass-bg/40 transition-colors hover:bg-accent/10"
+          className="group flex h-3 cursor-ns-resize items-center justify-center gap-2 transition-colors hover:bg-bg-secondary"
         >
-          <div className="h-0.5 w-10 rounded-full bg-text-muted/40 group-hover:bg-accent" />
+          <div className="h-0.5 w-10 rounded-full bg-text-muted/40 group-hover:bg-text-primary" />
           <span className="text-[9px] tabular-nums text-text-muted/70">
             {style.height}px
           </span>
         </div>
 
         {/* hidden destinations: the ⋮ menu + the unused palette */}
-        <div className="flex flex-wrap gap-4 px-3 pb-2 pt-1">
+        <div className="flex flex-wrap gap-4 px-4 pb-3 pt-1">
           <div className="flex min-w-[10rem] flex-1 flex-col gap-1">
-            <span className="text-2xs font-semibold uppercase tracking-wide text-text-muted">
+            <span className="text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
               {t("reader.toolbar.zoneOverflow", { defaultValue: "More menu (⋮)" })}
             </span>
             <DropZone id="overflow" items={containers.overflow} variant="tray" />
           </div>
           <div className="flex min-w-[10rem] flex-1 flex-col gap-1">
-            <span className="text-2xs font-semibold uppercase tracking-wide text-text-muted">
+            <span className="text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
               {t("reader.toolbar.customizePalette", {
                 defaultValue: "Available icons",
               })}

@@ -1,6 +1,6 @@
 import { ChevronDown, LoaderCircle, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { Toggle } from "@/components/ui";
+import { IconButton, Toggle } from "@/components/ui";
 import type { PluginManifest } from "@/lib/plugins/types";
 import type { PluginLoadStatus } from "@/lib/plugins/manager";
 import { CORE_PLUGINS } from "@/lib/plugins/core-registry";
@@ -31,7 +31,7 @@ export function PluginRow({
   const permissions = manifest.permissions ?? [];
 
   return (
-    <div className="rounded-lg border border-glass-border bg-bg-primary/40 p-3">
+    <div className="rounded-panel bg-bg-tertiary p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -42,15 +42,13 @@ export function PluginRow({
               v{manifest.version}
             </span>
             {isCore && (
-              <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-2xs font-medium text-accent">
-                Core
-              </span>
+              <span className="chip px-2 py-0.5 text-2xs">Core</span>
             )}
             <StatusBadge status={status} enabled={enabled} />
           </div>
-          <p className="text-2xs text-text-muted">by {manifest.author}</p>
+          <p className="text-[13px] text-text-muted">by {manifest.author}</p>
           {manifest.description && (
-            <p className="mt-1 text-xs text-text-secondary">
+            <p className="mt-1 text-[13px] text-text-secondary">
               {manifest.description}
             </p>
           )}
@@ -58,14 +56,15 @@ export function PluginRow({
         <div className="flex items-center gap-1.5 shrink-0">
           <Toggle checked={enabled} onChange={onToggle} />
           {!isCore && onUninstall && (
-            <button
-              type="button"
+            <IconButton
+              variant="danger"
+              size="sm"
               onClick={onUninstall}
               title="Uninstall"
-              className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-danger/10 hover:text-danger cursor-pointer"
+              aria-label="Uninstall"
             >
               <Trash2 size={14} />
-            </button>
+            </IconButton>
           )}
         </div>
       </div>
@@ -84,9 +83,9 @@ export function PluginRow({
       </button>
 
       {expanded && (
-        <div className="mt-2 space-y-2 border-t border-glass-border/50 pt-2 text-xs">
+        <div className="mt-2 space-y-2 rounded-control bg-bg-secondary/60 p-3 text-xs">
           <div>
-            <p className="text-2xs uppercase tracking-wide text-text-muted">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted-2">
               Permissions
             </p>
             {permissions.length === 0 ? (
@@ -96,7 +95,7 @@ export function PluginRow({
                 {permissions.map((p) => (
                   <li
                     key={p}
-                    className="rounded bg-glass-bg px-1.5 py-0.5 font-mono text-2xs text-text-secondary"
+                    className="rounded-md bg-surface-3 px-1.5 py-0.5 font-mono text-2xs text-text-secondary"
                   >
                     {p}
                   </li>
@@ -106,7 +105,7 @@ export function PluginRow({
           </div>
 
           {status?.state === "error" && status.error && (
-            <div className="rounded border border-danger/40 bg-danger/10 p-2 text-danger">
+            <div className="rounded-control bg-danger/10 p-2 text-danger">
               <p className="text-2xs uppercase tracking-wide">Error</p>
               <p className="text-2xs">{status.error}</p>
             </div>

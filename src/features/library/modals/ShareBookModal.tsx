@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Share2, Check, Loader2, Info } from "lucide-react";
 import { Button } from "@/components/ui";
+import {
+  chipActiveClass,
+  chipClass,
+  modalBackdropClass,
+  modalSurfaceClass,
+} from "@/components/ui/classes";
 import { cn } from "@/lib/cn";
 import { useBrowseStore } from "@/stores/browse-store";
 import { useCategoryStore } from "@/stores/category-store";
@@ -119,20 +125,20 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className={`absolute inset-0 ${modalBackdropClass}`}
         onClick={submitting ? undefined : onClose}
       />
-      <div className="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col rounded-xl border border-glass-border bg-bg-secondary/95 backdrop-blur-xl">
+      <div className={`relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col ${modalSurfaceClass}`}>
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-glass-border p-4">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-text-primary">
-            <Share2 size={18} className="text-accent" />
+        <div className="flex shrink-0 items-center justify-between p-4 pb-3">
+          <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-text-primary">
+            <Share2 size={18} strokeWidth={1.5} className="text-text-secondary" />
             Share with community
           </h2>
           <button
             onClick={onClose}
             disabled={submitting}
-            className="rounded-lg p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer disabled:opacity-50"
+            className="rounded-control p-1 text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer disabled:opacity-50"
           >
             <X size={20} />
           </button>
@@ -157,7 +163,7 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="flex items-start gap-2 rounded-lg border border-glass-border bg-glass-bg/50 p-3">
+              <div className="flex items-start gap-2 rounded-panel bg-bg-secondary p-3">
                 <Info size={14} className="mt-0.5 shrink-0 text-text-muted" />
                 <p className="text-xs text-text-muted">
                   Only the metadata below is shared with other users. Your
@@ -174,7 +180,7 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
+                  className="field"
                 />
                 {titleFlagged && (
                   <p className="mt-1 text-xs text-warning">
@@ -191,7 +197,7 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
                   type="text"
                   value={authors}
                   onChange={(e) => setAuthors(e.target.value)}
-                  className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
+                  className="field"
                 />
                 {authorsFlagged && (
                   <p className="mt-1 text-xs text-warning">
@@ -209,7 +215,7 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="A short summary to help others decide if they want to read it."
-                  className="w-full resize-none rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
+                  className="field resize-none"
                 />
                 {descriptionFlagged && (
                   <p className="mt-1 text-xs text-warning">
@@ -226,7 +232,7 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
                   type="text"
                   value={isbn}
                   onChange={(e) => setIsbn(e.target.value)}
-                  className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
+                  className="field"
                 />
               </div>
 
@@ -243,10 +249,8 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
                         type="button"
                         onClick={() => toggleCategory(cat.id)}
                         className={cn(
-                          "rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
-                          selectedCategoryIds.has(cat.id)
-                            ? "bg-accent/15 text-accent"
-                            : "bg-glass-bg text-text-muted hover:text-text-primary border border-glass-border",
+                          "cursor-pointer font-medium transition-colors hover:text-text-primary",
+                          selectedCategoryIds.has(cat.id) ? chipActiveClass : chipClass,
                         )}
                       >
                         {selectedCategoryIds.has(cat.id) && (
@@ -260,7 +264,7 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
               )}
 
               {error && (
-                <p className="rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">
+                <p className="rounded-control bg-danger/10 px-3 py-2 text-xs text-danger">
                   {error}
                 </p>
               )}
@@ -270,7 +274,7 @@ export function ShareBookModal({ open, onClose, entry }: ShareBookModalProps) {
 
         {/* Footer */}
         {!submitted && (
-          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-glass-border p-4">
+          <div className="flex shrink-0 items-center justify-end gap-2 p-4 pt-2">
             <Button variant="secondary" onClick={onClose} disabled={submitting}>
               Cancel
             </Button>

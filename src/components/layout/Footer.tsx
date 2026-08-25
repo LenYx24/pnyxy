@@ -56,7 +56,7 @@ function DiscordGlyph({ size = 16 }: { size?: number }) {
 export function Footer() {
   const { t } = useTranslation();
   return (
-    <footer className="mt-8 border-t border-glass-border bg-bg-secondary/40 py-6 text-sm text-text-muted">
+    <footer className="mt-8 py-6 text-sm text-text-muted">
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <Link
