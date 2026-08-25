@@ -1,6 +1,6 @@
 [package]
 name = "pnyxy-reader"
-version = "0.17.1"
+version = "0.18.0"
 description = "Pnyxy — Read Smarter"
 authors = ["you"]
 edition = "2021"
