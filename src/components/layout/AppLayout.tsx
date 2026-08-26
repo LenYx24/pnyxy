@@ -19,6 +19,7 @@ import { MobileTopBar } from "./MobileTopBar";
 import { Footer } from "./Footer";
 import { OfflineBanner } from "./OfflineBanner";
 import { DocumentLoadingOverlay } from "./DocumentLoadingOverlay";
+import { RouteLoadingBar } from "./RouteLoadingBar";
 import { ContextMenu } from "@/components/ui";
 import { ShortcutsSheet } from "@/components/ui/ShortcutsSheet";
 import { useShortcutsSheet } from "@/components/ui/shortcuts-sheet-store";
@@ -175,6 +176,8 @@ export function AppLayout() {
       />
       {/* renders nothing when online */}
       <OfflineBanner />
+      {/* slim top bar while a lazy route chunk loads (renders nothing when idle) */}
+      <RouteLoadingBar />
       {showSidebar && <Sidebar />}
       {showMobileTopBar && <MobileTopBar />}
       {sidebarMargin && (

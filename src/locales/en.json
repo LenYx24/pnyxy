@@ -1415,7 +1415,6 @@
     "title": "Chat",
     "untitled": "Untitled conversation",
     "newConversation": "New conversation",
-    "newConversationHint": "Send a message to get started.",
     "scrollToBottom": "Scroll to latest",
     "emptyTitle": "No conversations yet",
     "emptyBody": "Start a new chat - conversations stay organized and can branch at any point.",
@@ -1495,7 +1494,6 @@
         "tooLarge": "Images must be under {{mb}}MB.",
         "unsupported": "Only JPEG, PNG, GIF, and WebP images are supported.",
         "readError": "Couldn't read that file.",
-        "needVisionModel": "Default mode supports 1 image per message. Pick Claude Sonnet 4.5 or GPT-4o mini for up to 4.",
         "remove": "Remove attachment"
       },
       "modelHelp": "About the models",
@@ -1514,7 +1512,12 @@
       "context": {
         "label": "Context",
         "hint": "Which saved context the AI gets for this conversation. With a book it is remembered for the book, otherwise only for this session."
-      }
+      },
+      "pickerDirect": "Direct (no fallback)",
+      "modeDefault": "Chat",
+      "modeBooks": "Recommend books",
+      "modeVideos": "Recommend videos",
+      "modeImage": "Generate image"
     },
     "folders": {
       "create": "New folder",
@@ -1524,8 +1527,8 @@
       "delete": "Delete folder",
       "deleteConfirm": "Delete folder \"{{name}}\"? Conversations inside go back to the root.",
       "moveTo": "Move to folder…",
-      "moveToFolder": "Move to {{name}}",
-      "moveToRoot": "Move to root",
+      "moveTitle": "Move conversation",
+      "searchPlaceholder": "Search folders…",
       "root": "Root (no folder)",
       "dropToRoot": "Drop here to move to root",
       "newSubfolder": "New subfolder",

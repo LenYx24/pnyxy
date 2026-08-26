@@ -27,6 +27,7 @@ import { useChatSidebarView } from "./useChatSidebarView";
 import { ChatSidebarProvider, type ChatSidebarActions } from "./ChatSidebarContext";
 import { SidebarTreeList } from "./SidebarTreeList";
 import { FolderActionModals, type FolderAction } from "./FolderActionModals";
+import { MoveConversationModal } from "./MoveConversationModal";
 import { SidebarToolbar } from "./SidebarToolbar";
 
 // resizable sidebar (desktop only), width persisted in localStorage
@@ -104,6 +105,11 @@ export function ChatSidebar({
   );
   // one folder-action modal at a time, dispatched by `kind`
   const [folderAction, setFolderAction] = useState<FolderAction | null>(null);
+  // conversation waiting in the "move to folder" picker modal
+  const [moveRequest, setMoveRequest] = useState<{
+    id: string;
+    folderId: string | null;
+  } | null>(null);
 
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     try {
@@ -241,6 +247,12 @@ export function ChatSidebar({
   const handleRequestCreateSubfolder = useCallback((parentId: string) => {
     setFolderAction({ kind: "create", parentId });
   }, []);
+  const handleRequestMove = useCallback(
+    (id: string, currentFolderId: string | null) => {
+      setMoveRequest({ id, folderId: currentFolderId });
+    },
+    [],
+  );
   const handleOpenFolderInLibrary = useCallback(
     (folderId: string) => {
       navigateToLibraryFolder(folderId);
@@ -275,6 +287,7 @@ export function ChatSidebar({
       onEditTitleChange: setEditTitle,
       onDelete: handleDeleteConversation,
       onMove: moveConversationToFolder,
+      onRequestMove: handleRequestMove,
       onToggleFolder: handleToggleFolder,
       onNewInFolder: handleNewInFolder,
       onNewSubfolder: handleRequestCreateSubfolder,
@@ -293,6 +306,7 @@ export function ChatSidebar({
       handleSaveTitle,
       handleDeleteConversation,
       moveConversationToFolder,
+      handleRequestMove,
       handleToggleFolder,
       handleNewInFolder,
       handleRequestCreateSubfolder,
@@ -367,6 +381,7 @@ export function ChatSidebar({
                   onEditTitleChange={setEditTitle}
                   onDelete={handleDeleteConversation}
                   onMove={moveConversationToFolder}
+                  onRequestMove={handleRequestMove}
                   onNewInFolder={handleNewInFolder}
                   onRequestRenameFolder={handleRequestRenameFolder}
                   onRequestDeleteFolder={handleRequestDeleteFolder}
@@ -417,6 +432,17 @@ export function ChatSidebar({
       <FolderActionModals
         action={folderAction}
         onClose={() => setFolderAction(null)}
+      />
+
+      {/* "Move to folder…" picker, opened from a conversation's menu */}
+      <MoveConversationModal
+        open={moveRequest !== null}
+        currentFolderId={moveRequest?.folderId ?? null}
+        folders={folders}
+        onClose={() => setMoveRequest(null)}
+        onSelect={(folderId) => {
+          if (moveRequest) void moveConversationToFolder(moveRequest.id, folderId);
+        }}
       />
     </>
   );

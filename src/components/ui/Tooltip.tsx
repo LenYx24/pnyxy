@@ -45,7 +45,7 @@ interface TriggerProps {
 
 const GAP = 8;
 const SHOW_DELAY = 350;
-const ANIM_MS = 120;
+const ANIM_MS = 150;
 
 /**
  * Replacement for the native `title` attribute (UI v2). Portaled to
@@ -181,6 +181,15 @@ export function Tooltip({
         : side === "top"
           ? "translate-y-1"
           : "-translate-y-1";
+  // grow from the edge facing the trigger, Gemini-style
+  const origin =
+    side === "right"
+      ? "origin-left"
+      : side === "left"
+        ? "origin-right"
+        : side === "top"
+          ? "origin-bottom"
+          : "origin-top";
 
   return (
     <>
@@ -199,10 +208,12 @@ export function Tooltip({
             }}
             className={cn(
               "pointer-events-none fixed z-[110] flex max-w-[16rem] items-center gap-2 whitespace-nowrap rounded-control bg-bg-tertiary px-2.5 py-1.5 text-xs font-medium text-text-primary shadow-page",
-              "transition-[opacity,transform] ease-out motion-reduce:transition-none motion-reduce:transform-none",
+              // scale in from ~90% with a blur-to-sharp settle; never from zero
+              "transition-[opacity,transform,filter] ease-[cubic-bezier(0.3,1.35,0.65,1)] motion-reduce:transition-none motion-reduce:transform-none",
+              origin,
               shown
-                ? "opacity-100 translate-x-0 translate-y-0"
-                : cn("opacity-0", slide),
+                ? "opacity-100 translate-x-0 translate-y-0 scale-100 blur-none"
+                : cn("opacity-0 scale-90 blur-[2px]", slide),
             )}
           >
             <span>{label}</span>

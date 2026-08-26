@@ -428,7 +428,7 @@ export function MessageBubble({
       >
         <Sparkles size={15} strokeWidth={1.5} />
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-3 text-[15px] leading-relaxed text-text-primary">
+      <div className="flex min-w-0 flex-1 flex-col gap-3 text-[15px] leading-normal text-text-primary">
         {isStreaming && !hasText ? (
           // placeholder while waiting for the first delta
           <div className="text-text-muted">

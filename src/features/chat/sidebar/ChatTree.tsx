@@ -9,7 +9,6 @@ import {
   ChevronDown,
   ChevronRight,
   FilePlus2,
-  Folder as FolderIcon,
   FolderInput,
   FolderPlus,
   Library,
@@ -37,7 +36,6 @@ import {
   dateGroupLabel,
   folderNameById,
   groupConversationsByDate,
-  isQuickChatsFolder,
   quickChatsParentById,
 } from "./conversation-groups";
 import type { ChatSidebarView } from "./useChatSidebarView";
@@ -432,7 +430,6 @@ const ConversationRow = memo(function ConversationRow({
   depth,
   subtitle = null,
   dndDisabled = false,
-  folders,
   activeId,
   activeDragId,
   overDragId,
@@ -446,7 +443,7 @@ const ConversationRow = memo(function ConversationRow({
     onSaveTitle,
     onEditTitleChange,
     onDelete,
-    onMove,
+    onRequestMove,
     t,
   } = useChatSidebar();
   const isActive = conversation.id === activeId;
@@ -466,33 +463,6 @@ const ConversationRow = memo(function ConversationRow({
     overDragId === sortableId &&
     activeDragId.startsWith("conv:");
 
-  // "Move to" entries: root (unless already there) plus every other folder
-  const moveEntries = useMemo<ContextMenuEntry[]>(() => {
-    const entries: ContextMenuEntry[] = [];
-    if (conversation.folder_id !== null) {
-      entries.push({
-        id: "move-root",
-        label: t("chat.folders.moveToRoot", { defaultValue: "Move to root" }),
-        icon: FolderIcon,
-        onClick: () => onMove(conversation.id, null),
-      });
-    }
-    for (const f of folders) {
-      if (f.id === conversation.folder_id) continue;
-      if (isQuickChatsFolder(f, t)) continue;
-      entries.push({
-        id: `move-${f.id}`,
-        label: t("chat.folders.moveToFolder", {
-          defaultValue: "Move to {{name}}",
-          name: f.name,
-        }),
-        icon: FolderIcon,
-        onClick: () => onMove(conversation.id, f.id),
-      });
-    }
-    return entries;
-  }, [conversation.folder_id, conversation.id, folders, onMove, t]);
-
   const menuItems = (): ContextMenuEntry[] => {
     // a context menu mid-edit would steal focus from the inline input
     if (isEditing) return [];
@@ -503,10 +473,13 @@ const ConversationRow = memo(function ConversationRow({
         icon: Pencil,
         onClick: () => onStartEdit(conversation.id, conversation.title),
       },
+      {
+        id: "move",
+        label: t("chat.folders.moveTo", { defaultValue: "Move to folder…" }),
+        icon: FolderInput,
+        onClick: () => onRequestMove(conversation.id, conversation.folder_id),
+      },
     ];
-    if (moveEntries.length > 0) {
-      items.push({ id: "div-move", divider: true }, ...moveEntries);
-    }
     items.push(
       { id: "div-delete", divider: true },
       {

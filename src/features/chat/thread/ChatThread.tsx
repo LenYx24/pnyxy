@@ -139,11 +139,11 @@ export function ChatThread({
               <h1 className="font-display text-2xl font-semibold text-text-primary sm:text-3xl">
                 {t("chat.emptyHeadline")}
               </h1>
-              <p className="text-sm text-text-muted">
-                {activeId
-                  ? t("chat.newConversationHint")
-                  : t("chat.emptyBody")}
-              </p>
+              {/* an open empty conversation gets no helper line: the
+                  headline + composer say it all, extra copy steals focus */}
+              {!activeId && (
+                <p className="text-sm text-text-muted">{t("chat.emptyBody")}</p>
+              )}
               <div className="flex flex-wrap justify-center gap-2">
                 {emptySuggestions.map((s) => (
                   <button

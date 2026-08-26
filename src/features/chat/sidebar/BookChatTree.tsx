@@ -3,7 +3,6 @@ import {
   ChevronDown,
   ChevronRight,
   FilePlus2,
-  Folder as FolderIcon,
   FolderInput,
   GitBranch,
   Library,
@@ -49,6 +48,8 @@ export interface BookChatTreeProps {
   onEditTitleChange: (s: string) => void;
   onDelete: (id: string) => void;
   onMove: (id: string, folderId: string | null) => void;
+  /** Open the folder-picker modal for this conversation (ChatSidebar owns it). */
+  onRequestMove: (id: string, currentFolderId: string | null) => void;
   onNewInFolder: (folderId: string) => void;
   onRequestRenameFolder: (id: string, currentName: string) => void;
   onRequestDeleteFolder: (id: string, currentName: string) => void;
@@ -297,7 +298,6 @@ const BookConvRow = memo(function BookConvRow({
   childCount,
   expanded,
   onToggleExpand,
-  folders,
   activeId,
   editingId,
   editTitle,
@@ -307,7 +307,7 @@ const BookConvRow = memo(function BookConvRow({
   onSaveTitle,
   onEditTitleChange,
   onDelete,
-  onMove,
+  onRequestMove,
   t,
 }: BookConvRowProps) {
   const isActive = conversation.id === activeId;
@@ -324,28 +324,12 @@ const BookConvRow = memo(function BookConvRow({
         onClick: () => onStartEdit(conversation.id, conversation.title),
       },
     ];
-    const moves: ContextMenuEntry[] = [];
-    if (conversation.folder_id !== null) {
-      moves.push({
-        id: "move-root",
-        label: t("chat.folders.moveToRoot", { defaultValue: "Move to root" }),
-        icon: FolderIcon,
-        onClick: () => onMove(conversation.id, null),
-      });
-    }
-    for (const f of folders) {
-      if (f.id === conversation.folder_id) continue;
-      moves.push({
-        id: `move-${f.id}`,
-        label: t("chat.folders.moveToFolder", {
-          defaultValue: "Move to {{name}}",
-          name: f.name,
-        }),
-        icon: FolderInput,
-        onClick: () => onMove(conversation.id, f.id),
-      });
-    }
-    if (moves.length > 0) items.push({ id: "div-move", divider: true }, ...moves);
+    items.push({
+      id: "move",
+      label: t("chat.folders.moveTo", { defaultValue: "Move to folder…" }),
+      icon: FolderInput,
+      onClick: () => onRequestMove(conversation.id, conversation.folder_id),
+    });
     items.push(
       { id: "div-delete", divider: true },
       {

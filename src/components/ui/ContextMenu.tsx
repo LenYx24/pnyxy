@@ -78,7 +78,10 @@ export function ContextMenu() {
       ref={ref}
       role="menu"
       onContextMenu={(e) => e.preventDefault()}
-      className="fixed z-[100] min-w-[12rem] overflow-hidden rounded-panel bg-bg-tertiary py-1 shadow-page"
+      className={cn(
+        "fixed z-[100] min-w-[12rem] overflow-hidden rounded-panel bg-bg-tertiary py-1 shadow-page",
+        pos && "pop-in origin-top-left",
+      )}
       style={{
         // Render off-screen on the first paint, then `pos` settles after
         // measurement. Avoids flash at top-left.

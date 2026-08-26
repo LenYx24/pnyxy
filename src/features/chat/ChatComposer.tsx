@@ -15,7 +15,9 @@ import {
   BookOpenCheck,
   Brain,
   Check,
+  ChevronDown,
   ChevronRight,
+  Clapperboard,
   HelpCircle,
   History,
   Image as ImageIcon,
@@ -31,6 +33,8 @@ import {
 import {
   FloatingMenu,
   IconButton,
+  Tooltip,
+  TypingIndicator,
   chipActiveClass,
   chipClass,
 } from "@/components/ui";
@@ -60,9 +64,8 @@ import {
 } from "./quota";
 import { cn } from "@/lib/cn";
 
-// Default (free quota) caps to 1 image for predictable cost; BYOK keys allow 4.
-const MAX_ATTACHMENTS_DIRECT = 4;
-const MAX_ATTACHMENTS_DEFAULT = 1;
+// Same cap on every route; the proxy bills each image into the token bucket.
+const MAX_ATTACHMENTS = 4;
 const MAX_ATTACHMENT_MB = 5;
 const MAX_ATTACHMENT_BYTES = MAX_ATTACHMENT_MB * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set([
@@ -81,6 +84,18 @@ const PROVIDER_INFO: Record<
   anthropic: { model: "Claude Sonnet 4.5", routing: "Your Anthropic key" },
   openai: { model: "GPT-4o mini", routing: "Your OpenAI key" },
   local: { model: "Local model", routing: "Ollama / LM Studio" },
+};
+
+// Distinct icon per composer mode so the "Recommend …" rows don't read
+// as duplicates of each other.
+const MODE_ICONS: Record<
+  RecommendationMode,
+  typeof Sparkles
+> = {
+  default: Sparkles,
+  books: BookOpen,
+  videos: Clapperboard,
+  image: ImageIcon,
 };
 
 // Read a File as base64 (no `data:` prefix). Uint8Array->btoa breaks past the arg-count limit.
@@ -190,13 +205,14 @@ export function ModelPicker({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="rounded-control px-1 py-0.5 text-2xs text-text-muted-2 transition-colors hover:text-text-primary cursor-pointer"
+        className="flex shrink-0 items-center gap-1 rounded-chip px-2 py-1 text-xs text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
         title={pickerTitle}
         aria-label={`${pickerTitle}: ${triggerLabel}`}
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        {triggerLabel}
+        <span className="max-w-[11rem] truncate">{triggerLabel}</span>
+        <ChevronDown size={12} strokeWidth={1.5} className="shrink-0" />
       </button>
       <ModelInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
       <FloatingMenu
@@ -219,6 +235,9 @@ export function ModelPicker({
         {pnyxyConfigured && (
           <>
             <div className="my-0.5 h-px bg-surface-3" />
+            <div className={cn("px-3 pb-0.5 pt-1.5", pickerCaptionClass)}>
+              Pnyxy
+            </div>
             {PNYXY_MODEL_OPTIONS.map((m) => {
               const row = quotaRows.find((q) => q.model === m.id);
               const headline = row ? { row, ratio: usageRatio(row) } : null;
@@ -226,7 +245,7 @@ export function ModelPicker({
                 <ModelOption
                   key={m.id}
                   active={value === null && pnyxyModel === m.id}
-                  label={`Pnyxy: ${m.label}`}
+                  label={m.label}
                   subtitle={m.tagline}
                   quotaHeadline={headline}
                   onClick={() => {
@@ -239,7 +258,16 @@ export function ModelPicker({
             })}
           </>
         )}
-        {options.length > 0 && <div className="my-0.5 h-px bg-surface-3" />}
+        {options.length > 0 && (
+          <>
+            <div className="my-0.5 h-px bg-surface-3" />
+            <div className={cn("px-3 pb-0.5 pt-1.5", pickerCaptionClass)}>
+              {t("chat.composer.pickerDirect", {
+                defaultValue: "Direct (no fallback)",
+              })}
+            </div>
+          </>
+        )}
         {options.map((p) => (
           <ModelOption
             key={p}
@@ -269,6 +297,10 @@ export function ModelPicker({
   );
 }
 
+/** Section caption inside the picker (11 px, muted-2, like sidebar captions). */
+const pickerCaptionClass =
+  "text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2";
+
 function ModelOption({
   active,
   label,
@@ -279,47 +311,52 @@ function ModelOption({
   active: boolean;
   label: string;
   subtitle: string;
-  /** Optional "X/Y today" usage line; color escalates amber >50%, red >80%. */
+  /** Today's usage for this model. Numbers live in the QuotaModal; here
+   *  it only drives a warning dot (amber >50%, red >80%) + hover title. */
   quotaHeadline?: {
     row: PnyxyQuotaRow;
     ratio: number;
   } | null;
   onClick: () => void;
 }) {
-  const quotaColor =
-    quotaHeadline == null
-      ? "text-text-muted"
-      : quotaHeadline.ratio > 0.8
-        ? "text-danger"
-        : quotaHeadline.ratio > 0.5
-          ? "text-warning"
-          : "text-text-muted";
+  const quotaTitle = quotaHeadline
+    ? `${quotaHeadline.row.tokens_used.toLocaleString()}/${quotaHeadline.row.tokens_limit.toLocaleString()} tok · ${quotaHeadline.row.request_count}/${quotaHeadline.row.request_limit} req`
+    : undefined;
+  const warnDot =
+    quotaHeadline && quotaHeadline.ratio > 0.5
+      ? quotaHeadline.ratio > 0.8
+        ? "bg-danger"
+        : "bg-warning"
+      : null;
   return (
     <button
       type="button"
       onClick={onClick}
+      title={quotaTitle}
       className={cn(
-        "flex w-full items-start justify-between gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-glass-hover cursor-pointer",
+        "flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors hover:bg-glass-hover cursor-pointer",
         active ? "text-text-primary" : "text-text-secondary hover:text-text-primary",
       )}
     >
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="font-medium">{label}</span>
-        <span className="text-2xs text-text-muted">{subtitle}</span>
-        {quotaHeadline && (
-          <span className={cn("font-mono text-2xs", quotaColor)}>
-            {quotaHeadline.row.tokens_used.toLocaleString()}/
-            {quotaHeadline.row.tokens_limit.toLocaleString()} tok ·{" "}
-            {quotaHeadline.row.request_count}/
-            {quotaHeadline.row.request_limit} req
-          </span>
-        )}
+        <span className="flex items-center gap-1.5 text-sm font-medium">
+          <span className="truncate">{label}</span>
+          {warnDot && (
+            <span
+              className={cn("h-1.5 w-1.5 shrink-0 rounded-full", warnDot)}
+              aria-hidden="true"
+            />
+          )}
+        </span>
+        <span className="truncate text-2xs text-text-muted">{subtitle}</span>
       </span>
-      {active && <Check size={14} strokeWidth={1.5} className="mt-0.5 shrink-0" />}
+      {active && <Check size={14} strokeWidth={1.5} className="shrink-0" />}
     </button>
   );
 }
 
+/** Attached image as a plain thumbnail (the picture, not a name card);
+ *  the filename only appears in a tooltip on hover, Gemini-style. */
 function AttachmentCard({
   attachment,
   onRemove,
@@ -329,37 +366,35 @@ function AttachmentCard({
 }) {
   const { t } = useTranslation();
   const dataUri = `data:${attachment.media_type};base64,${attachment.data}`;
-  return (
-    <div
-      className="group relative flex h-12 items-center gap-2 rounded-control bg-surface-3 pl-1.5 pr-8"
-      title={attachment.name ?? attachment.kind}
-    >
+  const card = (
+    <div className="group relative h-16 shrink-0 overflow-hidden rounded-control bg-surface-3">
       {attachment.kind === "image" ? (
         <img
           src={dataUri}
           alt={attachment.name ?? "attachment"}
-          className="h-9 w-9 shrink-0 rounded-[8px] object-cover"
+          className="h-full w-auto min-w-10 max-w-40 object-cover"
         />
       ) : (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-bg-primary text-text-muted">
-          <ImageIcon size={16} strokeWidth={1.5} />
+        <div className="flex h-full w-16 items-center justify-center text-text-muted">
+          <ImageIcon size={20} strokeWidth={1.5} />
         </div>
-      )}
-      {attachment.name && (
-        <span className="max-w-[10rem] truncate text-2xs text-text-secondary">
-          {attachment.name}
-        </span>
       )}
       <button
         type="button"
         onClick={onRemove}
         aria-label={t("chat.composer.attachments.remove")}
-        title={t("chat.composer.attachments.remove")}
-        className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-text-muted transition-colors hover:bg-bg-primary/60 hover:text-text-primary cursor-pointer"
+        className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity cursor-pointer group-hover:opacity-100 focus-visible:opacity-100 hover:bg-black/80"
       >
-        <X size={12} strokeWidth={1.5} />
+        <X size={12} strokeWidth={2} />
       </button>
     </div>
+  );
+  return attachment.name ? (
+    <Tooltip label={attachment.name} side="top">
+      {card}
+    </Tooltip>
+  ) : (
+    card
   );
 }
 
@@ -553,21 +588,12 @@ export const ChatComposer = forwardRef<
     if (!openAiConfigured && mode === "image") setMode("default");
   }, [openAiConfigured, mode]);
 
-  // Default routing caps at 1 image; BYOK keys allow 4.
-  const effectiveAttachmentCap =
-    selectedProvider === null
-      ? MAX_ATTACHMENTS_DEFAULT
-      : MAX_ATTACHMENTS_DIRECT;
+  const effectiveAttachmentCap = MAX_ATTACHMENTS;
 
   const [pendingAttachments, setPendingAttachments] = useState<
     ChatMessageAttachment[]
   >([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
-
-  // persistent hint (separate from the transient attachmentError) when over the cap
-  const attachmentsBlocked =
-    selectedProvider === null &&
-    pendingAttachments.length > MAX_ATTACHMENTS_DEFAULT;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -675,29 +701,38 @@ export const ChatComposer = forwardRef<
     el.style.height = `${Math.min(el.scrollHeight, max)}px`;
   }, [value]);
 
+  // Which reading-context row is fetching; the menu stays open with a
+  // bouncing-dots loader on that row until the text arrives.
+  const [readingCtxLoading, setReadingCtxLoading] = useState<
+    "week" | "all" | null
+  >(null);
   const handleInsertReadingContext = useCallback(
     async (windowMode: "week" | "all") => {
-      if (!onLoadReadingContext) return;
-      setPlusMenuOpen(false);
-      const prompt = await onLoadReadingContext(windowMode);
-      if (!prompt) return;
-      onChange(value ? `${value}\n\n${prompt}` : prompt);
-      requestAnimationFrame(() => {
-        const el = textareaRef.current;
-        if (!el) return;
-        el.focus();
-        const end = el.value.length;
-        el.setSelectionRange(end, end);
-      });
+      if (!onLoadReadingContext || readingCtxLoading) return;
+      setReadingCtxLoading(windowMode);
+      try {
+        const prompt = await onLoadReadingContext(windowMode);
+        if (!prompt) return;
+        onChange(value ? `${value}\n\n${prompt}` : prompt);
+        requestAnimationFrame(() => {
+          const el = textareaRef.current;
+          if (!el) return;
+          el.focus();
+          const end = el.value.length;
+          el.setSelectionRange(end, end);
+        });
+      } finally {
+        setReadingCtxLoading(null);
+        setPlusMenuOpen(false);
+      }
     },
     // value is a dep so the concat below uses the latest input.
-    [onChange, onLoadReadingContext, value],
+    [onChange, onLoadReadingContext, value, readingCtxLoading],
   );
 
   const handleSendClick = useCallback(async () => {
     const text = value.trim();
     if (!text && pendingAttachments.length === 0) return;
-    if (attachmentsBlocked) return;
     // Reasoning must force OpenAI BYOK; other providers ignore the flag.
     const effectiveProvider = reasoning ? "openai" : selectedProvider;
     const payload: ChatComposerSubmitPayload = {
@@ -715,7 +750,6 @@ export const ChatComposer = forwardRef<
   }, [
     value,
     pendingAttachments,
-    attachmentsBlocked,
     selectedProvider,
     mode,
     reasoning,
@@ -723,8 +757,7 @@ export const ChatComposer = forwardRef<
   ]);
 
   const canSend =
-    !attachmentsBlocked &&
-    (value.trim().length > 0 || pendingAttachments.length > 0);
+    value.trim().length > 0 || pendingAttachments.length > 0;
 
   const modeLabels: Record<RecommendationMode, string> = {
     default: t("chat.composer.modeDefault", { defaultValue: "Chat" }),
@@ -823,11 +856,6 @@ export const ChatComposer = forwardRef<
             {attachmentError}
           </p>
         )}
-        {attachmentsBlocked && !attachmentError && (
-          <p className="text-2xs text-warning">
-            {t("chat.composer.attachments.needVisionModel")}
-          </p>
-        )}
         <textarea
           ref={textareaRef}
           value={value}
@@ -900,7 +928,12 @@ export const ChatComposer = forwardRef<
             )}
             {mode !== "default" && (
               <span className={cn(chipActiveClass, "shrink-0 pr-1.5")}>
-                <Sparkles size={14} strokeWidth={1.5} className="shrink-0" />
+                {(() => {
+                  const ModeIcon = MODE_ICONS[mode];
+                  return (
+                    <ModeIcon size={14} strokeWidth={1.5} className="shrink-0" />
+                  );
+                })()}
                 {modeLabels[mode]}
                 <button
                   type="button"
@@ -1026,24 +1059,33 @@ export const ChatComposer = forwardRef<
                   )}
                   {onLoadReadingContext && (
                     <>
-                      <button
-                        type="button"
-                        onClick={() => void handleInsertReadingContext("week")}
-                        className={menuRowClass}
-                        title={t("chat.readingContext.weekHint")}
-                      >
-                        <History size={16} strokeWidth={1.5} />
-                        {t("chat.readingContext.weekTitle")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleInsertReadingContext("all")}
-                        className={menuRowClass}
-                        title={t("chat.readingContext.recentHint")}
-                      >
-                        <History size={16} strokeWidth={1.5} />
-                        {t("chat.readingContext.recentTitle")}
-                      </button>
+                      {(["week", "all"] as const).map((windowMode) => (
+                        <button
+                          key={windowMode}
+                          type="button"
+                          disabled={readingCtxLoading !== null}
+                          onClick={() =>
+                            void handleInsertReadingContext(windowMode)
+                          }
+                          className={menuRowClass}
+                          title={t(
+                            windowMode === "week"
+                              ? "chat.readingContext.weekHint"
+                              : "chat.readingContext.recentHint",
+                          )}
+                        >
+                          {readingCtxLoading === windowMode ? (
+                            <TypingIndicator className="w-4 justify-center" />
+                          ) : (
+                            <History size={16} strokeWidth={1.5} />
+                          )}
+                          {t(
+                            windowMode === "week"
+                              ? "chat.readingContext.weekTitle"
+                              : "chat.readingContext.recentTitle",
+                          )}
+                        </button>
+                      ))}
                     </>
                   )}
                   {aiContexts.length > 0 && (
@@ -1103,23 +1145,26 @@ export const ChatComposer = forwardRef<
                   <p className="px-3 pb-1 pt-1 text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
                     {t("chat.composer.modeLabel", { defaultValue: "Mode" })}
                   </p>
-                  {modeOptions.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => {
-                        setMode(m);
-                        setPlusMenuOpen(false);
-                      }}
-                      className={menuRowClass}
-                    >
-                      <Sparkles size={16} strokeWidth={1.5} />
-                      {modeLabels[m]}
-                      {mode === m && (
-                        <Check size={14} strokeWidth={1.5} className="ml-auto shrink-0" />
-                      )}
-                    </button>
-                  ))}
+                  {modeOptions.map((m) => {
+                    const ModeIcon = MODE_ICONS[m];
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => {
+                          setMode(m);
+                          setPlusMenuOpen(false);
+                        }}
+                        className={menuRowClass}
+                      >
+                        <ModeIcon size={16} strokeWidth={1.5} />
+                        {modeLabels[m]}
+                        {mode === m && (
+                          <Check size={14} strokeWidth={1.5} className="ml-auto shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </FloatingMenu>
               </>
             )}
@@ -1133,6 +1178,13 @@ export const ChatComposer = forwardRef<
             </span>
           )}
           <div className="flex shrink-0 items-center gap-1">
+            <ModelPicker
+              value={selectedProvider}
+              options={configuredProviders}
+              onChange={setSelectedProvider}
+              autoModel={activeQuotaModel}
+              quotaRows={quotaRows}
+            />
             {micButton}
             {!isMobile && (
               <IconButton
@@ -1153,11 +1205,12 @@ export const ChatComposer = forwardRef<
         </div>
       </div>
 
-      {/* quota + model line: count opens the quota modal, model opens the picker.
-          On a BYOK provider the Pnyxy quota is irrelevant, say so instead. */}
-      <div className="flex items-center justify-center gap-1 pt-2 text-2xs text-text-muted-2">
-        {questionsLeft !== null ? (
-          <>
+      {/* quota line: the count opens the quota modal. On a BYOK provider
+          the Pnyxy quota is irrelevant, say so instead. */}
+      {(questionsLeft !== null ||
+        (selectedProvider && selectedProvider !== "pnyxy")) && (
+        <div className="flex items-center justify-center gap-1 pt-2 text-2xs text-text-muted-2">
+          {questionsLeft !== null ? (
             <button
               type="button"
               onClick={() => setQuotaModalOpen(true)}
@@ -1170,24 +1223,13 @@ export const ChatComposer = forwardRef<
             >
               {t("chat.composer.quota.remaining", { count: questionsLeft })}
             </button>
-            <span aria-hidden="true">·</span>
-          </>
-        ) : selectedProvider && selectedProvider !== "pnyxy" ? (
-          <>
+          ) : (
             <span className="px-1 py-0.5">
               {t("chat.composer.quota.ownKey")}
             </span>
-            <span aria-hidden="true">·</span>
-          </>
-        ) : null}
-        <ModelPicker
-          value={selectedProvider}
-          options={configuredProviders}
-          onChange={setSelectedProvider}
-          autoModel={activeQuotaModel}
-          quotaRows={quotaRows}
-        />
-      </div>
+          )}
+        </div>
+      )}
       <QuotaModal
         open={quotaModalOpen}
         onClose={() => setQuotaModalOpen(false)}

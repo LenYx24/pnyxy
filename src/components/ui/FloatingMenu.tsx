@@ -38,6 +38,8 @@ export function FloatingMenu({
     left: number;
     top: number;
     maxHeight: number;
+    /** transform-origin for the pop-in, the edge facing the anchor. */
+    origin: string;
   } | null>(null);
 
   // Render off-screen until positioned so the top-left default doesn't flash.
@@ -56,9 +58,11 @@ export function FloatingMenu({
     // menu scrolls instead of running off-screen.
     if (placement === "right") {
       let left = a.right + 4;
+      let origin = "left top";
       if (left + m.width > vw - MARGIN) {
         const leftSide = a.left - m.width - 4;
         left = leftSide >= MARGIN ? leftSide : Math.max(MARGIN, vw - m.width - MARGIN);
+        origin = "right top";
       }
       let top = a.top;
       let maxHeight = m.height;
@@ -68,7 +72,7 @@ export function FloatingMenu({
       } else if (top + m.height > vh - MARGIN) {
         top = vh - m.height - MARGIN;
       }
-      setPos({ left, top, maxHeight });
+      setPos({ left, top, maxHeight, origin });
       return;
     }
 
@@ -84,19 +88,22 @@ export function FloatingMenu({
     const spaceBelow = vh - a.bottom - 4 - MARGIN;
     const spaceAbove = a.top - 4 - MARGIN;
     let maxHeight: number;
+    let origin = "top";
     if (m.height <= spaceBelow) {
       maxHeight = m.height;
     } else if (m.height <= spaceAbove) {
       top = a.top - m.height - 4;
       maxHeight = m.height;
+      origin = "bottom";
     } else if (spaceBelow >= spaceAbove) {
       maxHeight = Math.max(spaceBelow, 120);
     } else {
       top = MARGIN;
       maxHeight = Math.max(spaceAbove, 120);
+      origin = "bottom";
     }
 
-    setPos({ left, top, maxHeight });
+    setPos({ left, top, maxHeight, origin });
   }, [open, anchorRef, placement]);
 
   useEffect(() => {
@@ -139,17 +146,23 @@ export function FloatingMenu({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       className={cn(
-        // overflow-y-auto + maxHeight lets tall menus scroll instead of clipping
-        "fixed z-[100] min-w-[11rem] overflow-x-hidden overflow-y-auto rounded-panel bg-bg-tertiary py-1 shadow-page",
+        // the rounded container clips; the inner div scrolls, so the
+        // scrollbar never squares off the corners
+        "fixed z-[100] flex min-w-[11rem] flex-col overflow-hidden rounded-panel bg-bg-tertiary shadow-page",
+        // pop-in only once positioned, otherwise it plays off-screen
+        pos && "pop-in",
         className,
       )}
       style={{
         left: pos?.left ?? -9999,
         top: pos?.top ?? -9999,
         maxHeight: pos?.maxHeight,
+        transformOrigin: pos?.origin,
       }}
     >
-      {children}
+      <div className="menu-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto py-1">
+        {children}
+      </div>
     </div>,
     document.body,
   );

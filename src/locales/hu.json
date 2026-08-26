@@ -1497,7 +1497,6 @@
     "title": "Csevegés",
     "untitled": "Névtelen beszélgetés",
     "newConversation": "Új beszélgetés",
-    "newConversationHint": "Küldj egy üzenetet a kezdéshez.",
     "scrollToBottom": "Ugrás a legújabbra",
     "emptyResponse": "A modell üres választ adott, próbáld újra.",
     "book": {
@@ -1590,7 +1589,6 @@
         "tooLarge": "A képek nem lehetnek nagyobbak {{mb}}MB-nál.",
         "unsupported": "Csak JPEG, PNG, GIF és WebP képek támogatottak.",
         "readError": "Nem sikerült beolvasni a fájlt.",
-        "needVisionModel": "Az Alapértelmezett mód üzenetenként 1 képet támogat. Válaszd a Claude Sonnet 4.5 vagy GPT-4o mini modellt akár 4 képhez.",
         "remove": "Melléklet eltávolítása"
       },
       "modelHelp": "Modellek leírása",
@@ -1609,7 +1607,12 @@
       "context": {
         "label": "Kontextus",
         "hint": "Melyik mentett kontextust kapja az AI ebben a beszélgetésben. Könyvnél a könyvhöz jegyzi meg, egyébként csak erre a munkamenetre."
-      }
+      },
+      "pickerDirect": "Közvetlen (tartalék nélkül)",
+      "modeDefault": "Chat",
+      "modeBooks": "Könyvajánló",
+      "modeVideos": "Videóajánló",
+      "modeImage": "Kép generálása"
     },
     "folders": {
       "create": "Új mappa",
@@ -1619,8 +1622,8 @@
       "delete": "Mappa törlése",
       "deleteConfirm": "Törlöd a(z) „{{name}}” mappát? A benne lévő beszélgetések visszakerülnek a gyökérbe.",
       "moveTo": "Áthelyezés mappába…",
-      "moveToFolder": "Áthelyezés ide: {{name}}",
-      "moveToRoot": "Áthelyezés a gyökérbe",
+      "moveTitle": "Beszélgetés áthelyezése",
+      "searchPlaceholder": "Mappa keresése…",
       "root": "Gyökér (nincs mappa)",
       "dropToRoot": "Húzd ide a gyökérbe helyezéshez",
       "newSubfolder": "Új almappa",

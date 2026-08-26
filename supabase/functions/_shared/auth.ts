@@ -9,9 +9,9 @@ export interface AuthUser {
   email?: string | null;
 }
 
-// supabase-js from esm.sh is untyped here; expose just what callers use.
-// deno-lint-ignore no-explicit-any
-export type UserClient = any;
+// supabase-js from esm.sh is untyped here (the import resolves to `any`),
+// so this alias is effectively `any` without spelling it out for the linter.
+export type UserClient = ReturnType<typeof createClient>;
 
 export type RequireUserResult =
   | { ok: true; user: AuthUser; client: UserClient }

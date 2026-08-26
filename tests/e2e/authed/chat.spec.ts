@@ -68,11 +68,13 @@ async function openFreshChat(page: Page) {
   });
   if (!(await empty.isVisible())) await messagesLoaded;
 
-  // always start a fresh conversation so earlier runs cannot interfere
+  // always start a fresh conversation so earlier runs cannot interfere;
+  // the empty state is the centered headline (the old helper line under
+  // it was removed on purpose)
   await page.getByRole("button", { name: "New conversation" }).first().click();
-  await expect(page.getByText("Send a message to get started.")).toBeVisible({
-    timeout: 15_000,
-  });
+  await expect(
+    page.getByRole("heading", { name: "What are we learning today?" }),
+  ).toBeVisible({ timeout: 15_000 });
   const composer = page.getByPlaceholder("Ask anything");
   await expect(composer).toBeVisible();
   return composer;

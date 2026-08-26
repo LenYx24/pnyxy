@@ -8,6 +8,7 @@ import { isTauri } from "@/lib/tauri";
 import { RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { lazyWithRetry as lazy } from "@/lib/lazy-with-retry";
 import { FeatureGate } from "@/components/FeatureGate";
+import { setAppRouter } from "@/lib/app-router-ref";
 
 /** /browse/:bookId -> /books/:bookId (element instead of a loader so the
  *  catalog FeatureGate can wrap it). */
@@ -431,3 +432,7 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
+
+// RouteLoadingBar reads navigation state via this ref (a direct import
+// here would be a module cycle through AppLayout).
+setAppRouter(router);

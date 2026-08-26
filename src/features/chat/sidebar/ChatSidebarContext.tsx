@@ -17,6 +17,8 @@ export interface ChatSidebarActions {
   onEditTitleChange: (s: string) => void;
   onDelete: (id: string) => void;
   onMove: (id: string, folderId: string | null) => void;
+  /** Open the folder-picker modal for this conversation (ChatSidebar owns it). */
+  onRequestMove: (id: string, currentFolderId: string | null) => void;
   onToggleFolder: (id: string) => void;
   /** New conversation directly inside this folder. */
   onNewInFolder: (folderId: string) => void;
