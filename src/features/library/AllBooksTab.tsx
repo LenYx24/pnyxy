@@ -18,7 +18,6 @@ import {
   MouseSensor,
   TouchSensor,
   pointerWithin,
-  useDroppable,
   useSensor,
   useSensors,
   type CollisionDetection,
@@ -45,7 +44,6 @@ import {
 import {
   ChevronRight,
   ArrowUp,
-  CornerLeftUp,
   BookOpen,
   FileText,
   Shapes,
@@ -53,13 +51,9 @@ import {
   MessageSquare,
   Globe,
   LayoutGrid,
-  RotateCw,
-  X,
-  Check,
-  AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
-import { Button, ConfirmModal, IconButton } from "@/components/ui";
+import { Button, ConfirmModal } from "@/components/ui";
 import { chipActiveClass, chipClass } from "@/components/ui/classes";
 import { cn } from "@/lib/cn";
 import { useFeatures } from "@/lib/use-features";
@@ -75,10 +69,11 @@ import type { ChatConversation } from "@/types/chat";
 import { useResourceStore } from "@/stores/resource-store";
 import type { Resource } from "@/types/resource";
 import { useTagStore } from "@/stores/tag-store";
-import { useUploadStore, type UploadJob } from "@/stores/upload-store";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { formatShortcut } from "@/lib/keyboard-shortcuts";
+import { UploadGhostStrip } from "./UploadGhosts";
+import { BreadcrumbDropTarget, ParentDropZone } from "./DropTargets";
 import { FolderCard } from "./FolderCard";
 import { LibraryBookCard } from "./LibraryBookCard";
 import { LibraryNoteCard } from "./LibraryNoteCard";
@@ -1216,251 +1211,6 @@ export function AllBooksTab({
         onClose={() => setConfirmDelete(null)}
         onConfirm={confirmDeleteFolder}
       />
-    </div>
-  );
-}
-
-/**
- * One row per in-flight upload in the current folder. Successful jobs
- * auto-dismiss 1.5s after landing (the real book card has rendered by then);
- * errored ones stay until dismissed or retried.
- */
-function UploadGhostStrip({
-  currentFolderId,
-}: {
-  currentFolderId: string | null;
-}) {
-  const uploads = useUploadStore((s) => s.uploads);
-  const dismissUpload = useUploadStore((s) => s.dismissUpload);
-  const retryUpload = useUploadStore((s) => s.retryUpload);
-  const cancelUpload = useUploadStore((s) => s.cancelUpload);
-
-  const visible = useMemo(() => {
-    const out: UploadJob[] = [];
-    for (const job of uploads.values()) {
-      if ((job.folderId ?? null) === currentFolderId) out.push(job);
-    }
-    out.sort((a, b) => b.createdAt - a.createdAt);
-    return out;
-  }, [uploads, currentFolderId]);
-
-  // auto-dismiss successful jobs after a short delay; per-id timers avoid double-scheduling
-  useEffect(() => {
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    for (const job of visible) {
-      if (job.status === "success") {
-        timers.push(setTimeout(() => dismissUpload(job.id), 1500));
-      }
-    }
-    return () => {
-      for (const t of timers) clearTimeout(t);
-    };
-  }, [visible, dismissUpload]);
-
-  if (visible.length === 0) return null;
-
-  return (
-    <div className="mb-3 flex flex-col gap-1.5">
-      {visible.map((job) => (
-        <UploadGhostRow
-          key={job.id}
-          job={job}
-          onDismiss={() => dismissUpload(job.id)}
-          onRetry={() => retryUpload(job.id)}
-          onCancel={() => cancelUpload(job.id)}
-        />
-      ))}
-    </div>
-  );
-}
-
-function UploadGhostRow({
-  job,
-  onDismiss,
-  onRetry,
-  onCancel,
-}: {
-  job: UploadJob;
-  onDismiss: () => void;
-  onRetry: () => void;
-  onCancel: () => void;
-}) {
-  const { t } = useTranslation();
-  const isError = job.status === "error";
-  const isSuccess = job.status === "success";
-  const isUploading = job.status === "uploading";
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-3 rounded-panel bg-bg-tertiary px-3 py-2 transition-colors",
-      )}
-    >
-      <div
-        className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-control",
-          isError
-            ? "bg-danger/15 text-danger"
-            : isSuccess
-              ? "bg-success/15 text-success"
-              : "bg-surface-3 text-text-secondary",
-        )}
-      >
-        {isError ? (
-          <AlertTriangle size={16} strokeWidth={1.5} />
-        ) : isSuccess ? (
-          <Check size={16} strokeWidth={1.5} />
-        ) : (
-          <FileText size={16} strokeWidth={1.5} />
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm text-text-primary">{job.fileName}</p>
-        {/* Progress bar (uploading) / status text (success/error). */}
-        {job.status === "uploading" ? (
-          <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-surface-3">
-            <div
-              className="h-full rounded-full bg-text-secondary transition-[width] duration-200"
-              style={{ width: `${job.progress}%` }}
-            />
-          </div>
-        ) : isError ? (
-          <p className="truncate text-2xs text-danger">
-            {job.error ?? t("library.upload.failed")}
-          </p>
-        ) : (
-          <p className="text-2xs text-success">
-            {t("library.upload.success")}
-          </p>
-        )}
-      </div>
-      {/* cancel an in-flight upload; aborts the transfer and drops the row */}
-      {isUploading && (
-        <IconButton
-          size="sm"
-          type="button"
-          onClick={onCancel}
-          title={t("library.upload.cancel")}
-          aria-label={t("library.upload.cancel")}
-        >
-          <X size={16} strokeWidth={1.5} />
-        </IconButton>
-      )}
-      {isError && (
-        <IconButton
-          size="sm"
-          type="button"
-          onClick={onRetry}
-          title={t("library.upload.retry")}
-          aria-label={t("library.upload.retry")}
-        >
-          <RotateCw size={16} strokeWidth={1.5} />
-        </IconButton>
-      )}
-      {(isError || isSuccess) && (
-        <IconButton
-          size="sm"
-          type="button"
-          onClick={onDismiss}
-          title={t("common.close")}
-          aria-label={t("common.close")}
-        >
-          <X size={16} strokeWidth={1.5} />
-        </IconButton>
-      )}
-    </div>
-  );
-}
-
-/**
- * A breadcrumb nav button that's also a drop target; dropping here moves
- * the item to that level. While a drag is in flight every ancestor crumb
- * lights up as a visible target, and the hovered one grows a "Drop here"
- * chip so it is obvious the crumb will receive the item.
- */
-function BreadcrumbDropTarget({
-  dropId,
-  dragging,
-  onClick,
-  children,
-}: {
-  dropId: string;
-  dragging: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  const { t } = useTranslation();
-  const { setNodeRef, isOver } = useDroppable({ id: dropId });
-  return (
-    <button
-      ref={setNodeRef}
-      onClick={onClick}
-      data-drop-target={dropId}
-      data-drop-over={isOver || undefined}
-      className={cn(
-        "flex shrink-0 items-center gap-1 rounded-chip py-0.5 cursor-pointer transition-colors",
-        !dragging &&
-          "px-1.5 text-text-muted-2 hover:text-text-primary hover:bg-surface-3",
-        dragging && !isOver && "bg-surface-3 px-2 text-text-secondary",
-        dragging && isOver && "bg-accent-soft px-2 text-text-primary",
-      )}
-    >
-      {dragging && isOver && (
-        <CornerLeftUp size={12} strokeWidth={2} className="shrink-0" />
-      )}
-      {children}
-      {dragging && isOver && (
-        <span className="ml-1 rounded-chip bg-bg-primary/70 px-1.5 text-2xs font-medium text-text-primary">
-          {t("library.dnd.dropHere")}
-        </span>
-      )}
-    </button>
-  );
-}
-
-/**
- * "Up to: <parent>" row shown above the list / grid while dragging
- * inside a folder. Dropping on it moves the item to the parent level
- * (root when the parent is the root). Always mounted so the opacity
- * can fade in and out; collapsed and inert when no drag is running.
- */
-function ParentDropZone({
-  parentFolderId,
-  parentName,
-  visible,
-}: {
-  parentFolderId: string | null;
-  parentName: string;
-  visible: boolean;
-}) {
-  const { t } = useTranslation();
-  const { setNodeRef, isOver } = useDroppable({
-    id: `parent:${parentFolderId ?? "root"}`,
-    disabled: !visible,
-  });
-  return (
-    <div
-      ref={setNodeRef}
-      data-drop-target="parent"
-      data-drop-over={isOver || undefined}
-      aria-hidden={!visible}
-      className={cn(
-        "flex items-center gap-2 overflow-hidden rounded-panel border border-dashed px-3 text-sm transition-[opacity,max-height,margin,background-color,color,visibility] duration-120 ease-out",
-        visible
-          ? "mb-2 max-h-16 py-2 opacity-100"
-          : "invisible pointer-events-none mb-0 max-h-0 border-transparent py-0 opacity-0",
-        visible && !isOver && "border-surface-3 text-text-muted",
-        visible && isOver && "border-accent-soft bg-accent-soft text-text-primary",
-      )}
-    >
-      <ArrowUp size={16} strokeWidth={1.5} className="shrink-0" />
-      <span className="truncate">
-        {t("library.dnd.moveUp", { name: parentName })}
-      </span>
-      {isOver && (
-        <span className="ml-auto shrink-0 rounded-chip bg-bg-primary/70 px-1.5 text-2xs font-medium">
-          {t("library.dnd.dropHere")}
-        </span>
-      )}
     </div>
   );
 }

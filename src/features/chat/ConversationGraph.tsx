@@ -550,7 +550,7 @@ export function ConversationGraph({
     try {
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {
-      // ignore
+      // storage unavailable (private mode / quota); the default takes over
     }
     alphaRef.current = Math.max(alphaRef.current, 0.02);
     if (!down || down.moved || !drag) return;

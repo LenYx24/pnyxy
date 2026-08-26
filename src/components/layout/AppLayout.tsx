@@ -21,6 +21,7 @@ import { OfflineBanner } from "./OfflineBanner";
 import { DocumentLoadingOverlay } from "./DocumentLoadingOverlay";
 import { RouteLoadingBar } from "./RouteLoadingBar";
 import { startTelemetry } from "@/lib/telemetry";
+import { QuickAskBubble } from "@/features/chat/QuickAskBubble";
 import { ContextMenu } from "@/components/ui";
 import { ShortcutsSheet } from "@/components/ui/ShortcutsSheet";
 import { useShortcutsSheet } from "@/components/ui/shortcuts-sheet-store";
@@ -183,6 +184,8 @@ export function AppLayout() {
       <OfflineBanner />
       {/* slim top bar while a lazy route chunk loads (renders nothing when idle) */}
       <RouteLoadingBar />
+      {/* Ctrl+Shift+K floating quick-ask chat, desktop only */}
+      <QuickAskBubble />
       {showSidebar && <Sidebar />}
       {showMobileTopBar && <MobileTopBar />}
       {sidebarMargin && (

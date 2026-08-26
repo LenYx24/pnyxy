@@ -183,7 +183,7 @@ function loadStyle(): ToolbarStyle {
       };
     }
   } catch {
-    // ignore
+    // storage unavailable (private mode / quota); the default takes over
   }
   return { ...DEFAULT_TOOLBAR_STYLE };
 }
@@ -208,7 +208,7 @@ export function useToolbarStyle() {
       try {
         localStorage.setItem(STYLE_KEY, JSON.stringify(next));
       } catch {
-        // ignore
+        // storage unavailable (private mode / quota); the default takes over
       }
       return next;
     });
@@ -231,7 +231,7 @@ export function useToolbarLayout() {
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {
-      // ignore
+      // storage unavailable (private mode / quota); the default takes over
     }
   }, []);
 

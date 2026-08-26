@@ -3,8 +3,10 @@ import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Copy,
   GitBranch,
   Layers,
@@ -32,7 +34,9 @@ import { promptOpenAiLink } from "@/lib/ai/ai-link-prompt";
 import { usePageCitationDispatch } from "@/hooks/use-page-citation";
 import { useReadAloud, markdownToSpeech } from "@/hooks/use-read-aloud";
 import { extractRecommendations } from "@/lib/ai/extract-recommendations";
+import { extractInlineQuiz } from "@/lib/ai/extract-quiz";
 import { RecommendationCards } from "./RecommendationsRenderer";
+import { InlineQuizCard } from "./InlineQuizCard";
 import { openMenuAtButton } from "./menu-anchor";
 import { cn } from "@/lib/cn";
 import type { ChatMessage } from "@/types/chat";
@@ -167,6 +171,11 @@ export function MessageBubble({
   const hasText = msg.content.trim().length > 0;
   const speaking = tts.speakingId === msg.id;
 
+  // Collapse-to-short: long user messages start collapsed (Gemini-style),
+  // assistant messages collapse on demand from the action row.
+  const isLong = msg.content.length > 280;
+  const [collapsed, setCollapsed] = useState(isUser && isLong);
+
   const submitEdit = () => {
     const trimmed = editText.trim();
     if (trimmed.length > 0 && trimmed !== msg.content.trim() && onEdit) {
@@ -247,6 +256,28 @@ export function MessageBubble({
       )}
     >
       {!isUser && hasText && <CopyButton text={msg.content} />}
+      {!isUser && hasText && isLong && (
+        <IconButton
+          size="sm"
+          onClick={() => setCollapsed((v) => !v)}
+          aria-label={
+            collapsed
+              ? t("chat.expandMessage", { defaultValue: "Expand message" })
+              : t("chat.collapseMessage", { defaultValue: "Collapse message" })
+          }
+          title={
+            collapsed
+              ? t("chat.expandMessage", { defaultValue: "Expand message" })
+              : t("chat.collapseMessage", { defaultValue: "Collapse message" })
+          }
+        >
+          {collapsed ? (
+            <ChevronDown size={16} strokeWidth={1.5} />
+          ) : (
+            <ChevronUp size={16} strokeWidth={1.5} />
+          )}
+        </IconButton>
+      )}
       {isUser && onEdit && (
         <IconButton
           size="sm"
@@ -402,12 +433,46 @@ export function MessageBubble({
               </div>
             </div>
           ) : (
-            <div className="flex min-w-0 max-w-full flex-col gap-2 rounded-[18px] rounded-br-[4px] bg-bg-tertiary px-4 py-3 text-[15px] leading-normal text-text-primary">
+            <div
+              // collapsed: the whole bubble is a click target to expand
+              onClick={collapsed ? () => setCollapsed(false) : undefined}
+              className={cn(
+                "relative flex min-w-0 max-w-full flex-col gap-2 rounded-[18px] rounded-br-[4px] bg-bg-tertiary px-4 py-3 text-[15px] leading-normal text-text-primary",
+                isLong && "pr-10",
+                collapsed && "cursor-pointer",
+              )}
+            >
               {attachments}
               {msg.content && (
-                <div className="whitespace-pre-wrap break-words">
+                <div
+                  className={cn(
+                    "whitespace-pre-wrap break-words",
+                    collapsed && "max-h-[4.55rem] overflow-hidden",
+                  )}
+                >
                   {msg.content}
                 </div>
+              )}
+              {isLong && (
+                <button
+                  type="button"
+                  onClick={() => setCollapsed((v) => !v)}
+                  aria-expanded={!collapsed}
+                  aria-label={
+                    collapsed
+                      ? t("chat.expandMessage", { defaultValue: "Expand message" })
+                      : t("chat.collapseMessage", {
+                          defaultValue: "Collapse message",
+                        })
+                  }
+                  className="absolute right-2 top-2.5 rounded-full p-1 text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
+                >
+                  <ChevronDown
+                    size={16}
+                    strokeWidth={1.5}
+                    className={cn("transition-transform", !collapsed && "rotate-180")}
+                  />
+                </button>
               )}
             </div>
           )}
@@ -431,13 +496,32 @@ export function MessageBubble({
             {/* attachments above the markdown so the image reads first */}
             {attachments}
             {msg.content && (
-              <AssistantContent
-                content={msg.content}
-                isStreaming={isStreaming}
-                sourceDocId={sourceDocId}
-                confirm={confirm}
-                handleCitationClick={handleCitationClick}
-              />
+              <div
+                // collapsed: clicking anywhere on the clamped body expands
+                onClick={collapsed ? () => setCollapsed(false) : undefined}
+                className={cn(
+                  "relative",
+                  collapsed && "max-h-24 cursor-pointer overflow-hidden",
+                )}
+              >
+                <AssistantContent
+                  content={msg.content}
+                  isStreaming={isStreaming}
+                  sourceDocId={sourceDocId}
+                  confirm={confirm}
+                  handleCitationClick={handleCitationClick}
+                />
+                {collapsed && (
+                  <button
+                    type="button"
+                    onClick={() => setCollapsed(false)}
+                    aria-label={t("chat.expandMessage", {
+                      defaultValue: "Expand message",
+                    })}
+                    className="absolute inset-x-0 bottom-0 h-12 cursor-pointer bg-gradient-to-b from-transparent to-bg-secondary"
+                  />
+                )}
+              </div>
             )}
           </>
         )}
@@ -527,9 +611,12 @@ const AssistantContent = memo(function AssistantContent({
     }
   }, [content, isStreaming, throttled]);
 
+  // quiz fence first (also strips a mid-stream open fence), then the
+  // recommendation fences on what's left
+  const quizExtract = useMemo(() => extractInlineQuiz(throttled), [throttled]);
   const { cleaned, books, videos } = useMemo(
-    () => extractRecommendations(throttled),
-    [throttled],
+    () => extractRecommendations(quizExtract.cleaned),
+    [quizExtract.cleaned],
   );
   // expensive marked.parse -> KaTeX -> DOMPurify, memoized on (cleaned, sourceDocId)
   const html = useMemo(
@@ -563,6 +650,13 @@ const AssistantContent = memo(function AssistantContent({
       {(books || videos) && (
         <RecommendationCards books={books} videos={videos} />
       )}
+      {quizExtract.pending && (
+        <div className="flex items-center gap-2 rounded-panel bg-bg-tertiary px-4 py-3 text-xs text-text-muted">
+          <TypingIndicator />
+          {t("chat.inlineQuiz.incoming", { defaultValue: "Building your quiz…" })}
+        </div>
+      )}
+      {quizExtract.quiz && <InlineQuizCard quiz={quizExtract.quiz} />}
     </>
   );
 });

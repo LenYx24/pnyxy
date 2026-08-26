@@ -12,6 +12,9 @@ export interface Space {
   slug: string | null;
   description: string | null;
   visibility: SpaceVisibility;
+  /** Join code for private spaces (00065). RLS only returns it to
+   *  members/owner via the spaces select policy; may be absent. */
+  invite_code?: string | null;
   /** Verified badge; admin-only (never self-grantable). */
   official: boolean;
   created_at: string;

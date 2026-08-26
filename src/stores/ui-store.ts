@@ -154,7 +154,7 @@ export function loadDockviewLayout(): object | null {
   try {
     localStorage.removeItem("pnyxy-reader:dockview-layout");
   } catch {
-    // ignore
+    // storage unavailable (private mode / quota); the default takes over
   }
   try {
     const raw = localStorage.getItem(DOCKVIEW_LAYOUT_KEY);

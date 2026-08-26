@@ -144,6 +144,7 @@ export const SHORTCUT_CATALOG: CatalogEntry[] = [
   { id: "app:command-palette", group: "global", labelKey: "commandPalette", key: "k", ctrl: true },
   { id: "app:open-book", group: "global", labelKey: "openBook", key: "o", ctrl: true },
   { id: "app:new-chat", group: "global", labelKey: "newChat", key: "o", ctrl: true, shift: true },
+  { id: "app:quick-ask", group: "global", labelKey: "quickAsk", key: "k", ctrl: true, shift: true },
   { id: "app:open-settings", group: "global", labelKey: "openSettings", key: ",", ctrl: true },
   { id: "app:shortcuts-sheet", group: "global", labelKey: "shortcutsSheet", key: "/", ctrl: true },
   // Library

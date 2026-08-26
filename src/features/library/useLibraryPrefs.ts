@@ -86,7 +86,7 @@ function loadPrefs(): LibraryPrefs {
       };
     }
   } catch {
-    // ignore
+    // storage unavailable (private mode / quota); the default takes over
   }
   if (isMobile) {
     return { ...DEFAULT_PREFS, controlsExpanded: false };
@@ -103,7 +103,7 @@ function loadSortOrders(): SortOrdersMap {
     const raw = localStorage.getItem(SORT_ORDERS_KEY);
     if (raw) return JSON.parse(raw);
   } catch {
-    // ignore
+    // storage unavailable (private mode / quota); the default takes over
   }
   return {};
 }

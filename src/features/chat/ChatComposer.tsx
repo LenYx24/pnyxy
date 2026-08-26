@@ -15,10 +15,9 @@ import {
   BookOpenCheck,
   Brain,
   Check,
-  ChevronDown,
   ChevronRight,
+  Eye,
   Clapperboard,
-  HelpCircle,
   History,
   Image as ImageIcon,
   Mic,
@@ -33,7 +32,6 @@ import {
 import {
   FloatingMenu,
   IconButton,
-  Tooltip,
   TypingIndicator,
   chipActiveClass,
   chipClass,
@@ -43,9 +41,7 @@ import { useConfirm } from "@/hooks/use-confirm";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
-import { useAuthStore } from "@/stores/auth-store";
 import { useChatStore } from "@/stores/chat-store";
-import { supabase } from "@/lib/supabase";
 import {
   AI_CONTEXT_DRAFT_CONVERSATION_KEY,
   useAiContextSessionStore,
@@ -53,14 +49,14 @@ import {
 import { getConfiguredProviders } from "@/lib/ai/ai-client";
 import type { RecommendationMode } from "@/lib/ai/recommendation-prompts";
 import type { ChatMessageAttachment } from "@/types/chat";
-import { ModelInfoModal } from "./ModelInfoModal";
+import { ContextInspectorModal } from "./ContextInspectorModal";
+import { ModelPicker } from "./composer/ModelPicker";
+import { useQuotaRows } from "./composer/model-meta";
+import { AttachmentCard } from "./composer/AttachmentCard";
 import { QuotaModal } from "./QuotaModal";
 import {
-  PNYXY_MODEL_OPTIONS,
   questionsLeft as computeQuestionsLeft,
   selectQuotaRow,
-  usageRatio,
-  type PnyxyQuotaRow,
 } from "./quota";
 import { cn } from "@/lib/cn";
 
@@ -74,17 +70,6 @@ const ALLOWED_IMAGE_TYPES = new Set([
   "image/gif",
   "image/webp",
 ]);
-
-// keep in sync with ai-client.ts / ai-chat-proxy
-const PROVIDER_INFO: Record<
-  AiProvider,
-  { model: string; routing: string }
-> = {
-  pnyxy: { model: "Claude Haiku 4.5", routing: "Pnyxy free quota" },
-  anthropic: { model: "Claude Sonnet 4.5", routing: "Your Anthropic key" },
-  openai: { model: "GPT-4o mini", routing: "Your OpenAI key" },
-  local: { model: "Local model", routing: "Ollama / LM Studio" },
-};
 
 // Distinct icon per composer mode so the "Recommend …" rows don't read
 // as duplicates of each other.
@@ -114,292 +99,6 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error ?? new Error("read failed"));
     reader.readAsDataURL(file);
   });
-}
-
-/** Short display label for the model the next turn will use. */
-function modelDisplayLabel(
-  provider: AiProvider | null,
-  pnyxyModel: string | null,
-  autoModel: string,
-): string {
-  if (provider) return PROVIDER_INFO[provider].model;
-  const pinned = pnyxyModel
-    ? PNYXY_MODEL_OPTIONS.find((m) => m.id === pnyxyModel)
-    : null;
-  if (pinned) return pinned.label;
-  return PNYXY_MODEL_OPTIONS.find((m) => m.id === autoModel)?.label ?? autoModel;
-}
-
-/** Today's free-tier usage rows. Signed-in only (anon uses an IP bucket we can't read). */
-function useQuotaRows(isStreaming: boolean) {
-  const user = useAuthStore((s) => s.user);
-  const [rows, setRows] = useState<PnyxyQuotaRow[]>([]);
-  const refresh = useCallback(() => {
-    if (!user) return;
-    void supabase.rpc("get_my_ai_usage_today").then(({ data, error }) => {
-      if (!error && Array.isArray(data)) setRows(data as PnyxyQuotaRow[]);
-    });
-  }, [user]);
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-  // refetch when the tab comes back: the buckets reset at UTC midnight and
-  // another tab / device may have spent quota meanwhile
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === "visible") refresh();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [refresh]);
-  // refetch when streaming ends so the line reflects the last turn
-  const prevStreaming = useRef(isStreaming);
-  useEffect(() => {
-    if (prevStreaming.current && !isStreaming) refresh();
-    prevStreaming.current = isStreaming;
-  }, [isStreaming, refresh]);
-  return rows;
-}
-
-export function ModelPicker({
-  value,
-  options,
-  onChange,
-  autoModel,
-  quotaRows = [],
-}: {
-  /** null = Default (full fallback chain). A provider = strict pick, no fallback. */
-  value: AiProvider | null;
-  options: AiProvider[];
-  onChange: (next: AiProvider | null) => void;
-  /** Model id the auto-route bills when nothing is pinned (footer label). */
-  autoModel: string;
-  /** Today's per-model usage (shared with the footer so it never goes stale). */
-  quotaRows?: ReadonlyArray<PnyxyQuotaRow>;
-}) {
-  const { t } = useTranslation();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const [open, setOpen] = useState(false);
-  const [infoOpen, setInfoOpen] = useState(false);
-  // persisted in settings store
-  const pnyxyModel = useSettingsStore((s) => s.pnyxyModel);
-  const setPnyxyModel = useSettingsStore((s) => s.setPnyxyModel);
-  const pnyxyConfigured = useSettingsStore((s) =>
-    s.enabledProviders.includes("pnyxy"),
-  );
-
-  // Most-constrained model (higher of the tokens/requests ratios) headlines the Default subtitle.
-  const quotaHeadline =
-    quotaRows.length === 0
-      ? null
-      : quotaRows
-          .map((r) => ({ row: r, ratio: usageRatio(r) }))
-          .reduce((a, b) => (a.ratio > b.ratio ? a : b));
-
-  const triggerLabel = modelDisplayLabel(value, pnyxyModel, autoModel);
-  const pickerTitle = t("chat.composer.modelLabel");
-
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex shrink-0 items-center gap-1 rounded-chip px-2 py-1 text-xs text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
-        title={pickerTitle}
-        aria-label={`${pickerTitle}: ${triggerLabel}`}
-        aria-haspopup="menu"
-        aria-expanded={open}
-      >
-        <span className="max-w-[11rem] truncate">{triggerLabel}</span>
-        <ChevronDown size={12} strokeWidth={1.5} className="shrink-0" />
-      </button>
-      <ModelInfoModal
-        open={infoOpen}
-        onClose={() => setInfoOpen(false)}
-        rows={quotaRows}
-      />
-      <FloatingMenu
-        open={open}
-        anchorRef={triggerRef}
-        onClose={() => setOpen(false)}
-        className="w-64"
-      >
-        <ModelOption
-          active={value === null && pnyxyModel === null}
-          label={t("chat.composer.modelDefault")}
-          subtitle={t("chat.composer.modelDefaultSubtitle")}
-          quotaHeadline={quotaHeadline}
-          onClick={() => {
-            setPnyxyModel(null);
-            onChange(null);
-            setOpen(false);
-          }}
-        />
-        {pnyxyConfigured && (
-          <>
-            <div className="my-0.5 h-px bg-surface-3" />
-            <div className={cn("px-3 pb-0.5 pt-1.5", pickerCaptionClass)}>
-              Pnyxy
-            </div>
-            {PNYXY_MODEL_OPTIONS.map((m) => {
-              const row = quotaRows.find((q) => q.model === m.id);
-              const headline = row ? { row, ratio: usageRatio(row) } : null;
-              return (
-                <ModelOption
-                  key={m.id}
-                  active={value === null && pnyxyModel === m.id}
-                  label={m.label}
-                  subtitle={m.tagline}
-                  quotaHeadline={headline}
-                  onClick={() => {
-                    setPnyxyModel(m.id);
-                    onChange(null);
-                    setOpen(false);
-                  }}
-                />
-              );
-            })}
-          </>
-        )}
-        {options.length > 0 && (
-          <>
-            <div className="my-0.5 h-px bg-surface-3" />
-            <div className={cn("px-3 pb-0.5 pt-1.5", pickerCaptionClass)}>
-              {t("chat.composer.pickerDirect", {
-                defaultValue: "Direct (no fallback)",
-              })}
-            </div>
-          </>
-        )}
-        {options.map((p) => (
-          <ModelOption
-            key={p}
-            active={value === p}
-            label={PROVIDER_INFO[p].model}
-            subtitle={PROVIDER_INFO[p].routing}
-            onClick={() => {
-              onChange(p);
-              setOpen(false);
-            }}
-          />
-        ))}
-        <div className="my-0.5 h-px bg-surface-3" />
-        <button
-          type="button"
-          onClick={() => {
-            setOpen(false);
-            setInfoOpen(true);
-          }}
-          className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-        >
-          <HelpCircle size={14} strokeWidth={1.5} />
-          {t("chat.composer.modelHelp")}
-        </button>
-      </FloatingMenu>
-    </>
-  );
-}
-
-/** Section caption inside the picker (11 px, muted-2, like sidebar captions). */
-const pickerCaptionClass =
-  "text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2";
-
-function ModelOption({
-  active,
-  label,
-  subtitle,
-  quotaHeadline,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  subtitle: string;
-  /** Today's usage for this model. Numbers live in the QuotaModal; here
-   *  it only drives a warning dot (amber >50%, red >80%) + hover title. */
-  quotaHeadline?: {
-    row: PnyxyQuotaRow;
-    ratio: number;
-  } | null;
-  onClick: () => void;
-}) {
-  const quotaTitle = quotaHeadline
-    ? `${quotaHeadline.row.tokens_used.toLocaleString()}/${quotaHeadline.row.tokens_limit.toLocaleString()} tok · ${quotaHeadline.row.request_count}/${quotaHeadline.row.request_limit} req`
-    : undefined;
-  const warnDot =
-    quotaHeadline && quotaHeadline.ratio > 0.5
-      ? quotaHeadline.ratio > 0.8
-        ? "bg-danger"
-        : "bg-warning"
-      : null;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={quotaTitle}
-      className={cn(
-        "flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors hover:bg-glass-hover cursor-pointer",
-        active ? "text-text-primary" : "text-text-secondary hover:text-text-primary",
-      )}
-    >
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="flex items-center gap-1.5 text-sm font-medium">
-          <span className="truncate">{label}</span>
-          {warnDot && (
-            <span
-              className={cn("h-1.5 w-1.5 shrink-0 rounded-full", warnDot)}
-              aria-hidden="true"
-            />
-          )}
-        </span>
-        <span className="truncate text-2xs text-text-muted">{subtitle}</span>
-      </span>
-      {active && <Check size={14} strokeWidth={1.5} className="shrink-0" />}
-    </button>
-  );
-}
-
-/** Attached image as a plain thumbnail (the picture, not a name card);
- *  the filename only appears in a tooltip on hover, Gemini-style. */
-function AttachmentCard({
-  attachment,
-  onRemove,
-}: {
-  attachment: ChatMessageAttachment;
-  onRemove: () => void;
-}) {
-  const { t } = useTranslation();
-  const dataUri = `data:${attachment.media_type};base64,${attachment.data}`;
-  const card = (
-    <div className="group relative h-16 shrink-0 overflow-hidden rounded-control bg-surface-3">
-      {attachment.kind === "image" ? (
-        <img
-          src={dataUri}
-          alt={attachment.name ?? "attachment"}
-          className="h-full w-auto min-w-10 max-w-40 object-cover"
-        />
-      ) : (
-        <div className="flex h-full w-16 items-center justify-center text-text-muted">
-          <ImageIcon size={20} strokeWidth={1.5} />
-        </div>
-      )}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={t("chat.composer.attachments.remove")}
-        className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity cursor-pointer group-hover:opacity-100 focus-visible:opacity-100 hover:bg-black/80"
-      >
-        <X size={12} strokeWidth={2} />
-      </button>
-    </div>
-  );
-  return attachment.name ? (
-    <Tooltip label={attachment.name} side="top">
-      {card}
-    </Tooltip>
-  ) : (
-    card
-  );
 }
 
 export interface ChatComposerSubmitPayload {
@@ -549,6 +248,13 @@ export const ChatComposer = forwardRef<
     if (!s.activeConversationId) return null;
     return s.conversations.find((c) => c.id === s.activeConversationId)?.source_doc_id ?? null;
   });
+  const convDocTitle = useChatStore((s) => {
+    if (!s.activeConversationId) return null;
+    return (
+      s.conversations.find((c) => c.id === s.activeConversationId)
+        ?.source_doc_title ?? null
+    );
+  });
   const contextDocId = convDocId ?? activeDoc?.meta.id ?? null;
   const sessionKey = activeConversationId ?? AI_CONTEXT_DRAFT_CONVERSATION_KEY;
   const sessionOverride = useAiContextSessionStore((s) => s.overrides[sessionKey] ?? null);
@@ -557,6 +263,8 @@ export const ChatComposer = forwardRef<
     ? (aiContextBindings.books[contextDocId] ?? null)
     : sessionOverride;
   const [contextSubmenuOpen, setContextSubmenuOpen] = useState(false);
+  // "What does the AI get?" transparency modal
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const handlePickContext = useCallback(
     (presetId: string) => {
       const next = pickedContextId === presetId ? null : presetId;
@@ -1139,6 +847,19 @@ export const ChatComposer = forwardRef<
                         ))}
                     </>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPlusMenuOpen(false);
+                      setInspectorOpen(true);
+                    }}
+                    className={menuRowClass}
+                  >
+                    <Eye size={16} strokeWidth={1.5} />
+                    {t("chat.contextInspector.open", {
+                      defaultValue: "What does the AI get?",
+                    })}
+                  </button>
                   {(isMobile ||
                     wholeBookAvailable ||
                     openAiConfigured ||
@@ -1234,6 +955,14 @@ export const ChatComposer = forwardRef<
           )}
         </div>
       )}
+      <ContextInspectorModal
+        open={inspectorOpen}
+        onClose={() => setInspectorOpen(false)}
+        docId={contextDocId}
+        docTitle={activeDoc?.meta.title ?? convDocTitle}
+        selectedPages={activeDoc?.aiSelectedPages.size ?? 0}
+        conversationId={activeConversationId}
+      />
       <QuotaModal
         open={quotaModalOpen}
         onClose={() => setQuotaModalOpen(false)}

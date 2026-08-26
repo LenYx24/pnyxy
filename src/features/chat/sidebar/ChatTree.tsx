@@ -34,7 +34,6 @@ import type { ChatConversation, ChatFolder } from "@/types/chat";
 import {
   captionClass,
   dateGroupLabel,
-  folderNameById,
   groupConversationsByDate,
   quickChatsParentById,
 } from "./conversation-groups";
@@ -121,9 +120,7 @@ export function ChatTree(props: ChatTreeProps) {
   const rootFolderIds = rootFolders.map((f) => `folder:${f.id}`);
   const looseConvIds = looseConvs.map((c) => `conv:${c.id}`);
 
-  // quick view: every conversation, newest first, date captions only; the
-  // folder name (if any) rides along as a subtitle
-  const folderNames = useMemo(() => folderNameById(folders, t), [folders, t]);
+  // quick view: every conversation, newest first, date captions only
   const flatGroups = useMemo(
     () => (quickView ? groupConversationsByDate(conversations) : []),
     [quickView, conversations],
@@ -142,11 +139,6 @@ export function ChatTree(props: ChatTreeProps) {
                 key={c.id}
                 conversation={c}
                 depth={0}
-                subtitle={
-                  c.folder_id !== null
-                    ? (folderNames.get(c.folder_id) ?? null)
-                    : null
-                }
                 dndDisabled
                 {...props}
               />
@@ -185,8 +177,18 @@ export function ChatTree(props: ChatTreeProps) {
         </SortableContext>
       )}
 
-      {/* loose chats at the bottom under one caption, then grouped by date */}
-      {looseConvs.length > 0 && (
+      {/* Folder view at ROOT shows only folders: unfoldered/quick chats
+          live in the quick view. Inside a drilled folder the loose list
+          IS that folder's content, so it stays. */}
+      {rootFolderId === null && rootFolders.length === 0 && (
+        <p className="px-3 py-4 text-center text-xs text-text-muted">
+          {t("chat.sidebar.foldersEmpty", {
+            defaultValue:
+              "No folders yet. Chats outside folders live in the quick view.",
+          })}
+        </p>
+      )}
+      {rootFolderId !== null && looseConvs.length > 0 && (
         <div
           className={cn(
             "flex items-center gap-1.5 px-3 pb-0.5 pt-3",
@@ -200,6 +202,7 @@ export function ChatTree(props: ChatTreeProps) {
           </span>
         </div>
       )}
+      {rootFolderId !== null && (
       <SortableContext items={looseConvIds} strategy={verticalListSortingStrategy}>
         {dateGroups.map((group) => (
           <div key={group.key} className="flex flex-col gap-0.5">
@@ -217,6 +220,7 @@ export function ChatTree(props: ChatTreeProps) {
           </div>
         ))}
       </SortableContext>
+      )}
     </div>
   );
 }
@@ -419,16 +423,15 @@ const FolderRow = memo(function FolderRow({
 interface ConversationRowProps extends ChatTreeProps {
   conversation: ChatConversation;
   depth: number;
-  /** 11 px muted line under the title (quick view: the folder name). */
-  subtitle?: string | null;
   /** Quick view: no drag source, no drop target. */
   dndDisabled?: boolean;
 }
 
+// One line = one conversation (no subtitle rows: they blurred the
+// "every row is a chat" read the list needs).
 const ConversationRow = memo(function ConversationRow({
   conversation,
   depth,
-  subtitle = null,
   dndDisabled = false,
   activeId,
   activeDragId,
@@ -557,17 +560,12 @@ const ConversationRow = memo(function ConversationRow({
           <button
             type="button"
             onClick={() => onOpen(conversation.id)}
-            className="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-[9px] text-left cursor-pointer"
+            className="flex min-w-0 flex-1 items-center px-3 py-[9px] text-left cursor-pointer"
             title={conversation.title || t("chat.untitled")}
           >
             <span className="w-full truncate text-[13px] leading-4">
               {conversation.title || t("chat.untitled")}
             </span>
-            {(subtitle || conversation.source_doc_title) && (
-              <span className="w-full truncate text-2xs leading-[14px] text-text-muted">
-                {subtitle || conversation.source_doc_title}
-              </span>
-            )}
           </button>
           <IconButton
             size="sm"

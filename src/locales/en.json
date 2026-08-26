@@ -1481,7 +1481,8 @@
       "groupWeek": "This week",
       "groupEarlier": "Earlier",
       "streak_one": "{{count}} day streak",
-      "streak_other": "{{count}} day streak"
+      "streak_other": "{{count}} day streak",
+      "foldersEmpty": "No folders yet. Chats outside folders live in the quick view."
     },
     "composer": {
       "modelLabel": "Model",
@@ -1596,7 +1597,50 @@
     },
     "forkTitle": "{{title}} (branch)",
     "forkedFrom": "Branched from {{title}}",
-    "forkPoint": "Fork point, the messages above are history"
+    "forkPoint": "Fork point, the messages above are history",
+    "collapseMessage": "Collapse message",
+    "expandMessage": "Expand message",
+    "quickAsk": {
+      "title": "Quick ask",
+      "placeholder": "Ask anything…",
+      "new": "New question",
+      "expand": "Open as full chat",
+      "error": "Something went wrong, try again."
+    },
+    "contextInspector": {
+      "open": "What does the AI get?",
+      "title": "What does the AI get?",
+      "intro": "The next message's system prompt is assembled from these parts (the exact text is built on the server, this is its mirror).",
+      "base": "Base prompt",
+      "baseDoc": "Document Q&A tutor: answers cite pages ([p.N]), markdown formatting, replies in your language.",
+      "baseChat": "General study chat: markdown formatting, honesty rules, replies in your language.",
+      "teacher": "Teacher mode",
+      "active": "Active",
+      "preset": "AI context preset",
+      "noPreset": "No preset applies to this conversation.",
+      "doc": "Document context",
+      "pages_one": "{{count}} attached page",
+      "pages_other": "{{count}} attached pages",
+      "noDoc": "No document attached to this conversation.",
+      "sourceOverride": "picked for this conversation",
+      "sourceBook": "bound to this book",
+      "sourceFolder": "bound to its folder",
+      "sourceOrg": "bound to the organization",
+      "sourceDefault": "default preset"
+    },
+    "inlineQuiz": {
+      "title": "Quick quiz",
+      "defaultTitle": "Quiz from chat",
+      "incoming": "Building your quiz…",
+      "next": "Next",
+      "finish": "Finish",
+      "retry": "Try again",
+      "result": "{{score}} / {{total}} correct",
+      "save": "Save as quiz",
+      "savedShort": "Saved",
+      "saved": "Saved, you can retake it from your library.",
+      "saveFailed": "Couldn't save the quiz."
+    }
   },
   "readingPlans": {
     "section": {
@@ -2561,7 +2605,8 @@
       "print": "Print",
       "screenshot": "Screenshot viewport",
       "undo": "Undo last annotation",
-      "shortcutsSheet": "Keyboard shortcuts cheat sheet"
+      "shortcutsSheet": "Keyboard shortcuts cheat sheet",
+      "quickAsk": "Quick ask"
     },
     "sheet": {
       "title": "Keyboard shortcuts",
@@ -2570,5 +2615,27 @@
       "openOverlay": "Open as overlay",
       "hint": "Ctrl + / or ? opens this sheet anywhere, Esc closes it."
     }
+  },
+  "spaces": {
+    "backToParent": "Parent space",
+    "managedByOwner": "managed by its owner",
+    "delete": {
+      "title": "Delete this space?",
+      "body": "Everything nested under it (spaces, files, members) goes too. Members' personal copies stay in their libraries.",
+      "action": "Delete space"
+    },
+    "breadcrumb": "Space path",
+    "startLearning": "Start learning",
+    "actions": "Space actions",
+    "files": {
+      "urlAdded": "Added to course files: {{name}}",
+      "urlAddedAsLink": "Added as a link under course content.",
+      "urlFailed": "Couldn't add that URL.",
+      "fromUrl": "From URL",
+      "fromUrlTitle": "Add from URL",
+      "fromUrlBody": "A PDF/EPUB link becomes a course file; a web page or YouTube link is saved under course content."
+    },
+    "askAiSeedIntro": "I'm studying the course \"{{name}}\". Its materials are:",
+    "askAiSeedOutro": "Act as a focused tutor for this course. Help me study these topics, quiz me, and explain concepts. Where should I start?"
   }
 }

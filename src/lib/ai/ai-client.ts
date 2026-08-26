@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import type { ToolDef } from "@/lib/roadmap/roadmap-tools";
 import type { ChatMessageAttachment } from "@/types/chat";
 import { teacherBlock } from "@/lib/ai/teacher-mode";
+import { INLINE_QUIZ_SPEC } from "@/lib/ai/extract-quiz";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -268,13 +269,15 @@ Match the user's language: reply in Hungarian when they write in Hungarian, Engl
 ${personaBlock}When the user attaches images, describe or reason about them directly, don't claim you can't see them.
 
 Formatting:
-- Conversational answers should read as conversation, no headers, no bullet lists, no bold-shouting unless the user explicitly asks for structure.
-- Use fenced \`\`\`code blocks with a language tag for code; tables for structured data; bullet lists only when comparing 3+ items.
-- Keep paragraphs short.
+- Use markdown so answers are easy to scan: **bold** the key terms, bullet or numbered lists for enumerations and steps, \`##\` / \`###\` headers when an answer has multiple genuine sections, tables for structured data, fenced \`\`\`code blocks with a language tag for code.
+- Separate paragraphs with blank lines and keep them short (2-4 sentences).
+- Don't over-structure trivial replies: a one-sentence answer stays one sentence.
 
 When you don't know something or have ambiguous context, say so and ask a clarifying question instead of guessing. If a question has multiple reasonable interpretations, name them briefly before answering. Concise > exhaustive; the user can always ask for more.
 
-${mathHint}${teacherBlock()}`;
+${mathHint}
+
+${INLINE_QUIZ_SPEC}${teacherBlock()}`;
   }
   // [p.N] / [p.N:"..."] tokens are load-bearing: renderer turns these exact
   // shapes into reader deep-links, quote variant highlights. Other formats won't link.
@@ -304,7 +307,9 @@ When you reference the book, cite it inline using one of these two formats:
 - For a page reference: [p.N], e.g. "the author's main argument [p.42]".
 - When you can point to an exact passage on that page, include the literal quoted text: [p.N:"the exact text you mean"], e.g. "this is best summarized as [p.42:\\"a network of independent agents\\"]". The reader will jump to page N and highlight that passage.
 
-Only use the quote variant when the wording appears verbatim in the provided context; never fabricate a quote, it would highlight nothing and confuse the reader. Keep quotes under ~15 words. If the answer is not in the provided text, say so, and feel free to suggest which pages or chapters from the TOC would help, so the user can attach them. ${mathHint}${teacherBlock()}`;
+Only use the quote variant when the wording appears verbatim in the provided context; never fabricate a quote, it would highlight nothing and confuse the reader. Keep quotes under ~15 words. If the answer is not in the provided text, say so, and feel free to suggest which pages or chapters from the TOC would help, so the user can attach them. ${mathHint}
+
+${INLINE_QUIZ_SPEC}${teacherBlock()}`;
 }
 
 export interface StreamOptions {

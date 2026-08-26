@@ -105,7 +105,27 @@
       "public": "Publikus",
       "private": "Privát",
       "restricted": "Korlátozott"
-    }
+    },
+    "backToParent": "Szülő space",
+    "managedByOwner": "a tulajdonosa kezeli",
+    "delete": {
+      "title": "Törlöd ezt a teret?",
+      "body": "Minden alá tartozó (terek, fájlok, tagságok) is törlődik. A tagok saját másolatai a könyvtárukban megmaradnak.",
+      "action": "Tér törlése"
+    },
+    "breadcrumb": "Tér útvonala",
+    "startLearning": "Kezdd a tanulást",
+    "actions": "Tér műveletei",
+    "files": {
+      "urlAdded": "Hozzáadva a kurzus fájljaihoz: {{name}}",
+      "urlAddedAsLink": "Linkként került a kurzus tartalmához.",
+      "urlFailed": "Ezt az URL-t nem sikerült hozzáadni.",
+      "fromUrl": "URL-ből",
+      "fromUrlTitle": "Hozzáadás URL-ből",
+      "fromUrlBody": "PDF/EPUB link kurzus-fájl lesz; weboldal vagy YouTube-link a kurzus tartalmába kerül."
+    },
+    "askAiSeedIntro": "A(z) \"{{name}}\" tárgyat tanulom. Az anyagai:",
+    "askAiSeedOutro": "Legyél a tárgy fókuszált tanára: segíts feldolgozni a témákat, kérdezz vissza, magyarázd el a fogalmakat. Szerinted mivel kezdjem?"
   },
   "gallery": {
     "title": "Megosztott válaszok",
@@ -1576,7 +1596,8 @@
       "groupWeek": "Ezen a héten",
       "groupEarlier": "Korábban",
       "streak_one": "{{count}} napos sorozat",
-      "streak_other": "{{count}} napos sorozat"
+      "streak_other": "{{count}} napos sorozat",
+      "foldersEmpty": "Még nincs mappád. A mappán kívüli chatek a gyors nézetben vannak."
     },
     "composer": {
       "modelLabel": "Modell",
@@ -1691,7 +1712,50 @@
     },
     "forkTitle": "{{title}} (elágazás)",
     "forkedFrom": "Elágazva innen: {{title}}",
-    "forkPoint": "Elágazási pont, a fenti üzenetek az előzmények"
+    "forkPoint": "Elágazási pont, a fenti üzenetek az előzmények",
+    "collapseMessage": "Üzenet összecsukása",
+    "expandMessage": "Üzenet kibontása",
+    "quickAsk": {
+      "title": "Gyors kérdés",
+      "placeholder": "Kérdezz bármit…",
+      "new": "Új kérdés",
+      "expand": "Megnyitás teljes chatként",
+      "error": "Valami hiba történt, próbáld újra."
+    },
+    "contextInspector": {
+      "open": "Mit kap az AI?",
+      "title": "Mit kap az AI?",
+      "intro": "A következő üzenet system promptja ezekből a részekből áll össze (a pontos szöveg a szerveren épül, ez a tükre).",
+      "base": "Alap prompt",
+      "baseDoc": "Dokumentum-Q&A tanár: a válaszok oldalra hivatkoznak ([p.N]), markdown formázás, a te nyelveden.",
+      "baseChat": "Általános tanuló-chat: markdown formázás, őszinteség-szabályok, a te nyelveden.",
+      "teacher": "Tanár mód",
+      "active": "Aktív",
+      "preset": "AI-kontextus preset",
+      "noPreset": "Ehhez a beszélgetéshez nincs preset.",
+      "doc": "Dokumentum-kontextus",
+      "pages_one": "{{count}} csatolt oldal",
+      "pages_other": "{{count}} csatolt oldal",
+      "noDoc": "Nincs dokumentum csatolva ehhez a beszélgetéshez.",
+      "sourceOverride": "erre a beszélgetésre választva",
+      "sourceBook": "ehhez a könyvhöz kötve",
+      "sourceFolder": "a mappájához kötve",
+      "sourceOrg": "a szervezethez kötve",
+      "sourceDefault": "alap preset"
+    },
+    "inlineQuiz": {
+      "title": "Gyors kvíz",
+      "defaultTitle": "Kvíz a chatből",
+      "incoming": "Készül a kvíz…",
+      "next": "Következő",
+      "finish": "Befejezés",
+      "retry": "Újra",
+      "result": "{{score}} / {{total}} helyes",
+      "save": "Mentés kvízként",
+      "savedShort": "Mentve",
+      "saved": "Mentve, a könyvtáradból újra kitöltheted.",
+      "saveFailed": "Nem sikerült menteni a kvízt."
+    }
   },
   "readingPlans": {
     "section": {
@@ -2669,7 +2733,8 @@
       "print": "Nyomtatás",
       "screenshot": "Képernyőkép a nézetről",
       "undo": "Utolsó jegyzetművelet visszavonása",
-      "shortcutsSheet": "Gyorsbillentyű-lista"
+      "shortcutsSheet": "Gyorsbillentyű-lista",
+      "quickAsk": "Gyors kérdés"
     },
     "sheet": {
       "title": "Gyorsbillentyűk",

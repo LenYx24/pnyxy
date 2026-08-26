@@ -191,6 +191,13 @@ interface ChatRequestBody {
   }>;
 }
 
+// keep in sync with src/lib/ai/extract-quiz.ts INLINE_QUIZ_SPEC
+const INLINE_QUIZ_SPEC = `When the user asks to be quizzed, or a quick knowledge check would clearly help, emit the quiz as a fenced code block tagged \`quiz\` containing ONLY JSON in this exact shape:
+\`\`\`quiz
+{"title": "…", "questions": [{"q": "…", "options": ["…", "…", "…", "…"], "correct": 1, "explanation": "…"}]}
+\`\`\`
+3-8 questions, 2-4 options each, "correct" is the zero-based index of the right option. Write the quiz in the user's language; when you have document context, cite pages in the explanations ([p.N]). Put no other text inside the block, and never reveal the answers in the prose around it.`;
+
 function buildSystemPrompt(
   documentTitle: string,
   pageContext: string,
@@ -212,9 +219,9 @@ Match the user's language: reply in Hungarian when they write in Hungarian, Engl
 When the user attaches images, describe or reason about them directly, don't claim you can't see them.
 
 Formatting:
-- Conversational answers should read as conversation, no headers, no bullet lists, no bold-shouting unless the user explicitly asks for structure.
-- Use fenced \`\`\`code blocks with a language tag for code; tables for structured data; bullet lists only when comparing 3+ items.
-- Keep paragraphs short.
+- Use markdown so answers are easy to scan: **bold** the key terms, bullet or numbered lists for enumerations and steps, \`##\` / \`###\` headers when an answer has multiple genuine sections, tables for structured data, fenced \`\`\`code blocks with a language tag for code.
+- Separate paragraphs with blank lines and keep them short (2-4 sentences).
+- Don't over-structure trivial replies: a one-sentence answer stays one sentence.
 
 When you don't know something or have ambiguous context, say so and ask a clarifying question instead of guessing. If a question has multiple reasonable interpretations, name them briefly before answering. Concise > exhaustive; the user can always ask for more.
 ${
@@ -222,7 +229,9 @@ ${
     ? `\nYou have Google Search available and can look things up on the web. When the user asks about current events, recent releases, prices, dates, or anything you're unsure about or that may have changed since your training, search and base your answer on the results. Never claim you can't access the internet, you can.\n`
     : ""
 }
-When you write mathematical expressions, wrap inline math in single-dollar delimiters ($x^2$) and display equations in double-dollar delimiters ($$\\sum_{i=1}^n i$$). The chat UI renders these as proper formulas via KaTeX.`;
+When you write mathematical expressions, wrap inline math in single-dollar delimiters ($x^2$) and display equations in double-dollar delimiters ($$\\sum_{i=1}^n i$$). The chat UI renders these as proper formulas via KaTeX.
+
+${INLINE_QUIZ_SPEC}`;
   }
 
   // The standalone /chat prompt always had this; the document prompts
@@ -259,7 +268,9 @@ ${pageContext}
 
 Answer questions about this document. Be concise and helpful. Reference specific page numbers when relevant. If the answer is not in the provided text, say so.
 
-${langRule}`;
+${langRule}
+
+${INLINE_QUIZ_SPEC}`;
   }
 
   // Doc set but nothing selected and nothing attached, generic doc

@@ -26,6 +26,8 @@ interface SpaceState {
 
   /** The space currently open on a course page, plus its attached content + offerings + child spaces. */
   activeSpace: Space | null;
+  /** Ancestor chain of the active space, root first (breadcrumb). */
+  activeSpaceAncestors: { id: string; name: string }[];
   activeSpaceContent: SpaceContent[];
   activeSpaceOfferings: Offering[];
   /** Child spaces (subspaces / courses) nested under the active space. */
@@ -42,6 +44,12 @@ interface SpaceState {
     parentId?: string | null;
   }) => Promise<string | null>;
   joinSpace: (spaceId: string) => Promise<void>;
+  /** Join a private space with its invite code; returns the space id. */
+  joinWithCode: (code: string) => Promise<string>;
+  /** Owner-only: (re)generate the invite code; returns the new code. */
+  rotateInviteCode: (spaceId: string) => Promise<string>;
+  /** Owner or admin: delete the space (children/members cascade). */
+  deleteSpace: (spaceId: string) => Promise<void>;
   leaveSpace: (spaceId: string) => Promise<void>;
   /**
    * Enroll in a course: join it AND build a library folder tree so chats,
@@ -79,6 +87,7 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
   loading: false,
   error: null,
   activeSpace: null,
+  activeSpaceAncestors: [],
   activeSpaceContent: [],
   activeSpaceOfferings: [],
   activeSpaceChildren: [],
@@ -185,6 +194,59 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
     await get().fetchMine();
   },
 
+  async joinWithCode(code) {
+    const { data, error } = await supabase.rpc("join_space_with_code", {
+      p_code: code.trim().toLowerCase(),
+    });
+    if (error || !data) {
+      logError("space-store:joinWithCode", error);
+      throw error ?? new Error("invalid code");
+    }
+    await get().fetchMine();
+    return data as string;
+  },
+
+  async rotateInviteCode(spaceId) {
+    const { data, error } = await supabase.rpc("rotate_space_invite_code", {
+      p_space: spaceId,
+    });
+    if (error || !data) {
+      logError("space-store:rotateInviteCode", error);
+      throw error ?? new Error("rotate failed");
+    }
+    const codeStr = data as string;
+    set((s) => ({
+      activeSpace:
+        s.activeSpace?.id === spaceId
+          ? { ...s.activeSpace, invite_code: codeStr }
+          : s.activeSpace,
+    }));
+    return codeStr;
+  },
+
+  async deleteSpace(spaceId) {
+    // best-effort: clear the shared file store first (rows cascade, blobs don't)
+    try {
+      const { data } = await supabase.storage.from("space-files").list(spaceId);
+      const names = (data ?? []).map((o) => `${spaceId}/${o.name}`);
+      if (names.length > 0) {
+        await supabase.storage.from("space-files").remove(names);
+      }
+    } catch {
+      // orphaned blobs are invisible (member-only read) and harmless
+    }
+    const { error } = await supabase.from("spaces").delete().eq("id", spaceId);
+    if (error) {
+      logError("space-store:deleteSpace", error);
+      throw error;
+    }
+    set((s) => ({
+      activeSpace: s.activeSpace?.id === spaceId ? null : s.activeSpace,
+      mySpaces: s.mySpaces.filter((sp) => sp.id !== spaceId),
+      publicSpaces: s.publicSpaces.filter((sp) => sp.id !== spaceId),
+    }));
+  },
+
   async leaveSpace(spaceId) {
     const {
       data: { user },
@@ -235,14 +297,10 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
   },
 
   async loadSpace(spaceId) {
-    set({
-      loading: true,
-      error: null,
-      activeSpace: null,
-      activeSpaceContent: [],
-      activeSpaceOfferings: [],
-      activeSpaceChildren: [],
-    });
+    // Keep the previous space rendered while the next one loads; the
+    // page decides from activeSpace.id whether it may show content or
+    // a skeleton. Nulling here caused a full-page spinner on every hop.
+    set({ loading: true, error: null });
     try {
       const [
         { data: space, error: sErr },
@@ -275,14 +333,36 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
         logError("space-store:loadSpace", sErr);
         set({ error: sErr.message });
       }
-      // refresh membership so the course page knows the join state
-      await get().fetchMine();
+      // paint the page as soon as the main data is in; the breadcrumb
+      // and the membership refresh fill in right after
       set({
         activeSpace: (space as Space) ?? null,
+        activeSpaceAncestors: [],
         activeSpaceContent: cErr ? [] : ((content ?? []) as SpaceContent[]),
         activeSpaceOfferings: oErr ? [] : ((offerings ?? []) as Offering[]),
         activeSpaceChildren: chErr ? [] : ((children ?? []) as Space[]),
+        loading: false,
       });
+      void get().fetchMine();
+
+      // ancestor chain for the breadcrumb (root first). Bounded walk;
+      // RLS may hide a private ancestor from a mere member, then the
+      // trail simply starts lower.
+      const ancestors: { id: string; name: string }[] = [];
+      let parentId = (space as Space | null)?.parent_id ?? null;
+      for (let depth = 0; parentId && depth < 8; depth++) {
+        const { data: parent } = await supabase
+          .from("spaces")
+          .select("id, name, parent_id")
+          .eq("id", parentId)
+          .maybeSingle();
+        if (!parent) break;
+        ancestors.unshift({ id: parent.id as string, name: parent.name as string });
+        parentId = (parent.parent_id as string | null) ?? null;
+      }
+      if (get().activeSpace?.id === spaceId) {
+        set({ activeSpaceAncestors: ancestors });
+      }
     } finally {
       set({ loading: false });
     }

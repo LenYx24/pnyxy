@@ -78,7 +78,7 @@ export async function deleteBookBlob(key: string): Promise<void> {
       tx.onerror = () => reject(tx.error);
     });
   } catch {
-    // ignore
+    // storage unavailable (private mode / quota); the default takes over
   }
 }
 
@@ -110,6 +110,6 @@ export async function clearOfflineBooks(): Promise<void> {
       tx.onerror = () => reject(tx.error);
     });
   } catch {
-    // ignore
+    // storage unavailable (private mode / quota); the default takes over
   }
 }

@@ -49,6 +49,6 @@ export function clearLastOpenedBook(): void {
   try {
     localStorage.removeItem(KEY);
   } catch {
-    // ignore
+    // storage unavailable (private mode / quota); the default takes over
   }
 }

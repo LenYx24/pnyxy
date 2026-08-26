@@ -11,26 +11,23 @@ import {
 // Guards: the plain /chat send -> stream -> render loop and Stop. The
 // ai-chat-proxy edge function is mocked in-page, see ai-proxy-mock.ts.
 
-/** Conversation rows in the sidebar tree: the dnd-kit row (role=button) that
- *  contains the hover kebab ("Conversation actions"). */
-function conversationRows(page: Page) {
-  const kebab = page.getByRole("button", {
-    name: "Conversation actions",
-    exact: true,
-  });
+/** First conversation row's kebab in the sidebar list. The row wrapper only
+ *  has role=button in folder view (dnd-kit), so anchor on the kebab itself;
+ *  it is width-collapsed until its row is hovered, so assert attachment,
+ *  not visibility. */
+function firstRowKebab(page: Page) {
   return page
-    .getByRole("button", { name: /Conversation actions/ })
-    .filter({ has: kebab });
+    .getByRole("button", { name: "Conversation actions", exact: true })
+    .first();
 }
 
 /** Delete the newest (top) conversation row through its kebab menu + confirm. */
 async function deleteTopConversation(page: Page) {
-  const row = conversationRows(page).first();
-  if ((await row.count()) === 0) return;
-  await row.hover();
-  await row
-    .getByRole("button", { name: "Conversation actions", exact: true })
-    .click();
+  const kebab = firstRowKebab(page);
+  if ((await kebab.count()) === 0) return;
+  // hover the row (the kebab's parent) so the width-collapsed kebab expands
+  await kebab.locator("xpath=..").hover();
+  await kebab.click();
   await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
   const dialog = page.locator('[aria-modal="true"]');
   await dialog.getByRole("button", { name: "Delete", exact: true }).click();
@@ -94,7 +91,11 @@ test.afterEach(async ({ page, isMobile }, testInfo) => {
   // hooks also run for skipped tests; nothing to clean up then
   if (isMobile || testInfo.status === "skipped") return;
   await page.goto("/chat");
-  await expect(conversationRows(page).first()).toBeVisible({ timeout: 15_000 });
+  // folder view no longer lists unfoldered chats, the quick view does
+  await page
+    .getByRole("button", { name: "Quick view (all chats, newest first)" })
+    .click();
+  await expect(firstRowKebab(page)).toBeAttached({ timeout: 15_000 });
   await deleteTopConversation(page);
 });
 

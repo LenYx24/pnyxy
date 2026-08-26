@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useConfirm } from "@/hooks/use-confirm";
 import {
   ArrowUpRight,
   Circle,
@@ -44,6 +45,7 @@ const TOOLS: {
 
 export function InlineDrawToolbar() {
   const { t } = useTranslation();
+  const { confirm, ConfirmModalElement } = useConfirm();
   const active = useInlineDrawStore((s) => s.active);
   const color = useInlineDrawStore((s) => s.color);
   const width = useInlineDrawStore((s) => s.width);
@@ -217,15 +219,16 @@ export function InlineDrawToolbar() {
         <button
           type="button"
           onClick={() => {
-            if (
-              window.confirm(
-                t("reader.inlineDraw.clearAllConfirm", {
+            void (async () => {
+              const ok = await confirm({
+                title: t("reader.inlineDraw.clearAllConfirm", {
                   defaultValue: "Erase every drawing on every page of this book?",
                 }),
-              )
-            ) {
-              clearAllPages();
-            }
+                confirmLabel: t("common.delete"),
+                danger: true,
+              });
+              if (ok) clearAllPages();
+            })();
           }}
           disabled={!hasAnyContent}
           className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-danger cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
@@ -253,6 +256,7 @@ export function InlineDrawToolbar() {
           <X size={14} />
         </button>
       </div>
+      {ConfirmModalElement}
     </div>
   );
 }

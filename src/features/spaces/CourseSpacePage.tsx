@@ -6,14 +6,18 @@ import {
   BadgeCheck,
   BookOpen,
   CalendarDays,
+  CalendarPlus,
   ExternalLink,
   FileText,
   Folder,
+  FolderPlus,
   Globe,
   ListChecks,
   Loader2,
+  LogOut,
   Map as MapIcon,
   MessagesSquare,
+  MoreHorizontal,
   Plus,
   Shapes,
   Sparkles,
@@ -22,11 +26,15 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { Button } from "@/components/ui";
+import { Button, IconButton } from "@/components/ui";
+import { openMenuAtButton } from "@/features/chat/menu-anchor";
+import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useChatStore } from "@/stores/chat-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useSpaceStore } from "@/stores/space-store";
+import { SpaceFilesSection, SpaceInviteSection } from "./SpaceFilesSection";
+import { useConfirm } from "@/hooks/use-confirm";
 import type {
   Offering,
   OfferingStatus,
@@ -85,13 +93,21 @@ function internalHref(item: SpaceContent): string | null {
 
 const isExternal = (url: string) => /^https?:\/\//i.test(url);
 
+/** Uppercase micro-caption for the page sections (variant B: sections
+ *  whisper, the file list and the one accent CTA carry the weight). */
+const SECTION_CAPTION =
+  "text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2";
+
 export function CourseSpacePage() {
   const { t } = useTranslation();
   const { spaceId } = useParams<{ spaceId: string }>();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const isAdmin = useAuthStore((s) => s.profile?.role === "admin");
+  const { confirm, ConfirmModalElement } = useConfirm();
   const {
     activeSpace,
+    activeSpaceAncestors,
     activeSpaceChildren,
     activeSpaceContent,
     activeSpaceOfferings,
@@ -102,6 +118,7 @@ export function CourseSpacePage() {
     enrollInCourse,
     removeSpaceContent,
     removeOffering,
+    deleteSpace,
   } = useSpaceStore();
   const folders = useChatStore((s) => s.folders);
 
@@ -121,15 +138,28 @@ export function CourseSpacePage() {
     }
   }, [spaceId, memberIds]);
 
-  if (loading || !spaceId) {
+  // stale = the store still holds another space (or nothing): while the
+  // fetch runs, show a quiet skeleton instead of a spinner; content from
+  // a DIFFERENT space must never flash here
+  const stale = !activeSpace || activeSpace.id !== spaceId;
+  if (!spaceId || (stale && loading)) {
     return (
-      <div className="flex items-center justify-center py-24 text-text-muted">
-        <Loader2 className="h-6 w-6 animate-spin" />
+      <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6" aria-busy="true">
+        <div className="h-3 w-40 animate-pulse rounded-full bg-bg-tertiary" />
+        <div className="space-y-2">
+          <div className="h-8 w-64 animate-pulse rounded-control bg-bg-tertiary" />
+          <div className="h-3 w-24 animate-pulse rounded-full bg-bg-tertiary" />
+        </div>
+        <div className="flex gap-2">
+          <div className="h-8 w-40 animate-pulse rounded-control bg-bg-tertiary" />
+          <div className="h-8 w-32 animate-pulse rounded-control bg-bg-tertiary" />
+        </div>
+        <div className="h-40 animate-pulse rounded-panel bg-bg-secondary" />
       </div>
     );
   }
 
-  if (!activeSpace) {
+  if (!activeSpace || activeSpace.id !== spaceId) {
     return (
       <div className="mx-auto max-w-2xl space-y-4 p-4 text-center sm:p-6">
         <p className="text-text-secondary">
@@ -199,7 +229,7 @@ export function CourseSpacePage() {
     const materials = activeSpaceContent.map((c) => `- ${c.title}`).join("\n");
     const seedPrompt =
       t("spaces.askAiSeedIntro", {
-        defaultValue: `I'm studying the course "${activeSpace.name}". Its materials are:`,
+        defaultValue: 'I\'m studying the course "{{name}}". Its materials are:',
         name: activeSpace.name,
       }) +
       "\n" +
@@ -213,16 +243,99 @@ export function CourseSpacePage() {
     navigate("/chat");
   };
 
+  // secondary + administrative actions, one kebab instead of a button row
+  const spaceMenuEntries = (): ContextMenuEntry[] => {
+    const items: ContextMenuEntry[] = [
+      {
+        id: "gallery",
+        label: t("spaces.sharedAnswers", { defaultValue: "Shared answers" }),
+        icon: MessagesSquare,
+        onClick: () => navigate(`/spaces/${spaceId}/gallery`),
+      },
+    ];
+    if (owner) {
+      items.push(
+        {
+          id: "add-content",
+          label: t("spaces.addContent", { defaultValue: "Add content" }),
+          icon: Plus,
+          onClick: () => setAddOpen(true),
+        },
+        {
+          id: "add-term",
+          label: t("spaces.addTerm", { defaultValue: "Add term" }),
+          icon: CalendarPlus,
+          onClick: () => setAddTermOpen(true),
+        },
+        {
+          id: "add-child",
+          label: t("spaces.addChild", { defaultValue: "New space" }),
+          icon: FolderPlus,
+          onClick: () => setAddChildOpen(true),
+        },
+      );
+    }
+    if (!owner && isMember) {
+      items.push({
+        id: "leave",
+        label: t("spaces.leaveCourse", { defaultValue: "Leave course" }),
+        icon: LogOut,
+        onClick: () => void handleEnroll(),
+      });
+    }
+    if (owner || isAdmin) {
+      items.push(
+        { id: "div-delete", divider: true },
+        {
+          id: "delete",
+          label: t("spaces.delete.action", { defaultValue: "Delete space" }),
+          icon: Trash2,
+          danger: true,
+          onClick: () => {
+            void (async () => {
+              const ok = await confirm({
+                title: t("spaces.delete.title", {
+                  defaultValue: "Delete this space?",
+                }),
+                body: t("spaces.delete.body", {
+                  defaultValue:
+                    "Everything nested under it (spaces, files, members) goes too. Members' personal copies stay in their libraries.",
+                }),
+                confirmLabel: t("common.delete"),
+                danger: true,
+              });
+              if (!ok) return;
+              await deleteSpace(spaceId!);
+              navigate(
+                activeSpace.parent_id
+                  ? `/spaces/${activeSpace.parent_id}`
+                  : "/spaces",
+              );
+            })();
+          },
+        },
+      );
+    }
+    return items;
+  };
+
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
       {/* Back + beta */}
       <div className="flex items-center justify-between">
         <Link
-          to="/spaces"
+          // nested space: back = one level up the tree, root: the list
+          to={
+            activeSpace.parent_id
+              ? `/spaces/${activeSpace.parent_id}`
+              : "/spaces"
+          }
           className="inline-flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text-primary"
         >
           <ArrowLeft size={14} />
-          {t("spaces.back", { defaultValue: "Back to spaces" })}
+          {activeSpace.parent_id
+            ? t("spaces.backToParent", { defaultValue: "Parent space" })
+            : t("spaces.back", { defaultValue: "Back to spaces" })}
         </Link>
         <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 font-mono text-2xs uppercase tracking-wide text-accent">
           {t("spaces.beta", { defaultValue: "Beta" })}
@@ -231,6 +344,28 @@ export function CourseSpacePage() {
 
       {/* Header */}
       <header className="space-y-2">
+        {/* breadcrumb trail: the folder-like view of the nesting */}
+        {activeSpaceAncestors.length > 0 && (
+          <nav
+            aria-label={t("spaces.breadcrumb", { defaultValue: "Space path" })}
+            className="flex flex-wrap items-center gap-1 text-xs text-text-muted"
+          >
+            {activeSpaceAncestors.map((a) => (
+              <span key={a.id} className="flex items-center gap-1">
+                <Link
+                  to={`/spaces/${a.id}`}
+                  className="rounded-control px-1 py-0.5 transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                >
+                  {a.name}
+                </Link>
+                <span aria-hidden="true" className="text-text-muted-2">/</span>
+              </span>
+            ))}
+            <span className="px-1 font-medium text-text-secondary">
+              {activeSpace.name}
+            </span>
+          </nav>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="flex items-center gap-1.5 text-2xl font-bold text-text-primary">
             <span className="break-words">{activeSpace.name}</span>
@@ -238,25 +373,10 @@ export function CourseSpacePage() {
               <BadgeCheck size={20} className="shrink-0 text-accent" aria-label="Official" />
             )}
           </h1>
-          {owner ? (
-            <span className="rounded-full border border-glass-border bg-glass-bg px-2 py-0.5 text-2xs font-medium text-text-secondary">
+          {owner && (
+            <span className="rounded-full bg-bg-tertiary px-2 py-0.5 text-2xs font-medium text-text-secondary">
               {t("spaces.ownerChip", { defaultValue: "Owner" })}
             </span>
-          ) : (
-            <Button
-              variant={isMember ? "secondary" : "soft"}
-              size="sm"
-              onClick={handleEnroll}
-              disabled={busy}
-            >
-              {busy ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : isMember ? (
-                t("spaces.leaveCourse", { defaultValue: "Leave course" })
-              ) : (
-                t("spaces.enroll", { defaultValue: "Enroll" })
-              )}
-            </Button>
           )}
         </div>
 
@@ -264,6 +384,13 @@ export function CourseSpacePage() {
           {t(`spaces.kind.${activeSpace.kind}`, { defaultValue: activeSpace.kind })}
           {activeSpace.visibility !== "public" &&
             ` · ${t(`spaces.visibility.${activeSpace.visibility}`, { defaultValue: activeSpace.visibility })}`}
+          {/* make "this is not your space" explicit for members */}
+          {!owner &&
+            ` · ${t("spaces.managedByOwner", {
+              defaultValue: "managed by its owner",
+            })}`}
+          {activeSpaceOfferings.length > 0 &&
+            ` · ${activeSpaceOfferings[0].term_label}`}
         </p>
 
         {activeSpace.description && (
@@ -271,142 +398,103 @@ export function CourseSpacePage() {
         )}
       </header>
 
-      {/* Actions row */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="soft" size="sm" onClick={askAi}>
-          <Sparkles size={14} />
-          {t("spaces.askAi", { defaultValue: "Ask AI about this course" })}
-        </Button>
-        <Link to={`/spaces/${spaceId}/gallery`}>
-          <Button variant="secondary" size="sm">
-            <MessagesSquare size={14} />
-            {t("spaces.sharedAnswers", { defaultValue: "Shared answers" })}
-          </Button>
-        </Link>
-        {owner && (
-          <Button variant="soft" size="sm" onClick={() => setAddOpen(true)}>
-            <Plus size={14} />
-            {t("spaces.addContent", { defaultValue: "Add content" })}
-          </Button>
+      {/* One primary action; everything administrative lives in the kebab */}
+      <div className="flex items-center gap-2">
+        {owner || isMember ? (
+          <button
+            type="button"
+            onClick={askAi}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-bg-primary transition-opacity hover:opacity-90"
+          >
+            <Sparkles size={15} strokeWidth={1.5} />
+            {t("spaces.startLearning", { defaultValue: "Start learning" })}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleEnroll}
+            disabled={busy}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-bg-primary transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {busy ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              t("spaces.enroll", { defaultValue: "Enroll" })
+            )}
+          </button>
         )}
+        <IconButton
+          size="md"
+          onClick={(e) => openMenuAtButton(e, spaceMenuEntries())}
+          aria-label={t("spaces.actions", { defaultValue: "Space actions" })}
+          title={t("spaces.actions", { defaultValue: "Space actions" })}
+        >
+          <MoreHorizontal size={18} strokeWidth={1.5} />
+        </IconButton>
       </div>
 
-      {/* Child spaces / courses */}
-      {(owner || activeSpaceChildren.length > 0) && (
+      {/* Shared course files (owner uploads, members get personal copies) */}
+      <SpaceFilesSection spaceId={activeSpace.id} owner={owner} isMember={isMember} />
+      {owner && activeSpace.visibility !== "public" && (
+        <SpaceInviteSection spaceId={activeSpace.id} />
+      )}
+
+      {/* Child spaces: compact rows (creation moved to the kebab) */}
+      {activeSpaceChildren.length > 0 && (
         <section className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-text-primary">
-              {t("spaces.childrenHeading", { defaultValue: "Courses & spaces" })}
-            </h2>
-            {owner && (
-              <Button variant="soft" size="sm" onClick={() => setAddChildOpen(true)}>
-                <Plus size={14} />
-                {t("spaces.addChild", { defaultValue: "New space" })}
-              </Button>
-            )}
+          <h2 className={SECTION_CAPTION}>
+            {t("spaces.childrenHeading", { defaultValue: "Courses & spaces" })}
+          </h2>
+          <div className="overflow-hidden rounded-panel bg-bg-secondary">
+            {activeSpaceChildren.map((child) => (
+              <button
+                key={child.id}
+                type="button"
+                onClick={() => navigate(`/spaces/${child.id}`)}
+                className="flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-bg-tertiary"
+              >
+                <Folder size={16} strokeWidth={1.5} className="shrink-0 text-text-muted" />
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">
+                  {child.name}
+                </span>
+                {child.official && (
+                  <BadgeCheck size={14} className="shrink-0 text-accent" aria-label="Official" />
+                )}
+                <span className="shrink-0 font-mono text-2xs uppercase tracking-wide text-text-muted-2">
+                  {t(`spaces.kind.${child.kind}`, { defaultValue: child.kind })}
+                </span>
+              </button>
+            ))}
           </div>
-          {activeSpaceChildren.length === 0 ? (
-            owner ? (
-              <p className="text-sm text-text-muted">
-                {t("spaces.childrenEmptyOwner", {
-                  defaultValue: "No nested spaces yet, add a course or topic under this space.",
-                })}
-              </p>
-            ) : null
-          ) : (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {activeSpaceChildren.map((child) => (
-                <div
-                  key={child.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => navigate(`/spaces/${child.id}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      navigate(`/spaces/${child.id}`);
-                    }
-                  }}
-                  className="group flex cursor-pointer flex-col gap-1 rounded-xl border border-glass-border bg-bg-secondary p-3 text-left transition-colors hover:border-accent/40"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <span className="min-w-0 flex-1 truncate font-medium text-text-primary">
-                      {child.name}
-                    </span>
-                    {child.official && (
-                      <BadgeCheck
-                        size={15}
-                        className="shrink-0 text-accent"
-                        aria-label="Official"
-                      />
-                    )}
-                  </span>
-                  <span className="font-mono text-2xs uppercase tracking-wide text-text-muted">
-                    {t(`spaces.kind.${child.kind}`, { defaultValue: child.kind })}
-                  </span>
-                  {child.description && (
-                    <span className="line-clamp-2 text-2xs text-text-secondary">
-                      {child.description}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
         </section>
       )}
 
-      {/* Offerings / terms */}
-      {(owner || activeSpaceOfferings.length > 0) && (
+      {/* Offerings / terms (creation moved to the kebab; empty = hidden) */}
+      {activeSpaceOfferings.length > 0 && (
         <section className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-text-primary">
-              {t("spaces.offeringsHeading", { defaultValue: "Terms" })}
-            </h2>
-            {owner && (
-              <Button variant="soft" size="sm" onClick={() => setAddTermOpen(true)}>
-                <Plus size={14} />
-                {t("spaces.addTerm", { defaultValue: "Add term" })}
-              </Button>
-            )}
-          </div>
-          {activeSpaceOfferings.length === 0 ? (
-            owner ? (
-              <p className="text-sm text-text-muted">
-                {t("spaces.offeringsEmptyOwner", {
-                  defaultValue: "No terms yet, add one to show when this course runs.",
-                })}
-              </p>
-            ) : null
-          ) : (
-            <ul className="space-y-2">
-              {activeSpaceOfferings.map((offering) => (
-                <OfferingRow
-                  key={offering.id}
-                  offering={offering}
-                  owner={owner}
-                  onRemove={() => void removeOffering(offering.id)}
-                />
-              ))}
-            </ul>
-          )}
+          <h2 className={SECTION_CAPTION}>
+            {t("spaces.offeringsHeading", { defaultValue: "Terms" })}
+          </h2>
+          <ul className="space-y-2">
+            {activeSpaceOfferings.map((offering) => (
+              <OfferingRow
+                key={offering.id}
+                offering={offering}
+                owner={owner}
+                onRemove={() => void removeOffering(offering.id)}
+              />
+            ))}
+          </ul>
         </section>
       )}
 
-      {/* Content list */}
+      {/* Content list (empty = hidden, the kebab holds "Add content") */}
+      {activeSpaceContent.length > 0 && (
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-text-primary">
+        <h2 className={SECTION_CAPTION}>
           {t("spaces.contentHeading", { defaultValue: "Course content" })}
         </h2>
-        {activeSpaceContent.length === 0 ? (
-          <p className="text-sm text-text-muted">
-            {owner
-              ? t("spaces.contentEmptyOwner", {
-                  defaultValue: "No content yet, add books, quizzes, or links to build the course.",
-                })
-              : t("spaces.contentEmpty", { defaultValue: "No content has been added yet." })}
-          </p>
-        ) : (
+        {activeSpaceContent.length === 0 ? null : (
           <ul className="space-y-2">
             {activeSpaceContent.map((item) => {
               const Icon = KIND_ICON[item.kind] ?? Video;
@@ -479,6 +567,7 @@ export function CourseSpacePage() {
           </ul>
         )}
       </section>
+      )}
 
       {owner && addOpen && (
         <AddContentModal spaceId={spaceId} onClose={() => setAddOpen(false)} />
@@ -488,6 +577,7 @@ export function CourseSpacePage() {
         <AddTermModal spaceId={spaceId} onClose={() => setAddTermOpen(false)} />
       )}
 
+      {ConfirmModalElement}
       {owner && addChildOpen && (
         <AddChildModal spaceId={spaceId} onClose={() => setAddChildOpen(false)} />
       )}

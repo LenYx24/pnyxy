@@ -144,7 +144,7 @@ export function ChatSidebar({
         try {
           localStorage.setItem(SIDEBAR_STORAGE_KEY, String(lastWidth));
         } catch {
-          // ignore
+          // storage unavailable (private mode / quota); the default takes over
         }
       };
       document.addEventListener("mousemove", onMove);

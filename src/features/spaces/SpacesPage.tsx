@@ -119,6 +119,9 @@ export function SpacesPage() {
         {error && <p className="text-xs text-danger">{error}</p>}
       </section>
 
+      {/* Join a private space with an invite code */}
+      <JoinWithCode />
+
       {loading ? (
         <div className="flex items-center justify-center py-16 text-text-muted">
           <Loader2 className="h-6 w-6 animate-spin" />
@@ -201,6 +204,62 @@ function Header() {
         </p>
       </div>
     </div>
+  );
+}
+
+/** "Have a code?" row: joins a private course and navigates into it. */
+function JoinWithCode() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const joinWithCode = useSpaceStore((s) => s.joinWithCode);
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async () => {
+    const trimmed = code.trim();
+    if (!trimmed || busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const spaceId = await joinWithCode(trimmed);
+      navigate(`/spaces/${spaceId}`);
+    } catch {
+      setErr(
+        t("spaces.joinCode.invalid", {
+          defaultValue: "That code doesn't match any course.",
+        }),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="space-y-2">
+      <h2 className="text-sm font-semibold text-text-primary">
+        {t("spaces.joinCode.heading", { defaultValue: "Join with an invite code" })}
+      </h2>
+      <div className="flex items-center gap-2">
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && void submit()}
+          placeholder={t("spaces.joinCode.placeholder", {
+            defaultValue: "e.g. 4f9a2c1b",
+          })}
+          className="field max-w-xs bg-bg-tertiary font-mono tracking-widest"
+        />
+        <Button variant="soft" onClick={() => void submit()} disabled={busy || !code.trim()}>
+          {busy ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            t("spaces.joinCode.join", { defaultValue: "Join" })
+          )}
+        </Button>
+      </div>
+      {err && <p className="text-xs text-danger">{err}</p>}
+    </section>
   );
 }
 
