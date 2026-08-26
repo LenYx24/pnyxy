@@ -25,21 +25,21 @@ export const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
   tagline: string;
 }> = [
   {
-    id: "gemini-2.5-flash-lite",
-    label: "Gemini 2.5 Flash-Lite",
+    id: "gemini-3.5-flash-lite",
+    label: "Gemini 3.5 Flash-Lite",
     costTier: "cheap",
     tagline: "Cheapest · auto-route default",
   },
   {
-    id: "gemini-2.5-flash",
-    label: "Gemini 2.5 Flash",
+    id: "gemini-3.6-flash",
+    label: "Gemini 3.6 Flash",
     costTier: "cheap",
     tagline: "Fuller Flash · step-up from Lite",
   },
   {
     // mid tier: auto-route still prefers 2.5 Flash, pin this to force it
-    id: "gemini-3-flash-preview",
-    label: "Gemini 3 Flash (preview)",
+    id: "gemini-3.7-flash",
+    label: "Gemini 3.7 Flash",
     costTier: "mid",
     tagline: "Newest Google model · top casual chat",
   },
@@ -59,19 +59,19 @@ export const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
 
 // Quota reference model when nothing is pinned (the model the auto-route bills
 // first). Reader Q&A (a doc is open -> grounding off) bills flash-lite; standalone
-// chat (no doc -> web grounding on) bills gemini-3-flash-preview. The footer has to
+// chat (no doc -> web grounding on) bills gemini-3.7-flash. The footer has to
 // read whichever row the proxy actually records or it sits permanently at 0.
-export const QUOTA_AUTO_DEFAULT_MODEL = "gemini-2.5-flash-lite";
-export const QUOTA_AUTO_GROUNDED_MODEL = "gemini-3-flash-preview";
+export const QUOTA_AUTO_DEFAULT_MODEL = "gemini-3.5-flash-lite";
+export const QUOTA_AUTO_GROUNDED_MODEL = "gemini-3.7-flash";
 
 /** The proxy's auto-route order (OPENAI_COMPATIBLE_PROVIDERS, then the
  *  Anthropic fallback). A bucket that is exhausted is skipped to the
  *  next one, so "questions left" on the auto route has to walk it. */
 export const AUTO_ROUTE_CHAIN: ReadonlyArray<string> = [
-  "gemini-2.5-flash-lite",
-  "gemini-2.5-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-3.6-flash",
   "gpt-4o-mini",
-  "gemini-3-flash-preview",
+  "gemini-3.7-flash",
   "claude-haiku-4-5",
 ];
 

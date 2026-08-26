@@ -207,7 +207,9 @@ export function Tooltip({
               transitionDuration: `${ANIM_MS}ms`,
             }}
             className={cn(
-              "pointer-events-none fixed z-[110] flex max-w-[16rem] items-center gap-2 whitespace-nowrap rounded-control bg-bg-tertiary px-2.5 py-1.5 text-xs font-medium text-text-primary shadow-page",
+              // inverted colors on purpose (white on dark theme, dark on light):
+              // the strongest possible separation from the page, like Google's
+              "pointer-events-none fixed z-[110] flex max-w-[16rem] items-center gap-2 whitespace-nowrap rounded-control bg-text-primary px-2.5 py-1.5 text-xs font-medium text-bg-primary shadow-page",
               // scale in from ~90% with a blur-to-sharp settle; never from zero
               "transition-[opacity,transform,filter] ease-[cubic-bezier(0.3,1.35,0.65,1)] motion-reduce:transition-none motion-reduce:transform-none",
               origin,

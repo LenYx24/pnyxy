@@ -7,14 +7,18 @@
 import "../_shared/deno-shim.ts";
 import { corsFor, handleOptions, jsonError as jsonErrorWith } from "../_shared/http.ts";
 import { estimateTokens, getClientIp, hashIp, ipHashSalt } from "../_shared/tokens.ts";
+import { teacherBlock } from "../_shared/teacher-mode.ts";
 // @ts-expect-error Deno-only import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const OPENAI_MODEL = "gpt-4o-mini";
 const ANTHROPIC_MODEL = "claude-haiku-4-5";
-const GEMINI_FLASH_LITE_MODEL = "gemini-2.5-flash-lite";
-const GEMINI_MODEL = "gemini-2.5-flash";
-const GEMINI_3_FLASH_MODEL = "gemini-3-flash-preview";
+// Google retired the 2.x ids for new API users (404: "no longer
+// available to new users") -> current stable ids as of 2026-08.
+// These double as quota-bucket keys; migration 00063 maps them.
+const GEMINI_FLASH_LITE_MODEL = "gemini-3.5-flash-lite";
+const GEMINI_MODEL = "gemini-3.6-flash";
+const GEMINI_3_FLASH_MODEL = "gemini-3.7-flash";
 const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
 
 /**
@@ -221,6 +225,12 @@ ${
 When you write mathematical expressions, wrap inline math in single-dollar delimiters ($x^2$) and display equations in double-dollar delimiters ($$\\sum_{i=1}^n i$$). The chat UI renders these as proper formulas via KaTeX.`;
   }
 
+  // The standalone /chat prompt always had this; the document prompts
+  // lacked it, and the (English) teacher-mode block then tipped replies
+  // into English for Hungarian users.
+  const langRule =
+    "Match the user's language: reply in Hungarian when they write in Hungarian, English otherwise, and switch fluidly if they mix.";
+
   const hasText = pageContext.trim().length > 0;
 
   // Image PDF (or user forced image mode): page content arrives as
@@ -232,7 +242,9 @@ When you write mathematical expressions, wrap inline math in single-dollar delim
   if (!hasText && hasImages) {
     return `You are an AI assistant helping the user understand a PDF document titled "${documentTitle}".
 
-The user has attached the relevant pages of the document as images. Read those images carefully and answer questions about their content. Reference specific page numbers (visible in the image labels) when relevant.`;
+The user has attached the relevant pages of the document as images. Read those images carefully and answer questions about their content. Reference specific page numbers (visible in the image labels) when relevant.
+
+${langRule}`;
   }
 
   // Plain text-extracted context: the original path.
@@ -245,13 +257,17 @@ Here is the text from the pages the user is currently viewing:
 ${pageContext}
 ---
 
-Answer questions about this document. Be concise and helpful. Reference specific page numbers when relevant. If the answer is not in the provided text, say so.`;
+Answer questions about this document. Be concise and helpful. Reference specific page numbers when relevant. If the answer is not in the provided text, say so.
+
+${langRule}`;
   }
 
   // Doc set but nothing selected and nothing attached, generic doc
   // helper. Avoids the previous "Here is the text:\n---\n---" frame
   // that made the model think it had context it didn't.
-  return `You are an AI assistant helping the user with a PDF document titled "${documentTitle}". The user hasn't selected any pages or attached images yet; answer general questions about the document or ask the user to point you at a specific section.`;
+  return `You are an AI assistant helping the user with a PDF document titled "${documentTitle}". The user hasn't selected any pages or attached images yet; answer general questions about the document or ask the user to point you at a specific section.
+
+${langRule}`;
 }
 
 // ── Anthropic prompt caching ─────────────────────────────────
@@ -437,6 +453,31 @@ Deno.serve(async (req) => {
     return { ok: false, rpcError: "no_quota_path" };
   }
 
+  /** Give the pre-billed tokens back after an upstream failure so a
+   *  broken provider in the chain doesn't drain buckets it never
+   *  served from. Best-effort: refund errors are logged and ignored
+   *  (also fires while migration 00062 is missing). */
+  async function refundUsage(model: string): Promise<void> {
+    try {
+      if (isAuthed && userClient) {
+        const { error } = await userClient.rpc("refund_ai_usage_user", {
+          p_tokens: estimatedTotal,
+          p_model: model,
+        });
+        if (error) console.error("refund_ai_usage_user failed:", error.message);
+      } else if (adminClient && anonIpHash) {
+        const { error } = await adminClient.rpc("refund_ai_usage_anon", {
+          p_ip_hash: anonIpHash,
+          p_tokens: estimatedTotal,
+          p_model: model,
+        });
+        if (error) console.error("refund_ai_usage_anon failed:", error.message);
+      }
+    } catch (err) {
+      console.error("refund failed:", err);
+    }
+  }
+
   // Scan the user-side messages for image blocks so the system
   // prompt can adapt to the "pages were sent as images" path.
   const hasImages =
@@ -466,6 +507,8 @@ Deno.serve(async (req) => {
     (preferredModel === null || preferredModel === GEMINI_3_FLASH_MODEL) &&
     groundingModelAvailable;
 
+  // Teacher mode rides only on the default prompts; override flows
+  // (quiz gen, recommendations, roadmap) are functional, not tutoring.
   const systemPrompt =
     body.systemPromptOverride ??
     buildSystemPrompt(
@@ -473,7 +516,7 @@ Deno.serve(async (req) => {
       body.pageContext,
       hasImages,
       useGrounding,
-    );
+    ) + teacherBlock();
 
   // ── Tool mode: Anthropic only (passes through all SSE events) ──
   if (toolMode) {
@@ -506,17 +549,17 @@ Deno.serve(async (req) => {
     if (stream) {
       return new Response(stream, { headers: sseHeaders });
     }
+    await refundUsage(ANTHROPIC_MODEL);
     return jsonError(502, "upstream_error", "Anthropic upstream failed");
   }
 
   // ── Plain text mode: walk the OpenAI-compat chain in priority
   //    order, billing each provider's own bucket before its upstream
   //    attempt. A quota-exceeded model is skipped to the next one;
-  //    an upstream failure also falls through (the failed bucket
-  //    keeps its charge, acceptable as resilience-deterrent vs the
-  //    complexity of a refund path). If everything in the compat
-  //    chain failed for either reason, try Anthropic as the final
-  //    fallback before giving up. ──
+  //    an upstream failure also falls through after refunding its
+  //    pre-billed charge (migration 00062). If everything in the
+  //    compat chain failed for either reason, try Anthropic as the
+  //    final fallback before giving up. ──
   //
   // `preferredModel` (from the client's ModelPicker) narrows the
   // chain to a single model when the user picked one explicitly.
@@ -596,7 +639,8 @@ Deno.serve(async (req) => {
     if (stream) {
       return new Response(stream, { headers: sseHeaders });
     }
-    // Upstream failed (after quota was billed), fall through to next.
+    // Upstream failed after quota was billed: refund, fall through to next.
+    await refundUsage(provider.model);
   }
 
   if (anthropicKey && !skipAnthropicFallback) {
@@ -614,6 +658,7 @@ Deno.serve(async (req) => {
       if (stream) {
         return new Response(stream, { headers: sseHeaders });
       }
+      await refundUsage(ANTHROPIC_MODEL);
     } else {
       lastQuotaFailure = billed.quota;
     }

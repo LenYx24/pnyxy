@@ -13,7 +13,7 @@ import {
 } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { GitBranch, Map as MapIcon, X } from "lucide-react";
+import { Map as MapIcon } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { chipClass } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -25,7 +25,7 @@ import {
 } from "@/lib/reading-context";
 import { useChatStore } from "@/stores/chat-store";
 import { useRoadmap, useRoadmapStore } from "@/stores/roadmap-store";
-import type { ChatConversation, ChatMessage } from "@/types/chat";
+import type { ChatConversation } from "@/types/chat";
 import { ChatComposer, type ChatComposerSubmitPayload } from "../ChatComposer";
 import type { ScopeSource } from "./useChatPageState";
 
@@ -35,10 +35,6 @@ interface ComposerDockProps {
   activeId: string | null;
   activeConversation: ChatConversation | null;
   scopeSource: ScopeSource;
-  /** Message the next send forks under, if "branch here" was picked. */
-  branchFromId: string | null;
-  branchParent: ChatMessage | null | undefined;
-  onClearBranch: () => void;
   /** Wraps the composer so the page can focus its textarea. */
   composerWrapRef: RefObject<HTMLDivElement | null>;
 }
@@ -49,9 +45,6 @@ export function ComposerDock({
   activeId,
   activeConversation,
   scopeSource,
-  branchFromId,
-  branchParent,
-  onClearBranch,
   composerWrapRef,
 }: ComposerDockProps) {
   const { t } = useTranslation();
@@ -62,14 +55,12 @@ export function ComposerDock({
     createConversation,
     sendMessage,
     sendImageMessage,
-    branchFrom,
   } = useChatStore(
     useShallow((s) => ({
       streamingMessageId: s.streamingMessageId,
       createConversation: s.createConversation,
       sendMessage: s.sendMessage,
       sendImageMessage: s.sendImageMessage,
-      branchFrom: s.branchFrom,
     })),
   );
 
@@ -127,24 +118,15 @@ export function ComposerDock({
               ...(payload.reasoning ? { reasoning: true } : {}),
             }
           : undefined;
-      if (branchFromId) {
-        const parentId = branchFromId;
-        onClearBranch();
-        await branchFrom(parentId, text, provider, attachments, sendOptions);
-      } else {
-        if (!activeId) {
-          const id = await createConversation("", null, scopeSource);
-          if (!id) return;
-        }
-        await sendMessage(text, provider, attachments, sendOptions);
+      if (!activeId) {
+        const id = await createConversation("", null, scopeSource);
+        if (!id) return;
       }
+      await sendMessage(text, provider, attachments, sendOptions);
     },
     [
       onChange,
-      branchFromId,
-      onClearBranch,
       activeId,
-      branchFrom,
       createConversation,
       sendMessage,
       sendImageMessage,
@@ -189,7 +171,7 @@ export function ComposerDock({
 
   return (
     <div className="mx-auto w-full max-w-[820px] px-3 pb-0 pt-3 sm:px-7 sm:pb-5 sm:pt-4">
-      {(roadmapsEnabled && targetRoadmapId) || branchParent ? (
+      {roadmapsEnabled && targetRoadmapId ? (
         <div className="mb-2 flex flex-wrap items-center gap-2">
           {/* roadmap edit-mode chip, shown when this conversation is tied to a roadmap */}
           {roadmapsEnabled && targetRoadmapId && (
@@ -212,28 +194,6 @@ export function ComposerDock({
               >
                 {t("chat.openInEditor")}
               </a>
-            </span>
-          )}
-          {/* branch-from banner (cancel with the x) */}
-          {branchParent && (
-            <span className={cn(chipClass, "max-w-full pr-1.5")}>
-              <GitBranch size={14} strokeWidth={1.5} className="shrink-0" />
-              <span className="min-w-0 truncate">
-                {t("chat.branchingFrom", {
-                  snippet:
-                    branchParent.content.slice(0, 48) +
-                    (branchParent.content.length > 48 ? "…" : ""),
-                })}
-              </span>
-              <button
-                type="button"
-                onClick={onClearBranch}
-                className="ml-0.5 rounded-full p-0.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
-                aria-label={t("common.cancel")}
-                title={t("common.cancel")}
-              >
-                <X size={12} strokeWidth={1.5} />
-              </button>
             </span>
           )}
         </div>

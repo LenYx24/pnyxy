@@ -89,12 +89,24 @@ const RAIL_SHORTCUTS: Record<string, string> = {
   chat: "app:new-chat",
 };
 
+/** Hover-prewarm of route chunks: the specifiers match router.tsx's lazy()
+ *  imports, so Vite hands back the same chunk and the click after the
+ *  hover mounts without a network wait. Failures are irrelevant here,
+ *  the router's lazyWithRetry still owns the real load. */
+const RAIL_PRELOADS: Record<string, () => void> = {
+  library: () => void import("@/features/library/LibraryPage").catch(() => {}),
+  streaks: () => void import("@/features/streaks/StreaksPage").catch(() => {}),
+  settings: () =>
+    void import("@/features/settings/SettingsPage").catch(() => {}),
+};
+
 function RailLink({ item, label }: { item: NavItem; label: string }) {
   const Icon = item.icon;
   return (
     <Tooltip label={label} shortcut={RAIL_SHORTCUTS[item.key]}>
       <NavLink
         to={item.to}
+        onPointerEnter={RAIL_PRELOADS[item.key]}
         // exact match: without `end` NavLink prefix-matches and /quizzes
         // stays highlighted on /quizzes/review
         end
@@ -229,6 +241,7 @@ function Rail() {
             <Tooltip label={t("sidebar.settings")} shortcut="app:open-settings">
               <NavLink
                 to="/settings"
+                onPointerEnter={RAIL_PRELOADS.settings}
                 aria-label={t("sidebar.settings")}
                 className={({ isActive }) =>
                   cn(railItemClass, isActive ? railActive : railInactive)

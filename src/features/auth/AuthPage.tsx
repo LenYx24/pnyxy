@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "lucide-react";
-import { MeshBackground, Button } from "@/components/ui";
+import { MeshBackground, Button, Checkbox } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
 
 type AuthTab = "sign-in" | "create-account";
@@ -49,6 +49,8 @@ export function AuthPage() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [signUpSuccess, setSignUpSuccess] = useState(false);
+  // pilot consent (telemetry + anonymized thesis use); gates sign-up only
+  const [consent, setConsent] = useState(false);
 
   if (user) {
     return <Navigate to="/library" replace />;
@@ -67,6 +69,14 @@ export function AuthPage() {
         await signIn(email, password);
         navigate("/auth/welcome");
       } else {
+        if (!consent) {
+          setLocalError(
+            t("auth.consent.required", {
+              defaultValue: "Please accept the data-use consent to register.",
+            }),
+          );
+          return;
+        }
         await signUp(email, password, displayName.trim() || undefined);
         // If email confirmation is enabled, no session will be created immediately.
         const { session } = useAuthStore.getState();
@@ -87,6 +97,15 @@ export function AuthPage() {
 
   async function handleGoogleSignIn() {
     setLocalError(null);
+    // Google on the sign-up tab still needs the consent tick
+    if (tab === "create-account" && !consent) {
+      setLocalError(
+        t("auth.consent.required", {
+          defaultValue: "Please accept the data-use consent to register.",
+        }),
+      );
+      return;
+    }
     setGoogleSubmitting(true);
     try {
       await signInWithGoogle();
@@ -118,7 +137,7 @@ export function AuthPage() {
             </span>
           </h1>
           <p className="mt-1 text-sm text-text-muted">
-            Your intelligent reading companion
+            {t("landing.tagline")}
           </p>
         </div>
 
@@ -224,6 +243,27 @@ export function AuthPage() {
               </div>
             )}
           </div>
+
+          {tab === "create-account" && (
+            <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed text-text-muted">
+              <span className="mt-0.5 shrink-0">
+                <Checkbox checked={consent} onChange={setConsent} />
+              </span>
+              <span>
+                {t("auth.consent.text", {
+                  defaultValue:
+                    "I agree that Pnyxy collects anonymous usage data (feature usage, session length, never message or document content) and that pilot findings may be used, anonymized, in academic work.",
+                })}{" "}
+                <Link
+                  to="/privacy"
+                  target="_blank"
+                  className="text-accent hover:underline"
+                >
+                  {t("auth.consent.privacyLink", { defaultValue: "Privacy" })}
+                </Link>
+              </span>
+            </label>
+          )}
 
           {displayError && (
             <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">

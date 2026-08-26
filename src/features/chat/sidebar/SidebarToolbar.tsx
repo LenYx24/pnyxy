@@ -181,17 +181,20 @@ export function SidebarToolbar({
               )}
             </IconButton>
           )}
-          <Tooltip label={t("chat.newConversation")} shortcut="chat:new" side="bottom">
-            <IconButton
-              size="sm"
-              onClick={onNew}
-              aria-label={t("chat.newConversation")}
-            >
-              <SquarePen size={18} strokeWidth={1.5} />
-            </IconButton>
-          </Tooltip>
         </div>
       </div>
+
+      {/* new chat: the primary action gets a full-width button above the search */}
+      <Tooltip label={t("chat.newConversation")} shortcut="chat:new" side="bottom">
+        <button
+          type="button"
+          onClick={onNew}
+          className="mb-1.5 flex w-full items-center gap-2.5 rounded-control bg-bg-tertiary px-3 py-2 text-[13px] font-medium text-text-primary transition-colors cursor-pointer hover:bg-surface-3"
+        >
+          <SquarePen size={16} strokeWidth={1.5} className="shrink-0" />
+          {t("chat.newConversation")}
+        </button>
+      </Tooltip>
 
       {/* conversation search, hidden when there's nothing to search */}
       {showSearch && (

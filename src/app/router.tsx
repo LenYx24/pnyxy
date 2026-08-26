@@ -429,6 +429,8 @@ export const router = createBrowserRouter([
       { path: "download", element: <DownloadPage /> },
       { path: "leaderboards", element: <FeatureGate feature="leaderboards"><LeaderboardsPage /></FeatureGate> },
       { path: "chat", element: <ChatPage /> },
+      // every conversation is linkable: /chat/<conversationId>
+      { path: "chat/:conversationId", element: <ChatPage /> },
     ],
   },
 ]);

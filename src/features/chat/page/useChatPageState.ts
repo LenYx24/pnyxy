@@ -6,7 +6,7 @@
  * draft. Sidebar and thread own their own local state.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -104,7 +104,6 @@ export function useChatPageState(scope?: ChatPageScope) {
   const [input, setInput] = useState("");
   // mobile-only slide-in conversation drawer
   const [mobileListOpen, setMobileListOpen] = useState(false);
-  const [branchFromId, setBranchFromId] = useState<string | null>(null);
 
   // True once the first conversation-list fetch has settled. Until then we
   // cannot know whether a thread will be auto-opened, so the sheet stays in
@@ -155,15 +154,44 @@ export function useChatPageState(scope?: ChatPageScope) {
     useChatStore.getState().clearActive();
   }, [scope, activeId, conversations]);
 
+  // Every conversation is addressable as /chat/:conversationId so threads
+  // can be linked and reopened. Book-scoped pages keep their own routes.
+  const params = useParams<{ conversationId?: string }>();
+  const routeConvId = scope ? null : params.conversationId ?? null;
+  const navigate = useNavigate();
+
+  // URL -> store: deep links and back/forward restore the thread
+  useEffect(() => {
+    if (!user || !routeConvId) return;
+    if (useChatStore.getState().activeConversationId === routeConvId) return;
+    void openConversation(routeConvId);
+  }, [user, routeConvId, openConversation]);
+
+  // store -> URL: whatever is open, the address bar is shareable
+  useEffect(() => {
+    if (scope || !user) return;
+    if (activeId && routeConvId !== activeId) {
+      navigate(`/chat/${activeId}`, { replace: true });
+    } else if (
+      !activeId &&
+      routeConvId &&
+      // a deep link being opened right now (the effect above already set
+      // the store synchronously) must not be stripped back to /chat
+      useChatStore.getState().activeConversationId === null
+    ) {
+      navigate("/chat", { replace: true });
+    }
+  }, [scope, user, activeId, routeConvId, navigate]);
+
   // auto-open the most recent conversation on a fresh /chat, unless a
-  // reader-handoff draft is in flight
+  // reader-handoff draft is in flight or a deep link names the thread
   useEffect(() => {
     if (!user) return;
-    if (activeId) return;
+    if (activeId || routeConvId) return;
     if (visibleConversations.length === 0) return;
     if (!scope && useChatStore.getState().pendingDraft !== null) return;
     void openConversation(visibleConversations[0].id);
-  }, [user, activeId, visibleConversations, openConversation, scope]);
+  }, [user, activeId, routeConvId, visibleConversations, openConversation, scope]);
 
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeId) ?? null,
@@ -213,8 +241,13 @@ export function useChatPageState(scope?: ChatPageScope) {
     !activeId &&
     visibleConversations.length > 0 &&
     (!!scope || pendingDraft === null);
+  // Warm remount: navigating back to /chat with a thread already in the
+  // store (the SPA keeps it) needs no settling pass, render instantly;
+  // the background list refetch changes nothing visible.
+  const warmThread = !!activeId && !threadLoading;
   const settling =
     !!user &&
+    !warmThread &&
     (!listFetched || autoOpenPending || threadLoading);
   // Where the composer will end up. Before the list is in we go by the
   // last settled layout (a wrong guess costs one silent correction while
@@ -295,7 +328,27 @@ export function useChatPageState(scope?: ChatPageScope) {
     if (!activeId) void handleNew();
   };
 
-  const branchParent = branchFromId ? messages.get(branchFromId) : null;
+  // "Branch here": fork the thread up to this message into a NEW
+  // conversation (history copied, fork point marked) and land there.
+  // duplicateFromMessage opens it; the URL follows via the sync effect.
+  const handleBranchHere = useCallback(
+    (messageId: string) => {
+      const st = useChatStore.getState();
+      const source = st.conversations.find(
+        (c) => c.id === st.activeConversationId,
+      );
+      const base = source?.title || t("chat.untitled");
+      void st.duplicateFromMessage(
+        messageId,
+        t("chat.forkTitle", {
+          defaultValue: "{{title}} (branch)",
+          title: base,
+        }),
+      );
+    },
+    [t],
+  );
+
   const activeTitle = activeConversation
     ? activeConversation.title || t("chat.untitled")
     : t("chat.title");
@@ -316,9 +369,7 @@ export function useChatPageState(scope?: ChatPageScope) {
     sheetCentered,
     input,
     setInput,
-    branchFromId,
-    setBranchFromId,
-    branchParent,
+    handleBranchHere,
     mobileListOpen,
     setMobileListOpen,
     chatRootFolderId,

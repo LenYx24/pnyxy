@@ -105,7 +105,8 @@ export const CORE_THEMES = {
     variant: "dark",
     tokens: {
       "--color-bg-primary": "#1c1c1f",
-      "--color-bg-secondary": "#121214",
+      // near-black stage behind the text (the Gemini well is ~#0d0d0d)
+      "--color-bg-secondary": "#0c0c0e",
       "--color-bg-tertiary": "#242428",
       "--color-surface-3": "#313137",
       "--color-accent": "#7cc7d8",

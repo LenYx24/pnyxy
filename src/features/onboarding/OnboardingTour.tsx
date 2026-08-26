@@ -58,12 +58,12 @@ export function OnboardingTour() {
     },
     {
       icon: Brain,
-      title: t("onboarding.memory.title", {
-        defaultValue: "Turn reading into memory",
+      title: t("onboarding.tutor.title", {
+        defaultValue: "A tutor, not a solver",
       }),
-      body: t("onboarding.memory.body", {
+      body: t("onboarding.tutor.body", {
         defaultValue:
-          "Generate quizzes, flashcards, and study roadmaps from anything you read to lock it in.",
+          "The AI teaches instead of solving: it guides you step by step and checks your attempts. Concept questions still get full explanations.",
       }),
     },
     {

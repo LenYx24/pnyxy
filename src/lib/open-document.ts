@@ -4,6 +4,7 @@ import { useReaderStore } from "@/stores/reader-store";
 import { useUIStore } from "@/stores/ui-store";
 import { registerFile } from "@/lib/file-store";
 import { saveLastOpenedBook, type LastOpenedBook } from "@/lib/last-opened-book";
+import { track } from "@/lib/telemetry";
 
 export interface OpenDocumentOptions {
   file: File;
@@ -53,6 +54,7 @@ export async function openDocumentFromFile({
 
   registerFile(docId, file);
   if (lastOpened) saveLastOpenedBook(lastOpened);
+  track("book_open", { doc: docId });
 
   if (shouldNavigate) {
     navigate(

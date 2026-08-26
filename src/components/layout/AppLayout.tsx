@@ -20,6 +20,7 @@ import { Footer } from "./Footer";
 import { OfflineBanner } from "./OfflineBanner";
 import { DocumentLoadingOverlay } from "./DocumentLoadingOverlay";
 import { RouteLoadingBar } from "./RouteLoadingBar";
+import { startTelemetry } from "@/lib/telemetry";
 import { ContextMenu } from "@/components/ui";
 import { ShortcutsSheet } from "@/components/ui/ShortcutsSheet";
 import { useShortcutsSheet } from "@/components/ui/shortcuts-sheet-store";
@@ -41,6 +42,10 @@ const STATIC_PAGE_PATHS = [
 export function AppLayout() {
   const { sidebarCollapsed, setSidebarCollapsed } = useUIStore();
   const { isBanned, banInfo } = useAuthStore();
+  const telemetryUser = useAuthStore((s) => s.user);
+  useEffect(() => {
+    if (telemetryUser) startTelemetry();
+  }, [telemetryUser]);
   const focusActive = useFocusStore((s) => s.active);
   const isDesktop = useIsDesktop();
   const location = useLocation();

@@ -21,6 +21,10 @@ export interface ChatConversation {
   /** Set when this conversation was forked from another (the Graph view's
    *  parent→child lineage). Null = a root conversation. */
   parent_conversation_id: string | null;
+  /** In a forked conversation: the LOCAL copy of the message the fork was
+   *  made at; the thread draws the "fork point" divider under it.
+   *  Optional: absent until migration 00061 is applied. */
+  forked_from_message_id?: string | null;
   created_at: string;
   updated_at: string;
   active_leaf_id: string | null;

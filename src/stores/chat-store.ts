@@ -15,6 +15,7 @@ import { logError } from "@/lib/logger";
 import { getUserOrNull, requireUser } from "@/lib/supabase-auth";
 import { abortActiveStream, sendOrBranch } from "@/lib/ai/chat-stream";
 import { sendImageMessageTurn } from "@/lib/ai/chat-image-message";
+import { track } from "@/lib/telemetry";
 import { createChatFolderSlice } from "@/stores/chat/chat-folders";
 import {
   newestMessage,
@@ -171,9 +172,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // The user may have switched (or created a new) conversation while
       // the fetch was in flight; never write stale messages over it.
       if (get().activeConversationId !== conversationId) return;
+      // Same conversation, but the user may have already sent a message
+      // while this fetch was in flight (fresh conversation + fast typing:
+      // the URL-sync open races the optimistic send). Merge instead of
+      // replacing, local-only messages are newer than the snapshot.
+      const local = get().messages;
+      const merged = map;
+      for (const [id, m] of local) {
+        if (!merged.has(id)) merged.set(id, m);
+      }
+      const localLeaf = get().activeLeafId;
       set({
-        messages: map,
-        activeLeafId: leafId,
+        messages: merged,
+        activeLeafId:
+          localLeaf && merged.has(localLeaf) ? localLeaf : leafId,
       });
     } catch (err) {
       logError("chat:openConversation", err);
@@ -257,7 +269,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  async duplicateFromMessage(fromMessageId) {
+  async duplicateFromMessage(fromMessageId, title) {
     const state = get();
     const target = state.messages.get(fromMessageId);
     if (!target) return null;
@@ -270,9 +282,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (!source) return null;
 
     // new conversation keeps the source's folder + doc context
-    const newTitle = source.title
-      ? `${source.title} (copy)`
-      : "(copy)";
+    const newTitle =
+      title ?? (source.title ? `${source.title} (copy)` : "(copy)");
     const newId = await get().createConversation(
       newTitle,
       source.folder_id,
@@ -320,13 +331,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
       idMap.set(m.id, data.id);
     }
 
-    // land on the copy of the forked-from message
+    track("fork_create");
+    // land on the copy of the forked-from message; the same id marks the
+    // fork point for the thread's divider. Fall back without the fork
+    // column when migration 00061 hasn't been applied yet.
     const newLeaf = idMap.get(fromMessageId) ?? null;
     if (newLeaf) {
-      await supabase
+      const { error: markErr } = await supabase
         .from("chat_conversations")
-        .update({ active_leaf_id: newLeaf })
+        .update({ active_leaf_id: newLeaf, forked_from_message_id: newLeaf })
         .eq("id", newId);
+      if (markErr) {
+        await supabase
+          .from("chat_conversations")
+          .update({ active_leaf_id: newLeaf })
+          .eq("id", newId);
+      } else {
+        set((s) => ({
+          conversations: s.conversations.map((c) =>
+            c.id === newId ? { ...c, forked_from_message_id: newLeaf } : c,
+          ),
+        }));
+      }
     }
 
     await get().openConversation(newId);
@@ -354,6 +380,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   async sendMessage(text, preferredProvider, attachments, options) {
     const { activeConversationId, activeLeafId } = get();
     if (!activeConversationId) return;
+    track("chat_send", {
+      book: !!get().conversations.find(
+        (c) => c.id === activeConversationId && c.source_doc_id !== null,
+      ),
+      images: attachments?.length ?? 0,
+    });
     await sendOrBranch(
       activeConversationId,
       activeLeafId,
@@ -369,6 +401,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   async branchFrom(parentMessageId, text, preferredProvider, attachments, options) {
     const { activeConversationId } = get();
     if (!activeConversationId) return;
+    track("chat_send", { branch: true });
     await sendOrBranch(
       activeConversationId,
       parentMessageId,

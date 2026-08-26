@@ -39,6 +39,11 @@ import {
 // Treat it as "ceiling on what this traffic could have cost," not the
 // invoice. Good enough to compare models and spot trends.
 const BLENDED_PRICE_PER_MTOK: Record<string, number> = {
+  // current chain (2026-08 Gemini id rotation)
+  "gemini-3.5-flash-lite": 0.2,
+  "gemini-3.6-flash": 2.7,
+  "gemini-3.7-flash": 3.0,
+  // retired ids kept so history rows still price/color
   "gemini-2.5-flash-lite": 0.2,
   "gemini-2.5-flash": 0.6,
   "gemini-3-flash-preview": 0.8,
@@ -48,9 +53,12 @@ const BLENDED_PRICE_PER_MTOK: Record<string, number> = {
 };
 
 const MODEL_COLOR: Record<string, string> = {
-  "gemini-2.5-flash-lite": "#84cc16",
-  "gemini-2.5-flash": "#22c55e",
-  "gemini-3-flash-preview": "#06b6d4",
+  "gemini-3.5-flash-lite": "#84cc16",
+  "gemini-3.6-flash": "#22c55e",
+  "gemini-3.7-flash": "#06b6d4",
+  "gemini-2.5-flash-lite": "#a3e635",
+  "gemini-2.5-flash": "#4ade80",
+  "gemini-3-flash-preview": "#22d3ee",
   "gpt-4o-mini": "#3b82f6",
   "claude-haiku-4-5": "#a855f7",
   auto: "#6b7280",

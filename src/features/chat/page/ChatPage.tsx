@@ -23,9 +23,8 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
   // soft-keyboard height, lifts the composer. 100dvh alone lagged on Android.
   const keyboardInset = useKeyboardInset();
   const page = useChatPageState(scope);
-  const { setMobileListOpen, setBranchFromId } = page;
+  const { setMobileListOpen } = page;
   const closeDrawer = useCallback(() => setMobileListOpen(false), [setMobileListOpen]);
-  const clearBranch = useCallback(() => setBranchFromId(null), [setBranchFromId]);
 
   if (!page.user) {
     return (
@@ -92,7 +91,7 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
             threadLoading={page.threadLoading}
             sheetCentered={page.sheetCentered}
             confirm={page.confirm}
-            onBranchHere={setBranchFromId}
+            onBranchHere={page.handleBranchHere}
             onEmptySuggestion={page.handleEmptySuggestion}
           />
 
@@ -104,9 +103,6 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
             activeId={page.activeId}
             activeConversation={page.activeConversation}
             scopeSource={page.scopeSource}
-            branchFromId={page.branchFromId}
-            branchParent={page.branchParent}
-            onClearBranch={clearBranch}
             composerWrapRef={page.composerWrapRef}
           />
           {/* bottom spacer, grows only in the empty state (see above) */}

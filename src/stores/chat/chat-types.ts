@@ -67,7 +67,10 @@ export interface ChatState {
   /** Delete a message and its whole subtree; leaf rewinds to parent if inside it. */
   deleteMessage: (messageId: string) => Promise<void>;
   /** Fork the conversation from `fromMessageId` (inclusive) into a new one. */
-  duplicateFromMessage: (fromMessageId: string) => Promise<string | null>;
+  duplicateFromMessage: (
+    fromMessageId: string,
+    title?: string,
+  ) => Promise<string | null>;
   /** Move a conversation to a folder (null = root); sortOrder pins position. */
   moveConversationToFolder: (
     id: string,

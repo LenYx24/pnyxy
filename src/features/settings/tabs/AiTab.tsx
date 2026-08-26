@@ -55,9 +55,9 @@ interface AiUsageRow {
 
 // Display labels for the quota table, falls back to raw model id.
 const MODEL_DISPLAY_NAMES: Record<string, string> = {
-  "gemini-2.5-flash-lite": "Gemini 2.5 Flash-Lite",
-  "gemini-2.5-flash": "Gemini 2.5 Flash",
-  "gemini-3-flash-preview": "Gemini 3 Flash (preview)",
+  "gemini-3.5-flash-lite": "Gemini 3.5 Flash-Lite",
+  "gemini-3.6-flash": "Gemini 3.6 Flash",
+  "gemini-3.7-flash": "Gemini 3.7 Flash",
   "gpt-4o-mini": "GPT-4o mini",
   "claude-haiku-4-5": "Claude Haiku 4.5",
 };
@@ -90,9 +90,9 @@ const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
   provider: string;
   note: ModelNote;
 }> = [
-  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite", provider: "Google", note: "cheap" },
-  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "Google", note: "fast" },
-  { id: "gemini-3-flash-preview", label: "Gemini 3 Flash (preview)", provider: "Google", note: "smart" },
+  { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash-Lite", provider: "Google", note: "cheap" },
+  { id: "gemini-3.6-flash", label: "Gemini 3.6 Flash", provider: "Google", note: "fast" },
+  { id: "gemini-3.7-flash", label: "Gemini 3.7 Flash", provider: "Google", note: "smart" },
   { id: "gpt-4o-mini", label: "GPT-4o mini", provider: "OpenAI", note: "balanced" },
   { id: "claude-haiku-4-5", label: "Claude Haiku 4.5", provider: "Anthropic", note: "smart" },
 ];
@@ -109,21 +109,21 @@ interface ComparisonRow {
 
 const COMPARISON_ROWS: ComparisonRow[] = [
   {
-    model: "Gemini 2.5 Flash-Lite",
+    model: "Gemini 3.5 Flash-Lite",
     provider: "Pnyxy free · primary",
     cost: "Free (daily quota)",
     bestFor: "Default chat, quick Q&A, summaries",
     status: "active",
   },
   {
-    model: "Gemini 2.5 Flash",
+    model: "Gemini 3.6 Flash",
     provider: "Pnyxy free · step-up",
     cost: "Free (daily quota)",
     bestFor: "Fuller model when Flash-Lite is exhausted",
     status: "active",
   },
   {
-    model: "Gemini 3 Flash (preview)",
+    model: "Gemini 3.7 Flash",
     provider: "Pnyxy free · pin to use",
     cost: "Free (daily quota · smaller bucket)",
     bestFor: "Newest Google chat model, matches gemini.google.com",

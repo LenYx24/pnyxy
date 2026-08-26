@@ -138,11 +138,21 @@ export function PrivacyPage() {
           </p>
 
           <h3 className="mt-3 text-sm font-semibold text-text-primary">
-            2.6 Analytics
+            2.6 Analytics and pilot telemetry
           </h3>
           <p>
             We do not use third-party analytics or advertising
-            trackers. We do not sell personal data.
+            trackers, and we do not sell personal data. With your
+            consent given at registration, we record first-party
+            product-usage events (for example: session start, a
+            document was opened, a chat message was sent) with
+            timestamps and a session identifier. These events never
+            include the content of your messages, documents, or notes.
+            They are used to operate and improve the Service and,
+            during the university pilot, in anonymized and aggregated
+            form in academic work (a BSc thesis). Legal basis: consent
+            (Art. 6(1)(a) GDPR), withdrawable anytime by contacting
+            us; withdrawal stops further collection.
           </p>
         </div>
 

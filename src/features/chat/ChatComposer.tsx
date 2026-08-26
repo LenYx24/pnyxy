@@ -214,7 +214,11 @@ export function ModelPicker({
         <span className="max-w-[11rem] truncate">{triggerLabel}</span>
         <ChevronDown size={12} strokeWidth={1.5} className="shrink-0" />
       </button>
-      <ModelInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
+      <ModelInfoModal
+        open={infoOpen}
+        onClose={() => setInfoOpen(false)}
+        rows={quotaRows}
+      />
       <FloatingMenu
         open={open}
         anchorRef={triggerRef}

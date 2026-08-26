@@ -2,24 +2,24 @@
   "onboarding": {
     "welcome": {
       "title": "Üdv a Pnyxyben",
-      "body": "A tanulási munkaterületed az olvasáshoz, megértéshez és megjegyzéshez. Ez a gyors bemutató kevesebb mint egy perc."
+      "body": "Olvasás és tanulás egy helyen, egy AI-tanárral. Ez a gyors túra egy percnél is rövidebb."
     },
     "read": {
-      "title": "Olvass PDF-eket és kérdezd az AI-t",
-      "body": "Nyiss meg egy PDF-et, és tegyél fel kérdéseket a chatben. A válaszok az oldalra hivatkoznak, kattints a hivatkozásra, és rögtön odaugrasz."
-    },
-    "memory": {
-      "title": "Alakítsd az olvasást tudássá",
-      "body": "Készíts kvízeket, tanulókártyákat és tanulási útvonalakat bármiből, amit olvasol, hogy tényleg megragadjon."
+      "title": "Olvass PDF-et, kérdezz az AI-tól",
+      "body": "Nyiss meg egy PDF-et és kérdezz a chatben. A válaszok oldalszámra hivatkoznak, a hivatkozásra kattintva odaugrasz."
     },
     "ready": {
-      "title": "Minden készen áll",
-      "body": "Ingyenesen indulhatsz, az AI-modellt bármikor kiválaszthatod a Beállításokban. Jó tanulást!"
+      "title": "Készen állsz",
+      "body": "A pilot alatt ingyenes. Jó tanulást!"
     },
     "skip": "Bemutató átugrása",
     "back": "Vissza",
     "done": "Kezdés",
-    "next": "Tovább"
+    "next": "Tovább",
+    "tutor": {
+      "title": "Tanár, nem megoldó",
+      "body": "Az AI tanít, nem megold: lépésenként vezet és ellenőrzi a próbálkozásod. Fogalmi kérdésre teljes magyarázatot kapsz."
+    }
   },
   "learnHub": {
     "eyebrow": "Tanulási eszközök",
@@ -231,6 +231,11 @@
       "updatePassword": "Jelszó frissítése",
       "tooShort": "A jelszónak legalább 6 karakter hosszúnak kell lennie.",
       "mismatch": "A jelszavak nem egyeznek."
+    },
+    "consent": {
+      "text": "Elfogadom, hogy a Pnyxy anonim használati adatokat gyűjt (funkcióhasználat, munkamenet-hossz; üzenet- vagy dokumentumtartalmat soha), és hogy a pilot tapasztalatai anonimizálva tudományos munkában felhasználhatók.",
+      "privacyLink": "Adatkezelés",
+      "required": "A regisztrációhoz fogadd el az adatkezelési hozzájárulást."
     }
   },
   "settings": {
@@ -584,9 +589,9 @@
     "signIn": "Bejelentkezés",
     "download": "Letöltés",
     "tutorial": "Útmutató",
-    "h1Purpose": "AI-támogatású olvasó- és tanulóplatform",
-    "tagline": "Az okos olvasótársad",
-    "subtitle": "A Pnyxy egy AI-támogatású olvasó- és tanulóplatform, ahol könyvekkel, kvízekkel és közösségi beszélgetésekkel fejlesztheted a tudásodat.",
+    "h1Purpose": "Olvasás + AI-tanár",
+    "tagline": "Az AI-tanár, aki nem oldja meg helyetted",
+    "subtitle": "Hozd a saját könyveid és jegyzeteid, olvasd őket a Pnyxyben, és kérdezz tőlük. Az AI oldalszámra hivatkozva magyaráz, lépésenként vezet, és nem adja oda a kész megoldást.",
     "getStarted": "Kezdjük el",
     "learnMore": "Tudj meg többet",
     "continueNoAccount": "Tovább fiók nélkül →",
@@ -687,19 +692,19 @@
     "features": {
       "smartReading": {
         "title": "Okos olvasó",
-        "description": "EPUB- és PDF-olvasás zavaró elemek nélkül, testreszabhatóan, a mély összpontosításhoz."
+        "description": "PDF és EPUB a böngészőben: kijelölés, keresés, automatikus folytatás ott, ahol abbahagytad."
       },
       "studyTools": {
         "title": "Tanulóeszközök",
         "description": "Kiemelj, jegyzetelj és készíts szókártyákat közvetlenül az olvasottakból."
       },
       "aiAssistant": {
-        "title": "AI asszisztens",
-        "description": "AI segítségével magyarázatokat, összefoglalókat és válaszokat kapsz a könyveidről."
+        "title": "AI-tanár",
+        "description": "Kérdezz a könyvtől: oldalszámra hivatkozó válaszok, szókratészi mód, ami tanít, nem megold."
       },
       "streaks": {
         "title": "Sorozatok és célok",
-        "description": "Építs rendszeres olvasási szokásokat napi sorozatokkal, célokkal és haladásköveteléssel."
+        "description": "Napi olvasási sorozat és időmérés, hogy meglegyen a ritmus a félévben."
       },
       "community": {
         "title": "Közösség",
@@ -1548,7 +1553,6 @@
     "branchesCount_one": "{{count}} ág",
     "branchesCount_other": "{{count}} ág",
     "branchN": "{{n}}. ág",
-    "branchingFrom": "Elágazás innen: {{snippet}}",
     "copy": {
       "action": "Másolás",
       "copied": "Másolva",
@@ -1684,7 +1688,10 @@
       "tierPremium": "Prémium",
       "upgrade": "Prémium",
       "details": "Részletek a beállításokban"
-    }
+    },
+    "forkTitle": "{{title}} (elágazás)",
+    "forkedFrom": "Elágazva innen: {{title}}",
+    "forkPoint": "Elágazási pont, a fenti üzenetek az előzmények"
   },
   "readingPlans": {
     "section": {

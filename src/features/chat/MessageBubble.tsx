@@ -12,7 +12,6 @@ import {
   Pencil,
   RefreshCw,
   Share2,
-  Sparkles,
   Trash2,
   Volume2,
   VolumeX,
@@ -420,21 +419,12 @@ export function MessageBubble({
   }
 
   return (
-    <div className="group flex w-full max-w-[720px] gap-3.5">
-      {/* sparkle avatar tile */}
-      <div
-        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] bg-bg-tertiary text-text-primary"
-        aria-hidden="true"
-      >
-        <Sparkles size={15} strokeWidth={1.5} />
-      </div>
+    <div className="group flex w-full max-w-[720px]">
       <div className="flex min-w-0 flex-1 flex-col gap-3 text-[15px] leading-normal text-text-primary">
         {isStreaming && !hasText ? (
-          // placeholder while waiting for the first delta
+          // placeholder while waiting for the first delta: three dots, nothing else
           <div className="text-text-muted">
-            <TypingIndicator
-              label={t("chat.thinking", { defaultValue: "Thinking…" })}
-            />
+            <TypingIndicator />
           </div>
         ) : (
           <>

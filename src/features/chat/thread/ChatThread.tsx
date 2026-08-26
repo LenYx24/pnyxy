@@ -5,11 +5,11 @@
  * Owns per-bubble actions (regenerate / edit / delete / duplicate / pick
  * suggestion), TTS and the scroll anchoring (useThreadScroll).
  */
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown, GitBranch } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
-import { chipClass } from "@/components/ui";
+import { TypingIndicator, chipClass } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useFeature } from "@/lib/use-features";
 import { useReadAloud } from "@/hooks/use-read-aloud";
@@ -57,6 +57,8 @@ export function ChatThread({
 }: ChatThreadProps) {
   const { t } = useTranslation();
   const flashcardsEnabled = useFeature("flashcards");
+  // parent lookup for the fork banner
+  const allConversations = useChatStore((s) => s.conversations);
   const { branchFrom, setActiveLeaf, messageSuggestions } = useChatStore(
     useShallow((s) => ({
       branchFrom: s.branchFrom,
@@ -121,10 +123,7 @@ export function ChatThread({
               className="pointer-events-none absolute inset-x-0 top-0 flex justify-center py-16"
               aria-label={t("chat.loading")}
             >
-              <Loader2
-                size={28}
-                className="animate-spin text-text-muted"
-              />
+              <TypingIndicator size="md" className="text-text-muted" />
             </div>
           )}
 
@@ -162,6 +161,35 @@ export function ChatThread({
             </div>
           )}
 
+          {/* forked conversation: where it came from, click = open the parent */}
+          {activeConversation?.parent_conversation_id &&
+            threadPath.length > 0 &&
+            (() => {
+              const parent = allConversations.find(
+                (c) => c.id === activeConversation.parent_conversation_id,
+              );
+              if (!parent) return null;
+              return (
+                <button
+                  type="button"
+                  onClick={() =>
+                    void useChatStore.getState().openConversation(parent.id)
+                  }
+                  className={cn(
+                    chipClass,
+                    "self-start transition-colors cursor-pointer hover:bg-surface-3 hover:text-text-primary",
+                  )}
+                >
+                  <GitBranch size={14} strokeWidth={1.5} className="shrink-0" />
+                  <span className="min-w-0 truncate">
+                    {t("chat.forkedFrom", {
+                      defaultValue: "Branched from {{title}}",
+                      title: parent.title || t("chat.untitled"),
+                    })}
+                  </span>
+                </button>
+              );
+            })()}
           {threadPath.map((msg) => {
             const parent = msg.parent_message_id
               ? messages.get(msg.parent_message_id)
@@ -196,8 +224,8 @@ export function ChatThread({
                   }
                 : undefined;
             return (
+              <Fragment key={msg.id}>
               <MessageBubble
-                key={msg.id}
                 msg={msg}
                 messages={messages}
                 activeLeafId={activeLeafId}
@@ -229,11 +257,6 @@ export function ChatThread({
                   if (!ok) return;
                   await useChatStore.getState().deleteMessage(msg.id);
                 }}
-                onDuplicate={async () => {
-                  await useChatStore
-                    .getState()
-                    .duplicateFromMessage(msg.id);
-                }}
                 tts={tts}
                 suggestions={
                   msg.role === "assistant"
@@ -246,6 +269,20 @@ export function ChatThread({
                   void branchFrom(msg.id, text, provider);
                 }}
               />
+              {/* fork point: everything above is inherited history */}
+              {msg.id === activeConversation?.forked_from_message_id && (
+                <div className="flex items-center gap-3 text-2xs text-text-muted-2">
+                  <div className="h-px flex-1 bg-surface-3" aria-hidden="true" />
+                  <GitBranch size={12} strokeWidth={1.5} className="shrink-0" />
+                  <span>
+                    {t("chat.forkPoint", {
+                      defaultValue: "Fork point, the messages above are history",
+                    })}
+                  </span>
+                  <div className="h-px flex-1 bg-surface-3" aria-hidden="true" />
+                </div>
+              )}
+              </Fragment>
             );
           })}
           <div ref={threadEndRef} />

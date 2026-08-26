@@ -575,7 +575,10 @@ const ConversationRow = memo(function ConversationRow({
             onPointerDown={(e) => e.stopPropagation()}
             aria-label={t("chat.rowActions")}
             title={t("chat.rowActions")}
-            className="mr-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+            // width-collapse, not display:none: stays in the a11y tree
+            // (keyboard focus + tests), the title gets the full row width
+            // until hover
+            className="mr-1 w-0! overflow-hidden opacity-0 group-hover:w-7! group-hover:opacity-100 focus-visible:w-7! focus-visible:opacity-100"
           >
             <MoreHorizontal size={16} strokeWidth={1.5} />
           </IconButton>

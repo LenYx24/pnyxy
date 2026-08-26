@@ -3,6 +3,7 @@ import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
 import { supabase } from "@/lib/supabase";
 import type { ToolDef } from "@/lib/roadmap/roadmap-tools";
 import type { ChatMessageAttachment } from "@/types/chat";
+import { teacherBlock } from "@/lib/ai/teacher-mode";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -273,7 +274,7 @@ Formatting:
 
 When you don't know something or have ambiguous context, say so and ask a clarifying question instead of guessing. If a question has multiple reasonable interpretations, name them briefly before answering. Concise > exhaustive; the user can always ask for more.
 
-${mathHint}`;
+${mathHint}${teacherBlock()}`;
   }
   // [p.N] / [p.N:"..."] tokens are load-bearing: renderer turns these exact
   // shapes into reader deep-links, quote variant highlights. Other formats won't link.
@@ -281,6 +282,8 @@ ${mathHint}`;
     ? pageContext
     : "(no excerpts attached, ask the user to attach pages from the TOC if you need quotes from the book)";
   return `You are an AI assistant helping the user understand a document titled "${documentTitle}".
+
+Match the user's language: reply in Hungarian when they write in Hungarian, English otherwise, and switch fluidly if they mix.
 
 ${personaBlock}Here is the context the user has attached from the book, typically the table of contents and any pages they explicitly selected:
 
@@ -301,7 +304,7 @@ When you reference the book, cite it inline using one of these two formats:
 - For a page reference: [p.N], e.g. "the author's main argument [p.42]".
 - When you can point to an exact passage on that page, include the literal quoted text: [p.N:"the exact text you mean"], e.g. "this is best summarized as [p.42:\\"a network of independent agents\\"]". The reader will jump to page N and highlight that passage.
 
-Only use the quote variant when the wording appears verbatim in the provided context; never fabricate a quote, it would highlight nothing and confuse the reader. Keep quotes under ~15 words. If the answer is not in the provided text, say so, and feel free to suggest which pages or chapters from the TOC would help, so the user can attach them. ${mathHint}`;
+Only use the quote variant when the wording appears verbatim in the provided context; never fabricate a quote, it would highlight nothing and confuse the reader. Keep quotes under ~15 words. If the answer is not in the provided text, say so, and feel free to suggest which pages or chapters from the TOC would help, so the user can attach them. ${mathHint}${teacherBlock()}`;
 }
 
 export interface StreamOptions {

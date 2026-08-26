@@ -2,24 +2,24 @@
   "onboarding": {
     "welcome": {
       "title": "Welcome to Pnyxy",
-      "body": "Your study workspace for reading, understanding, and remembering. This quick tour takes under a minute."
+      "body": "Reading and learning in one place, with an AI tutor. This quick tour takes under a minute."
     },
     "read": {
       "title": "Read PDFs & ask the AI",
       "body": "Open a PDF and ask questions in the chat. Answers cite the page, click a citation to jump straight there."
     },
-    "memory": {
-      "title": "Turn reading into memory",
-      "body": "Generate quizzes, flashcards, and study roadmaps from anything you read to lock it in."
-    },
     "ready": {
       "title": "You're all set",
-      "body": "It's free to start, pick your AI model anytime in Settings. Happy studying!"
+      "body": "Free during the pilot. Happy studying!"
     },
     "skip": "Skip tour",
     "back": "Back",
     "done": "Get started",
-    "next": "Next"
+    "next": "Next",
+    "tutor": {
+      "title": "A tutor, not a solver",
+      "body": "The AI teaches instead of solving: it guides you step by step and checks your attempts. Concept questions still get full explanations."
+    }
   },
   "learnHub": {
     "eyebrow": "Learning tools",
@@ -159,6 +159,11 @@
       "updatePassword": "Update password",
       "tooShort": "Password must be at least 6 characters.",
       "mismatch": "Passwords don't match."
+    },
+    "consent": {
+      "text": "I agree that Pnyxy collects anonymous usage data (feature usage, session length, never message or document content) and that pilot findings may be used, anonymized, in academic work.",
+      "privacyLink": "Privacy",
+      "required": "Please accept the data-use consent to register."
     }
   },
   "settings": {
@@ -512,9 +517,9 @@
     "signIn": "Sign In",
     "download": "Download",
     "tutorial": "Tutorial",
-    "h1Purpose": "AI-assisted reading and learning platform",
-    "tagline": "Your intelligent reading companion",
-    "subtitle": "Pnyxy is an AI-assisted reading and learning platform where users deepen their knowledge through books, quizzes, and community discussions.",
+    "h1Purpose": "Reading + an AI tutor",
+    "tagline": "The AI tutor that won’t do it for you",
+    "subtitle": "Bring your own books and lecture notes, read them in Pnyxy, and ask questions. The AI answers with page citations, guides you step by step, and never hands over the finished solution.",
     "getStarted": "Get Started",
     "learnMore": "Learn More",
     "continueNoAccount": "Continue without an account →",
@@ -614,20 +619,20 @@
     },
     "features": {
       "smartReading": {
-        "title": "Smart Reading",
-        "description": "Read EPUBs and PDFs with a distraction-free, customizable reader built for deep focus."
+        "title": "Smart reader",
+        "description": "PDF and EPUB in the browser: highlight, search, and resume exactly where you left off."
       },
       "studyTools": {
         "title": "Study Tools",
         "description": "Highlight, annotate, and create flashcards directly from your reading material."
       },
       "aiAssistant": {
-        "title": "AI Assistant",
-        "description": "Get explanations, summaries, and answers about your books powered by AI."
+        "title": "AI tutor",
+        "description": "Ask the book: page-cited answers and a Socratic mode that teaches instead of solving."
       },
       "streaks": {
-        "title": "Streaks & Goals",
-        "description": "Build consistent reading habits with daily streaks, goals, and progress tracking."
+        "title": "Streaks & goals",
+        "description": "Daily reading streaks and time tracking to keep a rhythm through the semester."
       },
       "community": {
         "title": "Community",
@@ -1453,7 +1458,6 @@
     "branchesCount_one": "{{count}} branch",
     "branchesCount_other": "{{count}} branches",
     "branchN": "Branch {{n}}",
-    "branchingFrom": "Branching from: {{snippet}}",
     "copy": {
       "action": "Copy",
       "copied": "Copied",
@@ -1589,7 +1593,10 @@
       "tierPremium": "Premium",
       "upgrade": "Premium",
       "details": "Details in Settings"
-    }
+    },
+    "forkTitle": "{{title}} (branch)",
+    "forkedFrom": "Branched from {{title}}",
+    "forkPoint": "Fork point, the messages above are history"
   },
   "readingPlans": {
     "section": {

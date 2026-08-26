@@ -1,22 +1,16 @@
 import { useTranslation } from "react-i18next";
-import {
-  BookOpen,
-  PenTool,
-  Sparkles,
-  Flame,
-  Users,
-  Puzzle,
-} from "lucide-react";
+import { BookOpen, Sparkles, Flame } from "lucide-react";
 import { Reveal } from "@/components/ui";
 import { SectionHeading } from "./SectionHeading";
 
+// The pilot's core loop only: reader, tutor, streaks. The gated
+// features (notes, quizzes, community, plugins) return here once they
+// are unlocked for everyone, until then the landing must not promise
+// what a fresh account can't see.
 const features = [
   { icon: BookOpen, key: "smartReading" as const },
-  { icon: PenTool, key: "studyTools" as const },
   { icon: Sparkles, key: "aiAssistant" as const },
   { icon: Flame, key: "streaks" as const },
-  { icon: Users, key: "community" as const },
-  { icon: Puzzle, key: "plugins" as const },
 ];
 
 export function FeaturesSection() {
