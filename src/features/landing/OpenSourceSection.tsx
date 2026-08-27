@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 import { Palette, Puzzle } from "lucide-react";
 import { SectionHeading } from "./SectionHeading";
 
-const REPO_URL = "https://github.com/LenYx24/pnyxy";
 const COMMUNITY_URL = "https://github.com/LenYx24/pnyxy-community";
 
 /** Lucide 1.x drops the GitHub mark for trademark reasons, inline
@@ -22,9 +21,9 @@ function GithubGlyph({ size = 20 }: { size?: number }) {
 }
 
 /**
- * Open-source + extensibility CTA. Points readers at the main repo
- * (contribute / star / fork) and the separate community registry repo
- * (drop-in themes & plugins). Solid panels, single teal accent.
+ * Open-source + extensibility section. One panel states the app's MIT
+ * license (no repo link on purpose), the other links the community
+ * registry repo (drop-in themes & plugins). Solid panels, single accent.
  */
 export function OpenSourceSection() {
   const { t } = useTranslation();
@@ -37,12 +36,7 @@ export function OpenSourceSection() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <a
-          href={REPO_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group flex h-full flex-col rounded-xl border border-glass-border bg-bg-secondary p-6 transition-colors hover:border-accent/40"
-        >
+        <div className="flex h-full flex-col rounded-xl border border-glass-border bg-bg-secondary p-6">
           <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-accent/12 text-accent">
             <GithubGlyph size={20} />
           </div>
@@ -52,10 +46,10 @@ export function OpenSourceSection() {
           <p className="text-sm leading-relaxed text-text-secondary">
             {t("landing.openSource.repo.description")}
           </p>
-          <p className="mt-auto pt-4 font-mono text-2xs text-accent">
-            github.com/LenYx24/pnyxy →
+          <p className="mt-auto pt-4 font-mono text-2xs text-text-muted">
+            MIT
           </p>
-        </a>
+        </div>
 
         <a
           href={COMMUNITY_URL}

@@ -20,7 +20,7 @@ import {
   ChevronDown,
   Pencil,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import {
   Button,
   CategoryChip,
@@ -48,10 +48,7 @@ import {
   prefetchBookBlob,
 } from "@/hooks/use-open-uploaded-document";
 import { useConfirm } from "@/hooks/use-confirm";
-import type {
-  CatalogBook,
-  UploadedLibraryItem,
-} from "@/types/catalog";
+import type { CatalogBook, UploadedLibraryItem } from "@/types/catalog";
 import type { Book, Category } from "@/types/database";
 import { useBook } from "../BookPageContext";
 import { RelatedToBook } from "../RelatedToBook";
@@ -188,7 +185,7 @@ function StudyToolsDropdown() {
           aria-expanded={open}
         >
           <Sparkles size={16} />
-          {t("book.overview.studyTools", { defaultValue: "Study tools" })}
+          {t("book.overview.studyTools")}
           <ChevronDown size={14} className="opacity-70" />
         </Button>
       </span>
@@ -304,7 +301,6 @@ function ReadingProgressValue({
       ? pageCount != null
         ? t("book.pageTracker.notStartedOf", {
             total: pageCount,
-            defaultValue: "Not started · {{total}} pages",
           })
         : t("book.pageTracker.notStarted")
       : pageCount != null
@@ -542,7 +538,6 @@ function CatalogOverview({
         </div>
       )}
 
-
       {readError === "cors-fallback" && (
         <p className="rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning">
           {t("book.overview.readCorsFallback")}
@@ -580,10 +575,7 @@ function CatalogOverview({
             />
           </div>
           {!user ? (
-            <Link
-              to="/auth"
-              className="text-xs text-accent hover:underline"
-            >
+            <Link to="/auth" className="text-xs text-accent hover:underline">
               {t("ratings.signInToRate")}
             </Link>
           ) : inLibrary ? (
@@ -604,9 +596,7 @@ function CatalogOverview({
             // rating is a library-only action, a catalog book you're merely
             // previewing can't be rated until you add it
             <span className="text-xs text-text-muted">
-              {t("ratings.addToLibraryToRate", {
-                defaultValue: "Add this book to your library to rate it.",
-              })}
+              {t("ratings.addToLibraryToRate")}
             </span>
           )}
         </div>
@@ -615,7 +605,10 @@ function CatalogOverview({
       <MetaGrid
         entries={[
           { label: t("book.overview.meta.publisher"), value: book.publisher },
-          { label: t("book.overview.meta.published"), value: book.published_date },
+          {
+            label: t("book.overview.meta.published"),
+            value: book.published_date,
+          },
           {
             label: t("book.overview.meta.pages"),
             // once in the library, the pages row doubles as editable
@@ -706,7 +699,9 @@ function UploadedOverview({
           },
         }
       : null;
-  const downloadActions = uploadedEntry ? getDownloadActions(uploadedEntry) : [];
+  const downloadActions = uploadedEntry
+    ? getDownloadActions(uploadedEntry)
+    : [];
 
   const handleOpen = async () => {
     if (!uploadedEntry) return;
@@ -718,15 +713,31 @@ function UploadedOverview({
     }
   };
 
+  // `?open=reader` (set by course-file copies, see space-files.ts
+  // routeForCopy) auto-triggers the same "Open in Reader" action so a
+  // course file lands straight in the reading view instead of the book
+  // Overview page. Strip the param right away so a later back-navigation
+  // to this URL doesn't re-trigger it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("open") !== "reader" || !uploadedEntry) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("open");
+        return next;
+      },
+      { replace: true },
+    );
+    void handleOpen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, uploadedEntry]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         {storagePath && (
-          <Button
-            variant="primary"
-            onClick={handleOpen}
-            disabled={loading}
-          >
+          <Button variant="primary" onClick={handleOpen} disabled={loading}>
             {loading ? (
               <Loader2 size={16} className="animate-spin" />
             ) : (
@@ -754,7 +765,6 @@ function UploadedOverview({
         <BookCategoryEditor bookId={book.id} initialCategories={categories} />
       </div>
 
-
       <MetaGrid
         entries={[
           {
@@ -781,7 +791,6 @@ function UploadedOverview({
           },
         ]}
       />
-
     </div>
   );
 }
@@ -855,11 +864,7 @@ function CatalogUploadOwnCopyButton({
       file.type !== "application/pdf" &&
       !file.name.toLowerCase().endsWith(".pdf")
     ) {
-      setError(
-        t("book.attach.errorPdfOnly", {
-          defaultValue: "Only PDF files are supported.",
-        }),
-      );
+      setError(t("book.attach.errorPdfOnly"));
       return;
     }
     setBusy(true);
@@ -867,10 +872,7 @@ function CatalogUploadOwnCopyButton({
     try {
       const { bookId, error: uploadError } = await uploadPdf(file);
       if (uploadError || !bookId) {
-        setError(
-          uploadError ??
-            t("book.attach.failed", { defaultValue: "Upload failed." }),
-        );
+        setError(uploadError ?? t("book.attach.failed"));
         setBusy(false);
         return;
       }
@@ -894,11 +896,7 @@ function CatalogUploadOwnCopyButton({
       navigate(`/books/${bookIdSegment(bookId, fallbackTitle)}`);
     } catch (err) {
       logError("CatalogUploadOwnCopyButton:handleFile", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : t("book.attach.failed", { defaultValue: "Upload failed." }),
-      );
+      setError(err instanceof Error ? err.message : t("book.attach.failed"));
       setBusy(false);
     }
   };
@@ -911,9 +909,7 @@ function CatalogUploadOwnCopyButton({
         ) : (
           <Paperclip size={14} />
         )}
-        {t("book.attach.uploadOwnCopy", {
-          defaultValue: "Upload your own PDF",
-        })}
+        {t("book.attach.uploadOwnCopy")}
       </Button>
       <input
         ref={inputRef}

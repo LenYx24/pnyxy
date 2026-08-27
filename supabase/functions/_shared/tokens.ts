@@ -7,25 +7,48 @@ export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-/** Salted SHA-256 of an IP so the usage table never stores raw IPs.
- *  Salt comes from IP_HASH_SALT (see ../README.md). */
+/** HMAC-SHA256 of an IP so the usage table never stores raw IPs and
+ *  the hash can't be reversed or dictionary-matched without the salt.
+ *  Salt comes from IP_HASH_SALT (see ../README.md). Uses HMAC rather
+ *  than salt-concatenation-then-hash: concatenation is length-extension
+ *  and structurally weaker than a proper keyed MAC. */
 export async function hashIp(ip: string, salt: string): Promise<string> {
-  const data = new TextEncoder().encode(`${salt}:${ip}`);
-  const buf = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(buf))
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(salt),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(ip));
+  return Array.from(new Uint8Array(sig))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
 
-/** Salt for hashIp: IP_HASH_SALT, falling back to the service-role key
- *  so nothing breaks before the dedicated secret is set. */
+/** Salt for hashIp: IP_HASH_SALT, required. Fails closed (throws)
+ *  rather than falling back to the service-role key or an empty
+ *  string, either of which would make the hash trivially reversible
+ *  or reuse a sensitive secret outside its intended purpose. Set with
+ *  `supabase secrets set IP_HASH_SALT=$(openssl rand -hex 32)`. */
 export function ipHashSalt(): string {
-  return (
-    Deno.env.get("IP_HASH_SALT") ||
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-    ""
-  );
+  const salt = Deno.env.get("IP_HASH_SALT");
+  if (!salt) {
+    throw new Error("ip_hash_salt_unset");
+  }
+  return salt;
 }
+
+/**
+ * Flat per-request token surcharge to bill when a chat request enables
+ * server-side grounding (web search / retrieval): grounded calls cost
+ * more upstream (search + extra context tokens) than the model's own
+ * completion tokens reflect, so the quota RPC should add this on top
+ * of the estimated prompt+completion tokens whenever grounding was
+ * requested. Not applied anywhere in this file; the ai-chat-proxy
+ * owner wires it into their token accounting.
+ */
+export const GROUNDED_REQUEST_SURCHARGE_TOKENS = 2000;
 
 /**
  * Best-effort client IP. Prefers headers the edge/proxy layer sets

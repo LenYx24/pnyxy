@@ -19,10 +19,7 @@ import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
 import { useOpenCatalogBook } from "@/hooks/use-open-catalog-book";
 import { useLibraryStore } from "@/stores/library-store";
 import { loadLastOpenedBook } from "@/lib/last-opened-book";
-import type {
-  CatalogLibraryItem,
-  UploadedLibraryItem,
-} from "@/types/catalog";
+import type { CatalogLibraryItem, UploadedLibraryItem } from "@/types/catalog";
 
 /** Shown in the reader when no document is open: resume, open, import. */
 export function ReaderEmptyState() {
@@ -73,13 +70,10 @@ export function ReaderEmptyState() {
         <BookOpen size={32} className="text-text-muted" />
       </div>
       <h2 className="mb-2 text-xl font-semibold text-text-primary">
-        {t("reader.empty.title", { defaultValue: "No book open" })}
+        {t("reader.empty.title")}
       </h2>
       <p className="mb-6 max-w-sm text-sm text-text-secondary">
-        {t("reader.empty.body", {
-          defaultValue:
-            "Upload a book or open a file to start reading, anything you open shows up in your library.",
-        })}
+        {t("reader.empty.body")}
       </p>
 
       {/* resume the last book this device had open */}
@@ -99,7 +93,7 @@ export function ReaderEmptyState() {
           </span>
           <span className="min-w-0">
             <span className="block text-xs font-medium text-accent">
-              {t("reader.empty.continue", { defaultValue: "Continue reading" })}
+              {t("reader.empty.continue")}
             </span>
             <span className="block truncate text-sm font-semibold text-text-primary">
               {lastOpened.title}
@@ -112,16 +106,16 @@ export function ReaderEmptyState() {
       <div className="flex w-full max-w-sm flex-col gap-2">
         <Button variant="primary" onClick={triggerFilePicker}>
           <FilePlus size={18} />
-          {t("reader.empty.openFile", { defaultValue: "Open a file" })}
+          {t("reader.empty.openFile")}
         </Button>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="secondary" onClick={() => setPickerOpen(true)}>
             <Library size={16} />
-            {t("reader.empty.fromLibrary", { defaultValue: "From library" })}
+            {t("reader.empty.fromLibrary")}
           </Button>
           <Button variant="secondary" onClick={() => setUrlOpen(true)}>
             <Globe size={16} />
-            {t("library.actions.fromUrl", { defaultValue: "From URL" })}
+            {t("library.actions.fromUrl")}
           </Button>
         </div>
       </div>
@@ -134,7 +128,7 @@ export function ReaderEmptyState() {
           className="flex items-center gap-1.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
         >
           <Upload size={14} />
-          {t("library.actions.upload", { defaultValue: "Upload to library" })}
+          {t("library.actions.upload")}
         </button>
         <button
           type="button"
@@ -142,7 +136,7 @@ export function ReaderEmptyState() {
           className="flex items-center gap-1.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
         >
           <ScanLine size={14} />
-          {t("library.actions.scan", { defaultValue: "Scan device" })}
+          {t("library.actions.scan")}
         </button>
       </div>
 
@@ -154,7 +148,9 @@ export function ReaderEmptyState() {
         onChange={handleFileSelect}
       />
 
-      {pickerOpen && <LibraryPickerModal onClose={() => setPickerOpen(false)} />}
+      {pickerOpen && (
+        <LibraryPickerModal onClose={() => setPickerOpen(false)} />
+      )}
       <OpenFromUrlModal
         open={urlOpen}
         onClose={() => setUrlOpen(false)}

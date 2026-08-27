@@ -84,9 +84,7 @@ export function createChatFolderSlice(
     },
 
     async ensureQuickChatsFolder(parentId = null) {
-      const name = i18n.t("chat.sidebar.quickChats", {
-        defaultValue: "Quick chats",
-      });
+      const name = i18n.t("chat.sidebar.quickChats");
       const matches = (f: ChatFolder) =>
         f.parent_id === parentId &&
         f.name.trim().toLowerCase() === name.trim().toLowerCase();
@@ -129,15 +127,14 @@ export function createChatFolderSlice(
         return;
       }
       set((s) => ({
-        folders: s.folders.map((f) => (f.id === id ? { ...f, name: trimmed } : f)),
+        folders: s.folders.map((f) =>
+          f.id === id ? { ...f, name: trimmed } : f,
+        ),
       }));
     },
 
     async deleteFolder(id) {
-      const { error } = await supabase
-        .from("folders")
-        .delete()
-        .eq("id", id);
+      const { error } = await supabase.from("folders").delete().eq("id", id);
       if (error) {
         logError("chat:deleteFolder", error);
         return;
@@ -156,7 +153,10 @@ export function createChatFolderSlice(
         sortOrder === undefined || current.sort_order === sortOrder;
       if (parentUnchanged && sortUnchanged) return;
       // cycle guard: a folder must not become its own descendant
-      if (parentId !== null && isFolderOrDescendant(get().folders, id, parentId)) {
+      if (
+        parentId !== null &&
+        isFolderOrDescendant(get().folders, id, parentId)
+      ) {
         return;
       }
       // optimistic patch, rolls back on error
@@ -165,9 +165,7 @@ export function createChatFolderSlice(
       const patch: Partial<ChatFolder> = { parent_id: parentId };
       if (sortOrder !== undefined) patch.sort_order = sortOrder;
       set((s) => ({
-        folders: s.folders.map((f) =>
-          f.id === id ? { ...f, ...patch } : f,
-        ),
+        folders: s.folders.map((f) => (f.id === id ? { ...f, ...patch } : f)),
       }));
       const update: Record<string, unknown> = { parent_id: parentId };
       if (sortOrder !== undefined) update.sort_order = sortOrder;
@@ -180,7 +178,11 @@ export function createChatFolderSlice(
         set((s) => ({
           folders: s.folders.map((f) =>
             f.id === id
-              ? { ...f, parent_id: previousParentId, sort_order: previousSortOrder }
+              ? {
+                  ...f,
+                  parent_id: previousParentId,
+                  sort_order: previousSortOrder,
+                }
               : f,
           ),
         }));

@@ -85,7 +85,7 @@ export function BookStatusPicker() {
     <div className="space-y-2">
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-          {t("book.status.heading", { defaultValue: "Status" })}
+          {t("book.status.heading")}
         </h3>
         {isLoading && (
           <Loader2 size={12} className="animate-spin text-text-muted" />
@@ -118,9 +118,7 @@ export function BookStatusPicker() {
                 )}
               />
               {TAG_LABELS[tag]}
-              {isPending && (
-                <Loader2 size={10} className="animate-spin" />
-              )}
+              {isPending && <Loader2 size={10} className="animate-spin" />}
             </button>
           );
         })}

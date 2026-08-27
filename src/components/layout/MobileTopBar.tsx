@@ -33,8 +33,11 @@ export function MobileTopBar() {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  const initial =
-    (profile?.display_name?.[0] ?? user?.email?.[0] ?? "?").toUpperCase();
+  const initial = (
+    profile?.display_name?.[0] ??
+    user?.email?.[0] ??
+    "?"
+  ).toUpperCase();
 
   const handleSignOut = async () => {
     setOpen(false);
@@ -57,7 +60,7 @@ export function MobileTopBar() {
         <button
           type="button"
           onClick={() => setMobileSidebarOpen(true)}
-          aria-label={t("sidebar.openNav", { defaultValue: "Open navigation" })}
+          aria-label={t("sidebar.openNav")}
           className="rounded-control p-2 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
         >
           <Menu size={20} strokeWidth={1.5} />
@@ -69,7 +72,7 @@ export function MobileTopBar() {
           <button
             ref={triggerRef}
             onClick={() => setOpen((v) => !v)}
-            aria-label={t("sidebar.profile", { defaultValue: "Profile" })}
+            aria-label={t("sidebar.profile")}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-bg-tertiary text-sm font-semibold text-text-primary transition-colors hover:bg-surface-3 cursor-pointer"
           >
             {profile?.avatar_url ? (
@@ -86,13 +89,13 @@ export function MobileTopBar() {
             <MobileTopBarMenuItem
               to="/profile"
               icon={User}
-              label={t("sidebar.profile", { defaultValue: "Profile" })}
+              label={t("sidebar.profile")}
               onClick={close}
             />
             <MobileTopBarMenuItem
               to="/settings"
               icon={SettingsIcon}
-              label={t("sidebar.settings", { defaultValue: "Settings" })}
+              label={t("sidebar.settings")}
               onClick={close}
             />
             <button
@@ -101,7 +104,7 @@ export function MobileTopBar() {
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary"
             >
               <LogOut size={16} />
-              <span>{t("sidebar.signOut", { defaultValue: "Sign out" })}</span>
+              <span>{t("sidebar.signOut")}</span>
             </button>
           </FloatingMenu>
         </>
@@ -111,7 +114,7 @@ export function MobileTopBar() {
           className="chip h-9 font-medium transition-colors hover:bg-surface-3 hover:text-text-primary"
         >
           <LogIn size={14} />
-          <span>{t("sidebar.signIn", { defaultValue: "Sign in" })}</span>
+          <span>{t("sidebar.signIn")}</span>
         </Link>
       )}
     </header>

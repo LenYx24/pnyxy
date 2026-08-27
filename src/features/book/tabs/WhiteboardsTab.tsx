@@ -79,9 +79,7 @@ export function WhiteboardsTab() {
           </Button>
         ) : (
           <span className="text-xs text-text-muted">
-            {t("book.libraryRequired", {
-              defaultValue: "Add this book to your library first",
-            })}
+            {t("book.libraryRequired")}
           </span>
         )}
       </div>

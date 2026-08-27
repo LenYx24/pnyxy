@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { marked } from "marked";
-import DOMPurify from "dompurify";
+import { sanitizeHtml } from "@/lib/sanitize-html";
+import { isSafeExternalUrl } from "@/lib/safe-url";
 import {
   ArrowLeft,
   ExternalLink,
@@ -28,7 +29,7 @@ function timeAgo(dateStr: string): string {
 }
 
 function renderMarkdown(md: string): string {
-  return DOMPurify.sanitize(marked.parse(md, { async: false }) as string);
+  return sanitizeHtml(marked.parse(md, { async: false }) as string);
 }
 
 export function PostPage() {
@@ -148,15 +149,22 @@ export function PostPage() {
 
         {/* Link */}
         {currentPost.kind === "link" && currentPost.link_url && (
-          <a
-            href={currentPost.link_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 flex items-center gap-1.5 text-sm text-accent-blue transition-colors hover:text-accent-blue/80"
-          >
-            <ExternalLink size={14} />
-            {currentPost.link_url}
-          </a>
+          isSafeExternalUrl(currentPost.link_url) ? (
+            <a
+              href={currentPost.link_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex items-center gap-1.5 text-sm text-accent-blue transition-colors hover:text-accent-blue/80"
+            >
+              <ExternalLink size={14} />
+              {currentPost.link_url}
+            </a>
+          ) : (
+            <span className="mt-3 flex items-center gap-1.5 break-all text-sm text-text-muted">
+              <ExternalLink size={14} />
+              {currentPost.link_url}
+            </span>
+          )
         )}
 
         {/* Body */}

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { marked } from "marked";
-import DOMPurify from "dompurify";
 import { Minus, Plus, Reply, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 import { usePostStore } from "@/stores/post-store";
 import { useAuthStore } from "@/stores/auth-store";
 import type { ForumCommentWithAuthor } from "@/types/forum";
@@ -22,7 +22,7 @@ function timeAgo(dateStr: string): string {
 }
 
 function renderMarkdown(md: string): string {
-  return DOMPurify.sanitize(marked.parse(md, { async: false }) as string);
+  return sanitizeHtml(marked.parse(md, { async: false }) as string);
 }
 
 function countDescendants(comment: ForumCommentWithAuthor): number {

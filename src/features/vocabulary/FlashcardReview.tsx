@@ -4,6 +4,7 @@ import { X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useVocabStore } from "@/stores/vocab-store";
+import { track } from "@/lib/telemetry";
 import type { VocabEntry, VocabRating } from "@/types/vocab";
 
 interface FlashcardReviewProps {
@@ -70,6 +71,7 @@ export function FlashcardReview({
       // touch FSRS so a "review anyway" pass before an exam can't
       // pull the schedule forward or push it back unintentionally.
       if (!cram) await recordReview(current.id, rating);
+      track("flashcard_review", { rating, cram });
       setRevealed(false);
       setIndex((i) => i + 1);
     },
@@ -115,12 +117,9 @@ export function FlashcardReview({
             {cram && (
               <span
                 className="rounded-full bg-orange-500/20 px-2 py-0.5 text-2xs font-semibold uppercase tracking-wide text-orange-300"
-                title={t("vocabulary.review.cramHint", {
-                  defaultValue:
-                    "Cram mode: ratings don't change the FSRS schedule",
-                })}
+                title={t("vocabulary.review.cramHint")}
               >
-                {t("vocabulary.review.cramBadge", { defaultValue: "Cram" })}
+                {t("vocabulary.review.cramBadge")}
               </span>
             )}
           </div>

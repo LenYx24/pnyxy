@@ -34,7 +34,6 @@ import { TagPickerDropdown } from "../TagPickerDropdown";
 import { BookInfoModal } from "../modals/BookInfoModal";
 import { ShareBookModal } from "../modals/ShareBookModal";
 import { ContextMenu, MenuItem } from "./MenuButton";
-import { RowTile } from "./RowTile";
 import { useDropIntent } from "../drag-intent";
 import { DropIndicator } from "../DropIndicator";
 import { BookDetailPanel, BookProgressCell } from "./BookDetailPanel";
@@ -46,7 +45,6 @@ import {
   ROW_SEPARATOR_CLASS,
   formatRelative,
   getAuthor,
-  getCoverUrl,
   getTitle,
   getTypeLabel,
   handleRowKeyDown,
@@ -125,7 +123,7 @@ export function BookRow({
   const cvStyle =
     dragActive || expanded
       ? null
-      : { contentVisibility: "auto" as const, containIntrinsicSize: "auto 58px" };
+      : { contentVisibility: "auto" as const, containIntrinsicSize: "auto 44px" };
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
@@ -167,7 +165,6 @@ export function BookRow({
   const selKey = `book:${entry.id}`;
   const title = getTitle(entry);
   const author = getAuthor(entry);
-  const coverUrl = getCoverUrl(entry);
 
   const openBookPage = () => {
     // Pre-bake slug, same reasoning as the grid card.
@@ -192,9 +189,9 @@ export function BookRow({
       toggle({ ctrlKey: e.ctrlKey || e.metaKey, shiftKey: e.shiftKey });
       return;
     }
+    // plain click only expands/collapses; selection is the checkbox's job
     if (onActivate) {
       onActivate(selKey);
-      if (!expanded && !selected) toggle();
       return;
     }
     openBookPage();
@@ -311,29 +308,25 @@ export function BookRow({
           <Checkbox checked={selected} onChange={() => toggle()} />
         </div>
 
-        <RowTile kind="book" coverUrl={coverUrl} />
-
-        {/* Title + author, tags trail the title on wider screens. */}
+        {/* One line: title + trailing tags; author/cover live in the
+            expanded detail (Nextcloud-flat rows, no book icon) */}
         <div
-          className="flex min-w-0 flex-col gap-0.5"
+          className="flex min-w-0 items-center gap-2"
           title={`${title}${author ? " - " + author : ""}`}
         >
-          <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate font-medium text-text-primary">
-              {title}
-            </span>
-            {(tags.length > 0 || customTags.length > 0) && (
-              <span className="hidden shrink-0 items-center gap-1 sm:flex">
-                {tags.slice(0, 2).map((tag) => (
-                  <TagBadge key={tag} tag={tag} size="sm" />
-                ))}
-                {customTags.slice(0, 2).map((label) => (
-                  <CustomTagBadge key={label} label={label} title={label} />
-                ))}
-              </span>
-            )}
+          <span className="truncate font-medium text-text-primary">
+            {title}
           </span>
-          <span className="truncate text-xs text-text-muted">{author}</span>
+          {(tags.length > 0 || customTags.length > 0) && (
+            <span className="hidden shrink-0 items-center gap-1 sm:flex">
+              {tags.slice(0, 2).map((tag) => (
+                <TagBadge key={tag} tag={tag} size="sm" />
+              ))}
+              {customTags.slice(0, 2).map((label) => (
+                <CustomTagBadge key={label} label={label} title={label} />
+              ))}
+            </span>
+          )}
         </div>
 
         {/* Type */}

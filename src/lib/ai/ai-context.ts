@@ -6,6 +6,8 @@ import { useReaderStore } from "@/stores/reader-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { resolveAiContextForConversation } from "@/features/settings/ai-context/resolve-runtime";
 import { extractPdfText, renderPdfPagesToImages } from "@/lib/ai/ai-client";
+import { getScopedDocText } from "@/lib/ai/scoped-doc-text";
+import { logError } from "@/lib/logger";
 import type { TocItem } from "@/types/document";
 import type { ChatMessageAttachment } from "@/types/chat";
 
@@ -19,12 +21,6 @@ export interface AiContextPack {
    *  extraction came back empty for an image PDF. */
   imageAttachments: ChatMessageAttachment[];
 }
-
-const EMPTY_PACK: AiContextPack = {
-  customContext: "",
-  pageContext: "",
-  imageAttachments: [],
-};
 
 interface FlatTocEntry {
   title: string;
@@ -165,8 +161,13 @@ export async function buildAiContextPack(
   }
 
   const doc = useReaderStore.getState().documents.get(docId);
-  if (!doc)
-    return { customContext, pageContext: "", imageAttachments: [] };
+  if (!doc) {
+    // Doc-scoped chat without the reader (PDF dropped into the composer,
+    // "New chat" from a library row): extract the stored file's text so
+    // the model actually sees the document, not just its title.
+    const pageContext = await getScopedDocText(docId);
+    return { customContext, pageContext, imageAttachments: [] };
+  }
 
   const sections: string[] = [];
   let imageAttachments: ChatMessageAttachment[] = [];
@@ -199,7 +200,7 @@ export async function buildAiContextPack(
       try {
         pagesText = await extractSelectedPages(doc.meta.fileUrl, pages);
       } catch (err) {
-        console.warn("[ai-context] page extraction failed:", err);
+        logError("ai:context", err);
       }
     }
 
@@ -216,7 +217,7 @@ export async function buildAiContextPack(
           name: `Page ${r.page}`,
         }));
       } catch (err) {
-        console.warn("[ai-context] page render failed:", err);
+        logError("ai:context", err);
       }
     }
 
@@ -230,9 +231,4 @@ export async function buildAiContextPack(
     pageContext: sections.join("\n\n---\n\n"),
     imageAttachments,
   };
-}
-
-/** Empty pack for non-PDF / no-doc paths. */
-export function emptyAiContextPack(): AiContextPack {
-  return EMPTY_PACK;
 }

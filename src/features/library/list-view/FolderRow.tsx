@@ -177,15 +177,11 @@ export function FolderRow({
           <Checkbox checked={selected} onChange={() => toggle()} />
         </div>
 
-        <RowTile kind="folder" />
-
-        {/* Name + item count */}
-        <div className="flex min-w-0 flex-col gap-0.5">
+        {/* Name (inline glyph, one line) */}
+        <div className="flex min-w-0 items-center gap-2.5">
+          <RowTile kind="folder" />
           <span className="truncate font-medium text-text-primary">
             {folder.name}
-          </span>
-          <span className="truncate text-xs text-text-muted">
-            {t("library.list.itemCount", { count: itemCount })}
           </span>
         </div>
 
@@ -194,8 +190,10 @@ export function FolderRow({
           {t("library.allBooks.folderLabel")}
         </span>
 
-        {/* Progress: folders have none. */}
-        <span className="hidden md:block" />
+        {/* Item count in its own column (the progress slot) */}
+        <span className="hidden truncate text-text-muted md:block">
+          {t("library.list.itemCount", { count: itemCount })}
+        </span>
 
         {/* Modified */}
         <span className="hidden truncate text-text-muted md:block">

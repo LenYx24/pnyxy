@@ -8,6 +8,7 @@ import {
 import { isAbortError } from "@/lib/ai/ai-client";
 import { detectSourceLang } from "@/lib/lang-detect";
 import { cn } from "@/lib/cn";
+import { isSafeExternalUrl } from "@/lib/safe-url";
 
 interface Props {
   /** Initial term to look up, pre-filled from the user's text
@@ -177,15 +178,17 @@ export function AnnotationMenuWikiPanel({
               />
             )}
             <p className="text-text-secondary">{summary.extract}</p>
-            <a
-              href={summary.pageUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-accent hover:underline"
-            >
-              {t("reader.annotationMenu.wikiOpen")}
-              <ExternalLink size={11} />
-            </a>
+            {isSafeExternalUrl(summary.pageUrl) && (
+              <a
+                href={summary.pageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-accent hover:underline"
+              >
+                {t("reader.annotationMenu.wikiOpen")}
+                <ExternalLink size={11} />
+              </a>
+            )}
           </div>
         )}
       </div>

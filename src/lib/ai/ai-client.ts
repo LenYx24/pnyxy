@@ -1,10 +1,18 @@
 import { pdfjs } from "react-pdf";
+import { useServedModelStore } from "@/lib/ai/served-model";
 import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
 import { supabase } from "@/lib/supabase";
 import type { ToolDef } from "@/lib/roadmap/roadmap-tools";
 import type { ChatMessageAttachment } from "@/types/chat";
 import { teacherBlock } from "@/lib/ai/teacher-mode";
 import { INLINE_QUIZ_SPEC } from "@/lib/ai/extract-quiz";
+
+// BYOK request model ids (this file talks to Anthropic/OpenAI directly).
+// Pnyxy-route model ids are a separate, server-routed list; see
+// PNYXY_MODEL_OPTIONS in src/features/chat/quota.ts for that copy.
+const ANTHROPIC_BYOK_MODEL = "claude-sonnet-4-5-20250929";
+const OPENAI_BYOK_MODEL = "gpt-4o-mini";
+const OPENAI_BYOK_REASONING_MODEL = "o3-mini";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -52,23 +60,41 @@ export type ToolStreamEvent =
 
 export type AiErrorCode = "quota" | "auth" | "network" | "config" | "other";
 
-/** Per-attempt provider error. `code` decides whether fallback swaps providers. */
 export class AiProviderError extends Error {
   readonly code: AiErrorCode;
   readonly provider: AiProvider;
   readonly status?: number;
+  /** Raw `error.code` string from a Pnyxy-proxy JSON error body (e.g.
+   *  "sign_in_required"), when the upstream sent one. Lets callers react
+   *  to a specific server-side reason beyond the coarse `code` bucket. */
+  readonly serverCode?: string;
 
   constructor(
     message: string,
     code: AiErrorCode,
     provider: AiProvider,
     status?: number,
+    serverCode?: string,
   ) {
     super(message);
     this.name = "AiProviderError";
     this.code = code;
     this.provider = provider;
     this.status = status;
+    this.serverCode = serverCode;
+  }
+}
+
+/** Thrown after tokens already streamed when the provider ends the answer
+ *  for a reason other than a normal stop (output limit, safety/recitation
+ *  filter, provider cut). The caller keeps the partial text and explains
+ *  the cut instead of leaving a half sentence. */
+export class AiStreamCutError extends AiProviderError {
+  readonly reason: string;
+  constructor(reason: string, provider: AiProvider) {
+    super(`Answer cut by the model (${reason})`, "other", provider);
+    this.name = "AiStreamCutError";
+    this.reason = reason;
   }
 }
 
@@ -247,7 +273,18 @@ function toOpenAiChatContent(message: ChatMessage) {
   return blocks;
 }
 
-function buildSystemPrompt(
+/** Rough client-side token estimate (~4 chars/token, no real tokenizer
+ *  available in the browser). Used by the "what does the AI see" context
+ *  inspector to size its budget bar; not billed against anywhere. */
+export function estimateTokens(text: string): number {
+  if (!text) return 0;
+  return Math.ceil(text.length / 4);
+}
+
+/** Builds the default (non-override) system prompt: chat-mode when
+ *  `documentTitle` is empty, document-Q&A mode otherwise. Exported so the
+ *  context inspector can mirror the exact text the next turn will send. */
+export function buildSystemPrompt(
   documentTitle: string,
   pageContext: string,
   customContext: string = "",
@@ -321,10 +358,34 @@ export interface StreamOptions {
   maxOutputTokens?: number;
   /** Strict mode: only this provider is tried, no fallback. Unset = full chain. */
   preferredProvider?: AiProvider;
-  /** OpenAI BYOK only: swap gpt-4o-mini for o3-mini. Pnyxy proxy ignores it. */
+  /** Pnyxy-route model pin for THIS call, overriding the user's picker
+   *  choice. Background/aux calls (title, suggestions) pin the cheap
+   *  tier so the quality-first default chain stays for real turns. */
+  pnyxyModelOverride?: string;
+  /** Thinking mode: the pnyxy route forwards `reasoning: true` to the proxy and OpenAI BYOK swaps in the reasoning model, while Anthropic BYOK, local, and tool-use calls ignore it. */
   reasoning?: boolean;
   /** Abort throws AbortError from the generator. */
   signal?: AbortSignal;
+}
+
+/** setTimeout that rejects with AbortError when the signal fires, so a
+ *  retry backoff never outlives a pressed Stop button. */
+function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 /** True when the error came from the user pressing "Stop." */
@@ -410,7 +471,7 @@ function streamForProvider(
   }
 }
 
-const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
+const DEFAULT_MAX_OUTPUT_TOKENS = 4096;
 
 // Pnyxy provider, proxied via Supabase edge function
 
@@ -445,57 +506,31 @@ async function* streamPnyxy(
     : pageContext;
 
   // null = auto-route server-side, else pin the picked model
-  const preferredModel = useSettingsStore.getState().pnyxyModel;
+  const preferredModel =
+    options.pnyxyModelOverride ?? useSettingsStore.getState().pnyxyModel;
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: "POST",
-      headers,
-      signal: options.signal,
-      body: JSON.stringify({
-        messages: proxyMessages,
-        documentTitle,
-        pageContext: mergedPageContext,
-        systemPromptOverride: options.systemPromptOverride,
-        maxOutputTokens: options.maxOutputTokens,
-        preferredModel,
-      }),
-    });
-  } catch (err) {
-    if (isAbortError(err)) throw err;
-    throw new AiProviderError(
-      err instanceof Error ? err.message : "Network error",
-      "network",
-      "pnyxy",
-    );
-  }
+  const requestBody = JSON.stringify({
+    messages: proxyMessages,
+    documentTitle,
+    pageContext: mergedPageContext,
+    systemPromptOverride: options.systemPromptOverride,
+    maxOutputTokens: options.maxOutputTokens,
+    preferredModel,
+    ...(options.reasoning ? { reasoning: true } : {}),
+  });
 
-  if (!response.ok) {
-    let errMsg = `AI proxy error (${response.status})`;
-    try {
-      const body = await response.json();
-      if (body?.error?.message) errMsg = body.error.message;
-    } catch {
-      // ignore
-    }
-    throw new AiProviderError(
-      errMsg,
-      classifyStatus(response.status),
-      "pnyxy",
-      response.status,
-    );
-  }
+  // Transient failures (network blip, 5xx) retry silently with backoff
+  // before surfacing an error bubble. Safe: nothing has streamed yet at
+  // this point, so a retry can never duplicate visible output. 4xx and
+  // 429 (quota) are surfaced immediately, retrying those can't help.
+  const body = await openSseStream(
+    url,
+    { method: "POST", headers, body: requestBody },
+    "pnyxy",
+    { retries: 2, delays: [400, 1500], signal: options.signal },
+  );
 
-  if (!response.body) {
-    throw new AiProviderError(
-      "AI proxy returned an empty response",
-      "other",
-      "pnyxy",
-    );
-  }
-
-  yield* parseAnthropicSse(response.body);
+  yield* parseAnthropicSse(body);
 }
 
 // Anthropic provider, BYOK browser-direct
@@ -521,7 +556,7 @@ async function* streamAnthropic(
 
   const stream = client.messages.stream(
     {
-      model: "claude-sonnet-4-5-20250929",
+      model: ANTHROPIC_BYOK_MODEL,
       max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
       // cache the stable system prompt, ~10% input cost on follow-ups
       system: [
@@ -573,18 +608,16 @@ async function* streamOpenAi(
     );
   }
 
-  let response: Response;
-  try {
-    response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const body = await openSseStream(
+    "https://api.openai.com/v1/chat/completions",
+    {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      signal: options.signal,
       body: JSON.stringify({
-        // o3-mini for reasoning mode, ~7x the cost, opt-in
-        model: options.reasoning ? "o3-mini" : "gpt-4o-mini",
+        model: options.reasoning ? OPENAI_BYOK_REASONING_MODEL : OPENAI_BYOK_MODEL,
         max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
         stream: true,
         messages: [
@@ -600,42 +633,12 @@ async function* streamOpenAi(
           })),
         ],
       }),
-    });
-  } catch (err) {
-    if (isAbortError(err)) throw err;
-    throw new AiProviderError(
-      err instanceof Error ? err.message : "Network error",
-      "network",
-      "openai",
-    );
-  }
+    },
+    "openai",
+    { signal: options.signal },
+  );
 
-  if (!response.ok) {
-    let errMsg = `OpenAI error (${response.status})`;
-    try {
-      const body = await response.json();
-      if (body?.error?.message) errMsg = body.error.message;
-    } catch {
-      const text = await response.text().catch(() => "");
-      if (text) errMsg = `OpenAI error (${response.status}): ${text}`;
-    }
-    throw new AiProviderError(
-      errMsg,
-      classifyStatus(response.status),
-      "openai",
-      response.status,
-    );
-  }
-
-  if (!response.body) {
-    throw new AiProviderError(
-      "OpenAI returned an empty response",
-      "other",
-      "openai",
-    );
-  }
-
-  yield* parseOpenAiSse(response.body);
+  yield* parseOpenAiSse(body);
 }
 
 // Local LLM provider (Ollama / LM Studio / vLLM / llama.cpp)
@@ -672,12 +675,11 @@ async function* streamLocal(
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
-  let response: Response;
-  try {
-    response = await fetch(endpoint, {
+  const body = await openSseStream(
+    endpoint,
+    {
       method: "POST",
       headers,
-      signal: options.signal,
       body: JSON.stringify({
         model,
         max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
@@ -696,46 +698,17 @@ async function* streamLocal(
           })),
         ],
       }),
-    });
-  } catch (err) {
-    if (isAbortError(err)) throw err;
-    // usually the local server isn't running
-    throw new AiProviderError(
-      err instanceof Error
-        ? `Couldn't reach local LLM at ${baseUrl}, is it running?`
-        : "Network error",
-      "network",
-      "local",
-    );
-  }
-
-  if (!response.ok) {
-    let errMsg = `Local LLM error (${response.status})`;
-    try {
-      const body = await response.json();
-      if (body?.error?.message) errMsg = body.error.message;
-    } catch {
-      const text = await response.text().catch(() => "");
-      if (text) errMsg = `Local LLM error (${response.status}): ${text}`;
-    }
-    throw new AiProviderError(
-      errMsg,
-      classifyStatus(response.status),
-      "local",
-      response.status,
-    );
-  }
-
-  if (!response.body) {
-    throw new AiProviderError(
-      "Local LLM returned an empty response",
-      "other",
-      "local",
-    );
-  }
+    },
+    "local",
+    {
+      signal: options.signal,
+      // usually the local server isn't running
+      onNetworkError: () => `Couldn't reach local LLM at ${baseUrl}, is it running?`,
+    },
+  );
 
   // OpenAI SSE schema (choices[0].delta.content)
-  yield* parseOpenAiSse(response.body);
+  yield* parseOpenAiSse(body, "local");
 }
 
 function classifyStatus(status: number): AiErrorCode {
@@ -756,6 +729,102 @@ function normalizeSdkError(err: unknown, provider: AiProvider): AiProviderError 
     return new AiProviderError(message, classifyStatus(status), provider, status);
   }
   return new AiProviderError(message, "other", provider);
+}
+
+function providerErrorLabel(provider: AiProvider): string {
+  switch (provider) {
+    case "pnyxy":
+      return "AI proxy";
+    case "anthropic":
+      return "Anthropic";
+    case "openai":
+      return "OpenAI";
+    case "local":
+      return "Local LLM";
+  }
+}
+
+/** Shared fetch path for every SSE provider call in this file: sends the
+ *  request, retries transient failures (opt in via `opts.retries`/`delays`,
+ *  fetch throws and 5xx/408 both retry, nothing else does), turns a non-ok
+ *  response into a classified AiProviderError (JSON `error.message`, else
+ *  response text for BYOK providers, else a generic status message), grabs
+ *  the pnyxy-route `x-pnyxy-model` header, and rejects an empty body. */
+async function openSseStream(
+  url: string,
+  init: RequestInit,
+  provider: AiProvider,
+  opts?: {
+    retries?: number;
+    delays?: number[];
+    signal?: AbortSignal;
+    /** Overrides the message used when the fetch itself throws (not an
+     *  HTTP error status). Default: the thrown error's own message. */
+    onNetworkError?: (err: Error) => string;
+  },
+): Promise<ReadableStream<Uint8Array>> {
+  const retries = opts?.retries ?? 0;
+  const delays = opts?.delays ?? [];
+  const signal = opts?.signal;
+  const label = providerErrorLabel(provider);
+  // pnyxy's proxy error body has no useful text fallback, BYOK upstreams do
+  const includeTextFallback = provider !== "pnyxy";
+
+  let response: Response | null = null;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      response = await fetch(url, { ...init, signal });
+    } catch (err) {
+      if (isAbortError(err)) throw err;
+      if (attempt < retries) {
+        await abortableDelay(delays[attempt], signal);
+        continue;
+      }
+      const message =
+        err instanceof Error
+          ? (opts?.onNetworkError?.(err) ?? err.message)
+          : "Network error";
+      throw new AiProviderError(message, "network", provider);
+    }
+    if (response.ok) {
+      if (provider === "pnyxy") {
+        // which model actually served this turn (chain fall-through is silent)
+        const served = response.headers.get("x-pnyxy-model");
+        if (served) useServedModelStore.getState().set(served);
+      }
+      break;
+    }
+    const retryable = response.status >= 500 || response.status === 408;
+    if (retryable && attempt < retries) {
+      await abortableDelay(delays[attempt], signal);
+      continue;
+    }
+    let errMsg = `${label} error (${response.status})`;
+    let errCode: string | undefined;
+    try {
+      const body = await response.json();
+      if (body?.error?.message) errMsg = body.error.message;
+      if (typeof body?.error?.code === "string") errCode = body.error.code;
+    } catch {
+      if (includeTextFallback) {
+        const text = await response.text().catch(() => "");
+        if (text) errMsg = `${label} error (${response.status}): ${text}`;
+      }
+    }
+    throw new AiProviderError(
+      errMsg,
+      classifyStatus(response.status),
+      provider,
+      response.status,
+      errCode,
+    );
+  }
+
+  if (!response.body) {
+    throw new AiProviderError(`${label} returned an empty response`, "other", provider);
+  }
+
+  return response.body;
 }
 
 // SSE parsers
@@ -792,37 +861,74 @@ async function* readSseLines(
 
 async function* parseAnthropicSse(
   body: ReadableStream<Uint8Array>,
+  provider: AiProvider = "pnyxy",
 ): AsyncGenerator<string, void, unknown> {
   for await (const data of readSseLines(body)) {
     if (!data || data === "[DONE]") continue;
+    let event: {
+      type?: string;
+      delta?: { type?: string; text?: string; stop_reason?: string };
+      error?: { message?: string } | string;
+    };
     try {
-      const event = JSON.parse(data);
-      if (
-        event?.type === "content_block_delta" &&
-        event?.delta?.type === "text_delta" &&
-        typeof event.delta.text === "string"
-      ) {
-        yield event.delta.text;
-      }
+      event = JSON.parse(data);
     } catch {
-      // skip malformed events
+      continue; // skip malformed events
+    }
+    if (event?.type === "error") {
+      const msg =
+        typeof event.error === "string"
+          ? event.error
+          : (event.error?.message ?? "upstream error");
+      throw new AiProviderError(msg, "other", provider);
+    }
+    if (
+      event?.type === "content_block_delta" &&
+      event?.delta?.type === "text_delta" &&
+      typeof event.delta.text === "string"
+    ) {
+      yield event.delta.text;
+      continue;
+    }
+    if (event?.type === "message_delta") {
+      const stop = event.delta?.stop_reason;
+      if (stop && stop !== "end_turn" && stop !== "tool_use" && stop !== "stop") {
+        throw new AiStreamCutError(stop, provider);
+      }
     }
   }
 }
 
 async function* parseOpenAiSse(
   body: ReadableStream<Uint8Array>,
+  provider: AiProvider = "openai",
 ): AsyncGenerator<string, void, unknown> {
   for await (const data of readSseLines(body)) {
     if (!data || data === "[DONE]") continue;
+    let event: {
+      choices?: { delta?: { content?: string }; finish_reason?: string | null }[];
+      error?: { message?: string } | string;
+    };
     try {
-      const event = JSON.parse(data);
-      const delta = event?.choices?.[0]?.delta?.content;
-      if (typeof delta === "string") {
-        yield delta;
-      }
+      event = JSON.parse(data);
     } catch {
-      // skip malformed events
+      continue; // skip malformed events
+    }
+    if (event?.error) {
+      const msg =
+        typeof event.error === "string"
+          ? event.error
+          : (event.error?.message ?? "upstream error");
+      throw new AiProviderError(msg, "other", provider);
+    }
+    const choice = event?.choices?.[0];
+    const delta = choice?.delta?.content;
+    if (typeof delta === "string") {
+      yield delta;
+    }
+    const finish = choice?.finish_reason;
+    if (finish && finish !== "stop") {
+      throw new AiStreamCutError(finish === "length" ? "max_tokens" : finish, provider);
     }
   }
 }
@@ -896,6 +1002,69 @@ function streamToolsForProvider(
   }
 }
 
+interface ToolCallSlot {
+  id: string;
+  name: string;
+  jsonBuf: string;
+}
+
+/** Accumulates one provider's streamed tool-call JSON, keyed by content-block
+ *  index (Anthropic) or tool_calls index (OpenAI), until the call is
+ *  finalized. Malformed JSON becomes `{ __parse_error: <raw buffer> }`
+ *  instead of dropping the call. Shared by the Anthropic SDK stream, the
+ *  raw Anthropic SSE parser, and the OpenAI SSE parser. */
+class ToolCallAssembler {
+  private readonly slots = new Map<number, ToolCallSlot>();
+
+  start(index: number, id: string, name: string): void {
+    this.slots.set(index, { id, name, jsonBuf: "" });
+  }
+
+  /** OpenAI can send id/name on a later delta than the first; get-or-create
+   *  and let the caller update the returned slot's fields in place. */
+  ensure(index: number, id: string, name: string): ToolCallSlot {
+    let slot = this.slots.get(index);
+    if (!slot) {
+      slot = { id, name, jsonBuf: "" };
+      this.slots.set(index, slot);
+    }
+    return slot;
+  }
+
+  appendJson(index: number, json: string): void {
+    const slot = this.slots.get(index);
+    if (slot) slot.jsonBuf += json;
+  }
+
+  private parse(slot: ToolCallSlot): unknown {
+    try {
+      return slot.jsonBuf ? JSON.parse(slot.jsonBuf) : {};
+    } catch {
+      return { __parse_error: slot.jsonBuf };
+    }
+  }
+
+  /** Finalize and drop one slot (Anthropic: on content_block_stop). */
+  finish(index: number): { id: string; name: string; input: unknown } | undefined {
+    const slot = this.slots.get(index);
+    if (!slot) return undefined;
+    const input = this.parse(slot);
+    this.slots.delete(index);
+    return { id: slot.id, name: slot.name, input };
+  }
+
+  /** Finalize every remaining slot (OpenAI: no per-block stop event, so
+   *  flush at end-of-stream instead). */
+  flushAll(): Array<{ id: string; name: string; input: unknown }> {
+    const out: Array<{ id: string; name: string; input: unknown }> = [];
+    for (const slot of this.slots.values()) {
+      if (!slot.name) continue;
+      out.push({ id: slot.id, name: slot.name, input: this.parse(slot) });
+    }
+    return out;
+  }
+}
+
 async function* streamToolsNotSupported(
   provider: AiProvider,
 ): AsyncGenerator<ToolStreamEvent, void, unknown> {
@@ -928,7 +1097,7 @@ async function* streamToolsAnthropic(
 
   const stream = client.messages.stream(
     {
-      model: "claude-sonnet-4-5-20250929",
+      model: ANTHROPIC_BYOK_MODEL,
       max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
       // cache system prompt and tool schemas, re-sent every hop but never change
       system: [
@@ -946,16 +1115,13 @@ async function* streamToolsAnthropic(
           ? { cache_control: { type: "ephemeral" as const } }
           : {}),
       })),
-      messages: messages.map(toAnthropicMessage),
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
     },
     options.signal ? { signal: options.signal } : undefined,
   );
 
   // accumulate partial tool_use blocks, emit one tool_call on stop
-  const partialTools = new Map<
-    number,
-    { id: string; name: string; jsonBuf: string }
-  >();
+  const assembler = new ToolCallAssembler();
   let stopReason: ToolStopReason = "other";
 
   try {
@@ -967,11 +1133,7 @@ async function* streamToolsAnthropic(
           name?: string;
         };
         if (block.type === "tool_use" && block.id && block.name) {
-          partialTools.set(event.index, {
-            id: block.id,
-            name: block.name,
-            jsonBuf: "",
-          });
+          assembler.start(event.index, block.id, block.name);
         }
       } else if (event.type === "content_block_delta") {
         const delta = (event as { delta: unknown }).delta as {
@@ -985,26 +1147,18 @@ async function* streamToolsAnthropic(
           delta.type === "input_json_delta" &&
           typeof delta.partial_json === "string"
         ) {
-          const slot = partialTools.get(event.index);
-          if (slot) slot.jsonBuf += delta.partial_json;
+          assembler.appendJson(event.index, delta.partial_json);
         }
       } else if (event.type === "content_block_stop") {
-        const slot = partialTools.get(event.index);
-        if (slot) {
-          let parsed: unknown = {};
-          try {
-            parsed = slot.jsonBuf ? JSON.parse(slot.jsonBuf) : {};
-          } catch {
-            parsed = { __parse_error: slot.jsonBuf };
-          }
+        const call = assembler.finish(event.index);
+        if (call) {
           yield {
             kind: "tool_call",
-            id: slot.id,
-            name: slot.name,
-            input: parsed,
+            id: call.id,
+            name: call.name,
+            input: call.input,
             provider: "anthropic",
           };
-          partialTools.delete(event.index);
         }
       } else if (event.type === "message_delta") {
         const reason = (event as { delta?: { stop_reason?: string } }).delta
@@ -1039,57 +1193,26 @@ async function* streamToolsPnyxy(
     headers.Authorization = `Bearer ${accessToken}`;
   }
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
+  const body = await openSseStream(
+    url,
+    {
       method: "POST",
       headers,
-      signal: options.signal,
       body: JSON.stringify({
-        // proxy switches to tool mode when `tools` is present
+        // proxy switches to tool mode when `tools` is present; documentTitle
+        // / pageContext / messages are the plain-text-mode fields and are
+        // never read once the proxy is in tool mode
         toolMessages: messages,
         systemPromptOverride: options.systemPrompt,
         tools: options.tools,
         maxOutputTokens: options.maxOutputTokens,
-        // unused in tool mode but the proxy expects the keys
-        documentTitle: "",
-        pageContext: "",
-        messages: [],
       }),
-    });
-  } catch (err) {
-    if (isAbortError(err)) throw err;
-    throw new AiProviderError(
-      err instanceof Error ? err.message : "Network error",
-      "network",
-      "pnyxy",
-    );
-  }
+    },
+    "pnyxy",
+    { signal: options.signal },
+  );
 
-  if (!response.ok) {
-    let errMsg = `AI proxy error (${response.status})`;
-    try {
-      const body = await response.json();
-      if (body?.error?.message) errMsg = body.error.message;
-    } catch {
-      // ignore
-    }
-    throw new AiProviderError(
-      errMsg,
-      classifyStatus(response.status),
-      "pnyxy",
-      response.status,
-    );
-  }
-  if (!response.body) {
-    throw new AiProviderError(
-      "AI proxy returned an empty response",
-      "other",
-      "pnyxy",
-    );
-  }
-
-  yield* parseAnthropicSseTools(response.body, "pnyxy");
+  yield* parseAnthropicSseTools(body, "pnyxy");
 }
 
 // tool-call assembly on the raw Anthropic SSE wire format
@@ -1097,10 +1220,7 @@ async function* parseAnthropicSseTools(
   body: ReadableStream<Uint8Array>,
   provider: AiProvider,
 ): AsyncGenerator<ToolStreamEvent, void, unknown> {
-  const partialTools = new Map<
-    number,
-    { id: string; name: string; jsonBuf: string }
-  >();
+  const assembler = new ToolCallAssembler();
   let stopReason: ToolStopReason = "other";
 
   for await (const data of readSseLines(body)) {
@@ -1124,11 +1244,7 @@ async function* parseAnthropicSseTools(
     if (event.type === "content_block_start" && typeof event.index === "number") {
       const block = event.content_block;
       if (block?.type === "tool_use" && block.id && block.name) {
-        partialTools.set(event.index, {
-          id: block.id,
-          name: block.name,
-          jsonBuf: "",
-        });
+        assembler.start(event.index, block.id, block.name);
       }
     } else if (
       event.type === "content_block_delta" &&
@@ -1143,29 +1259,15 @@ async function* parseAnthropicSseTools(
         event.delta?.type === "input_json_delta" &&
         typeof event.delta.partial_json === "string"
       ) {
-        const slot = partialTools.get(event.index);
-        if (slot) slot.jsonBuf += event.delta.partial_json;
+        assembler.appendJson(event.index, event.delta.partial_json);
       }
     } else if (
       event.type === "content_block_stop" &&
       typeof event.index === "number"
     ) {
-      const slot = partialTools.get(event.index);
-      if (slot) {
-        let parsed: unknown = {};
-        try {
-          parsed = slot.jsonBuf ? JSON.parse(slot.jsonBuf) : {};
-        } catch {
-          parsed = { __parse_error: slot.jsonBuf };
-        }
-        yield {
-          kind: "tool_call",
-          id: slot.id,
-          name: slot.name,
-          input: parsed,
-          provider,
-        };
-        partialTools.delete(event.index);
+      const call = assembler.finish(event.index);
+      if (call) {
+        yield { kind: "tool_call", id: call.id, name: call.name, input: call.input, provider };
       }
     } else if (event.type === "message_delta") {
       const reason = event.delta?.stop_reason;
@@ -1188,17 +1290,16 @@ async function* streamToolsOpenAi(
     throw new AiProviderError("OpenAI API key not set.", "config", "openai");
   }
 
-  let response: Response;
-  try {
-    response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const body = await openSseStream(
+    "https://api.openai.com/v1/chat/completions",
+    {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      signal: options.signal,
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: OPENAI_BYOK_MODEL,
         max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
         stream: true,
         tools: options.tools.map((t) => ({
@@ -1214,49 +1315,25 @@ async function* streamToolsOpenAi(
           ...messages.flatMap(toOpenAiMessages),
         ],
       }),
-    });
-  } catch (err) {
-    if (isAbortError(err)) throw err;
-    throw new AiProviderError(
-      err instanceof Error ? err.message : "Network error",
-      "network",
-      "openai",
-    );
-  }
+    },
+    "openai",
+    { signal: options.signal },
+  );
 
-  if (!response.ok) {
-    let errMsg = `OpenAI error (${response.status})`;
-    try {
-      const body = await response.json();
-      if (body?.error?.message) errMsg = body.error.message;
-    } catch {
-      const text = await response.text().catch(() => "");
-      if (text) errMsg = `OpenAI error (${response.status}): ${text}`;
-    }
-    throw new AiProviderError(
-      errMsg,
-      classifyStatus(response.status),
-      "openai",
-      response.status,
-    );
-  }
-  if (!response.body) {
-    throw new AiProviderError(
-      "OpenAI returned an empty response",
-      "other",
-      "openai",
-    );
-  }
+  yield* parseOpenAiSseTools(body, "openai");
+}
 
+// tool-call assembly on the raw OpenAI SSE wire format
+async function* parseOpenAiSseTools(
+  body: ReadableStream<Uint8Array>,
+  provider: AiProvider = "openai",
+): AsyncGenerator<ToolStreamEvent, void, unknown> {
   // OpenAI streams tool args as partial JSON keyed by `index`; id/name on
   // the first chunk, finish_reason on the last
-  const partialTools = new Map<
-    number,
-    { id: string; name: string; jsonBuf: string }
-  >();
+  const assembler = new ToolCallAssembler();
   let stopReason: ToolStopReason = "other";
 
-  for await (const data of readSseLines(response.body)) {
+  for await (const data of readSseLines(body)) {
     if (!data || data === "[DONE]") continue;
     let event: {
       choices?: Array<{
@@ -1281,21 +1358,17 @@ async function* streamToolsOpenAi(
     if (!choice) continue;
     const textDelta = choice.delta?.content;
     if (typeof textDelta === "string" && textDelta.length > 0) {
-      yield { kind: "text_delta", text: textDelta, provider: "openai" };
+      yield { kind: "text_delta", text: textDelta, provider };
     }
     const tcDeltas = choice.delta?.tool_calls;
     if (tcDeltas) {
       for (const tc of tcDeltas) {
         if (typeof tc.index !== "number") continue;
-        let slot = partialTools.get(tc.index);
-        if (!slot) {
-          slot = {
-            id: tc.id ?? `tc-${tc.index}`,
-            name: tc.function?.name ?? "",
-            jsonBuf: "",
-          };
-          partialTools.set(tc.index, slot);
-        }
+        const slot = assembler.ensure(
+          tc.index,
+          tc.id ?? `tc-${tc.index}`,
+          tc.function?.name ?? "",
+        );
         if (tc.id) slot.id = tc.id;
         if (tc.function?.name) slot.name = tc.function.name;
         if (typeof tc.function?.arguments === "string") {
@@ -1309,33 +1382,13 @@ async function* streamToolsOpenAi(
   }
 
   // no content_block_stop here, so flush tool calls at end-of-stream
-  for (const slot of partialTools.values()) {
-    if (!slot.name) continue;
-    let parsed: unknown = {};
-    try {
-      parsed = slot.jsonBuf ? JSON.parse(slot.jsonBuf) : {};
-    } catch {
-      parsed = { __parse_error: slot.jsonBuf };
-    }
-    yield {
-      kind: "tool_call",
-      id: slot.id,
-      name: slot.name,
-      input: parsed,
-      provider: "openai",
-    };
+  for (const call of assembler.flushAll()) {
+    yield { kind: "tool_call", id: call.id, name: call.name, input: call.input, provider };
   }
-  yield { kind: "stop", reason: stopReason, provider: "openai" };
+  yield { kind: "stop", reason: stopReason, provider };
 }
 
 // Cross-provider message-shape converters
-
-function toAnthropicMessage(m: ToolMessage): {
-  role: "user" | "assistant";
-  content: string | ContentBlock[];
-} {
-  return { role: m.role, content: m.content };
-}
 
 /** One ToolMessage can expand into several OpenAI messages: an assistant turn
  *  becomes one message with `tool_calls`, a user turn splits into one `tool`

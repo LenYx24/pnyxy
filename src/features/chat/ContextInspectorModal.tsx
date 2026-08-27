@@ -1,198 +1,720 @@
 /**
- * "What does the AI get?" inspector: shows the parts the next turn's
- * system prompt is assembled from (base prompt flavor, teacher mode,
- * the resolved AI-context preset, attached document context). A client
- * mirror of what the proxy builds server-side, so the user can audit
- * the context instead of guessing.
+ * "What does the AI see for the next message?" transparency modal: shows
+ * every layer the next turn's system prompt (and history window) is
+ * assembled from, in prompt order, each with the real text/data behind it.
+ * A client mirror of what the send path (chat-stream.ts -> ai-context.ts
+ * -> ai-client.ts) actually builds, so the user can audit context instead
+ * of guessing. Reuses `buildAiContextPack` itself (not a re-implementation)
+ * so the preset/document/attachment text shown here is exactly what would
+ * be sent.
  */
-import { useEffect } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { X } from "lucide-react";
-import { TEACHER_GUARDRAIL, TEACHER_MODE_ENABLED } from "@/lib/ai/teacher-mode";
+import { ChevronDown, Copy, Eye } from "lucide-react";
+import { Button, FormModal, chipClass, chipAccentClass } from "@/components/ui";
+import {
+  buildSystemPrompt,
+  estimateTokens,
+} from "@/lib/ai/ai-client";
+import { buildAiContextPack, type AiContextPack } from "@/lib/ai/ai-context";
+import {
+  TEACHER_GUARDRAIL,
+  TEACHER_MODE_ENABLED,
+  teacherBlock,
+} from "@/lib/ai/teacher-mode";
 import { resolveAiContextForConversation } from "@/features/settings/ai-context/resolve-runtime";
+import { findLibraryItemByDocId } from "@/features/settings/ai-context/library-keys";
+import { useChatStore, pathFromRoot, windowChatHistory } from "@/stores/chat-store";
+import { useReaderStore } from "@/stores/reader-store";
+import { useSettingsStore } from "@/stores/settings-store";
+import { useLibraryStore } from "@/stores/library-store";
+import { useSpaceStore } from "@/stores/space-store";
+import { modelLabel, predictBilledModel, QUOTA_AUTO_DEFAULT_MODEL } from "@/features/chat/quota";
+import { showToast } from "@/stores/toast-store";
+import { logError } from "@/lib/logger";
 import { cn } from "@/lib/cn";
+import type { ChatMessageAttachment } from "@/types/chat";
+import type { Folder } from "@/types/database";
+import type { Space, SpaceSection } from "@/types/space";
 
 interface ContextInspectorModalProps {
   open: boolean;
   onClose: () => void;
   docId: string | null;
   docTitle: string | null;
-  /** Pages currently attached to the AI (reader selection). */
-  selectedPages: number;
   conversationId: string | null;
+  /** Attachments staged for the next send, when the caller owns that state
+   *  (only the composer does; header-only entry points omit it). */
+  attachments?: ChatMessageAttachment[];
+  /** Thinking/reasoning toggle, when the caller owns it (composer only). */
+  reasoning?: boolean;
 }
 
-function Section({
-  title,
-  chip,
-  children,
-}: {
-  title: string;
-  chip?: string;
-  children: React.ReactNode;
-}) {
+const SOURCE_KEY: Record<string, string> = {
+  override: "sourceOverride",
+  book: "sourceBook",
+  folder: "sourceFolder",
+  org: "sourceOrg",
+  default: "sourceDefault",
+};
+
+// Illustrative reference budget for the size bar. No single number is
+// enforced across every provider/model this app can route to, this is a
+// reasonable mid-range figure (matches the free-tier Gemini/GPT-4o-mini
+// context sizes) purely to give the bar a sense of scale.
+const DISPLAY_CONTEXT_BUDGET_TOKENS = 32_000;
+
+// Rough per-image token cost (vision tokenizers bill in tiles, not chars),
+// used only to fold image attachments into the size estimate.
+const IMAGE_TOKEN_ESTIMATE = 1500;
+
+type LayerKey =
+  | "base"
+  | "teacher"
+  | "preset"
+  | "course"
+  | "document"
+  | "attachments"
+  | "history"
+  | "search";
+
+interface CourseContext {
+  space: Space;
+  termLabel: string | null;
+  /** null when the space isn't the currently loaded one (its sections
+   *  aren't fetched outside its own course page, see resolveCourseContext). */
+  sections: SpaceSection[] | null;
+}
+
+/** Walk a folder's parent chain (root last) and collect the names seen. */
+function folderChainNames(
+  folders: readonly Folder[],
+  folderId: string | null,
+): Set<string> {
+  const byId = new Map(folders.map((f) => [f.id, f] as const));
+  const names = new Set<string>();
+  let cur = folderId ? byId.get(folderId) : undefined;
+  let guard = 0;
+  while (cur && guard++ < 64) {
+    names.add(cur.name);
+    cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
+  }
+  return names;
+}
+
+/**
+ * Best-effort course match for the "Course" layer. There's no direct
+ * client-side link from a conversation to a Space today:
+ *  - `books.source_space_id` (migration 00065) exists in the DB but isn't
+ *    selected into the client `Book`/library-store shape, so it can't be
+ *    read here without an extra query; skipped.
+ *  - Course spaces create a root library folder named exactly after the
+ *    space (see `ensureCourseFolders` in stores/space-store.ts), so this
+ *    walks the book's (and the conversation's own) folder chain looking
+ *    for a name match against the user's spaces instead.
+ * Term + sections only render when the matched space is also the
+ * currently loaded `activeSpace`, since that's the only time its
+ * offerings/sections are in the store, fetching them here on every modal
+ * open would race whatever the Spaces page itself is showing.
+ */
+async function resolveCourseContext(
+  docId: string | null,
+  conversationId: string | null,
+): Promise<CourseContext | null> {
+  const spaceState = useSpaceStore.getState();
+  if (spaceState.mySpaces.length === 0) {
+    try {
+      await spaceState.fetchMine();
+    } catch (err) {
+      logError("contextInspector:resolveCourse", err);
+      return null;
+    }
+  }
+  const mySpaces = useSpaceStore.getState().mySpaces;
+  if (mySpaces.length === 0) return null;
+
+  const libraryState = useLibraryStore.getState();
+  const bookFolderId = docId
+    ? (findLibraryItemByDocId(libraryState.books, docId)?.folder_id ?? null)
+    : null;
+  const conv = conversationId
+    ? useChatStore.getState().conversations.find((c) => c.id === conversationId)
+    : null;
+  const convFolderId = conv?.folder_id ?? null;
+
+  const candidateNames = new Set<string>([
+    ...folderChainNames(libraryState.folders, bookFolderId),
+    ...folderChainNames(libraryState.folders, convFolderId),
+  ]);
+  if (candidateNames.size === 0) return null;
+
+  const matched = mySpaces.find((sp) => candidateNames.has(sp.name));
+  if (!matched) return null;
+
+  const fresh = useSpaceStore.getState();
+  const isActive = fresh.activeSpace?.id === matched.id;
+  return {
+    space: matched,
+    termLabel: isActive ? (fresh.activeSpaceOfferings[0]?.term_label ?? null) : null,
+    sections: isActive ? fresh.activeSpaceSections : null,
+  };
+}
+
+function TokenBadge({ tokens }: { tokens: number | null }) {
+  if (tokens === null) return null;
   return (
-    <section className="space-y-1.5">
-      <div className="flex items-center gap-2">
-        <h3 className="text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
-          {title}
-        </h3>
-        {chip && (
-          <span className="rounded-full bg-accent-soft px-2 py-0.5 text-2xs font-medium text-accent">
-            {chip}
-          </span>
-        )}
-      </div>
-      {children}
-    </section>
+    <span className="shrink-0 font-mono text-2xs tabular-nums text-text-muted-2">
+      ~{tokens.toLocaleString()}
+    </span>
   );
 }
 
-const SOURCE_LABEL: Record<string, { key: string; fallback: string }> = {
-  override: { key: "sourceOverride", fallback: "picked for this conversation" },
-  book: { key: "sourceBook", fallback: "bound to this book" },
-  folder: { key: "sourceFolder", fallback: "bound to its folder" },
-  org: { key: "sourceOrg", fallback: "bound to the organization" },
-  default: { key: "sourceDefault", fallback: "default preset" },
-};
+function LayerCard({
+  badge,
+  title,
+  chips,
+  tokens,
+  open,
+  onToggle,
+  children,
+}: {
+  badge: number;
+  title: string;
+  chips?: React.ReactNode;
+  tokens: number | null;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-control bg-bg-secondary">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left cursor-pointer"
+      >
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-bg-tertiary text-2xs font-semibold text-text-secondary">
+          {badge}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">
+          {title}
+        </span>
+        {chips}
+        <TokenBadge tokens={tokens} />
+        <ChevronDown
+          size={14}
+          strokeWidth={1.5}
+          className={cn(
+            "shrink-0 text-text-muted transition-transform",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      {open && (
+        <div className="space-y-2 px-3 pb-3 text-sm text-text-secondary">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const preClass =
+  "menu-scroll max-h-40 overflow-y-auto whitespace-pre-wrap rounded-control bg-bg-primary px-3 py-2 font-mono text-[11px] leading-relaxed text-text-muted";
 
 export function ContextInspectorModal({
   open,
   onClose,
   docId,
   docTitle,
-  selectedPages,
   conversationId,
+  attachments = [],
+  reasoning = false,
 }: ContextInspectorModalProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+
+  const [openLayers, setOpenLayers] = useState<Set<LayerKey>>(
+    () => new Set<LayerKey>(["base", "preset", "document"]),
+  );
+  const toggleLayer = useCallback((key: LayerKey) => {
+    setOpenLayers((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const [loading, setLoading] = useState(true);
+  const [contextPack, setContextPack] = useState<AiContextPack | null>(null);
+  const [courseCtx, setCourseCtx] = useState<CourseContext | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    let cancelled = false;
+    setLoading(true);
+    void (async () => {
+      const [pack, course] = await Promise.all([
+        buildAiContextPack(docId, conversationId).catch((err) => {
+          logError("contextInspector:buildPack", err);
+          return { customContext: "", pageContext: "", imageAttachments: [] };
+        }),
+        resolveCourseContext(docId, conversationId).catch(() => null),
+      ]);
+      if (cancelled) return;
+      setContextPack(pack);
+      setCourseCtx(course);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, docId, conversationId]);
 
-  if (!open || typeof document === "undefined") return null;
+  // History window: the current path up to the active leaf, filtered to
+  // conversational turns (mirrors chat-stream.ts's own filter before it
+  // calls windowChatHistory), so "kept" here matches what the next turn
+  // would actually resend.
+  const messages = useChatStore((s) => s.messages);
+  const activeLeafId = useChatStore((s) => s.activeLeafId);
+  const historyTurns = useMemo(() => {
+    if (!conversationId) return [];
+    return pathFromRoot(messages, activeLeafId)
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      }));
+  }, [messages, activeLeafId, conversationId]);
+  const keptTurns = useMemo(
+    () => windowChatHistory(historyTurns),
+    [historyTurns],
+  );
+  const droppedCount = Math.max(0, historyTurns.length - keptTurns.length);
 
+  // Context preset (sync, cheap store reads); resolved once more per
+  // render so a live preset edit in Settings reflects immediately.
   const resolved = resolveAiContextForConversation({ docId, conversationId });
-  const sourceMeta = resolved ? SOURCE_LABEL[resolved.source] : null;
+  const presetBody =
+    contextPack?.customContext || resolved?.preset.body.trim() || "";
 
-  const preClass =
-    "menu-scroll max-h-40 overflow-y-auto whitespace-pre-wrap rounded-control bg-bg-secondary px-3 py-2 font-mono text-[11px] leading-relaxed text-text-secondary";
+  const readerDoc = useReaderStore((s) =>
+    docId ? s.documents.get(docId) : undefined,
+  );
+  const aiAttachToc = useSettingsStore((s) => s.aiAttachToc);
+  const pnyxyModel = useSettingsStore((s) => s.pnyxyModel);
 
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col rounded-page bg-bg-tertiary p-6 shadow-page">
-        <div className="mb-1 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-text-primary">
-            {t("chat.contextInspector.title", {
-              defaultValue: "What does the AI get?",
-            })}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-control p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
-            aria-label={t("common.close", { defaultValue: "Close" })}
-          >
-            <X size={18} strokeWidth={1.5} />
-          </button>
+  const effectiveDocTitle = (docTitle ?? "").trim();
+  const hasDoc = effectiveDocTitle.length > 0;
+
+  const baseText = useMemo(() => {
+    const raw = buildSystemPrompt(effectiveDocTitle, "", "");
+    const suffix = teacherBlock();
+    return TEACHER_MODE_ENABLED && raw.endsWith(suffix)
+      ? raw.slice(0, raw.length - suffix.length)
+      : raw;
+  }, [effectiveDocTitle]);
+
+  const billedModel = predictBilledModel(pnyxyModel);
+  const useGrounding = !hasDoc && billedModel === QUOTA_AUTO_DEFAULT_MODEL;
+
+  // ── token estimate + size bar (chars/4, images at a flat estimate) ──
+  const instrTokens =
+    estimateTokens(baseText) +
+    (TEACHER_MODE_ENABLED ? estimateTokens(TEACHER_GUARDRAIL) : 0) +
+    estimateTokens(presetBody);
+  const docImageTokens =
+    (contextPack?.imageAttachments.length ?? 0) * IMAGE_TOKEN_ESTIMATE +
+    attachments.length * IMAGE_TOKEN_ESTIMATE;
+  const docTokens = estimateTokens(contextPack?.pageContext ?? "") + docImageTokens;
+  const histTokens = keptTurns.reduce(
+    (sum, m) => sum + estimateTokens(m.content),
+    0,
+  );
+  const totalTokens = instrTokens + docTokens + histTokens;
+  const barFillPercent =
+    totalTokens > 0
+      ? Math.min(100, (totalTokens / DISPLAY_CONTEXT_BUDGET_TOKENS) * 100)
+      : 0;
+  const segPercent = (n: number) => (totalTokens > 0 ? (n / totalTokens) * 100 : 0);
+
+  const handleEditPreset = useCallback(() => {
+    onClose();
+    navigate("/settings/ai");
+  }, [onClose, navigate]);
+
+  const handleCopyPrompt = useCallback(async () => {
+    const systemPrompt = buildSystemPrompt(
+      effectiveDocTitle,
+      contextPack?.pageContext ?? "",
+      contextPack?.customContext ?? "",
+    );
+    const historyText = keptTurns
+      .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+      .join("\n\n");
+    const full = [systemPrompt, historyText].filter(Boolean).join("\n\n---\n\n");
+    try {
+      await navigator.clipboard.writeText(full);
+      showToast(t("chat.contextInspector.copySuccess"), "success");
+    } catch (err) {
+      logError("contextInspector:copy", err);
+      showToast(t("chat.contextInspector.copyFailed"), "error");
+    }
+  }, [effectiveDocTitle, contextPack, keptTurns, t]);
+
+  const selectedPageNumbers = readerDoc
+    ? Array.from(readerDoc.aiSelectedPages).sort((a, b) => a - b)
+    : [];
+  const tocAttached = !!readerDoc && aiAttachToc && readerDoc.toc.length > 0;
+
+  const sections = courseCtx?.sections
+    ? [...courseCtx.sections].sort((a, b) => a.sort_order - b.sort_order)
+    : null;
+
+  return (
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title={t("chat.contextInspector.title")}
+      icon={Eye}
+      size="md"
+      footer={
+        <div className="flex w-full flex-wrap justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={() => void handleCopyPrompt()}>
+            <Copy size={14} strokeWidth={1.5} />
+            {t("chat.contextInspector.copyPrompt")}
+          </Button>
+          <Button type="button" variant="secondary" onClick={handleEditPreset}>
+            {t("chat.contextInspector.editPreset")}
+          </Button>
+          <Button type="button" variant="primary" onClick={onClose}>
+            {t("common.ok")}
+          </Button>
         </div>
-        <p className="mb-4 text-xs text-text-muted">
-          {t("chat.contextInspector.intro", {
-            defaultValue:
-              "The next message's system prompt is assembled from these parts (the exact text is built on the server, this is its mirror).",
-          })}
-        </p>
+      }
+    >
+      <p className="text-xs text-text-muted">
+        {t("chat.contextInspector.intro")}
+      </p>
 
-        <div className="menu-scroll -mx-2 flex-1 space-y-5 overflow-y-auto px-2">
-          <Section
-            title={t("chat.contextInspector.base", { defaultValue: "Base prompt" })}
-          >
-            <p className="text-sm text-text-secondary">
-              {docId
-                ? t("chat.contextInspector.baseDoc", {
-                    defaultValue:
-                      "Document Q&A tutor: answers cite pages ([p.N]), markdown formatting, replies in your language.",
-                  })
-                : t("chat.contextInspector.baseChat", {
-                    defaultValue:
-                      "General study chat: markdown formatting, honesty rules, replies in your language.",
-                  })}
-            </p>
-          </Section>
+      <div className="space-y-1.5">
+          <p className="text-xs text-text-secondary">
+            {t("chat.contextInspector.sizeSummary", {
+              tokens: totalTokens.toLocaleString(),
+              budget: DISPLAY_CONTEXT_BUDGET_TOKENS.toLocaleString(),
+            })}
+          </p>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-secondary">
+            <div
+              className="flex h-full"
+              style={{ width: `${barFillPercent}%` }}
+            >
+              <div
+                className="h-full bg-accent"
+                style={{ width: `${segPercent(instrTokens)}%` }}
+              />
+              <div
+                className="h-full bg-accent/60"
+                style={{ width: `${segPercent(docTokens)}%` }}
+              />
+              <div
+                className="h-full bg-accent/30"
+                style={{ width: `${segPercent(histTokens)}%` }}
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-text-muted-2">
+            <span className="inline-flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+              {t("chat.contextInspector.legendInstructions")}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent/60" />
+              {t("chat.contextInspector.legendDocument")}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent/30" />
+              {t("chat.contextInspector.legendHistory")}
+            </span>
+          </div>
+        </div>
 
-          <Section
-            title={t("chat.contextInspector.teacher", { defaultValue: "Teacher mode" })}
-            chip={
-              TEACHER_MODE_ENABLED
-                ? t("chat.contextInspector.active", { defaultValue: "Active" })
-                : undefined
+        <div className="menu-scroll -mx-1 max-h-[50vh] space-y-2 overflow-y-auto px-1">
+          {/* 1. Base instruction */}
+          <LayerCard
+            badge={1}
+            title={t("chat.contextInspector.base")}
+            chips={
+              <span className={chipClass}>
+                {t(
+                  hasDoc
+                    ? "chat.contextInspector.modeDoc"
+                    : "chat.contextInspector.modeChat",
+                )}
+              </span>
             }
+            tokens={estimateTokens(baseText)}
+            open={openLayers.has("base")}
+            onToggle={() => toggleLayer("base")}
+          >
+            <pre className={preClass}>{baseText}</pre>
+          </LayerCard>
+
+          {/* 2. Teacher mode */}
+          <LayerCard
+            badge={2}
+            title={t("chat.contextInspector.teacher")}
+            chips={
+              <span className={chipClass}>
+                {t(
+                  TEACHER_MODE_ENABLED
+                    ? "chat.contextInspector.active"
+                    : "chat.contextInspector.off",
+                )}
+              </span>
+            }
+            tokens={TEACHER_MODE_ENABLED ? estimateTokens(TEACHER_GUARDRAIL) : 0}
+            open={openLayers.has("teacher")}
+            onToggle={() => toggleLayer("teacher")}
           >
             <pre className={preClass}>{TEACHER_GUARDRAIL}</pre>
-          </Section>
+          </LayerCard>
 
-          <Section
-            title={t("chat.contextInspector.preset", {
-              defaultValue: "AI context preset",
-            })}
-            chip={
-              resolved && sourceMeta
-                ? t(`chat.contextInspector.${sourceMeta.key}`, {
-                    defaultValue: sourceMeta.fallback,
-                  })
-                : undefined
+          {/* 3. Context preset */}
+          <LayerCard
+            badge={3}
+            title={t("chat.contextInspector.preset")}
+            chips={
+              resolved ? (
+                <span className={chipAccentClass}>
+                  {t(`chat.contextInspector.${SOURCE_KEY[resolved.source]}`)}
+                </span>
+              ) : undefined
             }
+            tokens={estimateTokens(presetBody)}
+            open={openLayers.has("preset")}
+            onToggle={() => toggleLayer("preset")}
           >
             {resolved ? (
               <>
-                <p className="text-sm font-medium text-text-primary">
-                  {resolved.preset.name}
-                </p>
-                <pre className={preClass}>{resolved.preset.body}</pre>
+                <div className="flex items-center gap-2">
+                  <p className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">
+                    {resolved.preset.name}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleEditPreset}
+                    className="shrink-0 text-xs text-accent transition-colors hover:opacity-80 cursor-pointer"
+                  >
+                    {t("common.edit")}
+                  </button>
+                </div>
+                <pre className={preClass}>{presetBody}</pre>
               </>
             ) : (
-              <p className="text-sm text-text-muted">
-                {t("chat.contextInspector.noPreset", {
-                  defaultValue: "No preset applies to this conversation.",
-                })}
+              <p className="text-xs text-text-muted">
+                {t("chat.contextInspector.noPreset")}
               </p>
             )}
-          </Section>
+          </LayerCard>
 
-          <Section
-            title={t("chat.contextInspector.doc", {
-              defaultValue: "Document context",
-            })}
+          {/* 4. Course, best-effort match, skipped when none */}
+          {courseCtx && (
+            <LayerCard
+              badge={4}
+              title={t("chat.contextInspector.course")}
+              chips={
+                <>
+                  <span className={chipAccentClass}>{courseCtx.space.name}</span>
+                  {courseCtx.termLabel && (
+                    <span className={chipClass}>{courseCtx.termLabel}</span>
+                  )}
+                </>
+              }
+              tokens={null}
+              open={openLayers.has("course")}
+              onToggle={() => toggleLayer("course")}
+            >
+              {sections ? (
+                sections.length > 0 ? (
+                  <p className="text-xs text-text-muted">
+                    {t(
+                      sections.length === 1
+                        ? "chat.contextInspector.sectionsCount_one"
+                        : "chat.contextInspector.sectionsCount_other",
+                      { count: sections.length },
+                    )}
+                    {": "}
+                    {sections.map((s) => s.title).join(" · ")}
+                  </p>
+                ) : (
+                  <p className="text-xs text-text-muted">
+                    {t("chat.contextInspector.sectionsUnknown")}
+                  </p>
+                )
+              ) : (
+                <p className="text-xs text-text-muted">
+                  {t("chat.contextInspector.sectionsUnknown")}
+                </p>
+              )}
+            </LayerCard>
+          )}
+
+          {/* 5. Document */}
+          <LayerCard
+            badge={5}
+            title={t("chat.contextInspector.doc")}
+            chips={
+              docId ? (
+                <>
+                  <span className={chipClass}>{effectiveDocTitle}</span>
+                  {selectedPageNumbers.length > 0 && (
+                    <span className={chipClass}>
+                      {t(
+                        selectedPageNumbers.length === 1
+                          ? "chat.contextInspector.pages_one"
+                          : "chat.contextInspector.pages_other",
+                        { count: selectedPageNumbers.length },
+                      )}
+                    </span>
+                  )}
+                  {selectedPageNumbers.length > 0 && readerDoc && (
+                    <span className={chipClass}>
+                      {t(
+                        readerDoc.aiSendPagesAsImage
+                          ? "chat.contextInspector.asImages"
+                          : "chat.contextInspector.asText",
+                      )}
+                    </span>
+                  )}
+                  {tocAttached && (
+                    <span className={chipClass}>
+                      {t("chat.contextInspector.tocAttached")}
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
+            tokens={estimateTokens(contextPack?.pageContext ?? "")}
+            open={openLayers.has("document")}
+            onToggle={() => toggleLayer("document")}
           >
-            {docId ? (
-              <p className="text-sm text-text-secondary">
-                <span className={cn("font-medium text-text-primary")}>
-                  {docTitle}
+            {!docId ? (
+              <p className="text-xs text-text-muted">
+                {t("chat.contextInspector.noDoc")}
+              </p>
+            ) : loading ? (
+              <p className="text-xs text-text-muted">
+                {t("chat.contextInspector.loading")}
+              </p>
+            ) : contextPack?.pageContext ? (
+              <pre className={preClass}>{contextPack.pageContext}</pre>
+            ) : (
+              <p className="text-xs text-text-muted">
+                {t("chat.contextInspector.noPagesSelected")}
+              </p>
+            )}
+          </LayerCard>
+
+          {/* 6. Attachments (composer-staged, e.g. a whiteboard snapshot) */}
+          <LayerCard
+            badge={6}
+            title={t("chat.contextInspector.attachments")}
+            chips={
+              attachments.length > 0 ? (
+                <span className={chipClass}>
+                  {t(
+                    attachments.length === 1
+                      ? "chat.contextInspector.attachmentsCount_one"
+                      : "chat.contextInspector.attachmentsCount_other",
+                    { count: attachments.length },
+                  )}
                 </span>
-                {" · "}
-                {t("chat.contextInspector.pages", {
-                  defaultValue: "{{count}} attached pages",
-                  count: selectedPages,
-                })}
+              ) : undefined
+            }
+            tokens={attachments.length * IMAGE_TOKEN_ESTIMATE}
+            open={openLayers.has("attachments")}
+            onToggle={() => toggleLayer("attachments")}
+          >
+            {attachments.length > 0 ? (
+              <p className="text-xs text-text-secondary">
+                {attachments.map((a) => a.name).filter(Boolean).join(", ")}
               </p>
             ) : (
-              <p className="text-sm text-text-muted">
-                {t("chat.contextInspector.noDoc", {
-                  defaultValue: "No document attached to this conversation.",
-                })}
+              <p className="text-xs text-text-muted">
+                {t("chat.contextInspector.noAttachments")}
               </p>
             )}
-          </Section>
+          </LayerCard>
+
+          {/* 7. History window */}
+          <LayerCard
+            badge={7}
+            title={t("chat.contextInspector.history")}
+            chips={
+              <span className={chipClass}>
+                {t("chat.contextInspector.historyCount", {
+                  kept: keptTurns.length,
+                  total: historyTurns.length,
+                })}
+              </span>
+            }
+            tokens={histTokens}
+            open={openLayers.has("history")}
+            onToggle={() => toggleLayer("history")}
+          >
+            {historyTurns.length === 0 ? (
+              <p className="text-xs text-text-muted">
+                {t("chat.contextInspector.historyEmpty")}
+              </p>
+            ) : droppedCount > 0 ? (
+              <p className="text-xs text-text-muted">
+                {t(
+                  droppedCount === 1
+                    ? "chat.contextInspector.historyDropped_one"
+                    : "chat.contextInspector.historyDropped_other",
+                  { count: droppedCount },
+                )}
+              </p>
+            ) : null}
+          </LayerCard>
+
+          {/* 8. Search and model */}
+          <LayerCard
+            badge={8}
+            title={t("chat.contextInspector.searchModel")}
+            chips={
+              <>
+                <span className={chipClass}>
+                  {t(
+                    useGrounding
+                      ? "chat.contextInspector.groundingOn"
+                      : "chat.contextInspector.groundingOff",
+                  )}
+                </span>
+                <span className={chipClass}>{modelLabel(billedModel)}</span>
+              </>
+            }
+            tokens={null}
+            open={openLayers.has("search")}
+            onToggle={() => toggleLayer("search")}
+          >
+            <p className="text-xs text-text-muted">
+              {t("chat.contextInspector.model")}: {modelLabel(billedModel)}
+              {" · "}
+              {t("chat.contextInspector.thinking")}
+              {": "}
+              {t(
+                reasoning
+                  ? "chat.contextInspector.thinkingOn"
+                  : "chat.contextInspector.thinkingOff",
+              )}
+            </p>
+          </LayerCard>
         </div>
-      </div>
-    </div>,
-    document.body,
+    </FormModal>
   );
 }

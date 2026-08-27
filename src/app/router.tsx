@@ -428,9 +428,10 @@ export const router = createBrowserRouter([
       { path: "tutorial", element: <TutorialPage /> },
       { path: "download", element: <DownloadPage /> },
       { path: "leaderboards", element: <FeatureGate feature="leaderboards"><LeaderboardsPage /></FeatureGate> },
-      { path: "chat", element: <ChatPage /> },
-      // every conversation is linkable: /chat/<conversationId>
-      { path: "chat/:conversationId", element: <ChatPage /> },
+      // every conversation is linkable: /chat/<conversationId>. ONE route
+      // node with an optional param, so switching threads never remounts
+      // the page (two separate nodes did, and raced the composer state).
+      { path: "chat/:conversationId?", element: <ChatPage /> },
     ],
   },
 ]);

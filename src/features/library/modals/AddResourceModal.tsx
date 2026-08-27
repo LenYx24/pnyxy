@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { X, Link as LinkIcon, Loader2, AlertTriangle } from "lucide-react";
@@ -70,11 +76,7 @@ export function AddResourceModal({
       } catch (err) {
         logError("library:addResource", err);
         setError(
-          err instanceof Error
-            ? err.message
-            : t("library.resource.addError", {
-                defaultValue: "Couldn't save that link.",
-              }),
+          err instanceof Error ? err.message : t("library.resource.addError"),
         );
       } finally {
         setLoading(false);
@@ -95,13 +97,17 @@ export function AddResourceModal({
         <div className="flex items-center justify-between p-4 pb-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-control bg-surface-3">
-              <LinkIcon size={16} strokeWidth={1.5} className="text-text-secondary" />
+              <LinkIcon
+                size={16}
+                strokeWidth={1.5}
+                className="text-text-secondary"
+              />
             </div>
             <h2 className="font-display text-lg font-semibold text-text-primary">
-              {t("library.resource.addTitle", { defaultValue: "Add resource" })}
+              {t("library.resource.addTitle")}
             </h2>
             <span className="rounded-chip bg-surface-3 px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wide text-text-muted">
-              {t("library.resource.beta", { defaultValue: "Beta" })}
+              {t("library.resource.beta")}
             </span>
           </div>
           <button
@@ -117,10 +123,7 @@ export function AddResourceModal({
 
         <form onSubmit={handleSubmit} className="space-y-4 p-4">
           <p className="text-xs text-text-muted">
-            {t("library.resource.addHint", {
-              defaultValue:
-                "Paste a web page or YouTube link to save it to your library.",
-            })}
+            {t("library.resource.addHint")}
           </p>
 
           <div>
@@ -128,7 +131,7 @@ export function AddResourceModal({
               htmlFor="resource-url-input"
               className="mb-1 block text-sm font-medium text-text-secondary"
             >
-              {t("library.resource.urlLabel", { defaultValue: "Link URL" })}
+              {t("library.resource.urlLabel")}
             </label>
             <input
               id="resource-url-input"
@@ -163,12 +166,12 @@ export function AddResourceModal({
               {loading ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  {t("library.resource.saving", { defaultValue: "Saving..." })}
+                  {t("library.resource.saving")}
                 </>
               ) : (
                 <>
                   <LinkIcon size={16} />
-                  {t("library.resource.save", { defaultValue: "Save" })}
+                  {t("library.resource.save")}
                 </>
               )}
             </Button>

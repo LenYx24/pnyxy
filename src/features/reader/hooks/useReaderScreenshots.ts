@@ -60,12 +60,7 @@ export function useReaderScreenshots(): ReaderScreenshots {
       saveCanvas(canvas);
     } catch (error) {
       logError("handleScreenshot", error);
-      showToast(
-        t("reader.screenshotFailed", {
-          defaultValue: "Couldn't capture the screenshot. Please try again.",
-        }),
-        "error",
-      );
+      showToast(t("reader.screenshotFailed"), "error");
     }
   }, [saveCanvas, t]);
 
@@ -136,12 +131,7 @@ export function useReaderScreenshots(): ReaderScreenshots {
         useUIStore.getState().openReaderAiChat?.();
       } catch (error) {
         logError("handleRectToAiCapture", error);
-        showToast(
-          t("reader.screenshotFailed", {
-            defaultValue: "Couldn't capture the screenshot. Please try again.",
-          }),
-          "error",
-        );
+        showToast(t("reader.screenshotFailed"), "error");
       }
     },
     [t],

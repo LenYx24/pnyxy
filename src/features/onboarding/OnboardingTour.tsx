@@ -40,39 +40,23 @@ export function OnboardingTour() {
   const steps: Step[] = [
     {
       icon: Sparkles,
-      title: t("onboarding.welcome.title", { defaultValue: "Welcome to Pnyxy" }),
-      body: t("onboarding.welcome.body", {
-        defaultValue:
-          "Your study workspace for reading, understanding, and remembering. This quick tour takes under a minute.",
-      }),
+      title: t("onboarding.welcome.title"),
+      body: t("onboarding.welcome.body"),
     },
     {
       icon: FileText,
-      title: t("onboarding.read.title", {
-        defaultValue: "Read PDFs & ask the AI",
-      }),
-      body: t("onboarding.read.body", {
-        defaultValue:
-          "Open a PDF and ask questions in the chat. Answers cite the page, click a citation to jump straight there.",
-      }),
+      title: t("onboarding.read.title"),
+      body: t("onboarding.read.body"),
     },
     {
       icon: Brain,
-      title: t("onboarding.tutor.title", {
-        defaultValue: "A tutor, not a solver",
-      }),
-      body: t("onboarding.tutor.body", {
-        defaultValue:
-          "The AI teaches instead of solving: it guides you step by step and checks your attempts. Concept questions still get full explanations.",
-      }),
+      title: t("onboarding.tutor.title"),
+      body: t("onboarding.tutor.body"),
     },
     {
       icon: Rocket,
-      title: t("onboarding.ready.title", { defaultValue: "You're all set" }),
-      body: t("onboarding.ready.body", {
-        defaultValue:
-          "It's free to start, pick your AI model anytime in Settings. Happy studying!",
-      }),
+      title: t("onboarding.ready.title"),
+      body: t("onboarding.ready.body"),
     },
   ];
 
@@ -113,7 +97,7 @@ export function OnboardingTour() {
         <button
           type="button"
           onClick={finish}
-          aria-label={t("common.close", { defaultValue: "Close" })}
+          aria-label={t("common.close")}
           className="absolute right-3 top-3 cursor-pointer rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary"
         >
           <X size={16} />
@@ -150,7 +134,7 @@ export function OnboardingTour() {
             onClick={finish}
             className="cursor-pointer text-sm font-medium text-text-muted transition-colors hover:text-text-primary"
           >
-            {t("onboarding.skip", { defaultValue: "Skip tour" })}
+            {t("onboarding.skip")}
           </button>
           <div className="flex items-center gap-2">
             {index > 0 && (
@@ -159,12 +143,12 @@ export function OnboardingTour() {
                 size="sm"
                 onClick={() => setIndex((i) => i - 1)}
               >
-                {t("onboarding.back", { defaultValue: "Back" })}
+                {t("onboarding.back")}
               </Button>
             )}
             {isLast ? (
               <Button variant="primary" size="sm" onClick={finish}>
-                {t("onboarding.done", { defaultValue: "Get started" })}
+                {t("onboarding.done")}
               </Button>
             ) : (
               <Button
@@ -172,7 +156,7 @@ export function OnboardingTour() {
                 size="sm"
                 onClick={() => setIndex((i) => i + 1)}
               >
-                {t("onboarding.next", { defaultValue: "Next" })}
+                {t("onboarding.next")}
               </Button>
             )}
           </div>

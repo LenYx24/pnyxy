@@ -152,18 +152,13 @@ export function EntityRow({
           <Checkbox checked={selected} onChange={() => toggle()} />
         </div>
 
-        <RowTile kind={d.row.tile} />
-
-        {/* Name + subtitle */}
-        <div className="flex min-w-0 flex-col gap-0.5" title={d.title}>
+        {/* One line: inline type glyph + name (subtitle folded away for
+            the flat 44px rows; the type column already says what it is) */}
+        <div className="flex min-w-0 items-center gap-2.5" title={d.title}>
+          <RowTile kind={d.row.tile} />
           <span className="truncate font-medium text-text-primary">
             {d.title}
           </span>
-          {d.row.subtitle && (
-            <span className="truncate text-xs text-text-muted">
-              {d.row.subtitle}
-            </span>
-          )}
         </div>
 
         {/* Type */}

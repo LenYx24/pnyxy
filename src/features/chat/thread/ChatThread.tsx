@@ -91,11 +91,37 @@ export function ChatThread({
     title: string;
   } | null>(null);
 
-  const { scrollContainerRef, threadEndRef, atBottom, handleScroll, scrollToBottom } =
-    useThreadScroll({ activeId, activeLeafId, messages, streamingMessageId });
+  const {
+    scrollContainerRef,
+    threadEndRef,
+    atBottom,
+    handleScroll,
+    scrollToBottom,
+  } = useThreadScroll({ activeId, activeLeafId, messages, streamingMessageId });
 
   // one shared TTS instance so reading one bubble stops another
   const tts = useReadAloud();
+
+  // Entrance animation only for messages that appear after the thread is on
+  // screen (a send, a regenerate), never for a freshly loaded history. The
+  // baseline is the newest created_at once the conversation has loaded;
+  // anything newer than that was sent from this screen. State adjusted
+  // during render (React's documented pattern), no refs in render.
+  const latestCreated = threadPath.reduce(
+    (m, x) => (x.created_at > m ? x.created_at : m),
+    "",
+  );
+  const loading = settling || threadLoading;
+  const [baseline, setBaseline] = useState({
+    conv: activeId,
+    at: latestCreated,
+    pending: loading,
+  });
+  if (baseline.conv !== activeId || (baseline.pending && !loading)) {
+    setBaseline({ conv: activeId, at: latestCreated, pending: loading });
+  }
+  const isEntering = (createdAt: string): boolean =>
+    !baseline.pending && baseline.conv === activeId && createdAt > baseline.at;
 
   const emptySuggestions = [
     t("chat.emptySuggestion1"),
@@ -183,7 +209,6 @@ export function ChatThread({
                   <GitBranch size={14} strokeWidth={1.5} className="shrink-0" />
                   <span className="min-w-0 truncate">
                     {t("chat.forkedFrom", {
-                      defaultValue: "Branched from {{title}}",
                       title: parent.title || t("chat.untitled"),
                     })}
                   </span>
@@ -196,19 +221,33 @@ export function ChatThread({
               : null;
             // regenerate needs an assistant message with a user parent to resend;
             // undefined otherwise (first turn / detached) hides the button
-            const handleRegenerate =
-              msg.role === "assistant" && parent && parent.role === "user"
-                ? () => {
-                    const grandparent = parent.parent_message_id;
-                    const provider = selectedProvider ?? undefined;
-                    void branchFrom(
-                      grandparent,
-                      parent.content,
-                      provider,
-                      parent.attachments ?? undefined,
-                    );
-                  }
-                : undefined;
+            const canRegenerate =
+              msg.role === "assistant" && parent && parent.role === "user";
+            const handleRegenerate = canRegenerate
+              ? () => {
+                  const grandparent = parent.parent_message_id;
+                  const provider = selectedProvider ?? undefined;
+                  void branchFrom(
+                    grandparent,
+                    parent.content,
+                    provider,
+                    parent.attachments ?? undefined,
+                  );
+                }
+              : undefined;
+            // same resend, pinned to one Pnyxy model for this retry
+            const handleRegenerateWith = canRegenerate
+              ? (pnyxyModel: string) => {
+                  const grandparent = parent.parent_message_id;
+                  void branchFrom(
+                    grandparent,
+                    parent.content,
+                    undefined,
+                    parent.attachments ?? undefined,
+                    { pnyxyModelOverride: pnyxyModel },
+                  );
+                }
+              : undefined;
             // edit only on user messages: branches a sibling under the same
             // parent, carrying attachments so an image+question keeps its image
             const handleEdit =
@@ -225,63 +264,71 @@ export function ChatThread({
                 : undefined;
             return (
               <Fragment key={msg.id}>
-              <MessageBubble
-                msg={msg}
-                messages={messages}
-                activeLeafId={activeLeafId}
-                streamingMessageId={streamingMessageId}
-                sourceDocId={activeConversation?.source_doc_id ?? null}
-                confirm={confirm}
-                onBranchHere={() => onBranchHere(msg.id)}
-                onPickBranch={setActiveLeaf}
-                onSaveAsFlashcards={
-                  flashcardsEnabled
-                    ? () =>
-                        setFlashcardSource({
-                          text: msg.content,
-                          title:
-                            activeConversation?.title ||
-                            t("chat.flashcards.defaultTitle"),
-                        })
-                    : undefined
-                }
-                onRegenerate={handleRegenerate}
-                onEdit={handleEdit}
-                onDelete={async () => {
-                  const ok = await confirm({
-                    title: t("chat.confirmDeleteMessageTitle"),
-                    body: t("chat.confirmDeleteMessageBody"),
-                    confirmLabel: t("common.delete"),
-                    danger: true,
-                  });
-                  if (!ok) return;
-                  await useChatStore.getState().deleteMessage(msg.id);
-                }}
-                tts={tts}
-                suggestions={
-                  msg.role === "assistant"
-                    ? messageSuggestions.get(msg.id)
-                    : undefined
-                }
-                onPickSuggestion={(text) => {
-                  // branch a new user turn under this assistant message
-                  const provider = selectedProvider ?? undefined;
-                  void branchFrom(msg.id, text, provider);
-                }}
-              />
-              {/* fork point: everything above is inherited history */}
-              {msg.id === activeConversation?.forked_from_message_id && (
-                <div className="flex items-center gap-3 text-2xs text-text-muted-2">
-                  <div className="h-px flex-1 bg-surface-3" aria-hidden="true" />
-                  <GitBranch size={12} strokeWidth={1.5} className="shrink-0" />
-                  <span>
-                    {t("chat.forkPoint", {
-                      defaultValue: "Fork point, the messages above are history",
-                    })}
-                  </span>
-                  <div className="h-px flex-1 bg-surface-3" aria-hidden="true" />
-                </div>
-              )}
+                <MessageBubble
+                  msg={msg}
+                  messages={messages}
+                  activeLeafId={activeLeafId}
+                  streamingMessageId={streamingMessageId}
+                  sourceDocId={activeConversation?.source_doc_id ?? null}
+                  confirm={confirm}
+                  onBranchHere={() => onBranchHere(msg.id)}
+                  onPickBranch={setActiveLeaf}
+                  onSaveAsFlashcards={
+                    flashcardsEnabled
+                      ? () =>
+                          setFlashcardSource({
+                            text: msg.content,
+                            title:
+                              activeConversation?.title ||
+                              t("chat.flashcards.defaultTitle"),
+                          })
+                      : undefined
+                  }
+                  onRegenerate={handleRegenerate}
+                  entering={isEntering(msg.created_at)}
+                  onRegenerateWith={handleRegenerateWith}
+                  onEdit={handleEdit}
+                  onDelete={async () => {
+                    const ok = await confirm({
+                      title: t("chat.confirmDeleteMessageTitle"),
+                      body: t("chat.confirmDeleteMessageBody"),
+                      confirmLabel: t("common.delete"),
+                      danger: true,
+                    });
+                    if (!ok) return;
+                    await useChatStore.getState().deleteMessage(msg.id);
+                  }}
+                  tts={tts}
+                  suggestions={
+                    msg.role === "assistant"
+                      ? messageSuggestions.get(msg.id)
+                      : undefined
+                  }
+                  onPickSuggestion={(text) => {
+                    // branch a new user turn under this assistant message
+                    const provider = selectedProvider ?? undefined;
+                    void branchFrom(msg.id, text, provider);
+                  }}
+                />
+                {/* fork point: everything above is inherited history */}
+                {msg.id === activeConversation?.forked_from_message_id && (
+                  <div className="flex items-center gap-3 text-2xs text-text-muted-2">
+                    <div
+                      className="h-px flex-1 bg-surface-3"
+                      aria-hidden="true"
+                    />
+                    <GitBranch
+                      size={12}
+                      strokeWidth={1.5}
+                      className="shrink-0"
+                    />
+                    <span>{t("chat.forkPoint")}</span>
+                    <div
+                      className="h-px flex-1 bg-surface-3"
+                      aria-hidden="true"
+                    />
+                  </div>
+                )}
               </Fragment>
             );
           })}

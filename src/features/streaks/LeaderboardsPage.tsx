@@ -5,6 +5,7 @@ import { cn } from "@/lib/cn";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
 import { useAuthStore } from "@/stores/auth-store";
+import { fetchPublicProfiles, type PublicProfile } from "@/lib/public-profiles";
 
 type Board = "longest_streak" | "current_streak" | "total_seconds" | "longest_attention_seconds";
 
@@ -56,35 +57,45 @@ export function LeaderboardsPage() {
     let cancelled = false;
     setLoading(true);
 
+    // Other users' names come from the public_profiles view (profiles
+    // itself is owner-only since migration 00072), so the profile join
+    // is a second query keyed by user_id.
     supabase
       .from("reading_stats")
       .select(
-        "user_id, current_streak, longest_streak, total_seconds, longest_attention_seconds, profile:profiles!user_id(display_name, avatar_url)",
+        "user_id, current_streak, longest_streak, total_seconds, longest_attention_seconds",
       )
       .order(board, { ascending: false })
       .limit(50)
-      .then(({ data, error }) => {
+      .then(async ({ data, error }) => {
         if (cancelled) return;
         if (error) {
           logError("leaderboards:fetch", error);
           setRows([]);
-        } else {
-          // Supabase typings collapse the foreign-profile to an array;
-          // the schema is 1:1 so we unwrap.
-          setRows(
-            (data ?? []).map((d) => {
-              const prof = Array.isArray(d.profile) ? d.profile[0] : d.profile;
-              return {
+          setLoading(false);
+          return;
+        }
+        const stats = data ?? [];
+        let profiles = new Map<string, PublicProfile>();
+        try {
+          profiles = await fetchPublicProfiles(stats.map((d) => d.user_id));
+        } catch (err) {
+          logError("leaderboards:profiles", err);
+        }
+        if (cancelled) return;
+        setRows(
+          stats.map(
+            (d) =>
+              ({
                 user_id: d.user_id,
                 current_streak: d.current_streak,
                 longest_streak: d.longest_streak,
                 total_seconds: d.total_seconds,
                 longest_attention_seconds: d.longest_attention_seconds,
-                profile: prof ?? null,
-              } as Row;
-            }),
-          );
-        }
+                profile: profiles.get(d.user_id) ?? null,
+              }) as Row,
+          ),
+        );
         setLoading(false);
       });
 

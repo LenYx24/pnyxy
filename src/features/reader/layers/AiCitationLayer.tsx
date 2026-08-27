@@ -24,7 +24,10 @@ export function AiCitationLayer({ pageNum }: AiCitationLayerProps) {
   const openReaderAiChat = useUIStore((s) => s.openReaderAiChat);
 
   // group by selection so a passage sent twice shows one underline with a count
-  const groups = useMemo(() => groupBySelection(pageCitations), [pageCitations]);
+  const groups = useMemo(
+    () => groupBySelection(pageCitations),
+    [pageCitations],
+  );
 
   const [openGroupKey, setOpenGroupKey] = useState<string | null>(null);
   const anchorsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
@@ -80,17 +83,12 @@ export function AiCitationLayer({ pageNum }: AiCitationLayerProps) {
               pointerEvents: "auto",
               transform: "translateY(-1px)",
             }}
-            aria-label={t("reader.aiCitation.openPopoverAria", {
-              defaultValue: "View AI conversations citing this passage",
-            })}
+            aria-label={t("reader.aiCitation.openPopoverAria")}
             title={
               g.items.length === 1
-                ? t("reader.aiCitation.singleTitle", {
-                    defaultValue: "Sent to AI · click to view conversation",
-                  })
+                ? t("reader.aiCitation.singleTitle")
                 : t("reader.aiCitation.multiTitle", {
                     count: g.items.length,
-                    defaultValue: "Sent to AI in {{count}} conversations",
                   })
             }
           >
@@ -198,7 +196,6 @@ function OccurrencePopover({
           <Bot size={12} className="text-accent" />
           {t("reader.aiCitation.popoverTitle", {
             count: items.length,
-            defaultValue: "Sent to AI · {{count}} times",
           })}
         </div>
         <ul className="max-h-72 overflow-y-auto">
@@ -215,17 +212,14 @@ function OccurrencePopover({
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs text-text-primary">
-                    {c.messageSnippet || c.conversationTitle ||
-                      t("reader.aiCitation.untitledMessage", {
-                        defaultValue: "(untitled message)",
-                      })}
+                    {c.messageSnippet ||
+                      c.conversationTitle ||
+                      t("reader.aiCitation.untitledMessage")}
                   </p>
                   <p className="truncate text-2xs text-text-muted">
                     {[
                       c.conversationTitle ||
-                        t("reader.aiCitation.untitledConv", {
-                          defaultValue: "Untitled chat",
-                        }),
+                        t("reader.aiCitation.untitledConv"),
                       formatRelative(c.createdAt),
                     ]
                       .filter(Boolean)

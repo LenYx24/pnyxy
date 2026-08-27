@@ -19,6 +19,8 @@ export interface ChatSidebarActions {
   onMove: (id: string, folderId: string | null) => void;
   /** Open the folder-picker modal for this conversation (ChatSidebar owns it). */
   onRequestMove: (id: string, currentFolderId: string | null) => void;
+  /** Archive (true) / restore (false) a conversation. */
+  onArchive: (id: string, archived: boolean) => void;
   onToggleFolder: (id: string) => void;
   /** New conversation directly inside this folder. */
   onNewInFolder: (folderId: string) => void;

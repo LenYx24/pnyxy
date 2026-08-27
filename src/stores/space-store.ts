@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
+import { getUserOrNull, requireUser } from "@/lib/supabase-auth";
+import { track } from "@/lib/telemetry";
 import { useChatStore } from "@/stores/chat-store";
 import type {
   Offering,
@@ -9,13 +11,15 @@ import type {
   SpaceContent,
   SpaceContentKind,
   SpaceKind,
+  SpaceSection,
   SpaceVisibility,
 } from "@/types/space";
 
 /**
  * Store for the public community / course hierarchy (Spaces, migration
- * 00052). Phase 1a: list my spaces + discover public spaces, create,
- * join, leave. Nesting/content/offerings land later.
+ * 00052): list, create, join, and leave spaces; load one space's content,
+ * sections, offerings, and child spaces for the course page; manage that
+ * content (add/move/remove) and per-user completion ticks.
  */
 interface SpaceState {
   mySpaces: Space[];
@@ -32,6 +36,10 @@ interface SpaceState {
   activeSpaceOfferings: Offering[];
   /** Child spaces (subspaces / courses) nested under the active space. */
   activeSpaceChildren: Space[];
+  /** Ordered sections of the active course page (00069). */
+  activeSpaceSections: SpaceSection[];
+  /** Content ids the current user has manually ticked done (00070). */
+  completedContentIds: Set<string>;
 
   fetchMine: () => Promise<void>;
   fetchPublic: () => Promise<void>;
@@ -58,6 +66,16 @@ interface SpaceState {
    * loaded (call after loadSpace).
    */
   enrollInCourse: (space: Space) => Promise<void>;
+  /** Find-or-create the member's library folder tree for a course:
+   *  <course>/<section title> for each section. Returns the course
+   *  folder id (null when folders are unavailable). */
+  ensureCourseFolders: (space: Space) => Promise<string | null>;
+  /** Folder for one section of a course (<course>/<section>); null title
+   *  = the course folder itself. Creates what is missing. */
+  ensureSectionFolder: (
+    space: Space,
+    sectionTitle: string | null,
+  ) => Promise<string | null>;
 
   /** Load one space + its attached content for the course page. */
   loadSpace: (spaceId: string) => Promise<void>;
@@ -68,8 +86,23 @@ interface SpaceState {
     title: string;
     subtitle?: string | null;
     url?: string | null;
-  }) => Promise<void>;
+    sectionId?: string | null;
+  }) => Promise<SpaceContent>;
   removeSpaceContent: (id: string) => Promise<void>;
+  /** Move an item to another section (null = general) and/or reorder it. */
+  updateSpaceContent: (
+    id: string,
+    patch: { sectionId?: string | null; sortOrder?: number; title?: string },
+  ) => Promise<void>;
+  addSection: (spaceId: string, title: string) => Promise<SpaceSection>;
+  updateSection: (
+    id: string,
+    patch: { title?: string; description?: string | null; sortOrder?: number },
+  ) => Promise<void>;
+  removeSection: (id: string) => Promise<void>;
+  /** Toggle the current user's completion tick on a course item.
+   *  Optimistic: flips the local set first, reverts on error. */
+  toggleCompleted: (contentId: string) => Promise<void>;
   addOffering: (input: {
     spaceId: string;
     termLabel: string;
@@ -78,6 +111,29 @@ interface SpaceState {
     status?: OfferingStatus;
   }) => Promise<void>;
   removeOffering: (id: string) => Promise<void>;
+  /** Offerings across a set of spaces, for the "my spaces" term column
+   *  and filter (one call instead of one query per row). */
+  fetchOfferingsFor: (spaceIds: string[]) => Promise<Offering[]>;
+  /** Direct children of a space; used when browsing an org the user
+   *  hasn't joined any courses under yet (RLS still filters visibility). */
+  fetchChildrenOf: (spaceId: string) => Promise<Space[]>;
+}
+
+/** Find-or-create a library folder by name under `parentId` (case-insensitive). */
+async function ensureFolder(
+  name: string,
+  parentId: string | null,
+): Promise<string | null> {
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  const folders = useChatStore.getState().folders;
+  const existing = folders.find(
+    (f) =>
+      (f.parent_id ?? null) === parentId &&
+      f.name.trim().toLowerCase() === trimmed.toLowerCase(),
+  );
+  if (existing) return existing.id;
+  return await useChatStore.getState().createFolder(trimmed, parentId);
 }
 
 export const useSpaceStore = create<SpaceState>((set, get) => ({
@@ -91,11 +147,11 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
   activeSpaceContent: [],
   activeSpaceOfferings: [],
   activeSpaceChildren: [],
+  activeSpaceSections: [],
+  completedContentIds: new Set(),
 
   async fetchMine() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getUserOrNull();
     if (!user) {
       set({ mySpaces: [], memberIds: new Set() });
       return;
@@ -154,10 +210,7 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
   async createSpace({ name, kind, visibility, description = null, parentId = null }) {
     const trimmed = name.trim();
     if (!trimmed) throw new Error("Name is required.");
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Sign in to create a space.");
+    const user = await requireUser("Sign in to create a space.");
 
     const { data, error } = await supabase
       .from("spaces")
@@ -180,10 +233,7 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
   },
 
   async joinSpace(spaceId) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Sign in to join.");
+    const user = await requireUser("Sign in to join.");
     const { error } = await supabase
       .from("space_members")
       .insert({ space_id: spaceId, user_id: user.id, role: "member" });
@@ -191,6 +241,7 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
       logError("space-store:joinSpace", error);
       throw error;
     }
+    track("space_join", { space: spaceId });
     await get().fetchMine();
   },
 
@@ -202,6 +253,7 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
       logError("space-store:joinWithCode", error);
       throw error ?? new Error("invalid code");
     }
+    track("space_join", { space: data as string, viaCode: true });
     await get().fetchMine();
     return data as string;
   },
@@ -248,9 +300,7 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
   },
 
   async leaveSpace(spaceId) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getUserOrNull();
     if (!user) return;
     const { error } = await supabase
       .from("space_members")
@@ -266,33 +316,37 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
 
   async enrollInCourse(space) {
     await get().joinSpace(space.id);
-    // Build a library folder tree so study material about each resource has a
-    // home: <course>/<resource>. Best-effort; a failure mustn't fail enroll.
+    // Best-effort: a folder failure mustn't fail the enroll.
+    await get().ensureCourseFolders(space);
+  },
+
+  async ensureCourseFolders(space) {
     try {
       await useChatStore.getState().fetchFolders();
-      const ensure = async (
-        name: string,
-        parentId: string | null,
-      ): Promise<string | null> => {
-        const trimmed = name.trim();
-        if (!trimmed) return null;
-        const folders = useChatStore.getState().folders;
-        const existing = folders.find(
-          (f) =>
-            (f.parent_id ?? null) === parentId &&
-            f.name.trim().toLowerCase() === trimmed.toLowerCase(),
-        );
-        if (existing) return existing.id;
-        return await useChatStore.getState().createFolder(trimmed, parentId);
-      };
-      const courseFolderId = await ensure(space.name, null);
+      const courseFolderId = await ensureFolder(space.name, null);
       if (courseFolderId) {
-        for (const item of get().activeSpaceContent) {
-          await ensure(item.title.slice(0, 120), courseFolderId);
+        // mirror the course page's sections (General items live in the root)
+        const sections =
+          get().activeSpace?.id === space.id ? get().activeSpaceSections : [];
+        for (const section of sections) {
+          await ensureFolder(section.title.slice(0, 120), courseFolderId);
         }
       }
+      return courseFolderId;
     } catch (err) {
-      logError("space-store:enrollInCourse:folders", err);
+      logError("space-store:ensureCourseFolders", err);
+      return null;
+    }
+  },
+
+  async ensureSectionFolder(space, sectionTitle) {
+    const courseFolderId = await get().ensureCourseFolders(space);
+    if (!courseFolderId || !sectionTitle) return courseFolderId;
+    try {
+      return await ensureFolder(sectionTitle.slice(0, 120), courseFolderId);
+    } catch (err) {
+      logError("space-store:ensureSectionFolder", err);
+      return courseFolderId;
     }
   },
 
@@ -307,6 +361,7 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
         { data: content, error: cErr },
         { data: offerings, error: oErr },
         { data: children, error: chErr },
+        { data: sections, error: secErr },
       ] = await Promise.all([
         supabase.from("spaces").select("*").eq("id", spaceId).maybeSingle(),
         supabase
@@ -328,22 +383,58 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
           .eq("parent_id", spaceId)
           .order("kind", { ascending: true })
           .order("name", { ascending: true }),
+        supabase
+          .from("space_sections")
+          .select("*")
+          .eq("space_id", spaceId)
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true }),
       ]);
       if (sErr) {
         logError("space-store:loadSpace", sErr);
         set({ error: sErr.message });
+        return;
       }
+      if (space) track("course_open", { space: spaceId });
       // paint the page as soon as the main data is in; the breadcrumb
       // and the membership refresh fill in right after
+      const loadedContent = cErr ? [] : ((content ?? []) as SpaceContent[]);
       set({
         activeSpace: (space as Space) ?? null,
         activeSpaceAncestors: [],
-        activeSpaceContent: cErr ? [] : ((content ?? []) as SpaceContent[]),
+        activeSpaceContent: loadedContent,
         activeSpaceOfferings: oErr ? [] : ((offerings ?? []) as Offering[]),
         activeSpaceChildren: chErr ? [] : ((children ?? []) as Space[]),
-        loading: false,
+        // pre-00069 DB: the table is missing, the page just shows one group
+        activeSpaceSections: secErr ? [] : ((sections ?? []) as SpaceSection[]),
+        // reset here so a previous space's ticks never flash on the next
+        // one; the real set (or an empty one) lands once the 6th query below resolves
+        completedContentIds: new Set(),
       });
       void get().fetchMine();
+
+      // 6th query, fired once content ids are known: this user's completion
+      // ticks for this space's items. Pre-00070 DB / any error -> empty set,
+      // never throw (the page must still render).
+      const contentIds = loadedContent.map((c) => c.id);
+      if (contentIds.length > 0) {
+        void (async () => {
+          const { data: progress, error: pErr } = await supabase
+            .from("space_content_progress")
+            .select("content_id")
+            .in("content_id", contentIds);
+          if (get().activeSpace?.id !== spaceId) return;
+          if (pErr) {
+            logError("space-store:loadSpace:progress", pErr);
+            return;
+          }
+          set({
+            completedContentIds: new Set(
+              (progress ?? []).map((p) => p.content_id as string),
+            ),
+          });
+        })();
+      }
 
       // ancestor chain for the breadcrumb (root first). Bounded walk;
       // RLS may hide a private ancestor from a mere member, then the
@@ -420,15 +511,16 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
     title,
     subtitle = null,
     url = null,
+    sectionId = null,
   }) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Sign in to add content.");
+    const user = await requireUser("Sign in to add content.");
+    // append at the end of its section (Moodle order: newest last)
     const sorts = get()
-      .activeSpaceContent.filter((c) => c.space_id === spaceId)
+      .activeSpaceContent.filter(
+        (c) => c.space_id === spaceId && (c.section_id ?? null) === sectionId,
+      )
       .map((c) => c.sort_order);
-    const sortOrder = sorts.length > 0 ? Math.min(...sorts) - 1 : 0;
+    const sortOrder = sorts.length > 0 ? Math.max(...sorts) + 1 : 0;
     const { data, error } = await supabase
       .from("space_content")
       .insert({
@@ -440,6 +532,8 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
         url,
         sort_order: sortOrder,
         added_by: user.id,
+        // pre-00069 DB has no column; only send it when set
+        ...(sectionId ? { section_id: sectionId } : {}),
       })
       .select()
       .single();
@@ -448,8 +542,122 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
       throw error ?? new Error("Could not add content.");
     }
     set((s) => ({
-      activeSpaceContent: [data as SpaceContent, ...s.activeSpaceContent],
+      activeSpaceContent: [...s.activeSpaceContent, data as SpaceContent],
     }));
+    return data as SpaceContent;
+  },
+
+  async updateSpaceContent(id, patch) {
+    const row: Record<string, unknown> = {};
+    if (patch.sectionId !== undefined) row.section_id = patch.sectionId;
+    if (patch.sortOrder !== undefined) row.sort_order = patch.sortOrder;
+    if (patch.title !== undefined) row.title = patch.title.slice(0, 300);
+    const { error } = await supabase.from("space_content").update(row).eq("id", id);
+    if (error) {
+      logError("space-store:updateSpaceContent", error);
+      throw error;
+    }
+    set((s) => ({
+      activeSpaceContent: s.activeSpaceContent.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              ...(patch.sectionId !== undefined ? { section_id: patch.sectionId } : {}),
+              ...(patch.sortOrder !== undefined ? { sort_order: patch.sortOrder } : {}),
+              ...(patch.title !== undefined ? { title: patch.title.slice(0, 300) } : {}),
+            }
+          : c,
+      ),
+    }));
+  },
+
+  async addSection(spaceId, title) {
+    const sorts = get().activeSpaceSections.map((x) => x.sort_order);
+    const sortOrder = sorts.length > 0 ? Math.max(...sorts) + 1 : 0;
+    const { data, error } = await supabase
+      .from("space_sections")
+      .insert({ space_id: spaceId, title: title.slice(0, 200), sort_order: sortOrder })
+      .select()
+      .single();
+    if (error || !data) {
+      logError("space-store:addSection", error);
+      throw error ?? new Error("Could not add section.");
+    }
+    set((s) => ({ activeSpaceSections: [...s.activeSpaceSections, data as SpaceSection] }));
+    return data as SpaceSection;
+  },
+
+  async updateSection(id, patch) {
+    const row: Record<string, unknown> = {};
+    if (patch.title !== undefined) row.title = patch.title.slice(0, 200);
+    if (patch.description !== undefined) row.description = patch.description;
+    if (patch.sortOrder !== undefined) row.sort_order = patch.sortOrder;
+    const { error } = await supabase.from("space_sections").update(row).eq("id", id);
+    if (error) {
+      logError("space-store:updateSection", error);
+      throw error;
+    }
+    set((s) => ({
+      activeSpaceSections: s.activeSpaceSections
+        .map((x) =>
+          x.id === id
+            ? {
+                ...x,
+                ...(patch.title !== undefined ? { title: patch.title.slice(0, 200) } : {}),
+                ...(patch.description !== undefined ? { description: patch.description } : {}),
+                ...(patch.sortOrder !== undefined ? { sort_order: patch.sortOrder } : {}),
+              }
+            : x,
+        )
+        .sort((a, b) => a.sort_order - b.sort_order),
+    }));
+  },
+
+  async removeSection(id) {
+    // items fall back to the general group (FK on delete set null)
+    const { error } = await supabase.from("space_sections").delete().eq("id", id);
+    if (error) {
+      logError("space-store:removeSection", error);
+      throw error;
+    }
+    set((s) => ({
+      activeSpaceSections: s.activeSpaceSections.filter((x) => x.id !== id),
+      activeSpaceContent: s.activeSpaceContent.map((c) =>
+        c.section_id === id ? { ...c, section_id: null } : c,
+      ),
+    }));
+  },
+
+  async toggleCompleted(contentId) {
+    const user = await getUserOrNull();
+    if (!user) return;
+    const wasCompleted = get().completedContentIds.has(contentId);
+    // optimistic: flip the local set before the round trip
+    set((s) => {
+      const next = new Set(s.completedContentIds);
+      if (wasCompleted) next.delete(contentId);
+      else next.add(contentId);
+      return { completedContentIds: next };
+    });
+    const { error } = wasCompleted
+      ? await supabase
+          .from("space_content_progress")
+          .delete()
+          .eq("content_id", contentId)
+          .eq("user_id", user.id)
+      : await supabase
+          .from("space_content_progress")
+          .insert({ content_id: contentId, user_id: user.id });
+    if (error) {
+      logError("space-store:toggleCompleted", error);
+      // revert
+      set((s) => {
+        const next = new Set(s.completedContentIds);
+        if (wasCompleted) next.add(contentId);
+        else next.delete(contentId);
+        return { completedContentIds: next };
+      });
+    }
   },
 
   async removeSpaceContent(id) {
@@ -464,5 +672,30 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
     set((s) => ({
       activeSpaceContent: s.activeSpaceContent.filter((c) => c.id !== id),
     }));
+  },
+
+  async fetchOfferingsFor(spaceIds) {
+    if (spaceIds.length === 0) return [];
+    const { data, error } = await supabase
+      .from("offerings")
+      .select("*")
+      .in("space_id", spaceIds);
+    if (error) {
+      logError("space-store:fetchOfferingsFor", error);
+      return [];
+    }
+    return (data ?? []) as Offering[];
+  },
+
+  async fetchChildrenOf(spaceId) {
+    const { data, error } = await supabase
+      .from("spaces")
+      .select("*")
+      .eq("parent_id", spaceId);
+    if (error) {
+      logError("space-store:fetchChildrenOf", error);
+      return [];
+    }
+    return (data ?? []) as Space[];
   },
 }));

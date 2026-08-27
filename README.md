@@ -1,35 +1,19 @@
 # Pnyxy Reader
 
-**[pnyxy.com](https://pnyxy.com)** · AI-assisted reading and learning platform.
+**[pnyxy.com](https://pnyxy.com)**. A PDF/EPUB reader with an AI tutor next to it,
+built for studying from textbooks and lecture notes. You bring the files (or pick
+something from the free-books catalog), read them in the app, and ask questions.
 
-A modern PDF and EPUB reader with annotations, notes, AI chat, vocabulary flashcards, and community discussions. Built with React, TypeScript, Supabase, and Tauri; runs on web, desktop, and mobile.
+What is different from pasting a PDF into a chatbot: the tutor answers with page
+citations to the open document, and in teacher mode it works Socratically, one
+step or hint at a time, instead of handing over the finished solution. Chats are
+scoped per document and per course "space", so a question about chapter 3 stays
+attached to chapter 3. Themes and sandboxed plugins load at runtime from a
+community registry ([pnyxy-community](https://github.com/LenYx24/pnyxy-community)).
 
-## Features
-
-- **PDF Reader**: zoom, search, print, screenshot, fullscreen, keyboard navigation
-- **Annotations**: highlight text, add comments, view in a sidebar
-- **Whiteboard**: draw over PDF pages with a canvas overlay
-- **Notes**: create and edit notes alongside your reading
-- **Library**: organize books into folders, upload PDFs, grid/list views, bulk operations
-- **Catalog**: browse a community-shared book collection with category filters
-- **AI chat**: ask questions about the current page/document via a multi-provider chat panel (see [below](#ai-chat))
-- **Auth & Profiles**: user accounts, admin moderation dashboard, report system
-- **Themes & Plugins**: runtime theme switching plus sandboxed community plugins (see [below](#themes--plugins))
-- **Desktop & Mobile**: Tauri v2 wraps the web app for native builds on all platforms
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| Frontend | React 19, TypeScript, Vite |
-| Styling | Tailwind CSS 4 |
-| State | Zustand |
-| Backend | Supabase (auth, database, storage) |
-| PDF | react-pdf (PDF.js) |
-| Layout | Dockview (resizable panels) |
-| Desktop/Mobile | Tauri v2 (Rust) |
-| Hosting | Cloudflare Workers |
-| Icons | Lucide React |
+Stack: React 19 + Vite + Tailwind 4, Zustand, Supabase, Tauri v2, deployed on
+Cloudflare. Targets: web, Windows/macOS/Linux desktop builds from the release
+workflow, and Android; iOS is wired up in `package.json` but has not shipped.
 
 ## Getting Started
 
@@ -104,43 +88,6 @@ pnpm tauri:android:dev    # Run on emulator or device
 pnpm tauri:ios:init       # One-time setup (requires Xcode, macOS only)
 pnpm tauri:ios:dev        # Run on simulator or device
 ```
-
-## Project Structure
-
-```
-src/
-├── app/              # Providers, router
-├── components/       # Shared UI components
-├── features/         # Feature modules
-│   ├── admin/        #   Admin dashboard & moderation
-│   ├── auth/         #   Authentication
-│   ├── browse/       #   Community catalog
-│   ├── landing/      #   Landing page
-│   ├── library/      #   Personal library
-│   ├── notes/        #   Note editor
-│   ├── profile/      #   User profile
-│   ├── reader/       #   PDF reader & annotations
-│   ├── settings/     #   User settings
-│   └── whiteboard/   #   Drawing canvas
-├── hooks/            # Custom React hooks
-├── lib/              # Utilities (Supabase client, helpers)
-├── stores/           # Zustand state stores
-├── styles/           # Global styles
-└── types/            # TypeScript type definitions
-src-tauri/            # Tauri Rust backend (desktop/mobile)
-```
-
-## Scripts
-
-| Script | Description |
-|--------|-------------|
-| `pnpm dev` | Start dev server |
-| `pnpm build` | Type-check and build for production |
-| `pnpm lint` | Run ESLint |
-| `pnpm preview` | Preview production build |
-| `pnpm deploy:worker` | Build and deploy to Cloudflare |
-| `pnpm tauri:dev` | Desktop dev mode |
-| `pnpm tauri:build` | Desktop production build |
 
 ## Releasing
 
@@ -217,19 +164,22 @@ To enable the "Continue with Google" button on the sign-in page:
 
 ## AI chat
 
-The reader ships with a chat panel that can talk to three providers:
+The chat panel talks to one of four routes:
 
-| Provider | How it's used | Where to configure |
-|----------|---------------|--------------------|
-| **Pnyxy proxy** | Hosted Supabase Edge Function with rate limits, good for anonymous and signed-in users. Picks OpenAI first, falls back to Anthropic. | `supabase/functions/ai-chat-proxy` |
-| **Anthropic (BYO key)** | Direct, browser-to-API. User supplies the key in Settings → AI; stored only in the browser. | `src/lib/ai-client.ts` |
-| **OpenAI (BYO key)** | Same as Anthropic, user-supplied key, direct call. | `src/lib/ai-client.ts` |
+| Route | How it's used | Where |
+|-------|---------------|-------|
+| **Pnyxy proxy** | Hosted Supabase Edge Function with per-model daily quotas. Walks a chain of Gemini models (3.7 Flash, then 3.6 Flash, then 3.5 Flash-Lite), then gpt-4o-mini, then Claude Haiku; Google Search grounding is on for standalone chats on Gemini 3. Refunds the unused part of the pre-billed output tokens after each stream. | `supabase/functions/ai-chat-proxy` |
+| **Anthropic (BYO key)** | Direct, browser-to-API. The user's key lives only in the browser (Settings, AI). | `src/lib/ai/ai-client.ts` |
+| **OpenAI (BYO key)** | Same, direct call with the user's key. | `src/lib/ai/ai-client.ts` |
+| **Local (Ollama-style)** | OpenAI-compatible endpoint on localhost. | `src/lib/ai/ai-client.ts` |
 
-Responses stream as Anthropic-style SSE events, regardless of which upstream
-was used; the proxy translates OpenAI's format on the server.
+Every route streams Anthropic-style SSE events to the client; the proxy
+converts the OpenAI-compatible format on the server and reports the model
+that actually answered in an `x-pnyxy-model` header.
 
-Rate limits for the hosted proxy live in the `ai_usage_user` / `ai_usage_anon`
-tables (see `supabase/migrations/00008_ai_usage.sql`).
+Quotas for the hosted proxy live in the `ai_usage_user` / `ai_usage_anon`
+tables and the `check_and_record_ai_usage_*` RPCs (see
+`supabase/migrations/00008_ai_usage.sql` and later quota migrations).
 
 ## Self-hosting the backend
 
@@ -245,13 +195,14 @@ Set these on your Supabase project (**Edge Functions → Secrets**, or
 
 | Secret | Required? | Purpose |
 |--------|-----------|---------|
-| `OPENAI_API_KEY` | one of these two | Upstream for the `ai-chat-proxy` function (tried first). |
-| `ANTHROPIC_API_KEY` | one of these two | Fallback upstream for `ai-chat-proxy`. |
+| `GEMINI_API_KEY` | at least one upstream key | Gemini models in the `ai-chat-proxy` chain (tried first). |
+| `OPENAI_API_KEY` | at least one upstream key | gpt-4o-mini fallback in the chain. |
+| `ANTHROPIC_API_KEY` | at least one upstream key | Claude Haiku, the last fallback and the tool-use route (roadmaps). |
 | `GOOGLE_CLIENT_ID` | only if enabling Google OAuth | Read by `supabase/config.toml` via `env(...)`. |
 | `GOOGLE_CLIENT_SECRET` | only if enabling Google OAuth | Paired with the client ID. |
 
-At least one of `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` must be set for the
-chat proxy to work.
+At least one of the three upstream keys must be set for the chat proxy to
+answer; the chain simply skips providers whose key is missing.
 
 ### Cloudflare Worker / Pages secrets
 
@@ -383,8 +334,8 @@ without any glue code.
 Two plugins ship in-tree as reference implementations
 (`src/lib/plugins/core/`):
 
-- **`reading-stats`**: counts unique pages read per document
-- **`keyboard-cheatsheet`**: registers `?` to show all shortcuts
+- **`reading-stats.ts`**: counts unique pages read per document
+- **`keyboard-cheatsheet.ts`**: registers `?` to show all shortcuts
 
 Both are disabled by default; toggle them in Settings → Plugins.
 

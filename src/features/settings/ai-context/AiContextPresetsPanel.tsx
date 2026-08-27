@@ -82,9 +82,7 @@ export function AiContextPresetsPanel() {
   // The editor stays mounted across that promotion (same key) so the caret
   // and focus survive the transition.
   const [promotedId, setPromotedId] = useState<string | null>(null);
-  const draftPresetName = t("settings.aiContext.presets.defaultName", {
-    defaultValue: "Default",
-  });
+  const draftPresetName = t("settings.aiContext.presets.defaultName");
   const editorKey =
     selectedId && promotedId === selectedId ? "draft" : (selectedId ?? "draft");
   const handleEditorChange = (md: string) => {
@@ -118,11 +116,7 @@ export function AiContextPresetsPanel() {
   };
   const handleCreate = () => {
     const id = createAiContext(
-      newName(
-        t("settings.aiContext.presets.untitled", {
-          defaultValue: "New context",
-        }),
-      ),
+      newName(t("settings.aiContext.presets.untitled")),
     );
     setSelectedId(id);
     setDraftName(
@@ -150,7 +144,6 @@ export function AiContextPresetsPanel() {
       selected.id,
       newName(
         t("settings.aiContext.presets.copyName", {
-          defaultValue: "{{name}} (copy)",
           name: selected.name,
         }),
       ),
@@ -195,9 +188,7 @@ export function AiContextPresetsPanel() {
                 if (e.key === "Escape") setRenaming(false);
               }}
               onBlur={commitRename}
-              aria-label={t("settings.aiContext.presets.rename", {
-                defaultValue: "Rename",
-              })}
+              aria-label={t("settings.aiContext.presets.rename")}
               className={cn("field min-w-0 flex-1 basis-48 bg-bg-secondary")}
             />
           ) : (
@@ -216,31 +207,22 @@ export function AiContextPresetsPanel() {
               selected && setAiDefaultContextId(isDefault ? null : selected.id)
             }
             aria-pressed={isDefault}
-            title={t("settings.aiContext.presets.defaultHint", {
-              defaultValue:
-                "Used wherever no book, folder or organization binding applies.",
-            })}
+            title={t("settings.aiContext.presets.defaultHint")}
             className={cn(
               isDefault ? chipAccentClass : chipClass,
               "cursor-pointer transition-colors hover:text-text-primary",
             )}
           >
             <Star size={12} className={cn(isDefault && "fill-current")} />
-            {t("settings.aiContext.presets.default", {
-              defaultValue: "Default",
-            })}
+            {t("settings.aiContext.presets.default")}
           </button>
           <div className="flex items-center gap-0.5">
             <IconButton
               size="sm"
               variant="ghost"
               onClick={startRename}
-              aria-label={t("settings.aiContext.presets.rename", {
-                defaultValue: "Rename",
-              })}
-              title={t("settings.aiContext.presets.rename", {
-                defaultValue: "Rename",
-              })}
+              aria-label={t("settings.aiContext.presets.rename")}
+              title={t("settings.aiContext.presets.rename")}
             >
               <Pencil size={15} />
             </IconButton>
@@ -248,12 +230,8 @@ export function AiContextPresetsPanel() {
               size="sm"
               variant="ghost"
               onClick={handleDuplicate}
-              aria-label={t("settings.aiContext.presets.duplicate", {
-                defaultValue: "Duplicate",
-              })}
-              title={t("settings.aiContext.presets.duplicate", {
-                defaultValue: "Duplicate",
-              })}
+              aria-label={t("settings.aiContext.presets.duplicate")}
+              title={t("settings.aiContext.presets.duplicate")}
             >
               <Copy size={15} />
             </IconButton>
@@ -275,10 +253,7 @@ export function AiContextPresetsPanel() {
       <div className="space-y-1.5">
         {!hasPresets && (
           <p className="px-1 text-[13px] text-text-muted">
-            {t("settings.aiContext.presets.emptyState", {
-              defaultValue:
-                "No context yet. Tell the AI who you are and how it should help, it is prepended to every conversation.",
-            })}
+            {t("settings.aiContext.presets.emptyState")}
           </p>
         )}
         <MarkdownEditor
@@ -291,10 +266,7 @@ export function AiContextPresetsPanel() {
         />
         <div className="flex items-start justify-between gap-3 px-1">
           <p className="text-2xs leading-relaxed text-text-muted">
-            {t("settings.aiContext.presets.injectHint", {
-              defaultValue:
-                "Prepended to every AI conversation where this context applies.",
-            })}
+            {t("settings.aiContext.presets.injectHint")}
           </p>
           <span className="flex shrink-0 items-center gap-2 font-mono text-2xs tabular-nums">
             <span
@@ -308,9 +280,7 @@ export function AiContextPresetsPanel() {
             >
               {saveState === "saving"
                 ? t("common.saving")
-                : t("settings.aiContext.presets.saved", {
-                    defaultValue: "Saved",
-                  })}
+                : t("settings.aiContext.presets.saved")}
             </span>
             <span
               className={cn(
@@ -331,9 +301,7 @@ export function AiContextPresetsPanel() {
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
             <p className="text-[13px] font-medium text-text-primary">
-              {t("settings.aiContext.bindings.heading", {
-                defaultValue: "Where it applies",
-              })}
+              {t("settings.aiContext.bindings.heading")}
             </p>
             <Button
               variant="ghost"
@@ -341,18 +309,14 @@ export function AiContextPresetsPanel() {
               onClick={() => setPickerOpen(true)}
             >
               <Link2 size={14} />
-              {t("settings.aiContext.bindings.assign", {
-                defaultValue: "Assign",
-              })}
+              {t("settings.aiContext.bindings.assign")}
             </Button>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {isDefault && (
               <span className={cn(chipClass, "text-text-muted")}>
                 <Star size={11} />
-                {t("settings.aiContext.bindings.everywhereElse", {
-                  defaultValue: "Everywhere else (default)",
-                })}
+                {t("settings.aiContext.bindings.everywhereElse")}
               </span>
             )}
             {myBindings.map((b) => {
@@ -370,10 +334,7 @@ export function AiContextPresetsPanel() {
                 >
                   <Icon size={11} className="shrink-0" />
                   <span className="truncate">
-                    {name ??
-                      t("settings.aiContext.bindings.unknown", {
-                        defaultValue: "Unknown item",
-                      })}
+                    {name ?? t("settings.aiContext.bindings.unknown")}
                   </span>
                   <button
                     type="button"
@@ -388,10 +349,7 @@ export function AiContextPresetsPanel() {
             })}
             {!isDefault && myBindings.length === 0 && (
               <p className="text-2xs text-text-muted">
-                {t("settings.aiContext.bindings.none", {
-                  defaultValue:
-                    "Not applied anywhere yet. Mark it as default or assign it.",
-                })}
+                {t("settings.aiContext.bindings.none")}
               </p>
             )}
           </div>
@@ -409,12 +367,8 @@ export function AiContextPresetsPanel() {
       <ConfirmModal
         open={confirmDelete}
         danger
-        title={t("settings.aiContext.presets.deleteTitle", {
-          defaultValue: "Delete this context?",
-        })}
+        title={t("settings.aiContext.presets.deleteTitle")}
         body={t("settings.aiContext.presets.deleteBody", {
-          defaultValue:
-            '"{{name}}" and its assignments are removed. Conversations that used it fall back to the next matching context.',
           name: selected?.name ?? "",
         })}
         confirmLabel={t("common.delete")}

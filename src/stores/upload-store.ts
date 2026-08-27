@@ -342,7 +342,16 @@ async function runUploadJob(
       .eq("file_hash", fileHash)
       .maybeSingle();
     if (existing) {
-      fail("This PDF is already in this organization's library.");
+      // same bytes already in this org's library: resolve to that book
+      // instead of failing, so course files opened twice (or on a second
+      // device) land on the existing copy
+      set((s) => ({
+        uploads: patchJob(s.uploads, id, {
+          status: "success",
+          progress: 100,
+          bookId: existing.id as string,
+        }),
+      }));
       return;
     }
 

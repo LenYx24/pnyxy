@@ -86,11 +86,7 @@ export function BookChatTree(props: BookChatTreeProps) {
   // The auto-created "Quick chats" folder is treated as "loose" here: book
   // chats created loose land in it, but on a book page we don't want a
   // "Quick chats" wrapper, those threads are the book's main threads.
-  const quickChatsName = t("chat.sidebar.quickChats", {
-    defaultValue: "Quick chats",
-  })
-    .trim()
-    .toLowerCase();
+  const quickChatsName = t("chat.sidebar.quickChats").trim().toLowerCase();
   const quickChatsFolderId = useMemo(
     () =>
       folders.find(
@@ -221,9 +217,7 @@ function BookFolderHeader({
   const menuItems = (): ContextMenuEntry[] => [
     {
       id: "new",
-      label: t("chat.sidebar.newInFolder", {
-        defaultValue: "New conversation here",
-      }),
+      label: t("chat.sidebar.newInFolder"),
       icon: FilePlus2,
       onClick: () => onNewInFolder(folder.id),
     },
@@ -326,7 +320,7 @@ const BookConvRow = memo(function BookConvRow({
     ];
     items.push({
       id: "move",
-      label: t("chat.folders.moveTo", { defaultValue: "Move to folder…" }),
+      label: t("chat.folders.moveTo"),
       icon: FolderInput,
       onClick: () => onRequestMove(conversation.id, conversation.folder_id),
     });
@@ -416,7 +410,6 @@ const BookConvRow = memo(function BookConvRow({
                 <span
                   className="inline-flex shrink-0 items-center gap-0.5 text-2xs tabular-nums text-text-muted"
                   title={t("chat.book.forkCount", {
-                    defaultValue: "{{count}} branch",
                     count: childCount,
                   })}
                 >

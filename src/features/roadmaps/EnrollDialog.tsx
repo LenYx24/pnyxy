@@ -132,9 +132,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
             (highlight color picker, list/grid toggle). */}
         <div
           role="tablist"
-          aria-label={t("roadmaps.enroll.modeAria", {
-            defaultValue: "Scheduling mode",
-          })}
+          aria-label={t("roadmaps.enroll.modeAria")}
           className="mt-4 grid grid-cols-2 gap-1 rounded-md border border-glass-border bg-bg-primary/40 p-1"
         >
           <button
@@ -150,7 +148,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
             )}
           >
             <Clock size={12} />
-            {t("roadmaps.enroll.modeHours", { defaultValue: "Hours/day" })}
+            {t("roadmaps.enroll.modeHours")}
           </button>
           <button
             type="button"
@@ -165,7 +163,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
             )}
           >
             <CalendarClock size={12} />
-            {t("roadmaps.enroll.modeDeadline", { defaultValue: "Target date" })}
+            {t("roadmaps.enroll.modeDeadline")}
           </button>
         </div>
 
@@ -234,9 +232,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
           <div className="mt-4 space-y-3">
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-text-secondary">
-                {t("roadmaps.enroll.deadlineDate", {
-                  defaultValue: "Finish by",
-                })}
+                {t("roadmaps.enroll.deadlineDate")}
               </span>
               <input
                 type="date"
@@ -249,11 +245,7 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
 
             <div>
               <label className="flex items-center justify-between text-2xs text-text-secondary">
-                <span>
-                  {t("roadmaps.enroll.weekendMultiplier", {
-                    defaultValue: "Weekend vs weekday pace",
-                  })}
-                </span>
+                <span>{t("roadmaps.enroll.weekendMultiplier")}</span>
                 <span className="font-mono text-text-primary">
                   {weekendMultiplier.toFixed(1)}×
                 </span>
@@ -266,19 +258,12 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
                 value={weekendMultiplier}
                 onChange={(e) => setWeekendMultiplier(Number(e.target.value))}
                 className="mt-1 w-full accent-accent"
-                aria-label={t("roadmaps.enroll.weekendMultiplier", {
-                  defaultValue: "Weekend vs weekday pace",
-                })}
+                aria-label={t("roadmaps.enroll.weekendMultiplier")}
               />
               <p className="mt-1 text-2xs text-text-muted">
                 {weekendMultiplier === 0
-                  ? t("roadmaps.enroll.weekendMultiplierZeroHint", {
-                      defaultValue:
-                        "Weekends off, all work happens on weekdays.",
-                    })
+                  ? t("roadmaps.enroll.weekendMultiplierZeroHint")
                   : t("roadmaps.enroll.weekendMultiplierHint", {
-                      defaultValue:
-                        "Weekends carry {{multiplier}}× a weekday's load.",
                       multiplier: weekendMultiplier.toFixed(1),
                     })}
               </p>
@@ -290,49 +275,34 @@ export function EnrollDialog({ roadmap, onClose }: EnrollDialogProps) {
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="text-text-muted">
-                        {t("roadmaps.deadline.perWeekday", {
-                          defaultValue: "Per weekday",
-                        })}
+                        {t("roadmaps.deadline.perWeekday")}
                       </span>
                       <span className="font-medium text-text-primary">
-                        {formatMinutes(
-                          deadlineDerivation.weekdayHours * 60,
-                        )}
+                        {formatMinutes(deadlineDerivation.weekdayHours * 60)}
                       </span>
                     </div>
                     {deadlineDerivation.workOnWeekends && (
                       <div className="flex items-center justify-between">
                         <span className="text-text-muted">
-                          {t("roadmaps.deadline.perWeekend", {
-                            defaultValue: "Per weekend day",
-                          })}
+                          {t("roadmaps.deadline.perWeekend")}
                         </span>
                         <span className="font-medium text-text-primary">
-                          {formatMinutes(
-                            deadlineDerivation.weekendHours * 60,
-                          )}
+                          {formatMinutes(deadlineDerivation.weekendHours * 60)}
                         </span>
                       </div>
                     )}
                     <div className="mt-1.5 border-t border-glass-border/50 pt-1.5 text-text-muted">
                       {t("roadmaps.deadline.coverage", {
                         total: formatMinutes(totalMinutes),
-                        weekdays:
-                          deadlineDerivation.daysAvailable.weekdays,
-                        weekends:
-                          deadlineDerivation.daysAvailable.weekends,
+                        weekdays: deadlineDerivation.daysAvailable.weekdays,
+                        weekends: deadlineDerivation.daysAvailable.weekends,
                       })}
                     </div>
                   </div>
                 ) : (
                   <div className="flex items-start gap-1.5 text-warning">
                     <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-                    <span>
-                      {t("roadmaps.deadline.infeasible", {
-                        defaultValue:
-                          "Not feasible, the date is in the past or there's no time available.",
-                      })}
-                    </span>
+                    <span>{t("roadmaps.deadline.infeasible")}</span>
                   </div>
                 )}
               </div>

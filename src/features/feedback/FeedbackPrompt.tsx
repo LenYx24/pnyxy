@@ -175,20 +175,13 @@ export function FeedbackPrompt() {
         } catch {
           parsed = null;
         }
-        const detail =
-          parsed?.error?.message ?? bodyText.slice(0, 200) ?? "";
+        const detail = parsed?.error?.message ?? bodyText.slice(0, 200) ?? "";
         logError("FeedbackPrompt:send", {
           status: res.status,
           statusText: res.statusText,
           detail,
         });
-        throw new Error(
-          detail ||
-            t("feedbackPrompt.errorGeneric", {
-              defaultValue:
-                "Couldn't send. Try again from Settings → Feedback.",
-            }),
-        );
+        throw new Error(detail || t("feedbackPrompt.errorGeneric"));
       }
       setPhase("sent");
       dismissTimerRef.current = window.setTimeout(() => {
@@ -211,9 +204,7 @@ export function FeedbackPrompt() {
     <div
       role="dialog"
       aria-live="polite"
-      aria-label={t("feedbackPrompt.aria", {
-        defaultValue: "Feedback prompt",
-      })}
+      aria-label={t("feedbackPrompt.aria")}
       className={cn(
         // wrapper is pointer-events-none so it doesn't block the page; the
         // inner card opts back in.
@@ -229,32 +220,22 @@ export function FeedbackPrompt() {
         {phase === "sent" ? (
           <div className="flex items-center gap-2 py-2 text-sm text-text-primary">
             <Sparkles size={16} className="text-accent" />
-            <span>
-              {t("feedbackPrompt.thanks", {
-                defaultValue: "Thanks for the feedback!",
-              })}
-            </span>
+            <span>{t("feedbackPrompt.thanks")}</span>
           </div>
         ) : (
           <>
             <div className="mb-2 flex items-start justify-between gap-2">
               <p className="text-sm font-medium text-text-primary">
                 {phase === "compose"
-                  ? t("feedbackPrompt.composeTitle", {
-                      defaultValue: "Tell us a bit more (optional)",
-                    })
-                  : t("feedbackPrompt.title", {
-                      defaultValue: "How's Pnyxy treating you?",
-                    })}
+                  ? t("feedbackPrompt.composeTitle")
+                  : t("feedbackPrompt.title")}
               </p>
               <button
                 type="button"
                 onClick={closeAndCooldown}
                 className="-mr-1 -mt-1 rounded-md p-1 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-                aria-label={t("common.close", { defaultValue: "Close" })}
-                title={t("feedbackPrompt.dismiss", {
-                  defaultValue: "Maybe later",
-                })}
+                aria-label={t("common.close")}
+                title={t("feedbackPrompt.dismiss")}
               >
                 <X size={14} />
               </button>
@@ -263,21 +244,17 @@ export function FeedbackPrompt() {
             {phase === "prompt" && (
               <div className="flex items-center justify-between gap-1">
                 <SentimentButton
-                  label={t("feedbackPrompt.love", {
-                    defaultValue: "Loving it",
-                  })}
+                  label={t("feedbackPrompt.love")}
                   emoji="😊"
                   onClick={() => handlePickSentiment("love")}
                 />
                 <SentimentButton
-                  label={t("feedbackPrompt.fine", { defaultValue: "It's fine" })}
+                  label={t("feedbackPrompt.fine")}
                   emoji="😐"
                   onClick={() => handlePickSentiment("fine")}
                 />
                 <SentimentButton
-                  label={t("feedbackPrompt.frustrated", {
-                    defaultValue: "Frustrating",
-                  })}
+                  label={t("feedbackPrompt.frustrated")}
                   emoji="😤"
                   onClick={() => handlePickSentiment("frustrated")}
                 />
@@ -294,21 +271,13 @@ export function FeedbackPrompt() {
                   disabled={phase === "sending"}
                   placeholder={
                     sentiment === "frustrated"
-                      ? t("feedbackPrompt.placeholderFrustrated", {
-                          defaultValue:
-                            "What's bugging you? We read every reply.",
-                        })
-                      : t("feedbackPrompt.placeholder", {
-                          defaultValue:
-                            "Anything you'd like us to know, features, bugs, ideas.",
-                        })
+                      ? t("feedbackPrompt.placeholderFrustrated")
+                      : t("feedbackPrompt.placeholder")
                   }
                   className="w-full resize-none rounded-md border border-glass-border bg-bg-primary/50 px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-60"
                   autoFocus
                 />
-                {error && (
-                  <p className="text-2xs text-danger">{error}</p>
-                )}
+                {error && <p className="text-2xs text-danger">{error}</p>}
                 <div className="flex justify-end gap-1">
                   <button
                     type="button"
@@ -316,7 +285,7 @@ export function FeedbackPrompt() {
                     disabled={phase === "sending"}
                     className="rounded-md px-2 py-1 text-xs text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer disabled:opacity-50"
                   >
-                    {t("common.skip", { defaultValue: "Skip" })}
+                    {t("common.skip")}
                   </button>
                   <button
                     type="submit"
@@ -328,7 +297,7 @@ export function FeedbackPrompt() {
                     ) : (
                       <Send size={11} />
                     )}
-                    {t("feedbackPrompt.send", { defaultValue: "Send" })}
+                    {t("feedbackPrompt.send")}
                   </button>
                 </div>
               </form>

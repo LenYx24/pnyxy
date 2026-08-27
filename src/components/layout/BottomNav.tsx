@@ -21,7 +21,12 @@ const navItems = [
   { to: "/chat", icon: BotMessageSquare, key: "chat" as const },
   { to: "/library", icon: Library, key: "library" as const },
   { to: "/reader", icon: BookOpen, key: "reader" as const },
-  { to: "/browse", icon: Compass, key: "browse" as const, feature: "catalog" as const },
+  {
+    to: "/browse",
+    icon: Compass,
+    key: "browse" as const,
+    feature: "catalog" as const,
+  },
 ];
 
 export function BottomNav() {
@@ -57,12 +62,10 @@ export function BottomNav() {
         type="button"
         onClick={() => setMobileSidebarOpen(true)}
         className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-2xs font-medium text-text-muted transition-colors touch-target hover:text-text-primary cursor-pointer"
-        aria-label={t("sidebar.more", { defaultValue: "More" })}
+        aria-label={t("sidebar.more")}
       >
         <Menu size={20} strokeWidth={1.5} />
-        <span className="truncate">
-          {t("sidebar.more", { defaultValue: "More" })}
-        </span>
+        <span className="truncate">{t("sidebar.more")}</span>
       </button>
     </nav>
   );

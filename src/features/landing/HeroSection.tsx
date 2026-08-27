@@ -19,7 +19,13 @@ export function HeroSection() {
           viewBox="0 0 40 40"
           fill="none"
         >
-          <circle cx="20" cy="20" r="18" stroke="currentColor" strokeWidth="1" />
+          <circle
+            cx="20"
+            cy="20"
+            r="18"
+            stroke="currentColor"
+            strokeWidth="1"
+          />
           <circle cx="20" cy="20" r="2.5" fill="currentColor" />
         </svg>
       </div>
@@ -29,9 +35,7 @@ export function HeroSection() {
         <div className="relative flex flex-col items-center text-center lg:items-start lg:text-left">
           <span className="mb-6 inline-flex items-center gap-2.5 font-mono text-2xs font-medium uppercase tracking-[0.22em] text-accent">
             <span className="h-px w-6 bg-accent" />
-            {t("landing.h1Purpose", {
-              defaultValue: "AI-assisted reading & learning",
-            })}
+            {t("landing.h1Purpose")}
           </span>
 
           <h1 className="flex items-center gap-3">

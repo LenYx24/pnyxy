@@ -10,7 +10,10 @@ import {
   indentWithTab,
 } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
+import {
+  syntaxHighlighting,
+  defaultHighlightStyle,
+} from "@codemirror/language";
 import {
   Bold,
   Italic,
@@ -217,7 +220,8 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
       source: activeDoc
         ? {
             docId: activeDoc.meta.id,
-            docTitle: activeDoc.customTitle || activeDoc.meta.title || "Untitled",
+            docTitle:
+              activeDoc.customTitle || activeDoc.meta.title || "Untitled",
             page: activeDoc.currentPage ?? null,
           }
         : null,
@@ -245,48 +249,47 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
         className="w-full border-b border-glass-border bg-transparent px-4 py-3 text-base font-medium text-text-primary outline-none placeholder:text-text-muted"
       />
       <div className="flex flex-wrap items-center gap-0.5 border-b border-glass-border px-2 py-1.5">
-        <ToolBtn onClick={() => wrap("**")} label={t("notes.editor.bold", { defaultValue: "Bold" })}>
+        <ToolBtn onClick={() => wrap("**")} label={t("notes.editor.bold")}>
           <Bold size={14} />
         </ToolBtn>
-        <ToolBtn onClick={() => wrap("*")} label={t("notes.editor.italic", { defaultValue: "Italic" })}>
+        <ToolBtn onClick={() => wrap("*")} label={t("notes.editor.italic")}>
           <Italic size={14} />
         </ToolBtn>
-        <ToolBtn onClick={() => wrap("`")} label={t("notes.editor.code", { defaultValue: "Inline code" })}>
+        <ToolBtn onClick={() => wrap("`")} label={t("notes.editor.code")}>
           <Code size={14} />
         </ToolBtn>
         <Sep />
-        <ToolBtn onClick={() => prefixLine("# ")} label={t("notes.editor.h1", { defaultValue: "Heading 1" })}>
+        <ToolBtn onClick={() => prefixLine("# ")} label={t("notes.editor.h1")}>
           <Heading1 size={14} />
         </ToolBtn>
-        <ToolBtn onClick={() => prefixLine("## ")} label={t("notes.editor.h2", { defaultValue: "Heading 2" })}>
+        <ToolBtn onClick={() => prefixLine("## ")} label={t("notes.editor.h2")}>
           <Heading2 size={14} />
         </ToolBtn>
-        <ToolBtn onClick={() => prefixLine("- ")} label={t("notes.editor.bullet", { defaultValue: "Bullet list" })}>
+        <ToolBtn
+          onClick={() => prefixLine("- ")}
+          label={t("notes.editor.bullet")}
+        >
           <List size={14} />
         </ToolBtn>
-        <ToolBtn onClick={() => prefixLine("> ")} label={t("notes.editor.quote", { defaultValue: "Blockquote" })}>
+        <ToolBtn
+          onClick={() => prefixLine("> ")}
+          label={t("notes.editor.quote")}
+        >
           <Quote size={14} />
         </ToolBtn>
         <Sep />
-        <ToolBtn onClick={handleLink} label={t("notes.editor.link", { defaultValue: "Link" })}>
+        <ToolBtn onClick={handleLink} label={t("notes.editor.link")}>
           <LinkIcon size={14} />
         </ToolBtn>
         {activeDoc && (
           <ToolBtn
             onClick={handleInsertPageLink}
-            label={t("notes.editor.pageLink", {
-              defaultValue: "Insert link to current PDF page",
-            })}
+            label={t("notes.editor.pageLink")}
           >
             <BookmarkPlus size={14} />
           </ToolBtn>
         )}
-        <ToolBtn
-          onClick={handleSendToAi}
-          label={t("notes.editor.sendToAi", {
-            defaultValue: "Send selection to AI chat",
-          })}
-        >
+        <ToolBtn onClick={handleSendToAi} label={t("notes.editor.sendToAi")}>
           <Sparkles size={14} />
         </ToolBtn>
       </div>
@@ -318,5 +321,7 @@ function ToolBtn({
 }
 
 function Sep() {
-  return <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-glass-border" />;
+  return (
+    <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-glass-border" />
+  );
 }

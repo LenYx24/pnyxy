@@ -25,23 +25,23 @@ export const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
   tagline: string;
 }> = [
   {
-    id: "gemini-3.5-flash-lite",
-    label: "Gemini 3.5 Flash-Lite",
-    costTier: "cheap",
-    tagline: "Cheapest · auto-route default",
+    // quality-first auto route starts here (same model as the Gemini webapp)
+    id: "gemini-3.7-flash",
+    label: "Gemini 3.7 Flash",
+    costTier: "mid",
+    tagline: "Newest Google model · auto-route default",
   },
   {
     id: "gemini-3.6-flash",
     label: "Gemini 3.6 Flash",
     costTier: "cheap",
-    tagline: "Fuller Flash · step-up from Lite",
+    tagline: "Step-down when 3.7 runs dry",
   },
   {
-    // mid tier: auto-route still prefers 2.5 Flash, pin this to force it
-    id: "gemini-3.7-flash",
-    label: "Gemini 3.7 Flash",
-    costTier: "mid",
-    tagline: "Newest Google model · top casual chat",
+    id: "gemini-3.5-flash-lite",
+    label: "Gemini 3.5 Flash-Lite",
+    costTier: "cheap",
+    tagline: "Cheap reserve · background tasks",
   },
   {
     id: "gpt-4o-mini",
@@ -57,36 +57,34 @@ export const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
   },
 ];
 
-// Quota reference model when nothing is pinned (the model the auto-route bills
-// first). Reader Q&A (a doc is open -> grounding off) bills flash-lite; standalone
-// chat (no doc -> web grounding on) bills gemini-3.7-flash. The footer has to
-// read whichever row the proxy actually records or it sits permanently at 0.
-export const QUOTA_AUTO_DEFAULT_MODEL = "gemini-3.5-flash-lite";
+// Quota reference model when nothing is pinned: the quality-first auto
+// route bills 3.7 Flash first in both modes. The footer has to read
+// whichever row the proxy actually records or it sits permanently at 0.
+export const QUOTA_AUTO_DEFAULT_MODEL = "gemini-3.7-flash";
 export const QUOTA_AUTO_GROUNDED_MODEL = "gemini-3.7-flash";
 
 /** The proxy's auto-route order (OPENAI_COMPATIBLE_PROVIDERS, then the
  *  Anthropic fallback). A bucket that is exhausted is skipped to the
  *  next one, so "questions left" on the auto route has to walk it. */
 export const AUTO_ROUTE_CHAIN: ReadonlyArray<string> = [
-  "gemini-3.5-flash-lite",
-  "gemini-3.6-flash",
-  "gpt-4o-mini",
   "gemini-3.7-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash-lite",
+  "gpt-4o-mini",
   "claude-haiku-4-5",
 ];
 
 /** Rough tokens billed per turn when the user has no history today yet.
- *  The proxy charges estimated input + maxOutputTokens (default 1024)
- *  up-front, a short question with a modest system prompt lands ~2k. */
+ *  The proxy pre-bills estimated input + maxOutputTokens (default 4096,
+ *  see DEFAULT_MAX_OUTPUT_TOKENS in ai-client.ts and the proxy) and
+ *  refunds the unused part after the stream, so the actual average is
+ *  well under the ceiling; 2000 still reads as a reasonable per-turn
+ *  estimate and is kept as-is. */
 export const DEFAULT_TURN_TOKENS = 2000;
 
 /** Model id the proxy will bill first for the next turn. */
-export function predictBilledModel(
-  pinnedModel: string | null,
-  turnHasDoc: boolean,
-): string {
-  if (pinnedModel) return pinnedModel;
-  return turnHasDoc ? QUOTA_AUTO_DEFAULT_MODEL : QUOTA_AUTO_GROUNDED_MODEL;
+export function predictBilledModel(pinnedModel: string | null): string {
+  return pinnedModel ?? QUOTA_AUTO_DEFAULT_MODEL;
 }
 
 /** True when either bucket (tokens or requests) is at or over its cap. */
@@ -113,9 +111,7 @@ export function usageRatio(row: PnyxyQuotaRow | null | undefined): number {
  * How many more questions the row can take today. Both buckets bind:
  * the request cap directly, the token cap via the average tokens the
  * user's turns cost so far today (or DEFAULT_TURN_TOKENS before the
- * first turn). The old footer only looked at requests, so with a big
- * document context it kept saying "1480 left" while the proxy was
- * already bouncing 429 on tokens.
+ * first turn).
  */
 export function questionsLeft(row: PnyxyQuotaRow | null | undefined): number {
   if (!row) return 0;
@@ -149,18 +145,29 @@ export interface QuotaSelection {
  */
 export function selectQuotaRow(
   rows: ReadonlyArray<PnyxyQuotaRow>,
-  opts: { pinnedModel: string | null; turnHasDoc: boolean },
+  opts: {
+    pinnedModel: string | null;
+    /** Model the proxy reported for the last served turn, if any. */
+    servedModel?: string | null;
+  },
 ): QuotaSelection {
-  const predicted = predictBilledModel(opts.pinnedModel, opts.turnHasDoc);
+  const predicted = predictBilledModel(opts.pinnedModel);
   const byModel = new Map(rows.map((r) => [r.model, r] as const));
   const predictedRow = byModel.get(predicted) ?? null;
   if (opts.pinnedModel) {
     return { row: predictedRow, model: predicted, fellThrough: false };
   }
+  // the proxy told us where the last turn actually landed: trust it over
+  // the prediction while that bucket still has room
+  const served = opts.servedModel ?? null;
+  if (served && served !== predicted) {
+    const r = byModel.get(served);
+    if (r && !isRowExhausted(r)) return { row: r, model: served, fellThrough: true };
+  }
   if (!predictedRow || !isRowExhausted(predictedRow)) {
     return { row: predictedRow, model: predicted, fellThrough: false };
   }
-  // grounded turns try gemini-3 first, then the chain minus gemini-3
+  // predicted bucket is exhausted: walk the rest of the auto-route chain
   const order = [predicted, ...AUTO_ROUTE_CHAIN.filter((m) => m !== predicted)];
   for (const m of order) {
     const r = byModel.get(m);

@@ -145,36 +145,62 @@ export function ReaderToolsPanelContent({
 
   const features = useFeatures();
   const tabs = useMemo<{ key: ToolTab; icon: LucideIcon; label: string }[]>(
-    () =>
-      [
-        { key: "chat" as const, icon: BotMessageSquare, label: t("reader.tools.tabChat") },
-        ...(features.graph
-          ? [{ key: "graph" as const, icon: Network, label: t("reader.tools.tabGraph") }]
-          : []),
-        ...(features.notes
-          ? [{ key: "notes" as const, icon: StickyNote, label: t("reader.sidebar.tabNotes") }]
-          : []),
-        ...(features.whiteboard
-          ? [{ key: "whiteboard" as const, icon: PenTool, label: t("reader.sidebar.tabWhiteboards") }]
-          : []),
-        {
-          key: "dictionary" as const,
-          icon: BookOpen,
-          label: t("reader.tools.tabDictionary"),
-        },
-        { key: "wikipedia" as const, icon: Globe, label: t("reader.tools.tabWikipedia") },
-        {
-          key: "translate" as const,
-          icon: Languages,
-          label: t("reader.tools.tabTranslate"),
-        },
-      ],
+    () => [
+      {
+        key: "chat" as const,
+        icon: BotMessageSquare,
+        label: t("reader.tools.tabChat"),
+      },
+      ...(features.graph
+        ? [
+            {
+              key: "graph" as const,
+              icon: Network,
+              label: t("reader.tools.tabGraph"),
+            },
+          ]
+        : []),
+      ...(features.notes
+        ? [
+            {
+              key: "notes" as const,
+              icon: StickyNote,
+              label: t("reader.sidebar.tabNotes"),
+            },
+          ]
+        : []),
+      ...(features.whiteboard
+        ? [
+            {
+              key: "whiteboard" as const,
+              icon: PenTool,
+              label: t("reader.sidebar.tabWhiteboards"),
+            },
+          ]
+        : []),
+      {
+        key: "dictionary" as const,
+        icon: BookOpen,
+        label: t("reader.tools.tabDictionary"),
+      },
+      {
+        key: "wikipedia" as const,
+        icon: Globe,
+        label: t("reader.tools.tabWikipedia"),
+      },
+      {
+        key: "translate" as const,
+        icon: Languages,
+        label: t("reader.tools.tabTranslate"),
+      },
+    ],
     [t, features],
   );
 
-  const handleDictSubmit = useCallback(() => setDictQuery(dictDraft.trim()), [
-    dictDraft,
-  ]);
+  const handleDictSubmit = useCallback(
+    () => setDictQuery(dictDraft.trim()),
+    [dictDraft],
+  );
   const handleTransSubmit = useCallback(
     () => setTransQuery(transDraft.trim()),
     [transDraft],
@@ -198,7 +224,7 @@ export function ReaderToolsPanelContent({
       {/* Caption row: "Margin" + the tools as a compact segmented control */}
       <div className="flex items-center gap-2 pl-3 pr-2 pb-1 pt-3.5">
         <span className="shrink-0 px-1 text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
-          {t("reader.tools.margin", { defaultValue: "Margin" })}
+          {t("reader.tools.margin")}
         </span>
         <div className="min-w-0 flex-1 overflow-x-auto">
           <div className={cn(segmentedGroupClass, "w-max")}>
@@ -210,14 +236,18 @@ export function ReaderToolsPanelContent({
                 className={cn(
                   segmentedItemClass,
                   "flex items-center gap-1.5 py-1",
-                  tab === key ? cn("px-2.5", segmentedItemActiveClass) : "px-1.5",
+                  tab === key
+                    ? cn("px-2.5", segmentedItemActiveClass)
+                    : "px-1.5",
                 )}
                 title={label}
                 aria-label={label}
                 aria-pressed={tab === key}
               >
                 <Icon size={16} strokeWidth={1.5} />
-                {tab === key && <span className="whitespace-nowrap">{label}</span>}
+                {tab === key && (
+                  <span className="whitespace-nowrap">{label}</span>
+                )}
               </button>
             ))}
           </div>
@@ -228,12 +258,8 @@ export function ReaderToolsPanelContent({
             href="/chat"
             target="_blank"
             rel="noopener noreferrer"
-            title={t("reader.tools.openInNewTab", {
-              defaultValue: "Open in new tab",
-            })}
-            aria-label={t("reader.tools.openInNewTab", {
-              defaultValue: "Open in new tab",
-            })}
+            title={t("reader.tools.openInNewTab")}
+            aria-label={t("reader.tools.openInNewTab")}
             className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] text-text-muted-2 transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
           >
             <ExternalLink size={16} strokeWidth={1.5} />
@@ -267,9 +293,7 @@ export function ReaderToolsPanelContent({
 
       {tab === "notes" && <ReaderNotesList panels={dockPanels} />}
 
-      {tab === "whiteboard" && (
-        <ReaderWhiteboardsList panels={dockPanels} />
-      )}
+      {tab === "whiteboard" && <ReaderWhiteboardsList panels={dockPanels} />}
 
       {tab === "dictionary" && (
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">

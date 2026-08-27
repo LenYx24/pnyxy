@@ -43,7 +43,7 @@ export function LearnMethodPlaceholder() {
           className="inline-flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text-primary"
         >
           <ArrowLeft size={12} />
-          {t("learnHub.backToHub", { defaultValue: "Learn hub" })}
+          {t("learnHub.backToHub")}
         </Link>
 
         <div className="flex items-center gap-3">
@@ -69,17 +69,13 @@ export function LearnMethodPlaceholder() {
   if (!method) {
     return (
       <div className="py-12 text-center">
-        <p className="text-text-muted">
-          {t("learnHub.unknownMethod", {
-            defaultValue: "Unknown learning method.",
-          })}
-        </p>
+        <p className="text-text-muted">{t("learnHub.unknownMethod")}</p>
         <Link
           to={`/books/${bookId}/learn`}
           className="mt-4 inline-flex items-center gap-2 text-sm text-accent hover:underline"
         >
           <ArrowLeft size={14} />
-          {t("learnHub.backToHub", { defaultValue: "Learn hub" })}
+          {t("learnHub.backToHub")}
         </Link>
       </div>
     );
@@ -116,12 +112,10 @@ export function LearnMethodPlaceholder() {
       <div className="rounded-xl border border-dashed border-glass-border bg-glass-bg/30 p-6 text-center">
         <Clock size={24} className="mx-auto mb-2 text-text-muted" />
         <p className="text-sm font-medium text-text-primary">
-          {t("learnHub.methodComingSoonTitle", { defaultValue: "Coming soon" })}
+          {t("learnHub.methodComingSoonTitle")}
         </p>
         <p className="mt-1 text-xs text-text-muted">
-          {t("learnHub.methodComingSoon", {
-            defaultValue: "This learning tool is coming soon.",
-          })}
+          {t("learnHub.methodComingSoon")}
         </p>
       </div>
     </div>
@@ -174,7 +168,7 @@ function FlashcardsMethodPage({
         className="inline-flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text-primary"
       >
         <ArrowLeft size={12} />
-        {t("learnHub.backToHub", { defaultValue: "Learn hub" })}
+        {t("learnHub.backToHub")}
       </Link>
 
       <div className="flex items-center gap-3">
@@ -196,24 +190,15 @@ function FlashcardsMethodPage({
           ) : (
             <Sparkles size={16} />
           )}
-          {t("learnHub.flashcards.generate", {
-            defaultValue: "Generate flashcards with AI",
-          })}
+          {t("learnHub.flashcards.generate")}
         </Button>
         <Button variant="secondary" onClick={() => navigate("/vocabulary")}>
           <BookMarked size={16} />
-          {t("learnHub.flashcards.vocabDeck", {
-            defaultValue: "Vocabulary deck",
-          })}
+          {t("learnHub.flashcards.vocabDeck")}
         </Button>
       </div>
 
-      <p className="text-xs text-text-muted">
-        {t("learnHub.flashcards.hint", {
-          defaultValue:
-            "Flashcards are saved as short-answer quizzes below. Open one to review its cards.",
-        })}
-      </p>
+      <p className="text-xs text-text-muted">{t("learnHub.flashcards.hint")}</p>
 
       <BookQuizzesList
         catalogBookId={book.source === "catalog" ? book.book.id : undefined}

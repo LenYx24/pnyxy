@@ -1,6 +1,6 @@
 import { marked, type Tokens } from "marked";
-import DOMPurify from "dompurify";
 import hljs from "highlight.js/lib/core";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 import markedKatex from "marked-katex-extension";
 
 // only register the languages we use; full hljs bundle is ~3MB
@@ -168,10 +168,11 @@ export function renderMarkdown(
   }
   const normalized = normalizeLatexDelimiters(withCitations);
   const raw = marked.parse(normalized, { async: false }) as string;
-  return DOMPurify.sanitize(raw, {
-    // style must stay allowed: KaTeX positions every glyph via inline style, drop it and formulas collapse.
-    // <style> children are still stripped, only per-element style attrs survive.
-    ADD_ATTR: ["target", "rel", "data-copy-code", "data-copy-text", "style"],
+  // allowStyleAttr: KaTeX positions every glyph via inline style, drop it
+  // and formulas collapse. addAttr: the copy-code button's data hooks.
+  return sanitizeHtml(raw, {
+    allowStyleAttr: true,
+    addAttr: ["data-copy-code", "data-copy-text"],
   });
 }
 

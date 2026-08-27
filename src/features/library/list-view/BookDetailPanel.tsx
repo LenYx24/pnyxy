@@ -186,10 +186,12 @@ export function BookDetailPanel({ entry }: BookDetailPanelProps) {
 
   return (
     <div
-      className={cn("px-3 pb-3", ROW_SEPARATOR_CLASS)}
+      // flat, full-width strip fused to its row (no floating rounded
+      // card): the row above stays highlighted, this reads as its body
+      className={cn("bg-bg-tertiary/50", ROW_SEPARATOR_CLASS)}
       onClick={(e) => e.stopPropagation()}
     >
-    <div className="flex flex-col gap-4 rounded-panel bg-bg-tertiary px-4 py-4 md:ml-[92px] md:flex-row md:gap-6 md:py-[18px]">
+    <div className="flex flex-col gap-4 px-4 py-4 md:ml-[52px] md:flex-row md:gap-6 md:py-[18px]">
       {/* Cover */}
       {coverUrl ? (
         <img

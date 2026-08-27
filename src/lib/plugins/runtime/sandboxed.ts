@@ -13,15 +13,104 @@ const HANDSHAKE_TIMEOUT_MS = 5000;
 const RPC_TIMEOUT_MS = 10000;
 
 /**
+ * Content-Security-Policy applied inside the plugin srcdoc itself
+ * (belt-and-braces alongside the `sandbox="allow-scripts"` iframe
+ * attribute). `script-src 'unsafe-eval'` is required because the
+ * bootstrap runs plugin code via `new Function(...)`; everything else
+ * is locked down, no network access, no images, no external scripts
+ * or styles.
+ */
+const SANDBOX_CSP =
+  "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'";
+
+export interface BootstrapHandlerDeps {
+  /** Nonce the host generated for this iframe instance; only messages
+   * carrying it in `data.nonce` are accepted. */
+  nonce: string;
+  /** Identity to compare `event.source` against. In the real iframe
+   * this is `window.parent`; tests inject a plain object. */
+  parentWindow: unknown;
+  /** Called once, the first time a well-formed, correctly-nonced
+   * `init` message with a transferred port arrives. */
+  onInit: (port: unknown) => void;
+  /** Called once, the first time a well-formed, correctly-nonced
+   * `run` message arrives. */
+  onRun: (payload: { src: string; appVersion: unknown; manifest: unknown }) => void;
+  onUnload: () => void;
+}
+
+/**
+ * Builds the iframe-side `message` event handler. Extracted as a
+ * plain, self-contained function (no closures over anything outside
+ * its own parameters) rather than living only inside the srcdoc
+ * template string below, for two reasons:
+ *
+ *  1. It's directly unit-testable (see sandboxed.test.ts) instead of
+ *     only being exercisable through a real iframe.
+ *  2. The srcdoc bootstrap embeds this *exact* function via
+ *     `.toString()`, so the code under test and the code that
+ *     actually runs in the iframe can never drift apart.
+ *
+ * Security properties enforced here (H6): only messages whose
+ * `event.source` is the host window are accepted (an embedded
+ * cross-origin frame or a compromised descendant can't otherwise
+ * inject `init`/`run`); every message must carry the per-instance
+ * nonce the host generated for this iframe, so a stale reference to
+ * a previous/foreign iframe instance can't replay a message; `init`
+ * and `run` each execute at most once (a second `run` after the
+ * plugin already loaded is ignored, which closes the "supply the
+ * bundle, wait, then supply an attacker bundle" replay).
+ */
+export function createBootstrapHandler(deps: BootstrapHandlerDeps) {
+  let hasInit = false;
+  let hasRun = false;
+  return function handleMessage(ev: {
+    source: unknown;
+    data: unknown;
+    ports?: unknown[];
+  }): void {
+    if (ev.source !== deps.parentWindow) return;
+    const msg = ev.data as
+      | { type?: string; nonce?: string; src?: string; appVersion?: unknown; manifest?: unknown }
+      | null
+      | undefined;
+    if (!msg || typeof msg !== "object") return;
+    if (msg.nonce !== deps.nonce) return;
+    if (msg.type === "init") {
+      if (hasInit) return;
+      const ports = ev.ports;
+      if (!ports || !ports[0]) return;
+      hasInit = true;
+      deps.onInit(ports[0]);
+    } else if (msg.type === "run") {
+      if (hasRun) return;
+      if (typeof msg.src !== "string") return;
+      hasRun = true;
+      deps.onRun({ src: msg.src, appVersion: msg.appVersion, manifest: msg.manifest });
+    } else if (msg.type === "unload") {
+      deps.onUnload();
+    }
+  };
+}
+
+/**
  * srcdoc bootstrap. The iframe creates a global `plugin` object that
  * proxies `PluginAPI` calls over MessageChannel using JSON-RPC. The
  * host injects the plugin bundle as inline `<script>` text via the
  * `run` message, required because `sandbox="allow-scripts"` without
  * `allow-same-origin` gives the iframe an opaque origin and forbids
  * cross-origin `fetch`.
+ *
+ * Every host→iframe message is gated by `createBootstrapHandler`:
+ * `event.source` must be the host window and the message must carry
+ * `nonce` (generated fresh per instance in `SandboxedRuntime.load`).
  */
-const SANDBOX_HTML = `<!doctype html><meta charset="utf-8"><script>
+function buildSandboxHtml(nonce: string): string {
+  return `<!doctype html><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="${SANDBOX_CSP}">
+<script>
 (function () {
+  var NONCE = ${JSON.stringify(nonce)};
   var port = null;
   var pendingRpcId = 1;
   var pending = Object.create(null); // id -> {resolve, reject}
@@ -88,33 +177,38 @@ const SANDBOX_HTML = `<!doctype html><meta charset="utf-8"><script>
     }
   }
 
-  window.addEventListener('message', function (ev) {
-    var msg = ev.data;
-    if (!msg || typeof msg !== 'object') return;
-    if (msg.type === 'init' && Array.isArray(ev.ports) && ev.ports[0]) {
-      port = ev.ports[0];
+  var handleMessage = (${createBootstrapHandler.toString()})({
+    nonce: NONCE,
+    parentWindow: window.parent,
+    onInit: function (p) {
+      port = p;
       port.onmessage = handlePortMessage;
       port.postMessage({ type: 'ready' });
-    } else if (msg.type === 'run' && typeof msg.src === 'string') {
+    },
+    onRun: function (payload) {
       try {
         var api = makeApi();
-        api.app.version = msg.appVersion;
+        api.app.version = payload.appVersion;
         var moduleObj = { exports: {} };
-        var fn = new Function('module', 'exports', 'plugin', msg.src + '\\n;return (typeof onLoad === "function" ? { onLoad: onLoad, onUnload: typeof onUnload === "function" ? onUnload : undefined } : module.exports);');
+        var fn = new Function('module', 'exports', 'plugin', payload.src + '\\n;return (typeof onLoad === "function" ? { onLoad: onLoad, onUnload: typeof onUnload === "function" ? onUnload : undefined } : module.exports);');
         pluginModule = fn(moduleObj, moduleObj.exports, api) || moduleObj.exports;
         Promise.resolve()
-          .then(function () { return pluginModule && pluginModule.onLoad ? pluginModule.onLoad(api, { manifest: msg.manifest }) : undefined; })
-          .then(function () { window.parent.postMessage({ type: 'loaded' }, '*'); })
-          .catch(function (e) { window.parent.postMessage({ type: 'load-error', message: String(e && e.message || e) }, '*'); });
+          .then(function () { return pluginModule && pluginModule.onLoad ? pluginModule.onLoad(api, { manifest: payload.manifest }) : undefined; })
+          .then(function () { window.parent.postMessage({ type: 'loaded', nonce: NONCE }, '*'); })
+          .catch(function (e) { window.parent.postMessage({ type: 'load-error', message: String(e && e.message || e), nonce: NONCE }, '*'); });
       } catch (e) {
-        window.parent.postMessage({ type: 'load-error', message: String(e && e.message || e) }, '*');
+        window.parent.postMessage({ type: 'load-error', message: String(e && e.message || e), nonce: NONCE }, '*');
       }
-    } else if (msg.type === 'unload') {
+    },
+    onUnload: function () {
       Promise.resolve().then(function () { return pluginModule && pluginModule.onUnload ? pluginModule.onUnload() : undefined; });
     }
   });
+
+  window.addEventListener('message', handleMessage);
 })();
 </script>`;
+}
 
 /**
  * Cross-origin iframe sandbox runtime. Uses `sandbox="allow-scripts"`
@@ -139,6 +233,11 @@ export class SandboxedRuntime implements PluginRuntime {
       );
     }
 
+    // Per-instance secret shared only with this iframe (via the srcdoc
+    // literal) so a stale message from a previous instance, or one
+    // forged by anything other than this exact bootstrap, is ignored.
+    const nonce = crypto.randomUUID();
+
     const iframe = document.createElement("iframe");
     iframe.setAttribute("sandbox", "allow-scripts");
     iframe.setAttribute("aria-hidden", "true");
@@ -149,7 +248,7 @@ export class SandboxedRuntime implements PluginRuntime {
     iframe.style.pointerEvents = "none";
     iframe.style.left = "-9999px";
     iframe.style.top = "-9999px";
-    iframe.srcdoc = SANDBOX_HTML;
+    iframe.srcdoc = buildSandboxHtml(nonce);
     document.body.appendChild(iframe);
 
     const channel = new MessageChannel();
@@ -202,8 +301,11 @@ export class SandboxedRuntime implements PluginRuntime {
       new Promise<void>((resolve, reject) => {
         const onReadyOrError = (event: MessageEvent) => {
           if (event.source !== iframe.contentWindow) return;
-          const data = event.data as { type?: string; message?: string } | null;
+          const data = event.data as
+            | { type?: string; message?: string; nonce?: string }
+            | null;
           if (!data || typeof data !== "object") return;
+          if (data.nonce !== nonce) return;
           if (data.type === "loaded") {
             window.removeEventListener("message", onReadyOrError);
             resolve();
@@ -220,6 +322,7 @@ export class SandboxedRuntime implements PluginRuntime {
             iframe.contentWindow?.postMessage(
               {
                 type: "run",
+                nonce,
                 src: bundle,
                 appVersion: api.app.version,
                 manifest,
@@ -235,7 +338,7 @@ export class SandboxedRuntime implements PluginRuntime {
         // contentWindow may not be ready synchronously after append;
         // wait for `load`.
         const sendInit = () => {
-          iframe.contentWindow?.postMessage({ type: "init" }, "*", [
+          iframe.contentWindow?.postMessage({ type: "init", nonce }, "*", [
             channel.port2,
           ]);
         };
@@ -250,7 +353,7 @@ export class SandboxedRuntime implements PluginRuntime {
       manifest,
       async destroy() {
         try {
-          iframe.contentWindow?.postMessage({ type: "unload" }, "*");
+          iframe.contentWindow?.postMessage({ type: "unload", nonce }, "*");
         } catch {
           // ignore
         }

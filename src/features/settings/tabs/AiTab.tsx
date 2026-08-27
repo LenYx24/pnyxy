@@ -90,11 +90,36 @@ const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
   provider: string;
   note: ModelNote;
 }> = [
-  { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash-Lite", provider: "Google", note: "cheap" },
-  { id: "gemini-3.6-flash", label: "Gemini 3.6 Flash", provider: "Google", note: "fast" },
-  { id: "gemini-3.7-flash", label: "Gemini 3.7 Flash", provider: "Google", note: "smart" },
-  { id: "gpt-4o-mini", label: "GPT-4o mini", provider: "OpenAI", note: "balanced" },
-  { id: "claude-haiku-4-5", label: "Claude Haiku 4.5", provider: "Anthropic", note: "smart" },
+  {
+    id: "gemini-3.5-flash-lite",
+    label: "Gemini 3.5 Flash-Lite",
+    provider: "Google",
+    note: "cheap",
+  },
+  {
+    id: "gemini-3.6-flash",
+    label: "Gemini 3.6 Flash",
+    provider: "Google",
+    note: "fast",
+  },
+  {
+    id: "gemini-3.7-flash",
+    label: "Gemini 3.7 Flash",
+    provider: "Google",
+    note: "smart",
+  },
+  {
+    id: "gpt-4o-mini",
+    label: "GPT-4o mini",
+    provider: "OpenAI",
+    note: "balanced",
+  },
+  {
+    id: "claude-haiku-4-5",
+    label: "Claude Haiku 4.5",
+    provider: "Anthropic",
+    note: "smart",
+  },
 ];
 
 // short table labels, kept inline since AI_MODEL_CATALOG stores long prose
@@ -195,16 +220,18 @@ async function testProvider(
     } else if (provider === "local") {
       const base = creds.baseUrl.trim().replace(/\/+$/, "");
       const headers: Record<string, string> = {};
-      if (creds.key.trim()) headers.Authorization = `Bearer ${creds.key.trim()}`;
+      if (creds.key.trim())
+        headers.Authorization = `Bearer ${creds.key.trim()}`;
       res = await fetch(`${base}/models`, { headers });
     } else {
       return { ok: true };
     }
-    return res.ok
-      ? { ok: true }
-      : { ok: false, detail: `HTTP ${res.status}` };
+    return res.ok ? { ok: true } : { ok: false, detail: `HTTP ${res.status}` };
   } catch (err) {
-    return { ok: false, detail: err instanceof Error ? err.message : String(err) };
+    return {
+      ok: false,
+      detail: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
@@ -224,7 +251,8 @@ export function AiTab() {
   // tab list isn't an obvious way back, especially on mobile.
   const canGoBack =
     typeof window !== "undefined" &&
-    typeof (window.history.state as { idx?: number } | null)?.idx === "number" &&
+    typeof (window.history.state as { idx?: number } | null)?.idx ===
+      "number" &&
     (window.history.state as { idx: number }).idx > 0;
 
   const [usageState, setUsageState] = useState<{
@@ -242,8 +270,7 @@ export function AiTab() {
     let cancelled = false;
     supabase.rpc("get_my_ai_usage_today").then(({ data, error }) => {
       if (cancelled) return;
-      const rows =
-        !error && Array.isArray(data) ? (data as AiUsageRow[]) : [];
+      const rows = !error && Array.isArray(data) ? (data as AiUsageRow[]) : [];
       setUsageState({ forUserId: user.id, data: rows });
     });
     return () => {
@@ -256,20 +283,20 @@ export function AiTab() {
   return (
     <div className="space-y-8">
       {canGoBack && (
-        <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate(-1)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-2"
+          onClick={() => navigate(-1)}
+        >
           <ArrowLeft size={16} />
-          {t("common.back", { defaultValue: "Back" })}
+          {t("common.back")}
         </Button>
       )}
 
       <SettingsSection
-        title={t("settings.aiSection.providersHeading", {
-          defaultValue: "Providers",
-        })}
-        description={t("settings.aiSection.providersShort", {
-          defaultValue:
-            "Pnyxy is built in. Add your own key to talk to OpenAI or Anthropic directly, or point at a local model.",
-        })}
+        title={t("settings.aiSection.providersHeading")}
+        description={t("settings.aiSection.providersShort")}
         plain
       >
         <div className="space-y-2">
@@ -286,10 +313,8 @@ export function AiTab() {
       </SettingsSection>
 
       <SettingsSection
-        title={t("settings.aiSection.orderHeading", { defaultValue: "Order" })}
-        description={t("settings.aiSection.orderHint", {
-          defaultValue: "The provider at the top is tried first.",
-        })}
+        title={t("settings.aiSection.orderHeading")}
+        description={t("settings.aiSection.orderHint")}
         plain
       >
         <ProviderOrderList
@@ -299,22 +324,12 @@ export function AiTab() {
       </SettingsSection>
 
       <SettingsSection
-        title={t("settings.aiSection.defaultModelHeading", {
-          defaultValue: "Default model",
-        })}
-        description={t("settings.aiSection.defaultModelHint", {
-          defaultValue:
-            "Used by the built-in Pnyxy route. Auto picks the cheapest working model and steps up when a quota runs out.",
-        })}
+        title={t("settings.aiSection.defaultModelHeading")}
+        description={t("settings.aiSection.defaultModelHint")}
       >
         <SettingRow
-          label={t("settings.aiSection.defaultModelLabel", {
-            defaultValue: "Model",
-          })}
-          hint={t("settings.aiSection.routingNote", {
-            defaultValue:
-              "Quiz and roadmap generation always use Claude Haiku 4.5 (tool-use).",
-          })}
+          label={t("settings.aiSection.defaultModelLabel")}
+          hint={t("settings.aiSection.routingNote")}
           control={
             <DefaultModelPicker value={pnyxyModel} onChange={setPnyxyModel} />
           }
@@ -323,7 +338,7 @@ export function AiTab() {
 
       {pnyxyEnabled && (
         <SettingsSection
-          title={t("settings.aiSection.quotasHeading", { defaultValue: "Quotas" })}
+          title={t("settings.aiSection.quotasHeading")}
           description={
             user
               ? t("settings.aiSection.resetsDaily")
@@ -347,9 +362,7 @@ export function AiTab() {
 
       <AiContextSection />
 
-      <Disclosure
-        title={t("settings.aiSection.howItWorks", { defaultValue: "How it works" })}
-      >
+      <Disclosure title={t("settings.aiSection.howItWorks")}>
         <div className="space-y-5 pt-1">
           <p className="text-[13px] leading-relaxed text-text-secondary">
             {t("settings.aiSection.description")}
@@ -360,9 +373,7 @@ export function AiTab() {
           <ModelComparisonTable />
           <div className="space-y-3">
             <p className="text-[13px] font-medium text-text-primary">
-              {t("settings.aiModels.heading", {
-                defaultValue: "Detailed model info",
-              })}
+              {t("settings.aiModels.heading")}
             </p>
             {AI_MODEL_CATALOG.map((m) => (
               <ModelCard key={m.provider} model={m} />
@@ -378,7 +389,13 @@ export function AiTab() {
 /* Providers                                                           */
 /* ------------------------------------------------------------------ */
 
-function Monogram({ provider, className }: { provider: AiProvider; className?: string }) {
+function Monogram({
+  provider,
+  className,
+}: {
+  provider: AiProvider;
+  className?: string;
+}) {
   return (
     <span
       aria-hidden="true"
@@ -448,10 +465,10 @@ function ProviderCard({
 
   const status =
     provider === "pnyxy"
-      ? t("settings.aiSection.statusBuiltin", { defaultValue: "Built in" })
+      ? t("settings.aiSection.statusBuiltin")
       : configured
-        ? t("settings.aiSection.statusKeySet", { defaultValue: "Key set" })
-        : t("settings.aiSection.statusNoKey", { defaultValue: "No key" });
+        ? t("settings.aiSection.statusKeySet")
+        : t("settings.aiSection.statusNoKey");
 
   const hint = t(`settings.aiSection.${provider}Hint`);
 
@@ -471,7 +488,9 @@ function ProviderCard({
   const runTest = async () => {
     setTest({ kind: "running" });
     const result = await testProvider(provider, { key, baseUrl: localBaseUrl });
-    setTest(result.ok ? { kind: "ok" } : { kind: "fail", detail: result.detail });
+    setTest(
+      result.ok ? { kind: "ok" } : { kind: "fail", detail: result.detail },
+    );
   };
 
   const remove = () => {
@@ -544,7 +563,6 @@ function ProviderCard({
           checked={enabled}
           onChange={onToggle}
           label={t("settings.aiSection.enableProvider", {
-            defaultValue: "Enable {{name}}",
             name: PROVIDER_LABELS[provider],
           })}
         />
@@ -620,7 +638,7 @@ function ProviderCard({
           {provider !== "pnyxy" && (
             <div className="space-y-1.5">
               <span className="block text-[13px] font-medium text-text-secondary">
-                {t("settings.aiSection.apiKeyLabel", { defaultValue: "API key" })}
+                {t("settings.aiSection.apiKeyLabel")}
               </span>
               {keyField}
               <span className="block text-2xs text-text-muted-2">
@@ -645,8 +663,8 @@ function ProviderCard({
                   <Check size={14} />
                 )}
                 {test.kind === "running"
-                  ? t("settings.aiSection.testing", { defaultValue: "Testing…" })
-                  : t("settings.aiSection.testKey", { defaultValue: "Test" })}
+                  ? t("settings.aiSection.testing")
+                  : t("settings.aiSection.testKey")}
               </Button>
               <Button variant="ghost" size="sm" onClick={remove}>
                 {t("settings.aiSection.remove")}
@@ -666,14 +684,12 @@ function ProviderCard({
 
           {test.kind === "ok" && (
             <StatusLine tone="success">
-              {t("settings.aiSection.testOk", { defaultValue: "Connection works." })}
+              {t("settings.aiSection.testOk")}
             </StatusLine>
           )}
           {test.kind === "fail" && (
             <StatusLine tone="danger">
-              {t("settings.aiSection.testFail", {
-                defaultValue: "Connection failed.",
-              })}
+              {t("settings.aiSection.testFail")}
               {test.detail ? ` (${test.detail})` : ""}
             </StatusLine>
           )}
@@ -697,7 +713,9 @@ function ProviderOrderList({
   const { t } = useTranslation();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
 
   const handleDragEnd = (e: DragEndEvent) => {
@@ -775,9 +793,7 @@ function SortableProviderRow({
         {...attributes}
         {...listeners}
         disabled={!draggable}
-        aria-label={t("settings.aiSection.dragHandle", {
-          defaultValue: "Drag to reorder",
-        })}
+        aria-label={t("settings.aiSection.dragHandle")}
         className={cn(
           "flex h-8 w-6 shrink-0 items-center justify-center rounded-md text-text-muted-2",
           draggable
@@ -819,15 +835,13 @@ function DefaultModelPicker({
   const [open, setOpen] = useState(false);
 
   const noteLabel: Record<ModelNote, string> = {
-    cheap: t("settings.aiSection.noteCheap", { defaultValue: "cheap" }),
-    fast: t("settings.aiSection.noteFast", { defaultValue: "fast" }),
-    smart: t("settings.aiSection.noteSmart", { defaultValue: "smart" }),
-    balanced: t("settings.aiSection.noteBalanced", { defaultValue: "balanced" }),
+    cheap: t("settings.aiSection.noteCheap"),
+    fast: t("settings.aiSection.noteFast"),
+    smart: t("settings.aiSection.noteSmart"),
+    balanced: t("settings.aiSection.noteBalanced"),
   };
-  const autoLabel = t("settings.aiSection.autoModel", { defaultValue: "Auto" });
-  const autoNote = t("settings.aiSection.autoModelNote", {
-    defaultValue: "cheapest working model, steps up on quota",
-  });
+  const autoLabel = t("settings.aiSection.autoModel");
+  const autoNote = t("settings.aiSection.autoModelNote");
 
   const selected = value
     ? PNYXY_MODEL_OPTIONS.find((m) => m.id === value)
@@ -941,7 +955,7 @@ function QuotaTable({ rows }: { rows: AiUsageRow[] }) {
         <thead>
           <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted-2">
             <th className="py-2 pr-4 font-semibold">
-              {t("settings.aiSection.colModel", { defaultValue: "Model" })}
+              {t("settings.aiSection.colModel")}
             </th>
             <th className="py-2 pr-4 font-semibold">
               {t("settings.aiSection.tokensToday")}
@@ -950,7 +964,7 @@ function QuotaTable({ rows }: { rows: AiUsageRow[] }) {
               {t("settings.aiSection.requestsToday")}
             </th>
             <th className="py-2 font-semibold">
-              {t("settings.aiSection.colReset", { defaultValue: "Reset" })}
+              {t("settings.aiSection.colReset")}
             </th>
           </tr>
         </thead>
@@ -966,7 +980,9 @@ function QuotaTable({ rows }: { rows: AiUsageRow[] }) {
               <td className="py-2 pr-4">
                 <QuotaCell used={row.request_count} max={row.request_limit} />
               </td>
-              <td className="py-2 whitespace-nowrap text-text-muted">00:00 UTC</td>
+              <td className="py-2 whitespace-nowrap text-text-muted">
+                00:00 UTC
+              </td>
             </tr>
           ))}
         </tbody>
@@ -1037,7 +1053,9 @@ function AiContextSection() {
         control={
           <NumberInput
             value={aiSurroundingPagesCount}
-            onChange={(v) => setAiSurroundingPagesCount(Math.max(0, Math.min(50, v)))}
+            onChange={(v) =>
+              setAiSurroundingPagesCount(Math.max(0, Math.min(50, v)))
+            }
             min={0}
             max={50}
             className="w-32"
@@ -1060,14 +1078,10 @@ function ModelComparisonTable() {
     <div className="space-y-2">
       <div>
         <p className="text-[13px] font-medium text-text-primary">
-          {t("settings.aiSection.modelsHeading", {
-            defaultValue: "Available models",
-          })}
+          {t("settings.aiSection.modelsHeading")}
         </p>
         <p className="text-2xs text-text-muted">
-          {t("settings.aiSection.modelsSubtitle", {
-            defaultValue: "Prices are per 1M tokens (input / output).",
-          })}
+          {t("settings.aiSection.modelsSubtitle")}
         </p>
       </div>
 
@@ -1077,22 +1091,16 @@ function ModelComparisonTable() {
           <thead>
             <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted-2">
               <th className="py-1.5 pr-3 font-semibold">
-                {t("settings.aiSection.colModel", { defaultValue: "Model" })}
+                {t("settings.aiSection.colModel")}
               </th>
               <th className="py-1.5 pr-3 font-semibold">
-                {t("settings.aiSection.colProvider", {
-                  defaultValue: "Provider",
-                })}
+                {t("settings.aiSection.colProvider")}
               </th>
               <th className="py-1.5 pr-3 font-semibold">
-                {t("settings.aiSection.colCost", {
-                  defaultValue: "Cost / 1M tok",
-                })}
+                {t("settings.aiSection.colCost")}
               </th>
               <th className="py-1.5 pr-3 font-semibold">
-                {t("settings.aiSection.colBestFor", {
-                  defaultValue: "Best for",
-                })}
+                {t("settings.aiSection.colBestFor")}
               </th>
               <th className="py-1.5 font-semibold" />
             </tr>
@@ -1139,15 +1147,11 @@ function ModelComparisonTable() {
             </div>
             <div className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-2 text-2xs">
               <span className="text-text-muted">
-                {t("settings.aiSection.colCost", {
-                  defaultValue: "Cost",
-                })}
+                {t("settings.aiSection.colCost")}
               </span>
               <span className="font-mono text-text-secondary">{row.cost}</span>
               <span className="text-text-muted">
-                {t("settings.aiSection.colBestFor", {
-                  defaultValue: "Best for",
-                })}
+                {t("settings.aiSection.colBestFor")}
               </span>
               <span className="text-text-secondary">{row.bestFor}</span>
             </div>
@@ -1161,10 +1165,10 @@ function ModelComparisonTable() {
 function StatusBadge({ status }: { status: ModelRowStatus }) {
   const { t } = useTranslation();
   const labels: Record<ModelRowStatus, string> = {
-    active: t("settings.aiSection.statusActive", { defaultValue: "Active" }),
-    byok: t("settings.aiSection.statusByok", { defaultValue: "BYOK" }),
-    local: t("settings.aiSection.statusLocal", { defaultValue: "Local" }),
-    soon: t("settings.aiSection.statusSoon", { defaultValue: "Soon" }),
+    active: t("settings.aiSection.statusActive"),
+    byok: t("settings.aiSection.statusByok"),
+    local: t("settings.aiSection.statusLocal"),
+    soon: t("settings.aiSection.statusSoon"),
   };
   return (
     <span

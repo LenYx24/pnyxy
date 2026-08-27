@@ -3,8 +3,10 @@
  * props; every callback and the inline-edit state come from
  * `useChatSidebar()` (see ChatSidebarContext.tsx).
  */
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import {
+  Archive,
+  ArchiveRestore,
   Check,
   ChevronDown,
   ChevronRight,
@@ -16,7 +18,6 @@ import {
   Pencil,
   Trash2,
   X,
-  Zap,
 } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
 import {
@@ -31,6 +32,7 @@ import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { openMenuAtButton } from "../menu-anchor";
 import { cn } from "@/lib/cn";
 import type { ChatConversation, ChatFolder } from "@/types/chat";
+import { useChatStore } from "@/stores/chat-store";
 import {
   captionClass,
   dateGroupLabel,
@@ -145,6 +147,7 @@ export function ChatTree(props: ChatTreeProps) {
             ))}
           </div>
         ))}
+        <ArchiveSection {...props} />
       </div>
     );
   }
@@ -182,10 +185,7 @@ export function ChatTree(props: ChatTreeProps) {
           IS that folder's content, so it stays. */}
       {rootFolderId === null && rootFolders.length === 0 && (
         <p className="px-3 py-4 text-center text-xs text-text-muted">
-          {t("chat.sidebar.foldersEmpty", {
-            defaultValue:
-              "No folders yet. Chats outside folders live in the quick view.",
-          })}
+          {t("chat.sidebar.foldersEmpty")}
         </p>
       )}
       {rootFolderId !== null && looseConvs.length > 0 && (
@@ -195,32 +195,81 @@ export function ChatTree(props: ChatTreeProps) {
             captionClass,
           )}
         >
-          <Zap size={12} strokeWidth={1.5} className="shrink-0" />
-          <span className="truncate">{t("chat.sidebar.looseChats")}</span>
+          <span className="truncate">{t("chat.sidebar.folderChats")}</span>
           <span className="shrink-0 font-normal tabular-nums">
             {looseConvs.length}
           </span>
         </div>
       )}
       {rootFolderId !== null && (
-      <SortableContext items={looseConvIds} strategy={verticalListSortingStrategy}>
-        {dateGroups.map((group) => (
-          <div key={group.key} className="flex flex-col gap-0.5">
-            <div className={cn("px-3 pb-1 pt-2", captionClass, "font-normal")}>
-              {dateGroupLabel(group.key, t)}
+        <SortableContext
+          items={looseConvIds}
+          strategy={verticalListSortingStrategy}
+        >
+          {dateGroups.map((group) => (
+            <div key={group.key} className="flex flex-col gap-0.5">
+              <div
+                className={cn("px-3 pb-1 pt-2", captionClass, "font-normal")}
+              >
+                {dateGroupLabel(group.key, t)}
+              </div>
+              {group.items.map((c) => (
+                <ConversationRow
+                  key={c.id}
+                  conversation={c}
+                  depth={0}
+                  {...props}
+                />
+              ))}
             </div>
-            {group.items.map((c) => (
-              <ConversationRow
-                key={c.id}
-                conversation={c}
-                depth={0}
-                {...props}
-              />
-            ))}
-          </div>
-        ))}
-      </SortableContext>
+          ))}
+        </SortableContext>
       )}
+    </div>
+  );
+}
+
+/** Bottom of the quick view: archived conversations behind a fold. */
+function ArchiveSection(props: ChatTreeProps) {
+  const { t } = useChatSidebar();
+  // select the stable array, filter memoized: an inline .filter() selector
+  // would return a fresh reference every snapshot and loop React
+  const all = useChatStore((s) => s.conversations);
+  const archived = useMemo(() => all.filter((c) => c.archived_at), [all]);
+  const [open, setOpen] = useState(false);
+  if (archived.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-0.5 pt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className={cn(
+          "flex cursor-pointer items-center gap-1.5 px-3 pb-1 text-left transition-colors hover:text-text-secondary",
+          captionClass,
+        )}
+      >
+        {open ? (
+          <ChevronDown size={12} className="shrink-0" />
+        ) : (
+          <ChevronRight size={12} className="shrink-0" />
+        )}
+        <Archive size={12} strokeWidth={1.5} className="shrink-0" />
+        <span className="truncate">{t("chat.archive.heading")}</span>
+        <span className="shrink-0 font-normal tabular-nums">
+          {archived.length}
+        </span>
+      </button>
+      {open &&
+        archived.map((c) => (
+          <ConversationRow
+            key={c.id}
+            conversation={c}
+            depth={0}
+            dndDisabled
+            {...props}
+          />
+        ))}
     </div>
   );
 }
@@ -256,7 +305,6 @@ const FolderRow = memo(function FolderRow({
   // drag source + drop target on one node. drag-end reads parent:
   // same-parent = reorder, different-parent = nest.
   const sortable = useSortable({ id: `folder:${folder.id}` });
-  const draggable = sortable;
 
   // a row can mean two things at once (reorder vs nest-into), pick one indicator
   const activeDragId = rest.activeDragId ?? null;
@@ -274,7 +322,7 @@ const FolderRow = memo(function FolderRow({
   const showDropLine =
     isOver && isActiveSibling && activeDragId !== `folder:${folder.id}`;
   // nest highlight for conv drags and non-sibling folder drags, not while dragging self
-  const showNestHighlight = isOver && !draggable.isDragging && !isActiveSibling;
+  const showNestHighlight = isOver && !sortable.isDragging && !isActiveSibling;
 
   // one item list for both the right-click menu and the hover kebab
   const menuItems = (): ContextMenuEntry[] => [
@@ -282,7 +330,7 @@ const FolderRow = memo(function FolderRow({
       ? [
           {
             id: "enter",
-            label: t("chat.folders.enter", { defaultValue: "Enter folder" }),
+            label: t("chat.folders.enter"),
             icon: FolderInput,
             onClick: () => sidebar.onEnterFolder?.(folder.id),
           },
@@ -291,9 +339,7 @@ const FolderRow = memo(function FolderRow({
       : []),
     {
       id: "new",
-      label: t("chat.sidebar.newInFolder", {
-        defaultValue: "New conversation here",
-      }),
+      label: t("chat.sidebar.newInFolder"),
       icon: FilePlus2,
       onClick: () => sidebar.onNewInFolder(folder.id),
     },
@@ -336,13 +382,13 @@ const FolderRow = memo(function FolderRow({
           transition: sortable.transition,
           paddingLeft: depth * INDENT_PX,
         }}
-        {...draggable.attributes}
-        {...draggable.listeners}
+        {...sortable.attributes}
+        {...sortable.listeners}
         {...ctxMenu}
         className={cn(
           "group relative flex items-center rounded-control transition-colors cursor-grab active:cursor-grabbing",
           showNestHighlight ? "bg-surface-3" : "hover:bg-bg-tertiary/60",
-          draggable.isDragging && "opacity-40",
+          sortable.isDragging && "opacity-40",
         )}
       >
         {/* Sibling-reorder drop line, mutually exclusive with showNestHighlight. */}
@@ -355,6 +401,8 @@ const FolderRow = memo(function FolderRow({
         <button
           type="button"
           onClick={() => sidebar.onToggleFolder(folder.id)}
+          // double-click drills into the folder (single click only toggles)
+          onDoubleClick={() => sidebar.onEnterFolder?.(folder.id)}
           className={cn(
             "flex min-w-0 flex-1 items-center gap-1.5 px-3 py-2 text-left cursor-pointer",
             captionClass,
@@ -447,6 +495,7 @@ const ConversationRow = memo(function ConversationRow({
     onEditTitleChange,
     onDelete,
     onRequestMove,
+    onArchive,
     t,
   } = useChatSidebar();
   const isActive = conversation.id === activeId;
@@ -457,7 +506,6 @@ const ConversationRow = memo(function ConversationRow({
     id: sortableId,
     disabled: isEditing || dndDisabled,
   });
-  const draggable = sortable;
 
   // top-edge drop line while hovered, not on self, conv drags only (folders nest instead)
   const showDropLine =
@@ -478,10 +526,23 @@ const ConversationRow = memo(function ConversationRow({
       },
       {
         id: "move",
-        label: t("chat.folders.moveTo", { defaultValue: "Move to folder…" }),
+        label: t("chat.folders.moveTo"),
         icon: FolderInput,
         onClick: () => onRequestMove(conversation.id, conversation.folder_id),
       },
+      conversation.archived_at
+        ? {
+            id: "unarchive",
+            label: t("chat.archive.restore"),
+            icon: ArchiveRestore,
+            onClick: () => onArchive(conversation.id, false),
+          }
+        : {
+            id: "archive",
+            label: t("chat.archive.action"),
+            icon: Archive,
+            onClick: () => onArchive(conversation.id, true),
+          },
     ];
     items.push(
       { id: "div-delete", divider: true },
@@ -506,13 +567,13 @@ const ConversationRow = memo(function ConversationRow({
         transition: sortable.transition,
         paddingLeft: depth * INDENT_PX,
       }}
-      {...(isEditing || dndDisabled ? {} : draggable.attributes)}
-      {...(isEditing || dndDisabled ? {} : draggable.listeners)}
+      {...(isEditing || dndDisabled ? {} : sortable.attributes)}
+      {...(isEditing || dndDisabled ? {} : sortable.listeners)}
       {...ctxMenu}
       className={cn(
         "group relative flex items-center rounded-control transition-colors",
         !isEditing && !dndDisabled && "cursor-grab active:cursor-grabbing",
-        draggable.isDragging && "opacity-40",
+        sortable.isDragging && "opacity-40",
         // active row = surface-2, the rest hover one tone step up
         isActive
           ? "bg-bg-tertiary text-text-primary"

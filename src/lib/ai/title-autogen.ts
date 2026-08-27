@@ -24,7 +24,7 @@ export async function autoTitleConversation(
       ],
       "",
       "",
-      { preferredProvider, maxOutputTokens: 30 },
+      { preferredProvider, maxOutputTokens: 30, pnyxyModelOverride: "gemini-3.5-flash-lite" },
     )) {
       title += chunk.delta;
     }
@@ -58,11 +58,15 @@ export async function requestFollowupSuggestions(
   assistantMessageId: string,
   userText: string,
   assistantText: string,
+  /** Set when the turn errored (see migration 00071); skip suggestions for it. */
+  assistantError: string | null | undefined,
   preferredProvider: AiProvider | undefined,
   set: ChatSet,
 ) {
-  // skip very short / errored replies ("⚠" marks a failure)
+  // skip very short / errored replies
   if (assistantText.trim().length < 40) return;
+  if (assistantError) return;
+  // legacy fallback: old rows encoded the error as a "⚠" content prefix
   if (assistantText.startsWith("⚠")) return;
 
   try {
@@ -80,7 +84,7 @@ export async function requestFollowupSuggestions(
       ],
       "",
       "",
-      { preferredProvider, maxOutputTokens: 200 },
+      { preferredProvider, maxOutputTokens: 200, pnyxyModelOverride: "gemini-3.5-flash-lite" },
     )) {
       raw += chunk.delta;
     }

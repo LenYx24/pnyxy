@@ -8,6 +8,14 @@ export interface RegistryIndexEntry {
   version: string;
   description?: string;
   author?: string;
+  /**
+   * Optional SHA-256 hex digest of the fetched content (the theme
+   * JSON, the plugin manifest JSON, or the plugin bundle text,
+   * depending on `kind`). When present, `GitHubRegistry` verifies it
+   * with `crypto.subtle.digest` before returning the content, whether
+   * it came from the network or from the localStorage cache.
+   */
+  integrity?: string;
 }
 
 export interface RegistryIndex {

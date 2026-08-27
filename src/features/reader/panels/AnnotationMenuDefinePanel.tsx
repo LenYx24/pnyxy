@@ -150,7 +150,9 @@ export function AnnotationMenuDefinePanel({
   }, [capturedVocabId, removeVocabEntry]);
 
   return (
-    <div className={cn("flex flex-col gap-2 p-1", fullWidth ? "w-full" : "w-64")}>
+    <div
+      className={cn("flex flex-col gap-2 p-1", fullWidth ? "w-full" : "w-64")}
+    >
       <div className="flex items-center gap-1.5">
         <BookOpen size={14} className="text-accent" />
         <span className="text-xs font-medium text-text-primary">
@@ -246,9 +248,7 @@ export function AnnotationMenuDefinePanel({
             disabled={capturing}
           >
             <BookOpen size={12} />
-            {t("reader.annotationMenu.addToVocab", {
-              defaultValue: "Add to vocabulary",
-            })}
+            {t("reader.annotationMenu.addToVocab")}
           </button>
         ) : (
           <span />

@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { BookOpen, FileText, Loader2, Minus, Plus, Sparkles, X } from "lucide-react";
+import {
+  BookOpen,
+  FileText,
+  Loader2,
+  Minus,
+  Plus,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { extractPdfText, hasAnyConfiguredProvider } from "@/lib/ai/ai-client";
@@ -103,10 +111,7 @@ export function AiGeneratePanel({
   const resolveSourceText = async (): Promise<string> => {
     if (mode === "text") return sourceText;
     if (!bookMeta) {
-      throw new QuizGenerationError(
-        "Book isn't loaded yet.",
-        "empty_source",
-      );
+      throw new QuizGenerationError("Book isn't loaded yet.", "empty_source");
     }
     const from = Math.max(1, Math.min(startPage, endPage));
     const to = Math.max(from, endPage);
@@ -309,9 +314,7 @@ export function AiGeneratePanel({
           }}
           className="w-full sm:w-auto"
         >
-          {loading
-            ? t("quizzes.ai.cancelGeneration", { defaultValue: "Cancel" })
-            : t("common.cancel")}
+          {loading ? t("quizzes.ai.cancelGeneration") : t("common.cancel")}
         </Button>
         <Button
           onClick={handleGenerate}

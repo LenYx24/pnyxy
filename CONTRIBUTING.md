@@ -1,13 +1,13 @@
 # Contributing to Pnyxy
 
 Pnyxy is a student / solo project, so contributions are welcome but the bar
-and direction are set by the maintainer. Issues and PRs are both fair game —
+and direction are set by the maintainer. Issues and PRs are both fair game;
 issues are cheaper if you're not sure the change will land.
 
 ## Dev setup
 
 ```sh
-git clone <repo-url>
+git clone https://github.com/LenYx24/pnyxy.git
 cd pnyxy
 pnpm install
 cp .env.example .env   # fill in your own Supabase project if you have one
@@ -48,12 +48,12 @@ All three should pass. CI runs lint + build on every push.
 
 - Large architectural rewrites without a prior issue discussion
 - Features that require new paid infrastructure
-- Features that only make sense for a specific institution or workflow —
+- Features that only make sense for a specific institution or workflow:
   build those as plugins instead
 
 ## Security issues
 
-Please report vulnerabilities privately — see [SECURITY.md](./SECURITY.md).
+Please report vulnerabilities privately, see [SECURITY.md](./SECURITY.md).
 Don't open public issues for them.
 
 ## Licensing

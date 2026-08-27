@@ -29,7 +29,10 @@ const MAX_BYTES = 100 * 1024 * 1024;
  * `${user_id}/${org_id}/${file_hash}.pdf` so dedup-by-hash still
  * works across orgs.
  */
-export function AttachFileButton({ bookId, onAttached }: AttachFileButtonProps) {
+export function AttachFileButton({
+  bookId,
+  onAttached,
+}: AttachFileButtonProps) {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const fetchLibrary = useLibraryStore((s) => s.fetchLibrary);
@@ -47,19 +50,11 @@ export function AttachFileButton({ bookId, onAttached }: AttachFileButtonProps) 
       file.type !== "application/pdf" &&
       !file.name.toLowerCase().endsWith(".pdf")
     ) {
-      setError(
-        t("book.attach.errorPdfOnly", {
-          defaultValue: "Only PDF files are supported.",
-        }),
-      );
+      setError(t("book.attach.errorPdfOnly"));
       return;
     }
     if (file.size > MAX_BYTES) {
-      setError(
-        t("book.attach.errorTooLarge", {
-          defaultValue: "PDF is larger than 100 MB.",
-        }),
-      );
+      setError(t("book.attach.errorTooLarge"));
       return;
     }
 
@@ -68,11 +63,7 @@ export function AttachFileButton({ bookId, onAttached }: AttachFileButtonProps) 
     try {
       const orgId = useOrgStore.getState().currentOrgId;
       if (!orgId) {
-        throw new Error(
-          t("book.attach.noActiveOrg", {
-            defaultValue: "No active workspace.",
-          }),
-        );
+        throw new Error(t("book.attach.noActiveOrg"));
       }
 
       // 1. Hash + page count via the PDF adapter.
@@ -138,11 +129,7 @@ export function AttachFileButton({ bookId, onAttached }: AttachFileButtonProps) 
       onAttached?.();
     } catch (err) {
       logError("AttachFileButton:attach", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : t("book.attach.failed", { defaultValue: "Attach failed." }),
-      );
+      setError(err instanceof Error ? err.message : t("book.attach.failed"));
     } finally {
       setBusy(false);
     }
@@ -156,7 +143,7 @@ export function AttachFileButton({ bookId, onAttached }: AttachFileButtonProps) 
         ) : (
           <Paperclip size={14} />
         )}
-        {t("book.attach.button", { defaultValue: "Attach PDF" })}
+        {t("book.attach.button")}
       </Button>
       <input
         ref={inputRef}

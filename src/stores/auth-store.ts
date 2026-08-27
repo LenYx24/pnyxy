@@ -31,6 +31,53 @@ async function hydrateSyncedStores() {
   }
 }
 
+/** localStorage key: the signup form stashes the consent-checkbox moment
+ *  here (the profile row may not exist yet, or the Google redirect loses
+ *  the in-memory form state) so it can be drained once a profile is loaded. */
+export const PENDING_CONSENT_KEY = "pnyxy:pendingConsentResearch";
+
+/**
+ * Drains a locally-stashed signup consent timestamp into
+ * `profiles.preferences.consent_research_at`. Best-effort and idempotent:
+ * a missing/blank stash or an already-persisted timestamp is a no-op.
+ */
+async function persistPendingConsent(profile: Profile) {
+  let pending: string | null = null;
+  try {
+    pending = localStorage.getItem(PENDING_CONSENT_KEY);
+  } catch {
+    return;
+  }
+  if (!pending) return;
+  const existing = (profile.preferences ?? {}) as Record<string, unknown>;
+  if (existing.consent_research_at) {
+    try {
+      localStorage.removeItem(PENDING_CONSENT_KEY);
+    } catch {
+      // ignore
+    }
+    return;
+  }
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      // omit `features` (server-owned unlock list, see migration 00072)
+      .update({
+        preferences: {
+          ...Object.fromEntries(
+            Object.entries(existing).filter(([k]) => k !== "features"),
+          ),
+          consent_research_at: pending,
+        },
+      })
+      .eq("id", profile.id);
+    if (error) throw error;
+    localStorage.removeItem(PENDING_CONSENT_KEY);
+  } catch (err) {
+    logError("auth-store:persistPendingConsent", err);
+  }
+}
+
 /**
  * Wipe per-user local caches on sign-out so a previous account's
  * highlights/notes/whiteboards can't leak onto the next account that
@@ -63,6 +110,21 @@ async function clearLocalCachesOnSignOut() {
     useNoteStore.getState().clearLocal();
   } catch (err) {
     logError("auth-store:clearNotes", err);
+  }
+  try {
+    // BYOK keys (Anthropic/OpenAI/local) are memory-only, but a stale
+    // value would otherwise survive in memory across accounts on a
+    // shared browser until the next reload.
+    const { useSettingsStore } = await import("./settings-store");
+    useSettingsStore.getState().clearSensitive();
+  } catch (err) {
+    logError("auth-store:clearSensitiveSettings", err);
+  }
+  try {
+    const { useChatStore } = await import("./chat-store");
+    useChatStore.getState().reset();
+  } catch (err) {
+    logError("auth-store:clearChat", err);
   }
 }
 
@@ -234,6 +296,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       throw error;
     }
     set({ user: null, session: null, profile: null, isBanned: false, banInfo: null });
+    // Awaited (rather than left to the SIGNED_OUT listener) so the IndexedDB/
+    // BYOK-key/chat-store wipe finishes before we throw the whole JS
+    // context away. The hard replace (not navigate()) is deliberate: every
+    // store, including ones with no reset() of their own, reinitialises
+    // from its module-level defaults on the fresh load instead of
+    // potentially keeping stale in-memory state from the signed-out account.
+    await clearLocalCachesOnSignOut();
+    if (typeof window !== "undefined") {
+      window.location.replace("/auth");
+    }
   },
 
   fetchProfile: async () => {
@@ -251,6 +323,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
     set({ profile: data });
+    void persistPendingConsent(data as Profile);
   },
 
   updateProfile: async (updates) => {

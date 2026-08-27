@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronLeft,
   Download,
+  Eye,
   Gauge,
   MessagesSquare,
   MoreVertical,
@@ -16,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useChatStore, pathFromRoot } from "@/stores/chat-store";
+import { ContextInspectorModal } from "@/features/chat/ContextInspectorModal";
 import { useSettingsStore } from "@/stores/settings-store";
 import {
   ChatComposer,
@@ -89,8 +91,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const isStreaming = streamingMessageId !== null;
 
   const docConversations: ChatConversation[] = useMemo(
-    () =>
-      conversations.filter((c) => c.source_doc_id === activeDocumentId),
+    () => conversations.filter((c) => c.source_doc_id === activeDocumentId),
     [conversations, activeDocumentId],
   );
 
@@ -108,9 +109,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
 
   const path = useMemo(
     () =>
-      activeIsForThisDoc
-        ? pathFromRoot(messages, activeLeafId)
-        : EMPTY_PATH,
+      activeIsForThisDoc ? pathFromRoot(messages, activeLeafId) : EMPTY_PATH,
     [messages, activeLeafId, activeIsForThisDoc],
   );
 
@@ -128,8 +127,6 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
     resumeDaysAgo !== null &&
     resumeDaysAgo >= 4;
   const resumePrompt = t("reader.aiChat.resumeSummaryPrompt", {
-    defaultValue:
-      "Summarize the part of this book I've read so far, up to page {{page}}. Focus on the key ideas and how they build up so I can pick up where I left off.",
     page: activeDoc?.currentPage ?? 1,
   });
 
@@ -141,6 +138,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
     setPagePickerOpen(false);
   }, [activeDocumentId]);
   const [branchFromId, setBranchFromId] = useState<string | null>(null);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const overflowAnchorRef = useRef<HTMLButtonElement>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -229,8 +227,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   ]);
 
   // auto-scroll to bottom on new messages or as the streaming message grows
-  const lastMessageContent =
-    path[path.length - 1]?.content ?? "";
+  const lastMessageContent = path[path.length - 1]?.content ?? "";
   useEffect(() => {
     const el = messagesContainerRef.current;
     if (!el) return;
@@ -255,9 +252,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             {
               docId: activeDocumentId,
               docTitle:
-                activeDoc.customTitle ||
-                activeDoc.meta.title ||
-                "Untitled",
+                activeDoc.customTitle || activeDoc.meta.title || "Untitled",
               page: activeDoc.currentPage,
             },
             null,
@@ -321,10 +316,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         null,
         {
           docId: activeDocumentId,
-          docTitle:
-            activeDoc.customTitle ||
-            activeDoc.meta.title ||
-            "Untitled",
+          docTitle: activeDoc.customTitle || activeDoc.meta.title || "Untitled",
           page: activeDoc.currentPage,
         },
         null,
@@ -332,13 +324,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       setListOpen(false);
     } catch (error) {
       logError("handleNewConversation", error);
-      showToast(
-        t("reader.aiChat.newConversationFailed", {
-          defaultValue:
-            "Couldn't start a new conversation. Check your connection and try again.",
-        }),
-        "error",
-      );
+      showToast(t("reader.aiChat.newConversationFailed"), "error");
     }
   }, [user, activeDocumentId, activeDoc, createConversation, t]);
 
@@ -444,10 +430,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
               onChange={(e) => setTitleInput(e.target.value)}
               onBlur={async () => {
                 const trimmed = titleInput.trim();
-                if (
-                  trimmed &&
-                  trimmed !== (activeConversation.title || "")
-                ) {
+                if (trimmed && trimmed !== (activeConversation.title || "")) {
                   await renameConversation(activeConversation.id, trimmed);
                 }
                 setIsEditingTitle(false);
@@ -471,11 +454,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                   activeConversation &&
                   "cursor-text hover:text-text-primary",
               )}
-              title={
-                activeIsForThisDoc
-                  ? t("chat.rename", { defaultValue: "Rename" })
-                  : undefined
-              }
+              title={activeIsForThisDoc ? t("chat.rename") : undefined}
               onClick={() => {
                 if (!activeIsForThisDoc || !activeConversation) return;
                 setTitleInput(activeConversation.title || "");
@@ -489,6 +468,16 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
           )}
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setInspectorOpen(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-[8px] text-text-muted-2 transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
+            title={t("chat.contextInspector.open")}
+            aria-label={t("chat.contextInspector.open")}
+            aria-haspopup="dialog"
+          >
+            <Eye size={16} strokeWidth={1.5} />
+          </button>
           {/* start a fresh conversation for this doc */}
           <button
             type="button"
@@ -585,7 +574,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             <div className="flex items-center gap-2 text-xs text-text-muted">
               <Sparkles size={14} strokeWidth={1.5} />
               <span>
-                {t("reader.tools.teacher", { defaultValue: "Teacher" })}
+                {t("reader.tools.teacher")}
                 {activeDoc?.currentPage
                   ? ` · ${t("reader.sidebar.page", { n: activeDoc.currentPage })}`
                   : ""}
@@ -610,7 +599,6 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
               >
                 <Sparkles size={13} strokeWidth={1.5} />
                 {t("reader.aiChat.resumeSummary", {
-                  defaultValue: "Summarize where I left off (p.{{page}})",
                   page: activeDoc?.currentPage ?? 1,
                 })}
               </button>
@@ -655,46 +643,39 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                 <div className="mb-2 flex items-center gap-2 text-xs text-text-muted">
                   <Sparkles size={14} strokeWidth={1.5} />
                   <span className="truncate">
-                    {t("reader.tools.teacher", { defaultValue: "Teacher" })}
+                    {t("reader.tools.teacher")}
                     {activeConversation?.source_page
                       ? ` · ${t("reader.sidebar.page", { n: activeConversation.source_page })}`
                       : ""}
                   </span>
                 </div>
               )}
-            <MessageBubble
-              msg={msg}
-              messages={messages}
-              activeLeafId={activeLeafId}
-              streamingMessageId={streamingMessageId}
-              sourceDocId={sourceDocId}
-              confirm={confirm}
-              tts={tts}
-              onBranchHere={() => setBranchFromId(msg.id)}
-              onPickBranch={setActiveLeaf}
-              onRegenerate={handleRegenerate}
-              onEdit={handleEdit}
-              onDelete={async () => {
-                const ok = await confirm({
-                  title: t("chat.confirmDeleteMessageTitle", {
-                    defaultValue: "Delete this message?",
-                  }),
-                  body: t("chat.confirmDeleteMessageBody", {
-                    defaultValue:
-                      "Every reply and follow-up underneath this message will also be removed. The deletion is permanent.",
-                  }),
-                  confirmLabel: t("common.delete"),
-                  danger: true,
-                });
-                if (!ok) return;
-                await useChatStore.getState().deleteMessage(msg.id);
-              }}
-              onDuplicate={async () => {
-                await useChatStore
-                  .getState()
-                  .duplicateFromMessage(msg.id);
-              }}
-            />
+              <MessageBubble
+                msg={msg}
+                messages={messages}
+                activeLeafId={activeLeafId}
+                streamingMessageId={streamingMessageId}
+                sourceDocId={sourceDocId}
+                confirm={confirm}
+                tts={tts}
+                onBranchHere={() => setBranchFromId(msg.id)}
+                onPickBranch={setActiveLeaf}
+                onRegenerate={handleRegenerate}
+                onEdit={handleEdit}
+                onDelete={async () => {
+                  const ok = await confirm({
+                    title: t("chat.confirmDeleteMessageTitle"),
+                    body: t("chat.confirmDeleteMessageBody"),
+                    confirmLabel: t("common.delete"),
+                    danger: true,
+                  });
+                  if (!ok) return;
+                  await useChatStore.getState().deleteMessage(msg.id);
+                }}
+                onDuplicate={async () => {
+                  await useChatStore.getState().duplicateFromMessage(msg.id);
+                }}
+              />
             </div>
           );
         })}
@@ -753,10 +734,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         )}
         {(activeDoc?.aiSelectedPages.size ?? 0) > 0 && (
           <p className="rounded-control bg-bg-secondary px-2.5 py-1.5 text-2xs text-text-muted">
-            {t("reader.aiChat.pagesContextNote", {
-              defaultValue:
-                'Pages with no text layer are sent as page images; figures on text pages aren\'t attached automatically, turn on "Send as images" in the page picker if you need them.',
-            })}
+            {t("reader.aiChat.pagesContextNote")}
           </p>
         )}
         {/* the ask pill: surface 2 + the one shadow, wraps the shared composer */}
@@ -838,6 +816,13 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       </div>
 
       {ConfirmModalElement}
+      <ContextInspectorModal
+        open={inspectorOpen}
+        onClose={() => setInspectorOpen(false)}
+        docId={sourceDocId}
+        docTitle={activeDoc?.meta.title ?? activeConversation?.source_doc_title ?? null}
+        conversationId={activeIsForThisDoc ? activeConversationId : null}
+      />
     </div>
   );
 }
@@ -845,4 +830,3 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
 export function AiChatPanel(props: IDockviewPanelProps) {
   return <AiChatPanelContent onClose={() => props.api.close()} />;
 }
-

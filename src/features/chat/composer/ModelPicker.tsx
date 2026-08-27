@@ -7,11 +7,7 @@ import { FloatingMenu } from "@/components/ui";
 import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
 import { ModelInfoModal } from "../ModelInfoModal";
 import { modelDisplayLabel, PROVIDER_INFO } from "./model-meta";
-import {
-  PNYXY_MODEL_OPTIONS,
-  usageRatio,
-  type PnyxyQuotaRow,
-} from "../quota";
+import { PNYXY_MODEL_OPTIONS, usageRatio, type PnyxyQuotaRow } from "../quota";
 import { cn } from "@/lib/cn";
 
 export function ModelPicker({
@@ -119,9 +115,7 @@ export function ModelPicker({
           <>
             <div className="my-0.5 h-px bg-surface-3" />
             <div className={cn("px-3 pb-0.5 pt-1.5", pickerCaptionClass)}>
-              {t("chat.composer.pickerDirect", {
-                defaultValue: "Direct (no fallback)",
-              })}
+              {t("chat.composer.pickerDirect")}
             </div>
           </>
         )}
@@ -192,7 +186,9 @@ function ModelOption({
       title={quotaTitle}
       className={cn(
         "flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors hover:bg-glass-hover cursor-pointer",
-        active ? "text-text-primary" : "text-text-secondary hover:text-text-primary",
+        active
+          ? "text-text-primary"
+          : "text-text-secondary hover:text-text-primary",
       )}
     >
       <span className="flex min-w-0 flex-col gap-0.5">

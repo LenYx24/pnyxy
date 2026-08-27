@@ -25,7 +25,10 @@ import { logError } from "@/lib/logger";
 import { useAuthStore } from "@/stores/auth-store";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useOpenDocument } from "@/hooks/use-open-document";
-import { extractExamTopics, extractPdfText } from "@/lib/ai/extract-exam-topics";
+import {
+  extractExamTopics,
+  extractPdfText,
+} from "@/lib/ai/extract-exam-topics";
 import { generateQuizQuestions } from "@/lib/quiz/quiz-ai";
 import { useQuizStore } from "@/stores/quiz-store";
 import { useBook } from "../BookPageContext";
@@ -67,8 +70,7 @@ export function ExamsTab() {
   const [practiceExam, setPracticeExam] = useState<ExamRow | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const targetCol =
-    data.source === "catalog" ? "catalog_book_id" : "book_id";
+  const targetCol = data.source === "catalog" ? "catalog_book_id" : "book_id";
   const targetId = data.book.id;
 
   // Initial fetch.
@@ -112,20 +114,15 @@ export function ExamsTab() {
       const file = e.target.files?.[0];
       e.target.value = ""; // allow picking the same file again
       if (!file || !user) return;
-      if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-        setError(
-          t("book.exams.errorPdfOnly", {
-            defaultValue: "Only PDF exams are supported for now.",
-          }),
-        );
+      if (
+        file.type !== "application/pdf" &&
+        !file.name.toLowerCase().endsWith(".pdf")
+      ) {
+        setError(t("book.exams.errorPdfOnly"));
         return;
       }
       if (file.size > MAX_PDF_BYTES) {
-        setError(
-          t("book.exams.errorTooLarge", {
-            defaultValue: "Exam PDFs are capped at 25 MB.",
-          }),
-        );
+        setError(t("book.exams.errorTooLarge"));
         return;
       }
       setUploading(true);
@@ -199,14 +196,9 @@ export function ExamsTab() {
   const handleDelete = useCallback(
     async (exam: ExamRow) => {
       const ok = await confirm({
-        title: t("book.exams.deleteTitle", {
-          defaultValue: "Delete this exam?",
-        }),
-        body: t("book.exams.deleteBody", {
-          defaultValue:
-            "The PDF and any AI-extracted topics will be removed permanently.",
-        }),
-        confirmLabel: t("common.delete", { defaultValue: "Delete" }),
+        title: t("book.exams.deleteTitle"),
+        body: t("book.exams.deleteBody"),
+        confirmLabel: t("common.delete"),
         danger: true,
       });
       if (!ok) return;
@@ -226,7 +218,10 @@ export function ExamsTab() {
         setError(storageRes.error.message);
         return;
       }
-      const dbRes = await supabase.from("book_exams").delete().eq("id", exam.id);
+      const dbRes = await supabase
+        .from("book_exams")
+        .delete()
+        .eq("id", exam.id);
       if (dbRes.error) {
         logError("ExamsTab:deleteRow", dbRes.error);
         setError(dbRes.error.message);
@@ -242,12 +237,7 @@ export function ExamsTab() {
           .from("book-files")
           .download(exam.storage_path);
         if (dlError || !blob) {
-          setError(
-            dlError?.message ??
-              t("book.exams.errorDownload", {
-                defaultValue: "Failed to download exam.",
-              }),
-          );
+          setError(dlError?.message ?? t("book.exams.errorDownload"));
           return;
         }
         const file = new File([blob], exam.file_name, {
@@ -257,11 +247,7 @@ export function ExamsTab() {
       } catch (err) {
         logError("ExamsTab:open", err);
         setError(
-          err instanceof Error
-            ? err.message
-            : t("book.exams.errorOpen", {
-                defaultValue: "Failed to open exam.",
-              }),
+          err instanceof Error ? err.message : t("book.exams.errorOpen"),
         );
       }
     },
@@ -288,11 +274,7 @@ export function ExamsTab() {
         });
         const text = await extractPdfText(file);
         if (text.trim().length < 80) {
-          throw new Error(
-            t("book.exams.errorTooShort", {
-              defaultValue: "Exam text is too short to generate from.",
-            }),
-          );
+          throw new Error(t("book.exams.errorTooShort"));
         }
 
         // 2. Generate via the existing quiz-ai pipeline. The framing
@@ -308,32 +290,21 @@ export function ExamsTab() {
         //    it shows up in the book's existing quiz list.
         const quizId = await createQuiz({
           title: t("book.exams.generatedQuizTitle", {
-            defaultValue: "Practice quiz: {{name}}",
             name: exam.name,
           }),
-          description: t("book.exams.generatedQuizDescription", {
-            defaultValue:
-              "Auto-generated from a past exam, practice the same topics with fresh questions.",
-          }),
+          description: t("book.exams.generatedQuizDescription"),
           visibility: "private",
           uploaded_book_id: data.source === "catalog" ? null : data.book.id,
           catalog_book_id: data.source === "catalog" ? data.book.id : null,
           questions,
         });
-        if (!quizId)
-          throw new Error(
-            t("book.exams.errorQuizSave", { defaultValue: "Quiz save failed." }),
-          );
+        if (!quizId) throw new Error(t("book.exams.errorQuizSave"));
 
         navigate(`/quizzes/${quizId}`);
       } catch (err) {
         logError("ExamsTab:generateQuiz", err);
         setError(
-          err instanceof Error
-            ? err.message
-            : t("book.exams.errorQuizGen", {
-                defaultValue: "Quiz generation failed.",
-              }),
+          err instanceof Error ? err.message : t("book.exams.errorQuizGen"),
         );
       } finally {
         setGeneratingFor(null);
@@ -342,83 +313,73 @@ export function ExamsTab() {
     [user, createQuiz, data, navigate, t],
   );
 
-  const handleAnalyze = useCallback(
-    async (exam: ExamRow) => {
-      // Mark in-flight on the UI + the DB so a refresh doesn't lose
-      // the indicator. If extraction fails we flip back to 'failed'
-      // and surface the error in the row.
-      setExams((prev) =>
-        prev.map((e) =>
-          e.id === exam.id ? { ...e, ai_status: "analyzing", ai_error: null } : e,
-        ),
-      );
+  const handleAnalyze = useCallback(async (exam: ExamRow) => {
+    // Mark in-flight on the UI + the DB so a refresh doesn't lose
+    // the indicator. If extraction fails we flip back to 'failed'
+    // and surface the error in the row.
+    setExams((prev) =>
+      prev.map((e) =>
+        e.id === exam.id ? { ...e, ai_status: "analyzing", ai_error: null } : e,
+      ),
+    );
+    await supabase
+      .from("book_exams")
+      .update({ ai_status: "analyzing", ai_error: null })
+      .eq("id", exam.id);
+
+    try {
+      const { data: blob, error: dlError } = await supabase.storage
+        .from("book-files")
+        .download(exam.storage_path);
+      if (dlError || !blob) {
+        throw new Error(dlError?.message ?? "download failed");
+      }
+      const file = new File([blob], exam.file_name, {
+        type: "application/pdf",
+      });
+      const text = await extractPdfText(file);
+      const topics = await extractExamTopics(text);
+
       await supabase
         .from("book_exams")
-        .update({ ai_status: "analyzing", ai_error: null })
+        .update({
+          ai_status: "done",
+          ai_topics: topics,
+          ai_error: null,
+        })
         .eq("id", exam.id);
 
-      try {
-        const { data: blob, error: dlError } = await supabase.storage
-          .from("book-files")
-          .download(exam.storage_path);
-        if (dlError || !blob) {
-          throw new Error(dlError?.message ?? "download failed");
-        }
-        const file = new File([blob], exam.file_name, {
-          type: "application/pdf",
-        });
-        const text = await extractPdfText(file);
-        const topics = await extractExamTopics(text);
-
-        await supabase
-          .from("book_exams")
-          .update({
-            ai_status: "done",
-            ai_topics: topics,
-            ai_error: null,
-          })
-          .eq("id", exam.id);
-
-        setExams((prev) =>
-          prev.map((e) =>
-            e.id === exam.id
-              ? { ...e, ai_status: "done", ai_topics: topics, ai_error: null }
-              : e,
-          ),
-        );
-      } catch (err) {
-        logError("ExamsTab:analyze", err);
-        const msg = err instanceof Error ? err.message : "analyze failed";
-        await supabase
-          .from("book_exams")
-          .update({ ai_status: "failed", ai_error: msg })
-          .eq("id", exam.id);
-        setExams((prev) =>
-          prev.map((e) =>
-            e.id === exam.id
-              ? { ...e, ai_status: "failed", ai_error: msg }
-              : e,
-          ),
-        );
-      }
-    },
-    [],
-  );
+      setExams((prev) =>
+        prev.map((e) =>
+          e.id === exam.id
+            ? { ...e, ai_status: "done", ai_topics: topics, ai_error: null }
+            : e,
+        ),
+      );
+    } catch (err) {
+      logError("ExamsTab:analyze", err);
+      const msg = err instanceof Error ? err.message : "analyze failed";
+      await supabase
+        .from("book_exams")
+        .update({ ai_status: "failed", ai_error: msg })
+        .eq("id", exam.id);
+      setExams((prev) =>
+        prev.map((e) =>
+          e.id === exam.id ? { ...e, ai_status: "failed", ai_error: msg } : e,
+        ),
+      );
+    }
+  }, []);
 
   return (
     <div className="space-y-4">
       <header className="flex items-baseline justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold text-text-primary">
-            {t("book.exams.heading", {
-              defaultValue: "Exams & past papers",
-            })}
+            {t("book.exams.heading")}
           </h2>
           <p className="mt-1 text-xs text-text-muted">
-            {t("book.exams.description", {
-              defaultValue:
-                "Upload past exam PDFs tied to this book. Use AI to extract the topics each exam tests, generate a similar quiz, or practice answering with feedback.",
-            })}
+            {t("book.exams.description")}
           </p>
         </div>
         {/* uploading exams requires the book to be in the library */}
@@ -434,13 +395,11 @@ export function ExamsTab() {
             ) : (
               <Plus size={14} />
             )}
-            {t("book.exams.upload", { defaultValue: "Upload PDF" })}
+            {t("book.exams.upload")}
           </Button>
         ) : (
           <span className="shrink-0 text-xs text-text-muted">
-            {t("book.libraryRequired", {
-              defaultValue: "Add this book to your library first",
-            })}
+            {t("book.libraryRequired")}
           </span>
         )}
         <input
@@ -467,15 +426,10 @@ export function ExamsTab() {
         <div className="rounded-xl border border-dashed border-glass-border bg-glass-bg/30 p-6 text-center">
           <ScrollText size={24} className="mx-auto mb-2 text-text-muted" />
           <p className="text-sm font-medium text-text-primary">
-            {t("book.exams.emptyTitle", {
-              defaultValue: "No exams uploaded yet",
-            })}
+            {t("book.exams.emptyTitle")}
           </p>
           <p className="mt-1 text-xs text-text-muted">
-            {t("book.exams.emptyHint", {
-              defaultValue:
-                "Past papers tied to this book, practice, see the topics they cover, generate a similar quiz.",
-            })}
+            {t("book.exams.emptyHint")}
           </p>
         </div>
       ) : (
@@ -560,9 +514,7 @@ function ExamRow({
           onClick={onAnalyze}
           disabled={exam.ai_status === "analyzing"}
           className="shrink-0"
-          title={t("book.exams.analyze", {
-            defaultValue: "Identify topics with AI",
-          })}
+          title={t("book.exams.analyze")}
         >
           {exam.ai_status === "analyzing" ? (
             <Loader2 size={12} className="animate-spin" />
@@ -571,8 +523,8 @@ function ExamRow({
           )}
           <span className="hidden sm:inline">
             {exam.ai_status === "done"
-              ? t("book.exams.reanalyze", { defaultValue: "Re-analyse" })
-              : t("book.exams.analyzeShort", { defaultValue: "Identify" })}
+              ? t("book.exams.reanalyze")
+              : t("book.exams.analyzeShort")}
           </span>
         </Button>
         <Button
@@ -580,10 +532,7 @@ function ExamRow({
           onClick={onGenerateQuiz}
           disabled={isGeneratingQuiz}
           className="shrink-0"
-          title={t("book.exams.generateQuiz", {
-            defaultValue:
-              "Generate a practice quiz with similar questions on the same topics",
-          })}
+          title={t("book.exams.generateQuiz")}
         >
           {isGeneratingQuiz ? (
             <Loader2 size={12} className="animate-spin" />
@@ -591,66 +540,59 @@ function ExamRow({
             <ListChecks size={12} />
           )}
           <span className="hidden sm:inline">
-            {t("book.exams.generateQuizShort", { defaultValue: "Quiz" })}
+            {t("book.exams.generateQuizShort")}
           </span>
         </Button>
         <Button
           variant="secondary"
           onClick={onPractice}
           className="shrink-0"
-          title={t("book.exams.practice", {
-            defaultValue:
-              "Practice each question with Socratic tutor feedback",
-          })}
+          title={t("book.exams.practice")}
         >
           <GraduationCap size={12} />
           <span className="hidden sm:inline">
-            {t("book.exams.practiceShort", { defaultValue: "Practice" })}
+            {t("book.exams.practiceShort")}
           </span>
         </Button>
         <button
           type="button"
           onClick={onDelete}
           className="shrink-0 rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-danger cursor-pointer"
-          title={t("common.delete", { defaultValue: "Delete" })}
-          aria-label={t("common.delete", { defaultValue: "Delete" })}
+          title={t("common.delete")}
+          aria-label={t("common.delete")}
         >
           <Trash2 size={14} />
         </button>
       </div>
 
-      {exam.ai_status === "done" && exam.ai_topics && exam.ai_topics.length > 0 && (
-        <div className="mt-3 border-t border-glass-border pt-3">
-          <p className="mb-2 text-2xs font-semibold uppercase tracking-wider text-text-muted">
-            {t("book.exams.topics", { defaultValue: "Topics covered" })}
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {exam.ai_topics.map((topic, i) => (
-              <span
-                key={i}
-                className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-2xs text-text-primary"
-              >
-                {topic}
-              </span>
-            ))}
+      {exam.ai_status === "done" &&
+        exam.ai_topics &&
+        exam.ai_topics.length > 0 && (
+          <div className="mt-3 border-t border-glass-border pt-3">
+            <p className="mb-2 text-2xs font-semibold uppercase tracking-wider text-text-muted">
+              {t("book.exams.topics")}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {exam.ai_topics.map((topic, i) => (
+                <span
+                  key={i}
+                  className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-2xs text-text-primary"
+                >
+                  {topic}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
       {exam.ai_status === "done" &&
         (!exam.ai_topics || exam.ai_topics.length === 0) && (
           <p className="mt-2 text-2xs text-text-muted">
-            {t("book.exams.topicsEmpty", {
-              defaultValue:
-                "AI couldn't identify clear topics, the PDF may be too short or not a typical exam.",
-            })}
+            {t("book.exams.topicsEmpty")}
           </p>
         )}
       {exam.ai_status === "failed" && (
         <p className="mt-2 text-2xs text-danger">
-          {t("book.exams.aiFailed", {
-            defaultValue: "Analyse failed:",
-          })}{" "}
-          {exam.ai_error}
+          {t("book.exams.aiFailed")} {exam.ai_error}
         </p>
       )}
     </li>
@@ -661,11 +603,13 @@ function ExamRow({
  *  dot-separated tokens so an ugly filename comes in as a sane name.
  */
 function deriveExamName(filename: string): string {
-  return filename
-    .replace(/\.[^./]+$/, "")
-    .replace(/[._-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim() || filename;
+  return (
+    filename
+      .replace(/\.[^./]+$/, "")
+      .replace(/[._-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim() || filename
+  );
 }
 
 /** Look for a 4-digit year in the filename. Many users name files

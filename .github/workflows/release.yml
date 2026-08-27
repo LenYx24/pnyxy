@@ -1,7 +1,7 @@
 name: Release desktop builds
 
 # Fire when a version tag is pushed. Use semantic versions like v0.1.0.
-# Nothing happens on branch pushes or PRs — releases are explicit.
+# Nothing happens on branch pushes or PRs: releases are explicit.
 on:
   push:
     tags:
@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Linux — AppImage + .deb (runs on Ubuntu 22.04 for glibc
+          # Linux: AppImage + .deb (runs on Ubuntu 22.04 for glibc
           # compatibility with older distros).
           - platform: ubuntu-22.04
             args: ""
@@ -25,7 +25,7 @@ jobs:
           - platform: macos-latest
             args: "--target universal-apple-darwin"
             target_desc: macos
-          # Windows — .msi + .exe installer.
+          # Windows: .msi + .exe installer.
           - platform: windows-latest
             args: ""
             target_desc: windows
@@ -93,10 +93,10 @@ jobs:
             Desktop builds for Pnyxy ${{ github.ref_name }}.
 
             **Windows**: download the `.msi` or `.exe` installer below.
-            **macOS**: download the `.dmg` (universal — works on Intel and Apple Silicon).
+            **macOS**: download the `.dmg` (universal: works on Intel and Apple Silicon).
             **Linux**: download the `.AppImage` (portable) or `.deb` (Debian/Ubuntu).
 
-            ⚠ These builds are **not code-signed**. Your OS may warn before running —
+            ⚠ These builds are **not code-signed**. Your OS may warn before running,
             this is expected for unsigned open-source software.
           releaseDraft: true
           prerelease: false

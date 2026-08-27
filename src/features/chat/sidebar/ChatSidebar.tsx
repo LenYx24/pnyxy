@@ -24,7 +24,10 @@ import type {
 import { BookChatTree } from "./BookChatTree";
 import { isQuickChatsFolder } from "./conversation-groups";
 import { useChatSidebarView } from "./useChatSidebarView";
-import { ChatSidebarProvider, type ChatSidebarActions } from "./ChatSidebarContext";
+import {
+  ChatSidebarProvider,
+  type ChatSidebarActions,
+} from "./ChatSidebarContext";
 import { SidebarTreeList } from "./SidebarTreeList";
 import { FolderActionModals, type FolderAction } from "./FolderActionModals";
 import { MoveConversationModal } from "./MoveConversationModal";
@@ -48,6 +51,8 @@ interface ChatSidebarProps {
   mobileOpen: boolean;
   onMobileClose: () => void;
   onNew: () => void;
+  /** Incognito chat: unlisted, purged ~24h later. */
+  onNewTemporary?: () => void;
   confirm: ConfirmFn;
 }
 
@@ -60,6 +65,7 @@ export function ChatSidebar({
   mobileOpen,
   onMobileClose,
   onNew,
+  onNewTemporary,
   confirm,
 }: ChatSidebarProps) {
   const { t } = useTranslation();
@@ -92,11 +98,8 @@ export function ChatSidebar({
   const navigateToLibraryFolder = useLibraryStore((s) => s.navigateToFolder);
 
   const drilledFolder = rootFolderId
-    ? folders.find((f) => f.id === rootFolderId) ?? null
+    ? (folders.find((f) => f.id === rootFolderId) ?? null)
     : null;
-  // already sorted by sort_order in the store
-  const sortedConversations = visibleConversations;
-
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   // collapsed folder ids (absence = expanded), lifted so collapse-all can write all at once
@@ -158,10 +161,10 @@ export function ChatSidebar({
   const filteredConversationData = useMemo(() => {
     const q = conversationSearch.trim().toLowerCase();
     if (!q) {
-      return { conversations: sortedConversations, folders };
+      return { conversations: visibleConversations, folders };
     }
     const folderById = new Map(folders.map((f) => [f.id, f]));
-    const matched = sortedConversations.filter((c) =>
+    const matched = visibleConversations.filter((c) =>
       (c.title || "").toLowerCase().includes(q),
     );
     // keep every ancestor folder of a match so nested hits aren't orphaned
@@ -178,7 +181,7 @@ export function ChatSidebar({
       conversations: matched,
       folders: folders.filter((f) => keptFolderIds.has(f.id)),
     };
-  }, [sortedConversations, folders, conversationSearch]);
+  }, [visibleConversations, folders, conversationSearch]);
 
   const handleCollapseAll = useCallback(() => {
     setCollapsedFolders(new Set(folders.map((f) => f.id)));
@@ -253,6 +256,9 @@ export function ChatSidebar({
     },
     [],
   );
+  const handleArchive = useCallback((id: string, archived: boolean) => {
+    void useChatStore.getState().setConversationArchived(id, archived);
+  }, []);
   const handleOpenFolderInLibrary = useCallback(
     (folderId: string) => {
       navigateToLibraryFolder(folderId);
@@ -288,6 +294,7 @@ export function ChatSidebar({
       onDelete: handleDeleteConversation,
       onMove: moveConversationToFolder,
       onRequestMove: handleRequestMove,
+      onArchive: handleArchive,
       onToggleFolder: handleToggleFolder,
       onNewInFolder: handleNewInFolder,
       onNewSubfolder: handleRequestCreateSubfolder,
@@ -307,6 +314,7 @@ export function ChatSidebar({
       handleDeleteConversation,
       moveConversationToFolder,
       handleRequestMove,
+      handleArchive,
       handleToggleFolder,
       handleNewInFolder,
       handleRequestCreateSubfolder,
@@ -343,12 +351,15 @@ export function ChatSidebar({
           scope={scope}
           sidebarView={sidebarView}
           onSidebarViewChange={setSidebarView}
-          onCreateFolder={() => setFolderAction({ kind: "create", parentId: null })}
+          onCreateFolder={() =>
+            setFolderAction({ kind: "create", parentId: null })
+          }
           showCollapseToggle={!scope && !quickView && visibleFolderCount > 0}
           allFoldersCollapsed={allFoldersCollapsed}
           onCollapseAll={handleCollapseAll}
           onExpandAll={handleExpandAll}
           onNew={onNew}
+          onNewTemporary={onNewTemporary}
           showSearch={conversations.length > 0}
           search={conversationSearch}
           onSearchChange={setConversationSearch}
@@ -359,9 +370,7 @@ export function ChatSidebar({
             <div className="chat-scroll min-h-0 flex-1 overflow-y-auto">
               {visibleConversations.length === 0 ? (
                 <p className="px-2 py-4 text-center text-xs text-text-muted">
-                  {t("chat.book.empty", {
-                    defaultValue: "No chats about this book yet.",
-                  })}
+                  {t("chat.book.empty")}
                 </p>
               ) : filteredConversationData.conversations.length === 0 ? (
                 <p className="px-2 py-4 text-center text-xs text-text-muted">
@@ -411,7 +420,11 @@ export function ChatSidebar({
             to="/streaks"
             className="mt-auto flex items-center gap-2 rounded-control px-3 py-2.5 text-xs text-text-muted transition-colors hover:bg-bg-tertiary/60 hover:text-text-primary"
           >
-            <Flame size={16} strokeWidth={1.5} className="shrink-0 text-streak" />
+            <Flame
+              size={16}
+              strokeWidth={1.5}
+              className="shrink-0 text-streak"
+            />
             <span>{t("chat.sidebar.streak", { count: streakDays })}</span>
           </Link>
         )}
@@ -441,7 +454,8 @@ export function ChatSidebar({
         folders={folders}
         onClose={() => setMoveRequest(null)}
         onSelect={(folderId) => {
-          if (moveRequest) void moveConversationToFolder(moveRequest.id, folderId);
+          if (moveRequest)
+            void moveConversationToFolder(moveRequest.id, folderId);
         }}
       />
     </>

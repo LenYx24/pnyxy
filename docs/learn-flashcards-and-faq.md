@@ -4,7 +4,7 @@ This is a **design plan only**. Nothing here is built; the goal is to
 have a clear shape we can implement (or push back on) when feature
 freeze lifts after 2026-07-04.
 
-Status legend: ✅ shipped, 🟡 in-flight, ⬜ open question.
+Status words used below: shipped, later, open.
 
 ## 1. Flashcards
 
@@ -18,15 +18,15 @@ are graded one-shot tests; flashcards are an ongoing review habit.
 
 | Feature | Source | Worth copying? | Why |
 |---|---|---|---|
-| Front/back cards | All | ✅ Yes | The base unit. |
-| Cloze (fill-the-blank) | Anki | ✅ Yes | Strong for definitions in the book, `The {{c1::heap}} is invariant under {{c2::insertion}}`. |
-| Image occlusion | Anki addons | 🟡 Maybe later | High-effort UI (canvas masks). Skip v1, revisit if students ask. |
-| Pre-made decks (community) | Quizlet | ✅ Yes (v2) | Great fit for our shared-context philosophy. Per-book public deck = "the deck for chapter 3 of Cormen". |
-| Multiple-choice / write / match modes | Quizlet | ⬜ Probably not v1 | Quizlet uses these as gamification; we already have Quizzes for that. Keep flashcards focused on review. |
-| FSRS scheduling | Anki / RemNote | ✅ Yes | We already use FSRS for Vocabulary, reuse. |
-| Heatmap of review streak | Anki | ✅ Yes | The streak heatmap on `/streaks` already does this; flashcard reviews should *count* toward it. |
-| Audio for pronunciation | Quizlet | ❌ No | Off-mission for textbook study. |
-| AI auto-generation from a chapter | None directly | ✅ Yes | Differentiator, "give me 20 cards on chapter 4". Aligns with Pnyxy's AI-first identity. |
+| Front/back cards | All | Yes | The base unit. |
+| Cloze (fill-the-blank) | Anki | Yes | Strong for definitions in the book, `The {{c1::heap}} is invariant under {{c2::insertion}}`. |
+| Image occlusion | Anki addons | Later | High-effort UI (canvas masks). Skip v1, revisit if students ask. |
+| Pre-made decks (community) | Quizlet | Yes (v2) | Great fit for our shared-context philosophy. Per-book public deck = "the deck for chapter 3 of Cormen". |
+| Multiple-choice / write / match modes | Quizlet | Open, probably not v1 | Quizlet uses these as gamification; we already have Quizzes for that. Keep flashcards focused on review. |
+| FSRS scheduling | Anki / RemNote | Yes | We already use FSRS for Vocabulary, reuse. |
+| Heatmap of review streak | Anki | Yes | The streak heatmap on `/streaks` already does this; flashcard reviews should *count* toward it. |
+| Audio for pronunciation | Quizlet | No | Off-mission for textbook study. |
+| AI auto-generation from a chapter | None directly | Yes | Differentiator, "give me 20 cards on chapter 4". Aligns with Pnyxy's AI-first identity. |
 
 ### Data model (proposed)
 
@@ -98,24 +98,24 @@ create table flashcard_reviews (
 
 ### Decisions
 
-- ✅ **Cloned public deck = fresh reviews per user.** Each user gets
+- Decided: **Cloned public deck = fresh reviews per user.** Each user gets
   their own FSRS schedule on a cloned deck, no shared review state.
   Decided 2026-05-07. Easy to revisit later: it's a one-off behavior
   in the clone code path, not a schema constraint.
-- ⬜ Should we let users *export* a deck to Anki `.apkg`? Probably
+- Open: should we let users *export* a deck to Anki `.apkg`? Probably
   yes, low cost, big trust signal for power users.
 
 ---
 
 ## 2. FAQ + shared AI definitions
 
-### The user's pitch
+### My original idea
 
 > When a user prompts the AI for a definition of a word, or some
 > clarification, then that gets shown in the pdf. […] users don't
 > have to waste tokens on words that were already prompted by the AI.
 
-This is the core idea: **AI clarifications become a community
+The core idea I started from: **AI clarifications become a community
 resource attached to the page they refer to.** A second user reading
 the same book sees the previous AI answer inline instead of paying
 to ask again.
@@ -150,7 +150,7 @@ If shared:
 - Stored as `ai_annotations` row (new table) keyed by
   `(catalog_book_id, page, normalized_selection)`.
 - Visible on the page as an inline pill with an AI icon.
-- Click to expand → shows the question, the answer, the model used,
+- Click to expand shows the question, the answer, the model used,
   who shared it (or "anonymous"), how many readers found it useful.
 - Reprompt button → user can ask again with their own model /
   context. New answer can replace the user's own copy of the
@@ -212,7 +212,7 @@ create unique index ai_annotations_dedup
 
 ### Reader-side UX
 
-1. User selects a word/phrase → annotation menu shows **Explain this**
+1. User selects a word/phrase, the annotation menu shows **Explain this**
    alongside the existing Highlight / Comment / Send to AI chat
    options. Selection can span pages, when it does, the existing
    PDF.js range selection already gives us start/end page; we just
@@ -227,7 +227,7 @@ create unique index ai_annotations_dedup
 6. Multi-page pins render on the **start page** with a "spans
    p.X–Y" badge under the icon, so a reader on page X sees a
    single anchor rather than a duplicate pin per spanned page.
-   Page Y also gets a thin "↑ continued from p.X" inline label so
+   Page Y also gets a thin "continued from p.X" inline label so
    readers who land mid-quote can find the anchor.
 7. Hover (or tap on mobile) shows the answer; the popover header
    shows the full quoted span (with a `⏎` glyph at the page break)
@@ -285,24 +285,22 @@ create unique index ai_annotations_dedup
 
 ### Decisions
 
-- ✅ **Asker identity: anonymous default, opt-in attribution.** A
+- Decided: **Asker identity: anonymous default, opt-in attribution.** A
   shared definition's `user_id` is stored on the row but only
   surfaced in the UI when the user explicitly opted to attach
   their name (a per-share checkbox). Hungarian-audience priority on
   privacy. Decided 2026-05-07. Implication: schema needs an
   `attribution_visible boolean not null default false` column on
-  `ai_annotations`; lookups still join `user_id` → profile *only
+  `ai_annotations`; lookups still join `user_id` to profile *only
   when* `attribution_visible = true`.
-- ✅ **`/chat` gets the "save as shared definition" button in v1**
+- Decided: **`/chat` gets the "save as shared definition" button in v1**
   (see above), not v2.
 
-### Decisions (continued)
-
-- ✅ **Multi-page selections are in-scope for v1.** Schema uses a
+- Decided: **Multi-page selections are in-scope for v1.** Schema uses a
   `(start_page, end_page)` pair instead of a single `page`; lookup is
   a range overlap. Pin renders on `start_page` with a "spans p.X–Y"
   badge plus a "continued from" label on the end page. Decided
-  2026-05-07 (the user explicitly flagged this as important).
+  2026-05-07.
   Practical cap: refuse selections that span more than 5 pages,
   beyond that the prompt blows up the context window for a
   "definition" use case, and the user is really doing chapter Q&A

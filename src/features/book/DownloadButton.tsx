@@ -37,9 +37,8 @@ export function DownloadButton({
 
   const labelFor = (a: DownloadAction) =>
     a.format === "original"
-      ? t("library.actions.download", { defaultValue: "Download" })
+      ? t("library.actions.download")
       : t("library.actions.downloadFormat", {
-          defaultValue: "Download {{format}}",
           format: a.format.toUpperCase(),
         });
 
@@ -85,7 +84,7 @@ export function DownloadButton({
         className={baseClass}
       >
         <Download size={16} />
-        {t("library.actions.download", { defaultValue: "Download" })}
+        {t("library.actions.download")}
         <ChevronDown size={14} className="text-text-muted" />
       </button>
       <FloatingMenu

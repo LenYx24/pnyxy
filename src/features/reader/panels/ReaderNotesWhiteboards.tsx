@@ -70,7 +70,8 @@ export function ReaderNotesList({ panels }: { panels: ReaderDockPanels }) {
               tabIndex={0}
               onClick={() => panels.openNote(note.id)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") panels.openNote(note.id);
+                if (e.key === "Enter" || e.key === " ")
+                  panels.openNote(note.id);
               }}
               className="group flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary"
             >
@@ -83,9 +84,7 @@ export function ReaderNotesList({ panels }: { panels: ReaderDockPanels }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                title={t("reader.tools.openInNewTab", {
-                  defaultValue: "Open in new tab",
-                })}
+                title={t("reader.tools.openInNewTab")}
                 className="shrink-0 rounded p-0.5 text-text-muted opacity-0 transition-all hover:bg-glass-hover hover:text-text-primary group-hover:opacity-100 cursor-pointer"
               >
                 <ExternalLink size={12} />
@@ -112,7 +111,11 @@ export function ReaderNotesList({ panels }: { panels: ReaderDockPanels }) {
 
 /** Whiteboards list. Whiteboards anchor to PDF pages, so creation is
  *  gated to paginated docs, and the list is scoped to the active book. */
-export function ReaderWhiteboardsList({ panels }: { panels: ReaderDockPanels }) {
+export function ReaderWhiteboardsList({
+  panels,
+}: {
+  panels: ReaderDockPanels;
+}) {
   const { t } = useTranslation();
   const whiteboards = useWhiteboardStore((s) => s.whiteboards);
   const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
@@ -126,7 +129,8 @@ export function ReaderWhiteboardsList({ panels }: { panels: ReaderDockPanels }) 
   const visible = useMemo(
     () =>
       whiteboards.filter(
-        (wb) => !activeDocumentId || !wb.bookId || wb.bookId === activeDocumentId,
+        (wb) =>
+          !activeDocumentId || !wb.bookId || wb.bookId === activeDocumentId,
       ),
     [whiteboards, activeDocumentId],
   );
@@ -170,9 +174,7 @@ export function ReaderWhiteboardsList({ panels }: { panels: ReaderDockPanels }) 
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                title={t("reader.tools.openInNewTab", {
-                  defaultValue: "Open in new tab",
-                })}
+                title={t("reader.tools.openInNewTab")}
                 className="shrink-0 rounded p-0.5 text-text-muted opacity-0 transition-all hover:bg-glass-hover hover:text-text-primary group-hover:opacity-100 cursor-pointer"
               >
                 <ExternalLink size={12} />

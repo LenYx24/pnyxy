@@ -102,12 +102,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
         const qs = await extractExamQuestions(text);
         if (cancelled) return;
         if (qs.length === 0) {
-          setError(
-            t("book.practice.noQuestions", {
-              defaultValue:
-                "Couldn't find clear questions in this exam. Try a different file.",
-            }),
-          );
+          setError(t("book.practice.noQuestions"));
           setPhase("error");
           return;
         }
@@ -117,11 +112,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
         if (cancelled) return;
         logError("PracticeMode:setup", err);
         setError(
-          err instanceof Error
-            ? err.message
-            : t("book.practice.setupFailed", {
-                defaultValue: "Couldn't prepare the practice session.",
-              }),
+          err instanceof Error ? err.message : t("book.practice.setupFailed"),
         );
         setPhase("error");
       }
@@ -186,11 +177,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
         }
         logError("PracticeMode:evaluate", err);
         setError(
-          err instanceof Error
-            ? err.message
-            : t("book.practice.evalFailed", {
-                defaultValue: "Couldn't evaluate the answer.",
-              }),
+          err instanceof Error ? err.message : t("book.practice.evalFailed"),
         );
         setPhase("feedback");
       } finally {
@@ -237,18 +224,14 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
             <div className="min-w-0">
               <h2 className="truncate text-base font-semibold text-text-primary">
                 {t("book.practice.heading", {
-                  defaultValue: "Practice: {{name}}",
                   name: exam.name,
                 })}
               </h2>
               {phase !== "loading" && phase !== "error" && total > 0 && (
                 <p className="text-xs text-text-muted">
                   {phase === "done"
-                    ? t("book.practice.doneSubtitle", {
-                        defaultValue: "Session complete",
-                      })
+                    ? t("book.practice.doneSubtitle")
                     : t("book.practice.progress", {
-                        defaultValue: "Question {{current}} of {{total}}",
                         current: currentIndex + 1,
                         total,
                       })}
@@ -260,7 +243,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
             type="button"
             onClick={onClose}
             className="rounded-lg p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
-            aria-label={t("common.close", { defaultValue: "Close" })}
+            aria-label={t("common.close")}
           >
             <X size={20} />
           </button>
@@ -271,11 +254,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
           {phase === "loading" && (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-text-muted">
               <Loader2 size={28} className="animate-spin text-accent" />
-              <p className="text-sm">
-                {t("book.practice.loadingQuestions", {
-                  defaultValue: "Reading the exam and pulling out questions…",
-                })}
-              </p>
+              <p className="text-sm">{t("book.practice.loadingQuestions")}</p>
             </div>
           )}
 
@@ -286,7 +265,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
                 {error}
               </p>
               <Button variant="secondary" onClick={onClose}>
-                {t("common.close", { defaultValue: "Close" })}
+                {t("common.close")}
               </Button>
             </div>
           )}
@@ -297,14 +276,10 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
                 <CheckCircle2 size={28} />
               </div>
               <h3 className="text-lg font-semibold text-text-primary">
-                {t("book.practice.doneTitle", {
-                  defaultValue: "Nice, you finished the practice.",
-                })}
+                {t("book.practice.doneTitle")}
               </h3>
               <SessionStats verdicts={verdicts} total={total} />
-              <Button onClick={onClose}>
-                {t("common.close", { defaultValue: "Close" })}
-              </Button>
+              <Button onClick={onClose}>{t("common.close")}</Button>
             </div>
           )}
 
@@ -315,9 +290,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
               <>
                 <div className="rounded-xl border border-glass-border bg-glass-bg/30 p-4">
                   <p className="mb-1 text-2xs font-semibold uppercase tracking-wider text-text-muted">
-                    {t("book.practice.questionLabel", {
-                      defaultValue: "Question",
-                    })}
+                    {t("book.practice.questionLabel")}
                   </p>
                   <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-primary">
                     {currentQuestion.text}
@@ -338,10 +311,11 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
                     )}
                   >
                     <p className="mb-2 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-text-muted">
-                      <VerdictIcon verdict={verdict} streaming={phase === "answering"} />
-                      {t("book.practice.feedbackLabel", {
-                        defaultValue: "Tutor feedback",
-                      })}
+                      <VerdictIcon
+                        verdict={verdict}
+                        streaming={phase === "answering"}
+                      />
+                      {t("book.practice.feedbackLabel")}
                     </p>
                     {feedback ? (
                       <div
@@ -354,9 +328,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
                       <div className="flex items-center gap-2 text-text-muted">
                         <Loader2 size={14} className="animate-spin" />
                         <span className="text-sm">
-                          {t("book.practice.thinking", {
-                            defaultValue: "Thinking…",
-                          })}
+                          {t("book.practice.thinking")}
                         </span>
                       </div>
                     )}
@@ -381,10 +353,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
                   void handleSubmit(e as unknown as FormEvent);
                 }
               }}
-              placeholder={t("book.practice.answerPlaceholder", {
-                defaultValue:
-                  "Type your answer. Try first, the tutor won't reveal the solution.",
-              })}
+              placeholder={t("book.practice.answerPlaceholder")}
               rows={3}
               disabled={phase === "answering"}
               className="w-full resize-y rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-60"
@@ -392,9 +361,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
             />
             <div className="flex justify-between gap-2">
               <p className="text-2xs text-text-muted">
-                {t("book.practice.submitHint", {
-                  defaultValue: "Cmd/Ctrl + Enter to submit",
-                })}
+                {t("book.practice.submitHint")}
               </p>
               <Button
                 type="submit"
@@ -405,7 +372,7 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
                 ) : (
                   <Send size={14} />
                 )}
-                {t("book.practice.submit", { defaultValue: "Submit answer" })}
+                {t("book.practice.submit")}
               </Button>
             </div>
           </form>
@@ -415,12 +382,12 @@ export function PracticeMode({ open, onClose, exam }: PracticeModeProps) {
           <div className="flex justify-end gap-2 border-t border-glass-border p-4">
             <Button variant="secondary" onClick={handleRetry}>
               <RotateCcw size={14} />
-              {t("book.practice.retry", { defaultValue: "Try again" })}
+              {t("book.practice.retry")}
             </Button>
             <Button onClick={handleNext}>
               {currentIndex + 1 >= total
-                ? t("book.practice.finish", { defaultValue: "Finish" })
-                : t("book.practice.next", { defaultValue: "Next question" })}
+                ? t("book.practice.finish")
+                : t("book.practice.next")}
               <ArrowRight size={14} />
             </Button>
           </div>
@@ -476,8 +443,6 @@ function SessionStats({
   return (
     <p className="text-xs text-text-muted">
       {t("book.practice.doneStats", {
-        defaultValue:
-          "{{correct}} correct · {{partial}} partial · {{incorrect}} missed · {{skipped}} skipped",
         correct: counts.c,
         partial: counts.p,
         incorrect: counts.w,

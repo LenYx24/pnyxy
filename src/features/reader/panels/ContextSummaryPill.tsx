@@ -30,12 +30,7 @@ export function ContextSummaryPill({
   // interactive if either the inline picker or sidebar editor can edit pages
   const interactive = !!onPickPages || showSidebarEditor;
 
-  if (
-    !tocAvailable &&
-    selectedPages === 0 &&
-    !hasPersona &&
-    !interactive
-  ) {
+  if (!tocAvailable && selectedPages === 0 && !hasPersona && !interactive) {
     return null;
   }
 
@@ -48,9 +43,7 @@ export function ContextSummaryPill({
     }
     if (hasPersona) parts.push(t("reader.aiChat.contextPersona"));
     const summary =
-      parts.length > 0
-        ? parts.join(" · ")
-        : t("reader.aiChat.contextEmpty");
+      parts.length > 0 ? parts.join(" · ") : t("reader.aiChat.contextEmpty");
     return (
       <div className="px-3">
         <div className="flex items-center gap-1.5 text-2xs text-text-muted">
@@ -72,9 +65,7 @@ export function ContextSummaryPill({
         role="button"
         tabIndex={-1}
         className="flex w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-md px-1.5 py-1 text-2xs text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-        title={t("reader.aiChat.customizeContext", {
-          defaultValue: "Customize what pages get sent to the AI",
-        })}
+        title={t("reader.aiChat.customizeContext")}
       >
         <FileText size={11} className="shrink-0" />
         {tocAttached && tocAvailable && (
@@ -95,20 +86,18 @@ export function ContextSummaryPill({
             "shrink-0 rounded font-medium underline decoration-dotted underline-offset-2 transition-colors cursor-pointer",
             "text-text-secondary hover:text-text-primary",
           )}
-          aria-label={t("reader.aiChat.contextPagesEditAria", {
-            defaultValue: "Choose which pages get sent to the AI",
-          })}
+          aria-label={t("reader.aiChat.contextPagesEditAria")}
         >
           {selectedPages > 0
             ? t("reader.aiChat.contextPages", { count: selectedPages })
-            : t("reader.aiChat.contextPagesEmpty", {
-                defaultValue: "Pick pages",
-              })}
+            : t("reader.aiChat.contextPagesEmpty")}
         </button>
         {hasPersona && (
           <>
             <span className="text-text-muted/50">·</span>
-            <span className="truncate">{t("reader.aiChat.contextPersona")}</span>
+            <span className="truncate">
+              {t("reader.aiChat.contextPersona")}
+            </span>
           </>
         )}
         {/* "Customize" link to the sidebar editor, only when it's distinct
@@ -122,16 +111,12 @@ export function ContextSummaryPill({
             }}
             className="ml-auto shrink-0 rounded text-2xs text-text-muted underline decoration-dotted underline-offset-2 transition-colors hover:text-text-primary cursor-pointer"
           >
-            {t("reader.aiChat.customizeContextAction", {
-              defaultValue: "Customize",
-            })}
+            {t("reader.aiChat.customizeContextAction")}
           </button>
         )}
         {showSidebarEditor && !onPickPages && (
           <span className="ml-auto shrink-0 text-2xs text-text-muted">
-            {t("reader.aiChat.customizeContextAction", {
-              defaultValue: "Customize",
-            })}
+            {t("reader.aiChat.customizeContextAction")}
           </span>
         )}
       </div>

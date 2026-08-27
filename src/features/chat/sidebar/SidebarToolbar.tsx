@@ -15,6 +15,7 @@ import {
   FolderTree,
   Menu,
   Search,
+  MessageSquareDashed,
   SquarePen,
   X,
   Zap,
@@ -44,6 +45,7 @@ interface SidebarToolbarProps {
   onCollapseAll: () => void;
   onExpandAll: () => void;
   onNew: () => void;
+  onNewTemporary?: () => void;
   /** Search is hidden when there is nothing to search. */
   showSearch: boolean;
   search: string;
@@ -60,6 +62,7 @@ export function SidebarToolbar({
   onCollapseAll,
   onExpandAll,
   onNew,
+  onNewTemporary,
   showSearch,
   search,
   onSearchChange,
@@ -108,8 +111,7 @@ export function SidebarToolbar({
             className="flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text-primary cursor-pointer"
           >
             <ArrowLeft size={16} strokeWidth={1.5} />
-            {scope.backLabel ||
-              t("chat.book.backToBook", { defaultValue: "Back to book" })}
+            {scope.backLabel || t("chat.book.backToBook")}
           </button>
           <span className={cn(chipClass, "max-w-full")} title={scope.docTitle}>
             <BookOpen size={14} strokeWidth={1.5} className="shrink-0" />
@@ -184,17 +186,36 @@ export function SidebarToolbar({
         </div>
       </div>
 
-      {/* new chat: the primary action gets a full-width button above the search */}
-      <Tooltip label={t("chat.newConversation")} shortcut="chat:new" side="bottom">
-        <button
-          type="button"
-          onClick={onNew}
-          className="mb-1.5 flex w-full items-center gap-2.5 rounded-control bg-bg-tertiary px-3 py-2 text-[13px] font-medium text-text-primary transition-colors cursor-pointer hover:bg-surface-3"
+      {/* new chat: the primary action gets a full-width button above the
+          search; the dashed twin next to it starts an incognito chat */}
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <Tooltip
+          label={t("chat.newConversation")}
+          shortcut="chat:new"
+          side="bottom"
         >
-          <SquarePen size={16} strokeWidth={1.5} className="shrink-0" />
-          {t("chat.newConversation")}
-        </button>
-      </Tooltip>
+          <button
+            type="button"
+            onClick={onNew}
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-control bg-bg-tertiary px-3 py-2 text-[13px] font-medium text-text-primary transition-colors cursor-pointer hover:bg-surface-3"
+          >
+            <SquarePen size={16} strokeWidth={1.5} className="shrink-0" />
+            <span className="truncate">{t("chat.newConversation")}</span>
+          </button>
+        </Tooltip>
+        {onNewTemporary && (
+          <Tooltip label={t("chat.temporary.new")} side="bottom">
+            <button
+              type="button"
+              onClick={onNewTemporary}
+              aria-label={t("chat.temporary.new")}
+              className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-control bg-bg-tertiary text-text-muted transition-colors cursor-pointer hover:bg-surface-3 hover:text-text-primary"
+            >
+              <MessageSquareDashed size={16} strokeWidth={1.5} />
+            </button>
+          </Tooltip>
+        )}
+      </div>
 
       {/* conversation search, hidden when there's nothing to search */}
       {showSearch && (

@@ -3,9 +3,10 @@
 Deno edge functions deployed to Supabase. Shared code lives in `_shared/`:
 
 - `deno-shim.ts`: the `Deno` global declaration for editor type-checking (import once per function).
-- `http.ts`: `buildCorsHeaders(origin, methods)`, `corsFor(req)`, `handleOptions(req)`, `json(status, body, cors)`, `jsonError(status, code, message, cors)`.
+- `http.ts`: `buildCorsHeaders(origin, methods)`, `corsFor(req)`, `handleOptions(req)`, `json(status, body, cors)`, `jsonError(status, code, message, cors)`, `jsonErrorPublic(status, code, cors)` (never echoes internal error text), `sanitizeErrorForClient(err)` (reduces a caught error to a safe code).
 - `auth.ts`: `requireUser(req, { onError, persistSession })` resolves the signed-in user (or returns the caller's own error Response).
-- `tokens.ts`: `estimateTokens`, `hashIp`, `ipHashSalt`, `getClientIp` for the anonymous AI quota path.
+- `tokens.ts`: `estimateTokens`, `hashIp` (HMAC-SHA256), `ipHashSalt` (fails closed if `IP_HASH_SALT` unset), `getClientIp` for the anonymous AI quota path; `GROUNDED_REQUEST_SURCHARGE_TOKENS` flat token surcharge for grounded chat requests.
+- `safe-fetch.ts`: `assertPublicHttpUrl(url)` and `safeFetch(url, init)`, an SSRF-safe fetch (blocks private/loopback/link-local IPs and DNS-rebinding, follows redirects with the check re-applied, enforces a byte cap on the streamed body and a timeout covering the whole operation). Used by `fetch-url-proxy` and `catalog-fetch`.
 
 ## CORS policy
 
@@ -41,7 +42,7 @@ supabase secrets set ALLOWED_ORIGINS="https://pnyxy.com,https://www.pnyxy.com,ht
   - `OPENAI_API_KEY`: OpenAI key, next fallback.
   - `ANTHROPIC_API_KEY`: Anthropic key, final fallback for plain chat, required for tool-use mode.
   - At least one of the three must be set.
-  - `IP_HASH_SALT`: secret salt for hashing anonymous IPs. Falls back to `SUPABASE_SERVICE_ROLE_KEY` when unset so existing deployments keep working; set a dedicated value with `supabase secrets set IP_HASH_SALT=$(openssl rand -hex 32)`. Note: changing the salt resets the anonymous buckets (old hashes no longer match).
+  - `IP_HASH_SALT`: secret salt for hashing anonymous IPs (HMAC-SHA256). Required: `ipHashSalt()` now fails closed (throws) when unset, instead of falling back to `SUPABASE_SERVICE_ROLE_KEY`, so the anonymous path 500s until it is set. Set it with `supabase secrets set IP_HASH_SALT=$(openssl rand -hex 32)` before enabling `ALLOW_ANON_CHAT`. Note: changing the salt resets the anonymous buckets (old hashes no longer match).
   - `ALLOWED_ORIGINS`: see CORS policy.
 - Deploy: `supabase functions deploy ai-chat-proxy`
 
@@ -62,18 +63,19 @@ supabase secrets set ALLOWED_ORIGINS="https://pnyxy.com,https://www.pnyxy.com,ht
 ### ingest-url
 
 - Purpose: turns a URL into a library "resource" (beta). YouTube links resolve to title / author / thumbnail via the public oEmbed API; other pages are reduced to markdown via Jina Reader (`r.jina.ai`, keyless free tier, rate-limited). Content is capped at 200k chars. The client degrades to saving a bare link if this function is absent.
-- Auth: `verify_jwt = true` in `config.toml` (gateway enforces a signed-in caller); the function additionally requires a Bearer header.
+- Auth: `verify_jwt = true` in `config.toml` (gateway enforces a signed-in caller); the function additionally calls `requireUser()` for a verified user id. Rate limited to 30 ingests/day per user via `bump_rate_limit` (migration 00073), key `ingest:<uid>`; over the cap returns `429 rate_limited`.
 - Env vars: none beyond `ALLOWED_ORIGINS` (optional).
 - Deploy: `supabase functions deploy ingest-url`
 
 ### send-feedback
 
 - Purpose: relays a subject + body from the browser to the feedback inbox via Resend, attaching the signed-in user's email + id (as `reply_to`) when a session is present.
-- Auth: optional; anonymous feedback is accepted. Note that `config.toml` does not override `verify_jwt` for this function, so the gateway default applies.
+- Auth: optional; anonymous feedback is accepted. Note that `config.toml` does not override `verify_jwt` for this function, so the gateway default applies. Rate limited via `bump_rate_limit` (migration 00073): 10/day for a signed-in user (key `feedback:<uid>`), 2/day for anonymous senders keyed by a salted hash of their IP (key `feedback:<hash>`). Anonymous senders are rejected (`403 sign_in_required`) when `IP_HASH_SALT` isn't set, since there's no safe way to bucket them otherwise.
 - Env vars:
   - `RESEND_API_KEY`: required, from https://resend.com/api-keys.
   - `FEEDBACK_FROM`: `"Name <sender@verified-domain>"` (default `Pnyxy Feedback <onboarding@resend.dev>`, the Resend sandbox; swap for a verified domain).
   - `FEEDBACK_TO`: destination inbox (default `feedback@pnyxy.com`).
+  - `IP_HASH_SALT`: required for anonymous feedback to be rate limited (see `tokens.ts` above); signed-in feedback doesn't need it.
   - `ALLOWED_ORIGINS` (optional).
 - Deploy: `supabase functions deploy send-feedback`
 

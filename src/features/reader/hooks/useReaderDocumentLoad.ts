@@ -19,12 +19,10 @@ async function recoverBookFile(bookId: string): Promise<File | null> {
       .limit(1)
       .maybeSingle();
     if (!error && uploaded) {
-      const fileMeta = (
-        uploaded.book_files as
-          | { storage_path: string; file_name: string }[]
-          | { storage_path: string; file_name: string }
-          | null
-      );
+      const fileMeta = uploaded.book_files as
+        | { storage_path: string; file_name: string }[]
+        | { storage_path: string; file_name: string }
+        | null;
       const first = Array.isArray(fileMeta) ? fileMeta[0] : fileMeta;
       if (first?.storage_path) {
         const { data: blob, error: dlErr } = await supabase.storage
@@ -83,8 +81,10 @@ async function recoverBookFile(bookId: string): Promise<File | null> {
           ? ".txt"
           : "";
     const filename =
-      ((catalog.title as string | null) ?? "document").replace(/[^\w.-]+/g, "_") +
-      ext;
+      ((catalog.title as string | null) ?? "document").replace(
+        /[^\w.-]+/g,
+        "_",
+      ) + ext;
     return new File([blob], filename, { type: blob.type });
   } catch (err) {
     logError("reader:recover:catalog", err);
@@ -116,13 +116,7 @@ export function useReaderDocumentLoad(
       void addDocument(adapter, file).catch((error) => {
         if (cancelled) return;
         logError("addDocument", error);
-        showToast(
-          t("reader.openFailed", {
-            defaultValue:
-              "Couldn't open this document. It may be corrupt or unsupported.",
-          }),
-          "error",
-        );
+        showToast(t("reader.openFailed"), "error");
       });
       return;
     }
@@ -141,13 +135,7 @@ export function useReaderDocumentLoad(
       } catch (error) {
         if (!cancelled) {
           logError("addDocument", error);
-          showToast(
-            t("reader.openFailed", {
-              defaultValue:
-                "Couldn't open this document. It may be corrupt or unsupported.",
-            }),
-            "error",
-          );
+          showToast(t("reader.openFailed"), "error");
         }
       } finally {
         if (loadingTokenRef.current === token) setLoading(false);

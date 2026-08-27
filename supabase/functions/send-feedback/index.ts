@@ -1,14 +1,29 @@
 // Pnyxy feedback relay: accepts a subject + body from the browser and
 // sends it to the feedback inbox via Resend. Attaches the signed-in
-// user's email + id when a session is present; anonymous is allowed.
-// Env: RESEND_API_KEY, FEEDBACK_FROM, FEEDBACK_TO. See ../README.md.
+// user's email + id when a session is present; anonymous is allowed
+// but rate limited more tightly since it can't be tied to an account.
+// Env: RESEND_API_KEY, FEEDBACK_FROM, FEEDBACK_TO, IP_HASH_SALT (only
+// needed for anonymous senders). See ../README.md.
 
 import "../_shared/deno-shim.ts";
-import { corsFor, handleOptions, json, jsonError as jsonErrorWith } from "../_shared/http.ts";
-import { requireUser } from "../_shared/auth.ts";
+import {
+  corsFor,
+  handleOptions,
+  json,
+  jsonError as jsonErrorWith,
+  jsonErrorPublic as jsonErrorPublicWith,
+  sanitizeErrorForClient,
+} from "../_shared/http.ts";
+import { requireUser, serviceClient } from "../_shared/auth.ts";
+import { getClientIp, hashIp, ipHashSalt } from "../_shared/tokens.ts";
 
 const MAX_SUBJECT = 200;
 const MAX_BODY = 10_000;
+const AUTHED_DAILY_LIMIT = 10;
+const ANON_DAILY_LIMIT = 2;
+// No derivable client IP: fall into one shared bucket instead of
+// skipping the rate limit outright.
+const NO_IP_SENTINEL = "no-ip";
 
 function escapeHtml(s: string): string {
   return s
@@ -26,6 +41,8 @@ Deno.serve(async (req) => {
   const corsHeaders = corsFor(req);
   const jsonError = (status: number, code: string, message: string): Response =>
     jsonErrorWith(status, code, message, corsHeaders);
+  const jsonErrorPublic = (status: number, code: string): Response =>
+    jsonErrorPublicWith(status, code, corsHeaders);
 
   if (req.method !== "POST") {
     return jsonError(405, "method_not_allowed", "POST only");
@@ -69,6 +86,46 @@ Deno.serve(async (req) => {
     userId = auth.user.id;
   }
 
+  // ── Rate limit: 10/day for a signed-in user, 2/day for anonymous
+  // senders keyed by a salted hash of their IP. Anonymous feedback
+  // needs IP_HASH_SALT set to be rate limited safely; without it
+  // there's no way to bucket anonymous senders, so they're rejected
+  // rather than left unlimited. ──
+  const admin = serviceClient();
+  if (!admin) {
+    console.error("send-feedback: service client unavailable, missing SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY");
+    return jsonErrorPublic(500, "misconfigured");
+  }
+
+  let rateKey: string;
+  let rateLimit: number;
+  if (userId) {
+    rateKey = `feedback:${userId}`;
+    rateLimit = AUTHED_DAILY_LIMIT;
+  } else {
+    let salt: string;
+    try {
+      salt = ipHashSalt();
+    } catch {
+      return jsonError(403, "sign_in_required", "Sign in to send feedback.");
+    }
+    const ip = getClientIp(req) ?? NO_IP_SENTINEL;
+    rateKey = `feedback:${await hashIp(ip, salt)}`;
+    rateLimit = ANON_DAILY_LIMIT;
+  }
+
+  const { data: withinLimit, error: rateLimitErr } = await admin.rpc("bump_rate_limit", {
+    p_key: rateKey,
+    p_limit: rateLimit,
+  });
+  if (rateLimitErr) {
+    console.error("send-feedback: bump_rate_limit rpc failed", rateLimitErr);
+    return jsonErrorPublic(500, sanitizeErrorForClient(rateLimitErr));
+  }
+  if (!withinLimit) {
+    return jsonError(429, "rate_limited", "You've hit today's feedback limit, try again tomorrow.");
+  }
+
   const attribution = userEmail
     ? `From: ${userEmail} (${userId})`
     : "From: anonymous (not signed in)";
@@ -101,11 +158,10 @@ Deno.serve(async (req) => {
       body: JSON.stringify(resendPayload),
     });
   } catch (err) {
-    return jsonError(
-      502,
-      "upstream_error",
-      err instanceof Error ? err.message : "Resend request failed",
-    );
+    // Never echo the raw error to the client (it can carry network /
+    // internal details); log it server-side instead.
+    console.error("send-feedback: resend request failed", err);
+    return jsonErrorPublic(502, sanitizeErrorForClient(err));
   }
 
   if (!upstream.ok) {

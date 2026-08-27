@@ -55,9 +55,7 @@ export function RelatedToBook() {
   // chats + vocab match the reader's document id: a PDF file hash for
   // uploaded books, the catalog UUID for catalog books. Reference-only uploads
   // (no file yet) fall back to the book row id so chats can still be scoped.
-  const docId = isUploaded
-    ? data.book.file_hash || data.book.id
-    : data.book.id;
+  const docId = isUploaded ? data.book.file_hash || data.book.id : data.book.id;
 
   const openConversation = useChatStore((s) => s.openConversation);
   const whiteboards = useWhiteboardStore((s) => s.whiteboards);
@@ -153,7 +151,7 @@ export function RelatedToBook() {
           className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-accent/30 bg-accent/10 px-2 py-1 text-2xs font-medium text-accent transition-colors hover:bg-accent/20 cursor-pointer"
         >
           <Bot size={12} />
-          {t("book.related.openChatPage", { defaultValue: "Open chat page" })}
+          {t("book.related.openChatPage")}
         </button>
       </div>
       <div className="space-y-1.5">

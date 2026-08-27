@@ -3,7 +3,7 @@ import { Link, Navigate, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "lucide-react";
 import { MeshBackground, Button, Checkbox } from "@/components/ui";
-import { useAuthStore } from "@/stores/auth-store";
+import { PENDING_CONSENT_KEY, useAuthStore } from "@/stores/auth-store";
 
 type AuthTab = "sign-in" | "create-account";
 
@@ -70,12 +70,16 @@ export function AuthPage() {
         navigate("/auth/welcome");
       } else {
         if (!consent) {
-          setLocalError(
-            t("auth.consent.required", {
-              defaultValue: "Please accept the data-use consent to register.",
-            }),
-          );
+          setLocalError(t("auth.consent.required"));
           return;
+        }
+        // stashed here (not sent yet): the profile row this consent belongs to
+        // may not exist until email confirmation completes, so auth-store
+        // drains this into profiles.preferences once fetchProfile succeeds
+        try {
+          localStorage.setItem(PENDING_CONSENT_KEY, new Date().toISOString());
+        } catch {
+          // localStorage unavailable (private mode etc.): consent stays UI-gated only
         }
         await signUp(email, password, displayName.trim() || undefined);
         // If email confirmation is enabled, no session will be created immediately.
@@ -99,12 +103,15 @@ export function AuthPage() {
     setLocalError(null);
     // Google on the sign-up tab still needs the consent tick
     if (tab === "create-account" && !consent) {
-      setLocalError(
-        t("auth.consent.required", {
-          defaultValue: "Please accept the data-use consent to register.",
-        }),
-      );
+      setLocalError(t("auth.consent.required"));
       return;
+    }
+    if (tab === "create-account") {
+      try {
+        localStorage.setItem(PENDING_CONSENT_KEY, new Date().toISOString());
+      } catch {
+        // localStorage unavailable (private mode etc.): consent stays UI-gated only
+      }
     }
     setGoogleSubmitting(true);
     try {
@@ -136,9 +143,7 @@ export function AuthPage() {
               Pnyxy
             </span>
           </h1>
-          <p className="mt-1 text-sm text-text-muted">
-            {t("landing.tagline")}
-          </p>
+          <p className="mt-1 text-sm text-text-muted">{t("landing.tagline")}</p>
         </div>
 
         {/* Tab toggle */}
@@ -219,7 +224,9 @@ export function AuthPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-lg border border-glass-border bg-bg-primary/40 px-3 pr-10 py-2.5 text-sm text-text-primary placeholder:text-text-muted backdrop-blur-md outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25"
                 placeholder="••••••••"
-                autoComplete={tab === "sign-in" ? "current-password" : "new-password"}
+                autoComplete={
+                  tab === "sign-in" ? "current-password" : "new-password"
+                }
               />
               <button
                 type="button"
@@ -250,16 +257,13 @@ export function AuthPage() {
                 <Checkbox checked={consent} onChange={setConsent} />
               </span>
               <span>
-                {t("auth.consent.text", {
-                  defaultValue:
-                    "I agree that Pnyxy collects anonymous usage data (feature usage, session length, never message or document content) and that pilot findings may be used, anonymized, in academic work.",
-                })}{" "}
+                {t("auth.consent.text")}{" "}
                 <Link
                   to="/privacy"
                   target="_blank"
                   className="text-accent hover:underline"
                 >
-                  {t("auth.consent.privacyLink", { defaultValue: "Privacy" })}
+                  {t("auth.consent.privacyLink")}
                 </Link>
               </span>
             </label>
@@ -277,11 +281,7 @@ export function AuthPage() {
             </p>
           )}
 
-          <Button
-            type="submit"
-            disabled={submitting}
-            className="w-full"
-          >
+          <Button type="submit" disabled={submitting} className="w-full">
             {submitting
               ? t("common.loading")
               : tab === "sign-in"

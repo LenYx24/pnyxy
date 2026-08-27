@@ -67,7 +67,11 @@
     "expand": "Expand",
     "collapse": "Collapse",
     "requiredField": "This field can't be empty.",
-    "open": "Open"
+    "open": "Open",
+    "skip": "Skip",
+    "clear": "Clear",
+    "beta": "Beta",
+    "add": "Add"
   },
   "sidebar": {
     "home": "Home",
@@ -381,15 +385,15 @@
       "localModelLabel": "Model name",
       "localModelHint": "Whatever you've pulled locally - e.g. \"llama3.2\", \"qwen2.5-coder:14b\", \"gpt-oss:20b\".",
       "localApiKeyPlaceholder": "(usually empty for localhost)",
-      "localApiKeyHint": "Only needed if your server requires a bearer token (LM Studio with auth, vLLM with --api-key, tailnet proxies).",
+      "localApiKeyHint": "Only needed if your server requires a bearer token (LM Studio with auth, vLLM with --api-key, tailnet proxies). Kept in memory for this session only, not saved to disk.",
       "pnyxyAnon": "Sign in for the standard daily quota. Anonymous users get a small per-IP quota of 5 requests / 5,000 tokens per day.",
       "usageLoading": "Loading usage…",
       "usageUnavailable": "Usage data unavailable.",
       "tokensToday": "Tokens today",
       "requestsToday": "Requests today",
       "resetsDaily": "Resets daily at 00:00 UTC.",
-      "anthropicKeyHint": "Stored locally in your browser. Calls go directly to Anthropic.",
-      "openaiKeyHint": "Stored locally in your browser. Calls go directly to OpenAI.",
+      "anthropicKeyHint": "Kept in memory for this session only, not saved to disk. Calls go directly to Anthropic. You'll re-enter it after closing the tab or reloading.",
+      "openaiKeyHint": "Kept in memory for this session only, not saved to disk. Calls go directly to OpenAI. You'll re-enter it after closing the tab or reloading.",
       "byokQuotaNote": "Pnyxy can't see your provider-side credit balance - these calls are billed directly. Use the link below to check usage in your provider's console.",
       "checkUsageAnthropic": "Check usage in the Anthropic console ↗",
       "checkUsageOpenAI": "Check usage in the OpenAI dashboard ↗",
@@ -529,23 +533,23 @@
       "faq": "Questions",
       "openSource": "Open source"
     },
-    "featuresTitle": "Everything you need to read smarter",
-    "featuresSubtitle": "Powerful tools designed around how people actually learn from books.",
+    "featuresTitle": "A reader, a tutor that cites pages, and the study tools around them",
+    "featuresSubtitle": "Open a PDF, ask about the page you are on, get an answer with a page number. Notes, flashcards and streaks sit next to it.",
     "openSource": {
       "title": "Open and extensible",
-      "subtitle": "Pnyxy is MIT-licensed and built to grow with its users. Fork it, star it, or drop in community themes and plugins.",
+      "subtitle": "Pnyxy is MIT-licensed. Themes and plugins load at runtime from an open community registry, so the app can be extended without touching its code.",
       "repo": {
-        "title": "Contribute on GitHub",
-        "description": "The main Pnyxy repository. Star it, file issues, open PRs, or self-host your own instance."
+        "title": "MIT-licensed",
+        "description": "The app is released under the MIT license: use it, modify it, redistribute it, keep the copyright notice."
       },
       "community": {
         "title": "Community themes & plugins",
-        "description": "A separate registry repo where anyone can submit themes and sandboxed plugins that load into the app."
+        "description": "The registry at github.com/LenYx24/pnyxy-community is public and MIT-licensed. Submit a theme JSON or a sandboxed plugin bundle and it loads into the app."
       }
     },
     "pricing": {
       "title": "Plans and pricing",
-      "subtitle": "Free today, and staying generous. Premium is on the roadmap for users who want more room to work.",
+      "subtitle": "Everything that's free today stays free. Premium is planned for users who need more AI quota and storage.",
       "free": {
         "name": "Free",
         "price": "$0",
@@ -571,9 +575,7 @@
         "features": [
           "Larger daily AI quota + access to higher-quality models",
           "More cloud storage for your uploaded books",
-          "OCR for scanned textbooks: searchable, selectable, AI-readable",
-          "X-Ray: character & concept index for your personal uploads",
-          "Priority support and early access to new features"
+          "OCR for scanned textbooks: searchable, selectable, AI-readable"
         ],
         "paidNote": "Paid plan, not free"
       },
@@ -585,7 +587,7 @@
       "items": {
         "isItFree": {
           "q": "Is Pnyxy free to use?",
-          "a": "Yes. Every core feature is free right now: reading, annotations, notes, whiteboards, AI chat (with a daily quota), vocabulary flashcards, forum, and the community book catalog. A paid Premium tier is planned for people who need bigger AI quotas, more storage, OCR, and X-Ray. Everything that's free today stays free."
+          "a": "Yes. Every core feature is free right now: reading, annotations, notes, whiteboards, AI chat (with a daily quota), vocabulary flashcards, forum, and the community book catalog. A paid Premium tier is planned for people who need bigger AI quotas, more storage, and OCR. Everything that's free today stays free."
         },
         "copyright": {
           "q": "Can I read any book on Pnyxy?",
@@ -609,7 +611,7 @@
         },
         "openSource": {
           "q": "Is it really open source?",
-          "a": "Yes. The code is MIT-licensed and on GitHub at github.com/LenYx24/pnyxy-reader. Issues, PRs, and forks are welcome. A separate repository hosts community themes and plugins that load into the app at runtime."
+          "a": "The app is MIT-licensed. The community themes and plugins registry is public at github.com/LenYx24/pnyxy-community and loads into the app at runtime; contributions go there."
         },
         "selfHost": {
           "q": "Can I self-host?",
@@ -676,7 +678,13 @@
     "delete": "Delete whiteboard",
     "deleteTitle": "Delete this whiteboard?",
     "deleteBody": "This can't be undone.",
-    "backToBook": "Back to book"
+    "backToBook": "Back to book",
+    "chat": {
+      "title": "Board AI",
+      "attachBoard": "Attach a snapshot of the board",
+      "empty": "Ask about your board, tap the image button to attach a snapshot so the AI can see what you drew.",
+      "toggle": "AI chat"
+    }
   },
   "catalogImport": {
     "title": "Import books",
@@ -763,7 +771,9 @@
       "startReview": "Start review",
       "continueTitle": "Continue reading",
       "continueResumeHint": "Pick up where you left off",
-      "emptyState": "Nothing queued for today. Open a book, start a reading plan, or enroll in a roadmap to see actionable items here."
+      "emptyState": "Nothing queued for today. Open a book, start a reading plan, or enroll in a roadmap to see actionable items here.",
+      "pagesLeft": "{{count}} pages",
+      "quizDueBody": "{{count}} cards are due for review."
     }
   },
   "library": {
@@ -890,7 +900,8 @@
       "title": "Reading Goal Complete!",
       "body": "You read for 5 minutes today.",
       "streak_one": "{{count}} day streak!",
-      "streak_other": "{{count}} day streak!"
+      "streak_other": "{{count}} day streak!",
+      "acknowledge": "Got it"
     },
     "list": {
       "add": "Add",
@@ -1076,6 +1087,9 @@
     "dnd": {
       "dropHere": "Drop here",
       "moveUp": "Up to: {{name}}"
+    },
+    "typeFilter": {
+      "noItems": "No items of this type here."
     }
   },
   "download": {
@@ -1467,6 +1481,9 @@
     "openInReader": "Open in reader",
     "editingRoadmap": "Editing roadmap: {{title}}",
     "openInEditor": "Open in editor",
+    "extension": {
+      "sourceLine": "Source: {{title}} ({{url}})"
+    },
     "sidebar": {
       "empty": "No conversations yet.",
       "collapseAll": "Collapse all folders",
@@ -1482,12 +1499,15 @@
       "groupEarlier": "Earlier",
       "streak_one": "{{count}} day streak",
       "streak_other": "{{count}} day streak",
-      "foldersEmpty": "No folders yet. Chats outside folders live in the quick view."
+      "foldersEmpty": "No folders yet. Chats outside folders live in the quick view.",
+      "folderChats": "Conversations",
+      "quickChats": "Quick chats",
+      "newInFolder": "New conversation here"
     },
     "composer": {
       "modelLabel": "Model",
       "modelDefault": "Default",
-      "modelDefaultSubtitle": "Auto-pick - Pnyxy free quota first",
+      "modelDefaultSubtitle": "Automatic - starts on the best available Flash",
       "listeningPlaceholder": "Listening… speak now",
       "startListening": "Dictate (microphone)",
       "stopListening": "Stop dictating",
@@ -1499,15 +1519,24 @@
         "tooLarge": "Images must be under {{mb}}MB.",
         "unsupported": "Only JPEG, PNG, GIF, and WebP images are supported.",
         "readError": "Couldn't read that file.",
-        "remove": "Remove attachment"
+        "remove": "Remove attachment",
+        "pdfUploading": "Uploading {{name}}…",
+        "pdfFailed": "Could not upload the PDF.",
+        "pdfFolder": "Chat uploads"
       },
       "modelHelp": "About the models",
       "clearMode": "Back to chat mode",
       "reasoning": {
-        "off": "Turn off reasoning mode"
+        "off": "Turn off reasoning mode",
+        "label": "Thinking mode",
+        "button": "Thinking mode: the model reasons step by step before answering. Slower and costs more tokens; best for hard math and logic."
       },
       "wholeBook": {
-        "chip": "Whole book"
+        "chip": "Whole book",
+        "confirmTitle": "Send the whole book?",
+        "confirmBody": "All {{count}} pages of this document will be attached to the next message. Large books eat through your daily AI quota fast, review the selection in the TOC if unsure.",
+        "confirmLabel": "Select all pages",
+        "button": "Use the whole book as context"
       },
       "quota": {
         "remaining_one": "{{count}} question left today",
@@ -1522,7 +1551,9 @@
       "modeDefault": "Chat",
       "modeBooks": "Recommend books",
       "modeVideos": "Recommend videos",
-      "modeImage": "Generate image"
+      "modeImage": "Generate image",
+      "moreActions": "More",
+      "modeLabel": "Mode"
     },
     "folders": {
       "create": "New folder",
@@ -1540,7 +1571,9 @@
       "openInLibrary": "Open in library",
       "enter": "Enter folder",
       "backToAll": "All chats",
-      "actions": "Folder actions"
+      "actions": "Folder actions",
+      "up": "Up one level",
+      "breadcrumb": "Folder path"
     },
     "flashcards": {
       "title": "Save as flashcards",
@@ -1608,25 +1641,60 @@
       "error": "Something went wrong, try again."
     },
     "contextInspector": {
-      "open": "What does the AI get?",
-      "title": "What does the AI get?",
-      "intro": "The next message's system prompt is assembled from these parts (the exact text is built on the server, this is its mirror).",
-      "base": "Base prompt",
-      "baseDoc": "Document Q&A tutor: answers cite pages ([p.N]), markdown formatting, replies in your language.",
-      "baseChat": "General study chat: markdown formatting, honesty rules, replies in your language.",
+      "chipLabel": "Context",
+      "open": "What does the AI see next?",
+      "title": "What does the AI see for the next message?",
+      "intro": "Everything below is assembled into the next message's prompt, in this order.",
+      "sizeSummary": "Estimated size: ~{{tokens}} tokens out of the {{budget}} budget",
+      "legendInstructions": "Instructions",
+      "legendDocument": "Document",
+      "legendHistory": "History",
+      "loading": "Loading the context…",
+      "base": "Base instruction",
+      "modeChat": "Chat mode",
+      "modeDoc": "Document mode",
       "teacher": "Teacher mode",
       "active": "Active",
-      "preset": "AI context preset",
+      "off": "Off",
+      "preset": "Context preset",
       "noPreset": "No preset applies to this conversation.",
-      "doc": "Document context",
-      "pages_one": "{{count}} attached page",
-      "pages_other": "{{count}} attached pages",
-      "noDoc": "No document attached to this conversation.",
       "sourceOverride": "picked for this conversation",
       "sourceBook": "bound to this book",
       "sourceFolder": "bound to its folder",
       "sourceOrg": "bound to the organization",
-      "sourceDefault": "default preset"
+      "sourceDefault": "default preset",
+      "course": "Course",
+      "sectionsCount_one": "{{count}} section",
+      "sectionsCount_other": "{{count}} sections",
+      "sectionsUnknown": "Open the course page to list its sections.",
+      "doc": "Document",
+      "noDoc": "No document attached to this conversation.",
+      "pages_one": "{{count}} attached page",
+      "pages_other": "{{count}} attached pages",
+      "noPagesSelected": "No pages attached yet.",
+      "asText": "sent as text",
+      "asImages": "sent as images",
+      "tocAttached": "Table of contents attached",
+      "attachments": "Attachments",
+      "noAttachments": "No attachments staged for the next message.",
+      "attachmentsCount_one": "{{count}} attachment",
+      "attachmentsCount_other": "{{count}} attachments",
+      "history": "History window",
+      "historyCount": "{{kept}} / {{total}} messages",
+      "historyEmpty": "No earlier turns yet.",
+      "historyDropped_one": "The oldest {{count}} message won't reach the model. Branch the conversation if you need it.",
+      "historyDropped_other": "The oldest {{count}} messages won't reach the model. Branch the conversation if you need it.",
+      "searchModel": "Search and model",
+      "groundingOn": "Web search on",
+      "groundingOff": "Web search off",
+      "model": "Model",
+      "thinking": "Thinking",
+      "thinkingOn": "On",
+      "thinkingOff": "Off",
+      "copyPrompt": "Copy full prompt",
+      "copySuccess": "Prompt copied to clipboard.",
+      "copyFailed": "Couldn't copy the prompt.",
+      "editPreset": "Edit context preset"
     },
     "inlineQuiz": {
       "title": "Quick quiz",
@@ -1640,6 +1708,77 @@
       "savedShort": "Saved",
       "saved": "Saved, you can retake it from your library.",
       "saveFailed": "Couldn't save the quiz."
+    },
+    "temporary": {
+      "new": "Temporary chat",
+      "chip": "Temporary",
+      "hint": "Not saved to your history; deleted about a day later."
+    },
+    "archive": {
+      "action": "Archive",
+      "restore": "Restore",
+      "heading": "Archive"
+    },
+    "feedback": {
+      "up": "Good response",
+      "down": "Bad response"
+    },
+    "modify": {
+      "label": "Adjust response",
+      "shorter": "Shorter",
+      "shorterPrompt": "Make it shorter.",
+      "longer": "More detail",
+      "longerPrompt": "Expand on this in more detail.",
+      "simpler": "Simpler",
+      "simplerPrompt": "Explain the same thing more simply.",
+      "example": "Add an example",
+      "examplePrompt": "Give a concrete worked example for this."
+    },
+    "continueAction": "Continue",
+    "continuePrompt": "Continue exactly where you left off.",
+    "regenerateWith": "Retry with {{model}}",
+    "regenerateWithLabel": "Retry with another model",
+    "retryAction": "Try again",
+    "streamCut": {
+      "maxTokens": "The answer hit the output limit. Use Continue to get the rest.",
+      "filter": "The model's safety filter stopped the answer here. Try rephrasing or another model.",
+      "other": "The answer was cut short by the model ({{reason}}). Try again or continue."
+    },
+    "shareAnswer": {
+      "done": "Shared to the prompt gallery.",
+      "failed": "Couldn't share this answer.",
+      "shared": "Shared",
+      "action": "Share"
+    },
+    "duplicateFromHere": "Duplicate from here",
+    "deleteMessage": "Delete",
+    "modelHelp": {
+      "title": "Modellek",
+      "speed": "Sebesség",
+      "power": "Erő",
+      "context": "Kontextus"
+    },
+    "recommend": {
+      "noActiveOrg": "You need an active workspace to add books, sign in or create one.",
+      "signInToSave": "Sign in to save",
+      "addToLibrary": "Add as a placeholder book",
+      "added": "Added",
+      "add": "Add to library",
+      "open": "Open"
+    },
+    "book": {
+      "forkCount": "{{count}} branch",
+      "empty": "No chats about this book yet.",
+      "backToBook": "Back to book"
+    },
+    "linkWarning": {
+      "title": "Open this link?",
+      "body": "The AI suggested this URL. AI models can hallucinate links, verify the domain looks right before opening.",
+      "open": "Open in new tab"
+    },
+    "emptyResponse": "The model returned an empty response, please try again.",
+    "errors": {
+      "signInRequired": "Sign in to use the AI chat"
     }
   },
   "readingPlans": {
@@ -1708,7 +1847,8 @@
         "saveFailed": "Could not save the plan.",
         "deleteFailed": "Could not delete the plan."
       }
-    }
+    },
+    "untitled": "Untitled plan"
   },
   "leaderboards": {
     "title": "Leaderboards",
@@ -1731,8 +1871,19 @@
     "titlePlaceholder": "Note title…",
     "contentPlaceholder": "Start writing…",
     "editor": {
-      "linkPrompt": "Link URL"
-    }
+      "linkPrompt": "Link URL",
+      "bold": "Bold",
+      "italic": "Italic",
+      "code": "Inline code",
+      "h1": "Heading 1",
+      "h2": "Heading 2",
+      "bullet": "Bullet list",
+      "quote": "Blockquote",
+      "link": "Link",
+      "pageLink": "Insert link to current PDF page",
+      "sendToAi": "Send selection to AI chat"
+    },
+    "backToLibrary": "Library"
   },
   "book": {
     "notFound": "Book not found.",
@@ -1741,7 +1892,8 @@
       "heading": "Related in your library",
       "flashcards_one": "{{count}} flashcard",
       "flashcards_other": "{{count}} flashcards",
-      "flashcardsKind": "Flashcards"
+      "flashcardsKind": "Flashcards",
+      "openChatPage": "Open chat page"
     },
     "back": "Back",
     "unknownAuthor": "Unknown author",
@@ -1755,7 +1907,8 @@
       "whiteboards": "Whiteboards",
       "resources": "Resources",
       "exams": "Exams",
-      "reading": "Reading"
+      "reading": "Reading",
+      "chats": "Chats"
     },
     "bookmarks": {
       "heading": "Bookmarks",
@@ -1947,7 +2100,58 @@
       "topicsEmpty": "AI couldn't identify clear topics, the PDF may be too short or not a typical exam.",
       "upload": "Upload PDF"
     },
-    "libraryRequired": "Add this book to your library first"
+    "libraryRequired": "Add this book to your library first",
+    "attach": {
+      "errorPdfOnly": "Only PDF files are supported.",
+      "errorTooLarge": "PDF is larger than 100 MB.",
+      "noActiveOrg": "No active workspace.",
+      "failed": "Attach failed.",
+      "button": "Attach PDF",
+      "uploadOwnCopy": "Upload your own PDF"
+    },
+    "categories": {
+      "heading": "Categories",
+      "add": "Add category",
+      "noneLeft": "All categories already linked."
+    },
+    "status": {
+      "heading": "Status"
+    },
+    "practice": {
+      "noQuestions": "Couldn't find clear questions in this exam. Try a different file.",
+      "setupFailed": "Couldn't prepare the practice session.",
+      "evalFailed": "Couldn't evaluate the answer.",
+      "heading": "Practice: {{name}}",
+      "doneSubtitle": "Session complete",
+      "progress": "Question {{current}} of {{total}}",
+      "loadingQuestions": "Reading the exam and pulling out questions…",
+      "doneTitle": "Nice, you finished the practice.",
+      "questionLabel": "Question",
+      "feedbackLabel": "Tutor feedback",
+      "thinking": "Thinking…",
+      "answerPlaceholder": "Type your answer. Try first, the tutor won't reveal the solution.",
+      "submitHint": "Cmd/Ctrl + Enter to submit",
+      "submit": "Submit answer",
+      "retry": "Try again",
+      "finish": "Finish",
+      "next": "Next question",
+      "doneStats": "{{correct}} correct · {{partial}} partial · {{incorrect}} missed · {{skipped}} skipped"
+    },
+    "resources": {
+      "errorBadUrl": "That doesn't look like a valid URL.",
+      "deleteTitle": "Remove this resource?",
+      "deleteBody": "The link is removed only from your library, the original page is untouched.",
+      "heading": "External resources",
+      "description": "Companion videos, articles, courses you've found useful for this book. Private to you.",
+      "add": "Add link",
+      "url": "URL",
+      "titleField": "Title (optional)",
+      "titlePlaceholder": "Auto-detected from URL if blank",
+      "save": "Add",
+      "emptyTitle": "Nothing linked yet",
+      "emptyHint": "Add YouTube videos, articles, or course pages tied to this book.",
+      "open": "Open in new tab"
+    }
   },
   "admin": {
     "banned": {
@@ -1991,7 +2195,8 @@
       "postedBy": "Posted by {{name}}",
       "removed": "[removed]",
       "deleteBody": "This removes your post for everyone. This can't be undone.",
-      "deleteTitle": "Delete this post?"
+      "deleteTitle": "Delete this post?",
+      "invalidLinkUrl": "Link posts must use a valid http:// or https:// URL."
     },
     "community": {
       "join": "Join",
@@ -2330,7 +2535,15 @@
       "contextEmpty": "No context attached",
       "pickPagesEmpty": "Tap pages to include",
       "pickPagesSelected_one": "{{count}} page selected",
-      "pickPagesSelected_other": "{{count}} pages selected"
+      "pickPagesSelected_other": "{{count}} pages selected",
+      "resumeSummaryPrompt": "Summarize the part of this book I've read so far, up to page {{page}}. Focus on the key ideas and how they build up so I can pick up where I left off.",
+      "newConversationFailed": "Couldn't start a new conversation. Check your connection and try again.",
+      "resumeSummary": "Summarize where I left off (p.{{page}})",
+      "pagesContextNote": "Pages with no text layer are sent as page images; figures on text pages aren't attached automatically, turn on \"Send as images\" in the page picker if you need them.",
+      "customizeContext": "Customize what pages get sent to the AI",
+      "contextPagesEditAria": "Choose which pages get sent to the AI",
+      "contextPagesEmpty": "Pick pages",
+      "customizeContextAction": "Customize"
     },
     "comments": {
       "close": "Close comments",
@@ -2344,6 +2557,26 @@
       "fromLibrary": "From library",
       "openFile": "Open a file",
       "title": "No book open"
+    },
+    "inlineDraw": {
+      "width": "Stroke width",
+      "color": "Colour",
+      "deleteSelected": "Delete selected",
+      "undo": "Undo last",
+      "clearPage": "Clear this page",
+      "clearAllConfirm": "Erase every drawing on every page of this book?",
+      "clearAll": "Clear every page",
+      "exit": "Exit draw mode"
+    },
+    "openFailed": "Couldn't open this document. It may be corrupt or unsupported.",
+    "screenshotFailed": "Couldn't capture the screenshot. Please try again.",
+    "aiCitation": {
+      "openPopoverAria": "View AI conversations citing this passage",
+      "singleTitle": "Sent to AI · click to view conversation",
+      "multiTitle": "Sent to AI in {{count}} conversations",
+      "popoverTitle": "Sent to AI · {{count}} times",
+      "untitledMessage": "(untitled message)",
+      "untitledConv": "Untitled chat"
     }
   },
   "quizzes": {
@@ -2456,7 +2689,8 @@
         "bookNotLoaded": "Book isn't loaded yet.",
         "emptySource": "Paste or type source text to generate from.",
         "parseFailed": "Couldn't parse the AI response as JSON. Try again with a shorter source or a different provider."
-      }
+      },
+      "cancelGeneration": "Cancel"
     },
     "take": {
       "progress": "Question {{current}} of {{total}}",
@@ -2492,7 +2726,11 @@
       "sessionResult_one": "{{correct}} / {{total}} correct ({{pct}}%)",
       "sessionResult_other": "{{correct}} / {{total}} correct ({{pct}}%)",
       "loadMore": "Load more",
-      "signInRequired": "Sign in to review your questions."
+      "signInRequired": "Sign in to review your questions.",
+      "markedCorrect": "Marked correct",
+      "markedIncorrect": "Marked incorrect",
+      "markIncorrect": "Mark as incorrect",
+      "markCorrect": "I was actually right"
     }
   },
   "vocabulary": {
@@ -2528,14 +2766,18 @@
       "allCaughtUp_one": "Nicely done - {{count}} card reviewed.",
       "allCaughtUp_other": "Nicely done - {{count}} cards reviewed.",
       "reveal": "Reveal (space)",
-      "noContext": "No surrounding context was captured for this word."
+      "noContext": "No surrounding context was captured for this word.",
+      "cramHint": "Cram mode: ratings don't change the FSRS schedule",
+      "cramBadge": "Cram"
     },
     "rating": {
       "again": "Again",
       "hard": "Hard",
       "good": "Good",
       "easy": "Easy"
-    }
+    },
+    "cramHint": "Practice any card without changing the spaced-repetition schedule",
+    "cram": "Cram"
   },
   "tts": {
     "previous": "Previous sentence",
@@ -2617,6 +2859,36 @@
     }
   },
   "spaces": {
+    "list": {
+      "joinCodeTrigger": "Join with code",
+      "termAll": "Term: all",
+      "rowCount_one": "{{count}} space",
+      "rowCount_other": "{{count}} spaces",
+      "courseCount_one": "{{count}} course",
+      "courseCount_other": "{{count}} courses",
+      "colName": "Name",
+      "colType": "Type",
+      "colTerm": "Term",
+      "discover": "Discover public spaces",
+      "emptyRoot": "You don't have any spaces yet.",
+      "emptyDrilled": "No courses in this space yet.",
+      "emptyFiltered": "No spaces match this term.",
+      "leave": "Leave",
+      "leaveConfirmTitle": "Leave this space?",
+      "leaveConfirmBody": "You can rejoin anytime if it's public or you have an invite.",
+      "rowCount": "{{count}} spaces",
+      "courseCount": "{{count}} courses"
+    },
+    "newSpace": {
+      "trigger": "New space",
+      "heading": "Create a new space",
+      "typeLabel": "Type",
+      "nameLabel": "Name",
+      "whereLabel": "Where",
+      "whereRoot": "Root",
+      "privateLabel": "Private, invite code",
+      "error": "Could not create the space."
+    },
     "backToParent": "Parent space",
     "managedByOwner": "managed by its owner",
     "delete": {
@@ -2633,9 +2905,150 @@
       "urlFailed": "Couldn't add that URL.",
       "fromUrl": "From URL",
       "fromUrlTitle": "Add from URL",
-      "fromUrlBody": "A PDF/EPUB link becomes a course file; a web page or YouTube link is saved under course content."
+      "fromUrlBody": "A PDF/EPUB link becomes a course file; a web page or YouTube link is saved under course content.",
+      "uploadFailed": "Upload failed: {{name}}",
+      "openFailed": "Couldn't open the file.",
+      "heading": "Course files",
+      "upload": "Upload",
+      "empty": "No files yet. The course owner can upload materials here.",
+      "copyHint": "Opening a file saves a personal copy to your library, your notes and progress live there."
     },
     "askAiSeedIntro": "I'm studying the course \"{{name}}\". Its materials are:",
-    "askAiSeedOutro": "Act as a focused tutor for this course. Help me study these topics, quiz me, and explain concepts. Where should I start?"
+    "askAiSeedOutro": "Act as a focused tutor for this course. Help me study these topics, quiz me, and explain concepts. Where should I start?",
+    "coursePage": {
+      "memberChip": "Member",
+      "general": "General",
+      "untitledSection": "Untitled section",
+      "newSection": "New section",
+      "renameSection": "Rename",
+      "deleteSection": "Delete section",
+      "deleteSectionTitle": "Delete this section?",
+      "deleteSectionBody": "Its items move to General; nothing is deleted.",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "addItem": "Add item",
+      "addFile": "Upload file",
+      "addLink": "Link or content",
+      "addText": "Text",
+      "addMaterial": "Add material",
+      "moveToSection": "Move to section",
+      "removeItem": "Remove",
+      "removeItemTitle": "Remove this item?",
+      "deleteFileTitle": "Delete this file?",
+      "openFailed": "Couldn't open the file.",
+      "uploadFailed": "Upload failed: {{name}}",
+      "emptySection": "Nothing here yet.",
+      "itemCount_one": "{{count}} item",
+      "itemCount_other": "{{count}} items",
+      "itemActions": "Item actions",
+      "sectionActions": "Section actions",
+      "collapseAll": "Collapse all",
+      "expandAll": "Expand all",
+      "progress": {
+        "label": "Progress",
+        "toggle": "Mark as done"
+      },
+      "dnd": {
+        "dragSection": "Drag to reorder",
+        "dragItem": "Drag to reorder"
+      },
+      "nav": {
+        "heading": "Navigation",
+        "collapse": "Collapse navigation",
+        "expand": "Show navigation",
+        "collapseNode": "Collapse",
+        "expandNode": "Expand",
+        "general": "General",
+        "empty": "No spaces yet."
+      },
+      "itemCount": "{{count}} item",
+      "official": "Official"
+    },
+    "startSeed": {
+      "intro": "I am starting to study the course \"{{name}}\"{{org}}{{term}}.",
+      "general": "- General:",
+      "materials": "The course page is organised like this:",
+      "outro": "Act as my tutor for this course. First ask me two short questions: what my goal is (exam date, grade) and how well I know the material so far. Then propose a short study plan built on the sections above."
+    },
+    "childrenHeading": "Courses & spaces",
+    "openSource": "Open source",
+    "notFound": "This space could not be found.",
+    "back": "Back to spaces",
+    "sharedAnswers": "Shared answers",
+    "addContent": "Add content",
+    "addTerm": "Add term",
+    "addChild": "New space",
+    "leaveCourse": "Leave course",
+    "ownerChip": "Owner",
+    "enroll": "Enroll",
+    "offeringsHeading": "Terms",
+    "offeringsEmptyOwner": "No term yet, add one so it's clear when the course runs.",
+    "removeTerm": "Remove term",
+    "termLabel": "Term",
+    "termStarts": "Starts (optional)",
+    "termEnds": "Ends (optional)",
+    "termStatus": "Status",
+    "childName": "Name",
+    "childNamePlaceholder": "e.g. Matek felkészítő",
+    "childKind": "Kind",
+    "childVisibility": "Visibility",
+    "contentTitle": "Title",
+    "contentTitlePlaceholder": "e.g. Intro lecture video",
+    "contentUrl": "URL (optional)",
+    "contentKind": "Kind",
+    "invite": {
+      "failed": "Couldn't generate a code.",
+      "heading": "Invite",
+      "copied": "Code copied.",
+      "copy": "Copy code",
+      "rotate": "New code",
+      "hint": "Members enter this code on the Spaces page to join.",
+      "generate": "Generate invite code"
+    },
+    "signInPrompt": "Sign in to browse and create spaces.",
+    "title": "Spaces",
+    "discoverEmpty": "No public spaces to show.",
+    "subtitle": "Communities & courses, organizations, courses, and topics.",
+    "join": "Join",
+    "joinCode": {
+      "tooMany": "Too many failed attempts. Try again in an hour.",
+      "invalid": "That code doesn't match any course.",
+      "heading": "Join with an invite code",
+      "join": "Join",
+      "placeholder": "e.g. 4f9a2c1b"
+    },
+    "create": "Create",
+    "kind": {
+      "course": "Course",
+      "org": "Organization"
+    },
+    "namePlaceholder": "Name (e.g. BME, BSz1, Health)"
+  },
+  "offline": {
+    "banner": "You're offline. Changes are saved locally and will sync when you're back online."
+  },
+  "feedbackPrompt": {
+    "errorGeneric": "Couldn't send. Try again from Settings → Feedback.",
+    "aria": "Feedback prompt",
+    "thanks": "Thanks for the feedback!",
+    "composeTitle": "Tell us a bit more (optional)",
+    "title": "How's Pnyxy treating you?",
+    "dismiss": "Maybe later",
+    "love": "Loving it",
+    "fine": "It's fine",
+    "frustrated": "Frustrating",
+    "placeholderFrustrated": "What's bugging you? We read every reply.",
+    "placeholder": "Anything you'd like us to know, features, bugs, ideas.",
+    "send": "Send"
+  },
+  "gallery": {
+    "titleScoped": "Course answers",
+    "title": "Shared answers",
+    "subtitle": "Helpful AI answers people chose to share. Learn from the best prompts and responses.",
+    "signInPrompt": "Sign in to browse shared answers.",
+    "empty": "No shared answers yet, share a helpful answer from a chat with the Share button.",
+    "showLess": "Show less",
+    "showMore": "Show more",
+    "upvote": "Upvote"
   }
 }

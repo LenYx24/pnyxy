@@ -61,9 +61,7 @@ type Translate = (key: string, opts?: Record<string, unknown>) => string;
 export function isQuickChatsFolder(folder: ChatFolder, t: Translate): boolean {
   const name = folder.name.trim().toLowerCase();
   if (name === "quick chats" || name === "gyors chatek") return true;
-  const localized = t("chat.sidebar.quickChats", { defaultValue: "Quick chats" })
-    .trim()
-    .toLowerCase();
+  const localized = t("chat.sidebar.quickChats").trim().toLowerCase();
   return name === localized;
 }
 

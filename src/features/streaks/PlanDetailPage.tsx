@@ -770,7 +770,7 @@ function PlanItemRow({
         <select
           value={item.bookKey}
           onChange={(e) => onPickBook(e.target.value)}
-          className="min-w-0 flex-1 rounded border border-glass-border bg-bg-primary/50 px-2 py-1 text-sm text-text-primary outline-none focus:border-accent"
+          className="field px-2.5 py-1.5 text-xs min-w-0 flex-1"
         >
           <option value="">{t("readingPlans.detail.pickBook")}</option>
           {books.map((b) => (

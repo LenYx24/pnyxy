@@ -28,6 +28,7 @@ import {
   progressFraction,
   totalEstimatedMinutes,
 } from "./lib/scheduler";
+import { isSafeExternalUrl } from "@/lib/safe-url";
 import type { ResourceRef } from "@/types/roadmap";
 import {
   displayProgressPct,
@@ -230,9 +231,7 @@ export function RoadmapDetailPage() {
             <div className="relative h-full">
               {enrollment && (
                 <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full border border-glass-border bg-bg-secondary/90 px-3 py-1 text-xs text-text-secondary shadow-sm backdrop-blur">
-                  {t("roadmaps.nodeClickHint", {
-                    defaultValue: "Tip: click a node to mark it complete",
-                  })}
+                  {t("roadmaps.nodeClickHint")}
                 </div>
               )}
               <RoadmapGraph
@@ -258,7 +257,9 @@ export function RoadmapDetailPage() {
               <DeadlinePicker
                 roadmap={roadmap}
                 enrollment={enrollment}
-                onChange={(date, mult) => setDeadline(enrollment.id, date, mult)}
+                onChange={(date, mult) =>
+                  setDeadline(enrollment.id, date, mult)
+                }
               />
             )}
             {selectedNode && (
@@ -523,9 +524,9 @@ function ReferenceRow({ refItem }: { refItem: ResourceRef }) {
       </Link>
     );
   }
-  if (refItem.url) {
+  if (refItem.url && isSafeExternalUrl(refItem.url)) {
     return (
-      <a href={refItem.url} target="_blank" rel="noreferrer">
+      <a href={refItem.url} target="_blank" rel="noopener noreferrer">
         {inner}
       </a>
     );

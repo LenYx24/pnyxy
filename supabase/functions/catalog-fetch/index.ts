@@ -6,6 +6,7 @@
 import "../_shared/deno-shim.ts";
 import { corsFor, handleOptions, json } from "../_shared/http.ts";
 import { requireUser } from "../_shared/auth.ts";
+import { safeFetch, SafeFetchError } from "../_shared/safe-fetch.ts";
 
 // Tight whitelist. Only add sources after confirming they host PD /
 // open-licensed works. A wildcard proxy would be abused as a privacy
@@ -23,6 +24,10 @@ const ALLOWED_HOSTS = [
 ];
 
 const MAX_FETCH_BYTES = 50 * 1024 * 1024; // 50 MB
+// No timeout existed before this SSRF hardening pass (bare `fetch`,
+// `redirect: "follow"`); safeFetch requires one, 60 s is generous for
+// a public-domain book download over a slow connection.
+const TIMEOUT_MS = 60_000;
 
 const CORS_METHODS = "GET, OPTIONS";
 
@@ -77,9 +82,11 @@ Deno.serve(async (req) => {
   // Not all hosts answer HEAD (MEK sometimes returns 405), treat
   // a non-2xx HEAD as "size unknown" and fall through to streaming.
   try {
-    const head = await fetch(targetUrl.toString(), {
+    const head = await safeFetch(targetUrl.toString(), {
       method: "HEAD",
-      redirect: "follow",
+      maxBytes: MAX_FETCH_BYTES,
+      timeoutMs: TIMEOUT_MS,
+      allowHosts: hostAllowed,
     });
     if (head.ok) {
       const lenStr = head.headers.get("content-length");
@@ -90,15 +97,27 @@ Deno.serve(async (req) => {
         }
       }
     }
-  } catch {
-    // HEAD failures aren't fatal, fall through to GET.
+  } catch (err) {
+    if (err instanceof SafeFetchError && err.code === "blocked_host") {
+      return jsonError(403, "host_not_allowed");
+    }
+    // Other HEAD failures aren't fatal, fall through to GET.
   }
 
-  // ── Stream the file back ───────────────────────────────────
+  // ── Stream the file back, size-capped on the actual bytes read
+  // (not just Content-Length, which an upstream can lie about) ──
   let upstream: Response;
   try {
-    upstream = await fetch(targetUrl.toString(), { redirect: "follow" });
-  } catch {
+    upstream = await safeFetch(targetUrl.toString(), {
+      maxBytes: MAX_FETCH_BYTES,
+      timeoutMs: TIMEOUT_MS,
+      allowHosts: hostAllowed,
+    });
+  } catch (err) {
+    if (err instanceof SafeFetchError) {
+      if (err.code === "blocked_host") return jsonError(403, "host_not_allowed");
+      if (err.code === "timeout") return jsonError(504, "upstream_timeout");
+    }
     return jsonError(502, "upstream_fetch_failed");
   }
   if (!upstream.ok) {
@@ -114,6 +133,9 @@ Deno.serve(async (req) => {
     "Content-Type": contentType,
     "Cache-Control": "public, max-age=3600",
   };
+  // Content-Length is passed through only as a hint; if the upstream
+  // understates it and the actual body exceeds MAX_FETCH_BYTES, the
+  // counting stream aborts mid-response rather than trusting the header.
   if (contentLength) headers["Content-Length"] = contentLength;
 
   return new Response(upstream.body, {

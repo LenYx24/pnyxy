@@ -172,11 +172,7 @@ export function TodayPanel() {
           enrollment,
           roadmap,
           nodeId: node.id,
-          nodeTitle:
-            node.title ||
-            t("home.today.untitledNode", {
-              defaultValue: "Untitled step",
-            }),
+          nodeTitle: node.title || t("home.today.untitledNode"),
           estimatedMinutes: node.estimatedMinutes ?? 0,
           dueDate: sched.dueDate,
         });
@@ -262,13 +258,9 @@ export function TodayPanel() {
       <header>
         <h2 className="flex items-center gap-2 text-lg font-semibold text-text-primary">
           <CalendarClock size={16} className="text-accent" />
-          {t("home.today.heading", { defaultValue: "Today" })}
+          {t("home.today.heading")}
         </h2>
-        <p className="text-xs text-text-muted">
-          {t("home.today.subtitle", {
-            defaultValue: "What's queued up for you across plans and roadmaps.",
-          })}
-        </p>
+        <p className="text-xs text-text-muted">{t("home.today.subtitle")}</p>
       </header>
       {hasAny ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -285,10 +277,7 @@ export function TodayPanel() {
         </div>
       ) : (
         <GlassCard className="p-4 text-xs text-text-muted">
-          {t("home.today.emptyState", {
-            defaultValue:
-              "Nothing queued for today. Open a book, start a reading plan, or enroll in a roadmap to see actionable items here.",
-          })}
+          {t("home.today.emptyState")}
         </GlassCard>
       )}
     </section>
@@ -321,9 +310,7 @@ function ReadingPlanCard({
       <header className="flex items-center gap-2">
         <BookOpen size={14} className="text-accent" />
         <h3 className="text-sm font-semibold text-text-primary">
-          {t("home.today.readingPlansTitle", {
-            defaultValue: "Reading today",
-          })}
+          {t("home.today.readingPlansTitle")}
         </h3>
       </header>
       <ul className="space-y-2.5">
@@ -342,14 +329,10 @@ function ReadingPlanCard({
               >
                 <div className="mb-1 flex items-center justify-between gap-2 text-xs">
                   <span className="truncate font-medium text-text-primary">
-                    {plan.plan.title ||
-                      t("readingPlans.untitled", {
-                        defaultValue: "Untitled plan",
-                      })}
+                    {plan.plan.title || t("readingPlans.untitled")}
                   </span>
                   <span className="shrink-0 text-text-muted">
                     {t("home.today.pagesLeft", {
-                      defaultValue: "{{count}} pages",
                       count: pagesLeft,
                     })}
                   </span>
@@ -388,9 +371,7 @@ function RoadmapDueCard({
       <header className="flex items-center gap-2">
         <MapIcon size={14} className="text-accent" />
         <h3 className="text-sm font-semibold text-text-primary">
-          {t("home.today.roadmapDueTitle", {
-            defaultValue: "Roadmap steps due",
-          })}
+          {t("home.today.roadmapDueTitle")}
         </h3>
       </header>
       <ul className="space-y-1.5">
@@ -416,8 +397,8 @@ function RoadmapDueCard({
                     {item.estimatedMinutes > 0
                       ? `~${item.estimatedMinutes}m`
                       : overdue
-                        ? t("home.today.overdue", { defaultValue: "overdue" })
-                        : t("home.today.dueToday", { defaultValue: "today" })}
+                        ? t("home.today.overdue")
+                        : t("home.today.dueToday")}
                   </span>
                 </div>
                 <div className="truncate text-2xs text-text-muted">
@@ -440,15 +421,12 @@ function QuizDueCard({ count }: { count: number }) {
       <header className="flex items-center gap-2">
         <Brain size={14} className="text-accent" />
         <h3 className="text-sm font-semibold text-text-primary">
-          {t("home.today.quizDueTitle", {
-            defaultValue: "Review queue",
-          })}
+          {t("home.today.quizDueTitle")}
         </h3>
       </header>
       <p className="text-2xl font-bold text-text-primary">{count}</p>
       <p className="text-xs text-text-muted">
         {t("home.today.quizDueBody", {
-          defaultValue: "{{count}} cards are due for review.",
           count,
         })}
       </p>
@@ -457,7 +435,7 @@ function QuizDueCard({ count }: { count: number }) {
         onClick={() => navigate("/quizzes/review")}
         className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-md bg-accent/15 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/25 cursor-pointer"
       >
-        {t("home.today.startReview", { defaultValue: "Start review" })}
+        {t("home.today.startReview")}
         <ArrowRight size={12} />
       </button>
     </GlassCard>
@@ -487,9 +465,7 @@ function ContinueReadingCard({
       <header className="flex items-center gap-2">
         <BookOpen size={14} className="text-accent" />
         <h3 className="text-sm font-semibold text-text-primary">
-          {t("home.today.continueTitle", {
-            defaultValue: "Continue reading",
-          })}
+          {t("home.today.continueTitle")}
         </h3>
       </header>
       <button
@@ -519,9 +495,7 @@ function ContinueReadingCard({
             <p className="line-clamp-1 text-2xs text-text-muted">{author}</p>
           )}
           <p className="mt-1 text-2xs text-text-muted">
-            {t("home.today.continueResumeHint", {
-              defaultValue: "Pick up where you left off",
-            })}
+            {t("home.today.continueResumeHint")}
           </p>
         </div>
       </button>

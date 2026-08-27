@@ -42,7 +42,7 @@ export function PromptGalleryPage() {
           className="inline-flex items-center gap-1.5 text-sm text-text-muted transition-colors hover:text-text-primary cursor-pointer"
         >
           <ArrowLeft size={16} />
-          {t("common.back", { defaultValue: "Back" })}
+          {t("common.back")}
         </button>
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10">
@@ -51,20 +51,13 @@ export function PromptGalleryPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold text-text-primary">
-                {isScoped
-                  ? t("gallery.titleScoped", { defaultValue: "Course answers" })
-                  : t("gallery.title", { defaultValue: "Shared answers" })}
+                {isScoped ? t("gallery.titleScoped") : t("gallery.title")}
               </h1>
               <span className="rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-2xs font-medium uppercase tracking-wide text-accent">
-                {t("common.beta", { defaultValue: "Beta" })}
+                {t("common.beta")}
               </span>
             </div>
-            <p className="text-xs text-text-muted">
-              {t("gallery.subtitle", {
-                defaultValue:
-                  "Helpful AI answers people chose to share. Learn from the best prompts and responses.",
-              })}
-            </p>
+            <p className="text-xs text-text-muted">{t("gallery.subtitle")}</p>
           </div>
         </div>
       </div>
@@ -73,9 +66,7 @@ export function PromptGalleryPage() {
       {!user ? (
         <section className="rounded-xl border border-glass-border bg-glass-bg/50 p-6 text-center">
           <p className="mb-4 text-text-secondary">
-            {t("gallery.signInPrompt", {
-              defaultValue: "Sign in to browse shared answers.",
-            })}
+            {t("gallery.signInPrompt")}
           </p>
           <Link to="/auth">
             <Button>
@@ -98,12 +89,7 @@ export function PromptGalleryPage() {
             size={28}
             className="mx-auto mb-3 text-text-muted/60"
           />
-          <p className="text-sm text-text-secondary">
-            {t("gallery.empty", {
-              defaultValue:
-                "No shared answers yet, share a helpful answer from a chat with the Share button.",
-            })}
-          </p>
+          <p className="text-sm text-text-secondary">{t("gallery.empty")}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -184,12 +170,12 @@ function AnswerCard({
           {expanded ? (
             <>
               <ChevronUp size={14} />
-              {t("gallery.showLess", { defaultValue: "Show less" })}
+              {t("gallery.showLess")}
             </>
           ) : (
             <>
               <ChevronDown size={14} />
-              {t("gallery.showMore", { defaultValue: "Show more" })}
+              {t("gallery.showMore")}
             </>
           )}
         </button>
@@ -208,18 +194,15 @@ function AnswerCard({
           type="button"
           onClick={() => void toggleVote(answer.id)}
           aria-pressed={hasVoted}
-          aria-label={t("gallery.upvote", { defaultValue: "Upvote" })}
-          title={t("gallery.upvote", { defaultValue: "Upvote" })}
+          aria-label={t("gallery.upvote")}
+          title={t("gallery.upvote")}
           className={`ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium transition-colors cursor-pointer ${
             hasVoted
               ? "bg-accent/10 text-accent"
               : "text-text-muted hover:bg-glass-hover hover:text-text-primary"
           }`}
         >
-          <ArrowBigUp
-            size={14}
-            className={hasVoted ? "fill-accent" : ""}
-          />
+          <ArrowBigUp size={14} className={hasVoted ? "fill-accent" : ""} />
           {answer.upvotes}
         </button>
         {canDelete && (
@@ -227,10 +210,10 @@ function AnswerCard({
             type="button"
             onClick={onDelete}
             className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-danger cursor-pointer"
-            title={t("common.delete", { defaultValue: "Delete" })}
+            title={t("common.delete")}
           >
             <Trash2 size={12} />
-            {t("common.delete", { defaultValue: "Delete" })}
+            {t("common.delete")}
           </button>
         )}
       </div>

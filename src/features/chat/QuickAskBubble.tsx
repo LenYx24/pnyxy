@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { ArrowUp, Maximize2, RotateCcw, X } from "lucide-react";
+import { ArrowUp, Eye, Maximize2, RotateCcw, X } from "lucide-react";
 import { IconButton, TypingIndicator } from "@/components/ui";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { useIsMobile } from "@/hooks/use-media-query";
@@ -19,6 +19,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useChatStore } from "@/stores/chat-store";
 import { supabase } from "@/lib/supabase";
 import { streamChatResponse, isAbortError } from "@/lib/ai/ai-client";
+import { ContextInspectorModal } from "./ContextInspectorModal";
 import { renderMarkdown } from "@/lib/ai/markdown-message";
 import { logError } from "@/lib/logger";
 import { track } from "@/lib/telemetry";
@@ -42,6 +43,7 @@ export function QuickAskBubble() {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -73,7 +75,7 @@ export function QuickAskBubble() {
     setInput("");
     setError(null);
     setStreaming(true);
-    track("chat_send", { quick: true });
+    track("chat_send", { scope: "chat", quick: true });
     try {
       // lazily create the conversation in the shared Quick chats folder
       let cid = convId;
@@ -100,8 +102,16 @@ export function QuickAskBubble() {
         .select("id")
         .single();
       if (userErr || !userRow) throw userErr ?? new Error("insert failed");
-      const userMsg: QuickMsg = { id: userRow.id as string, role: "user", content: text };
-      setMsgs((m) => [...m, userMsg, { id: null, role: "assistant", content: "" }]);
+      const userMsg: QuickMsg = {
+        id: userRow.id as string,
+        role: "user",
+        content: text,
+      };
+      setMsgs((m) => [
+        ...m,
+        userMsg,
+        { id: null, role: "assistant", content: "" },
+      ]);
 
       // stream: default routing, no doc context (this is the whole point)
       const history = [...msgs, userMsg].map((m) => ({
@@ -130,7 +140,10 @@ export function QuickAskBubble() {
       if (aiRow) {
         setMsgs((m) => {
           const next = [...m];
-          next[next.length - 1] = { ...next[next.length - 1], id: aiRow.id as string };
+          next[next.length - 1] = {
+            ...next[next.length - 1],
+            id: aiRow.id as string,
+          };
           return next;
         });
         await supabase
@@ -143,14 +156,12 @@ export function QuickAskBubble() {
     } catch (err) {
       if (!isAbortError(err)) {
         logError("quick-ask:send", err);
-        setError(
-          t("chat.quickAsk.error", {
-            defaultValue: "Something went wrong, try again.",
-          }),
-        );
+        setError(t("chat.quickAsk.error"));
         // drop the empty streaming placeholder if it's still there
         setMsgs((m) =>
-          m.length > 0 && m[m.length - 1].role === "assistant" && !m[m.length - 1].content
+          m.length > 0 &&
+          m[m.length - 1].role === "assistant" &&
+          !m[m.length - 1].content
             ? m.slice(0, -1)
             : m,
         );
@@ -167,19 +178,28 @@ export function QuickAskBubble() {
       className="pop-in fixed bottom-4 right-4 z-40 flex max-h-[70vh] w-80 flex-col gap-2 rounded-panel bg-bg-tertiary p-3 shadow-page"
       style={{ transformOrigin: "bottom right" }}
       role="dialog"
-      aria-label={t("chat.quickAsk.title", { defaultValue: "Quick ask" })}
+      aria-label={t("chat.quickAsk.title")}
     >
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-text-primary">
-          {t("chat.quickAsk.title", { defaultValue: "Quick ask" })}
+          {t("chat.quickAsk.title")}
         </span>
         <div className="flex items-center gap-0.5 text-text-muted">
+          <IconButton
+            size="sm"
+            onClick={() => setInspectorOpen(true)}
+            title={t("chat.contextInspector.open")}
+            aria-label={t("chat.contextInspector.open")}
+            aria-haspopup="dialog"
+          >
+            <Eye size={15} strokeWidth={1.5} />
+          </IconButton>
           {msgs.length > 0 && (
             <IconButton
               size="sm"
               onClick={reset}
-              title={t("chat.quickAsk.new", { defaultValue: "New question" })}
-              aria-label={t("chat.quickAsk.new", { defaultValue: "New question" })}
+              title={t("chat.quickAsk.new")}
+              aria-label={t("chat.quickAsk.new")}
             >
               <RotateCcw size={15} strokeWidth={1.5} />
             </IconButton>
@@ -192,12 +212,8 @@ export function QuickAskBubble() {
                 navigate(`/chat/${convId}`);
                 reset();
               }}
-              title={t("chat.quickAsk.expand", {
-                defaultValue: "Open as full chat",
-              })}
-              aria-label={t("chat.quickAsk.expand", {
-                defaultValue: "Open as full chat",
-              })}
+              title={t("chat.quickAsk.expand")}
+              aria-label={t("chat.quickAsk.expand")}
             >
               <Maximize2 size={15} strokeWidth={1.5} />
             </IconButton>
@@ -205,8 +221,8 @@ export function QuickAskBubble() {
           <IconButton
             size="sm"
             onClick={() => setOpen(false)}
-            title={t("common.close", { defaultValue: "Close" })}
-            aria-label={t("common.close", { defaultValue: "Close" })}
+            title={t("common.close")}
+            aria-label={t("common.close")}
           >
             <X size={15} strokeWidth={1.5} />
           </IconButton>
@@ -231,7 +247,9 @@ export function QuickAskBubble() {
                 key={m.id ?? i}
                 className="ai-message break-words text-text-secondary"
                 // renderMarkdown output is DOMPurify-sanitized
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content, null) }}
+                dangerouslySetInnerHTML={{
+                  __html: renderMarkdown(m.content, null),
+                }}
               />
             ) : (
               <div key={i} className="text-text-muted">
@@ -254,9 +272,7 @@ export function QuickAskBubble() {
           ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={t("chat.quickAsk.placeholder", {
-            defaultValue: "Ask anything…",
-          })}
+          placeholder={t("chat.quickAsk.placeholder")}
           className="field bg-bg-secondary text-[13px]"
         />
         <button
@@ -271,6 +287,13 @@ export function QuickAskBubble() {
           <ArrowUp size={15} strokeWidth={1.5} />
         </button>
       </form>
+      <ContextInspectorModal
+        open={inspectorOpen}
+        onClose={() => setInspectorOpen(false)}
+        docId={null}
+        docTitle={null}
+        conversationId={convId}
+      />
     </div>
   );
 }

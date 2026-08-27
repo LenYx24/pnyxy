@@ -98,10 +98,7 @@ export function AnnotationMenuTranslatePanel({
       setError("");
       try {
         const data = await translateViaMyMemory(text, source, target);
-        if (
-          data.responseStatus === 200 &&
-          data.responseData?.translatedText
-        ) {
+        if (data.responseStatus === 200 && data.responseData?.translatedText) {
           setTranslated(data.responseData.translatedText);
         } else {
           setError(
@@ -130,7 +127,9 @@ export function AnnotationMenuTranslatePanel({
   }, [setSourceLanguage, setTargetLanguage, targetLanguage, effectiveSource]);
 
   return (
-    <div className={cn("flex flex-col gap-2.5 p-1", fullWidth ? "w-full" : "w-72")}>
+    <div
+      className={cn("flex flex-col gap-2.5 p-1", fullWidth ? "w-full" : "w-72")}
+    >
       <div className="flex items-center gap-1.5">
         <Languages size={14} className="text-accent" />
         <span className="text-xs font-medium text-text-primary">
@@ -146,22 +145,16 @@ export function AnnotationMenuTranslatePanel({
       {/* Language pickers: source ⇄ target */}
       <div className="flex items-end gap-2">
         <LangSelect
-          label={t("reader.annotationMenu.translateSourceLabel", {
-            defaultValue: "From",
-          })}
+          label={t("reader.annotationMenu.translateSourceLabel")}
           value={sourceLanguage}
           onChange={(e) => setSourceLanguage(e.target.value)}
-          autoLabel={t("reader.annotationMenu.translateAutoDetect", {
-            defaultValue: "Auto-detect",
-          })}
+          autoLabel={t("reader.annotationMenu.translateAutoDetect")}
           autoHint={sourceLanguage === "auto" ? effectiveSource : undefined}
         />
         <button
           type="button"
           onClick={handleSwap}
-          title={t("reader.annotationMenu.translateSwap", {
-            defaultValue: "Swap languages",
-          })}
+          title={t("reader.annotationMenu.translateSwap")}
           className="mb-0.5 shrink-0 rounded-control bg-bg-tertiary p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-accent cursor-pointer"
         >
           <ArrowLeftRight size={13} />
@@ -241,7 +234,7 @@ function LangSelect({
         <select
           value={value}
           onChange={onChange}
-          className="w-full cursor-pointer appearance-none rounded-md border border-glass-border bg-bg-tertiary py-1.5 pl-2.5 pr-7 text-xs text-text-primary outline-none transition-colors hover:border-glass-hover focus:border-accent focus:ring-1 focus:ring-accent/30"
+          className="field px-2.5 py-1.5 text-xs w-full cursor-pointer"
         >
           {autoLabel && (
             <option value="auto">

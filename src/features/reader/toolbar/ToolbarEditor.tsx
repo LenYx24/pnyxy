@@ -83,7 +83,7 @@ function IconChip({ id, dragging }: { id: string; dragging?: boolean }) {
   if (isSeparator(id)) {
     return (
       <div
-        title={t("reader.toolbar.separator", { defaultValue: "Separator" })}
+        title={t("reader.toolbar.separator")}
         className={cn(
           "flex h-7 w-5 items-center justify-center rounded-[8px] select-none",
           dragging
@@ -113,8 +113,14 @@ function IconChip({ id, dragging }: { id: string; dragging?: boolean }) {
 }
 
 function SortableChip({ id }: { id: string }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
   return (
     <div
       ref={setNodeRef}
@@ -193,10 +199,13 @@ export function ToolbarEditor({
   const [activeId, setActiveId] = useState<string | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
 
-  const handleDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
+  const handleDragStart = (e: DragStartEvent) =>
+    setActiveId(String(e.active.id));
 
   const handleDragOver = (e: DragOverEvent) => {
     const { active, over } = e;
@@ -287,14 +296,11 @@ export function ToolbarEditor({
       {/* edit banner */}
       <div className="flex items-center justify-between gap-3 px-4 py-2">
         <span className="min-w-0 truncate text-2xs text-text-muted">
-          {t("reader.toolbar.customizeHint", {
-            defaultValue:
-              "Drag icons between the left / center / right zones and the ⋮ menu. Pull from the palette to add, drag back to remove.",
-          })}
+          {t("reader.toolbar.customizeHint")}
         </span>
         <div className="flex shrink-0 items-center gap-2">
           <label className="flex items-center gap-1.5 text-2xs text-text-muted">
-            {t("reader.toolbar.iconPadding", { defaultValue: "Icon padding" })}
+            {t("reader.toolbar.iconPadding")}
             <input
               type="number"
               min={TOOLBAR_PADY_MIN}
@@ -312,7 +318,7 @@ export function ToolbarEditor({
             className="chip flex items-center gap-1.5 px-2.5 py-1 text-2xs text-text-secondary hover:text-text-primary cursor-pointer"
           >
             <Plus size={13} />
-            {t("reader.toolbar.addSeparator", { defaultValue: "Separator" })}
+            {t("reader.toolbar.addSeparator")}
           </button>
           <button
             type="button"
@@ -320,7 +326,7 @@ export function ToolbarEditor({
             className="chip flex items-center gap-1.5 px-2.5 py-1 text-2xs text-text-secondary hover:text-text-primary cursor-pointer"
           >
             <RotateCcw size={13} />
-            {t("reader.toolbar.customizeReset", { defaultValue: "Reset" })}
+            {t("reader.toolbar.customizeReset")}
           </button>
           <button
             type="button"
@@ -328,7 +334,7 @@ export function ToolbarEditor({
             className="flex items-center gap-1.5 rounded-chip bg-text-primary px-3 py-1 text-2xs font-medium text-bg-primary transition-opacity hover:opacity-90 cursor-pointer"
           >
             <Check size={13} />
-            {t("reader.toolbar.customizeDone", { defaultValue: "Done" })}
+            {t("reader.toolbar.customizeDone")}
           </button>
         </div>
       </div>
@@ -346,7 +352,12 @@ export function ToolbarEditor({
           className="flex items-center gap-2 overflow-hidden px-2 sm:px-4"
           style={{ height: style.height + 16 }}
         >
-          <DropZone id="left" items={containers.left} variant="bar" align="start" />
+          <DropZone
+            id="left"
+            items={containers.left}
+            variant="bar"
+            align="start"
+          />
           <DropZone
             id="center"
             items={containers.center}
@@ -365,9 +376,7 @@ export function ToolbarEditor({
           onPointerDown={onHeightPointerDown}
           onPointerMove={onHeightPointerMove}
           onPointerUp={onHeightPointerUp}
-          title={t("reader.toolbar.dragHeight", {
-            defaultValue: "Drag to resize height",
-          })}
+          title={t("reader.toolbar.dragHeight")}
           className="group flex h-3 cursor-ns-resize items-center justify-center gap-2 transition-colors hover:bg-bg-secondary"
         >
           <div className="h-0.5 w-10 rounded-full bg-text-muted/40 group-hover:bg-text-primary" />
@@ -380,15 +389,17 @@ export function ToolbarEditor({
         <div className="flex flex-wrap gap-4 px-4 pb-3 pt-1">
           <div className="flex min-w-[10rem] flex-1 flex-col gap-1">
             <span className="text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
-              {t("reader.toolbar.zoneOverflow", { defaultValue: "More menu (⋮)" })}
+              {t("reader.toolbar.zoneOverflow")}
             </span>
-            <DropZone id="overflow" items={containers.overflow} variant="tray" />
+            <DropZone
+              id="overflow"
+              items={containers.overflow}
+              variant="tray"
+            />
           </div>
           <div className="flex min-w-[10rem] flex-1 flex-col gap-1">
             <span className="text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
-              {t("reader.toolbar.customizePalette", {
-                defaultValue: "Available icons",
-              })}
+              {t("reader.toolbar.customizePalette")}
             </span>
             <DropZone id="palette" items={containers.palette} variant="tray" />
           </div>

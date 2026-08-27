@@ -1,6 +1,11 @@
 import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { MessageSquare, Link as LinkIcon, FileText, Trash2 } from "lucide-react";
+import {
+  MessageSquare,
+  Link as LinkIcon,
+  FileText,
+  Trash2,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useAuthStore } from "@/stores/auth-store";
 import { usePostStore } from "@/stores/post-store";
@@ -42,11 +47,9 @@ export function PostCard({ post, communitySlug }: PostCardProps) {
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const ok = await confirm({
-      title: t("forum.post.deleteTitle", { defaultValue: "Delete this post?" }),
-      body: t("forum.post.deleteBody", {
-        defaultValue: "This removes your post for everyone. This can't be undone.",
-      }),
-      confirmLabel: t("common.delete", { defaultValue: "Delete" }),
+      title: t("forum.post.deleteTitle"),
+      body: t("forum.post.deleteBody"),
+      confirmLabel: t("common.delete"),
       danger: true,
     });
     if (!ok) return;
@@ -135,10 +138,10 @@ export function PostCard({ post, communitySlug }: PostCardProps) {
               type="button"
               onClick={handleDelete}
               className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-text-muted transition-colors hover:bg-danger/10 hover:text-danger cursor-pointer"
-              aria-label={t("common.delete", { defaultValue: "Delete" })}
+              aria-label={t("common.delete")}
             >
               <Trash2 size={12} />
-              <span>{t("common.delete", { defaultValue: "Delete" })}</span>
+              <span>{t("common.delete")}</span>
             </button>
           )}
         </div>

@@ -90,7 +90,7 @@ export function CreateCategoryModal({ open, onClose }: CreateCategoryModalProps)
           <select
             value={parentId}
             onChange={(e) => setParentId(e.target.value)}
-            className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2 text-sm text-text-primary focus:border-accent/50 focus:outline-none"
+            className="field w-full"
           >
             <option value="">No parent (top-level)</option>
             {categories.map((cat) => (

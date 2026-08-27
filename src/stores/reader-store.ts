@@ -6,6 +6,7 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { getFeatures } from "@/lib/use-features";
 import { getTracker, type TrackerContext } from "@/lib/reading-trackers";
 import { hostEventBus } from "@/lib/plugins/api/events";
+import { track } from "@/lib/telemetry";
 
 // "auto" = fit width capped at 100%, "actual" = intrinsic size. Resolved to a scale in PdfViewer.
 export type ZoomMode =
@@ -225,6 +226,11 @@ function clampProgress(value: number, totalPages: number): number {
 }
 
 /** Notify the active tracker about a page change and persist. */
+// reader_page_view throttle: at most one event per doc per 30s, so a fast
+// scroll/flip session doesn't flood the telemetry queue.
+const READER_PAGE_VIEW_THROTTLE_MS = 30_000;
+const lastPageViewTrackedAt = new Map<string, number>();
+
 function recordPageChange(
   documents: Map<string, DocumentState>,
   docId: string,
@@ -233,6 +239,12 @@ function recordPageChange(
 ): Map<string, DocumentState> {
   const doc = documents.get(docId);
   if (!doc) return documents;
+
+  const now = Date.now();
+  if (now - (lastPageViewTrackedAt.get(docId) ?? 0) >= READER_PAGE_VIEW_THROTTLE_MS) {
+    lastPageViewTrackedAt.set(docId, now);
+    track("reader_page_view", { doc: docId, page: to });
+  }
 
   const tracker = getTracker(useSettingsStore.getState().activeTrackerId);
   let nextProgress = doc.progressPage;
@@ -254,465 +266,414 @@ function recordPageChange(
   return next;
 }
 
-export const useReaderStore = create<ReaderState>((set, get) => ({
-  documents: new Map(),
-  activeDocumentId: null,
-  activeCitation: null,
+export const useReaderStore = create<ReaderState>((set, get) => {
+  /** Resolve `docId` (default: the active doc), look up its DocumentState,
+   *  and no-op when either is missing. The common "resolve id, get doc,
+   *  bail" preamble shared by most per-document actions below. */
+  function withDoc<T>(
+    docId: string | undefined,
+    fn: (
+      doc: DocumentState,
+      id: string,
+      documents: Map<string, DocumentState>,
+    ) => T,
+  ): T | undefined {
+    const id = docId ?? get().activeDocumentId;
+    if (!id) return undefined;
+    const documents = get().documents;
+    const doc = documents.get(id);
+    if (!doc) return undefined;
+    return fn(doc, id, documents);
+  }
 
-  getActiveDoc() {
-    const { documents, activeDocumentId } = get();
-    if (!activeDocumentId) return undefined;
-    return documents.get(activeDocumentId);
-  },
+  return {
+    documents: new Map(),
+    activeDocumentId: null,
+    activeCitation: null,
 
-  async addDocument(adapter, file) {
-    const meta = await adapter.load(file);
-    const toc = await adapter.extractToc();
+    getActiveDoc() {
+      const { documents, activeDocumentId } = get();
+      if (!activeDocumentId) return undefined;
+      return documents.get(activeDocumentId);
+    },
 
-    let customTitle: string | null = null;
-    let zoomMode: ZoomMode = useSettingsStore.getState().defaultFitMode;
-    let lastPosition = 1;
-    let progressPage = 0;
-    let scrollOffset = 0;
-    let cfi: string | null = null;
-    let lastReadAt: string | null = null;
+    async addDocument(adapter, file) {
+      const meta = await adapter.load(file);
+      const toc = await adapter.extractToc();
 
-    // Local IndexedDB read, works offline.
-    let stored: Awaited<ReturnType<typeof loadDocumentMeta>>;
-    try {
-      stored = await loadDocumentMeta(meta.id);
-      if (stored?.customTitle) customTitle = stored.customTitle;
-      if (isFitMode(stored?.zoomMode)) {
-        zoomMode = stored.zoomMode;
-      }
-      if (typeof stored?.lastPosition === "number") {
-        lastPosition = clampProgress(stored.lastPosition, meta.totalPages) || 1;
-      }
-      if (typeof stored?.progressPage === "number") {
-        progressPage = clampProgress(stored.progressPage, meta.totalPages);
-      }
-      if (typeof stored?.scrollOffset === "number") {
-        scrollOffset = stored.scrollOffset;
-      }
-      if (typeof stored?.cfi === "string") cfi = stored.cfi;
-      if (typeof stored?.updatedAt === "number") {
-        lastReadAt = new Date(stored.updatedAt).toISOString();
-      }
-    } catch {
-      // ignore
-    }
+      let customTitle: string | null = null;
+      let zoomMode: ZoomMode = useSettingsStore.getState().defaultFitMode;
+      let lastPosition = 1;
+      let progressPage = 0;
+      let scrollOffset = 0;
+      let cfi: string | null = null;
+      let lastReadAt: string | null = null;
 
-    // Cloud read, overrides local when newer. Skipped when offline/unauth.
-    try {
-      const cloud = await fetchResumeState(meta.id);
-      if (cloud) {
-        // cloud row is the authoritative last-seen timestamp
-        lastReadAt = cloud.updated_at;
-        const cloudTs = new Date(cloud.updated_at).getTime();
-        const localTs = stored?.updatedAt ?? 0;
-        if (cloudTs > localTs) {
-          const cloudPage = clampProgress(cloud.page, meta.totalPages) || 1;
-          lastPosition = cloudPage;
-          scrollOffset = cloud.scroll_offset ?? 0;
-          cfi = cloud.cfi ?? null;
+      // Local IndexedDB read, works offline.
+      let stored: Awaited<ReturnType<typeof loadDocumentMeta>>;
+      try {
+        stored = await loadDocumentMeta(meta.id);
+        if (stored?.customTitle) customTitle = stored.customTitle;
+        if (isFitMode(stored?.zoomMode)) {
+          zoomMode = stored.zoomMode;
+        }
+        if (typeof stored?.lastPosition === "number") {
+          lastPosition = clampProgress(stored.lastPosition, meta.totalPages) || 1;
+        }
+        if (typeof stored?.progressPage === "number") {
+          progressPage = clampProgress(stored.progressPage, meta.totalPages);
+        }
+        if (typeof stored?.scrollOffset === "number") {
+          scrollOffset = stored.scrollOffset;
+        }
+        if (typeof stored?.cfi === "string") cfi = stored.cfi;
+        if (typeof stored?.updatedAt === "number") {
+          lastReadAt = new Date(stored.updatedAt).toISOString();
+        }
+      } catch {
+        // ignore
+      }
+
+      // Cloud read, overrides local when newer. Skipped when offline/unauth.
+      try {
+        const cloud = await fetchResumeState(meta.id);
+        if (cloud) {
+          // cloud row is the authoritative last-seen timestamp
+          lastReadAt = cloud.updated_at;
+          const cloudTs = new Date(cloud.updated_at).getTime();
+          const localTs = stored?.updatedAt ?? 0;
+          if (cloudTs > localTs) {
+            const cloudPage = clampProgress(cloud.page, meta.totalPages) || 1;
+            lastPosition = cloudPage;
+            scrollOffset = cloud.scroll_offset ?? 0;
+            cfi = cloud.cfi ?? null;
+          }
+        }
+      } catch {
+        // ignore, local copy already loaded above
+      }
+
+      // Pre-fill AI selection around the resume position so chat has context on open.
+      const initialAiPages =
+        autoPagesAround(meta.format, meta.totalPages, lastPosition) ??
+        new Set<number>();
+
+      const docState: DocumentState = {
+        adapter,
+        meta,
+        toc,
+        currentPage: lastPosition,
+        totalPages: meta.totalPages,
+        zoomMode,
+        zoomLevel: 100,
+        pageRotation: 0,
+        scrollToPage: lastPosition > 1 ? lastPosition : null,
+        customTitle,
+        lastPosition,
+        progressPage,
+        scrollOffset,
+        cfi,
+        lastReadAt,
+        aiSelectedPages: initialAiPages,
+        aiSelectionAnchor: null,
+        aiSendPagesAsImage: false,
+        aiPagesAutoMode: true,
+      };
+
+      const next = new Map(get().documents);
+      // Single-document mode (pilot default): opening a book replaces the
+      // ones already open instead of stacking tabs.
+      if (!getFeatures().multiDoc) {
+        for (const [id, doc] of next) {
+          if (id !== meta.id) {
+            doc.adapter.dispose();
+            next.delete(id);
+          }
         }
       }
-    } catch {
-      // ignore, local copy already loaded above
-    }
+      next.set(meta.id, docState);
+      set({ documents: next, activeDocumentId: meta.id });
+      hostEventBus.emit("book:opened", { docId: meta.id, title: meta.title });
+      return meta.id;
+    },
 
-    // Pre-fill AI selection around the resume position so chat has context on open.
-    const initialAiPages =
-      autoPagesAround(meta.format, meta.totalPages, lastPosition) ??
-      new Set<number>();
+    removeDocument(docId) {
+      const { documents, activeDocumentId } = get();
+      const doc = documents.get(docId);
+      if (doc) doc.adapter.dispose();
 
-    const docState: DocumentState = {
-      adapter,
-      meta,
-      toc,
-      currentPage: lastPosition,
-      totalPages: meta.totalPages,
-      zoomMode,
-      zoomLevel: 100,
-      pageRotation: 0,
-      scrollToPage: lastPosition > 1 ? lastPosition : null,
-      customTitle,
-      lastPosition,
-      progressPage,
-      scrollOffset,
-      cfi,
-      lastReadAt,
-      aiSelectedPages: initialAiPages,
-      aiSelectionAnchor: null,
-      aiSendPagesAsImage: false,
-      aiPagesAutoMode: true,
-    };
+      const next = new Map(documents);
+      next.delete(docId);
 
-    const next = new Map(get().documents);
-    // Single-document mode (pilot default): opening a book replaces the
-    // ones already open instead of stacking tabs.
-    if (!getFeatures().multiDoc) {
-      for (const [id, doc] of next) {
-        if (id !== meta.id) {
-          doc.adapter.dispose();
-          next.delete(id);
-        }
+      let newActive = activeDocumentId;
+      if (activeDocumentId === docId) {
+        const remaining = Array.from(next.keys());
+        newActive = remaining.length > 0 ? remaining[remaining.length - 1] : null;
       }
-    }
-    next.set(meta.id, docState);
-    set({ documents: next, activeDocumentId: meta.id });
-    hostEventBus.emit("book:opened", { docId: meta.id, title: meta.title });
-    return meta.id;
-  },
 
-  removeDocument(docId) {
-    const { documents, activeDocumentId } = get();
-    const doc = documents.get(docId);
-    if (doc) doc.adapter.dispose();
+      set({ documents: next, activeDocumentId: newActive });
+      hostEventBus.emit("book:closed", { docId });
+    },
 
-    const next = new Map(documents);
-    next.delete(docId);
+    setActiveDocument(docId) {
+      set({ activeDocumentId: docId });
+    },
 
-    let newActive = activeDocumentId;
-    if (activeDocumentId === docId) {
-      const remaining = Array.from(next.keys());
-      newActive = remaining.length > 0 ? remaining[remaining.length - 1] : null;
-    }
-
-    set({ documents: next, activeDocumentId: newActive });
-    hostEventBus.emit("book:closed", { docId });
-  },
-
-  setActiveDocument(docId) {
-    set({ activeDocumentId: docId });
-  },
-
-  goToPage(page, docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const { documents } = get();
-    const doc = documents.get(id);
-    if (!doc) return;
-    const clamped = Math.min(Math.max(page, 1), doc.totalPages);
-    if (doc.totalPages <= 0 || clamped === doc.currentPage) return;
-    // reset scrollOffset so imperative jumps land at page top (setCurrentPage keeps it)
-    const updated = recordPageChange(
-      updateDoc(documents, id, {
-        currentPage: clamped,
-        scrollToPage: clamped,
-        scrollOffset: 0,
-        ...autoFollowUpdate(doc, clamped),
-      }),
-      id,
-      doc.currentPage,
-      clamped,
-    );
-    set({ documents: updated });
-  },
-
-  nextPage(docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const { documents } = get();
-    const doc = documents.get(id);
-    if (!doc) return;
-    const next = Math.min(doc.currentPage + 1, doc.totalPages);
-    if (next === doc.currentPage) return;
-    const updated = recordPageChange(
-      updateDoc(documents, id, {
-        currentPage: next,
-        scrollToPage: next,
-        scrollOffset: 0,
-        ...autoFollowUpdate(doc, next),
-      }),
-      id,
-      doc.currentPage,
-      next,
-    );
-    set({ documents: updated });
-  },
-
-  prevPage(docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const { documents } = get();
-    const doc = documents.get(id);
-    if (!doc) return;
-    const prev = Math.max(doc.currentPage - 1, 1);
-    if (prev === doc.currentPage) return;
-    const updated = recordPageChange(
-      updateDoc(documents, id, {
-        currentPage: prev,
-        scrollToPage: prev,
-        scrollOffset: 0,
-        ...autoFollowUpdate(doc, prev),
-      }),
-      id,
-      doc.currentPage,
-      prev,
-    );
-    set({ documents: updated });
-  },
-
-  zoomIn(docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const { documents } = get();
-    const doc = documents.get(id);
-    if (!doc) return;
-    const next = Math.min(doc.zoomLevel + ZOOM_STEP, ZOOM_MAX);
-    set({ documents: updateDoc(documents, id, { zoomLevel: next, zoomMode: "custom" }) });
-  },
-
-  zoomOut(docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const { documents } = get();
-    const doc = documents.get(id);
-    if (!doc) return;
-    const next = Math.max(doc.zoomLevel - ZOOM_STEP, ZOOM_MIN);
-    set({ documents: updateDoc(documents, id, { zoomLevel: next, zoomMode: "custom" }) });
-  },
-
-  setZoomMode(mode, docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    set({ documents: updateDoc(get().documents, id, { zoomMode: mode }) });
-    // Persist fit mode per-document (not custom)
-    if (mode !== "custom") {
-      loadDocumentMeta(id).then((existing) => {
-        saveDocumentMeta({ documentId: id, ...existing, zoomMode: mode });
-      }).catch(() => {
-        saveDocumentMeta({ documentId: id, zoomMode: mode });
+    goToPage(page, docId) {
+      withDoc(docId, (doc, id, documents) => {
+        const clamped = Math.min(Math.max(page, 1), doc.totalPages);
+        if (doc.totalPages <= 0 || clamped === doc.currentPage) return;
+        // reset scrollOffset so imperative jumps land at page top (setCurrentPage keeps it)
+        const updated = recordPageChange(
+          updateDoc(documents, id, {
+            currentPage: clamped,
+            scrollToPage: clamped,
+            scrollOffset: 0,
+            ...autoFollowUpdate(doc, clamped),
+          }),
+          id,
+          doc.currentPage,
+          clamped,
+        );
+        set({ documents: updated });
       });
-    }
-  },
+    },
 
-  setZoomLevel(level, docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    set({
-      documents: updateDoc(get().documents, id, {
-        zoomLevel: Math.min(Math.max(level, ZOOM_MIN), ZOOM_MAX),
-        zoomMode: "custom",
-      }),
-    });
-  },
+    nextPage(docId) {
+      withDoc(docId, (doc) => get().goToPage(doc.currentPage + 1, docId));
+    },
 
-  rotatePage(direction, docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const doc = get().documents.get(id);
-    if (!doc) return;
-    // Wrap modulo 360 to stay in the 0/90/180/270 domain.
-    const next = (((doc.pageRotation + direction * 90) % 360) + 360) %
-      360 as 0 | 90 | 180 | 270;
-    set({
-      documents: updateDoc(get().documents, id, { pageRotation: next }),
-    });
-  },
+    prevPage(docId) {
+      withDoc(docId, (doc) => get().goToPage(doc.currentPage - 1, docId));
+    },
 
-  setCurrentPage(page, docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const { documents } = get();
-    const doc = documents.get(id);
-    if (!doc) return;
-    if (page === doc.currentPage) return;
-    const updated = recordPageChange(
-      updateDoc(documents, id, {
-        currentPage: page,
-        ...autoFollowUpdate(doc, page),
-      }),
-      id,
-      doc.currentPage,
-      page,
-    );
-    set({ documents: updated });
-  },
+    zoomIn(docId) {
+      withDoc(docId, (doc, id, documents) => {
+        const next = Math.min(doc.zoomLevel + ZOOM_STEP, ZOOM_MAX);
+        set({ documents: updateDoc(documents, id, { zoomLevel: next, zoomMode: "custom" }) });
+      });
+    },
 
-  requestScrollToPage(page, docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const doc = get().documents.get(id);
-    if (!doc) return;
-    if (page >= 1 && page <= doc.totalPages) {
-      // reset offset or PdfViewer reuses the stale value and overshoots into page N+1
+    zoomOut(docId) {
+      withDoc(docId, (doc, id, documents) => {
+        const next = Math.max(doc.zoomLevel - ZOOM_STEP, ZOOM_MIN);
+        set({ documents: updateDoc(documents, id, { zoomLevel: next, zoomMode: "custom" }) });
+      });
+    },
+
+    setZoomMode(mode, docId) {
+      const id = docId ?? get().activeDocumentId;
+      if (!id) return;
+      set({ documents: updateDoc(get().documents, id, { zoomMode: mode }) });
+      // Persist fit mode per-document (not custom)
+      if (mode !== "custom") {
+        loadDocumentMeta(id).then((existing) => {
+          saveDocumentMeta({ documentId: id, ...existing, zoomMode: mode });
+        }).catch(() => {
+          saveDocumentMeta({ documentId: id, zoomMode: mode });
+        });
+      }
+    },
+
+    setZoomLevel(level, docId) {
+      const id = docId ?? get().activeDocumentId;
+      if (!id) return;
       set({
         documents: updateDoc(get().documents, id, {
-          scrollToPage: page,
-          scrollOffset: 0,
+          zoomLevel: Math.min(Math.max(level, ZOOM_MIN), ZOOM_MAX),
+          zoomMode: "custom",
         }),
       });
-    }
-  },
+    },
 
-  clearScrollRequest(docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    set({ documents: updateDoc(get().documents, id, { scrollToPage: null }) });
-  },
+    rotatePage(direction, docId) {
+      withDoc(docId, (doc, id, documents) => {
+        // Wrap modulo 360 to stay in the 0/90/180/270 domain.
+        const next = (((doc.pageRotation + direction * 90) % 360) + 360) %
+          360 as 0 | 90 | 180 | 270;
+        set({
+          documents: updateDoc(documents, id, { pageRotation: next }),
+        });
+      });
+    },
 
-  setCustomTitle(title, docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const doc = get().documents.get(id);
-    if (!doc) return;
-    set({ documents: updateDoc(get().documents, id, { customTitle: title }) });
-    saveDocumentMeta({ documentId: id, customTitle: title });
-  },
+    setCurrentPage(page, docId) {
+      withDoc(docId, (doc, id, documents) => {
+        if (page === doc.currentPage) return;
+        const updated = recordPageChange(
+          updateDoc(documents, id, {
+            currentPage: page,
+            ...autoFollowUpdate(doc, page),
+          }),
+          id,
+          doc.currentPage,
+          page,
+        );
+        set({ documents: updated });
+      });
+    },
 
-  getDisplayTitle(docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return "Untitled";
-    const doc = get().documents.get(id);
-    if (!doc) return "Untitled";
-    return doc.customTitle || doc.meta.title || "Untitled";
-  },
+    requestScrollToPage(page, docId) {
+      withDoc(docId, (doc, id, documents) => {
+        if (page >= 1 && page <= doc.totalPages) {
+          // reset offset or PdfViewer reuses the stale value and overshoots into page N+1
+          set({
+            documents: updateDoc(documents, id, {
+              scrollToPage: page,
+              scrollOffset: 0,
+            }),
+          });
+        }
+      });
+    },
 
-  manualSetProgress(page, docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const { documents } = get();
-    const doc = documents.get(id);
-    if (!doc) return;
+    clearScrollRequest(docId) {
+      const id = docId ?? get().activeDocumentId;
+      if (!id) return;
+      set({ documents: updateDoc(get().documents, id, { scrollToPage: null }) });
+    },
 
-    const tracker = getTracker(useSettingsStore.getState().activeTrackerId);
-    if (!tracker.onManualSet) return;
-    const result = tracker.onManualSet(buildTrackerContext(doc), page);
-    if (typeof result !== "number") return;
-    const next = clampProgress(result, doc.totalPages);
-    if (next === doc.progressPage) return;
-    set({ documents: updateDoc(documents, id, { progressPage: next }) });
-    schedulePersistProgress(id);
-  },
+    setCustomTitle(title, docId) {
+      withDoc(docId, (_doc, id, documents) => {
+        set({ documents: updateDoc(documents, id, { customTitle: title }) });
+        saveDocumentMeta({ documentId: id, customTitle: title });
+      });
+    },
 
-  setScrollOffset(offset, docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const { documents } = get();
-    const doc = documents.get(id);
-    if (!doc) return;
-    // Snap to 4 decimals so sub-pixel scroll jitter doesn't spam persists.
-    const clamped = Math.max(0, Math.min(1, offset));
-    const rounded = Math.round(clamped * 10000) / 10000;
-    if (Math.abs(rounded - doc.scrollOffset) < 0.0001) return;
-    set({ documents: updateDoc(documents, id, { scrollOffset: rounded }) });
-    schedulePersistProgress(id);
-  },
+    getDisplayTitle(docId) {
+      return (
+        withDoc(docId, (doc) => doc.customTitle || doc.meta.title || "Untitled") ??
+        "Untitled"
+      );
+    },
 
-  setCfi(cfi, docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const { documents } = get();
-    const doc = documents.get(id);
-    if (!doc || doc.cfi === cfi) return;
-    set({ documents: updateDoc(documents, id, { cfi }) });
-    schedulePersistProgress(id);
-  },
+    manualSetProgress(page, docId) {
+      withDoc(docId, (doc, id, documents) => {
+        const tracker = getTracker(useSettingsStore.getState().activeTrackerId);
+        if (!tracker.onManualSet) return;
+        const result = tracker.onManualSet(buildTrackerContext(doc), page);
+        if (typeof result !== "number") return;
+        const next = clampProgress(result, doc.totalPages);
+        if (next === doc.progressPage) return;
+        set({ documents: updateDoc(documents, id, { progressPage: next }) });
+        schedulePersistProgress(id);
+      });
+    },
 
-  toggleAiPage(page, docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const doc = get().documents.get(id);
-    if (!doc) return;
-    if (page < 1 || page > doc.totalPages) return;
-    const next = new Set(doc.aiSelectedPages);
-    if (next.has(page)) next.delete(page);
-    else next.add(page);
-    set({
-      documents: updateDoc(get().documents, id, {
-        aiSelectedPages: next,
-        aiSelectionAnchor: page,
-        // manual edit leaves auto-mode so navigation won't clobber the choice
-        aiPagesAutoMode: false,
-      }),
-    });
-  },
+    setScrollOffset(offset, docId) {
+      withDoc(docId, (doc, id, documents) => {
+        // Snap to 4 decimals so sub-pixel scroll jitter doesn't spam persists.
+        const clamped = Math.max(0, Math.min(1, offset));
+        const rounded = Math.round(clamped * 10000) / 10000;
+        if (Math.abs(rounded - doc.scrollOffset) < 0.0001) return;
+        set({ documents: updateDoc(documents, id, { scrollOffset: rounded }) });
+        schedulePersistProgress(id);
+      });
+    },
 
-  selectAiPageRange(from, to, docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const doc = get().documents.get(id);
-    if (!doc) return;
-    const lo = Math.max(1, Math.min(from, to));
-    const hi = Math.min(doc.totalPages, Math.max(from, to));
-    if (hi < lo) return;
-    const next = new Set(doc.aiSelectedPages);
-    for (let p = lo; p <= hi; p++) next.add(p);
-    set({
-      documents: updateDoc(get().documents, id, {
-        aiSelectedPages: next,
-        aiSelectionAnchor: to,
-        aiPagesAutoMode: false,
-      }),
-    });
-  },
+    setCfi(cfi, docId) {
+      withDoc(docId, (doc, id, documents) => {
+        if (doc.cfi === cfi) return;
+        set({ documents: updateDoc(documents, id, { cfi }) });
+        schedulePersistProgress(id);
+      });
+    },
 
-  selectAllAiPages(docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const doc = get().documents.get(id);
-    if (!doc || doc.totalPages <= 0) return;
-    const next = new Set<number>();
-    for (let p = 1; p <= doc.totalPages; p++) next.add(p);
-    set({
-      documents: updateDoc(get().documents, id, {
-        aiSelectedPages: next,
-        aiSelectionAnchor: doc.totalPages,
-        aiPagesAutoMode: false,
-      }),
-    });
-  },
+    toggleAiPage(page, docId) {
+      withDoc(docId, (doc, id, documents) => {
+        if (page < 1 || page > doc.totalPages) return;
+        const next = new Set(doc.aiSelectedPages);
+        if (next.has(page)) next.delete(page);
+        else next.add(page);
+        set({
+          documents: updateDoc(documents, id, {
+            aiSelectedPages: next,
+            aiSelectionAnchor: page,
+            // manual edit leaves auto-mode so navigation won't clobber the choice
+            aiPagesAutoMode: false,
+          }),
+        });
+      });
+    },
 
-  clearAiPages(docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const doc = get().documents.get(id);
-    if (!doc || (doc.aiSelectedPages.size === 0 && !doc.aiPagesAutoMode)) return;
-    set({
-      documents: updateDoc(get().documents, id, {
-        aiSelectedPages: new Set(),
-        aiSelectionAnchor: null,
-        aiPagesAutoMode: false,
-      }),
-    });
-  },
+    selectAiPageRange(from, to, docId) {
+      withDoc(docId, (doc, id, documents) => {
+        const lo = Math.max(1, Math.min(from, to));
+        const hi = Math.min(doc.totalPages, Math.max(from, to));
+        if (hi < lo) return;
+        const next = new Set(doc.aiSelectedPages);
+        for (let p = lo; p <= hi; p++) next.add(p);
+        set({
+          documents: updateDoc(documents, id, {
+            aiSelectedPages: next,
+            aiSelectionAnchor: to,
+            aiPagesAutoMode: false,
+          }),
+        });
+      });
+    },
 
-  selectAiPagesAround(docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const doc = get().documents.get(id);
-    if (!doc || doc.totalPages <= 0) return;
-    const center = doc.currentPage > 0 ? doc.currentPage : 1;
-    const next = autoPagesAround(doc.meta.format, doc.totalPages, center);
-    if (!next) return;
-    set({
-      documents: updateDoc(get().documents, id, {
-        aiSelectedPages: next,
-        aiSelectionAnchor: center,
-        // back into auto-mode
-        aiPagesAutoMode: true,
-      }),
-    });
-  },
+    selectAllAiPages(docId) {
+      withDoc(docId, (doc, id, documents) => {
+        if (doc.totalPages <= 0) return;
+        const next = new Set<number>();
+        for (let p = 1; p <= doc.totalPages; p++) next.add(p);
+        set({
+          documents: updateDoc(documents, id, {
+            aiSelectedPages: next,
+            aiSelectionAnchor: doc.totalPages,
+            aiPagesAutoMode: false,
+          }),
+        });
+      });
+    },
 
-  setAiSendPagesAsImage(value, docId) {
-    const id = docId ?? get().activeDocumentId;
-    if (!id) return;
-    const doc = get().documents.get(id);
-    if (!doc || doc.aiSendPagesAsImage === value) return;
-    set({
-      documents: updateDoc(get().documents, id, {
-        aiSendPagesAsImage: value,
-      }),
-    });
-  },
+    clearAiPages(docId) {
+      withDoc(docId, (doc, id, documents) => {
+        if (doc.aiSelectedPages.size === 0 && !doc.aiPagesAutoMode) return;
+        set({
+          documents: updateDoc(documents, id, {
+            aiSelectedPages: new Set(),
+            aiSelectionAnchor: null,
+            aiPagesAutoMode: false,
+          }),
+        });
+      });
+    },
 
-  setActiveCitation(citation) {
-    set({ activeCitation: citation });
-  },
-}));
+    selectAiPagesAround(docId) {
+      withDoc(docId, (doc, id, documents) => {
+        if (doc.totalPages <= 0) return;
+        const center = doc.currentPage > 0 ? doc.currentPage : 1;
+        const next = autoPagesAround(doc.meta.format, doc.totalPages, center);
+        if (!next) return;
+        set({
+          documents: updateDoc(documents, id, {
+            aiSelectedPages: next,
+            aiSelectionAnchor: center,
+            // back into auto-mode
+            aiPagesAutoMode: true,
+          }),
+        });
+      });
+    },
+
+    setAiSendPagesAsImage(value, docId) {
+      withDoc(docId, (doc, id, documents) => {
+        if (doc.aiSendPagesAsImage === value) return;
+        set({
+          documents: updateDoc(documents, id, {
+            aiSendPagesAsImage: value,
+          }),
+        });
+      });
+    },
+
+    setActiveCitation(citation) {
+      set({ activeCitation: citation });
+    },
+  };
+});
 
 // Selector hooks
 

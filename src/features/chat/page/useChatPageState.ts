@@ -6,7 +6,12 @@
  * draft. Sidebar and thread own their own local state.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router";
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -59,7 +64,6 @@ export function useChatPageState(scope?: ChatPageScope) {
     fetchFolders,
     createConversation,
     openConversation,
-    ensureQuickChatsFolder,
   } = useChatStore(
     useShallow((s) => ({
       conversations: s.conversations,
@@ -73,7 +77,6 @@ export function useChatPageState(scope?: ChatPageScope) {
       fetchFolders: s.fetchFolders,
       createConversation: s.createConversation,
       openConversation: s.openConversation,
-      ensureQuickChatsFolder: s.ensureQuickChatsFolder,
     })),
   );
   const { confirm, ConfirmModalElement } = useConfirm();
@@ -81,16 +84,37 @@ export function useChatPageState(scope?: ChatPageScope) {
   // Drill-in: when set, the sidebar tree treats this folder as its root so
   // the user can focus on one topic. null = the general (all chats) view.
   // Lives here (not in the sidebar) because a new chat lands in it.
-  const [chatRootFolderId, setChatRootFolderId] = useState<string | null>(null);
+  // Drilled sidebar folder lives in the URL (?folder=<id>) so a reload or a
+  // shared link lands in the same folder and back/forward walks the drill-in.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const chatRootFolderId = searchParams.get("folder");
+  const setChatRootFolderId = useCallback(
+    (id: string | null) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (id) next.set("folder", id);
+          else next.delete("folder");
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   // in book-scoped mode, only this book's conversations (forks copy the
   // source_doc_id, so they come along too)
   const visibleConversations = useMemo(
     () =>
-      scope
-        ? conversations.filter((c) => c.source_doc_id === scope.docId)
-        : conversations,
-    [scope, conversations],
+      conversations.filter((c) => {
+        // archived live under the quick view's Archive section only;
+        // temporary chats never enter the history (their own stays open)
+        if (c.archived_at) return false;
+        if (c.is_temporary && c.id !== activeId) return false;
+        return scope ? c.source_doc_id === scope.docId : true;
+      }),
+    [scope, conversations, activeId],
   );
   // new conversations started here inherit the book as their source context
   const scopeSource = useMemo<ScopeSource>(
@@ -121,6 +145,43 @@ export function useChatPageState(scope?: ChatPageScope) {
     };
   }, [user, fetchConversations, fetchFolders]);
 
+  // browser-extension hand-off: /chat?q=<selection>&src=<pageUrl>&title=<pageTitle>
+  // (the "Ask Pnyxy about this" context-menu entry / popup). Turns into a
+  // pending draft, quoted selection plus a source line, before the reader
+  // hand-off effect below drains it. Deleting q/src/title from the URL as
+  // soon as they're read makes this idempotent (StrictMode's double effect,
+  // a re-render) without needing its own "already ran" guard.
+  useEffect(() => {
+    if (scope) return;
+    const q = searchParams.get("q");
+    if (!q) return;
+    const src = searchParams.get("src");
+    const title = searchParams.get("title");
+    const quoted = q
+      .split("\n")
+      .map((line) => `> ${line}`)
+      .join("\n");
+    const lines = [quoted];
+    if (src) {
+      lines.push(
+        "",
+        t("chat.extension.sourceLine", { title: title || src, url: src }),
+      );
+    }
+    useChatStore.getState().setPendingDraft({ text: lines.join("\n") });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("q");
+        next.delete("src");
+        next.delete("title");
+        return next;
+      },
+      { replace: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, searchParams]);
+
   // reader hand-off: drain a stashed draft on mount, create a source-tagged
   // conversation and prefill the composer
   useEffect(() => {
@@ -131,15 +192,23 @@ export function useChatPageState(scope?: ChatPageScope) {
     const draft = useChatStore.getState().consumePendingDraft();
     if (!draft) return;
     // prefill before the await so the draft survives an upstream error
-    setInput(draft.text);
+    // (auto-send drafts go straight out as the first message instead)
+    if (!draft.autoSend) setInput(draft.text);
+    if (draft.folderId) setChatRootFolderId(draft.folderId);
     void (async () => {
       // createConversation already opens it (sets active + empty thread)
       await createConversation(
         "",
-        null,
+        draft.folderId ?? null,
         draft.source ?? null,
         draft.target ?? null,
       );
+      if (draft.autoSend) {
+        // the only autoSend producer today is the course "Start learning" seed
+        await useChatStore
+          .getState()
+          .sendMessage(draft.text, undefined, undefined, { scope: "course" });
+      }
     })();
     // drain once per mount / sign-in
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -157,8 +226,9 @@ export function useChatPageState(scope?: ChatPageScope) {
   // Every conversation is addressable as /chat/:conversationId so threads
   // can be linked and reopened. Book-scoped pages keep their own routes.
   const params = useParams<{ conversationId?: string }>();
-  const routeConvId = scope ? null : params.conversationId ?? null;
+  const routeConvId = scope ? null : (params.conversationId ?? null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // URL -> store: deep links and back/forward restore the thread
   useEffect(() => {
@@ -170,8 +240,12 @@ export function useChatPageState(scope?: ChatPageScope) {
   // store -> URL: whatever is open, the address bar is shareable
   useEffect(() => {
     if (scope || !user) return;
+    // keep ?folder= (the drilled sidebar folder) across thread switches
     if (activeId && routeConvId !== activeId) {
-      navigate(`/chat/${activeId}`, { replace: true });
+      navigate(
+        { pathname: `/chat/${activeId}`, search: location.search },
+        { replace: true },
+      );
     } else if (
       !activeId &&
       routeConvId &&
@@ -179,9 +253,12 @@ export function useChatPageState(scope?: ChatPageScope) {
       // the store synchronously) must not be stripped back to /chat
       useChatStore.getState().activeConversationId === null
     ) {
-      navigate("/chat", { replace: true });
+      navigate(
+        { pathname: "/chat", search: location.search },
+        { replace: true },
+      );
     }
-  }, [scope, user, activeId, routeConvId, navigate]);
+  }, [scope, user, activeId, routeConvId, navigate, location.search]);
 
   // auto-open the most recent conversation on a fresh /chat, unless a
   // reader-handoff draft is in flight or a deep link names the thread
@@ -191,7 +268,14 @@ export function useChatPageState(scope?: ChatPageScope) {
     if (visibleConversations.length === 0) return;
     if (!scope && useChatStore.getState().pendingDraft !== null) return;
     void openConversation(visibleConversations[0].id);
-  }, [user, activeId, routeConvId, visibleConversations, openConversation, scope]);
+  }, [
+    user,
+    activeId,
+    routeConvId,
+    visibleConversations,
+    openConversation,
+    scope,
+  ]);
 
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeId) ?? null,
@@ -206,10 +290,7 @@ export function useChatPageState(scope?: ChatPageScope) {
       messages,
       activeLeafId,
     );
-    downloadMarkdown(
-      activeConversation.title.trim() || t("chat.untitled"),
-      md,
-    );
+    downloadMarkdown(activeConversation.title.trim() || t("chat.untitled"), md);
   }, [activeConversation, messages, activeLeafId, t]);
 
   const threadPath = useMemo(
@@ -246,9 +327,7 @@ export function useChatPageState(scope?: ChatPageScope) {
   // the background list refetch changes nothing visible.
   const warmThread = !!activeId && !threadLoading;
   const settling =
-    !!user &&
-    !warmThread &&
-    (!listFetched || autoOpenPending || threadLoading);
+    !!user && !warmThread && (!listFetched || autoOpenPending || threadLoading);
   // Where the composer will end up. Before the list is in we go by the
   // last settled layout (a wrong guess costs one silent correction while
   // the headline is hidden); once the list is in, the conversation about
@@ -270,7 +349,10 @@ export function useChatPageState(scope?: ChatPageScope) {
   useEffect(() => {
     if (settling || !user) return;
     try {
-      localStorage.setItem(SHEET_LAYOUT_KEY, threadEmpty ? "centered" : "bottom");
+      localStorage.setItem(
+        SHEET_LAYOUT_KEY,
+        threadEmpty ? "centered" : "bottom",
+      );
     } catch {
       /* storage unavailable, next visit falls back to the centered guess */
     }
@@ -285,15 +367,19 @@ export function useChatPageState(scope?: ChatPageScope) {
 
   const handleNew = async () => {
     setMobileListOpen(false);
-    // In a drilled view a new quick chat goes into that folder's own "Quick
-    // chats" subfolder; otherwise the shared one (createConversation handles
-    // null -> shared).
-    const target = chatRootFolderId
-      ? await ensureQuickChatsFolder(chatRootFolderId)
-      : null;
+    // In a drilled view the new chat lands directly in that folder (same as
+    // the folder's "New conversation here"); at the root it goes to the
+    // shared quick-chats folder (createConversation handles null -> shared).
+    const target = chatRootFolderId ?? null;
     // createConversation already sets it active with an empty thread, no need
     // for a second openConversation round-trip (that was the visible lag).
     await createConversation("", target, scopeSource);
+    focusComposer();
+  };
+  // incognito: not listed in history, purged ~24h later
+  const handleNewTemporary = async () => {
+    setMobileListOpen(false);
+    await createConversation("", null, scopeSource, null, null, true);
     focusComposer();
   };
   const handleNewRef = useRef(handleNew);
@@ -311,7 +397,6 @@ export function useChatPageState(scope?: ChatPageScope) {
 
   // Arrived via the global shortcut / a "new chat" link: state carries a
   // timestamp so repeated presses while already here start another one.
-  const location = useLocation();
   const newChatStamp = (location.state as { newChat?: number } | null)?.newChat;
   const lastNewChatStamp = useRef<number | undefined>(undefined);
   useEffect(() => {
@@ -341,7 +426,6 @@ export function useChatPageState(scope?: ChatPageScope) {
       void st.duplicateFromMessage(
         messageId,
         t("chat.forkTitle", {
-          defaultValue: "{{title}} (branch)",
           title: base,
         }),
       );
@@ -376,6 +460,7 @@ export function useChatPageState(scope?: ChatPageScope) {
     setChatRootFolderId,
     composerWrapRef,
     handleNew,
+    handleNewTemporary,
     handleEmptySuggestion,
     handleExportActive,
     confirm,

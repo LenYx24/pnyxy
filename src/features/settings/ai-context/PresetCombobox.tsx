@@ -57,7 +57,6 @@ export function PresetCombobox({
     return () => cancelAnimationFrame(id);
   }, [open]);
 
-
   const choose = (index: number) => {
     if (index < filtered.length) onSelect(filtered[index].id);
     else onCreate();
@@ -91,8 +90,7 @@ export function PresetCombobox({
         )}
       >
         <span className={cn("truncate", !selected && "text-text-muted-2")}>
-          {selected?.name ??
-            t("settings.aiContext.presets.pick", { defaultValue: "Pick a context" })}
+          {selected?.name ?? t("settings.aiContext.presets.pick")}
         </span>
         <ChevronDown size={16} className="shrink-0 text-text-muted" />
       </button>
@@ -103,7 +101,12 @@ export function PresetCombobox({
         className="w-72 py-0"
       >
         <div className="p-2">
-          <div className={cn(fieldSmClass, "flex items-center gap-2 bg-bg-secondary")}>
+          <div
+            className={cn(
+              fieldSmClass,
+              "flex items-center gap-2 bg-bg-secondary",
+            )}
+          >
             <Search size={14} className="shrink-0 text-text-muted" />
             <input
               ref={searchRef}
@@ -113,9 +116,7 @@ export function PresetCombobox({
                 setCursor(0);
               }}
               onKeyDown={onKeyDown}
-              placeholder={t("settings.aiContext.presets.search", {
-                defaultValue: "Search contexts",
-              })}
+              placeholder={t("settings.aiContext.presets.search")}
               className="min-w-0 flex-1 bg-transparent text-xs text-text-primary outline-none placeholder:text-text-muted-2"
             />
           </div>
@@ -123,7 +124,7 @@ export function PresetCombobox({
         <ul role="listbox" className="max-h-64 overflow-y-auto pb-1">
           {filtered.length === 0 && (
             <li className="px-3 py-2 text-xs text-text-muted">
-              {t("settings.aiContext.presets.noMatch", { defaultValue: "No match" })}
+              {t("settings.aiContext.presets.noMatch")}
             </li>
           )}
           {filtered.map((p, i) => (
@@ -132,13 +133,22 @@ export function PresetCombobox({
                 type="button"
                 onMouseEnter={() => setCursor(i)}
                 onClick={() => choose(i)}
-                className={cn(rowClass, cursor === i && "bg-glass-hover text-text-primary")}
+                className={cn(
+                  rowClass,
+                  cursor === i && "bg-glass-hover text-text-primary",
+                )}
               >
                 <span className="min-w-0 flex-1 truncate">{p.name}</span>
                 {p.id === defaultId && (
-                  <Star size={12} className="shrink-0 text-text-muted" aria-label="default" />
+                  <Star
+                    size={12}
+                    className="shrink-0 text-text-muted"
+                    aria-label="default"
+                  />
                 )}
-                {p.id === selectedId && <Check size={14} className="shrink-0" />}
+                {p.id === selectedId && (
+                  <Check size={14} className="shrink-0" />
+                )}
               </button>
             </li>
           ))}
@@ -149,11 +159,12 @@ export function PresetCombobox({
               onClick={() => choose(filtered.length)}
               className={cn(
                 rowClass,
-                cursor === filtered.length && "bg-glass-hover text-text-primary",
+                cursor === filtered.length &&
+                  "bg-glass-hover text-text-primary",
               )}
             >
               <Plus size={14} />
-              {t("settings.aiContext.presets.new", { defaultValue: "New context" })}
+              {t("settings.aiContext.presets.new")}
             </button>
           </li>
         </ul>

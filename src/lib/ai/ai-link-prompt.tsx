@@ -1,4 +1,5 @@
 import type { TFunction } from "i18next";
+import { isSafeExternalUrl } from "@/lib/safe-url";
 
 interface ConfirmOptions {
   title: string;
@@ -23,24 +24,18 @@ export async function promptOpenAiLink(
   confirm: ConfirmFn,
   t: TFunction,
 ): Promise<void> {
+  if (!isSafeExternalUrl(url)) return;
   const ok = await confirm({
-    title: t("chat.linkWarning.title", { defaultValue: "Open this link?" }),
+    title: t("chat.linkWarning.title"),
     body: (
       <div className="space-y-3 text-sm text-text-secondary">
-        <p>
-          {t("chat.linkWarning.body", {
-            defaultValue:
-              "The AI suggested this URL. AI models can hallucinate links, verify the domain looks right before opening.",
-          })}
-        </p>
+        <p>{t("chat.linkWarning.body")}</p>
         <p className="break-all rounded bg-bg-primary/40 p-2 font-mono text-xs text-text-primary">
           {url}
         </p>
       </div>
     ),
-    confirmLabel: t("chat.linkWarning.open", {
-      defaultValue: "Open in new tab",
-    }),
+    confirmLabel: t("chat.linkWarning.open"),
   });
   if (ok) {
     window.open(url, "_blank", "noopener,noreferrer");

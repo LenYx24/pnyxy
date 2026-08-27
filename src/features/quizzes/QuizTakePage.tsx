@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { track } from "@/lib/telemetry";
 import { useQuizStore } from "@/stores/quiz-store";
 import type { SubmitAnswer } from "@/stores/quiz-store";
 import { useAuthStore } from "@/stores/auth-store";
@@ -70,8 +71,7 @@ function buildPlayOrder(quiz: Quiz, questions: QuizQuestion[]): PlayItem[] {
   return ordered.map((q) => ({
     question: q,
     optionOrder:
-      quiz.randomize_options &&
-      (q.kind === "mcq4" || q.kind === "multi_select")
+      quiz.randomize_options && (q.kind === "mcq4" || q.kind === "multi_select")
         ? shuffle([0, 1, 2, 3])
         : [0, 1, 2, 3],
   }));
@@ -109,6 +109,7 @@ export function QuizTakePage() {
         setQuestions(data.questions);
         setPlayOrder(buildPlayOrder(data.quiz, data.questions));
         setStates(initStates(data.questions.length));
+        track("quiz_start", { quiz: quizId, questions: data.questions.length });
       }
       setLoading(false);
     })();
@@ -202,6 +203,11 @@ export function QuizTakePage() {
     const answered = states
       .map((s) => s.answer)
       .filter((a): a is SubmitAnswer => a !== null);
+    track("quiz_done", {
+      score: answered.filter((a) => a.is_correct).length,
+      total: playOrder.length,
+      inline: false,
+    });
     if (!user) {
       setDone(true);
       return;
@@ -401,7 +407,7 @@ export function QuizTakePage() {
           className="gap-1"
         >
           <ArrowLeft size={14} />
-          {t("quizzes.take.previous", { defaultValue: "Previous" })}
+          {t("quizzes.take.previous")}
         </Button>
 
         <div className="flex items-center gap-2">
@@ -413,7 +419,7 @@ export function QuizTakePage() {
               className="gap-1"
             >
               <SkipForward size={14} />
-              {t("quizzes.take.skip", { defaultValue: "Skip" })}
+              {t("quizzes.take.skip")}
             </Button>
           )}
           {!st.revealed ? (
@@ -437,9 +443,7 @@ export function QuizTakePage() {
 
       {isLast && !st.revealed && answeredCount > 0 && (
         <p className="text-right text-2xs text-text-muted">
-          {t("quizzes.take.skipToFinishHint", {
-            defaultValue: "Skip to finish and see your results.",
-          })}
+          {t("quizzes.take.skipToFinishHint")}
         </p>
       )}
     </div>

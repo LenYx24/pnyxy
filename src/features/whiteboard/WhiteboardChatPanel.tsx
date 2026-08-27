@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { BotMessageSquare, ImagePlus, SquarePen, X } from "lucide-react";
+import { BotMessageSquare, Eye, ImagePlus, SquarePen, X } from "lucide-react";
 import { useChatStore, pathFromRoot } from "@/stores/chat-store";
 import {
   ChatComposer,
   type ChatComposerHandle,
   type ChatComposerSubmitPayload,
 } from "@/features/chat/ChatComposer";
+import { ContextInspectorModal } from "@/features/chat/ContextInspectorModal";
 import { MessageBubble } from "@/features/chat/MessageBubble";
 import { useAuthStore } from "@/stores/auth-store";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -59,6 +60,7 @@ export function WhiteboardChatPanel({
   const isStreaming = streamingMessageId !== null;
 
   const [input, setInput] = useState("");
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const composerRef = useRef<ChatComposerHandle>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -72,7 +74,8 @@ export function WhiteboardChatPanel({
   const activeIsForScope = activeConversation !== null;
 
   const path = useMemo(
-    () => (activeIsForScope ? pathFromRoot(messages, activeLeafId) : EMPTY_PATH),
+    () =>
+      activeIsForScope ? pathFromRoot(messages, activeLeafId) : EMPTY_PATH,
     [messages, activeLeafId, activeIsForScope],
   );
 
@@ -127,7 +130,7 @@ export function WhiteboardChatPanel({
         trimmed,
         payload.provider ?? undefined,
         payload.attachments.length > 0 ? payload.attachments : undefined,
-        payload.reasoning ? { reasoning: true } : undefined,
+        { scope: "whiteboard", ...(payload.reasoning ? { reasoning: true } : {}) },
       );
     },
     [
@@ -194,18 +197,24 @@ export function WhiteboardChatPanel({
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">
           {activeIsForScope
             ? activeConversation?.title || t("chat.untitled")
-            : t("whiteboard.chat.title", { defaultValue: "Board AI" })}
+            : t("whiteboard.chat.title")}
         </span>
+        <button
+          type="button"
+          onClick={() => setInspectorOpen(true)}
+          className={iconBtn}
+          title={t("chat.contextInspector.open")}
+          aria-label={t("chat.contextInspector.open")}
+          aria-haspopup="dialog"
+        >
+          <Eye size={17} />
+        </button>
         <button
           type="button"
           onClick={handleAttachBoard}
           className={iconBtn}
-          title={t("whiteboard.chat.attachBoard", {
-            defaultValue: "Attach a snapshot of the board",
-          })}
-          aria-label={t("whiteboard.chat.attachBoard", {
-            defaultValue: "Attach a snapshot of the board",
-          })}
+          title={t("whiteboard.chat.attachBoard")}
+          aria-label={t("whiteboard.chat.attachBoard")}
         >
           <ImagePlus size={17} />
         </button>
@@ -236,10 +245,7 @@ export function WhiteboardChatPanel({
           <div className="flex flex-col items-center gap-2 py-8 text-center">
             <BotMessageSquare size={24} className="text-text-muted/50" />
             <p className="text-xs text-text-muted">
-              {t("whiteboard.chat.empty", {
-                defaultValue:
-                  "Ask about your board, tap the image button to attach a snapshot so the AI can see what you drew.",
-              })}
+              {t("whiteboard.chat.empty")}
             </p>
           </div>
         )}
@@ -302,6 +308,13 @@ export function WhiteboardChatPanel({
         />
       </div>
       {ConfirmModalElement}
+      <ContextInspectorModal
+        open={inspectorOpen}
+        onClose={() => setInspectorOpen(false)}
+        docId={scopeId}
+        docTitle={scopeTitle}
+        conversationId={activeIsForScope ? activeConversationId : null}
+      />
     </div>
   );
 }

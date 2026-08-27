@@ -1,7 +1,10 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
+import { attachAuthors } from "@/lib/public-profiles";
 import { logError } from "@/lib/logger";
 import { containsProfanity } from "@/lib/profanity-filter";
+import { isSafeExternalUrl } from "@/lib/safe-url";
+import i18n from "@/lib/i18n";
 import type {
   ForumPostWithAuthor,
   ForumPostInsert,
@@ -100,7 +103,7 @@ export const usePostStore = create<PostState>((set, get) => ({
     try {
       const { data, count, error } = await supabase
         .from("posts")
-        .select("*, author:profiles!author_id(display_name, avatar_url)", {
+        .select("*", {
           count: "exact",
         })
         .eq("community_id", communityId)
@@ -110,7 +113,7 @@ export const usePostStore = create<PostState>((set, get) => ({
 
       if (error) throw error;
       set({
-        posts: (data as ForumPostWithAuthor[]) ?? [],
+        posts: await attachAuthors((data as ForumPostWithAuthor[]) ?? []),
         totalCount: count ?? 0,
         page: 1,
       });
@@ -131,7 +134,7 @@ export const usePostStore = create<PostState>((set, get) => ({
       const to = from + PAGE_SIZE - 1;
       const { data, error } = await supabase
         .from("posts")
-        .select("*, author:profiles!author_id(display_name, avatar_url)")
+        .select("*")
         .eq("community_id", communityId)
         .eq("is_removed", false)
         .order("created_at", { ascending: false })
@@ -139,7 +142,10 @@ export const usePostStore = create<PostState>((set, get) => ({
 
       if (error) throw error;
       set({
-        posts: [...posts, ...((data as ForumPostWithAuthor[]) ?? [])],
+        posts: [
+          ...posts,
+          ...(await attachAuthors((data as ForumPostWithAuthor[]) ?? [])),
+        ],
         page: page + 1,
       });
     } catch (err) {
@@ -154,12 +160,13 @@ export const usePostStore = create<PostState>((set, get) => ({
     try {
       const { data, error } = await supabase
         .from("posts")
-        .select("*, author:profiles!author_id(display_name, avatar_url)")
+        .select("*")
         .eq("id", postId)
         .single();
 
       if (error) throw error;
-      set({ currentPost: data as ForumPostWithAuthor });
+      const [post] = await attachAuthors([data as ForumPostWithAuthor]);
+      set({ currentPost: post });
     } catch (err) {
       logError("post:fetchPost", (err as Error).message);
     } finally {
@@ -174,7 +181,7 @@ export const usePostStore = create<PostState>((set, get) => ({
       let query = supabase
         .from("posts")
         .select(
-          "*, author:profiles!author_id(display_name, avatar_url), community:communities!community_id(slug, name)",
+          "*, community:communities!community_id(slug, name)",
         )
         .eq("is_removed", false);
 
@@ -189,7 +196,7 @@ export const usePostStore = create<PostState>((set, get) => ({
       const { data, error } = await query.range(0, PAGE_SIZE * 5 - 1);
       if (error) throw error;
 
-      let posts = (data as ForumPostWithAuthor[]) ?? [];
+      let posts = await attachAuthors((data as ForumPostWithAuthor[]) ?? []);
       if (sort === "hot") {
         posts = [...posts].sort(
           (a, b) => hotScore(b) - hotScore(a),
@@ -214,7 +221,7 @@ export const usePostStore = create<PostState>((set, get) => ({
       let query = supabase
         .from("posts")
         .select(
-          "*, author:profiles!author_id(display_name, avatar_url), community:communities!community_id(slug, name)",
+          "*, community:communities!community_id(slug, name)",
           { count: "exact" },
         )
         .eq("is_removed", false)
@@ -231,7 +238,7 @@ export const usePostStore = create<PostState>((set, get) => ({
       const { data, count, error } = await query;
       if (error) throw error;
       set({
-        posts: (data as ForumPostWithAuthor[]) ?? [],
+        posts: await attachAuthors((data as ForumPostWithAuthor[]) ?? []),
         totalCount: count ?? 0,
         page: 1,
       });
@@ -254,6 +261,13 @@ export const usePostStore = create<PostState>((set, get) => ({
     if (input.body_md && containsProfanity(input.body_md)) {
       throw new Error("Post body contains inappropriate language.");
     }
+    if (
+      input.kind === "link" &&
+      input.link_url &&
+      !isSafeExternalUrl(input.link_url)
+    ) {
+      throw new Error(i18n.t("forum.post.invalidLinkUrl"));
+    }
 
     const { data, error } = await supabase
       .from("posts")
@@ -267,12 +281,12 @@ export const usePostStore = create<PostState>((set, get) => ({
         book_id: input.book_id ?? null,
         catalog_book_id: input.catalog_book_id ?? null,
       })
-      .select("*, author:profiles!author_id(display_name, avatar_url)")
+      .select("*")
       .single();
 
     if (error) throw new Error(error.message);
 
-    const post = data as ForumPostWithAuthor;
+    const [post] = await attachAuthors([data as ForumPostWithAuthor]);
     set((state) => ({ posts: [post, ...state.posts] }));
     return post.id;
   },
@@ -301,13 +315,13 @@ export const usePostStore = create<PostState>((set, get) => ({
       // builder prunes deleted leaves.
       const { data, error } = await supabase
         .from("forum_comments")
-        .select("*, author:profiles!author_id(display_name, avatar_url)")
+        .select("*")
         .eq("post_id", postId)
         .order("created_at", { ascending: true });
 
       if (error) throw error;
       const tree = buildCommentTree(
-        (data as ForumCommentWithAuthor[]) ?? [],
+        await attachAuthors((data as ForumCommentWithAuthor[]) ?? []),
       );
       set({ comments: tree });
     } catch (err) {

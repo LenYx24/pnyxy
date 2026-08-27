@@ -34,7 +34,12 @@ const TOOLS: {
   key: string;
   fallback: string;
 }[] = [
-  { tool: "select", Icon: MousePointer2, key: "select", fallback: "Select / move" },
+  {
+    tool: "select",
+    Icon: MousePointer2,
+    key: "select",
+    fallback: "Select / move",
+  },
   { tool: "pen", Icon: Pencil, key: "pen", fallback: "Pen" },
   { tool: "rectangle", Icon: Square, key: "rectangle", fallback: "Rectangle" },
   { tool: "ellipse", Icon: Circle, key: "ellipse", fallback: "Ellipse" },
@@ -63,7 +68,7 @@ export function InlineDrawToolbar() {
 
   const currentPage = useReaderStore((s) =>
     s.activeDocumentId
-      ? s.documents.get(s.activeDocumentId)?.currentPage ?? 1
+      ? (s.documents.get(s.activeDocumentId)?.currentPage ?? 1)
       : 1,
   );
 
@@ -122,7 +127,9 @@ export function InlineDrawToolbar() {
                 : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
             )}
             title={t(`reader.inlineDraw.${key}`, { defaultValue: fallback })}
-            aria-label={t(`reader.inlineDraw.${key}`, { defaultValue: fallback })}
+            aria-label={t(`reader.inlineDraw.${key}`, {
+              defaultValue: fallback,
+            })}
           >
             <Icon size={14} />
           </button>
@@ -138,12 +145,10 @@ export function InlineDrawToolbar() {
             onClick={() => setWidth(w)}
             className={cn(
               "flex h-6 w-6 items-center justify-center rounded-md transition-colors cursor-pointer",
-              width === w
-                ? "bg-accent/20"
-                : "hover:bg-glass-hover",
+              width === w ? "bg-accent/20" : "hover:bg-glass-hover",
             )}
-            title={t("reader.inlineDraw.width", { defaultValue: "Stroke width" })}
-            aria-label={t("reader.inlineDraw.width", { defaultValue: "Stroke width" })}
+            title={t("reader.inlineDraw.width")}
+            aria-label={t("reader.inlineDraw.width")}
           >
             <span
               className="rounded-full bg-text-primary"
@@ -171,8 +176,8 @@ export function InlineDrawToolbar() {
                 : "border-transparent hover:scale-105",
             )}
             style={{ backgroundColor: c }}
-            title={t("reader.inlineDraw.color", { defaultValue: "Colour" })}
-            aria-label={t("reader.inlineDraw.color", { defaultValue: "Colour" })}
+            title={t("reader.inlineDraw.color")}
+            aria-label={t("reader.inlineDraw.color")}
           />
         ))}
 
@@ -184,8 +189,8 @@ export function InlineDrawToolbar() {
           onClick={() => removeSelected()}
           disabled={!selectedId}
           className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-danger cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-          title={t("reader.inlineDraw.deleteSelected", { defaultValue: "Delete selected" })}
-          aria-label={t("reader.inlineDraw.deleteSelected", { defaultValue: "Delete selected" })}
+          title={t("reader.inlineDraw.deleteSelected")}
+          aria-label={t("reader.inlineDraw.deleteSelected")}
         >
           <Trash2 size={14} />
         </button>
@@ -196,8 +201,8 @@ export function InlineDrawToolbar() {
           onClick={() => undoOnPage(currentPage)}
           disabled={!pageHasContent}
           className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-          title={t("reader.inlineDraw.undo", { defaultValue: "Undo last" })}
-          aria-label={t("reader.inlineDraw.undo", { defaultValue: "Undo last" })}
+          title={t("reader.inlineDraw.undo")}
+          aria-label={t("reader.inlineDraw.undo")}
         >
           <Undo2 size={14} />
         </button>
@@ -208,8 +213,8 @@ export function InlineDrawToolbar() {
           onClick={() => clearPage(currentPage)}
           disabled={!pageHasContent}
           className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-danger cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-          title={t("reader.inlineDraw.clearPage", { defaultValue: "Clear this page" })}
-          aria-label={t("reader.inlineDraw.clearPage", { defaultValue: "Clear this page" })}
+          title={t("reader.inlineDraw.clearPage")}
+          aria-label={t("reader.inlineDraw.clearPage")}
         >
           <Trash2 size={14} />
           <span className="sr-only">page</span>
@@ -221,9 +226,7 @@ export function InlineDrawToolbar() {
           onClick={() => {
             void (async () => {
               const ok = await confirm({
-                title: t("reader.inlineDraw.clearAllConfirm", {
-                  defaultValue: "Erase every drawing on every page of this book?",
-                }),
+                title: t("reader.inlineDraw.clearAllConfirm"),
                 confirmLabel: t("common.delete"),
                 danger: true,
               });
@@ -232,8 +235,8 @@ export function InlineDrawToolbar() {
           }}
           disabled={!hasAnyContent}
           className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-danger cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-          title={t("reader.inlineDraw.clearAll", { defaultValue: "Clear every page" })}
-          aria-label={t("reader.inlineDraw.clearAll", { defaultValue: "Clear every page" })}
+          title={t("reader.inlineDraw.clearAll")}
+          aria-label={t("reader.inlineDraw.clearAll")}
         >
           <span className="relative inline-flex">
             <Trash2 size={14} />
@@ -250,8 +253,8 @@ export function InlineDrawToolbar() {
           type="button"
           onClick={() => setActive(false)}
           className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-          title={t("reader.inlineDraw.exit", { defaultValue: "Exit draw mode" })}
-          aria-label={t("reader.inlineDraw.exit", { defaultValue: "Exit draw mode" })}
+          title={t("reader.inlineDraw.exit")}
+          aria-label={t("reader.inlineDraw.exit")}
         >
           <X size={14} />
         </button>

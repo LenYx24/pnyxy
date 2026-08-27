@@ -4,8 +4,14 @@
  */
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
+import { track } from "@/lib/telemetry";
 import i18n from "@/lib/i18n";
-import { isAbortError, streamChatResponse } from "@/lib/ai/ai-client";
+import {
+  AiProviderError,
+  AiStreamCutError,
+  isAbortError,
+  streamChatResponse,
+} from "@/lib/ai/ai-client";
 import { buildAiContextPack } from "@/lib/ai/ai-context";
 import {
   autoTitleConversation,
@@ -31,6 +37,52 @@ import type { ChatMessage, ChatMessageAttachment } from "@/types/chat";
 let streamAbortController: AbortController | null = null;
 
 /** Abort the in-flight stream; sendOrBranch then persists whatever streamed so far. */
+/** Localized explanation for a non-normal stop reason from the model. */
+function streamCutNotice(reason: string): string {
+  if (reason === "max_tokens" || reason === "length") {
+    return i18n.t("chat.streamCut.maxTokens");
+  }
+  if (
+    reason === "content_filter" ||
+    reason === "safety" ||
+    reason === "recitation"
+  ) {
+    return i18n.t("chat.streamCut.filter");
+  }
+  return i18n.t("chat.streamCut.other", {
+    reason,
+  });
+}
+
+/** Short machine-ish tag for the `error` column when a cut happened with no
+ *  partial text to keep (the notice itself becomes the visible content, so
+ *  `error` only needs to carry a stable category for filtering/telemetry). */
+function streamCutErrorTag(reason: string): string {
+  if (reason === "max_tokens" || reason === "length") return "cut:max_tokens";
+  if (
+    reason === "content_filter" ||
+    reason === "safety" ||
+    reason === "recitation"
+  ) {
+    return "cut:content_filter";
+  }
+  return `cut:${reason}`;
+}
+
+/** Best-effort update of the `error` column. The migration adding it may not
+ *  be applied yet on some environments, so a missing-column failure is
+ *  swallowed rather than losing the content update that already succeeded. */
+async function tryPersistError(messageId: string, error: string | null) {
+  if (!error) return;
+  const { error: updateErr } = await supabase
+    .from("chat_messages")
+    .update({ error })
+    .eq("id", messageId);
+  if (updateErr) {
+    logError("chat:sendMessage:persistError", updateErr);
+  }
+}
+
 export function abortActiveStream() {
   streamAbortController?.abort();
   streamAbortController = null;
@@ -50,9 +102,7 @@ export async function sendOrBranch(
 
   // The context pack is built before inserting the user row so page-as-image
   // attachments are saved on the message; re-streams/branches then pull them from the DB.
-  const convForBuild = get().conversations.find(
-    (c) => c.id === conversationId,
-  );
+  const convForBuild = get().conversations.find((c) => c.id === conversationId);
   const sourceDocId = convForBuild?.source_doc_id ?? null;
   let contextPack: Awaited<ReturnType<typeof buildAiContextPack>>;
   try {
@@ -72,6 +122,13 @@ export async function sendOrBranch(
   // valid if there's text or at least one attachment
   const hasAttachments = mergedAttachments.length > 0;
   if (!trimmed && !hasAttachments) return;
+
+  // single send-entry telemetry point (see ChatSendScope): explicit scope
+  // wins (whiteboard panel, course seed), else inferred from the doc link
+  track("chat_send", {
+    scope: options?.scope ?? (sourceDocId ? "book" : "chat"),
+    model: options?.pnyxyModelOverride ?? preferredProvider ?? null,
+  });
 
   // 1. insert the user message
   const { data: userRow, error: userErr } = await supabase
@@ -106,7 +163,7 @@ export async function sendOrBranch(
         const { saveAiCitation } = await import("@/lib/annotation-storage");
         await saveAiCitation({
           id:
-            (typeof crypto !== "undefined" && "randomUUID" in crypto)
+            typeof crypto !== "undefined" && "randomUUID" in crypto
               ? crypto.randomUUID()
               : `cit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           documentId: options.citation!.documentId,
@@ -118,12 +175,11 @@ export async function sendOrBranch(
           createdAt: Date.now(),
         });
         // lazy import: annotation-store imports chat-store, so a static import would cycle
-        const { useAnnotationStore } = await import(
-          "@/stores/annotation-store"
-        );
-        useAnnotationStore.getState().reloadCitations(
-          options.citation!.documentId,
-        );
+        const { useAnnotationStore } =
+          await import("@/stores/annotation-store");
+        useAnnotationStore
+          .getState()
+          .reloadCitations(options.citation!.documentId);
       } catch (err) {
         logError("chat:sendMessage:citationSave", err);
       }
@@ -190,6 +246,13 @@ export async function sendOrBranch(
       if (existing) next.set(asstMsg.id, { ...existing, content });
       return { messages: next };
     });
+  const patchAssistantError = (error: string | null) =>
+    set((s) => {
+      const next = new Map(s.messages);
+      const existing = next.get(asstMsg.id);
+      if (existing) next.set(asstMsg.id, { ...existing, error });
+      return { messages: next };
+    });
 
   // fresh controller per turn; abort any in-flight one first. Also cleared in finally below.
   if (streamAbortController) {
@@ -240,6 +303,8 @@ export async function sendOrBranch(
           systemPromptOverride: options?.systemPromptOverride,
           // OpenAI branch swaps to o3-mini; other branches ignore it
           reasoning: options?.reasoning,
+          // "retry with another model": one-turn Pnyxy model pin
+          pnyxyModelOverride: options?.pnyxyModelOverride,
         },
       )) {
         local += chunk.delta;
@@ -254,6 +319,10 @@ export async function sendOrBranch(
   };
 
   let acc = "";
+  // Machine-ish tag for the DB `error` column (see migration 00071). Null =
+  // no error. The UI marks a bubble as an error whenever this is set, so it
+  // replaces the old "⚠ " content prefix.
+  let errorField: string | null = null;
   try {
     if (targetRoadmapId) {
       acc = await runRoadmapAgenticLoop(
@@ -268,7 +337,7 @@ export async function sendOrBranch(
       // through the tool-use path (the only branch wired for tools) and links the result
       // inline. Auto-detect is a best guess: when the tool path is unavailable (e.g. the
       // server has no Anthropic key and the loop 501s), degrade to a normal chat answer
-      // rather than leaving a ⚠ dead-end.
+      // rather than leaving an error dead-end.
       try {
         acc = await runRoadmapGenerateLoop(
           promptMessages,
@@ -289,13 +358,53 @@ export async function sendOrBranch(
     }
   } catch (err) {
     if (isAbortError(err)) {
-      // user pressed Stop: keep whatever already streamed
+      // user pressed Stop: keep whatever already streamed, no error recorded
       acc = acc || partial;
+    } else if (err instanceof AiStreamCutError) {
+      // the model stopped early (output limit, safety/recitation filter, provider
+      // cut). With partial text, keep it as content and put the explanation in
+      // `error`; with no text at all, the notice itself becomes the (non-blank)
+      // content and `error` gets a short machine tag instead.
+      logError("chat:sendMessage:cut", err);
+      const notice = streamCutNotice(err.reason);
+      if (partial.trim()) {
+        acc = partial.trimEnd();
+        errorField = notice;
+      } else {
+        acc = notice;
+        errorField = streamCutErrorTag(err.reason);
+      }
+      patchAssistant(acc);
+      patchAssistantError(errorField);
+    } else if (
+      err instanceof AiProviderError &&
+      err.serverCode === "sign_in_required"
+    ) {
+      // Anonymous chat is off server-side (ALLOW_ANON_CHAT unset/false):
+      // the proxy 401s before anything streams. Show a friendly localized
+      // message instead of the raw English proxy text.
+      logError("chat:sendMessage:stream", err);
+      const notice = i18n.t("chat.errors.signInRequired");
+      acc = notice;
+      errorField = notice;
+      patchAssistant(acc);
+      patchAssistantError(errorField);
     } else {
       logError("chat:sendMessage:stream", err);
-      acc =
-        acc ||
-        `⚠ ${err instanceof Error ? err.message : "Failed to stream response"}`;
+      const reason =
+        err instanceof Error ? err.message : "Failed to stream response";
+      if (partial.trim()) {
+        // partial text survives a mid-stream failure too; the reason explains it
+        acc = partial.trimEnd();
+        errorField = reason;
+      } else {
+        // no text at all: the reason itself becomes the visible content, and
+        // `error` gets the same text when informative, else a generic tag
+        acc = reason;
+        errorField = reason || "stream_failed";
+      }
+      patchAssistant(acc);
+      patchAssistantError(errorField);
     }
   } finally {
     if (streamAbortController?.signal === signal) {
@@ -303,19 +412,23 @@ export async function sendOrBranch(
     }
     // Empty-response guard: a blank bubble is never persisted. If the model streamed
     // nothing (and the user did not abort), a friendly notice is swapped in instead.
-    // An aborted partial or a real ⚠ error message is left untouched.
+    // An aborted partial or an already-recorded error is left untouched.
     if (!signal.aborted && acc.trim() === "") {
-      acc = `⚠ ${i18n.t("chat.emptyResponse", {
-        defaultValue:
-          "The model returned an empty response, please try again.",
-      })}`;
+      acc = i18n.t("chat.emptyResponse");
+      errorField = "empty_response";
       patchAssistant(acc);
+      patchAssistantError(errorField);
     }
-    // 5. persist final content + mark as active leaf
+    track("chat_reply_done", { chars: acc.length, cut: errorField !== null });
+    // 5. persist final content + mark as active leaf. Two separate updates:
+    // the content one always runs, the error one is best-effort so an
+    // environment where migration 00071 hasn't landed yet (missing column)
+    // never loses the content update.
     await supabase
       .from("chat_messages")
       .update({ content: acc })
       .eq("id", asstMsg.id);
+    await tryPersistError(asstMsg.id, errorField);
     await supabase
       .from("chat_conversations")
       .update({
@@ -327,7 +440,9 @@ export async function sendOrBranch(
     set((s) => {
       const next = new Map(s.messages);
       const existing = next.get(asstMsg.id);
-      if (existing) next.set(asstMsg.id, { ...existing, content: acc });
+      if (existing) {
+        next.set(asstMsg.id, { ...existing, content: acc, error: errorField });
+      }
       return { messages: next, streamingMessageId: null };
     });
   }
@@ -337,6 +452,7 @@ export async function sendOrBranch(
     asstMsg.id,
     trimmed,
     acc,
+    errorField,
     preferredProvider,
     set,
   );

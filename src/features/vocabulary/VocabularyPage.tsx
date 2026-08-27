@@ -66,9 +66,7 @@ export function VocabularyPage() {
       )
       .filter(
         (e) =>
-          !q ||
-          e.word.includes(q) ||
-          e.definition.toLowerCase().includes(q),
+          !q || e.word.includes(q) || e.definition.toLowerCase().includes(q),
       )
       .sort((a, b) => a.dueAt - b.dueAt);
   }, [all, filter, sourceFilter, query]);
@@ -152,13 +150,10 @@ export function VocabularyPage() {
               setReviewing(true);
             }}
             disabled={visible.length === 0}
-            title={t("vocabulary.cramHint", {
-              defaultValue:
-                "Practice any card without changing the spaced-repetition schedule",
-            })}
+            title={t("vocabulary.cramHint")}
           >
             <Shuffle size={16} />
-            {t("vocabulary.cram", { defaultValue: "Cram" })}
+            {t("vocabulary.cram")}
           </Button>
           <Button
             variant="primary"
@@ -197,7 +192,10 @@ export function VocabularyPage() {
             {t("vocabulary.stats.learning")}
           </p>
           <p className="text-xl sm:text-2xl font-bold text-text-primary">
-            {all.filter((e) => e.fsrsCard.reps > 0 && e.fsrsCard.state !== 2).length}
+            {
+              all.filter((e) => e.fsrsCard.reps > 0 && e.fsrsCard.state !== 2)
+                .length
+            }
           </p>
         </GlassCard>
       </div>
@@ -236,7 +234,7 @@ export function VocabularyPage() {
           <select
             value={sourceFilter}
             onChange={(e) => setSourceFilter(e.target.value)}
-            className="rounded-lg border border-glass-border bg-glass-bg px-2 py-2 text-xs text-text-primary outline-none focus:border-accent/50 cursor-pointer"
+            className="field px-2.5 py-1.5 text-xs cursor-pointer"
           >
             <option value="all">{t("vocabulary.allBooks")}</option>
             {bookOptions.map(([id, title]) => (
@@ -299,7 +297,9 @@ function VocabRow({
   const isDue = entry.dueAt <= now;
   const dueLabel = isDue
     ? t("vocabulary.dueNow")
-    : t("vocabulary.dueIn", { days: Math.ceil((entry.dueAt - now) / 86400000) });
+    : t("vocabulary.dueIn", {
+        days: Math.ceil((entry.dueAt - now) / 86400000),
+      });
 
   return (
     <li className="flex items-start justify-between gap-3 p-3 sm:p-4">

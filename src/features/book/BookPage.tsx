@@ -22,7 +22,8 @@ export function BookPage() {
 
   // bookId param may carry a slug suffix ("title--<uuid>"); strip to the real id.
   const { id: bookId } = useMemo(
-    () => (rawBookId ? parseBookIdSegment(rawBookId) : { id: undefined, slug: null }),
+    () =>
+      rawBookId ? parseBookIdSegment(rawBookId) : { id: undefined, slug: null },
     [rawBookId],
   );
 
@@ -108,9 +109,7 @@ export function BookPage() {
                   <button
                     type="button"
                     onClick={() => setRenameOpen(true)}
-                    title={t("library.actions.rename", {
-                      defaultValue: "Rename",
-                    })}
+                    title={t("library.actions.rename")}
                     className="group/title -mx-1 flex w-full items-start gap-1 rounded px-1 py-0.5 text-left transition-colors hover:bg-glass-hover cursor-pointer"
                   >
                     <h1 className="line-clamp-2 min-w-0 flex-1 text-sm font-semibold text-text-primary">
@@ -155,20 +154,14 @@ export function BookPage() {
       {data.source === "uploaded" && (
         <PromptModal
           open={renameOpen}
-          title={t("library.actions.renameBookTitle", {
-            defaultValue: "Rename book",
-          })}
+          title={t("library.actions.renameBookTitle")}
           defaultValue={data.book.title}
           validate={(value) => {
             if (value.length > 200) {
-              return t("library.actions.renameTooLong", {
-                defaultValue: "Title is too long (max 200 characters).",
-              });
+              return t("library.actions.renameTooLong");
             }
             if (containsProfanity(value)) {
-              return t("library.actions.renameProfanity", {
-                defaultValue: "Title contains disallowed language.",
-              });
+              return t("library.actions.renameProfanity");
             }
             return null;
           }}

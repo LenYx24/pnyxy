@@ -114,7 +114,12 @@ function buildConversationGraph(
     if (c.source_doc_id && !docSeen.has(c.source_doc_id)) {
       docSeen.add(c.source_doc_id);
       nodes.push(
-        seed(`doc:${c.source_doc_id}`, "doc", c.source_doc_title || "Document", nodes.length),
+        seed(
+          `doc:${c.source_doc_id}`,
+          "doc",
+          c.source_doc_title || "Document",
+          nodes.length,
+        ),
       );
     }
   }
@@ -185,12 +190,16 @@ export function ConversationGraph({
 
   // "conversations" = the doc-rooted map; "messages" = one conversation's
   // message tree (focusConvId).
-  const [mode, setMode] = useState<"conversations" | "messages">("conversations");
+  const [mode, setMode] = useState<"conversations" | "messages">(
+    "conversations",
+  );
   const [focusConvId, setFocusConvId] = useState<string | null>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(
-    null,
-  );
+  const [tooltip, setTooltip] = useState<{
+    x: number;
+    y: number;
+    text: string;
+  } | null>(null);
 
   const focusTitle = useMemo(
     () => conversations.find((c) => c.id === focusConvId)?.title || "Untitled",
@@ -297,18 +306,20 @@ export function ConversationGraph({
     const active = activeRef.current;
     const inMsg = mode === "messages";
     for (const n of nodesRef.current) {
-      const highlight =
-        inMsg ? !!n.onPath : n.id === active;
+      const highlight = inMsg ? !!n.onPath : n.id === active;
       const isHover = n.id === hover;
       ctx.beginPath();
       ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
       if (n.kind === "doc" || highlight) ctx.fillStyle = colors.accent;
-      else if (n.kind === "msg" && n.role === "user") ctx.fillStyle = colors.muted;
+      else if (n.kind === "msg" && n.role === "user")
+        ctx.fillStyle = colors.muted;
       else ctx.fillStyle = colors.node;
       ctx.fill();
       ctx.lineWidth = (highlight || isHover ? 2 : 1) / cam.k;
       ctx.strokeStyle =
-        highlight || isHover || n.kind === "doc" ? colors.accent : colors.border;
+        highlight || isHover || n.kind === "doc"
+          ? colors.accent
+          : colors.border;
       ctx.stroke();
 
       const showLabel =
@@ -423,7 +434,8 @@ export function ConversationGraph({
       ro.disconnect();
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
-      if (clickTimerRef.current != null) window.clearTimeout(clickTimerRef.current);
+      if (clickTimerRef.current != null)
+        window.clearTimeout(clickTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -528,7 +540,11 @@ export function ConversationGraph({
       if (hit) {
         const cam = camRef.current;
         const prefix =
-          hit.role === "user" ? "You: " : hit.role === "assistant" ? "AI: " : "";
+          hit.role === "user"
+            ? "You: "
+            : hit.role === "assistant"
+              ? "AI: "
+              : "";
         setTooltip({
           x: hit.x * cam.k + cam.x,
           y: hit.y * cam.k + cam.y - hit.r * cam.k - 8,
@@ -558,7 +574,8 @@ export function ConversationGraph({
     // Single click. Defer so a double-click (drill-in) can cancel it.
     if (mode === "conversations" && drag.kind === "conv") {
       const id = drag.id;
-      if (clickTimerRef.current != null) window.clearTimeout(clickTimerRef.current);
+      if (clickTimerRef.current != null)
+        window.clearTimeout(clickTimerRef.current);
       clickTimerRef.current = window.setTimeout(() => {
         clickTimerRef.current = null;
         onOpen?.(id);
@@ -616,9 +633,9 @@ export function ConversationGraph({
     if (!menu) return [];
     if (menu.kind === "conv") {
       return [
-        { label: t("chat.graph.open", { defaultValue: "Open" }), run: () => onOpen?.(menu.nodeId) },
+        { label: t("chat.graph.open"), run: () => onOpen?.(menu.nodeId) },
         {
-          label: t("chat.graph.messageView", { defaultValue: "Message view" }),
+          label: t("chat.graph.messageView"),
           run: () => enterMessageView(menu.nodeId),
         },
       ];
@@ -626,26 +643,35 @@ export function ConversationGraph({
     // message node
     return [
       {
-        label: t("chat.graph.continueHere", { defaultValue: "Continue from here" }),
+        label: t("chat.graph.continueHere"),
         run: async () => {
           await setActiveLeaf(menu.nodeId);
           if (focusConvId) onOpen?.(focusConvId);
         },
       },
       {
-        label: t("chat.graph.branchHere", { defaultValue: "New conversation from here" }),
+        label: t("chat.graph.branchHere"),
         run: async () => {
           const nid = await duplicateFromMessage(menu.nodeId);
           if (nid) onOpen?.(nid);
         },
       },
       {
-        label: t("chat.graph.deleteHere", { defaultValue: "Delete from here" }),
+        label: t("chat.graph.deleteHere"),
         danger: true,
         run: () => deleteMessage(menu.nodeId),
       },
     ];
-  }, [menu, t, onOpen, enterMessageView, setActiveLeaf, focusConvId, duplicateFromMessage, deleteMessage]);
+  }, [
+    menu,
+    t,
+    onOpen,
+    enterMessageView,
+    setActiveLeaf,
+    focusConvId,
+    duplicateFromMessage,
+    deleteMessage,
+  ]);
 
   return (
     <div ref={wrapRef} className={className} style={{ position: "relative" }}>
@@ -660,7 +686,7 @@ export function ConversationGraph({
             className="flex items-center gap-1 rounded-md border border-glass-border bg-bg-secondary/80 px-2 py-1 text-xs text-text-secondary backdrop-blur-md transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
           >
             <ArrowLeft size={13} />
-            {t("chat.graph.back", { defaultValue: "Back" })}
+            {t("chat.graph.back")}
           </button>
           <span className="max-w-[50vw] truncate rounded-md bg-glass-bg px-2 py-1 text-xs text-text-muted">
             {focusTitle}
@@ -683,8 +709,8 @@ export function ConversationGraph({
       <button
         type="button"
         onClick={fitView}
-        title={t("chat.graph.fit", { defaultValue: "Fit to view" })}
-        aria-label={t("chat.graph.fit", { defaultValue: "Fit to view" })}
+        title={t("chat.graph.fit")}
+        aria-label={t("chat.graph.fit")}
         className="absolute bottom-2 right-2 z-10 flex h-8 w-8 items-center justify-center rounded-md border border-glass-border bg-bg-secondary/80 text-text-muted backdrop-blur-md transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
       >
         <Maximize2 size={14} />
@@ -727,10 +753,8 @@ export function ConversationGraph({
       {empty && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6 text-center text-sm text-text-muted">
           {mode === "messages"
-            ? t("chat.graph.emptyMessages", { defaultValue: "No messages in this conversation yet." })
-            : t("chat.graph.empty", {
-                defaultValue: "No conversations yet, start chatting and they'll appear here.",
-              })}
+            ? t("chat.graph.emptyMessages")
+            : t("chat.graph.empty")}
         </div>
       )}
     </div>

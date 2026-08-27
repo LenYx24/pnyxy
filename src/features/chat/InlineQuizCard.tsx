@@ -79,9 +79,7 @@ export function InlineQuizCard({ quiz }: { quiz: InlineQuiz }) {
         explanation: question.explanation,
       }));
       const id = await createQuiz({
-        title:
-          quiz.title ||
-          t("chat.inlineQuiz.defaultTitle", { defaultValue: "Quiz from chat" }),
+        title: quiz.title || t("chat.inlineQuiz.defaultTitle"),
         description: null,
         visibility: "private",
         uploaded_book_id: null,
@@ -91,15 +89,9 @@ export function InlineQuizCard({ quiz }: { quiz: InlineQuiz }) {
       if (!id) throw new Error("save failed");
       setSavedId(id);
       track("quiz_saved", { total, inline: true });
-      showToast(
-        t("chat.inlineQuiz.saved", { defaultValue: "Saved, you can retake it from your library." }),
-        "success",
-      );
+      showToast(t("chat.inlineQuiz.saved"), "success");
     } catch {
-      showToast(
-        t("chat.inlineQuiz.saveFailed", { defaultValue: "Couldn't save the quiz." }),
-        "error",
-      );
+      showToast(t("chat.inlineQuiz.saveFailed"), "error");
     } finally {
       setSaving(false);
     }
@@ -117,9 +109,7 @@ export function InlineQuizCard({ quiz }: { quiz: InlineQuiz }) {
       ) : (
         <Save size={13} strokeWidth={1.5} />
       )}
-      {savedId
-        ? t("chat.inlineQuiz.savedShort", { defaultValue: "Saved" })
-        : t("chat.inlineQuiz.save", { defaultValue: "Save as quiz" })}
+      {savedId ? t("chat.inlineQuiz.savedShort") : t("chat.inlineQuiz.save")}
     </button>
   );
 
@@ -128,7 +118,6 @@ export function InlineQuizCard({ quiz }: { quiz: InlineQuiz }) {
       <div className="flex flex-col gap-3 rounded-panel bg-bg-tertiary p-4">
         <p className="text-sm font-semibold text-text-primary">
           {t("chat.inlineQuiz.result", {
-            defaultValue: "{{score}} / {{total}} correct",
             score,
             total,
           })}
@@ -153,7 +142,7 @@ export function InlineQuizCard({ quiz }: { quiz: InlineQuiz }) {
             className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-bg-secondary px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary"
           >
             <RotateCcw size={13} strokeWidth={1.5} />
-            {t("chat.inlineQuiz.retry", { defaultValue: "Try again" })}
+            {t("chat.inlineQuiz.retry")}
           </button>
           {saveButton}
         </div>
@@ -165,8 +154,7 @@ export function InlineQuizCard({ quiz }: { quiz: InlineQuiz }) {
     <div className="flex flex-col gap-2.5 rounded-panel bg-bg-tertiary p-4">
       <div className="flex items-baseline gap-2">
         <span className="min-w-0 flex-1 truncate text-xs font-semibold text-text-primary">
-          {quiz.title ||
-            t("chat.inlineQuiz.title", { defaultValue: "Quick quiz" })}
+          {quiz.title || t("chat.inlineQuiz.title")}
         </span>
         <span className="shrink-0 text-2xs tabular-nums text-text-muted-2">
           {index + 1}/{total}
@@ -175,7 +163,9 @@ export function InlineQuizCard({ quiz }: { quiz: InlineQuiz }) {
       <div className="h-0.5 w-full overflow-hidden rounded-full bg-surface-3">
         <div
           className="h-full rounded-full bg-accent transition-[width]"
-          style={{ width: `${Math.round(((index + (answered ? 1 : 0)) / total) * 100)}%` }}
+          style={{
+            width: `${Math.round(((index + (answered ? 1 : 0)) / total) * 100)}%`,
+          }}
         />
       </div>
       <p className="text-sm leading-normal text-text-primary">{q.q}</p>
@@ -195,7 +185,10 @@ export function InlineQuizCard({ quiz }: { quiz: InlineQuiz }) {
                 "flex items-center gap-2.5 rounded-control px-3 py-2 text-left text-[13px] transition-colors",
                 !answered &&
                   "cursor-pointer bg-bg-secondary text-text-secondary hover:bg-surface-3 hover:text-text-primary",
-                answered && !showGood && !showBad && "bg-bg-secondary text-text-muted",
+                answered &&
+                  !showGood &&
+                  !showBad &&
+                  "bg-bg-secondary text-text-muted",
                 showGood && "bg-success/15 text-success",
                 showBad && "bg-danger/12 text-danger",
               )}
@@ -231,8 +224,8 @@ export function InlineQuizCard({ quiz }: { quiz: InlineQuiz }) {
             className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-text-primary px-3.5 py-1.5 text-xs font-semibold text-bg-primary transition-opacity hover:opacity-90"
           >
             {index + 1 < total
-              ? t("chat.inlineQuiz.next", { defaultValue: "Next" })
-              : t("chat.inlineQuiz.finish", { defaultValue: "Finish" })}
+              ? t("chat.inlineQuiz.next")
+              : t("chat.inlineQuiz.finish")}
             <ArrowRight size={13} strokeWidth={2} />
           </button>
           {saveButton}

@@ -53,6 +53,7 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
         mobileOpen={page.mobileListOpen}
         onMobileClose={closeDrawer}
         onNew={page.handleNew}
+        onNewTemporary={page.handleNewTemporary}
         confirm={page.confirm}
       />
 
@@ -65,12 +66,15 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
       >
         <ChatSheetHeader
           activeTitle={page.activeTitle}
+          isTemporary={!!page.activeConversation?.is_temporary}
           headerBook={page.headerBook}
           canExport={page.activeConversation !== null}
           onExport={page.handleExportActive}
           onNew={page.handleNew}
           onOpenDrawer={() => setMobileListOpen(true)}
           scopeDocId={scope?.docId}
+          docId={page.activeConversation?.source_doc_id ?? scope?.docId ?? null}
+          conversationId={page.activeId}
         />
 
         {/* conversation sheet, thread capped at 820 and centered. While the

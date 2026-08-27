@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, useCallback, Fragment, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  Fragment,
+  type ReactNode,
+} from "react";
 import { FloatingMenu } from "@/components/ui/FloatingMenu";
 import { Toggle, Tooltip } from "@/components/ui";
 import { getZoomControls } from "./gestures/pinch-zoom-controller";
@@ -41,7 +48,11 @@ import {
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
 import { useInlineDrawStore } from "@/stores/inline-draw-store";
-import { useReaderStore, useActiveDocument, type ZoomMode } from "@/stores/reader-store";
+import {
+  useReaderStore,
+  useActiveDocument,
+  type ZoomMode,
+} from "@/stores/reader-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useBookmarkStore } from "@/stores/bookmark-store";
@@ -66,11 +77,19 @@ import { ToolbarEditor } from "./toolbar/ToolbarEditor";
 import { useFeatures } from "@/lib/use-features";
 import { useCoverTintPref } from "./hooks/useReaderTint";
 
-function nextReaderTheme(t: "light" | "dark" | "sepia"): "light" | "dark" | "sepia" {
+function nextReaderTheme(
+  t: "light" | "dark" | "sepia",
+): "light" | "dark" | "sepia" {
   return t === "light" ? "dark" : t === "dark" ? "sepia" : "light";
 }
 
-const HIGHLIGHT_COLORS: HighlightColor[] = ["yellow", "green", "blue", "pink", "orange"];
+const HIGHLIGHT_COLORS: HighlightColor[] = [
+  "yellow",
+  "green",
+  "blue",
+  "pink",
+  "orange",
+];
 const COLOR_HEX: Record<HighlightColor, string> = {
   yellow: "#facc15",
   green: "#4ade80",
@@ -99,7 +118,8 @@ function currentSectionLabel(toc: TocItem[], page: number): string | null {
   const walk = (items: TocItem[]) => {
     for (const it of items) {
       const p = it.pageIndex + 1;
-      if (p <= page && (!best || p >= best.page)) best = { page: p, title: it.title };
+      if (p <= page && (!best || p >= best.page))
+        best = { page: p, title: it.title };
       if (it.children.length) walk(it.children);
     }
   };
@@ -193,8 +213,8 @@ function zoomDisplayText(
       : zoomMode === "fit-page"
         ? t("reader.toolbar.fitPage")
         : zoomMode === "auto"
-          ? t("reader.toolbar.zoomAutoShort", { defaultValue: "Auto" })
-          : t("reader.toolbar.zoomActualShort", { defaultValue: "100%" });
+          ? t("reader.toolbar.zoomAutoShort")
+          : t("reader.toolbar.zoomActualShort");
 }
 
 /**
@@ -222,10 +242,10 @@ function ZoomSelect({
   const anchorRef = useRef<HTMLButtonElement>(null);
 
   const presets: { mode: ZoomMode; label: string }[] = [
-    { mode: "auto", label: t("reader.toolbar.zoomPresetAuto", { defaultValue: "Automatic Zoom" }) },
-    { mode: "actual", label: t("reader.toolbar.zoomPresetActual", { defaultValue: "Actual Size" }) },
-    { mode: "fit-page", label: t("reader.toolbar.zoomPresetFitPage", { defaultValue: "Page Fit" }) },
-    { mode: "fit-width", label: t("reader.toolbar.zoomPresetFitWidth", { defaultValue: "Page Width" }) },
+    { mode: "auto", label: t("reader.toolbar.zoomPresetAuto") },
+    { mode: "actual", label: t("reader.toolbar.zoomPresetActual") },
+    { mode: "fit-page", label: t("reader.toolbar.zoomPresetFitPage") },
+    { mode: "fit-width", label: t("reader.toolbar.zoomPresetFitWidth") },
   ];
 
   const ZOOM_LEVELS = [50, 75, 100, 125, 150, 200];
@@ -249,11 +269,13 @@ function ZoomSelect({
             ? "bg-bg-tertiary text-text-primary"
             : "text-text-muted hover:bg-bg-tertiary hover:text-text-primary",
         )}
-        title={t("reader.toolbar.zoomPresets", { defaultValue: "Zoom presets" })}
+        title={t("reader.toolbar.zoomPresets")}
         aria-expanded={open}
       >
         <ZoomIn size={18} strokeWidth={1.5} />
-        <span className="tabular-nums">{zoomDisplayText(zoomMode, zoomLevel, t)}</span>
+        <span className="tabular-nums">
+          {zoomDisplayText(zoomMode, zoomLevel, t)}
+        </span>
       </button>
       <FloatingMenu
         open={open}
@@ -262,7 +284,12 @@ function ZoomSelect({
         className="w-48 p-1.5"
       >
         <div className="mb-1 flex items-center justify-between gap-1 px-0.5">
-          <button onClick={onZoomOut} className={clusterBtnCls} title={t("reader.toolbar.zoomOut")} aria-label={t("reader.toolbar.zoomOut")}>
+          <button
+            onClick={onZoomOut}
+            className={clusterBtnCls}
+            title={t("reader.toolbar.zoomOut")}
+            aria-label={t("reader.toolbar.zoomOut")}
+          >
             <Minus size={16} strokeWidth={1.5} />
           </button>
           <ZoomInput
@@ -273,7 +300,12 @@ function ZoomSelect({
               setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width")
             }
           />
-          <button onClick={onZoomIn} className={clusterBtnCls} title={t("reader.toolbar.zoomIn")} aria-label={t("reader.toolbar.zoomIn")}>
+          <button
+            onClick={onZoomIn}
+            className={clusterBtnCls}
+            title={t("reader.toolbar.zoomIn")}
+            aria-label={t("reader.toolbar.zoomIn")}
+          >
             <Plus size={16} strokeWidth={1.5} />
           </button>
         </div>
@@ -397,37 +429,37 @@ export function ReaderToolbar({
   const [coverTint, toggleCoverTint] = useCoverTintPref();
 
   // export highlights/comments/bookmarks for the active doc
-  const exportHighlights = useCallback(
-    (kind: "markdown" | "json") => {
-      const doc = useReaderStore.getState().getActiveDoc();
-      if (!doc) return;
-      const annState = useAnnotationStore.getState();
-      const bmState = useBookmarkStore.getState();
-      const highlights = Array.from(annState.highlights.values()).filter(
-        (h) => h.documentId === doc.meta.id,
-      );
-      const comments = Array.from(annState.comments.values()).filter(
-        (c) => c.documentId === doc.meta.id,
-      );
-      const bookmarks = Array.from(bmState.bookmarks.values()).filter(
-        (b) => b.documentId === doc.meta.id,
-      );
-      const body =
-        kind === "markdown"
-          ? annotationsToMarkdown(doc.meta, highlights, comments, bookmarks)
-          : annotationsToJson(doc.meta, highlights, comments, bookmarks);
-      const mime =
-        kind === "markdown" ? "text/markdown" : "application/json";
-      const filenameBase = `${doc.meta.title || "book"}-highlights`;
-      downloadTextFile(filenameBase, body, mime);
-    },
-    [],
-  );
+  const exportHighlights = useCallback((kind: "markdown" | "json") => {
+    const doc = useReaderStore.getState().getActiveDoc();
+    if (!doc) return;
+    const annState = useAnnotationStore.getState();
+    const bmState = useBookmarkStore.getState();
+    const highlights = Array.from(annState.highlights.values()).filter(
+      (h) => h.documentId === doc.meta.id,
+    );
+    const comments = Array.from(annState.comments.values()).filter(
+      (c) => c.documentId === doc.meta.id,
+    );
+    const bookmarks = Array.from(bmState.bookmarks.values()).filter(
+      (b) => b.documentId === doc.meta.id,
+    );
+    const body =
+      kind === "markdown"
+        ? annotationsToMarkdown(doc.meta, highlights, comments, bookmarks)
+        : annotationsToJson(doc.meta, highlights, comments, bookmarks);
+    const mime = kind === "markdown" ? "text/markdown" : "application/json";
+    const filenameBase = `${doc.meta.title || "book"}-highlights`;
+    downloadTextFile(filenameBase, body, mime);
+  }, []);
   const isPdf = activeDoc?.meta.format === "pdf";
 
   const addBookmark = useBookmarkStore((s) => s.addBookmark);
-  const activeHighlightColor = useAnnotationStore((s) => s.activeHighlightColor);
-  const setActiveHighlightColor = useAnnotationStore((s) => s.setActiveHighlightColor);
+  const activeHighlightColor = useAnnotationStore(
+    (s) => s.activeHighlightColor,
+  );
+  const setActiveHighlightColor = useAnnotationStore(
+    (s) => s.setActiveHighlightColor,
+  );
   const canUndo = useUndoStore((s) => s.stack.length > 0);
   const performUndo = useUndoStore((s) => s.performUndo);
   // gate the sync effect so it doesn't clobber the draft while typing
@@ -497,7 +529,12 @@ export function ReaderToolbar({
       icon: Palette,
       onClick: cycleReaderTheme,
     },
-    { label: t("reader.toolbar.fitMode"), icon: Columns2, onClick: () => setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width") },
+    {
+      label: t("reader.toolbar.fitMode"),
+      icon: Columns2,
+      onClick: () =>
+        setZoomMode(zoomMode === "fit-width" ? "fit-page" : "fit-width"),
+    },
     // PDF-only: rotate, night mode, reflow
     ...(isPdf
       ? [
@@ -522,15 +559,20 @@ export function ReaderToolbar({
           },
         ]
       : []),
-    { label: t("reader.toolbar.highlight"), icon: Highlighter, onClick: () => { setShowOverflowMenu(false); setShowColorPicker(!showColorPicker); } },
+    {
+      label: t("reader.toolbar.highlight"),
+      icon: Highlighter,
+      onClick: () => {
+        setShowOverflowMenu(false);
+        setShowColorPicker(!showColorPicker);
+      },
+    },
     ...(features.whiteboard
       ? [
           {
             label: inlineDrawActive
-              ? t("reader.toolbar.inlineDrawOff", { defaultValue: "Stop drawing" })
-              : t("reader.toolbar.inlineDrawOn", {
-                  defaultValue: "Quick draw on page",
-                }),
+              ? t("reader.toolbar.inlineDrawOff")
+              : t("reader.toolbar.inlineDrawOn"),
             icon: Pencil,
             onClick: () => {
               setShowOverflowMenu(false);
@@ -539,17 +581,68 @@ export function ReaderToolbar({
           },
         ]
       : []),
-    ...(onToggleDrawMode && features.whiteboard ? [{ label: isDrawMode ? t("reader.toolbar.exitDraw") : t("reader.toolbar.draw"), icon: PenTool, onClick: onToggleDrawMode }] : []),
-    { label: t("reader.toolbar.undo"), icon: Undo2, onClick: performUndo, disabled: !canUndo },
-    { label: t("reader.toolbar.screenshot"), icon: Camera, onClick: onScreenshot },
-    { label: t("reader.toolbar.screenshotArea"), icon: SquareDashedMousePointer, onClick: onScreenshotRect },
-    ...(onRectToAi
-      ? [{ label: t("reader.toolbar.rectToAi", { defaultValue: "Crop to AI" }), icon: ImagePlus, onClick: onRectToAi }]
+    ...(onToggleDrawMode && features.whiteboard
+      ? [
+          {
+            label: isDrawMode
+              ? t("reader.toolbar.exitDraw")
+              : t("reader.toolbar.draw"),
+            icon: PenTool,
+            onClick: onToggleDrawMode,
+          },
+        ]
       : []),
-    ...(onToggleSidebar ? [{ label: t("reader.toolbar.toggleSidebar"), icon: PanelLeft, onClick: onToggleSidebar }] : []),
-    { label: t("reader.toolbar.zenMode"), icon: Focus, onClick: onToggleZenMode },
-    { label: isFullscreen ? t("reader.toolbar.exitFullscreen") : t("reader.toolbar.fullscreen"), icon: isFullscreen ? Minimize : Maximize, onClick: onToggleFullscreen },
-    { label: t("reader.toolbar.openBookPage", { defaultValue: "Open book page" }), icon: BookMarked, onClick: goToDescription },
+    {
+      label: t("reader.toolbar.undo"),
+      icon: Undo2,
+      onClick: performUndo,
+      disabled: !canUndo,
+    },
+    {
+      label: t("reader.toolbar.screenshot"),
+      icon: Camera,
+      onClick: onScreenshot,
+    },
+    {
+      label: t("reader.toolbar.screenshotArea"),
+      icon: SquareDashedMousePointer,
+      onClick: onScreenshotRect,
+    },
+    ...(onRectToAi
+      ? [
+          {
+            label: t("reader.toolbar.rectToAi"),
+            icon: ImagePlus,
+            onClick: onRectToAi,
+          },
+        ]
+      : []),
+    ...(onToggleSidebar
+      ? [
+          {
+            label: t("reader.toolbar.toggleSidebar"),
+            icon: PanelLeft,
+            onClick: onToggleSidebar,
+          },
+        ]
+      : []),
+    {
+      label: t("reader.toolbar.zenMode"),
+      icon: Focus,
+      onClick: onToggleZenMode,
+    },
+    {
+      label: isFullscreen
+        ? t("reader.toolbar.exitFullscreen")
+        : t("reader.toolbar.fullscreen"),
+      icon: isFullscreen ? Minimize : Maximize,
+      onClick: onToggleFullscreen,
+    },
+    {
+      label: t("reader.toolbar.openBookPage"),
+      icon: BookMarked,
+      onClick: goToDescription,
+    },
   ];
 
   const menuButton = showAppSidebarToggle ? (
@@ -580,7 +673,11 @@ export function ReaderToolbar({
   );
 
   const sidebarEl = onToggleSidebar ? (
-    <Tooltip label={t("reader.toolbar.toggleSidebar")} shortcut="reader:toggle-toc" side="bottom">
+    <Tooltip
+      label={t("reader.toolbar.toggleSidebar")}
+      shortcut="reader:toggle-toc"
+      side="bottom"
+    >
       <button
         onClick={onToggleSidebar}
         className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
@@ -596,7 +693,7 @@ export function ReaderToolbar({
     <button
       onClick={goToDescription}
       className="flex min-w-0 flex-col items-start text-left cursor-pointer"
-      title={t("reader.toolbar.openBookPage", { defaultValue: "Open book page" })}
+      title={t("reader.toolbar.openBookPage")}
     >
       <span className="w-full truncate font-display text-[15px] font-semibold leading-tight text-text-primary">
         {getDisplayTitle()}
@@ -618,7 +715,7 @@ export function ReaderToolbar({
         onClick={() => prevPage()}
         disabled={currentPage <= 1}
         className="sr-only"
-        aria-label={t("reader.toolbar.prevPage", { defaultValue: "Previous page" })}
+        aria-label={t("reader.toolbar.prevPage")}
       />
       <input
         data-page-input
@@ -656,7 +753,7 @@ export function ReaderToolbar({
         onClick={() => nextPage()}
         disabled={currentPage >= totalPages}
         className="sr-only"
-        aria-label={t("reader.toolbar.nextPage", { defaultValue: "Next page" })}
+        aria-label={t("reader.toolbar.nextPage")}
       />
     </form>
   );
@@ -675,14 +772,18 @@ export function ReaderToolbar({
   // The "Teacher" button: today it toggles the AI margin (Ctrl+I); the
   // teacher mode itself is a later feature.
   const teacherEl = (
-    <Tooltip label={t("reader.toolbar.aiChatTitle")} shortcut="reader:toggle-ai-chat" side="bottom">
+    <Tooltip
+      label={t("reader.toolbar.aiChatTitle")}
+      shortcut="reader:toggle-ai-chat"
+      side="bottom"
+    >
       <button
         onClick={onToggleAiChat}
         className="inline-flex h-9 shrink-0 items-center gap-2 rounded-control bg-text-primary px-3.5 text-[13px] font-semibold text-bg-primary transition-opacity hover:opacity-90 cursor-pointer"
         aria-label={t("reader.toolbar.aiChatTitle")}
       >
         <Sparkles size={15} strokeWidth={1.5} />
-        {t("reader.tools.teacher", { defaultValue: "Teacher" })}
+        {t("reader.tools.teacher")}
       </button>
     </Tooltip>
   );
@@ -690,7 +791,9 @@ export function ReaderToolbar({
   const compositeNodes: Record<string, ReactNode> = {
     back: backEl,
     title: (
-      <div className="min-w-0 max-w-[14rem] shrink lg:max-w-[24rem]">{titleEl}</div>
+      <div className="min-w-0 max-w-[14rem] shrink lg:max-w-[24rem]">
+        {titleEl}
+      </div>
     ),
     pageNav: pageNavEl,
     zoom: zoomEl,
@@ -717,27 +820,52 @@ export function ReaderToolbar({
       },
       available: showAppSidebarToggle,
     },
-    undo: { icon: Undo2, label: t("reader.toolbar.undoTitle"), onClick: performUndo, disabled: !canUndo },
+    undo: {
+      icon: Undo2,
+      label: t("reader.toolbar.undoTitle"),
+      onClick: performUndo,
+      disabled: !canUndo,
+    },
     inPageDraw: {
       icon: Pencil,
       label: inlineDrawActive
-        ? t("reader.toolbar.inlineDrawOff", { defaultValue: "Stop drawing" })
-        : t("reader.toolbar.inlineDrawOn", { defaultValue: "Quick draw on page" }),
+        ? t("reader.toolbar.inlineDrawOff")
+        : t("reader.toolbar.inlineDrawOn"),
       onClick: () => toggleInlineDraw(),
       active: inlineDrawActive,
       available: features.whiteboard,
     },
     whiteboardDraw: {
       icon: PenTool,
-      label: isDrawMode ? t("reader.toolbar.exitDraw") : t("reader.toolbar.draw"),
+      label: isDrawMode
+        ? t("reader.toolbar.exitDraw")
+        : t("reader.toolbar.draw"),
       onClick: onToggleDrawMode,
       active: isDrawMode,
       available: !!onToggleDrawMode && features.whiteboard,
     },
-    comments: { icon: MessageSquare, label: t("reader.toolbar.commentsTitle"), onClick: onToggleComments, available: features.comments },
-    zen: { icon: Focus, label: t("reader.toolbar.zenMode"), onClick: onToggleZenMode },
-    search: { icon: Search, label: t("reader.toolbar.search"), onClick: onToggleSearch },
-    bookmark: { icon: BookmarkPlus, label: t("reader.toolbar.bookmarkPage"), onClick: handleBookmarkPage, available: features.bookmarks },
+    comments: {
+      icon: MessageSquare,
+      label: t("reader.toolbar.commentsTitle"),
+      onClick: onToggleComments,
+      available: features.comments,
+    },
+    zen: {
+      icon: Focus,
+      label: t("reader.toolbar.zenMode"),
+      onClick: onToggleZenMode,
+    },
+    search: {
+      icon: Search,
+      label: t("reader.toolbar.search"),
+      onClick: onToggleSearch,
+    },
+    bookmark: {
+      icon: BookmarkPlus,
+      label: t("reader.toolbar.bookmarkPage"),
+      onClick: handleBookmarkPage,
+      available: features.bookmarks,
+    },
     highlight: {
       icon: Highlighter,
       label: t("reader.toolbar.highlight"),
@@ -753,41 +881,77 @@ export function ReaderToolbar({
       }),
       onClick: cycleReaderTheme,
     },
-    rotate: { icon: RotateCw, label: t("reader.toolbar.rotate"), onClick: () => rotatePage(1), available: isPdf },
+    rotate: {
+      icon: RotateCw,
+      label: t("reader.toolbar.rotate"),
+      onClick: () => rotatePage(1),
+      available: isPdf,
+    },
     night: {
       icon: pdfInvertColors ? Sun : Moon,
-      label: pdfInvertColors ? t("reader.toolbar.nightModeOff") : t("reader.toolbar.nightModeOn"),
+      label: pdfInvertColors
+        ? t("reader.toolbar.nightModeOff")
+        : t("reader.toolbar.nightModeOn"),
       onClick: () => setPdfInvertColors(!pdfInvertColors),
       active: pdfInvertColors,
       available: isPdf,
     },
     reflow: {
       icon: AlignLeft,
-      label: pdfReflowMode ? t("reader.toolbar.reflowOff") : t("reader.toolbar.reflowOn"),
+      label: pdfReflowMode
+        ? t("reader.toolbar.reflowOff")
+        : t("reader.toolbar.reflowOn"),
       onClick: () => setPdfReflowMode(!pdfReflowMode),
       active: pdfReflowMode,
       available: isPdf,
     },
-    screenshot: { icon: Camera, label: t("reader.toolbar.screenshotTitle"), onClick: onScreenshot },
-    screenshotArea: { icon: SquareDashedMousePointer, label: t("reader.toolbar.screenshotAreaTitle"), onClick: onScreenshotRect },
+    screenshot: {
+      icon: Camera,
+      label: t("reader.toolbar.screenshotTitle"),
+      onClick: onScreenshot,
+    },
+    screenshotArea: {
+      icon: SquareDashedMousePointer,
+      label: t("reader.toolbar.screenshotAreaTitle"),
+      onClick: onScreenshotRect,
+    },
     cropToAi: {
       icon: ImagePlus,
-      label: t("reader.toolbar.rectToAi", { defaultValue: "Crop to AI" }),
+      label: t("reader.toolbar.rectToAi"),
       onClick: onRectToAi,
       available: !!onRectToAi,
     },
-    print: { icon: Printer, label: t("reader.toolbar.printTitle"), onClick: onPrint },
-    exportMd: { icon: FileDown, label: t("reader.toolbar.exportHighlightsMarkdown"), onClick: () => exportHighlights("markdown") },
-    exportJson: { icon: FileDown, label: t("reader.toolbar.exportHighlightsJson"), onClick: () => exportHighlights("json") },
-    sidebar: { icon: PanelLeft, label: t("reader.toolbar.toggleSidebar"), onClick: onToggleSidebar, available: !!onToggleSidebar },
+    print: {
+      icon: Printer,
+      label: t("reader.toolbar.printTitle"),
+      onClick: onPrint,
+    },
+    exportMd: {
+      icon: FileDown,
+      label: t("reader.toolbar.exportHighlightsMarkdown"),
+      onClick: () => exportHighlights("markdown"),
+    },
+    exportJson: {
+      icon: FileDown,
+      label: t("reader.toolbar.exportHighlightsJson"),
+      onClick: () => exportHighlights("json"),
+    },
+    sidebar: {
+      icon: PanelLeft,
+      label: t("reader.toolbar.toggleSidebar"),
+      onClick: onToggleSidebar,
+      available: !!onToggleSidebar,
+    },
     fullscreen: {
       icon: isFullscreen ? Minimize : Maximize,
-      label: isFullscreen ? t("reader.toolbar.exitFullscreen") : t("reader.toolbar.fullscreen"),
+      label: isFullscreen
+        ? t("reader.toolbar.exitFullscreen")
+        : t("reader.toolbar.fullscreen"),
       onClick: onToggleFullscreen,
     },
     bookPage: {
       icon: BookMarked,
-      label: t("reader.toolbar.openBookPage", { defaultValue: "Open book page" }),
+      label: t("reader.toolbar.openBookPage"),
       onClick: goToDescription,
     },
   };
@@ -796,7 +960,7 @@ export function ReaderToolbar({
     if (isSeparator(id)) return true;
     if (id in compositeNodes) return true;
     const def = iconDefs[id];
-    return def ? def.available ?? true : false;
+    return def ? (def.available ?? true) : false;
   };
 
   // Bar items: composites render as themselves, icon items as 36x32
@@ -834,7 +998,12 @@ export function ReaderToolbar({
     );
     if (!shortcutId) return btn;
     return (
-      <Tooltip key={slotId} label={def.label} shortcut={shortcutId} side="bottom">
+      <Tooltip
+        key={slotId}
+        label={def.label}
+        shortcut={shortcutId}
+        side="bottom"
+      >
         {btn}
       </Tooltip>
     );
@@ -848,13 +1017,16 @@ export function ReaderToolbar({
   const overflowMenuSlots = layout.overflow.filter(
     (id) =>
       isSeparator(id) ||
-      (id in compositeNodes && id !== "title" && id !== "back" && id !== "aiChat") ||
+      (id in compositeNodes &&
+        id !== "title" &&
+        id !== "back" &&
+        id !== "aiChat") ||
       (iconDefs[id] && isItemAvailable(id)),
   );
 
   const overflowLabelFor = (id: string): string => {
-    if (id === "readingTracker") return t("reader.toolbar.readingTracker", { defaultValue: "Reading tracker" });
-    if (id === "focusTimer") return t("reader.toolbar.focusTimer", { defaultValue: "Focus timer" });
+    if (id === "readingTracker") return t("reader.toolbar.readingTracker");
+    if (id === "focusTimer") return t("reader.toolbar.focusTimer");
     if (id === "pageNav") return t("reader.toolbar.pageNav");
     if (id === "zoom") return t("reader.toolbar.zoom");
     return id;
@@ -878,9 +1050,12 @@ export function ReaderToolbar({
     <div className="relative" ref={overflowRef}>
       <button
         onClick={() => setShowOverflowMenu(!showOverflowMenu)}
-        className={cn(clusterBtnCls, showOverflowMenu && "bg-bg-tertiary text-text-primary")}
-        title={t("reader.toolbar.moreActions", { defaultValue: "More" })}
-        aria-label={t("reader.toolbar.moreActions", { defaultValue: "More" })}
+        className={cn(
+          clusterBtnCls,
+          showOverflowMenu && "bg-bg-tertiary text-text-primary",
+        )}
+        title={t("reader.toolbar.moreActions")}
+        aria-label={t("reader.toolbar.moreActions")}
         aria-expanded={showOverflowMenu}
       >
         <MoreVertical size={18} strokeWidth={1.5} />
@@ -900,9 +1075,7 @@ export function ReaderToolbar({
         {isMobile ? (
           /* MOBILE: hamburger, page box, tracker/timer, kebab */
           <>
-            <div className="flex shrink-0 items-center gap-1">
-              {menuButton}
-            </div>
+            <div className="flex shrink-0 items-center gap-1">{menuButton}</div>
             <div className="flex min-w-0 flex-1 items-center justify-center gap-1">
               <div className="flex items-center rounded-[14px] bg-bg-secondary p-1">
                 {pageNavEl}
@@ -915,9 +1088,7 @@ export function ReaderToolbar({
                 <button
                   onClick={() => setShowOverflowMenu(!showOverflowMenu)}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-control text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer touch-target"
-                  aria-label={t("reader.toolbar.moreActions", {
-                    defaultValue: "More",
-                  })}
+                  aria-label={t("reader.toolbar.moreActions")}
                 >
                   <MoreVertical size={20} strokeWidth={1.5} />
                 </button>
@@ -1019,15 +1190,20 @@ export function ReaderToolbar({
               })}
               <div className="my-1 h-1" />
               {/* cover tint preference (reader-only, default on) */}
-              <div className={cn(menuRowCls, "justify-between cursor-default hover:bg-transparent")}>
+              <div
+                className={cn(
+                  menuRowCls,
+                  "justify-between cursor-default hover:bg-transparent",
+                )}
+              >
                 <span className="flex items-center gap-2.5">
                   <Palette size={16} strokeWidth={1.5} />
-                  {t("reader.toolbar.coverTint", { defaultValue: "Cover tint" })}
+                  {t("reader.toolbar.coverTint")}
                 </span>
                 <Toggle
                   checked={coverTint}
                   onChange={toggleCoverTint}
-                  label={t("reader.toolbar.coverTint", { defaultValue: "Cover tint" })}
+                  label={t("reader.toolbar.coverTint")}
                 />
               </div>
               <button
@@ -1038,9 +1214,7 @@ export function ReaderToolbar({
                 className={menuRowCls}
               >
                 <Settings2 size={16} strokeWidth={1.5} />
-                {t("reader.toolbar.customize", {
-                  defaultValue: "Customize toolbar",
-                })}
+                {t("reader.toolbar.customize")}
               </button>
             </FloatingMenu>
           </>
@@ -1060,7 +1234,8 @@ export function ReaderToolbar({
             className={cn(
               "rounded-full transition-transform cursor-pointer hover:scale-110",
               isMobile ? "h-7 w-7 touch-target" : "h-5 w-5",
-              activeHighlightColor === color && "ring-2 ring-text-primary/60 ring-offset-2 ring-offset-bg-tertiary",
+              activeHighlightColor === color &&
+                "ring-2 ring-text-primary/60 ring-offset-2 ring-offset-bg-tertiary",
             )}
             style={{ backgroundColor: COLOR_HEX[color] }}
             onClick={() => {

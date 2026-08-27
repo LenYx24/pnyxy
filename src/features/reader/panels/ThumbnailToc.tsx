@@ -29,12 +29,8 @@ export function ThumbnailToc() {
   const selectAllAiPages = useReaderStore((s) => s.selectAllAiPages);
   const clearAiPages = useReaderStore((s) => s.clearAiPages);
   const selectAiPagesAround = useReaderStore((s) => s.selectAiPagesAround);
-  const setAiSendPagesAsImage = useReaderStore(
-    (s) => s.setAiSendPagesAsImage,
-  );
-  const surroundingCount = useSettingsStore(
-    (s) => s.aiSurroundingPagesCount,
-  );
+  const setAiSendPagesAsImage = useReaderStore((s) => s.setAiSendPagesAsImage);
+  const surroundingCount = useSettingsStore((s) => s.aiSurroundingPagesCount);
 
   const meta = activeDoc?.meta ?? null;
   const totalPages = activeDoc?.totalPages ?? 0;
@@ -167,15 +163,10 @@ export function ThumbnailToc() {
                   ? "bg-accent/20 text-accent"
                   : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
               )}
-              title={t("reader.sidebar.aiSendAsImageHint", {
-                defaultValue:
-                  "Render the selected pages as images so the AI sees figures and diagrams. Costs more tokens per page.",
-              })}
+              title={t("reader.sidebar.aiSendAsImageHint")}
             >
               <ImageIcon size={12} />
-              {t("reader.sidebar.aiSendAsImage", {
-                defaultValue: "Send as images",
-              })}
+              {t("reader.sidebar.aiSendAsImage")}
             </button>
           </div>
         )}

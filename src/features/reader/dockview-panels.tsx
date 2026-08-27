@@ -9,7 +9,9 @@ import { useOpenDocument } from "@/hooks/use-open-document";
 // (An eager import made opening a book pull in + optimize CodeMirror,
 // which blanked the reader in dev until Vite finished re-optimizing.)
 const NoteEditor = lazy(() =>
-  import("@/features/notes/NoteEditor").then((m) => ({ default: m.NoteEditor })),
+  import("@/features/notes/NoteEditor").then((m) => ({
+    default: m.NoteEditor,
+  })),
 );
 import { ReaderSidebarContent } from "./ReaderSidebar";
 import { ActiveViewer } from "./viewers/ActiveViewer";
@@ -22,7 +24,8 @@ import { CommentsSidebar } from "./panels/CommentsSidebar";
  * open-another-file launcher.
  */
 export function TocPanel() {
-  const { fileInputRef, triggerFilePicker, handleFileSelect } = useOpenDocument();
+  const { fileInputRef, triggerFilePicker, handleFileSelect } =
+    useOpenDocument();
 
   const handleOpenFile = useCallback(() => {
     triggerFilePicker();
@@ -85,8 +88,8 @@ export function NotePanelWrapper(
       <button
         type="button"
         onClick={() => props.api.close()}
-        aria-label={i18n.t("common.close", { defaultValue: "Close" })}
-        title={i18n.t("common.close", { defaultValue: "Close" })}
+        aria-label={i18n.t("common.close")}
+        title={i18n.t("common.close")}
         className="absolute right-2 top-2 z-20 flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
       >
         <X size={16} />

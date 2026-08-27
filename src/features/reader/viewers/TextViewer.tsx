@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { marked } from "marked";
-import DOMPurify from "dompurify";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 import { useReaderStore, useDocumentState } from "@/stores/reader-store";
 import { useSearchStore } from "@/stores/search-store";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -63,7 +63,7 @@ export function TextViewer({ documentId }: TextViewerProps) {
   const html = useMemo(() => {
     if (format === "markdown") {
       const rendered = marked.parse(content, { async: false }) as string;
-      return DOMPurify.sanitize(rendered);
+      return sanitizeHtml(rendered);
     }
     const escaped = content
       .replace(/&/g, "&amp;")

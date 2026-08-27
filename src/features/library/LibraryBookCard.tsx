@@ -18,7 +18,13 @@ import { useSortable } from "@dnd-kit/sortable";
 import { useDropIntent } from "./drag-intent";
 import { DropIndicator } from "./DropIndicator";
 import { CSS } from "@dnd-kit/utilities";
-import { Checkbox, CustomTagBadge, FloatingMenu, PromptModal, TagBadge } from "@/components/ui";
+import {
+  Checkbox,
+  CustomTagBadge,
+  FloatingMenu,
+  PromptModal,
+  TagBadge,
+} from "@/components/ui";
 import {
   canDownloadEntry,
   getDownloadActions,
@@ -52,7 +58,10 @@ interface LibraryBookCardProps {
   coverHeight?: number;
   selected?: boolean;
   selectionActive?: boolean;
-  onToggleSelect?: (id: string, event: { ctrlKey: boolean; shiftKey: boolean }) => void;
+  onToggleSelect?: (
+    id: string,
+    event: { ctrlKey: boolean; shiftKey: boolean },
+  ) => void;
   sortableId?: string;
 }
 
@@ -72,10 +81,15 @@ export function LibraryBookCard({
   const { openCatalogBook } = useOpenCatalogBook();
   // "Reading" pill for books with a saved resume position
   const isInProgress = useLibraryStore((s) =>
-    s.inProgressDocIds.has(entry.source === "catalog" ? entry.catalog_book_id : entry.book.id),
+    s.inProgressDocIds.has(
+      entry.source === "catalog" ? entry.catalog_book_id : entry.book.id,
+    ),
   );
 
-  const sortable = useSortable({ id: sortableId ?? entry.id, disabled: !sortableId });
+  const sortable = useSortable({
+    id: sortableId ?? entry.id,
+    disabled: !sortableId,
+  });
   const dropPosition = useDropIntent(sortableId);
   const {
     attributes,
@@ -103,10 +117,9 @@ export function LibraryBookCard({
   );
   const downloadLabel = (action: DownloadAction): string => {
     if (action.format === "original") {
-      return t("library.actions.download", { defaultValue: "Download" });
+      return t("library.actions.download");
     }
     return t("library.actions.downloadFormat", {
-      defaultValue: "Download {{format}}",
       format: action.format.toUpperCase(),
     });
   };
@@ -137,9 +150,12 @@ export function LibraryBookCard({
   const author =
     entry.source === "catalog"
       ? formatAuthors(entry.catalog_book.authors) || "Unknown author"
-      : formatAuthors(entry.book.authors, entry.book.author) || "Unknown author";
+      : formatAuthors(entry.book.authors, entry.book.author) ||
+        "Unknown author";
   const coverUrl =
-    entry.source === "catalog" ? entry.catalog_book.cover_url : entry.book.cover_url;
+    entry.source === "catalog"
+      ? entry.catalog_book.cover_url
+      : entry.book.cover_url;
 
   const selKey = `book:${entry.id}`;
   const compact = coverHeight < 100;
@@ -195,7 +211,10 @@ export function LibraryBookCard({
   const handleClick = (e: React.MouseEvent) => {
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      onToggleSelect?.(selKey, { ctrlKey: e.ctrlKey || e.metaKey, shiftKey: e.shiftKey });
+      onToggleSelect?.(selKey, {
+        ctrlKey: e.ctrlKey || e.metaKey,
+        shiftKey: e.shiftKey,
+      });
       return;
     }
     if (selectionActive) {
@@ -227,21 +246,19 @@ export function LibraryBookCard({
       },
       {
         id: "book-page",
-        label: t("book.overview.openBookPage", {
-          defaultValue: "Open book page",
-        }),
+        label: t("book.overview.openBookPage"),
         icon: Info,
         onClick: openBook,
       },
       {
         id: "info",
-        label: t("library.actions.fileInfo", { defaultValue: "File info" }),
+        label: t("library.actions.fileInfo"),
         icon: Info,
         onClick: () => setInfoOpen(true),
       },
       {
         id: "tags",
-        label: t("library.actions.manageTags", { defaultValue: "Manage tags" }),
+        label: t("library.actions.manageTags"),
         icon: Tag,
         onClick: () => setTagPickerOpen(true),
       },
@@ -255,7 +272,7 @@ export function LibraryBookCard({
     if (entry.source === "uploaded") {
       items.push({
         id: "rename",
-        label: t("library.actions.rename", { defaultValue: "Rename" }),
+        label: t("library.actions.rename"),
         icon: Pencil,
         onClick: () => setRenameOpen(true),
       });
@@ -271,9 +288,7 @@ export function LibraryBookCard({
     if (entry.source === "uploaded") {
       items.push({
         id: "share",
-        label: t("library.actions.shareToCommunity", {
-          defaultValue: "Share with community",
-        }),
+        label: t("library.actions.shareToCommunity"),
         icon: Share2,
         onClick: () => setShareOpen(true),
       });
@@ -368,7 +383,9 @@ export function LibraryBookCard({
               >
                 <Checkbox
                   checked={selected}
-                  onChange={() => onToggleSelect(selKey, { ctrlKey: false, shiftKey: false })}
+                  onChange={() =>
+                    onToggleSelect(selKey, { ctrlKey: false, shiftKey: false })
+                  }
                 />
               </div>
             )}
@@ -402,12 +419,8 @@ export function LibraryBookCard({
                 e.stopPropagation();
                 openBook();
               }}
-              aria-label={t("book.overview.openBookPage", {
-                defaultValue: "Open book page",
-              })}
-              title={t("book.overview.openBookPage", {
-                defaultValue: "Open book page",
-              })}
+              aria-label={t("book.overview.openBookPage")}
+              title={t("book.overview.openBookPage")}
               className="absolute bottom-1.5 right-1.5 z-10 rounded-lg bg-bg-primary/80 p-1.5 text-text-secondary shadow-sm backdrop-blur-sm transition-all hover:bg-bg-primary hover:text-text-primary cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 opacity-100"
             >
               <Info size={16} />
@@ -416,7 +429,9 @@ export function LibraryBookCard({
             {/* Favorite toggle, hover-reveal on desktop unless set */}
             <button
               onClick={toggleFavorite}
-              aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+              aria-label={
+                isFavorite ? "Remove from favorites" : "Add to favorites"
+              }
               title={isFavorite ? "Remove from favorites" : "Add to favorites"}
               className={cn(
                 "absolute right-1.5 top-10 z-10 rounded-lg p-1.5 backdrop-blur-sm transition-colors cursor-pointer",
@@ -531,7 +546,7 @@ export function LibraryBookCard({
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
               >
                 <Pencil size={14} />
-                {t("library.actions.rename", { defaultValue: "Rename" })}
+                {t("library.actions.rename")}
               </button>
             )}
             {downloadActions.map((action) => (
@@ -597,21 +612,15 @@ export function LibraryBookCard({
       {entry.source === "uploaded" && (
         <PromptModal
           open={renameOpen}
-          title={t("library.actions.renameBookTitle", {
-            defaultValue: "Rename book",
-          })}
+          title={t("library.actions.renameBookTitle")}
           defaultValue={entry.book.title}
           validate={(value) => {
             // PromptModal already trims + rejects empty; store re-validates too
             if (value.length > 200) {
-              return t("library.actions.renameTooLong", {
-                defaultValue: "Title is too long (max 200 characters).",
-              });
+              return t("library.actions.renameTooLong");
             }
             if (containsProfanity(value)) {
-              return t("library.actions.renameProfanity", {
-                defaultValue: "Title contains disallowed language.",
-              });
+              return t("library.actions.renameProfanity");
             }
             return null;
           }}

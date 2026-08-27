@@ -1,0 +1,231 @@
+/* Matches the Pnyxy app's neutral dark palette: background #131315,
+   surface #222226, text #ececee, muted #9a9aa3, accent #5fb3c6, 12px
+   radii. Plain CSS, no build step. */
+
+:root {
+  --bg: #131315;
+  --surface: #222226;
+  --surface-2: #2a2a2f;
+  --border: #333338;
+  --text: #ececee;
+  --muted: #9a9aa3;
+  --accent: #5fb3c6;
+  --accent-text: #0f1a1d;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.popup {
+  width: 320px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.popup-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.popup-mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--accent);
+  /* blocky echo of the app's "P" mark: a stem plus a notched loop,
+     built from a clip-path so no image asset is needed here */
+  clip-path: polygon(
+    20% 12%,
+    39% 12%,
+    39% 39%,
+    55% 39%,
+    39% 56%,
+    39% 88%,
+    20% 88%
+  );
+}
+
+.popup-title {
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+
+.page-title {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selection-box {
+  width: 100%;
+  resize: vertical;
+  min-height: 88px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 11px;
+  font: inherit;
+  outline: none;
+}
+
+.selection-box::placeholder {
+  color: var(--muted);
+}
+
+.selection-box:focus {
+  border-color: var(--accent);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  flex: 1;
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 9px 10px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.btn:active {
+  opacity: 0.85;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.btn-primary:hover {
+  background: #71bfd0;
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.btn-secondary:hover {
+  background: var(--surface-2);
+}
+
+.btn-ghost {
+  flex: none;
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--border);
+  padding: 6px 10px;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.btn-ghost:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.settings {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.settings summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  list-style: none;
+}
+
+.settings summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings summary::before {
+  content: "\25B8";
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 0.15s ease;
+  color: var(--muted);
+}
+
+.settings[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.settings-row input {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 9px;
+  font: inherit;
+  outline: none;
+}
+
+.settings-row input:focus {
+  border-color: var(--accent);
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.settings-status {
+  font-size: 12px;
+  color: var(--accent);
+  min-height: 1em;
+}

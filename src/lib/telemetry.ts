@@ -28,11 +28,17 @@ const sessionId =
 let queue: QueuedEvent[] = [];
 let started = false;
 
-/** Queue one event. No-op while signed out. `props` must stay small
- *  and content-free (ids and counts, never text). */
+/** Queue one event. No-op while signed out, or while explicitly opted out
+ *  via `profiles.preferences.consent_research_at` (only ever written false
+ *  by a future opt-out control; absent/undefined falls back to the
+ *  original behaviour, a session implies consent). `props` must stay
+ *  small and content-free (ids and counts, never text). */
 export function track(event: string, props: Record<string, unknown> = {}): void {
-  const user = useAuthStore.getState().user;
+  const { user, profile } = useAuthStore.getState();
   if (!user) return;
+  const consentAt = (profile?.preferences as Record<string, unknown> | undefined)
+    ?.consent_research_at;
+  if (consentAt === false) return;
   queue.push({
     event,
     // client timestamp: batching delays the insert by up to FLUSH_MS

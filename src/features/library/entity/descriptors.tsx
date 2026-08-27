@@ -146,7 +146,11 @@ export function useNoteDescriptor(note: Note): EntityDescriptor {
           <FileText size={size} className="text-accent-blue/70" />
         ),
       badge: (
-        <CardTypeBadge icon={Pencil} colorClass="text-accent-blue" title={label} />
+        <CardTypeBadge
+          icon={Pencil}
+          colorClass="text-accent-blue"
+          title={label}
+        />
       ),
       subtitle: label,
     },
@@ -187,7 +191,7 @@ export function useQuizDescriptor(quiz: Quiz): EntityDescriptor {
     openIcon: ListChecks,
     editAction: {
       id: "edit",
-      label: t("library.actions.rename", { defaultValue: "Edit" }),
+      label: t("library.actions.rename"),
       icon: Pencil,
       onClick: () => navigate(`/quizzes/${quiz.id}/edit`),
     },
@@ -205,7 +209,11 @@ export function useQuizDescriptor(quiz: Quiz): EntityDescriptor {
         <ListChecks size={size} className="text-warning/80" />
       ),
       badge: (
-        <CardTypeBadge icon={ListChecks} colorClass="text-warning" title={label} />
+        <CardTypeBadge
+          icon={ListChecks}
+          colorClass="text-warning"
+          title={label}
+        />
       ),
       subtitle: countText,
     },
@@ -347,9 +355,9 @@ export function useResourceDescriptor(resource: Resource): EntityDescriptor {
   const isYoutube = resource.kind === "youtube";
   const Icon = isYoutube ? Video : Globe;
   const kindLabel = isYoutube
-    ? t("library.resource.kindYoutube", { defaultValue: "YouTube" })
-    : t("library.resource.kindWeb", { defaultValue: "Web" });
-  const beta = t("library.resource.beta", { defaultValue: "Beta" });
+    ? t("library.resource.kindYoutube")
+    : t("library.resource.kindWeb");
+  const beta = t("library.resource.beta");
   const showThumb = isYoutube && !!resource.thumbnail_url;
   return {
     kind: "resource",
@@ -359,9 +367,10 @@ export function useResourceDescriptor(resource: Resource): EntityDescriptor {
     folderId: resource.folder_id,
     updatedAt: resource.updated_at,
     open: () => navigate(`/resources/${resource.id}`),
-    openLabel: t("library.resource.open", { defaultValue: "Open resource" }),
+    openLabel: t("library.resource.open"),
     openIcon: ExternalLink,
-    moveToFolder: (folderId) => void moveResourceToFolder(resource.id, folderId),
+    moveToFolder: (folderId) =>
+      void moveResourceToFolder(resource.id, folderId),
     remove: () =>
       void deleteResource(resource.id).catch((err) =>
         logError("library:deleteResource", err),

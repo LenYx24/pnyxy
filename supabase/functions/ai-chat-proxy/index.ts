@@ -5,9 +5,20 @@
 // path. Env: GEMINI/OPENAI/ANTHROPIC_API_KEY, IP_HASH_SALT. See ../README.md.
 
 import "../_shared/deno-shim.ts";
-import { corsFor, handleOptions, jsonError as jsonErrorWith } from "../_shared/http.ts";
-import { estimateTokens, getClientIp, hashIp, ipHashSalt } from "../_shared/tokens.ts";
-import { teacherBlock } from "../_shared/teacher-mode.ts";
+import {
+  corsFor,
+  handleOptions,
+  jsonError as jsonErrorWith,
+  jsonErrorPublic,
+} from "../_shared/http.ts";
+import {
+  GROUNDED_REQUEST_SURCHARGE_TOKENS,
+  estimateTokens,
+  getClientIp,
+  hashIp,
+  ipHashSalt,
+} from "../_shared/tokens.ts";
+import { TEACHER_GUARDRAIL, teacherBlock } from "../_shared/teacher-mode.ts";
 // @ts-expect-error Deno-only import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -19,18 +30,16 @@ const ANTHROPIC_MODEL = "claude-haiku-4-5";
 const GEMINI_FLASH_LITE_MODEL = "gemini-3.5-flash-lite";
 const GEMINI_MODEL = "gemini-3.6-flash";
 const GEMINI_3_FLASH_MODEL = "gemini-3.7-flash";
-const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
+// Gemini 3.x thinks by default and its thinking tokens count against
+// max_tokens, so the ceiling needs headroom or answers cut mid-sentence
+// (finish_reason "length"). Pre-billed worst-case, unused part refunded
+// after the stream.
+const DEFAULT_MAX_OUTPUT_TOKENS = 4096;
 
 /**
- * OpenAI-compatible upstreams the proxy can call. Listed in priority
- * order, the handler tries each whose env key is set, falls through
- * on failure, and only hits Anthropic as the last resort. New
- * providers (Mistral, OpenRouter, …) drop in here as one more row
- * without touching the request-handling logic.
- *
- * `envKey` is read with Deno.env.get inside the request handler so
- * we always pick up current secret values, not whatever was set at
- * cold-start.
+ * OpenAI-compatible upstreams, tried in priority order; Anthropic is the
+ * last resort. `envKey` is read inside the request handler so it always
+ * reflects the current secret value.
  */
 const OPENAI_COMPATIBLE_PROVIDERS: ReadonlyArray<{
   name: string;
@@ -39,26 +48,27 @@ const OPENAI_COMPATIBLE_PROVIDERS: ReadonlyArray<{
   model: string;
 }> = [
   {
-    // Cheapest tier and the auto-route default. Gemini 2.5 Flash-Lite
-    // is ~3-6x cheaper per token than 2.5 Flash and handles the bulk
-    // of reader Q&A (short, context-grounded questions), fine.
-    // Tried first so default "auto" traffic lands on the cheapest
-    // model; when its bucket is exhausted the chain falls through to
-    // the fuller 2.5 Flash and the pricier tiers below. Users who
-    // want more headroom upfront pin a stronger model in the composer.
-    name: "gemini-lite",
+    // Quality-first default: auto route starts on the newest Flash and
+    // falls down the chain as buckets run dry. Background calls (title,
+    // suggestions) pin Flash-Lite client-side.
+    name: "gemini-3",
     envKey: "GEMINI_API_KEY",
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    model: GEMINI_FLASH_LITE_MODEL,
+    model: GEMINI_3_FLASH_MODEL,
   },
   {
-    // 2.5 Flash: the step-up from Flash-Lite, still cheap. Reached on
-    // the auto route only after the Flash-Lite bucket runs dry (or
-    // when pinned explicitly).
+    // Step-down tier when the 3.7 bucket is exhausted.
     name: "gemini",
     envKey: "GEMINI_API_KEY",
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
     model: GEMINI_MODEL,
+  },
+  {
+    // Cheap reserve; also the pinned model for aux/background calls.
+    name: "gemini-lite",
+    envKey: "GEMINI_API_KEY",
+    url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    model: GEMINI_FLASH_LITE_MODEL,
   },
   {
     name: "openai",
@@ -66,24 +76,11 @@ const OPENAI_COMPATIBLE_PROVIDERS: ReadonlyArray<{
     url: "https://api.openai.com/v1/chat/completions",
     model: OPENAI_MODEL,
   },
-  {
-    // Gemini 3 Flash Preview, newer Google model (≈67% pricier
-    // input, ≈20% pricier output than 2.5 Flash). Reuses the
-    // GEMINI_API_KEY since it's the same upstream. Last in the
-    // auto chain so a user on the default route only ever lands
-    // here if the cheaper tiers are exhausted; the chat composer
-    // exposes it as an explicit pin for users who want the
-    // newest model upfront.
-    name: "gemini-3",
-    envKey: "GEMINI_API_KEY",
-    url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    model: GEMINI_3_FLASH_MODEL,
-  },
 ];
 // Hard ceiling for any single request. Quiz generation needs room for
 // ~10 MCQ questions with explanations (~3k tokens). Clients that ask for
 // more are clamped to this.
-const HARD_MAX_OUTPUT_TOKENS = 4096;
+const HARD_MAX_OUTPUT_TOKENS = 8192;
 
 // ── helpers ──────────────────────────────────────────────────
 
@@ -173,6 +170,12 @@ interface ChatRequestBody {
    *  user's pick from the chat composer's ModelPicker. Unknown
    *  values fall back to the full chain. Null/undefined = auto. */
   preferredModel?: string | null;
+  /** Thinking mode: forwarded as `reasoning_effort` to Gemini upstreams
+   *  (mapped to thinking_level/thinking_budget server-side by Google).
+   *  Non-Gemini upstreams ignore it (gpt-4o-mini would reject the
+   *  field, so it is only attached on Gemini providers). Thinking
+   *  tokens bill as output tokens, hence the raised output floor. */
+  reasoning?: boolean;
   /**
    * Tool-use mode. When `tools` is non-empty we route exclusively to
    * Anthropic (the only upstream we wire tool-use through), pass the
@@ -205,12 +208,9 @@ function buildSystemPrompt(
   canSearchWeb = false,
 ): string {
   // No source document → standalone /chat page brief. Mirror of the
-  // expanded prompt in `src/lib/ai-client.ts`; both branches need
-  // to stay in sync so BYOK and Pnyxy-proxy users see the same
-  // conversational behavior. The single-line legacy prompt left
-  // casual chat feeling notably weaker than gemini.google.com /
-  // claude.ai because there was no tone, no formatting policy, and
-  // no honesty framing for the model to anchor against.
+  // expanded prompt in `src/lib/ai-client.ts`; both branches must
+  // stay in sync so BYOK and Pnyxy-proxy users see the same
+  // conversational behavior.
   if (!documentTitle.trim()) {
     return `You are Pnyxy's AI chat assistant. Pnyxy is a study- and reading-focused learning app; the user is typically a student or researcher. Be helpful, conversational, and honest, talk to them like a smart, friendly tutor, not a search engine.
 
@@ -231,12 +231,15 @@ ${
 }
 When you write mathematical expressions, wrap inline math in single-dollar delimiters ($x^2$) and display equations in double-dollar delimiters ($$\\sum_{i=1}^n i$$). The chat UI renders these as proper formulas via KaTeX.
 
-${INLINE_QUIZ_SPEC}`;
+${INLINE_QUIZ_SPEC}${
+      pageContext.trim()
+        ? `\n\nContext the user attached to this chat (their profile preset and any material); follow it:\n${pageContext.trim()}`
+        : ""
+    }`;
   }
 
-  // The standalone /chat prompt always had this; the document prompts
-  // lacked it, and the (English) teacher-mode block then tipped replies
-  // into English for Hungarian users.
+  // Every document prompt needs this too, or the (English) teacher-mode
+  // block tips replies into English for Hungarian users.
   const langRule =
     "Match the user's language: reply in Hungarian when they write in Hungarian, English otherwise, and switch fluidly if they mix.";
 
@@ -244,10 +247,7 @@ ${INLINE_QUIZ_SPEC}`;
 
   // Image PDF (or user forced image mode): page content arrives as
   // image blocks on the user message, not as text in the prompt.
-  // Telling the model to "read the text" when there isn't any was
-  // the old failure mode that left scanned-PDF users with empty
-  // replies. Frame this case explicitly so the model knows to look
-  // at the images.
+  // Frame this case explicitly so the model knows to look at the images.
   if (!hasText && hasImages) {
     return `You are an AI assistant helping the user understand a PDF document titled "${documentTitle}".
 
@@ -273,9 +273,8 @@ ${langRule}
 ${INLINE_QUIZ_SPEC}`;
   }
 
-  // Doc set but nothing selected and nothing attached, generic doc
-  // helper. Avoids the previous "Here is the text:\n---\n---" frame
-  // that made the model think it had context it didn't.
+  // Doc set but nothing selected and nothing attached: generic doc
+  // helper, no empty "Here is the text:\n---\n---" frame.
   return `You are an AI assistant helping the user with a PDF document titled "${documentTitle}". The user hasn't selected any pages or attached images yet; answer general questions about the document or ask the user to point you at a specific section.
 
 ${langRule}`;
@@ -283,24 +282,12 @@ ${langRule}`;
 
 // ── Anthropic prompt caching ─────────────────────────────────
 //
-// The system prompt is the stable, token-heavy part of a turn: the
-// standalone chat brief, or (in reader Q&A) the book title plus the
-// extracted page text that buildSystemPrompt folds in. Within one
-// reader session it's byte-identical across every follow-up question,
-// so marking it with an ephemeral cache breakpoint lets Anthropic
-// serve that prefix from cache on the next turn at ~10% of the input
-// price instead of re-billing the whole book context each time. The
-// cache has a 5-minute sliding TTL, perfect for a back-and-forth
-// chat, useless for one-shot traffic, and free to leave on either way
-// (Anthropic silently ignores the breakpoint when the prefix is below
-// the model's minimum cacheable length (2048 tokens for Haiku), so
-// the short standalone brief just never caches, no error).
-//
-// Gemini and the OpenAI upstreams need no equivalent here: Gemini 2.5
-// Flash caches matching prefixes implicitly and gpt-4o-mini caches
-// prompts over 1024 tokens automatically, both bill the discount
-// without any request-side flag.
+// Gemini and the OpenAI upstreams cache matching/long prompts
+// automatically; only Anthropic needs an explicit breakpoint here.
 
+/** Wrap the system prompt with an ephemeral cache breakpoint so a
+ *  byte-identical prefix (e.g. repeat reader Q&A turns) is served
+ *  from Anthropic's cache instead of rebilled at full price. */
 function cachedSystem(
   systemPrompt: string,
 ): Array<{ type: "text"; text: string; cache_control: { type: "ephemeral" } }> {
@@ -372,9 +359,26 @@ Deno.serve(async (req) => {
   if (!toolMode && (!Array.isArray(body.messages) || body.messages.length === 0)) {
     return jsonError(400, "bad_request", "messages required");
   }
+  // Only user/assistant turns may come from the client; a "system"
+  // (or any other) role would let the caller inject instructions past
+  // the server-owned system prompt.
+  const clientTurns = toolMode ? body.toolMessages ?? [] : body.messages;
+  if (
+    clientTurns.some(
+      (m) => !m || (m.role !== "user" && m.role !== "assistant"),
+    )
+  ) {
+    return jsonError(400, "invalid_role", "message roles must be user or assistant");
+  }
 
+  // Thinking turns need headroom: the thinking tokens count against
+  // max_tokens, so the default 1024 would leave nothing for the answer.
+  const reasoning = body.reasoning === true;
   const maxOutputTokens = Math.min(
-    Math.max(body.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS, 1),
+    Math.max(
+      body.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
+      reasoning ? 6144 : 1,
+    ),
     HARD_MAX_OUTPUT_TOKENS,
   );
 
@@ -387,41 +391,61 @@ Deno.serve(async (req) => {
       estimateTokens(JSON.stringify(body.toolMessages ?? []))
     : estimateTokens(body.pageContext ?? "") +
       estimateTokens(body.systemPromptOverride ?? "") +
-      // estimateMessageTokens handles both legacy string content
-      // (length/4 like before) and multimodal arrays (~1600 per
-      // image). Without this, an image-bearing message would skip
-      // most of its cost in the quota pre-check and let users
-      // burn through the daily cap on big payloads.
+      // estimateMessageTokens covers both plain string content
+      // (length/4) and multimodal arrays (~1600 per image), so an
+      // image-bearing message is billed at its real cost in the
+      // quota pre-check.
       body.messages.reduce(
         (sum, m) => sum + estimateMessageTokens(m.content),
         0,
       ) +
       estimateTokens(body.documentTitle ?? "");
-  const estimatedTotal = inputTokens + maxOutputTokens;
+  // grounded turns add a fixed surcharge below (search calls are billed per query upstream)
+  let estimatedTotal = inputTokens + maxOutputTokens;
 
   // ── Per-model quota helper ────────────────────────────────
   //
-  // The RPC charges the estimated worst-case token cost against the
-  // bucket for the specific model the proxy is about to call. If the
-  // RPC reports `allowed = false` we return the QuotaResult so the
-  // caller can decide whether to fall through to a cheaper model or
-  // bounce 429 to the client.
+  // checkAndRecord charges the estimated worst-case token cost against
+  // the bucket for the model about to be called; `allowed = false`
+  // lets the caller fall through to a cheaper model or bounce 429.
   //
-  // Captured-once Supabase context. We deliberately build clients
-  // outside the per-call helper so each provider attempt reuses the
-  // same client instance (cheap, but no point recreating it).
+  // Supabase clients are built once here and reused by every provider attempt.
+  // `userClient` exists ONLY to verify the caller's JWT; every quota RPC
+  // goes through the service-role client with the verified user id
+  // (the RPCs are service-role-only since migration 00072, so a client
+  // can no longer call check/refund with arbitrary token counts).
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const authHeader = req.headers.get("Authorization") ?? "";
-  const isAuthed =
+  let isAuthed =
     authHeader.startsWith("Bearer ") &&
     authHeader.length > "Bearer ".length;
-  const userClient = isAuthed
-    ? createClient(supabaseUrl, anonKey, {
-        global: { headers: { Authorization: authHeader } },
-      })
-    : null;
+  let userId: string | null = null;
+  // A non-empty Bearer header is not proof of identity, verify it
+  // actually resolves to a user before trusting isAuthed downstream
+  // (quota billing, and the anon-chat gate right below).
+  if (isAuthed) {
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: userError } = await userClient.auth.getUser();
+    if (userError || !userData?.user) {
+      isAuthed = false;
+    } else {
+      userId = userData.user.id;
+    }
+  }
+
+  // Anonymous chat used to bill a per-IP quota derived from the
+  // client-controlled x-forwarded-for hop, which is spoofable, so a
+  // signed-out caller could burn the owner's API keys. Off by default;
+  // set ALLOW_ANON_CHAT=true to re-enable the per-IP anon path below.
+  const allowAnonChat = Deno.env.get("ALLOW_ANON_CHAT") === "true";
+  if (!isAuthed && !allowAnonChat) {
+    return jsonError(401, "sign_in_required", "Sign in to use the AI chat.");
+  }
+
   let anonIpHash: string | null = null;
   if (!isAuthed) {
     // No derivable IP: fall into a single shared bucket rather than
@@ -430,7 +454,8 @@ Deno.serve(async (req) => {
     const ip = getClientIp(req) ?? NO_IP_SENTINEL;
     anonIpHash = await hashIp(ip, ipHashSalt());
   }
-  const adminClient = !isAuthed ? createClient(supabaseUrl, serviceKey) : null;
+  // One service-role client for every quota RPC (authed and anon path).
+  const adminClient = createClient(supabaseUrl, serviceKey);
 
   /** Attempt to bill `estimatedTotal` tokens against `model`'s daily
    *  bucket. Returns the QuotaResult on success / quota_exceeded, or
@@ -438,10 +463,10 @@ Deno.serve(async (req) => {
   async function checkAndRecord(
     model: string,
   ): Promise<{ ok: true; quota: QuotaResult } | { ok: false; rpcError: string } | { ok: false; quota: QuotaResult }> {
-    if (isAuthed && userClient) {
-      const { data, error } = await userClient.rpc(
+    if (isAuthed && userId) {
+      const { data, error } = await adminClient.rpc(
         "check_and_record_ai_usage_user",
-        { p_tokens: estimatedTotal, p_model: model },
+        { p_user_id: userId, p_tokens: estimatedTotal, p_model: model },
       );
       if (error) return { ok: false, rpcError: error.message };
       const quota = data?.[0] as QuotaResult;
@@ -449,7 +474,7 @@ Deno.serve(async (req) => {
         ? { ok: true, quota }
         : { ok: false, quota };
     }
-    if (adminClient && anonIpHash) {
+    if (anonIpHash) {
       const { data, error } = await adminClient.rpc(
         "check_and_record_ai_usage_anon",
         { p_ip_hash: anonIpHash, p_tokens: estimatedTotal, p_model: model },
@@ -466,20 +491,24 @@ Deno.serve(async (req) => {
 
   /** Give the pre-billed tokens back after an upstream failure so a
    *  broken provider in the chain doesn't drain buckets it never
-   *  served from. Best-effort: refund errors are logged and ignored
-   *  (also fires while migration 00062 is missing). */
-  async function refundUsage(model: string): Promise<void> {
+   *  served from. Best-effort: refund errors are logged and ignored. */
+  async function refundUsage(
+    model: string,
+    tokens: number = estimatedTotal,
+  ): Promise<void> {
+    if (tokens <= 0) return;
     try {
-      if (isAuthed && userClient) {
-        const { error } = await userClient.rpc("refund_ai_usage_user", {
-          p_tokens: estimatedTotal,
+      if (isAuthed && userId) {
+        const { error } = await adminClient.rpc("refund_ai_usage_user", {
+          p_user_id: userId,
+          p_tokens: tokens,
           p_model: model,
         });
         if (error) console.error("refund_ai_usage_user failed:", error.message);
-      } else if (adminClient && anonIpHash) {
+      } else if (anonIpHash) {
         const { error } = await adminClient.rpc("refund_ai_usage_anon", {
           p_ip_hash: anonIpHash,
-          p_tokens: estimatedTotal,
+          p_tokens: tokens,
           p_model: model,
         });
         if (error) console.error("refund_ai_usage_anon failed:", error.message);
@@ -517,17 +546,34 @@ Deno.serve(async (req) => {
     !(body.documentTitle ?? "").trim() &&
     (preferredModel === null || preferredModel === GEMINI_3_FLASH_MODEL) &&
     groundingModelAvailable;
+  if (useGrounding) estimatedTotal += GROUNDED_REQUEST_SURCHARGE_TOKENS;
 
-  // Teacher mode rides only on the default prompts; override flows
-  // (quiz gen, recommendations, roadmap) are functional, not tutoring.
+  // Teacher mode is enforced server-side. Rule:
+  //   - default prompts (no override): always append teacherBlock().
+  //   - override that is a CHAT prompt, recognised by the INLINE_QUIZ_SPEC
+  //     marker the client-side chat prompts carry (src/lib/ai/ai-client.ts):
+  //     append teacherBlock() unless the override already contains the
+  //     guardrail, so a tampered client cannot strip it.
+  //   - functional overrides (quiz generation, OCR, roadmap agent,
+  //     answer evaluation, explain panel) carry no marker, and tool mode
+  //     is the roadmap agent: those get no tutoring block, it would
+  //     break their structured output.
+  const override = body.systemPromptOverride;
+  const overrideIsChatPrompt =
+    typeof override === "string" &&
+    !toolMode &&
+    override.includes(INLINE_QUIZ_SPEC);
   const systemPrompt =
-    body.systemPromptOverride ??
-    buildSystemPrompt(
-      body.documentTitle,
-      body.pageContext,
-      hasImages,
-      useGrounding,
-    ) + teacherBlock();
+    override === undefined || override === null
+      ? buildSystemPrompt(
+          body.documentTitle,
+          body.pageContext,
+          hasImages,
+          useGrounding,
+        ) + teacherBlock()
+      : overrideIsChatPrompt && !override.includes(TEACHER_GUARDRAIL)
+        ? override + teacherBlock()
+        : override;
 
   // ── Tool mode: Anthropic only (passes through all SSE events) ──
   if (toolMode) {
@@ -539,8 +585,11 @@ Deno.serve(async (req) => {
       );
     }
     const billed = await checkAndRecord(ANTHROPIC_MODEL);
-    if ("rpcError" in billed && billed.rpcError) {
-      return jsonError(500, "quota_check_failed", billed.rpcError);
+    if ("rpcError" in billed) {
+      {
+        console.error("quota rpc failed:", billed.rpcError);
+        return jsonErrorPublic(500, "quota_check_failed", corsHeaders);
+      }
     }
     if (!billed.ok) {
       const q = billed.quota;
@@ -550,12 +599,12 @@ Deno.serve(async (req) => {
         `Daily AI quota reached for ${ANTHROPIC_MODEL} (${q?.tokens_used}/${q?.tokens_limit} tokens, ${q?.request_count}/${q?.request_limit} requests).`,
       );
     }
-    const stream = await tryAnthropicWithTools(
+    const stream = await tryAnthropic(
       anthropicKey,
       systemPrompt,
       body.toolMessages!,
-      body.tools!,
       maxOutputTokens,
+      body.tools!,
     );
     if (stream) {
       return new Response(stream, { headers: sseHeaders });
@@ -627,8 +676,11 @@ Deno.serve(async (req) => {
   let lastQuotaFailure: QuotaResult | null = null;
   for (const { provider, grounding } of attempts) {
     const billed = await checkAndRecord(provider.model);
-    if ("rpcError" in billed && billed.rpcError) {
-      return jsonError(500, "quota_check_failed", billed.rpcError);
+    if ("rpcError" in billed) {
+      {
+        console.error("quota rpc failed:", billed.rpcError);
+        return jsonErrorPublic(500, "quota_check_failed", corsHeaders);
+      }
     }
     if (!billed.ok) {
       // Out of quota for this specific model, try the next cheaper
@@ -637,18 +689,28 @@ Deno.serve(async (req) => {
       lastQuotaFailure = billed.quota;
       continue;
     }
+    const model = provider.model;
     const stream = await tryOpenAiCompatible(
       provider.url,
       provider.apiKey,
-      provider.model,
+      model,
       systemPrompt,
       body.messages,
       maxOutputTokens,
       provider.name,
       grounding,
+      reasoning,
+      // Reconcile the worst-case pre-bill with what the model actually
+      // produced (thinking included when the provider reports usage).
+      (usedOutputTokens) => {
+        const unused = maxOutputTokens - usedOutputTokens;
+        if (unused > 0) waitUntil(refundUsage(model, unused));
+      },
     );
     if (stream) {
-      return new Response(stream, { headers: sseHeaders });
+      return new Response(stream, {
+        headers: { ...sseHeaders, "x-pnyxy-model": model },
+      });
     }
     // Upstream failed after quota was billed: refund, fall through to next.
     await refundUsage(provider.model);
@@ -656,8 +718,11 @@ Deno.serve(async (req) => {
 
   if (anthropicKey && !skipAnthropicFallback) {
     const billed = await checkAndRecord(ANTHROPIC_MODEL);
-    if ("rpcError" in billed && billed.rpcError) {
-      return jsonError(500, "quota_check_failed", billed.rpcError);
+    if ("rpcError" in billed) {
+      {
+        console.error("quota rpc failed:", billed.rpcError);
+        return jsonErrorPublic(500, "quota_check_failed", corsHeaders);
+      }
     }
     if (billed.ok) {
       const stream = await tryAnthropic(
@@ -667,7 +732,9 @@ Deno.serve(async (req) => {
         maxOutputTokens,
       );
       if (stream) {
-        return new Response(stream, { headers: sseHeaders });
+        return new Response(stream, {
+          headers: { ...sseHeaders, "x-pnyxy-model": ANTHROPIC_MODEL },
+        });
       }
       await refundUsage(ANTHROPIC_MODEL);
     } else {
@@ -709,6 +776,8 @@ async function tryOpenAiCompatible(
   maxOutputTokens: number,
   providerName: string,
   enableGrounding = false,
+  reasoning = false,
+  onUsage?: (outputTokens: number) => void,
 ): Promise<ReadableStream<Uint8Array> | null> {
   let upstream: Response;
   try {
@@ -722,13 +791,22 @@ async function tryOpenAiCompatible(
         model,
         max_tokens: maxOutputTokens,
         stream: true,
-        // Google Search grounding. On Gemini's OpenAI-compat endpoint
-        // this is passed as the SDK's `extra_body` content flattened to
-        // the request body, a top-level `google` object. Only Gemini
-        // 3+ honours it; other upstreams ignore the unknown field. See
-        // https://ai.google.dev/gemini-api/docs/openai
+        // Thinking mode. Gemini's compat layer maps reasoning_effort to
+        // thinking_level/thinking_budget; gpt-4o-mini would reject the
+        // field, so it only rides on Gemini providers.
+        // Without thinking mode keep Gemini's built-in thinking small:
+        // faster, cheaper, and the answer gets the token budget.
+        ...(providerName.startsWith("gemini")
+          ? { reasoning_effort: reasoning ? "medium" : "low" }
+          : {}),
+        // the last chunk carries usage so the pre-bill can be reconciled
+        stream_options: { include_usage: true },
+        // Google Search grounding. On the REST wire the Google extensions
+        // must sit under a literal "extra_body" key (a top-level "google"
+        // key is a 400); only Gemini 3+ honours it, other upstreams
+        // ignore the unknown field. See https://ai.google.dev/gemini-api/docs/openai
         ...(enableGrounding
-          ? { google: { tools: [{ google_search: {} }] } }
+          ? { extra_body: { google: { tools: [{ google_search: {} }] } } }
           : {}),
         messages: [
           { role: "system", content: systemPrompt },
@@ -754,7 +832,7 @@ async function tryOpenAiCompatible(
     return null;
   }
 
-  return openAiToAnthropicSse(upstream.body);
+  return openAiToAnthropicSse(upstream.body, onUsage);
 }
 
 /**
@@ -764,14 +842,26 @@ async function tryOpenAiCompatible(
  */
 function openAiToAnthropicSse(
   upstream: ReadableStream<Uint8Array>,
+  onUsage?: (outputTokens: number) => void,
 ): ReadableStream<Uint8Array> {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   let buffer = "";
+  // reported by the provider's final usage chunk; else estimated from text
+  let reportedOutputTokens: number | null = null;
+  let emittedChars = 0;
+  const finish = () => {
+    if (!onUsage) return;
+    onUsage(reportedOutputTokens ?? Math.ceil(emittedChars / 4));
+  };
 
   return new ReadableStream({
     async start(controller) {
       const reader = upstream.getReader();
+      const emit = (event: unknown) =>
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
+        );
       try {
         while (true) {
           const { value, done } = await reader.read();
@@ -787,18 +877,40 @@ function openAiToAnthropicSse(
             if (!data || data === "[DONE]") continue;
             try {
               const event = JSON.parse(data);
-              const delta = event?.choices?.[0]?.delta?.content;
+              // Upstream error mid-stream (rate limit, provider outage):
+              // surface it as an error event instead of dropping silently.
+              if (event?.error) {
+                const msg =
+                  typeof event.error === "string"
+                    ? event.error
+                    : event.error?.message ?? "upstream error";
+                console.error("upstream stream error:", msg);
+                emit({ type: "error", error: { type: "api_error", message: msg } });
+                continue;
+              }
+              const usage = event?.usage?.completion_tokens;
+              if (typeof usage === "number") reportedOutputTokens = usage;
+              const choice = event?.choices?.[0];
+              const delta = choice?.delta?.content;
               if (typeof delta === "string" && delta.length > 0) {
-                const anthropicEvent = {
+                emittedChars += delta.length;
+                emit({
                   type: "content_block_delta",
                   index: 0,
                   delta: { type: "text_delta", text: delta },
-                };
-                controller.enqueue(
-                  encoder.encode(
-                    `data: ${JSON.stringify(anthropicEvent)}\n\n`,
-                  ),
-                );
+                });
+              }
+              // Non-"stop" finish (length, content_filter, recitation,
+              // ...): tell the browser why the text ends here.
+              const finish = choice?.finish_reason;
+              if (typeof finish === "string" && finish.length > 0) {
+                if (finish !== "stop") {
+                  console.warn("upstream finish_reason:", finish);
+                }
+                emit({
+                  type: "message_delta",
+                  delta: { stop_reason: mapFinishReason(finish) },
+                });
               }
             } catch {
               // skip malformed events
@@ -806,7 +918,21 @@ function openAiToAnthropicSse(
           }
         }
         controller.close();
+        finish();
       } catch (err) {
+        finish();
+        // Connection dropped mid-stream: send a visible error event before
+        // failing the stream, so the client can keep the partial text and
+        // explain the cut instead of silently ending mid-word.
+        console.error("upstream stream failed:", err);
+        try {
+          emit({
+            type: "error",
+            error: { type: "connection_error", message: "The connection to the model dropped mid-answer." },
+          });
+        } catch {
+          // controller already closed, nothing to do
+        }
         controller.error(err);
       } finally {
         reader.releaseLock();
@@ -815,14 +941,39 @@ function openAiToAnthropicSse(
   });
 }
 
+/** Keep a background promise alive after the response is sent (Supabase
+ *  edge runtime); plain fire-and-forget elsewhere. */
+function waitUntil(p: Promise<unknown>): void {
+  const rt = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+  if (rt?.waitUntil) rt.waitUntil(p);
+  else void p;
+}
+
+/** OpenAI finish_reason -> Anthropic stop_reason (what the browser parses). */
+function mapFinishReason(finish: string): string {
+  if (finish === "stop") return "end_turn";
+  if (finish === "length") return "max_tokens";
+  if (finish === "tool_calls") return "tool_use";
+  // content_filter, recitation, other provider-specific values: keep raw
+  return finish;
+}
+
 // ── Anthropic branch ─────────────────────────────────────────
 
+/**
+ * Calls Anthropic messages, plain or tool-use. Pass `tools` to switch to
+ * the tool-use shape (structured `messages` + cached tool schemas); the
+ * browser's Anthropic-shaped SSE parser handles both the same way, this
+ * proxy only exists to keep the Anthropic key off the client.
+ */
 async function tryAnthropic(
   apiKey: string,
   systemPrompt: string,
-  messages: ChatRequestBody["messages"],
+  messages: ChatRequestBody["messages"] | NonNullable<ChatRequestBody["toolMessages"]>,
   maxOutputTokens: number,
+  tools?: NonNullable<ChatRequestBody["tools"]>,
 ): Promise<ReadableStream<Uint8Array> | null> {
+  const label = tools ? "Anthropic (tools)" : "Anthropic";
   let upstream: Response;
   try {
     upstream = await fetch("https://api.anthropic.com/v1/messages", {
@@ -837,64 +988,18 @@ async function tryAnthropic(
         max_tokens: maxOutputTokens,
         stream: true,
         system: cachedSystem(systemPrompt),
+        ...(tools ? { tools: withToolCache(tools) } : {}),
         messages,
       }),
     });
   } catch (err) {
-    console.error("Anthropic request failed:", err);
+    console.error(`${label} request failed:`, err);
     return null;
   }
 
   if (!upstream.ok || !upstream.body) {
     const text = await upstream.text().catch(() => "");
-    console.error(`Anthropic returned ${upstream.status}: ${text}`);
-    return null;
-  }
-
-  // Anthropic SSE is what the client already parses, pass through.
-  return upstream.body;
-}
-
-/**
- * Tool-use variant: forwards `tools` + structured `toolMessages` to
- * Anthropic and pipes every SSE event back unchanged. The browser's
- * Anthropic-shaped tool-use parser handles content_block_start /
- * input_json_delta / content_block_stop / message_delta itself,
- * this proxy is only here to keep the Anthropic key off the client.
- */
-async function tryAnthropicWithTools(
-  apiKey: string,
-  systemPrompt: string,
-  toolMessages: NonNullable<ChatRequestBody["toolMessages"]>,
-  tools: NonNullable<ChatRequestBody["tools"]>,
-  maxOutputTokens: number,
-): Promise<ReadableStream<Uint8Array> | null> {
-  let upstream: Response;
-  try {
-    upstream = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: maxOutputTokens,
-        stream: true,
-        system: cachedSystem(systemPrompt),
-        tools: withToolCache(tools),
-        messages: toolMessages,
-      }),
-    });
-  } catch (err) {
-    console.error("Anthropic (tools) request failed:", err);
-    return null;
-  }
-
-  if (!upstream.ok || !upstream.body) {
-    const text = await upstream.text().catch(() => "");
-    console.error(`Anthropic (tools) returned ${upstream.status}: ${text}`);
+    console.error(`${label} returned ${upstream.status}: ${text}`);
     return null;
   }
 

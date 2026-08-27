@@ -33,6 +33,8 @@ export function buildCorsHeaders(
   methods = "POST, OPTIONS",
 ): Record<string, string> {
   const headers: Record<string, string> = {
+    // the chat proxy reports which model answered (quota footer accuracy)
+    "Access-Control-Expose-Headers": "x-pnyxy-model",
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": methods,
@@ -78,4 +80,43 @@ export function jsonError(
   cors: Record<string, string> = {},
 ): Response {
   return json(status, { error: { code, message } }, cors);
+}
+
+/**
+ * Error response that never carries an internal message, only a
+ * stable `code` in the `{ error: { code } }` shape. Use this for any
+ * failure path built from a caught exception, upstream error body, or
+ * database error, none of which should reach the client verbatim.
+ * Log the real error server-side (e.g. `console.error(...)`) before
+ * calling this.
+ */
+export function jsonErrorPublic(
+  status: number,
+  code: string,
+  cors: Record<string, string> = {},
+): Response {
+  return json(status, { error: { code } }, cors);
+}
+
+/**
+ * Reduce an unknown caught error to a code safe to hand to the client.
+ * Only passes an error's own `.code` through when it looks like one of
+ * our own stable, public-safe codes (e.g. SafeFetchError): a plain
+ * string `code` property with no `details`/`hint` alongside it.
+ * Anything else, including raw Error messages, Postgrest/PG errors
+ * (which carry `details`/`hint` next to their SQLSTATE `code`), or
+ * plain strings, collapses to one generic code so internals never leak.
+ */
+export function sanitizeErrorForClient(err: unknown): string {
+  if (
+    err &&
+    typeof err === "object" &&
+    "code" in err &&
+    typeof (err as { code?: unknown }).code === "string" &&
+    !("details" in err) &&
+    !("hint" in err)
+  ) {
+    return (err as { code: string }).code;
+  }
+  return "internal_error";
 }

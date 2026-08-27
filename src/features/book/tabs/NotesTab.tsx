@@ -116,9 +116,7 @@ function NoteEditor({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onBlur={save}
-          placeholder={t("book.notes.titlePlaceholder", {
-            defaultValue: "Note title…",
-          })}
+          placeholder={t("book.notes.titlePlaceholder")}
           className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-1 text-sm font-semibold text-text-primary outline-none placeholder:text-text-muted focus:border-glass-border focus:bg-bg-primary/50"
         />
         <button
@@ -143,9 +141,7 @@ function NoteEditor({
         value={content}
         onChange={(e) => setContent(e.target.value)}
         onBlur={save}
-        placeholder={t("book.notes.contentPlaceholder", {
-          defaultValue: "Write your note here… Markdown is supported.",
-        })}
+        placeholder={t("book.notes.contentPlaceholder")}
         rows={6}
         className="block w-full resize-y rounded border border-glass-border bg-bg-primary/50 px-2 py-1.5 text-sm text-text-secondary outline-none placeholder:text-text-muted focus:border-accent/60"
       />
@@ -253,9 +249,7 @@ export function NotesTab() {
   };
 
   const isEmpty =
-    highlights.length === 0 &&
-    comments.length === 0 &&
-    notes.length === 0;
+    highlights.length === 0 && comments.length === 0 && notes.length === 0;
 
   return (
     <div className="space-y-6">
@@ -360,7 +354,11 @@ export function NotesTab() {
             {highlights.map((h) => (
               <button
                 key={h.id}
-                onClick={() => navigate(`/reader/${documentId}`, { state: { from: openedFrom } })}
+                onClick={() =>
+                  navigate(`/reader/${documentId}`, {
+                    state: { from: openedFrom },
+                  })
+                }
                 className="text-left cursor-pointer"
               >
                 <HighlightRow h={h} />
@@ -383,7 +381,11 @@ export function NotesTab() {
             {comments.map((c) => (
               <button
                 key={c.id}
-                onClick={() => navigate(`/reader/${documentId}`, { state: { from: openedFrom } })}
+                onClick={() =>
+                  navigate(`/reader/${documentId}`, {
+                    state: { from: openedFrom },
+                  })
+                }
                 className="text-left cursor-pointer"
               >
                 <CommentRow c={c} />
@@ -426,7 +428,7 @@ export function NotesTab() {
                     type="button"
                     onClick={() => setEditingId(n.id)}
                     className="min-w-0 flex-1 cursor-pointer text-left"
-                    aria-label={t("common.open", { defaultValue: "Open" })}
+                    aria-label={t("common.open")}
                   >
                     <p className="truncate text-sm font-medium text-text-primary">
                       {n.title || t("book.notes.untitled")}

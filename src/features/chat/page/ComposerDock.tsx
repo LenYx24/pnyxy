@@ -24,6 +24,8 @@ import {
   formatReadingContextPrompt,
 } from "@/lib/reading-context";
 import { useChatStore } from "@/stores/chat-store";
+import { useUploadStore } from "@/stores/upload-store";
+import { track } from "@/lib/telemetry";
 import { useRoadmap, useRoadmapStore } from "@/stores/roadmap-store";
 import type { ChatConversation } from "@/types/chat";
 import { ChatComposer, type ChatComposerSubmitPayload } from "../ChatComposer";
@@ -134,6 +136,45 @@ export function ComposerDock({
     ],
   );
 
+  // Dropped PDF: upload into the shared "Chat uploads" library folder,
+  // then open a fresh conversation scoped to the new document. The scoped
+  // context builder extracts the text even while the reader never opened
+  // the file (see ai-context's fallback path).
+  const handleAttachPdf = useCallback(
+    async (file: File) => {
+      const chat = useChatStore.getState();
+      const folderName = t("chat.composer.attachments.pdfFolder");
+      const norm = folderName.trim().toLowerCase();
+      let folderId =
+        chat.folders.find(
+          (f) => f.parent_id === null && f.name.trim().toLowerCase() === norm,
+        )?.id ?? null;
+      if (!folderId) {
+        await chat.fetchFolders();
+        folderId =
+          useChatStore
+            .getState()
+            .folders.find(
+              (f) =>
+                f.parent_id === null && f.name.trim().toLowerCase() === norm,
+            )?.id ?? (await chat.createFolder(folderName, null));
+      }
+      const { bookId, error } = await useUploadStore
+        .getState()
+        .uploadPdf(file, folderId);
+      if (error) throw new Error(error);
+      if (!bookId) return; // cancelled
+      const docTitle = file.name.replace(/\.pdf$/i, "");
+      await createConversation("", null, {
+        docId: bookId,
+        docTitle,
+        page: null,
+      });
+      track("chat_pdf_drop");
+    },
+    [createConversation, t],
+  );
+
   // reading-context loader for the composer's "+" menu
   const handleLoadReadingContext = useCallback(
     async (mode: "week" | "all") => {
@@ -167,7 +208,13 @@ export function ComposerDock({
       onOpen: () => navigate(href),
       onHide: () => handleHideSourceChip(activeConversation.id),
     };
-  }, [activeConversation, hiddenSourceChips, navigate, handleHideSourceChip, t]);
+  }, [
+    activeConversation,
+    hiddenSourceChips,
+    navigate,
+    handleHideSourceChip,
+    t,
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-[820px] px-3 pb-0 pt-3 sm:px-7 sm:pb-5 sm:pt-4">
@@ -179,9 +226,7 @@ export function ComposerDock({
               <MapIcon size={14} strokeWidth={1.5} className="shrink-0" />
               <span className="min-w-0 truncate">
                 {t("chat.editingRoadmap", {
-                  title:
-                    targetRoadmap?.title ||
-                    t("roadmaps.untitled"),
+                  title: targetRoadmap?.title || t("roadmaps.untitled"),
                 })}
               </span>
               <a
@@ -207,6 +252,7 @@ export function ComposerDock({
           onStop={() => useChatStore.getState().stopStreaming()}
           onLoadReadingContext={handleLoadReadingContext}
           contextChip={sourceChip}
+          onAttachPdf={handleAttachPdf}
           edgeToEdgeOnMobile
         />
       </div>

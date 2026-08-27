@@ -87,9 +87,7 @@ export function QuizReviewPage() {
   if (!user) {
     return (
       <div className="mx-auto w-full max-w-xl p-6 text-center">
-        <p className="text-text-muted">
-          {t("quizzes.review.signInRequired")}
-        </p>
+        <p className="text-text-muted">{t("quizzes.review.signInRequired")}</p>
       </div>
     );
   }
@@ -322,12 +320,8 @@ export function QuizReviewPage() {
           >
             {wasCorrect ? <Check size={14} /> : <X size={14} />}
             {wasCorrect
-              ? t("quizzes.review.markedCorrect", {
-                  defaultValue: "Marked correct",
-                })
-              : t("quizzes.review.markedIncorrect", {
-                  defaultValue: "Marked incorrect",
-                })}
+              ? t("quizzes.review.markedCorrect")
+              : t("quizzes.review.markedIncorrect")}
           </span>
           <button
             type="button"
@@ -336,12 +330,8 @@ export function QuizReviewPage() {
             className="rounded-md border border-glass-border px-2.5 py-1 text-sm text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary disabled:opacity-50 cursor-pointer"
           >
             {wasCorrect
-              ? t("quizzes.review.markIncorrect", {
-                  defaultValue: "Mark as incorrect",
-                })
-              : t("quizzes.review.markCorrect", {
-                  defaultValue: "I was actually right",
-                })}
+              ? t("quizzes.review.markIncorrect")
+              : t("quizzes.review.markCorrect")}
           </button>
         </div>
       )}

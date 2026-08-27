@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { applyTheme, resetTheme } from "./apply";
+import {
+  applyTheme,
+  isAllowedThemeTokenKey,
+  isSafeThemeTokenValue,
+  resetTheme,
+  sanitizeThemeTokens,
+} from "./apply";
 import type { Theme } from "./types";
 
 const SAMPLE_DARK: Theme = {
@@ -91,5 +97,67 @@ describe("resetTheme", () => {
     expect(
       document.documentElement.style.getPropertyValue("--color-text-primary"),
     ).toBe("");
+  });
+});
+
+describe("token allowlist", () => {
+  it("isAllowedThemeTokenKey accepts every known token", () => {
+    expect(isAllowedThemeTokenKey("--color-bg-primary")).toBe(true);
+    expect(isAllowedThemeTokenKey("--color-accent")).toBe(true);
+    expect(isAllowedThemeTokenKey("--font-sans")).toBe(true);
+  });
+
+  it("isAllowedThemeTokenKey rejects unknown or non-custom-property keys", () => {
+    expect(isAllowedThemeTokenKey("--not-a-real-token")).toBe(false);
+    expect(isAllowedThemeTokenKey("color")).toBe(false);
+    expect(isAllowedThemeTokenKey("background")).toBe(false);
+  });
+
+  it("isSafeThemeTokenValue rejects values that could smuggle a resource load or import", () => {
+    expect(isSafeThemeTokenValue("url(javascript:alert(1))")).toBe(false);
+    expect(isSafeThemeTokenValue("URL(https://evil.example/x.png)")).toBe(false);
+    expect(isSafeThemeTokenValue("image-set(url(evil.png) 1x)")).toBe(false);
+    expect(isSafeThemeTokenValue("@import url(evil.css)")).toBe(false);
+    expect(isSafeThemeTokenValue("expression(alert(1))")).toBe(false);
+    expect(isSafeThemeTokenValue("a\\65 vil")).toBe(false);
+    expect(isSafeThemeTokenValue("<style>")).toBe(false);
+  });
+
+  it("isSafeThemeTokenValue accepts ordinary color and shadow values", () => {
+    expect(isSafeThemeTokenValue("#5fb3c6")).toBe(true);
+    expect(isSafeThemeTokenValue("rgba(255, 255, 255, 0.04)")).toBe(true);
+    expect(isSafeThemeTokenValue("0 8px 30px rgba(0, 0, 0, 0.45)")).toBe(true);
+    expect(
+      isSafeThemeTokenValue("color-mix(in srgb, #222226 88%, #ececee)"),
+    ).toBe(true);
+  });
+
+  it("sanitizeThemeTokens drops unknown keys and unsafe values, keeps the rest", () => {
+    const sanitized = sanitizeThemeTokens({
+      "--color-bg-primary": "#000",
+      // @ts-expect-error deliberately not a real token key
+      "--evil-injected": "#fff",
+      "--color-accent": "url(javascript:alert(1))",
+    });
+    expect(sanitized).toEqual({ "--color-bg-primary": "#000" });
+  });
+
+  it("applyTheme never sets an unallowlisted key or an unsafe value on the DOM", () => {
+    const MALICIOUS: Theme = {
+      id: "malicious",
+      name: "Malicious",
+      apiVersion: 1,
+      tokens: {
+        "--color-bg-primary": "url(https://evil.example/exfiltrate.png)",
+        "--color-text-primary": "#fff",
+        // @ts-expect-error deliberately not a real token key
+        "--not-a-token": "#000",
+      },
+    };
+    applyTheme(MALICIOUS);
+    const root = document.documentElement;
+    expect(root.style.getPropertyValue("--color-bg-primary")).toBe("");
+    expect(root.style.getPropertyValue("--color-text-primary")).toBe("#fff");
+    expect(root.style.getPropertyValue("--not-a-token")).toBe("");
   });
 });

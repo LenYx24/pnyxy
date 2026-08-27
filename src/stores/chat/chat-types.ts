@@ -14,6 +14,13 @@ export interface ChatDraft {
   target?: { roadmapId?: string | null; quizId?: string | null } | null;
   /** When set, arms a citation saved once the draft is sent. */
   selection?: TextSelection | null;
+  /** Library folder the new conversation is created in (course hand-off);
+   *  the sidebar drills into it so the course's resources are in view. */
+  folderId?: string | null;
+  /** Send `text` as the first message right away instead of prefilling
+   *  the composer (course "Start learning": the context turn is the app's,
+   *  the student's first real question comes after the model's reply). */
+  autoSend?: boolean;
 }
 
 export interface ChatSourceContext {
@@ -22,11 +29,21 @@ export interface ChatSourceContext {
   page: number | null;
 }
 
+/** Where a chat turn is sent from, for telemetry only. Derived from the
+ *  conversation's `source_doc_id` when absent (book vs plain chat); the
+ *  whiteboard panel and the course "Start learning" seed pass it explicitly
+ *  since those two aren't distinguishable from conversation fields alone. */
+export type ChatSendScope = "chat" | "book" | "course" | "whiteboard";
+
 /** Per-send overrides. */
 export interface ChatSendOptions {
   systemPromptOverride?: string;
+  /** Telemetry only, see `ChatSendScope`. */
+  scope?: ChatSendScope;
   /** Routes through OpenAI o3-mini; ignored by other providers. */
   reasoning?: boolean;
+  /** Pnyxy-route model pin for THIS turn ("retry with another model"). */
+  pnyxyModelOverride?: string;
   /** Records the user message in ai_citations so the reader can underline the passage. */
   citation?: {
     documentId: string;
@@ -57,6 +74,7 @@ export interface ChatState {
     target?: { roadmapId?: string | null; quizId?: string | null } | null,
     /** Fork lineage: the conversation this one was branched from. */
     parentConversationId?: string | null,
+    isTemporary?: boolean,
   ) => Promise<string | null>;
   setPendingDraft: (draft: ChatDraft | null) => void;
   /** Read and clear in one step so the next mount doesn't replay it. */
@@ -79,6 +97,8 @@ export interface ChatState {
   ) => Promise<void>;
   /** Same-folder reorder. Optimistic, rolls back on error. */
   reorderConversation: (id: string, sortOrder: number) => Promise<void>;
+  /** Archive / restore a conversation (hidden from the main lists). */
+  setConversationArchived: (id: string, archived: boolean) => Promise<void>;
   clearActive: () => void;
 
   // Folders
@@ -125,6 +145,10 @@ export interface ChatState {
 
   /** Routes the prompt through the Images API; reply carries the PNG as a base64 attachment. */
   sendImageMessage: (prompt: string) => Promise<void>;
+
+  /** Full in-memory wipe (conversations, folders, active thread). Called
+   *  on sign-out so the next account on this browser starts clean. */
+  reset: () => void;
 }
 
 /** Zustand `set`, as handed to the chat modules living outside the store file. */

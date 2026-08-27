@@ -54,10 +54,7 @@ export function BookCategoryEditor({
     setLinked(initialCategories);
   }, [initialCategories]);
 
-  const linkedIds = useMemo(
-    () => new Set(linked.map((c) => c.id)),
-    [linked],
-  );
+  const linkedIds = useMemo(() => new Set(linked.map((c) => c.id)), [linked]);
   const available = useMemo(
     () => allCategories.filter((c) => !linkedIds.has(c.id)),
     [allCategories, linkedIds],
@@ -110,7 +107,7 @@ export function BookCategoryEditor({
   return (
     <div className="space-y-2">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-        {t("book.categories.heading", { defaultValue: "Categories" })}
+        {t("book.categories.heading")}
       </h3>
       <div className="flex flex-wrap gap-1.5">
         {linked.map((cat) => (
@@ -123,8 +120,8 @@ export function BookCategoryEditor({
               type="button"
               onClick={() => void handleRemove(cat)}
               className="rounded-full p-0.5 text-text-muted transition-colors hover:bg-glass-hover hover:text-danger cursor-pointer"
-              aria-label={t("common.remove", { defaultValue: "Remove" })}
-              title={t("common.remove", { defaultValue: "Remove" })}
+              aria-label={t("common.remove")}
+              title={t("common.remove")}
             >
               <X size={11} />
             </button>
@@ -137,7 +134,8 @@ export function BookCategoryEditor({
           disabled={available.length === 0 || pending}
           className={cn(
             "inline-flex items-center gap-1 rounded-full border border-dashed border-glass-border px-2.5 py-1 text-xs text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer",
-            (available.length === 0 || pending) && "cursor-not-allowed opacity-50",
+            (available.length === 0 || pending) &&
+              "cursor-not-allowed opacity-50",
           )}
         >
           {pending ? (
@@ -145,7 +143,7 @@ export function BookCategoryEditor({
           ) : (
             <Plus size={11} />
           )}
-          {t("book.categories.add", { defaultValue: "Add category" })}
+          {t("book.categories.add")}
         </button>
         <FloatingMenu
           open={menuOpen}
@@ -155,9 +153,7 @@ export function BookCategoryEditor({
         >
           {available.length === 0 ? (
             <p className="px-3 py-2 text-xs text-text-muted">
-              {t("book.categories.noneLeft", {
-                defaultValue: "All categories already linked.",
-              })}
+              {t("book.categories.noneLeft")}
             </p>
           ) : (
             available.map((cat) => (
@@ -173,9 +169,7 @@ export function BookCategoryEditor({
           )}
         </FloatingMenu>
       </div>
-      {error && (
-        <p className="text-2xs text-danger">{error}</p>
-      )}
+      {error && <p className="text-2xs text-danger">{error}</p>}
     </div>
   );
 }

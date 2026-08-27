@@ -5,11 +5,18 @@
  */
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import i18next from "i18next";
 import {
   ChevronLeft,
+  FilePlus2,
   Folder as FolderIcon,
+  FolderPlus,
+  Library,
   MessagesSquare,
 } from "lucide-react";
+import { useContextMenu } from "@/hooks/use-context-menu";
+import type { ContextMenuEntry } from "@/stores/context-menu-store";
+import { useChatSidebar } from "./ChatSidebarContext";
 import { DndContext, DragOverlay } from "@dnd-kit/core";
 import { restrictToWindowEdges } from "@/lib/dnd-modifiers";
 import type { ChatConversation, ChatFolder } from "@/types/chat";
@@ -45,6 +52,44 @@ export function SidebarTreeList({
   const { t } = useTranslation();
   const quickView = sidebarView === "quick";
   const dnd = useSidebarDnd({ folders, conversations, rootFolderId });
+  const sidebar = useChatSidebar();
+
+  // Right-click on the empty area below the rows while drilled into a
+  // folder: the same folder actions as on the folder row itself, so the
+  // user does not have to go back up to act on the folder they are in.
+  // Row handlers stopPropagation, so this only fires on blank space.
+  const blankMenuItems = (): ContextMenuEntry[] => {
+    if (!drilledFolder || quickView) return [];
+    const id = drilledFolder.id;
+    return [
+      {
+        id: "new",
+        label: t("chat.sidebar.newInFolder"),
+        icon: FilePlus2,
+        onClick: () => sidebar.onNewInFolder(id),
+      },
+      {
+        id: "new-subfolder",
+        label: t("chat.folders.newSubfolder"),
+        icon: FolderPlus,
+        onClick: () => sidebar.onNewSubfolder(id),
+      },
+      {
+        id: "open-in-library",
+        label: t("chat.folders.openInLibrary"),
+        icon: Library,
+        onClick: () => sidebar.onOpenFolderInLibrary(id),
+      },
+      { id: "div-back", divider: true },
+      {
+        id: "back",
+        label: t("chat.folders.backToAll"),
+        icon: ChevronLeft,
+        onClick: () => onRootFolderChange(null),
+      },
+    ];
+  };
+  const blankCtxMenu = useContextMenu(blankMenuItems);
 
   return (
     <DndContext
@@ -56,7 +101,10 @@ export function SidebarTreeList({
       onDragEnd={dnd.handleDragEnd}
       onDragCancel={dnd.handleDragCancel}
     >
-      <div className="chat-scroll min-h-0 flex-1 overflow-y-auto">
+      <div
+        className="chat-scroll min-h-0 flex-1 overflow-y-auto"
+        {...blankCtxMenu}
+      >
         {conversations.length === 0 && folders.length === 0 ? (
           <p className="px-2 py-4 text-center text-xs text-text-muted">
             {t("chat.sidebar.empty")}
@@ -69,20 +117,49 @@ export function SidebarTreeList({
         ) : (
           <>
             {drilledFolder && !quickView && (
-              <button
-                type="button"
-                onClick={() => onRootFolderChange(null)}
-                className="mb-1 flex w-full items-center gap-1.5 rounded-control px-3 py-2 text-left text-xs font-medium text-text-secondary transition-colors hover:bg-bg-tertiary/60 hover:text-text-primary cursor-pointer"
+              <nav
+                aria-label={t("chat.folders.breadcrumb")}
+                className="mb-1 flex items-center gap-0.5 px-1 py-1 text-xs"
               >
-                <ChevronLeft size={16} strokeWidth={1.5} className="shrink-0" />
-                <span className="truncate">
-                  {t("chat.folders.backToAll")}
-                </span>
-                <span className="mx-1 text-text-muted-2">/</span>
-                <span className="min-w-0 flex-1 truncate text-text-primary">
-                  {drilledFolder.name}
-                </span>
-              </button>
+                {/* back = one level up, not straight to the root */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    onRootFolderChange(drilledFolder.parent_id ?? null)
+                  }
+                  className="flex shrink-0 items-center rounded-control p-1.5 text-text-muted transition-colors hover:bg-bg-tertiary/60 hover:text-text-primary cursor-pointer"
+                  aria-label={t("chat.folders.up")}
+                  title={t("chat.folders.up")}
+                >
+                  <ChevronLeft size={16} strokeWidth={1.5} />
+                </button>
+                <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden">
+                  {folderTrail(folders, drilledFolder).map((crumb, i, arr) => {
+                    const last = i === arr.length - 1;
+                    return (
+                      <span
+                        key={crumb.id ?? "root"}
+                        className="flex min-w-0 items-center gap-0.5"
+                      >
+                        {i > 0 && <span className="text-text-muted-2">/</span>}
+                        {last ? (
+                          <span className="truncate px-1 font-medium text-text-primary">
+                            {crumb.name}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onRootFolderChange(crumb.id)}
+                            className="truncate rounded-control px-1 py-0.5 text-text-secondary transition-colors hover:bg-bg-tertiary/60 hover:text-text-primary cursor-pointer"
+                          >
+                            {crumb.name}
+                          </button>
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+              </nav>
             )}
             {!quickView && (
               <RootDropZone label={t("chat.folders.dropToRoot")} />
@@ -134,4 +211,20 @@ export function SidebarTreeList({
       )}
     </DndContext>
   );
+}
+
+/** Root-first trail for the breadcrumb: "All chats" + every ancestor + the folder itself. */
+function folderTrail(
+  folders: ChatFolder[],
+  folder: ChatFolder,
+): { id: string | null; name: string }[] {
+  const byId = new Map(folders.map((f) => [f.id, f]));
+  const chain: { id: string | null; name: string }[] = [];
+  let cur: ChatFolder | undefined = folder;
+  for (let depth = 0; cur && depth < 16; depth++) {
+    chain.unshift({ id: cur.id, name: cur.name });
+    cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
+  }
+  chain.unshift({ id: null, name: i18next.t("chat.folders.backToAll") });
+  return chain;
 }

@@ -1,9 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   DndContext,
@@ -188,8 +184,7 @@ export function QuizEditorPage() {
     );
   }
 
-  const addQuestion = () =>
-    setItems((prev) => [...prev, makeEditable()]);
+  const addQuestion = () => setItems((prev) => [...prev, makeEditable()]);
 
   const removeAt = (i: number) => {
     const removedKey = items[i]?.key;
@@ -250,8 +245,7 @@ export function QuizEditorPage() {
       setTitle(sourceTitle.slice(0, 140));
     }
     setItems((prev) => {
-      const keep =
-        prev.length === 1 && isEmptyDraft(prev[0].draft) ? [] : prev;
+      const keep = prev.length === 1 && isEmptyDraft(prev[0].draft) ? [] : prev;
       return [...keep, ...drafts.map((d) => makeEditable(d))];
     });
   };
@@ -298,7 +292,8 @@ export function QuizEditorPage() {
 
   const handleSave = async () => {
     setError(null);
-    if (!title.trim()) return setError(t("quizzes.editor.errors.titleRequired"));
+    if (!title.trim())
+      return setError(t("quizzes.editor.errors.titleRequired"));
     const drafts = items.map((it) => it.draft);
     if (drafts.length === 0)
       return setError(t("quizzes.editor.errors.needQuestion"));
@@ -319,8 +314,6 @@ export function QuizEditorPage() {
           return setError(
             t("quizzes.editor.errors.needCorrectAnswer", {
               n: i + 1,
-              defaultValue:
-                "Question {{n}}: mark at least one correct answer.",
             }),
           );
       } else if (q.kind === "true_false") {
@@ -389,7 +382,9 @@ export function QuizEditorPage() {
 
       <header>
         <h1 className="text-2xl font-bold text-text-primary">
-          {quizId ? t("quizzes.editor.editTitle") : t("quizzes.editor.newTitle")}
+          {quizId
+            ? t("quizzes.editor.editTitle")
+            : t("quizzes.editor.newTitle")}
         </h1>
         <p className="mt-1 text-sm text-text-muted">
           {t("quizzes.editor.intro")}
@@ -461,10 +456,7 @@ export function QuizEditorPage() {
               {t("quizzes.editor.randomizeOptionsHint")}
             </p>
           </div>
-          <Toggle
-            checked={randomizeOptions}
-            onChange={setRandomizeOptions}
-          />
+          <Toggle checked={randomizeOptions} onChange={setRandomizeOptions} />
         </div>
       </section>
 
@@ -481,9 +473,7 @@ export function QuizEditorPage() {
         // generator produces a MIX of question types (single-choice,
         // multiple-answer, true/false, short answer).
         kind={
-          searchParams.get("kind") === "short_answer"
-            ? "short_answer"
-            : "mixed"
+          searchParams.get("kind") === "short_answer" ? "short_answer" : "mixed"
         }
       />
 
@@ -801,10 +791,7 @@ function SortableQuestionCard({
             )}
           </div>
           <p className="text-2xs text-text-muted">
-            {t("quizzes.editor.multiSelectHint", {
-              defaultValue:
-                "Tick every correct option. Takers must select all of them.",
-            })}
+            {t("quizzes.editor.multiSelectHint")}
           </p>
         </div>
       )}
@@ -868,17 +855,27 @@ function KindTabs({
   onChange: (k: QuizQuestionKind) => void;
 }) {
   const { t } = useTranslation();
-  const tabs: { kind: QuizQuestionKind; icon: typeof ListChecks; label: string }[] = [
+  const tabs: {
+    kind: QuizQuestionKind;
+    icon: typeof ListChecks;
+    label: string;
+  }[] = [
     { kind: "mcq4", icon: ListChecks, label: t("quizzes.editor.kind.mcq4") },
     {
       kind: "multi_select",
       icon: CheckSquare,
-      label: t("quizzes.editor.kind.multi_select", {
-        defaultValue: "Multiple answers",
-      }),
+      label: t("quizzes.editor.kind.multi_select"),
     },
-    { kind: "true_false", icon: ToggleLeft, label: t("quizzes.editor.kind.true_false") },
-    { kind: "short_answer", icon: Type, label: t("quizzes.editor.kind.short_answer") },
+    {
+      kind: "true_false",
+      icon: ToggleLeft,
+      label: t("quizzes.editor.kind.true_false"),
+    },
+    {
+      kind: "short_answer",
+      icon: Type,
+      label: t("quizzes.editor.kind.short_answer"),
+    },
   ];
   return (
     <div className="flex flex-wrap gap-1 rounded-lg border border-glass-border bg-bg-primary/40 p-0.5">

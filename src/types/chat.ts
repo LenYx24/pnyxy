@@ -21,6 +21,10 @@ export interface ChatConversation {
   /** Set when this conversation was forked from another (the Graph view's
    *  parent→child lineage). Null = a root conversation. */
   parent_conversation_id: string | null;
+  /** Incognito: hidden from history, purged ~24h later (00068). */
+  is_temporary?: boolean;
+  /** Hidden from the main lists; restorable from the Archive (00068). */
+  archived_at?: string | null;
   /** In a forked conversation: the LOCAL copy of the message the fork was
    *  made at; the thread draws the "fork point" divider under it.
    *  Optional: absent until migration 00061 is applied. */
@@ -51,6 +55,12 @@ export interface ChatMessage {
   /** Images attached to a user turn, persisted so refreshes keep them.
    *  Provider-specific conversion happens in ai-client.ts. */
   attachments?: ChatMessageAttachment[] | null;
+  /** Set on a failed/cut assistant turn instead of encoding the error into
+   *  `content` with a "⚠" prefix. A short machine-ish reason
+   *  ("stream_failed", "empty_response", "cut:max_tokens", "cut:content_filter")
+   *  or, for the partial-stream cut case, the human-readable notice itself.
+   *  Optional: absent until migration 00071 is applied. */
+  error?: string | null;
   created_at: string;
 }
 

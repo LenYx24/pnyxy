@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Pnyxy",
+  "short_name": "Pnyxy",
+  "version": "1.0.0",
+  "description": "Ask Pnyxy about selected text or save a page to your library, straight from the browser.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Pnyxy",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
+  },
+  "permissions": ["contextMenus", "storage", "activeTab", "scripting"],
+  "commands": {
+    "ask-selection": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+K",
+        "mac": "Command+Shift+K"
+      },
+      "description": "Ask Pnyxy about the current selection"
+    }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "extension@pnyxy.com",
+      "strict_min_version": "109.0"
+    }
+  }
+}

@@ -10,6 +10,9 @@ interface CheckboxProps {
   onChange: (checked: boolean) => void;
   disabled?: boolean;
   className?: string;
+  /** Accessible name; the control itself is a bare button (no visible
+   *  label), so callers with no adjacent text should always pass one. */
+  "aria-label"?: string;
 }
 
 export function Checkbox({
@@ -18,6 +21,7 @@ export function Checkbox({
   onChange,
   disabled,
   className,
+  "aria-label": ariaLabel,
 }: CheckboxProps) {
   const visuallyOn = checked || indeterminate;
   return (
@@ -25,6 +29,7 @@ export function Checkbox({
       type="button"
       role="checkbox"
       aria-checked={indeterminate ? "mixed" : checked}
+      aria-label={ariaLabel}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(

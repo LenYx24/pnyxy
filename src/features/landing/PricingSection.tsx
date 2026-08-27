@@ -19,7 +19,10 @@ export function PricingSection() {
   }) as string[];
 
   return (
-    <section id="pricing" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+    <section
+      id="pricing"
+      className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20"
+    >
       <SectionHeading
         eyebrow={t("landing.eyebrow.pricing")}
         title={t("landing.pricing.title")}
@@ -82,9 +85,7 @@ export function PricingSection() {
             {/* explicit "this tier costs money" note so nobody mistakes
                 Premium for another free plan */}
             <span className="mt-2 inline-flex w-fit items-center rounded-full border border-accent/40 bg-accent/10 px-2.5 py-0.5 text-2xs font-semibold uppercase tracking-wide text-accent">
-              {t("landing.pricing.premium.paidNote", {
-                defaultValue: "Paid plan, not free",
-              })}
+              {t("landing.pricing.premium.paidNote")}
             </span>
             <p className="mt-2 text-xs text-text-muted">
               {t("landing.pricing.premium.tagline")}

@@ -17,7 +17,7 @@ import {
   MessageSquare,
   type LucideIcon,
 } from "lucide-react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { Button, FloatingMenu, Kbd } from "@/components/ui";
 import { modalBackdropClass, modalSurfaceClass } from "@/components/ui/classes";
 import { useContextMenu } from "@/hooks/use-context-menu";
@@ -58,6 +58,7 @@ import { DeviceBookScanModal } from "./modals/DeviceBookScanModal";
 import { AddManualBookModal } from "./modals/AddManualBookModal";
 import { AddResourceModal } from "./modals/AddResourceModal";
 import { loadLastOpenedBook } from "@/lib/last-opened-book";
+import { track } from "@/lib/telemetry";
 import { prefetchBookBlob } from "@/hooks/use-open-uploaded-document";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import type { BookStatusTag } from "@/types/database";
@@ -162,6 +163,15 @@ export function LibraryPage() {
 
   // Search
   const [searchQuery, setSearchQuery] = useState("");
+  // Fires once per pause in typing, not per keystroke.
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+    const id = window.setTimeout(
+      () => track("search_used", { chars: searchQuery.trim().length }),
+      600,
+    );
+    return () => window.clearTimeout(id);
+  }, [searchQuery]);
 
   // Tag filter
   const [activeTag, setActiveTag] = useState<BookStatusTag | null>(null);
@@ -239,7 +249,10 @@ export function LibraryPage() {
     displayedOrderRef.current = keys;
     let folderCount = 0;
     for (const k of keys) if (k.startsWith("folder:")) folderCount++;
-    setVisibleCounts({ folders: folderCount, items: keys.length - folderCount });
+    setVisibleCounts({
+      folders: folderCount,
+      items: keys.length - folderCount,
+    });
   }, []);
 
   // Upload modal state. The primary upload action now picks files and
@@ -261,6 +274,25 @@ export function LibraryPage() {
   }, []);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
 
+  // Browser-extension hand-off: /library?addUrl=<pageUrl> ("Save page to
+  // Pnyxy") opens the same add-link modal a pasted URL does, prefilled.
+  // Strips the param right after reading it, so it doesn't reopen on a
+  // refresh or a StrictMode double effect.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const addUrl = searchParams.get("addUrl");
+    if (!addUrl) return;
+    handlePasteUrl(addUrl);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("addUrl");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams, handlePasteUrl]);
+
   // upload pipeline is PDF-only; other formats just open in the reader
   const importFile = useCallback(
     async (file: File) => {
@@ -279,7 +311,9 @@ export function LibraryPage() {
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
 
   // Remove confirmation state
-  const [removeEntry, setRemoveEntry] = useState<UnifiedLibraryItem | null>(null);
+  const [removeEntry, setRemoveEntry] = useState<UnifiedLibraryItem | null>(
+    null,
+  );
 
   const { confirm, ConfirmModalElement } = useConfirm();
 
@@ -293,7 +327,8 @@ export function LibraryPage() {
     const entry = books.find(
       (b) => b.source === "uploaded" && b.id === last.id,
     );
-    if (!entry || entry.source !== "uploaded" || !entry.book.storage_path) return;
+    if (!entry || entry.source !== "uploaded" || !entry.book.storage_path)
+      return;
     return prefetchBookBlob(entry.book.storage_path, {
       sizeBytes: entry.book.size_bytes,
     });
@@ -309,7 +344,13 @@ export function LibraryPage() {
     fetchStorageUsage();
     fetchInProgress();
     void fetchResources();
-  }, [fetchLibrary, fetchFolders, fetchStorageUsage, fetchInProgress, fetchResources]);
+  }, [
+    fetchLibrary,
+    fetchFolders,
+    fetchStorageUsage,
+    fetchInProgress,
+    fetchResources,
+  ]);
 
   // pull-to-refresh (mobile). always forces a refetch.
   const { pullDistance, isRefreshing } = usePullToRefresh({
@@ -677,31 +718,31 @@ export function LibraryPage() {
   const createEntries = [
     {
       id: "create-note",
-      label: t("library.create.note", { defaultValue: "Note" }),
+      label: t("library.create.note"),
       icon: StickyNote,
       onClick: handleCreateNote,
     },
     {
       id: "create-whiteboard",
-      label: t("library.create.whiteboard", { defaultValue: "Whiteboard" }),
+      label: t("library.create.whiteboard"),
       icon: PenLine,
       onClick: handleCreateWhiteboard,
     },
     {
       id: "create-quiz",
-      label: t("library.create.quiz", { defaultValue: "Quiz" }),
+      label: t("library.create.quiz"),
       icon: FileQuestion,
       onClick: handleCreateQuiz,
     },
     {
       id: "create-chat",
-      label: t("library.create.chat", { defaultValue: "Chat" }),
+      label: t("library.create.chat"),
       icon: MessageSquare,
       onClick: () => void handleCreateChat(),
     },
     {
       id: "create-resource",
-      label: t("library.actions.addResource", { defaultValue: "Resource (beta)" }),
+      label: t("library.actions.addResource"),
       icon: Globe,
       onClick: () => setResourceModalOpen(true),
     },
@@ -787,7 +828,9 @@ export function LibraryPage() {
               )}
               style={
                 !isRefreshing
-                  ? { transform: `rotate(${Math.min(pullDistance * 3, 360)}deg)` }
+                  ? {
+                      transform: `rotate(${Math.min(pullDistance * 3, 360)}deg)`,
+                    }
                   : undefined
               }
             />
@@ -810,7 +853,11 @@ export function LibraryPage() {
       {dragOver && (
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-bg-primary/70 backdrop-blur-sm">
           <div className="mx-4 flex max-w-md flex-col items-center gap-3 rounded-page bg-bg-tertiary px-8 py-10 text-center shadow-page outline-dotted outline-2 -outline-offset-8 outline-surface-3">
-            <UploadCloud size={40} strokeWidth={1.5} className="text-text-secondary" />
+            <UploadCloud
+              size={40}
+              strokeWidth={1.5}
+              className="text-text-secondary"
+            />
             <p className="font-display text-base font-semibold text-text-primary">
               {t("library.dropOverlay.title")}
             </p>
@@ -826,7 +873,6 @@ export function LibraryPage() {
           </div>
         </div>
       )}
-
 
       <input
         ref={fileInputRef}
@@ -891,7 +937,9 @@ export function LibraryPage() {
                     className="px-3 py-2 sm:px-3.5"
                   >
                     <Plus size={16} strokeWidth={1.5} />
-                    <span className="hidden sm:inline">{t("library.list.add")}</span>
+                    <span className="hidden sm:inline">
+                      {t("library.list.add")}
+                    </span>
                   </Button>
                 </span>
                 <FloatingMenu
@@ -901,7 +949,7 @@ export function LibraryPage() {
                   className="min-w-[13rem] pb-1"
                 >
                   <CreateMenuHeading>
-                    {t("library.create.createHeading", { defaultValue: "Create" })}
+                    {t("library.create.createHeading")}
                   </CreateMenuHeading>
                   {createEntries.map((e) => (
                     <CreateMenuRow
@@ -916,7 +964,7 @@ export function LibraryPage() {
                   ))}
                   <div className="my-1 h-px bg-surface-3" />
                   <CreateMenuHeading>
-                    {t("library.create.addHeading", { defaultValue: "Add / upload" })}
+                    {t("library.create.addHeading")}
                   </CreateMenuHeading>
                   <CreateMenuRow
                     icon={Upload}
@@ -931,7 +979,9 @@ export function LibraryPage() {
                       key={e.id}
                       icon={e.icon}
                       label={e.label}
-                      shortcut={e.id === "open-file" ? "app:open-book" : undefined}
+                      shortcut={
+                        e.id === "open-file" ? "app:open-book" : undefined
+                      }
                       onClick={() => {
                         setCreateMenuOpen(false);
                         e.onClick();
@@ -958,7 +1008,10 @@ export function LibraryPage() {
       />
 
       {/* dashed drop / paste target under the list (both views) */}
-      <LibraryDropZone onPickFiles={triggerUpload} onPasteUrl={handlePasteUrl} />
+      <LibraryDropZone
+        onPickFiles={triggerUpload}
+        onPasteUrl={handlePasteUrl}
+      />
 
       {/* gap between last row and the footer divider */}
       <div aria-hidden className="h-8 shrink-0" />
@@ -1037,9 +1090,7 @@ export function LibraryPage() {
         onClose={() => setNewFolderOpen(false)}
         onCreate={handleConfirmNewFolder}
         parentFolderName={
-          folderPath.length > 0
-            ? folderPath[folderPath.length - 1].name
-            : null
+          folderPath.length > 0 ? folderPath[folderPath.length - 1].name : null
         }
       />
 
@@ -1070,7 +1121,9 @@ export function LibraryPage() {
             className={`absolute inset-0 ${modalBackdropClass}`}
             onClick={() => setRemoveEntry(null)}
           />
-          <div className={`relative z-10 w-full max-w-sm p-6 ${modalSurfaceClass}`}>
+          <div
+            className={`relative z-10 w-full max-w-sm p-6 ${modalSurfaceClass}`}
+          >
             <h3 className="mb-2 font-display text-lg font-semibold text-text-primary">
               {isUploaded
                 ? t("library.confirm.deleteTitle")
@@ -1082,10 +1135,7 @@ export function LibraryPage() {
                 : t("library.confirm.removeBody")}
             </p>
             <div className="flex justify-end gap-2">
-              <Button
-                variant="secondary"
-                onClick={() => setRemoveEntry(null)}
-              >
+              <Button variant="secondary" onClick={() => setRemoveEntry(null)}>
                 {t("common.cancel")}
               </Button>
               <Button variant="danger" onClick={confirmRemove}>
@@ -1100,4 +1150,3 @@ export function LibraryPage() {
     </div>
   );
 }
-

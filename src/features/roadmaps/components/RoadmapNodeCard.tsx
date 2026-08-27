@@ -1,11 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Handle,
-  Position,
-  type Node,
-  type NodeProps,
-} from "@xyflow/react";
+import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { BookOpen, Check, Lock, Trophy } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatMinutes } from "../lib/scheduler";
@@ -82,12 +77,8 @@ export function RoadmapNodeCard({
   // mark it done" interaction is discoverable rather than hidden.
   const cardTitle = d.completable
     ? completed
-      ? t("roadmaps.node.clickToUncheck", {
-          defaultValue: "Click to mark as not done",
-        })
-      : t("roadmaps.node.clickToCheck", {
-          defaultValue: "Click to mark as done",
-        })
+      ? t("roadmaps.node.clickToUncheck")
+      : t("roadmaps.node.clickToCheck")
     : undefined;
 
   return (
@@ -123,8 +114,8 @@ export function RoadmapNodeCard({
           aria-label={
             d.completable
               ? completed
-                ? t("roadmaps.node.done", { defaultValue: "Done" })
-                : t("roadmaps.node.notDone", { defaultValue: "Not done" })
+                ? t("roadmaps.node.done")
+                : t("roadmaps.node.notDone")
               : undefined
           }
           className={cn(
@@ -174,9 +165,7 @@ export function RoadmapNodeCard({
                 "mt-1 flex items-center gap-1 truncate text-2xs",
                 refMatched ? "text-accent" : "text-text-muted",
               )}
-              title={
-                ref.author ? `${ref.author} - ${ref.title}` : ref.title
-              }
+              title={ref.author ? `${ref.author} - ${ref.title}` : ref.title}
             >
               <BookOpen size={10} className="shrink-0" />
               <span className="truncate">{refLabel(ref)}</span>

@@ -21,7 +21,8 @@ export function pathFromRoot(
   return path.reverse();
 }
 
-/** Root ancestor of a message (the message itself when it has no parent), or null if unknown. */
+/** Root ancestor of a message (the message itself when it has no parent), or null if unknown.
+ *  Lineage helper for the graph view (see conversationLineage below). */
 export function rootOf(
   messages: Map<string, ChatMessage>,
   messageId: string | null,
@@ -102,6 +103,7 @@ export function windowChatHistory<T extends { role: "user" | "assistant" }>(
 /**
  * Fork lineage over conversations: root->conversation chain following
  * parent_conversation_id. Stops at the first unknown or cyclic link.
+ * Lineage helper for the graph view (Obsidian-style fork tree).
  */
 export function conversationLineage<
   T extends { id: string; parent_conversation_id?: string | null },

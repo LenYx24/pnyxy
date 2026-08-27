@@ -1,40 +1,38 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
+import { useShallow } from "zustand/react/shallow";
 import {
-  ArrowLeft,
   BadgeCheck,
-  BookOpen,
   CalendarDays,
   CalendarPlus,
-  ExternalLink,
-  FileText,
-  Folder,
   FolderPlus,
-  Globe,
-  ListChecks,
   Loader2,
   LogOut,
-  Map as MapIcon,
   MessagesSquare,
   MoreHorizontal,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Shapes,
   Sparkles,
   Trash2,
-  Video,
-  X,
-  type LucideIcon,
 } from "lucide-react";
-import { Button, IconButton } from "@/components/ui";
+import { Button, FormModal, IconButton, chipClass } from "@/components/ui";
 import { openMenuAtButton } from "@/features/chat/menu-anchor";
 import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useChatStore } from "@/stores/chat-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useSpaceStore } from "@/stores/space-store";
-import { SpaceFilesSection, SpaceInviteSection } from "./SpaceFilesSection";
+import { track } from "@/lib/telemetry";
+import { SpaceInviteSection } from "./SpaceFilesSection";
+import { CourseNavTree } from "./CourseNavTree";
+import { CourseSections } from "./CourseSections";
+import { internalHref, isExternal } from "./content-shared";
 import { useConfirm } from "@/hooks/use-confirm";
+import { cn } from "@/lib/cn";
+import { isSafeExternalUrl, safeInternalPath } from "@/lib/safe-url";
 import type {
   Offering,
   OfferingStatus,
@@ -60,43 +58,24 @@ const CONTENT_KINDS: SpaceContentKind[] = [
   "link",
 ];
 
-const KIND_ICON: Record<SpaceContentKind, LucideIcon> = {
-  book: BookOpen,
-  resource: Globe,
-  quiz: ListChecks,
-  roadmap: MapIcon,
-  note: FileText,
-  whiteboard: Shapes,
-  link: Globe,
-};
+const NAV_OPEN_KEY = "pnyxy:spaces-nav-open";
 
-/** Internal route for a content item by kind (when no external url is set). */
-function internalHref(item: SpaceContent): string | null {
-  if (!item.ref_id) return null;
-  switch (item.kind) {
-    case "book":
-      return `/reader/${item.ref_id}`;
-    case "resource":
-      return `/resources/${item.ref_id}`;
-    case "quiz":
-      return `/quizzes/${item.ref_id}`;
-    case "roadmap":
-      return `/roadmaps/${item.ref_id}`;
-    case "note":
-      return `/notes/${item.ref_id}`;
-    case "whiteboard":
-      return `/whiteboards/${item.ref_id}`;
-    default:
-      return null;
+function readNavOpen(): boolean {
+  try {
+    const raw = localStorage.getItem(NAV_OPEN_KEY);
+    return raw === null ? true : raw === "1";
+  } catch {
+    return true;
   }
 }
 
-const isExternal = (url: string) => /^https?:\/\//i.test(url);
-
-/** Uppercase micro-caption for the page sections (variant B: sections
- *  whisper, the file list and the one accent CTA carry the weight). */
-const SECTION_CAPTION =
-  "text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2";
+function writeNavOpen(open: boolean): void {
+  try {
+    localStorage.setItem(NAV_OPEN_KEY, open ? "1" : "0");
+  } catch {
+    // private mode: not fatal, just won't persist
+  }
+}
 
 export function CourseSpacePage() {
   const { t } = useTranslation();
@@ -108,7 +87,6 @@ export function CourseSpacePage() {
   const {
     activeSpace,
     activeSpaceAncestors,
-    activeSpaceChildren,
     activeSpaceContent,
     activeSpaceOfferings,
     loading,
@@ -116,16 +94,48 @@ export function CourseSpacePage() {
     loadSpace,
     leaveSpace,
     enrollInCourse,
-    removeSpaceContent,
     removeOffering,
     deleteSpace,
-  } = useSpaceStore();
+  } = useSpaceStore(
+    useShallow((s) => ({
+      activeSpace: s.activeSpace,
+      activeSpaceAncestors: s.activeSpaceAncestors,
+      activeSpaceContent: s.activeSpaceContent,
+      activeSpaceOfferings: s.activeSpaceOfferings,
+      loading: s.loading,
+      memberIds: s.memberIds,
+      loadSpace: s.loadSpace,
+      leaveSpace: s.leaveSpace,
+      enrollInCourse: s.enrollInCourse,
+      removeOffering: s.removeOffering,
+      deleteSpace: s.deleteSpace,
+    })),
+  );
   const folders = useChatStore((s) => s.folders);
 
   const [busy, setBusy] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [addContentSectionId, setAddContentSectionId] = useState<string | null>(
+    null,
+  );
   const [addTermOpen, setAddTermOpen] = useState(false);
   const [addChildOpen, setAddChildOpen] = useState(false);
+  const [createSectionOpen, setCreateSectionOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(() => readNavOpen());
+
+  const toggleNav = () => {
+    setNavOpen((v) => {
+      const next = !v;
+      writeNavOpen(next);
+      return next;
+    });
+  };
+  const closeMobileNav = () => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setNavOpen(false);
+      writeNavOpen(false);
+    }
+  };
 
   useEffect(() => {
     if (spaceId) void loadSpace(spaceId);
@@ -162,13 +172,10 @@ export function CourseSpacePage() {
   if (!activeSpace || activeSpace.id !== spaceId) {
     return (
       <div className="mx-auto max-w-2xl space-y-4 p-4 text-center sm:p-6">
-        <p className="text-text-secondary">
-          {t("spaces.notFound", { defaultValue: "This space could not be found." })}
-        </p>
+        <p className="text-text-secondary">{t("spaces.notFound")}</p>
         <Link to="/spaces">
           <Button variant="secondary" size="sm">
-            <ArrowLeft size={14} />
-            {t("spaces.back", { defaultValue: "Back to spaces" })}
+            {t("spaces.back")}
           </Button>
         </Link>
       </div>
@@ -203,15 +210,25 @@ export function CourseSpacePage() {
       ? folders.find(
           (f) =>
             f.parent_id === courseFolder.id &&
-            f.name.trim().toLowerCase() === item.title.slice(0, 120).trim().toLowerCase(),
+            f.name.trim().toLowerCase() ===
+              item.title.slice(0, 120).trim().toLowerCase(),
         )
       : undefined;
+
+  const openItemUrl = (url: string) => {
+    if (isExternal(url)) {
+      if (isSafeExternalUrl(url)) {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+      return;
+    }
+    if (safeInternalPath(url)) navigate(url);
+  };
 
   const openItem = (item: SpaceContent) => {
     // Prefer an explicit url for link / resource items.
     if (item.url && (item.kind === "link" || item.kind === "resource")) {
-      if (isExternal(item.url)) window.open(item.url, "_blank", "noopener,noreferrer");
-      else navigate(item.url);
+      openItemUrl(item.url);
       return;
     }
     const href = internalHref(item);
@@ -220,27 +237,68 @@ export function CourseSpacePage() {
       return;
     }
     if (item.url) {
-      if (isExternal(item.url)) window.open(item.url, "_blank", "noopener,noreferrer");
-      else navigate(item.url);
+      openItemUrl(item.url);
     }
   };
 
+  // study-folder aware open, handed to CourseSections for every kind
+  // except "file" (which it resolves itself via the shared file store).
+  const openItemInStudyFolder = (item: SpaceContent) => {
+    const studyFolder = isMember ? folderForItem(item) : undefined;
+    if (studyFolder) {
+      useLibraryStore.getState().navigateToFolder(studyFolder.id);
+      navigate("/library");
+      return;
+    }
+    openItem(item);
+  };
+
+  // "Start learning": open a course chat inside the course's library folder
+  // and send the context turn right away, so the student's first message
+  // is a real question and the model already knows the course.
   const askAi = () => {
-    const materials = activeSpaceContent.map((c) => `- ${c.title}`).join("\n");
-    const seedPrompt =
-      t("spaces.askAiSeedIntro", {
-        defaultValue: 'I\'m studying the course "{{name}}". Its materials are:',
+    const sections = useSpaceStore.getState().activeSpaceSections;
+    const general = activeSpaceContent.filter((c) => !c.section_id);
+    const lines: string[] = [];
+    const itemLine = (c: SpaceContent) => `  - ${c.title}`;
+    if (general.length > 0) {
+      lines.push(t("spaces.startSeed.general"), ...general.map(itemLine));
+    }
+    for (const section of sections) {
+      const items = activeSpaceContent.filter(
+        (c) => c.section_id === section.id,
+      );
+      lines.push(
+        `- ${section.title}${items.length ? ":" : ""}`,
+        ...items.map(itemLine),
+      );
+    }
+    const org = activeSpaceAncestors.map((a) => a.name).join(" / ");
+    const term = activeSpaceOfferings[0]?.term_label ?? "";
+    const seedPrompt = [
+      t("spaces.startSeed.intro", {
         name: activeSpace.name,
-      }) +
-      "\n" +
-      materials +
-      "\n\n" +
-      t("spaces.askAiSeedOutro", {
-        defaultValue:
-          "Act as a focused tutor for this course. Help me study these topics, quiz me, and explain concepts. Where should I start?",
-      });
-    useChatStore.getState().setPendingDraft({ text: seedPrompt });
-    navigate("/chat");
+        org: org ? ` (${org})` : "",
+        term: term ? `, ${term}` : "",
+      }),
+      activeSpace.description ? activeSpace.description : "",
+      lines.length > 0
+        ? t("spaces.startSeed.materials") + "\n" + lines.join("\n")
+        : "",
+      t("spaces.startSeed.outro"),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    track("course_start_learning", { space: activeSpace.id });
+    void (async () => {
+      const folderId = await useSpaceStore
+        .getState()
+        .ensureCourseFolders(activeSpace);
+      useChatStore
+        .getState()
+        .setPendingDraft({ text: seedPrompt, folderId, autoSend: true });
+      navigate("/chat");
+    })();
   };
 
   // secondary + administrative actions, one kebab instead of a button row
@@ -248,7 +306,7 @@ export function CourseSpacePage() {
     const items: ContextMenuEntry[] = [
       {
         id: "gallery",
-        label: t("spaces.sharedAnswers", { defaultValue: "Shared answers" }),
+        label: t("spaces.sharedAnswers"),
         icon: MessagesSquare,
         onClick: () => navigate(`/spaces/${spaceId}/gallery`),
       },
@@ -256,20 +314,29 @@ export function CourseSpacePage() {
     if (owner) {
       items.push(
         {
-          id: "add-content",
-          label: t("spaces.addContent", { defaultValue: "Add content" }),
+          id: "add-section",
+          label: t("spaces.coursePage.newSection"),
           icon: Plus,
-          onClick: () => setAddOpen(true),
+          onClick: () => setCreateSectionOpen(true),
+        },
+        {
+          id: "add-content",
+          label: t("spaces.addContent"),
+          icon: Plus,
+          onClick: () => {
+            setAddContentSectionId(null);
+            setAddOpen(true);
+          },
         },
         {
           id: "add-term",
-          label: t("spaces.addTerm", { defaultValue: "Add term" }),
+          label: t("spaces.addTerm"),
           icon: CalendarPlus,
           onClick: () => setAddTermOpen(true),
         },
         {
           id: "add-child",
-          label: t("spaces.addChild", { defaultValue: "New space" }),
+          label: t("spaces.addChild"),
           icon: FolderPlus,
           onClick: () => setAddChildOpen(true),
         },
@@ -278,7 +345,7 @@ export function CourseSpacePage() {
     if (!owner && isMember) {
       items.push({
         id: "leave",
-        label: t("spaces.leaveCourse", { defaultValue: "Leave course" }),
+        label: t("spaces.leaveCourse"),
         icon: LogOut,
         onClick: () => void handleEnroll(),
       });
@@ -288,19 +355,14 @@ export function CourseSpacePage() {
         { id: "div-delete", divider: true },
         {
           id: "delete",
-          label: t("spaces.delete.action", { defaultValue: "Delete space" }),
+          label: t("spaces.delete.action"),
           icon: Trash2,
           danger: true,
           onClick: () => {
             void (async () => {
               const ok = await confirm({
-                title: t("spaces.delete.title", {
-                  defaultValue: "Delete this space?",
-                }),
-                body: t("spaces.delete.body", {
-                  defaultValue:
-                    "Everything nested under it (spaces, files, members) goes too. Members' personal copies stay in their libraries.",
-                }),
+                title: t("spaces.delete.title"),
+                body: t("spaces.delete.body"),
                 confirmLabel: t("common.delete"),
                 danger: true,
               });
@@ -320,257 +382,198 @@ export function CourseSpacePage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
-      {/* Back + beta */}
-      <div className="flex items-center justify-between">
-        <Link
-          // nested space: back = one level up the tree, root: the list
-          to={
-            activeSpace.parent_id
-              ? `/spaces/${activeSpace.parent_id}`
-              : "/spaces"
-          }
-          className="inline-flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text-primary"
-        >
-          <ArrowLeft size={14} />
-          {activeSpace.parent_id
-            ? t("spaces.backToParent", { defaultValue: "Parent space" })
-            : t("spaces.back", { defaultValue: "Back to spaces" })}
-        </Link>
-        <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 font-mono text-2xs uppercase tracking-wide text-accent">
-          {t("spaces.beta", { defaultValue: "Beta" })}
-        </span>
-      </div>
+    <div className="flex h-full min-h-0 w-full flex-1">
+      {/* LEFT: Navigáció tree, own scroll on desktop, a slide-in drawer below md */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 w-[280px] shrink-0 overflow-hidden border-r border-glass-border bg-bg-secondary transition-all duration-200",
+          "md:static md:z-auto md:h-full md:translate-x-0 md:overflow-y-auto",
+          navOpen
+            ? "translate-x-0"
+            : "-translate-x-full md:w-0 md:translate-x-0 md:border-r-0",
+        )}
+      >
+        <div className="flex items-center justify-between px-3 py-2.5">
+          <span className="text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
+            {t("spaces.coursePage.nav.heading")}
+          </span>
+          <IconButton
+            size="sm"
+            onClick={toggleNav}
+            aria-label={t("spaces.coursePage.nav.collapse")}
+            title={t("spaces.coursePage.nav.collapse")}
+          >
+            <PanelLeftClose size={15} strokeWidth={1.5} />
+          </IconButton>
+        </div>
+        <CourseNavTree onNavigate={closeMobileNav} />
+      </aside>
+      {navOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/50 md:hidden"
+          onClick={() => {
+            setNavOpen(false);
+            writeNavOpen(false);
+          }}
+        />
+      )}
 
-      {/* Header */}
-      <header className="space-y-2">
-        {/* breadcrumb trail: the folder-like view of the nesting */}
-        {activeSpaceAncestors.length > 0 && (
+      {/* RIGHT: sticky header + the Moodle-style section column */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+        <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-glass-border bg-bg-secondary px-6 py-3">
+          {!navOpen && (
+            <IconButton
+              size="sm"
+              onClick={toggleNav}
+              aria-label={t("spaces.coursePage.nav.expand")}
+              title={t("spaces.coursePage.nav.expand")}
+            >
+              <PanelLeftOpen size={15} strokeWidth={1.5} />
+            </IconButton>
+          )}
           <nav
-            aria-label={t("spaces.breadcrumb", { defaultValue: "Space path" })}
-            className="flex flex-wrap items-center gap-1 text-xs text-text-muted"
+            aria-label={t("spaces.breadcrumb")}
+            className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden text-xs text-text-muted"
           >
             {activeSpaceAncestors.map((a) => (
-              <span key={a.id} className="flex items-center gap-1">
+              <span key={a.id} className="flex shrink-0 items-center gap-1">
                 <Link
                   to={`/spaces/${a.id}`}
-                  className="rounded-control px-1 py-0.5 transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                  className="max-w-[10rem] truncate rounded-control px-1 py-0.5 transition-colors hover:bg-bg-tertiary hover:text-text-primary"
                 >
                   {a.name}
                 </Link>
-                <span aria-hidden="true" className="text-text-muted-2">/</span>
+                <span aria-hidden="true" className="text-text-muted-2">
+                  /
+                </span>
               </span>
             ))}
-            <span className="px-1 font-medium text-text-secondary">
-              {activeSpace.name}
+            <span className="flex min-w-0 items-center gap-1 truncate text-sm font-semibold text-text-primary">
+              <span className="truncate">{activeSpace.name}</span>
+              {activeSpace.official && (
+                <>
+                  <BadgeCheck
+                    size={15}
+                    className="shrink-0 text-accent"
+                    aria-hidden="true"
+                  />
+                  <span className="sr-only">
+                    {t("spaces.coursePage.official")}
+                  </span>
+                </>
+              )}
             </span>
           </nav>
-        )}
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="flex items-center gap-1.5 text-2xl font-bold text-text-primary">
-            <span className="break-words">{activeSpace.name}</span>
-            {activeSpace.official && (
-              <BadgeCheck size={20} className="shrink-0 text-accent" aria-label="Official" />
+
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            {activeSpaceOfferings.length > 0 && (
+              <span className={chipClass}>
+                {activeSpaceOfferings[0].term_label}
+              </span>
             )}
-          </h1>
-          {owner && (
-            <span className="rounded-full bg-bg-tertiary px-2 py-0.5 text-2xs font-medium text-text-secondary">
-              {t("spaces.ownerChip", { defaultValue: "Owner" })}
-            </span>
-          )}
-        </div>
-
-        <p className="font-mono text-2xs uppercase tracking-wide text-text-muted">
-          {t(`spaces.kind.${activeSpace.kind}`, { defaultValue: activeSpace.kind })}
-          {activeSpace.visibility !== "public" &&
-            ` · ${t(`spaces.visibility.${activeSpace.visibility}`, { defaultValue: activeSpace.visibility })}`}
-          {/* make "this is not your space" explicit for members */}
-          {!owner &&
-            ` · ${t("spaces.managedByOwner", {
-              defaultValue: "managed by its owner",
-            })}`}
-          {activeSpaceOfferings.length > 0 &&
-            ` · ${activeSpaceOfferings[0].term_label}`}
-        </p>
-
-        {activeSpace.description && (
-          <p className="text-sm text-text-secondary">{activeSpace.description}</p>
-        )}
-      </header>
-
-      {/* One primary action; everything administrative lives in the kebab */}
-      <div className="flex items-center gap-2">
-        {owner || isMember ? (
-          <button
-            type="button"
-            onClick={askAi}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-bg-primary transition-opacity hover:opacity-90"
-          >
-            <Sparkles size={15} strokeWidth={1.5} />
-            {t("spaces.startLearning", { defaultValue: "Start learning" })}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleEnroll}
-            disabled={busy}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-bg-primary transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {busy ? (
-              <Loader2 size={15} className="animate-spin" />
+            {owner && (
+              <span className={chipClass}>{t("spaces.ownerChip")}</span>
+            )}
+            {!owner && isMember && (
+              <span className={chipClass}>
+                {t("spaces.coursePage.memberChip")}
+              </span>
+            )}
+            {owner || isMember ? (
+              <Button variant="soft" size="sm" onClick={askAi}>
+                <Sparkles size={14} strokeWidth={1.5} />
+                {t("spaces.startLearning")}
+              </Button>
             ) : (
-              t("spaces.enroll", { defaultValue: "Enroll" })
+              <Button
+                variant="soft"
+                size="sm"
+                onClick={() => void handleEnroll()}
+                disabled={busy}
+              >
+                {busy ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  t("spaces.enroll")
+                )}
+              </Button>
             )}
-          </button>
+            <IconButton
+              size="md"
+              onClick={(e) => openMenuAtButton(e, spaceMenuEntries())}
+              aria-label={t("spaces.actions")}
+              title={t("spaces.actions")}
+            >
+              <MoreHorizontal size={18} strokeWidth={1.5} />
+            </IconButton>
+          </div>
+        </header>
+
+        {/* Owner of a private course: invite code up front, not buried
+            below sections and offerings where nobody would find it. */}
+        {owner && activeSpace.visibility !== "public" && (
+          <div className="px-6 pt-4">
+            <SpaceInviteSection spaceId={activeSpace.id} />
+          </div>
         )}
-        <IconButton
-          size="md"
-          onClick={(e) => openMenuAtButton(e, spaceMenuEntries())}
-          aria-label={t("spaces.actions", { defaultValue: "Space actions" })}
-          title={t("spaces.actions", { defaultValue: "Space actions" })}
-        >
-          <MoreHorizontal size={18} strokeWidth={1.5} />
-        </IconButton>
+
+        <CourseSections
+          spaceId={spaceId}
+          owner={owner}
+          isMember={isMember}
+          onOpenItem={openItemInStudyFolder}
+          onOpenAddContent={(sectionId) => {
+            setAddContentSectionId(sectionId);
+            setAddOpen(true);
+          }}
+          createSectionOpen={createSectionOpen}
+          onOpenCreateSection={() => setCreateSectionOpen(true)}
+          onCloseCreateSection={() => setCreateSectionOpen(false)}
+        />
+
+        {/* Terms: a small kebab-managed card at the bottom of the column */}
+        {(activeSpaceOfferings.length > 0 || owner) && (
+          <section className="space-y-2 px-6 pb-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
+                {t("spaces.offeringsHeading")}
+              </h2>
+              {owner && (
+                <button
+                  type="button"
+                  onClick={() => setAddTermOpen(true)}
+                  className="cursor-pointer text-xs font-medium text-text-muted transition-colors hover:text-text-primary"
+                >
+                  {t("spaces.addTerm")}
+                </button>
+              )}
+            </div>
+            {activeSpaceOfferings.length > 0 ? (
+              <ul className="space-y-2">
+                {activeSpaceOfferings.map((offering) => (
+                  <OfferingRow
+                    key={offering.id}
+                    offering={offering}
+                    owner={owner}
+                    onRemove={() => void removeOffering(offering.id)}
+                  />
+                ))}
+              </ul>
+            ) : (
+              <p className="rounded-panel bg-bg-tertiary px-4 py-3 text-xs text-text-muted">
+                {t("spaces.offeringsEmptyOwner")}
+              </p>
+            )}
+          </section>
+        )}
       </div>
 
-      {/* Shared course files (owner uploads, members get personal copies) */}
-      <SpaceFilesSection spaceId={activeSpace.id} owner={owner} isMember={isMember} />
-      {owner && activeSpace.visibility !== "public" && (
-        <SpaceInviteSection spaceId={activeSpace.id} />
-      )}
-
-      {/* Child spaces: compact rows (creation moved to the kebab) */}
-      {activeSpaceChildren.length > 0 && (
-        <section className="space-y-2">
-          <h2 className={SECTION_CAPTION}>
-            {t("spaces.childrenHeading", { defaultValue: "Courses & spaces" })}
-          </h2>
-          <div className="overflow-hidden rounded-panel bg-bg-secondary">
-            {activeSpaceChildren.map((child) => (
-              <button
-                key={child.id}
-                type="button"
-                onClick={() => navigate(`/spaces/${child.id}`)}
-                className="flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-bg-tertiary"
-              >
-                <Folder size={16} strokeWidth={1.5} className="shrink-0 text-text-muted" />
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">
-                  {child.name}
-                </span>
-                {child.official && (
-                  <BadgeCheck size={14} className="shrink-0 text-accent" aria-label="Official" />
-                )}
-                <span className="shrink-0 font-mono text-2xs uppercase tracking-wide text-text-muted-2">
-                  {t(`spaces.kind.${child.kind}`, { defaultValue: child.kind })}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Offerings / terms (creation moved to the kebab; empty = hidden) */}
-      {activeSpaceOfferings.length > 0 && (
-        <section className="space-y-2">
-          <h2 className={SECTION_CAPTION}>
-            {t("spaces.offeringsHeading", { defaultValue: "Terms" })}
-          </h2>
-          <ul className="space-y-2">
-            {activeSpaceOfferings.map((offering) => (
-              <OfferingRow
-                key={offering.id}
-                offering={offering}
-                owner={owner}
-                onRemove={() => void removeOffering(offering.id)}
-              />
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* Content list (empty = hidden, the kebab holds "Add content") */}
-      {activeSpaceContent.length > 0 && (
-      <section className="space-y-2">
-        <h2 className={SECTION_CAPTION}>
-          {t("spaces.contentHeading", { defaultValue: "Course content" })}
-        </h2>
-        {activeSpaceContent.length === 0 ? null : (
-          <ul className="space-y-2">
-            {activeSpaceContent.map((item) => {
-              const Icon = KIND_ICON[item.kind] ?? Video;
-              const studyFolder = isMember ? folderForItem(item) : undefined;
-              const openPrimary = () => {
-                if (studyFolder) {
-                  useLibraryStore.getState().navigateToFolder(studyFolder.id);
-                  navigate("/library");
-                  return;
-                }
-                openItem(item);
-              };
-              return (
-                <li
-                  key={item.id}
-                  className="group flex items-center gap-3 rounded-xl border border-glass-border bg-bg-secondary p-3 transition-colors hover:border-accent/40"
-                >
-                  <button
-                    type="button"
-                    onClick={openPrimary}
-                    className="flex min-w-0 flex-1 items-center gap-3 text-left cursor-pointer"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
-                      <Icon size={17} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium text-text-primary">
-                        {item.title}
-                      </span>
-                      <span className="flex items-center gap-1 truncate text-2xs text-text-muted">
-                        {studyFolder && <Folder size={11} className="shrink-0 text-accent" />}
-                        <span className="truncate">
-                          {studyFolder
-                            ? t("spaces.openStudyFolder", {
-                                defaultValue: "Open study folder",
-                              })
-                            : item.subtitle ||
-                              t(`spaces.kind.${item.kind}`, { defaultValue: item.kind })}
-                        </span>
-                      </span>
-                    </span>
-                  </button>
-                  {item.url && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(item.url!, "_blank", "noopener,noreferrer");
-                      }}
-                      className="shrink-0 rounded-lg p-1.5 text-text-muted transition-colors hover:bg-accent/10 hover:text-accent cursor-pointer"
-                      aria-label={t("spaces.openSource", { defaultValue: "Open source" })}
-                      title={t("spaces.openSource", { defaultValue: "Open source" })}
-                    >
-                      <ExternalLink size={15} />
-                    </button>
-                  )}
-                  {owner && (
-                    <button
-                      type="button"
-                      onClick={() => void removeSpaceContent(item.id)}
-                      className="shrink-0 rounded-lg p-1.5 text-text-muted opacity-0 transition-all hover:bg-danger/15 hover:text-danger group-hover:opacity-100 cursor-pointer"
-                      aria-label={t("spaces.removeContent", { defaultValue: "Remove" })}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-      )}
-
       {owner && addOpen && (
-        <AddContentModal spaceId={spaceId} onClose={() => setAddOpen(false)} />
+        <AddContentModal
+          spaceId={spaceId}
+          sectionId={addContentSectionId}
+          onClose={() => setAddOpen(false)}
+        />
       )}
 
       {owner && addTermOpen && (
@@ -579,16 +582,19 @@ export function CourseSpacePage() {
 
       {ConfirmModalElement}
       {owner && addChildOpen && (
-        <AddChildModal spaceId={spaceId} onClose={() => setAddChildOpen(false)} />
+        <AddChildModal
+          spaceId={spaceId}
+          onClose={() => setAddChildOpen(false)}
+        />
       )}
     </div>
   );
 }
 
-const STATUS_CHIP: Record<OfferingStatus, string> = {
-  active: "border-accent/30 bg-accent/10 text-accent",
-  draft: "border-glass-border bg-glass-bg text-text-muted",
-  archived: "border-glass-border bg-glass-bg text-text-muted line-through",
+const OFFERING_STATUS_TEXT: Record<OfferingStatus, string> = {
+  active: "text-accent",
+  draft: "text-text-muted",
+  archived: "text-text-muted line-through",
 };
 
 function formatOfferingRange(offering: Offering): string | null {
@@ -614,30 +620,40 @@ function OfferingRow({
   const { t } = useTranslation();
   const range = formatOfferingRange(offering);
   return (
-    <li className="group flex items-center gap-3 rounded-xl border border-glass-border bg-bg-secondary p-3">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
+    <li className="group flex items-center gap-3 rounded-panel bg-bg-tertiary p-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-accent/10 text-accent">
         <CalendarDays size={17} />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium text-text-primary">
           {offering.term_label}
         </span>
-        {range && <span className="block truncate text-2xs text-text-muted">{range}</span>}
+        {range && (
+          <span className="block truncate text-2xs text-text-muted">
+            {range}
+          </span>
+        )}
       </span>
       <span
-        className={`shrink-0 rounded-full border px-2 py-0.5 text-2xs font-medium ${STATUS_CHIP[offering.status]}`}
+        className={cn(
+          chipClass,
+          "shrink-0 text-2xs font-medium",
+          OFFERING_STATUS_TEXT[offering.status],
+        )}
       >
-        {t(`spaces.offeringStatus.${offering.status}`, { defaultValue: offering.status })}
+        {t(`spaces.offeringStatus.${offering.status}`, {
+          defaultValue: offering.status,
+        })}
       </span>
       {owner && (
-        <button
-          type="button"
+        <IconButton
+          size="sm"
           onClick={onRemove}
-          className="shrink-0 rounded-lg p-1.5 text-text-muted opacity-0 transition-all hover:bg-danger/15 hover:text-danger group-hover:opacity-100 cursor-pointer"
-          aria-label={t("spaces.removeTerm", { defaultValue: "Remove term" })}
+          aria-label={t("spaces.removeTerm")}
+          className="opacity-0 group-hover:opacity-100"
         >
           <Trash2 size={15} />
-        </button>
+        </IconButton>
       )}
     </li>
   );
@@ -659,16 +675,7 @@ function AddTermModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !saving) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, saving]);
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!termLabel.trim() || saving) return;
     setSaving(true);
     setError(null);
@@ -689,123 +696,93 @@ function AddTermModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={saving ? undefined : onClose}
-      />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-glass-border bg-bg-secondary/95 backdrop-blur-xl">
-        <div className="flex items-center justify-between border-b border-glass-border p-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15">
-              <CalendarDays size={16} className="text-accent" />
-            </div>
-            <h2 className="text-lg font-semibold text-text-primary">
-              {t("spaces.addTerm", { defaultValue: "Add term" })}
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="rounded-lg p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer disabled:opacity-50"
-            aria-label={t("common.close", { defaultValue: "Close" })}
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4 p-4">
-          <div>
-            <label
-              htmlFor="term-label"
-              className="mb-1 block text-sm font-medium text-text-secondary"
-            >
-              {t("spaces.termLabel", { defaultValue: "Term" })}
-            </label>
-            <input
-              id="term-label"
-              autoFocus
-              value={termLabel}
-              onChange={(e) => setTermLabel(e.target.value)}
-              placeholder="2025 ősz"
-              disabled={saving}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-50"
-              autoComplete="off"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label
-                htmlFor="term-starts"
-                className="mb-1 block text-sm font-medium text-text-secondary"
-              >
-                {t("spaces.termStarts", { defaultValue: "Starts (optional)" })}
-              </label>
-              <input
-                id="term-starts"
-                type="date"
-                value={startsAt}
-                onChange={(e) => setStartsAt(e.target.value)}
-                disabled={saving}
-                className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-50"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="term-ends"
-                className="mb-1 block text-sm font-medium text-text-secondary"
-              >
-                {t("spaces.termEnds", { defaultValue: "Ends (optional)" })}
-              </label>
-              <input
-                id="term-ends"
-                type="date"
-                value={endsAt}
-                onChange={(e) => setEndsAt(e.target.value)}
-                disabled={saving}
-                className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-50"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label
-              htmlFor="term-status"
-              className="mb-1 block text-sm font-medium text-text-secondary"
-            >
-              {t("spaces.termStatus", { defaultValue: "Status" })}
-            </label>
-            <select
-              id="term-status"
-              value={status}
-              onChange={(e) => setStatus(e.target.value as OfferingStatus)}
-              disabled={saving}
-              className="w-full cursor-pointer rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-50"
-            >
-              {OFFERING_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {t(`spaces.offeringStatus.${s}`, { defaultValue: s })}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {error && <p className="text-xs text-danger">{error}</p>}
-
-          <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
-              {t("common.cancel", { defaultValue: "Cancel" })}
-            </Button>
-            <Button type="submit" disabled={saving || !termLabel.trim()}>
-              {saving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-              {t("spaces.addTerm", { defaultValue: "Add term" })}
-            </Button>
-          </div>
-        </form>
+    <FormModal
+      open
+      onClose={onClose}
+      title={t("spaces.addTerm")}
+      icon={CalendarDays}
+      onSubmit={() => void handleSubmit()}
+      submitLabel={t("spaces.addTerm")}
+      submitting={saving}
+      submitDisabled={!termLabel.trim()}
+    >
+      <div>
+        <label
+          htmlFor="term-label"
+          className="mb-1 block text-sm font-medium text-text-secondary"
+        >
+          {t("spaces.termLabel")}
+        </label>
+        <input
+          id="term-label"
+          value={termLabel}
+          onChange={(e) => setTermLabel(e.target.value)}
+          placeholder="2025 ősz"
+          disabled={saving}
+          className="field"
+          autoComplete="off"
+        />
       </div>
-    </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label
+            htmlFor="term-starts"
+            className="mb-1 block text-sm font-medium text-text-secondary"
+          >
+            {t("spaces.termStarts")}
+          </label>
+          <input
+            id="term-starts"
+            type="date"
+            value={startsAt}
+            onChange={(e) => setStartsAt(e.target.value)}
+            disabled={saving}
+            className="field"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="term-ends"
+            className="mb-1 block text-sm font-medium text-text-secondary"
+          >
+            {t("spaces.termEnds")}
+          </label>
+          <input
+            id="term-ends"
+            type="date"
+            value={endsAt}
+            onChange={(e) => setEndsAt(e.target.value)}
+            disabled={saving}
+            className="field"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label
+          htmlFor="term-status"
+          className="mb-1 block text-sm font-medium text-text-secondary"
+        >
+          {t("spaces.termStatus")}
+        </label>
+        <select
+          id="term-status"
+          value={status}
+          onChange={(e) => setStatus(e.target.value as OfferingStatus)}
+          disabled={saving}
+          className="field cursor-pointer"
+        >
+          {OFFERING_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {t(`spaces.offeringStatus.${s}`, { defaultValue: s })}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {error && <p className="text-xs text-danger">{error}</p>}
+    </FormModal>
   );
 }
 
@@ -825,21 +802,17 @@ function AddChildModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !saving) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, saving]);
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!name.trim() || saving) return;
     setSaving(true);
     setError(null);
     try {
-      await createSpace({ name: name.trim(), kind, visibility, parentId: spaceId });
+      await createSpace({
+        name: name.trim(),
+        kind,
+        visibility,
+        parentId: spaceId,
+      });
       await loadSpace(spaceId);
       onClose();
     } catch (err) {
@@ -850,120 +823,91 @@ function AddChildModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={saving ? undefined : onClose}
-      />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-glass-border bg-bg-secondary/95 backdrop-blur-xl">
-        <div className="flex items-center justify-between border-b border-glass-border p-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15">
-              <Shapes size={16} className="text-accent" />
-            </div>
-            <h2 className="text-lg font-semibold text-text-primary">
-              {t("spaces.addChild", { defaultValue: "New space" })}
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="rounded-lg p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer disabled:opacity-50"
-            aria-label={t("common.close", { defaultValue: "Close" })}
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4 p-4">
-          <div>
-            <label
-              htmlFor="child-name"
-              className="mb-1 block text-sm font-medium text-text-secondary"
-            >
-              {t("spaces.childName", { defaultValue: "Name" })}
-            </label>
-            <input
-              id="child-name"
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t("spaces.childNamePlaceholder", {
-                defaultValue: "e.g. Matek felkészítő",
-              })}
-              disabled={saving}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-50"
-              autoComplete="off"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="child-kind"
-              className="mb-1 block text-sm font-medium text-text-secondary"
-            >
-              {t("spaces.childKind", { defaultValue: "Kind" })}
-            </label>
-            <select
-              id="child-kind"
-              value={kind}
-              onChange={(e) => setKind(e.target.value as SpaceKind)}
-              disabled={saving}
-              className="w-full cursor-pointer rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-50"
-            >
-              {CHILD_KINDS.map((k) => (
-                <option key={k} value={k}>
-                  {t(`spaces.kind.${k}`, { defaultValue: k })}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label
-              htmlFor="child-visibility"
-              className="mb-1 block text-sm font-medium text-text-secondary"
-            >
-              {t("spaces.childVisibility", { defaultValue: "Visibility" })}
-            </label>
-            <select
-              id="child-visibility"
-              value={visibility}
-              onChange={(e) => setVisibility(e.target.value as SpaceVisibility)}
-              disabled={saving}
-              className="w-full cursor-pointer rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-50"
-            >
-              {CHILD_VISIBILITIES.map((v) => (
-                <option key={v} value={v}>
-                  {t(`spaces.visibility.${v}`, { defaultValue: v })}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {error && <p className="text-xs text-danger">{error}</p>}
-
-          <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
-              {t("common.cancel", { defaultValue: "Cancel" })}
-            </Button>
-            <Button type="submit" disabled={saving || !name.trim()}>
-              {saving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-              {t("spaces.addChild", { defaultValue: "New space" })}
-            </Button>
-          </div>
-        </form>
+    <FormModal
+      open
+      onClose={onClose}
+      title={t("spaces.addChild")}
+      icon={Shapes}
+      onSubmit={() => void handleSubmit()}
+      submitLabel={t("spaces.addChild")}
+      submitting={saving}
+      submitDisabled={!name.trim()}
+    >
+      <div>
+        <label
+          htmlFor="child-name"
+          className="mb-1 block text-sm font-medium text-text-secondary"
+        >
+          {t("spaces.childName")}
+        </label>
+        <input
+          id="child-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={t("spaces.childNamePlaceholder")}
+          disabled={saving}
+          className="field"
+          autoComplete="off"
+        />
       </div>
-    </div>
+
+      <div>
+        <label
+          htmlFor="child-kind"
+          className="mb-1 block text-sm font-medium text-text-secondary"
+        >
+          {t("spaces.childKind")}
+        </label>
+        <select
+          id="child-kind"
+          value={kind}
+          onChange={(e) => setKind(e.target.value as SpaceKind)}
+          disabled={saving}
+          className="field cursor-pointer"
+        >
+          {CHILD_KINDS.map((k) => (
+            <option key={k} value={k}>
+              {t(`spaces.kind.${k}`, { defaultValue: k })}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label
+          htmlFor="child-visibility"
+          className="mb-1 block text-sm font-medium text-text-secondary"
+        >
+          {t("spaces.childVisibility")}
+        </label>
+        <select
+          id="child-visibility"
+          value={visibility}
+          onChange={(e) => setVisibility(e.target.value as SpaceVisibility)}
+          disabled={saving}
+          className="field cursor-pointer"
+        >
+          {CHILD_VISIBILITIES.map((v) => (
+            <option key={v} value={v}>
+              {t(`spaces.visibility.${v}`, { defaultValue: v })}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {error && <p className="text-xs text-danger">{error}</p>}
+    </FormModal>
   );
 }
 
 function AddContentModal({
   spaceId,
+  sectionId = null,
   onClose,
 }: {
   spaceId: string;
+  /** Section the new item lands in; null = the implicit General group. */
+  sectionId?: string | null;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -974,16 +918,7 @@ function AddContentModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !saving) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, saving]);
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!title.trim() || saving) return;
     setSaving(true);
     setError(null);
@@ -993,6 +928,7 @@ function AddContentModal({
         kind,
         title: title.trim(),
         url: url.trim() || null,
+        sectionId,
       });
       onClose();
     } catch (err) {
@@ -1003,108 +939,76 @@ function AddContentModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={saving ? undefined : onClose}
-      />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-glass-border bg-bg-secondary/95 backdrop-blur-xl">
-        <div className="flex items-center justify-between border-b border-glass-border p-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15">
-              <Plus size={16} className="text-accent" />
-            </div>
-            <h2 className="text-lg font-semibold text-text-primary">
-              {t("spaces.addContent", { defaultValue: "Add content" })}
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="rounded-lg p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer disabled:opacity-50"
-            aria-label={t("common.close", { defaultValue: "Close" })}
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4 p-4">
-          <div>
-            <label
-              htmlFor="content-title"
-              className="mb-1 block text-sm font-medium text-text-secondary"
-            >
-              {t("spaces.contentTitle", { defaultValue: "Title" })}
-            </label>
-            <input
-              id="content-title"
-              autoFocus
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={t("spaces.contentTitlePlaceholder", {
-                defaultValue: "e.g. Intro lecture video",
-              })}
-              disabled={saving}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-50"
-              autoComplete="off"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="content-url"
-              className="mb-1 block text-sm font-medium text-text-secondary"
-            >
-              {t("spaces.contentUrl", { defaultValue: "URL (optional)" })}
-            </label>
-            <input
-              id="content-url"
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://…"
-              disabled={saving}
-              className="w-full rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-50"
-              autoComplete="off"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="content-kind"
-              className="mb-1 block text-sm font-medium text-text-secondary"
-            >
-              {t("spaces.contentKind", { defaultValue: "Kind" })}
-            </label>
-            <select
-              id="content-kind"
-              value={kind}
-              onChange={(e) => setKind(e.target.value as SpaceContentKind)}
-              disabled={saving}
-              className="w-full cursor-pointer rounded-lg border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-text-primary outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/25 disabled:opacity-50"
-            >
-              {CONTENT_KINDS.map((k) => (
-                <option key={k} value={k}>
-                  {t(`spaces.kind.${k}`, { defaultValue: k })}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {error && <p className="text-xs text-danger">{error}</p>}
-
-          <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
-              {t("common.cancel", { defaultValue: "Cancel" })}
-            </Button>
-            <Button type="submit" disabled={saving || !title.trim()}>
-              {saving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-              {t("spaces.addContent", { defaultValue: "Add content" })}
-            </Button>
-          </div>
-        </form>
+    <FormModal
+      open
+      onClose={onClose}
+      title={t("spaces.addContent")}
+      icon={Plus}
+      onSubmit={() => void handleSubmit()}
+      submitLabel={t("spaces.addContent")}
+      submitting={saving}
+      submitDisabled={!title.trim()}
+    >
+      <div>
+        <label
+          htmlFor="content-title"
+          className="mb-1 block text-sm font-medium text-text-secondary"
+        >
+          {t("spaces.contentTitle")}
+        </label>
+        <input
+          id="content-title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder={t("spaces.contentTitlePlaceholder")}
+          disabled={saving}
+          className="field"
+          autoComplete="off"
+        />
       </div>
-    </div>
+
+      <div>
+        <label
+          htmlFor="content-url"
+          className="mb-1 block text-sm font-medium text-text-secondary"
+        >
+          {t("spaces.contentUrl")}
+        </label>
+        <input
+          id="content-url"
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://…"
+          disabled={saving}
+          className="field"
+          autoComplete="off"
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="content-kind"
+          className="mb-1 block text-sm font-medium text-text-secondary"
+        >
+          {t("spaces.contentKind")}
+        </label>
+        <select
+          id="content-kind"
+          value={kind}
+          onChange={(e) => setKind(e.target.value as SpaceContentKind)}
+          disabled={saving}
+          className="field cursor-pointer"
+        >
+          {CONTENT_KINDS.map((k) => (
+            <option key={k} value={k}>
+              {t(`spaces.kind.${k}`, { defaultValue: k })}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {error && <p className="text-xs text-danger">{error}</p>}
+    </FormModal>
   );
 }

@@ -9,6 +9,7 @@ import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   Download,
+  Eye,
   Gauge,
   Menu,
   MoreHorizontal,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import { FloatingMenu, IconButton, Tooltip } from "@/components/ui";
 import { useFeature } from "@/lib/use-features";
+import { ContextInspectorModal } from "../ContextInspectorModal";
 import { ChatGraphOverlay } from "./ChatGraphOverlay";
 
 const menuRowClass =
@@ -33,16 +35,28 @@ interface ChatSheetHeaderProps {
   /** Mobile: opens the conversation drawer. */
   onOpenDrawer: () => void;
   scopeDocId?: string;
+  /** Incognito conversation: show the Temporary chip. */
+  isTemporary?: boolean;
+  /** Source document of the active conversation, for the context inspector
+   *  (the active conversation's own source_doc_id when set, else the
+   *  page's scope). May differ from `scopeDocId`, which only reflects the
+   *  route scope and is used for the graph overlay. */
+  docId?: string | null;
+  /** Active conversation id, for the context inspector's history layer. */
+  conversationId?: string | null;
 }
 
 export function ChatSheetHeader({
   activeTitle,
+  isTemporary = false,
   headerBook,
   canExport,
   onExport,
   onNew,
   onOpenDrawer,
   scopeDocId,
+  docId = null,
+  conversationId = null,
 }: ChatSheetHeaderProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -54,6 +68,7 @@ export function ChatSheetHeader({
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [overflowOpenMobile, setOverflowOpenMobile] = useState(false);
   const [showGraph, setShowGraph] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
 
   // header overflow entries, shared by the desktop and mobile kebabs
   const renderOverflowItems = (close: () => void) => (
@@ -116,11 +131,31 @@ export function ChatSheetHeader({
           {activeTitle}
         </span>
         {headerBook && (
-          <span className="min-w-0 truncate text-xs text-text-muted" title={headerBook}>
+          <span
+            className="min-w-0 truncate text-xs text-text-muted"
+            title={headerBook}
+          >
             · {headerBook}
           </span>
         )}
+        {isTemporary && (
+          <span
+            className="shrink-0 rounded-full bg-bg-tertiary px-2 py-0.5 text-2xs font-medium text-text-muted"
+            title={t("chat.temporary.hint")}
+          >
+            {t("chat.temporary.chip")}
+          </span>
+        )}
         <div className="flex-1" />
+        <IconButton
+          size="sm"
+          onClick={() => setInspectorOpen(true)}
+          aria-label={t("chat.contextInspector.open")}
+          title={t("chat.contextInspector.open")}
+          aria-haspopup="dialog"
+        >
+          <Eye size={18} strokeWidth={1.5} />
+        </IconButton>
         <span ref={overflowAnchorRef} className="inline-flex">
           <IconButton
             size="sm"
@@ -158,6 +193,13 @@ export function ChatSheetHeader({
         <span className="min-w-0 flex-1 truncate px-1 font-display text-[15px] font-semibold text-text-primary">
           {activeTitle}
         </span>
+        <IconButton
+          size="sm"
+          onClick={() => setInspectorOpen(true)}
+          aria-label={t("chat.contextInspector.open")}
+        >
+          <Eye size={20} strokeWidth={1.5} />
+        </IconButton>
         <span ref={overflowAnchorMobileRef} className="inline-flex">
           <IconButton
             size="sm"
@@ -174,7 +216,11 @@ export function ChatSheetHeader({
         >
           {renderOverflowItems(() => setOverflowOpenMobile(false))}
         </FloatingMenu>
-        <Tooltip label={t("chat.newConversation")} shortcut="chat:new" side="bottom">
+        <Tooltip
+          label={t("chat.newConversation")}
+          shortcut="chat:new"
+          side="bottom"
+        >
           <IconButton
             size="sm"
             onClick={onNew}
@@ -184,6 +230,14 @@ export function ChatSheetHeader({
           </IconButton>
         </Tooltip>
       </div>
+
+      <ContextInspectorModal
+        open={inspectorOpen}
+        onClose={() => setInspectorOpen(false)}
+        docId={docId}
+        docTitle={headerBook ?? null}
+        conversationId={conversationId}
+      />
     </>
   );
 }

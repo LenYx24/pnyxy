@@ -32,39 +32,13 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
-    <script>
-      // Password-reset hand-off. Supabase recovery emails put the
-      // tokens in the URL hash and redirect to whatever Site URL +
-      // allowed-redirect config the project has — not always
-      // /auth/reset-password. If the user lands anywhere else with a
-      // `type=recovery` hash, the auto-session-from-URL would sign
-      // them in to a normal session and they'd skip the
-      // change-password form entirely. Catch it here, BEFORE the
-      // module bundle runs (and before the Supabase client consumes
-      // the hash), and redirect to /auth/reset-password with the hash
-      // preserved so the SDK still creates the recovery session on
-      // the correct page. Plain JS — no imports — so this runs before
-      // anything else.
-      (function () {
-        try {
-          var h = window.location.hash || "";
-          if (
-            h.indexOf("type=recovery") !== -1 &&
-            window.location.pathname !== "/auth/reset-password"
-          ) {
-            window.location.replace(
-              "/auth/reset-password" + window.location.search + h,
-            );
-          }
-        } catch (_e) {
-          // best-effort; if anything throws we fall through to the
-          // normal auth flow and the user lands wherever the email
-          // sent them.
-        }
-      })();
-    </script>
+    <!-- Password-reset hand-off, must run before the module bundle and
+         before the Supabase client consumes any recovery tokens in the
+         URL. Kept in its own static file (not inline) so the CSP's
+         script-src can stay at 'self' without 'unsafe-inline'. -->
+    <script src="/boot-recovery-redirect.js"></script>
     <style>
-      /* Boot splash — paints with the HTML so the transition from the
+      /* Boot splash - paints with the HTML so the transition from the
          system/PWA splash into the in-app loader is seamless. The
          #0a0a0f background matches manifest.background_color and the
          home-screen icon, so the user sees one continuous dark frame
@@ -156,7 +130,7 @@
            the contents of #root on mount, so real users never see this;
            the boot splash below (z-index 9999) overlays it visually
            for the brief window before React paints. But the DOM is
-           present in the initial HTML response — which is what
+           present in the initial HTML response, which is what
            non-JS crawlers, OAuth verification scrapers (Google's brand
            review checker doesn't execute JS), and link-preview bots
            actually read. Absolute URLs for the legal links so

@@ -4,6 +4,7 @@
  * the React renderer along, and to keep `react-refresh` happy about
  * "only export components from a tsx file".
  */
+import { isSafeExternalUrl } from "@/lib/safe-url";
 
 export interface RecommendedBook {
   title: string;
@@ -116,10 +117,15 @@ function coerceVideo(raw: unknown): RecommendedVideo | null {
     r.kind === "podcast"
       ? r.kind
       : "video";
+  // AI-emitted URLs are otherwise unvalidated; drop anything that isn't
+  // a plain http(s) link rather than let a bad scheme reach an <a href>
+  // or window.open downstream.
+  const rawUrl = typeof r.url === "string" ? r.url.trim() : "";
+  const url = rawUrl && isSafeExternalUrl(rawUrl) ? rawUrl : null;
   return {
     title: r.title.trim(),
     channel: r.channel.trim(),
-    url: typeof r.url === "string" && r.url.trim() ? r.url.trim() : null,
+    url,
     kind,
     duration:
       typeof r.duration === "string" && r.duration.trim()

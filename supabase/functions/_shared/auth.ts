@@ -1,8 +1,11 @@
 // Shared auth helper: resolve the signed-in user from the Authorization
 // header via supabase-js, or hand back a ready-made 401/500 Response.
 import "./deno-shim.ts";
+// Pinned to the exact version in package.json (@supabase/supabase-js)
+// rather than a floating `@2` tag, so esm.sh can't serve a different
+// build than the one this codebase is tested against.
 // @ts-expect-error Deno-only import
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.103.0";
 
 export interface AuthUser {
   id: string;
@@ -54,4 +57,18 @@ export async function requireUser(
     return { ok: false, response: opts.onError("invalid") };
   }
   return { ok: true, user: data.user as AuthUser, client };
+}
+
+/**
+ * Service-role client (bypasses RLS): for RPCs and tables that are
+ * intentionally not exposed to `authenticated`/`anon` (e.g.
+ * `bump_rate_limit`, granted to `service_role` only). Returns `null`
+ * when `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` aren't set so
+ * callers can degrade instead of throwing.
+ */
+export function serviceClient(): UserClient | null {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceKey) return null;
+  return createClient(supabaseUrl, serviceKey);
 }

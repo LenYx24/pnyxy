@@ -26,11 +26,10 @@ function row(
 
 describe("predictBilledModel", () => {
   it("pins win over the auto route", () => {
-    expect(predictBilledModel("gpt-4o-mini", true)).toBe("gpt-4o-mini");
+    expect(predictBilledModel("gpt-4o-mini")).toBe("gpt-4o-mini");
   });
-  it("doc turns bill flash-lite, standalone (grounded) turns bill gemini-3", () => {
-    expect(predictBilledModel(null, true)).toBe("gemini-3.5-flash-lite");
-    expect(predictBilledModel(null, false)).toBe("gemini-3.7-flash");
+  it("the quality-first auto route bills 3.7 Flash by default", () => {
+    expect(predictBilledModel(null)).toBe("gemini-3.7-flash");
   });
 });
 
@@ -99,9 +98,9 @@ describe("selectQuotaRow", () => {
   ];
 
   it("shows the predicted model's row on the auto route", () => {
-    const s = selectQuotaRow(rows, { pinnedModel: null, turnHasDoc: true });
-    expect(s.model).toBe("gemini-3.5-flash-lite");
-    expect(s.row?.model).toBe("gemini-3.5-flash-lite");
+    const s = selectQuotaRow(rows, { pinnedModel: null });
+    expect(s.model).toBe("gemini-3.7-flash");
+    expect(s.row?.model).toBe("gemini-3.7-flash");
     expect(s.fellThrough).toBe(false);
   });
 
@@ -109,10 +108,7 @@ describe("selectQuotaRow", () => {
     const exhausted = rows.map((r) =>
       r.model === "gpt-4o-mini" ? { ...r, request_count: 200 } : r,
     );
-    const s = selectQuotaRow(exhausted, {
-      pinnedModel: "gpt-4o-mini",
-      turnHasDoc: false,
-    });
+    const s = selectQuotaRow(exhausted, { pinnedModel: "gpt-4o-mini" });
     expect(s.model).toBe("gpt-4o-mini");
     expect(s.fellThrough).toBe(false);
     expect(questionsLeft(s.row)).toBe(0);
@@ -120,24 +116,24 @@ describe("selectQuotaRow", () => {
 
   it("follows the proxy chain when the predicted bucket is exhausted", () => {
     const exhausted = rows.map((r) =>
-      r.model === "gemini-3.5-flash-lite" ? { ...r, tokens_used: 300_000 } : r,
+      r.model === "gemini-3.7-flash" ? { ...r, request_count: 1_000_000 } : r,
     );
-    const s = selectQuotaRow(exhausted, { pinnedModel: null, turnHasDoc: true });
+    const s = selectQuotaRow(exhausted, { pinnedModel: null });
     expect(s.model).toBe("gemini-3.6-flash");
     expect(s.fellThrough).toBe(true);
   });
 
-  it("grounded turns fall through from gemini-3 to the cheap chain", () => {
+  it("falls through from 3.7 to the next tier down the chain", () => {
     const exhausted = rows.map((r) =>
       r.model === "gemini-3.7-flash" ? { ...r, request_count: 500 } : r,
     );
-    const s = selectQuotaRow(exhausted, { pinnedModel: null, turnHasDoc: false });
-    expect(s.model).toBe("gemini-3.5-flash-lite");
+    const s = selectQuotaRow(exhausted, { pinnedModel: null });
+    expect(s.model).toBe("gemini-3.6-flash");
     expect(s.fellThrough).toBe(true);
   });
 
   it("returns a null row (not a crash) when the RPC returned nothing", () => {
-    const s = selectQuotaRow([], { pinnedModel: null, turnHasDoc: true });
+    const s = selectQuotaRow([], { pinnedModel: null });
     expect(s.row).toBeNull();
     expect(questionsLeft(s.row)).toBe(0);
   });

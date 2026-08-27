@@ -12,16 +12,13 @@ export function LearnHubTab() {
       <div>
         <div className="flex items-center gap-2 text-sm text-text-muted">
           <Sparkles size={14} />
-          {t("learnHub.eyebrow", { defaultValue: "Learning tools" })}
+          {t("learnHub.eyebrow")}
         </div>
         <h2 className="mt-1 text-xl font-semibold text-text-primary">
-          {t("learnHub.title", { defaultValue: "Practice what you've read" })}
+          {t("learnHub.title")}
         </h2>
         <p className="mt-1 text-sm text-text-secondary">
-          {t("learnHub.subtitle", {
-            defaultValue:
-              "Choose a study method to review and reinforce this book.",
-          })}
+          {t("learnHub.subtitle")}
         </p>
       </div>
 
@@ -44,7 +41,7 @@ export function LearnHubTab() {
               </div>
               {m.status === "stub" && (
                 <span className="ml-auto shrink-0 rounded-full bg-glass-bg px-2 py-0.5 text-2xs font-medium text-text-muted">
-                  {t("learnHub.soonBadge", { defaultValue: "Soon" })}
+                  {t("learnHub.soonBadge")}
                 </span>
               )}
             </div>

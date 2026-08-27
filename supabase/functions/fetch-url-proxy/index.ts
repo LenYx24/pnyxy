@@ -6,6 +6,7 @@
 import "../_shared/deno-shim.ts";
 import { corsFor, handleOptions, json } from "../_shared/http.ts";
 import { requireUser } from "../_shared/auth.ts";
+import { assertPublicHttpUrl, safeFetch, SafeFetchError } from "../_shared/safe-fetch.ts";
 
 const MAX_BYTES = 100 * 1024 * 1024;
 const TIMEOUT_MS = 30_000;
@@ -18,35 +19,6 @@ const SUPPORTED_MIME = new Set([
   "text/markdown",
   "application/octet-stream",
 ]);
-
-// Reject private / loopback / link-local IPs to prevent SSRF.
-// Hostnames are allowed; the deno fetch will resolve them and use
-// system networking, this guard is a defence-in-depth check on
-// hostnames that look like raw IPs.
-function isBlockedHost(hostname: string): boolean {
-  const h = hostname.toLowerCase();
-  if (h === "localhost" || h === "0.0.0.0" || h === "::1" || h === "::") return true;
-
-  // IPv4 dotted-quad
-  const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (v4) {
-    const [a, b] = [Number(v4[1]), Number(v4[2])];
-    if (a === 10) return true;                               // 10.0.0.0/8
-    if (a === 127) return true;                              // loopback
-    if (a === 169 && b === 254) return true;                 // link-local
-    if (a === 172 && b >= 16 && b <= 31) return true;        // 172.16.0.0/12
-    if (a === 192 && b === 168) return true;                 // 192.168.0.0/16
-    if (a === 100 && b >= 64 && b <= 127) return true;       // CGNAT 100.64.0.0/10
-    if (a >= 224) return true;                               // multicast / reserved
-  }
-
-  // IPv6 link-local / unique-local / loopback (rough; full parser overkill)
-  if (h.startsWith("fe80:") || h.startsWith("fc") || h.startsWith("fd")) {
-    return true;
-  }
-
-  return false;
-}
 
 function parseFilename(contentDisposition: string | null, url: URL): string {
   if (contentDisposition) {
@@ -117,20 +89,21 @@ Deno.serve(async (req: Request) => {
   if (target.protocol !== "http:" && target.protocol !== "https:") {
     return jsonError(400, "bad_protocol", "Only http(s) URLs are supported.");
   }
-  if (isBlockedHost(target.hostname)) {
+  try {
+    await assertPublicHttpUrl(target);
+  } catch {
     return jsonError(400, "blocked_host", "That host is not allowed.");
   }
 
-  // ── Fetch with timeout ──
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
+  // ── Fetch with timeout, SSRF guard on every redirect hop, and the
+  // 100 MB cap enforced on the streamed body (not just Content-Length,
+  // which an upstream can lie about) ──
   let upstream: Response;
   try {
-    upstream = await fetch(target.toString(), {
+    upstream = await safeFetch(target.toString(), {
       method: "GET",
-      redirect: "follow",
-      signal: controller.signal,
+      maxBytes: MAX_BYTES,
+      timeoutMs: TIMEOUT_MS,
       headers: {
         // Some servers 403 unknown UAs; pretend to be a normal browser.
         "User-Agent":
@@ -139,17 +112,26 @@ Deno.serve(async (req: Request) => {
       },
     });
   } catch (err) {
-    clearTimeout(timer);
-    const aborted = (err as { name?: string })?.name === "AbortError";
-    return jsonError(
-      aborted ? 504 : 502,
-      aborted ? "timeout" : "fetch_failed",
-      aborted
-        ? "The remote server didn't respond in time."
-        : "Couldn't reach the URL.",
-    );
+    if (err instanceof SafeFetchError) {
+      if (err.code === "blocked_host") {
+        return jsonError(400, "blocked_host", "That host is not allowed.");
+      }
+      if (err.code === "timeout") {
+        return jsonError(504, "timeout", "The remote server didn't respond in time.");
+      }
+      if (err.code === "too_large") {
+        return jsonError(
+          413,
+          "too_large",
+          `File exceeds the ${(MAX_BYTES / 1024 / 1024).toFixed(0)} MB limit.`,
+        );
+      }
+      if (err.code === "too_many_redirects") {
+        return jsonError(502, "too_many_redirects", "Too many redirects.");
+      }
+    }
+    return jsonError(502, "fetch_failed", "Couldn't reach the URL.");
   }
-  clearTimeout(timer);
 
   if (!upstream.ok) {
     return jsonError(
@@ -187,16 +169,21 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // Buffer the body so we can enforce the size cap before sending. For
-  // a 100 MB ceiling this is acceptable; if we ever raise the cap,
-  // switch to a streaming reader that aborts past N bytes.
-  const buf = await upstream.arrayBuffer();
-  if (buf.byteLength > MAX_BYTES) {
-    return jsonError(
-      413,
-      "too_large",
-      `File is ${(buf.byteLength / 1024 / 1024).toFixed(1)} MB; limit ${(MAX_BYTES / 1024 / 1024).toFixed(0)} MB.`,
-    );
+  // Read the (already size-capped) body. safeFetch's counting stream
+  // has already aborted the request if it exceeded MAX_BYTES, so this
+  // is just draining a stream we know is within bounds.
+  let buf: ArrayBuffer;
+  try {
+    buf = await upstream.arrayBuffer();
+  } catch (err) {
+    if (err instanceof SafeFetchError && err.code === "too_large") {
+      return jsonError(
+        413,
+        "too_large",
+        `File exceeds the ${(MAX_BYTES / 1024 / 1024).toFixed(0)} MB limit.`,
+      );
+    }
+    return jsonError(502, "fetch_failed", "Couldn't read the response.");
   }
   if (buf.byteLength === 0) {
     return jsonError(502, "empty_response", "The URL returned an empty response.");

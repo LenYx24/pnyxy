@@ -1,4 +1,5 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { Children, isValidElement, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 export type ButtonVariant =
@@ -14,6 +15,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: ButtonSize;
   /** Stretch to the container width (common for modal / form CTAs). */
   fullWidth?: boolean;
+  /** Busy state: swaps the leading icon (the first child, when it's an
+   *  element rather than text) for a spinning Loader2, or prepends one
+   *  when there's no leading icon, and disables the button. */
+  loading?: boolean;
   children: ReactNode;
 }
 
@@ -39,16 +44,33 @@ const sizes: Record<ButtonSize, string> = {
   lg: "gap-2 rounded-control px-5 py-2.5 text-sm",
 };
 
+const spinnerSizes: Record<ButtonSize, number> = {
+  sm: 13,
+  md: 15,
+  lg: 16,
+};
+
 export function Button({
   variant = "primary",
   size = "md",
   fullWidth = false,
+  loading = false,
   className,
   children,
+  disabled,
   ...props
 }: ButtonProps) {
+  const items = Children.toArray(children);
+  const spinner = <Loader2 key="spinner" size={spinnerSizes[size]} className="animate-spin" />;
+  const content = loading
+    ? isValidElement(items[0])
+      ? [spinner, ...items.slice(1)]
+      : [spinner, ...items]
+    : items;
+
   return (
     <button
+      disabled={disabled || loading}
       className={cn(
         "inline-flex items-center justify-center font-medium",
         "transition-all duration-200 cursor-pointer",
@@ -61,7 +83,7 @@ export function Button({
       )}
       {...props}
     >
-      {children}
+      {content}
     </button>
   );
 }

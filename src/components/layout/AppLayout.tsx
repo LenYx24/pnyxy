@@ -56,7 +56,12 @@ export function AppLayout() {
   const isChatRoute = location.pathname.startsWith("/chat");
   // flush layout: sticky left rail with its own border needs to reach the viewport edge, outer padding strands the border
   const isBookRoute = location.pathname.startsWith("/books");
-  const useFlushContent = isReaderRoute || isChatRoute || isBookRoute;
+  // course page: two panes (nav tree + section column) that own their scrolling
+  const isCourseSpaceRoute = /^\/spaces\/[^/]+$/.test(location.pathname);
+  const useFlushContent =
+    isReaderRoute || isChatRoute || isBookRoute || isCourseSpaceRoute;
+  // routes whose inner panes scroll: lock the shell to the viewport height
+  const lockedHeight = isReaderRoute || isChatRoute || isCourseSpaceRoute;
   // library owns a sticky bottom bar (count + storage) that pins via
   // mt-auto; make its wrapper a flex column so the page can flex-grow.
   const isLibraryRoute = location.pathname === "/library";
@@ -196,16 +201,14 @@ export function AppLayout() {
         className={cn(
           "flex min-w-0 flex-1 flex-col",
           // lock reader/chat to 100dvh + overflow-hidden: min-h-screen (100vh) lets mobile URL-bar chrome scroll the body and expose a black strip below the composer
-          isReaderRoute || isChatRoute
-            ? "h-[100dvh] overflow-hidden"
-            : "min-h-dvh",
+          lockedHeight ? "h-[100dvh] overflow-hidden" : "min-h-dvh",
           // push content below the fixed mobile top bar
           showMobileTopBar && "pt-12 md:pt-0",
         )}
         // offset below the custom title bar (--titlebar-h is 0 in the browser)
         style={{
           marginTop: "var(--titlebar-h)",
-          ...(isReaderRoute || isChatRoute
+          ...(lockedHeight
             ? { height: "calc(100dvh - var(--titlebar-h))" }
             : { minHeight: "calc(100dvh - var(--titlebar-h))" }),
         }}
@@ -223,6 +226,8 @@ export function AppLayout() {
             // page itself never scrolls (their inner panes own scrolling)
             !pageSurface && isDesktop && (isChatRoute || isReaderRoute) &&
               "flex min-h-0 flex-col overflow-clip",
+            // course page keeps the sheet but its panes scroll inside it
+            isCourseSpaceRoute && "flex min-h-0 flex-col overflow-clip",
             useFlushContent ? "p-0" : "p-4 md:p-6",
             // library-only: flex column so LibraryPage (flex-1) grows to
             // fill and its bottom bar pins via mt-auto on short grids.

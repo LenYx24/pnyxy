@@ -160,7 +160,6 @@ export function LibraryListView({
         className={`${LIST_GRID_CLASS} ${ROW_SEPARATOR_CLASS} py-2 text-2xs font-semibold uppercase tracking-wider text-text-muted-2`}
       >
         <span />
-        <span />
         <span>{t("library.list.columns.name")}</span>
         <span className="hidden md:block">{t("library.list.columns.type")}</span>
         <span className="hidden md:block">{t("library.list.columns.progress")}</span>

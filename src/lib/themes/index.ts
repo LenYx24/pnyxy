@@ -3,7 +3,14 @@ import type { Theme } from "./types";
 
 export { CORE_THEMES, DEFAULT_THEME_ID } from "./core";
 export type { CoreThemeId } from "./core";
-export { applyTheme, resetTheme } from "./apply";
+export {
+  applyTheme,
+  resetTheme,
+  sanitizeTheme,
+  sanitizeThemeTokens,
+  isAllowedThemeTokenKey,
+  isSafeThemeTokenValue,
+} from "./apply";
 export type { Theme, ThemeTokens, ThemeTokenKey, ThemeApiVersion } from "./types";
 
 /**

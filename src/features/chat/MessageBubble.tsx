@@ -2,12 +2,17 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
+  AlertTriangle,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   Copy,
+  ArrowRight,
+  ThumbsDown,
+  ThumbsUp,
+  Wand2,
   GitBranch,
   Layers,
   MoreHorizontal,
@@ -38,14 +43,12 @@ import { extractInlineQuiz } from "@/lib/ai/extract-quiz";
 import { RecommendationCards } from "./RecommendationsRenderer";
 import { InlineQuizCard } from "./InlineQuizCard";
 import { openMenuAtButton } from "./menu-anchor";
+import { PNYXY_MODEL_OPTIONS } from "./quota";
+import { track } from "@/lib/telemetry";
 import { cn } from "@/lib/cn";
 import type { ChatMessage } from "@/types/chat";
 import type { ContextMenuEntry } from "@/stores/context-menu-store";
-import {
-  countBranches,
-  childrenOf,
-  pathFromRoot,
-} from "@/stores/chat-store";
+import { countBranches, childrenOf, pathFromRoot } from "@/stores/chat-store";
 import { usePromptGalleryStore } from "@/stores/prompt-gallery-store";
 import { showToast } from "@/stores/toast-store";
 
@@ -79,6 +82,18 @@ const CITATION_CHIP_CLASS = cn(
   "[&_a[href^='/reader/']:hover]:bg-accent/25!",
 );
 
+/** Short machine tags chat-stream.ts writes to `error` for a "full failure"
+ *  turn (its notice already became the visible content, see chat-stream.ts).
+ *  Anything else in `error` is a human-readable notice worth showing below
+ *  the content (the partial+cut / partial+failure case). */
+function isMachineErrorTag(error: string): boolean {
+  return (
+    error === "stream_failed" ||
+    error === "empty_response" ||
+    error.startsWith("cut:")
+  );
+}
+
 interface MessageBubbleProps {
   msg: ChatMessage;
   messages: Map<string, ChatMessage>;
@@ -93,6 +108,10 @@ interface MessageBubbleProps {
   onSaveAsFlashcards?: () => void;
   /** Regenerate assistant message as a sibling branch under its parent. */
   onRegenerate?: () => void;
+  /** Just sent/created in this session: play the entrance animation. */
+  entering?: boolean;
+  /** Same, but pinned to one Pnyxy model for this retry. */
+  onRegenerateWith?: (pnyxyModel: string) => void;
   /** Edit-in-place for user messages, submits a new sibling branch. */
   onEdit?: (newText: string) => void;
   /** Delete this message and every descendant. Caller owns the confirm. */
@@ -117,12 +136,14 @@ export function MessageBubble({
   onPickBranch,
   onSaveAsFlashcards,
   onRegenerate,
+  onRegenerateWith,
   onEdit,
   onDelete,
   onDuplicate,
   tts,
   suggestions,
   onPickSuggestion,
+  entering = false,
 }: MessageBubbleProps) {
   const { t } = useTranslation();
   const isUser = msg.role === "user";
@@ -138,28 +159,20 @@ export function MessageBubble({
   const [shared, setShared] = useState(false);
   const handleShare = async () => {
     // question = the nearest ancestor user message
-    let cur = msg.parent_message_id ? messages.get(msg.parent_message_id) : null;
+    let cur = msg.parent_message_id
+      ? messages.get(msg.parent_message_id)
+      : null;
     while (cur && cur.role !== "user") {
       cur = cur.parent_message_id
-        ? messages.get(cur.parent_message_id) ?? null
+        ? (messages.get(cur.parent_message_id) ?? null)
         : null;
     }
     try {
       await shareAnswer({ question: cur?.content ?? "", answer: msg.content });
       setShared(true);
-      showToast(
-        t("chat.shareAnswer.done", {
-          defaultValue: "Shared to the prompt gallery.",
-        }),
-        "success",
-      );
+      showToast(t("chat.shareAnswer.done"), "success");
     } catch {
-      showToast(
-        t("chat.shareAnswer.failed", {
-          defaultValue: "Couldn't share this answer.",
-        }),
-        "error",
-      );
+      showToast(t("chat.shareAnswer.failed"), "error");
     }
   };
 
@@ -169,12 +182,22 @@ export function MessageBubble({
   const activeChildIndex = children.findIndex((c) => activePath.includes(c.id));
 
   const hasText = msg.content.trim().length > 0;
+  // legacy fallback: old rows encoded the error as a "⚠" content prefix
+  const legacyErrorPrefix =
+    msg.content.trimStart().startsWith("⚠") || msg.content.includes("\n⚠ ");
+  const isError = !!msg.error || legacyErrorPrefix;
+  // only worth a separate line when it's not just repeating the content
+  // (the "full failure" case already put the same notice into content)
+  const showErrorNotice =
+    !!msg.error && !isMachineErrorTag(msg.error) && msg.error !== msg.content;
   const speaking = tts.speakingId === msg.id;
 
   // Collapse-to-short: long user messages start collapsed (Gemini-style),
   // assistant messages collapse on demand from the action row.
   const isLong = msg.content.length > 280;
   const [collapsed, setCollapsed] = useState(isUser && isLong);
+  // thumbs verdict; the durable copy is the telemetry event
+  const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
 
   const submitEdit = () => {
     const trimmed = editText.trim();
@@ -191,8 +214,8 @@ export function MessageBubble({
       items.push({
         id: "share",
         label: shared
-          ? t("chat.shareAnswer.shared", { defaultValue: "Shared" })
-          : t("chat.shareAnswer.action", { defaultValue: "Share" }),
+          ? t("chat.shareAnswer.shared")
+          : t("chat.shareAnswer.action"),
         icon: Share2,
         disabled: shared,
         onClick: () => void handleShare(),
@@ -222,13 +245,20 @@ export function MessageBubble({
         onClick: onSaveAsFlashcards,
       });
     }
+    if (!isUser && !isStreaming && hasText && onPickSuggestion) {
+      items.push({
+        id: "continue",
+        label: t("chat.continueAction"),
+        icon: ArrowRight,
+        disabled: anyStreaming,
+        onClick: () => onPickSuggestion(t("chat.continuePrompt")),
+      });
+    }
     if (onDuplicate && !isStreaming) {
       if (items.length > 0) items.push({ id: "div-dup", divider: true });
       items.push({
         id: "duplicate",
-        label: t("chat.duplicateFromHere", {
-          defaultValue: "Duplicate from here",
-        }),
+        label: t("chat.duplicateFromHere"),
         icon: Copy,
         disabled: anyStreaming,
         onClick: onDuplicate,
@@ -237,7 +267,7 @@ export function MessageBubble({
     if (onDelete && !isStreaming) {
       items.push({
         id: "delete",
-        label: t("chat.deleteMessage", { defaultValue: "Delete" }),
+        label: t("chat.deleteMessage"),
         icon: Trash2,
         danger: true,
         disabled: anyStreaming,
@@ -246,6 +276,41 @@ export function MessageBubble({
     }
     return items;
   };
+
+  // Gemini-style one-click adjustments; each sends a visible follow-up
+  // turn under this reply (works with branching, honest about mechanics)
+  const modifyItems = (): ContextMenuEntry[] =>
+    (
+      [
+        ["shorter", "Make it shorter.", "Shorter"],
+        ["longer", "Expand on this in more detail.", "More detail"],
+        ["simpler", "Explain the same thing more simply.", "Simpler"],
+        [
+          "example",
+          "Give a concrete worked example for this.",
+          "Add an example",
+        ],
+      ] as const
+    ).map(([id, prompt, label]) => ({
+      id,
+      label: t(`chat.modify.${id}`, { defaultValue: label }),
+      icon: Wand2,
+      onClick: () =>
+        onPickSuggestion?.(
+          t(`chat.modify.${id}Prompt`, { defaultValue: prompt }),
+        ),
+    }));
+
+  const timeLabel = (() => {
+    const d = new Date(msg.created_at);
+    if (Number.isNaN(d.getTime())) return null;
+    const sameDay = d.toDateString() === new Date().toDateString();
+    return sameDay
+      ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : d.toLocaleDateString([], { month: "short", day: "numeric" }) +
+          " " +
+          d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  })();
 
   const actionRow = !isEditing && !isStreaming && (
     <div
@@ -256,19 +321,56 @@ export function MessageBubble({
       )}
     >
       {!isUser && hasText && <CopyButton text={msg.content} />}
+      {!isUser && hasText && (
+        <>
+          <IconButton
+            size="sm"
+            onClick={() => {
+              const next = feedback === "up" ? null : "up";
+              setFeedback(next);
+              if (next) track("message_feedback", { verdict: "up" });
+            }}
+            aria-label={t("chat.feedback.up")}
+            title={t("chat.feedback.up")}
+            className={feedback === "up" ? "text-success" : undefined}
+          >
+            <ThumbsUp size={15} strokeWidth={1.5} />
+          </IconButton>
+          <IconButton
+            size="sm"
+            onClick={() => {
+              const next = feedback === "down" ? null : "down";
+              setFeedback(next);
+              if (next) track("message_feedback", { verdict: "down" });
+            }}
+            aria-label={t("chat.feedback.down")}
+            title={t("chat.feedback.down")}
+            className={feedback === "down" ? "text-danger" : undefined}
+          >
+            <ThumbsDown size={15} strokeWidth={1.5} />
+          </IconButton>
+        </>
+      )}
+      {!isUser && hasText && onPickSuggestion && (
+        <IconButton
+          size="sm"
+          disabled={anyStreaming}
+          onClick={(e) => openMenuAtButton(e, modifyItems())}
+          aria-label={t("chat.modify.label")}
+          title={t("chat.modify.label")}
+        >
+          <Wand2 size={15} strokeWidth={1.5} />
+        </IconButton>
+      )}
       {!isUser && hasText && isLong && (
         <IconButton
           size="sm"
           onClick={() => setCollapsed((v) => !v)}
           aria-label={
-            collapsed
-              ? t("chat.expandMessage", { defaultValue: "Expand message" })
-              : t("chat.collapseMessage", { defaultValue: "Collapse message" })
+            collapsed ? t("chat.expandMessage") : t("chat.collapseMessage")
           }
           title={
-            collapsed
-              ? t("chat.expandMessage", { defaultValue: "Expand message" })
-              : t("chat.collapseMessage", { defaultValue: "Collapse message" })
+            collapsed ? t("chat.expandMessage") : t("chat.collapseMessage")
           }
         >
           {collapsed ? (
@@ -303,6 +405,29 @@ export function MessageBubble({
           <RefreshCw size={16} strokeWidth={1.5} />
         </IconButton>
       )}
+      {!isUser && onRegenerateWith && (
+        <IconButton
+          size="sm"
+          disabled={anyStreaming}
+          onClick={(e) =>
+            openMenuAtButton(
+              e,
+              PNYXY_MODEL_OPTIONS.map((m) => ({
+                id: `regen-${m.id}`,
+                label: t("chat.regenerateWith", {
+                  model: m.label,
+                }),
+                icon: RefreshCw,
+                onClick: () => onRegenerateWith(m.id),
+              })),
+            )
+          }
+          aria-label={t("chat.regenerateWithLabel")}
+          title={t("chat.regenerateWithLabel")}
+        >
+          <ChevronDown size={14} strokeWidth={1.5} className="-ml-1" />
+        </IconButton>
+      )}
       <IconButton
         size="sm"
         onClick={onBranchHere}
@@ -320,6 +445,11 @@ export function MessageBubble({
         >
           <MoreHorizontal size={16} strokeWidth={1.5} />
         </IconButton>
+      )}
+      {timeLabel && (
+        <span className="px-1.5 text-2xs tabular-nums text-text-muted-2">
+          {timeLabel}
+        </span>
       )}
     </div>
   );
@@ -386,7 +516,12 @@ export function MessageBubble({
 
   if (isUser) {
     return (
-      <div className="group flex w-full justify-end">
+      <div
+        className={cn(
+          "group flex w-full justify-end",
+          entering && "chat-msg-enter",
+        )}
+      >
         <div className="flex min-w-0 max-w-[560px] flex-col items-end gap-1.5">
           {isEditing ? (
             // save branches a sibling under the same parent, original stays in the picker
@@ -424,8 +559,7 @@ export function MessageBubble({
                   size="sm"
                   onClick={submitEdit}
                   disabled={
-                    !editText.trim() ||
-                    editText.trim() === msg.content.trim()
+                    !editText.trim() || editText.trim() === msg.content.trim()
                   }
                 >
                   {t("chat.editSaveAndSend")}
@@ -438,7 +572,8 @@ export function MessageBubble({
               onClick={collapsed ? () => setCollapsed(false) : undefined}
               className={cn(
                 "relative flex min-w-0 max-w-full flex-col gap-2 rounded-[18px] rounded-br-[4px] bg-bg-tertiary px-4 py-3 text-[15px] leading-normal text-text-primary",
-                isLong && "pr-10",
+                // room for the collapse toggle pinned to the bottom-right corner
+                isLong && "pb-9",
                 collapsed && "cursor-pointer",
               )}
             >
@@ -460,17 +595,18 @@ export function MessageBubble({
                   aria-expanded={!collapsed}
                   aria-label={
                     collapsed
-                      ? t("chat.expandMessage", { defaultValue: "Expand message" })
-                      : t("chat.collapseMessage", {
-                          defaultValue: "Collapse message",
-                        })
+                      ? t("chat.expandMessage")
+                      : t("chat.collapseMessage")
                   }
-                  className="absolute right-2 top-2.5 rounded-full p-1 text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
+                  className="absolute bottom-2 right-2 rounded-full p-1.5 text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary cursor-pointer"
                 >
                   <ChevronDown
-                    size={16}
+                    size={18}
                     strokeWidth={1.5}
-                    className={cn("transition-transform", !collapsed && "rotate-180")}
+                    className={cn(
+                      "transition-transform",
+                      !collapsed && "rotate-180",
+                    )}
                   />
                 </button>
               )}
@@ -484,12 +620,24 @@ export function MessageBubble({
   }
 
   return (
-    <div className="group flex w-full max-w-[720px]">
+    <div
+      className={cn(
+        "group flex w-full max-w-[720px]",
+        entering && "chat-msg-enter",
+      )}
+    >
       <div className="flex min-w-0 flex-1 flex-col gap-3 text-[15px] leading-normal text-text-primary">
         {isStreaming && !hasText ? (
-          // placeholder while waiting for the first delta: three dots, nothing else
-          <div className="text-text-muted">
-            <TypingIndicator />
+          // placeholder while waiting for the first delta: shimmering skeleton
+          // lines where the answer will appear (Gemini-style "thinking" state)
+          <div
+            className="chat-shimmer"
+            aria-label={t("chat.loading")}
+            role="status"
+          >
+            <span style={{ width: "92%" }} />
+            <span style={{ width: "78%" }} />
+            <span style={{ width: "55%" }} />
           </div>
         ) : (
           <>
@@ -515,13 +663,38 @@ export function MessageBubble({
                   <button
                     type="button"
                     onClick={() => setCollapsed(false)}
-                    aria-label={t("chat.expandMessage", {
-                      defaultValue: "Expand message",
-                    })}
+                    aria-label={t("chat.expandMessage")}
                     className="absolute inset-x-0 bottom-0 h-12 cursor-pointer bg-gradient-to-b from-transparent to-bg-secondary"
                   />
                 )}
               </div>
+            )}
+            {/* error notice: shown when `error` holds a human-readable message
+                distinct from the content (the partial+cut/failure case) */}
+            {!isStreaming && showErrorNotice && (
+              <div className="flex items-start gap-1.5 text-[13px] leading-normal text-danger">
+                <AlertTriangle
+                  size={15}
+                  strokeWidth={1.5}
+                  className="mt-0.5 shrink-0"
+                />
+                <span>{msg.error}</span>
+              </div>
+            )}
+            {/* error bubble: offer a one-click retry of the turn */}
+            {!isStreaming && isError && onRegenerate && (
+              <button
+                type="button"
+                onClick={onRegenerate}
+                disabled={anyStreaming}
+                className={cn(
+                  chipClass,
+                  "self-start transition-colors cursor-pointer hover:bg-surface-3 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30",
+                )}
+              >
+                <RefreshCw size={14} strokeWidth={1.5} />
+                {t("chat.retryAction")}
+              </button>
             )}
           </>
         )}
@@ -653,7 +826,7 @@ const AssistantContent = memo(function AssistantContent({
       {quizExtract.pending && (
         <div className="flex items-center gap-2 rounded-panel bg-bg-tertiary px-4 py-3 text-xs text-text-muted">
           <TypingIndicator />
-          {t("chat.inlineQuiz.incoming", { defaultValue: "Building your quiz…" })}
+          {t("chat.inlineQuiz.incoming")}
         </div>
       )}
       {quizExtract.quiz && <InlineQuizCard quiz={quizExtract.quiz} />}

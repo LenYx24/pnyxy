@@ -62,53 +62,74 @@ export function BindingPickerModal({
   }, [entities, kind, query]);
 
   const kindLabels: Record<AiContextBindingKind, string> = {
-    books: t("settings.aiContext.bindings.kindBook", { defaultValue: "Book" }),
-    folders: t("settings.aiContext.bindings.kindFolder", { defaultValue: "Folder" }),
-    orgs: t("settings.aiContext.bindings.kindOrg", { defaultValue: "Organization" }),
+    books: t("settings.aiContext.bindings.kindBook"),
+    folders: t("settings.aiContext.bindings.kindFolder"),
+    orgs: t("settings.aiContext.bindings.kindOrg"),
   };
 
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className={cn("absolute inset-0", modalBackdropClass)} onClick={close} />
+      <div
+        className={cn("absolute inset-0", modalBackdropClass)}
+        onClick={close}
+      />
       <div
         role="dialog"
         aria-modal="true"
-        className={cn(modalSurfaceClass, "relative flex w-full max-w-md flex-col p-5")}
+        className={cn(
+          modalSurfaceClass,
+          "relative flex w-full max-w-md flex-col p-5",
+        )}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="font-display text-[17px] font-semibold text-text-primary">
-              {t("settings.aiContext.bindings.assignTitle", { defaultValue: "Assign context" })}
+              {t("settings.aiContext.bindings.assignTitle")}
             </h3>
             <p className="truncate text-[13px] text-text-muted">{presetName}</p>
           </div>
-          <IconButton size="sm" variant="ghost" onClick={close} aria-label={t("common.close")}>
+          <IconButton
+            size="sm"
+            variant="ghost"
+            onClick={close}
+            aria-label={t("common.close")}
+          >
             <X size={16} />
           </IconButton>
         </div>
 
-        <div className={cn(segmentedGroupClass, "mt-4 self-start bg-bg-secondary")}>
+        <div
+          className={cn(segmentedGroupClass, "mt-4 self-start bg-bg-secondary")}
+        >
           {AI_CONTEXT_BINDING_KINDS.map((k) => (
             <button
               key={k}
               type="button"
               onClick={() => setKind(k)}
-              className={cn(segmentedItemClass, kind === k && segmentedItemActiveClass)}
+              className={cn(
+                segmentedItemClass,
+                kind === k && segmentedItemActiveClass,
+              )}
             >
               {kindLabels[k]}
             </button>
           ))}
         </div>
 
-        <div className={cn(fieldSmClass, "mt-3 flex items-center gap-2 bg-bg-secondary")}>
+        <div
+          className={cn(
+            fieldSmClass,
+            "mt-3 flex items-center gap-2 bg-bg-secondary",
+          )}
+        >
           <Search size={14} className="shrink-0 text-text-muted" />
           <input
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("settings.aiContext.bindings.search", { defaultValue: "Search" })}
+            placeholder={t("settings.aiContext.bindings.search")}
             className="min-w-0 flex-1 bg-transparent text-xs text-text-primary outline-none placeholder:text-text-muted-2"
           />
         </div>
@@ -116,7 +137,7 @@ export function BindingPickerModal({
         <ul className="mt-2 max-h-72 space-y-0.5 overflow-y-auto">
           {list.length === 0 && (
             <li className="px-3 py-4 text-center text-xs text-text-muted">
-              {t("settings.aiContext.bindings.empty", { defaultValue: "Nothing to show" })}
+              {t("settings.aiContext.bindings.empty")}
             </li>
           )}
           {list.map((e) => {
@@ -134,14 +155,18 @@ export function BindingPickerModal({
                 >
                   <Icon size={15} className="shrink-0 text-text-muted" />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm text-text-primary">{e.name}</span>
+                    <span className="block truncate text-sm text-text-primary">
+                      {e.name}
+                    </span>
                     {e.detail && (
-                      <span className="block truncate text-2xs text-text-muted">{e.detail}</span>
+                      <span className="block truncate text-2xs text-text-muted">
+                        {e.detail}
+                      </span>
                     )}
                   </span>
                   {bound && (
                     <span className="chip chip-active px-2 py-0.5 text-2xs">
-                      {t("settings.aiContext.bindings.bound", { defaultValue: "Bound" })}
+                      {t("settings.aiContext.bindings.bound")}
                     </span>
                   )}
                 </button>

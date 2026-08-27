@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router";
+import { useAuthStore } from "@/stores/auth-store";
 import { useTranslation } from "react-i18next";
 import { Loader2, Sparkles } from "lucide-react";
 import { isAbortError, streamChatResponse } from "@/lib/ai/ai-client";
@@ -26,10 +28,13 @@ export function AnnotationMenuExplainPanel({ selectedText, onBack }: Props) {
   const [error, setError] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const hideContextMenu = useAnnotationStore((s) => s.hideContextMenu);
+  const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const passage = selectedText.trim();
-    if (!passage) return;
+    // the proxy rejects signed-out calls; do not even start the stream
+    if (!passage || !user) return;
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -91,7 +96,24 @@ export function AnnotationMenuExplainPanel({ selectedText, onBack }: Props) {
     return () => {
       controller.abort();
     };
-  }, [selectedText]);
+  }, [selectedText, user]);
+
+  if (!user) {
+    return (
+      <div className="flex w-72 flex-col items-center gap-2 p-3 text-center">
+        <p className="text-xs text-text-secondary">
+          {t("reader.aiChat.signInRequired")}
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate("/auth")}
+          className="rounded-chip bg-text-primary px-4 py-1.5 text-xs font-medium text-bg-primary transition-opacity hover:opacity-90 cursor-pointer"
+        >
+          {t("chat.signInRequired")}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex w-72 flex-col gap-2 p-1">

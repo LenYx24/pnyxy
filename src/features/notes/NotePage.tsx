@@ -38,7 +38,7 @@ export function NotePage() {
           className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
         >
           <ArrowLeft size={16} />
-          {t("notes.backToLibrary", { defaultValue: "Library" })}
+          {t("notes.backToLibrary")}
         </button>
       </div>
       <div className="min-h-0 flex-1">

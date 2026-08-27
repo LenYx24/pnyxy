@@ -36,7 +36,11 @@ export type SpaceContentKind =
   | "roadmap"
   | "note"
   | "whiteboard"
-  | "link";
+  | "link"
+  /** Uploaded course file in the space-files bucket (url = storage path, 00069). */
+  | "file"
+  /** Plain text notice / heading inside a section (00069). */
+  | "label";
 
 export interface SpaceContent {
   id: string;
@@ -48,7 +52,26 @@ export interface SpaceContent {
   subtitle: string | null;
   url: string | null;
   sort_order: number;
+  /** Section on the course page; null = the implicit "General" group (00069). */
+  section_id?: string | null;
   added_by: string | null;
+  created_at: string;
+}
+
+/** One user's manual completion tick on a course item (migration 00070). */
+export interface SpaceContentProgress {
+  content_id: string;
+  user_id: string;
+  completed_at: string;
+}
+
+/** An ordered, titled block on the Moodle-style course page (migration 00069). */
+export interface SpaceSection {
+  id: string;
+  space_id: string;
+  title: string;
+  description: string | null;
+  sort_order: number;
   created_at: string;
 }
 

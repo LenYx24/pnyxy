@@ -2,12 +2,22 @@
  * Course files section on CourseSpacePage: the shared "space-files"
  * bucket's listing. Owner uploads/deletes; a member click makes a
  * personal library copy and opens the reader (see space-files.ts).
- * Below it, for the owner of a non-public space: the invite code.
+ * Also exports SpaceInviteSection, a compact card CourseSpacePage pins
+ * to the top of the main column for the owner of a non-public space.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Copy, FileText, Link2, Loader2, RefreshCw, Trash2, Upload } from "lucide-react";
+import {
+  Copy,
+  FileText,
+  KeyRound,
+  Link2,
+  Loader2,
+  RefreshCw,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { Button, IconButton, PromptModal } from "@/components/ui";
 import { useSpaceStore } from "@/stores/space-store";
 import { showToast } from "@/stores/toast-store";
@@ -61,7 +71,6 @@ export function SpaceFilesSection({
       if (err) {
         showToast(
           t("spaces.files.uploadFailed", {
-            defaultValue: "Upload failed: {{name}}",
             name: file.name,
           }),
           "error",
@@ -83,7 +92,6 @@ export function SpaceFilesSection({
       await refresh();
       showToast(
         t("spaces.files.urlAdded", {
-          defaultValue: "Added to course files: {{name}}",
           name: file.name,
         }),
         "success",
@@ -95,20 +103,15 @@ export function SpaceFilesSection({
         const title =
           u.hostname.replace(/^www\./, "") +
           (u.pathname !== "/" ? u.pathname : "");
-        await addSpaceContent({ spaceId, kind: "link", title, url: u.toString() });
-        showToast(
-          t("spaces.files.urlAddedAsLink", {
-            defaultValue: "Added as a link under course content.",
-          }),
-          "success",
-        );
+        await addSpaceContent({
+          spaceId,
+          kind: "link",
+          title,
+          url: u.toString(),
+        });
+        showToast(t("spaces.files.urlAddedAsLink"), "success");
       } catch {
-        showToast(
-          t("spaces.files.urlFailed", {
-            defaultValue: "Couldn't add that URL.",
-          }),
-          "error",
-        );
+        showToast(t("spaces.files.urlFailed"), "error");
       }
     } finally {
       setUrlBusy(false);
@@ -120,12 +123,7 @@ export function SpaceFilesSection({
     try {
       await openSpaceFile(spaceId, name, navigate);
     } catch {
-      showToast(
-        t("spaces.files.openFailed", {
-          defaultValue: "Couldn't open the file.",
-        }),
-        "error",
-      );
+      showToast(t("spaces.files.openFailed"), "error");
     } finally {
       setBusyName(null);
     }
@@ -137,7 +135,7 @@ export function SpaceFilesSection({
     <section className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
-          {t("spaces.files.heading", { defaultValue: "Course files" })}
+          {t("spaces.files.heading")}
         </h2>
         {owner && (
           <>
@@ -158,7 +156,7 @@ export function SpaceFilesSection({
                 onClick={() => inputRef.current?.click()}
               >
                 <Upload size={14} />
-                {t("spaces.files.upload", { defaultValue: "Upload" })}
+                {t("spaces.files.upload")}
               </Button>
               <Button
                 variant="secondary"
@@ -171,7 +169,7 @@ export function SpaceFilesSection({
                 ) : (
                   <Link2 size={14} />
                 )}
-                {t("spaces.files.fromUrl", { defaultValue: "From URL" })}
+                {t("spaces.files.fromUrl")}
               </Button>
             </div>
           </>
@@ -179,13 +177,10 @@ export function SpaceFilesSection({
       </div>
       <PromptModal
         open={urlOpen}
-        title={t("spaces.files.fromUrlTitle", { defaultValue: "Add from URL" })}
-        body={t("spaces.files.fromUrlBody", {
-          defaultValue:
-            "A PDF/EPUB link becomes a course file; a web page or YouTube link is saved under course content.",
-        })}
+        title={t("spaces.files.fromUrlTitle")}
+        body={t("spaces.files.fromUrlBody")}
         placeholder="https://…"
-        confirmLabel={t("common.add", { defaultValue: "Add" })}
+        confirmLabel={t("common.add")}
         onClose={() => setUrlOpen(false)}
         onSubmit={(value) => void handleAddUrl(value)}
       />
@@ -196,23 +191,26 @@ export function SpaceFilesSection({
         </div>
       ) : files.length === 0 ? (
         <p className="rounded-panel bg-bg-secondary px-4 py-5 text-center text-xs text-text-muted">
-          {t("spaces.files.empty", {
-            defaultValue: "No files yet. The course owner can upload materials here.",
-          })}
+          {t("spaces.files.empty")}
         </p>
       ) : (
         <div className="overflow-hidden rounded-panel bg-bg-secondary">
           {files.map((f) => (
             <div
               key={f.name}
-              className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-bg-tertiary"
+              // same flat 44px row as the library list (Nextcloud model)
+              className="group flex h-[44px] items-center gap-3 border-b border-surface-3/60 px-4 text-sm transition-colors last:border-b-0 hover:bg-bg-tertiary"
             >
-              <FileText size={16} strokeWidth={1.5} className="shrink-0 text-text-muted" />
+              <FileText
+                size={18}
+                strokeWidth={1.5}
+                className="shrink-0 text-text-muted"
+              />
               <button
                 type="button"
                 onClick={() => void handleOpen(f.name)}
                 disabled={busyName !== null}
-                className="min-w-0 flex-1 truncate text-left text-sm text-text-primary cursor-pointer hover:underline underline-offset-2 disabled:cursor-wait"
+                className="min-w-0 flex-1 truncate text-left font-medium text-text-primary cursor-pointer hover:underline underline-offset-2 disabled:cursor-wait"
                 title={f.name}
               >
                 {f.name}
@@ -220,7 +218,10 @@ export function SpaceFilesSection({
               {busyName === f.name && (
                 <Loader2 size={14} className="animate-spin text-text-muted" />
               )}
-              <span className="shrink-0 text-2xs tabular-nums text-text-muted">
+              <span className="hidden w-24 shrink-0 truncate text-xs text-text-muted md:block">
+                {f.updatedAt ? new Date(f.updatedAt).toLocaleDateString() : ""}
+              </span>
+              <span className="w-16 shrink-0 text-right text-xs tabular-nums text-text-muted">
                 {fmtSize(f.size)}
               </span>
               {owner && (
@@ -241,12 +242,7 @@ export function SpaceFilesSection({
         </div>
       )}
       {!owner && files.length > 0 && (
-        <p className="text-2xs text-text-muted">
-          {t("spaces.files.copyHint", {
-            defaultValue:
-              "Opening a file saves a personal copy to your library, your notes and progress live there.",
-          })}
-        </p>
+        <p className="text-2xs text-text-muted">{t("spaces.files.copyHint")}</p>
       )}
     </section>
   );
@@ -265,65 +261,73 @@ export function SpaceInviteSection({ spaceId }: { spaceId: string }) {
     try {
       await rotateInviteCode(spaceId);
     } catch {
-      showToast(
-        t("spaces.invite.failed", { defaultValue: "Couldn't generate a code." }),
-        "error",
-      );
+      showToast(t("spaces.invite.failed"), "error");
     } finally {
       setBusy(false);
     }
   };
 
+  // Compact, prominent card for the top of the course page: the owner
+  // of a private course needs the code close at hand, not buried below
+  // sections and offerings where it used to live.
   return (
-    <section className="space-y-2">
-      <h2 className="text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
-        {t("spaces.invite.heading", { defaultValue: "Invite" })}
-      </h2>
-      <div className="flex flex-wrap items-center gap-2 rounded-panel bg-bg-secondary px-4 py-3">
-        {code ? (
-          <>
-            <code className="rounded-control bg-bg-tertiary px-3 py-1.5 font-mono text-sm tracking-widest text-text-primary">
-              {code}
-            </code>
-            <IconButton
-              size="sm"
-              onClick={() => {
-                void navigator.clipboard.writeText(code);
-                showToast(
-                  t("spaces.invite.copied", { defaultValue: "Code copied." }),
-                  "success",
-                );
-              }}
-              aria-label={t("spaces.invite.copy", { defaultValue: "Copy code" })}
-              title={t("spaces.invite.copy", { defaultValue: "Copy code" })}
-            >
-              <Copy size={14} strokeWidth={1.5} />
-            </IconButton>
-            <IconButton
-              size="sm"
-              onClick={() => void rotate()}
-              aria-label={t("spaces.invite.rotate", { defaultValue: "New code" })}
-              title={t("spaces.invite.rotate", { defaultValue: "New code" })}
-            >
-              <RefreshCw size={14} strokeWidth={1.5} className={busy ? "animate-spin" : undefined} />
-            </IconButton>
-            <span className="w-full text-2xs text-text-muted sm:w-auto">
-              {t("spaces.invite.hint", {
-                defaultValue:
-                  "Members enter this code on the Spaces page to join.",
-              })}
-            </span>
-          </>
-        ) : (
-          <Button variant="soft" size="sm" onClick={() => void rotate()} disabled={busy}>
+    <section className="flex flex-wrap items-center gap-3 rounded-panel border border-glass-border bg-bg-secondary px-4 py-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-accent-soft text-accent">
+        <KeyRound size={16} strokeWidth={1.5} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <h2 className="text-xs font-semibold text-text-primary">
+          {t("spaces.invite.heading")}
+        </h2>
+        <p className="truncate text-2xs text-text-muted">
+          {t("spaces.invite.hint")}
+        </p>
+      </div>
+      {code ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <code className="rounded-control bg-bg-tertiary px-3 py-1.5 font-mono text-sm tracking-widest text-text-primary">
+            {code}
+          </code>
+          <IconButton
+            size="sm"
+            onClick={() => {
+              void navigator.clipboard.writeText(code);
+              showToast(t("spaces.invite.copied"), "success");
+            }}
+            aria-label={t("spaces.invite.copy")}
+            title={t("spaces.invite.copy")}
+          >
+            <Copy size={14} strokeWidth={1.5} />
+          </IconButton>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void rotate()}
+            disabled={busy}
+          >
             {busy ? (
               <Loader2 size={14} className="animate-spin" />
             ) : (
-              t("spaces.invite.generate", { defaultValue: "Generate invite code" })
+              <RefreshCw size={14} strokeWidth={1.5} />
             )}
+            {t("spaces.invite.rotate")}
           </Button>
-        )}
-      </div>
+        </div>
+      ) : (
+        <Button
+          variant="soft"
+          size="sm"
+          onClick={() => void rotate()}
+          disabled={busy}
+          className="shrink-0"
+        >
+          {busy ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            t("spaces.invite.generate")
+          )}
+        </Button>
+      )}
     </section>
   );
 }

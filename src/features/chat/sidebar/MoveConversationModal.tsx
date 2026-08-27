@@ -74,7 +74,8 @@ export function MoveConversationModal({
     const ids = new Set(visibleFolders.map((f) => f.id));
     for (const f of visibleFolders) {
       // a hidden/missing parent (e.g. Quick chats) promotes the child to root
-      const parent = f.parent_id !== null && ids.has(f.parent_id) ? f.parent_id : null;
+      const parent =
+        f.parent_id !== null && ids.has(f.parent_id) ? f.parent_id : null;
       const arr = byParent.get(parent) ?? [];
       arr.push(f);
       byParent.set(parent, arr);
@@ -131,7 +132,7 @@ export function MoveConversationModal({
           id="move-conversation-title"
           className="mb-3 text-lg font-semibold text-text-primary"
         >
-          {t("chat.folders.moveTitle", { defaultValue: "Move conversation" })}
+          {t("chat.folders.moveTitle")}
         </h3>
         {rows.length > 4 && (
           <div className="relative mb-2">
@@ -145,9 +146,7 @@ export function MoveConversationModal({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={t("chat.folders.searchPlaceholder", {
-                defaultValue: "Search folders…",
-              })}
+              placeholder={t("chat.folders.searchPlaceholder")}
               className="field bg-bg-secondary pl-9"
             />
           </div>

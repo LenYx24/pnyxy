@@ -86,10 +86,7 @@ import { DragGhost } from "./DragGhost";
 import { LibraryOrgCrumb } from "./LibraryOrgCrumb";
 import { CreateFolderModal } from "./modals/CreateFolderModal";
 import { BookCardSkeleton } from "./BookCardSkeleton";
-import {
-  readBookCounts,
-  getCachedCount,
-} from "./bookCountCache";
+import { readBookCounts, getCachedCount } from "./bookCountCache";
 import { useOrgStore } from "@/stores/org-store";
 import { applySort } from "./useLibraryPrefs";
 import type { ViewMode, LibraryTypeFilter } from "./useLibraryPrefs";
@@ -109,13 +106,51 @@ const ITEM_TYPE_FILTERS: {
   defaultLabel: string;
   feature?: FeatureKey;
 }[] = [
-  { value: "all", icon: LayoutGrid, labelKey: "library.typeFilter.all", defaultLabel: "All" },
-  { value: "books", icon: BookOpen, labelKey: "library.typeFilter.books", defaultLabel: "Books" },
-  { value: "notes", icon: FileText, labelKey: "library.typeFilter.notes", defaultLabel: "Notes", feature: "notes" },
-  { value: "whiteboards", icon: Shapes, labelKey: "library.typeFilter.whiteboards", defaultLabel: "Whiteboards", feature: "whiteboard" },
-  { value: "quizzes", icon: ListChecks, labelKey: "library.typeFilter.quizzes", defaultLabel: "Quizzes", feature: "quizzes" },
-  { value: "chats", icon: MessageSquare, labelKey: "library.typeFilter.chats", defaultLabel: "Chats" },
-  { value: "resources", icon: Globe, labelKey: "library.typeFilter.resources", defaultLabel: "Resources" },
+  {
+    value: "all",
+    icon: LayoutGrid,
+    labelKey: "library.typeFilter.all",
+    defaultLabel: "All",
+  },
+  {
+    value: "books",
+    icon: BookOpen,
+    labelKey: "library.typeFilter.books",
+    defaultLabel: "Books",
+  },
+  {
+    value: "notes",
+    icon: FileText,
+    labelKey: "library.typeFilter.notes",
+    defaultLabel: "Notes",
+    feature: "notes",
+  },
+  {
+    value: "whiteboards",
+    icon: Shapes,
+    labelKey: "library.typeFilter.whiteboards",
+    defaultLabel: "Whiteboards",
+    feature: "whiteboard",
+  },
+  {
+    value: "quizzes",
+    icon: ListChecks,
+    labelKey: "library.typeFilter.quizzes",
+    defaultLabel: "Quizzes",
+    feature: "quizzes",
+  },
+  {
+    value: "chats",
+    icon: MessageSquare,
+    labelKey: "library.typeFilter.chats",
+    defaultLabel: "Chats",
+  },
+  {
+    value: "resources",
+    icon: Globe,
+    labelKey: "library.typeFilter.resources",
+    defaultLabel: "Resources",
+  },
 ];
 
 interface AllBooksTabProps {
@@ -126,7 +161,10 @@ interface AllBooksTabProps {
   searchQuery: string;
   selectedIds: Set<string>;
   selectionActive: boolean;
-  onToggleSelect: (id: string, event: { ctrlKey: boolean; shiftKey: boolean }) => void;
+  onToggleSelect: (
+    id: string,
+    event: { ctrlKey: boolean; shiftKey: boolean },
+  ) => void;
   /** Reports the current on-screen item order (filtered + sorted) so
    *  the parent's shift-range selection spans exactly what's visible. */
   onOrderedKeysChange?: (keys: string[]) => void;
@@ -246,7 +284,13 @@ export function AllBooksTab({
     void fetchMyQuizzes();
     void fetchConversations();
     void fetchResources();
-  }, [loadNotes, loadWhiteboards, fetchMyQuizzes, fetchConversations, fetchResources]);
+  }, [
+    loadNotes,
+    loadWhiteboards,
+    fetchMyQuizzes,
+    fetchConversations,
+    fetchResources,
+  ]);
 
   const getTagsForBook = useTagStore((s) => s.getTagsForBook);
 
@@ -271,7 +315,8 @@ export function AllBooksTab({
     [quizzes, currentFolderId],
   );
   const chatsInFolder = useMemo(
-    () => conversations.filter((c) => (c.folder_id ?? null) === currentFolderId),
+    () =>
+      conversations.filter((c) => (c.folder_id ?? null) === currentFolderId),
     [conversations, currentFolderId],
   );
   const resourcesInFolder = useMemo(
@@ -537,10 +582,7 @@ export function AllBooksTab({
   const dropIntentRef = useRef<DropIntent | null>(null);
   const updateIntent = useCallback((next: DropIntent | null) => {
     const prev = dropIntentRef.current;
-    if (
-      prev?.overId === next?.overId &&
-      prev?.position === next?.position
-    )
+    if (prev?.overId === next?.overId && prev?.position === next?.position)
       return;
     dropIntentRef.current = next;
     setDropIntent(next);
@@ -803,7 +845,10 @@ export function AllBooksTab({
     if (viewMode === "list") return 4;
     // grid: estimate one row from the viewport, off-by-one is fine
     const w = typeof window !== "undefined" ? window.innerWidth : 1024;
-    return Math.max(3, Math.min(10, Math.floor(w / Math.max(effectiveCardSize, 100))));
+    return Math.max(
+      3,
+      Math.min(10, Math.floor(w / Math.max(effectiveCardSize, 100))),
+    );
   }, [currentOrgId, currentFolderId, viewMode, effectiveCardSize]);
 
   // list view pins drag to Y (grid stays 2D); always clamp to window edges
@@ -832,7 +877,11 @@ export function AllBooksTab({
     >
       {/* root crumb: the active workspace, opens the org switcher */}
       <LibraryOrgCrumb />
-      <ChevronRight size={14} strokeWidth={1.5} className="shrink-0 text-text-muted-2" />
+      <ChevronRight
+        size={14}
+        strokeWidth={1.5}
+        className="shrink-0 text-text-muted-2"
+      />
       {folderPath.length === 0 ? (
         <span className="truncate px-1 font-medium text-text-primary">
           {t("library.list.breadcrumb.allFiles")}
@@ -849,7 +898,11 @@ export function AllBooksTab({
       {folderPath.map((folder, i) => (
         <span key={folder.id} className="flex min-w-0 items-center gap-1">
           {i > 0 && (
-            <ChevronRight size={14} strokeWidth={1.5} className="shrink-0 text-text-muted-2" />
+            <ChevronRight
+              size={14}
+              strokeWidth={1.5}
+              className="shrink-0 text-text-muted-2"
+            />
           )}
           {i === folderPath.length - 1 ? (
             <span className="truncate px-1 font-medium text-text-primary">
@@ -888,305 +941,309 @@ export function AllBooksTab({
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-      <DropIntentProvider value={dropIntent}>
-      {/* Header: breadcrumb (each non-current crumb is a drop target for
+        <DropIntentProvider value={dropIntent}>
+          {/* Header: breadcrumb (each non-current crumb is a drop target for
           moving items up a level) wrapped in the parent's toolbar. */}
-      {renderHeader ? renderHeader(breadcrumb) : breadcrumb}
+          {renderHeader ? renderHeader(breadcrumb) : breadcrumb}
 
-      {/* item-type filter chips: show only one kind of item at a time.
+          {/* item-type filter chips: show only one kind of item at a time.
           Folders always render regardless of the active type. */}
-      {/* One always-visible filter row: type chips, a hairline divider,
+          {/* One always-visible filter row: type chips, a hairline divider,
           then the tag chips (filtersExtra). Same chip class / height on
           both sides; wraps on narrow desktop widths and scrolls
           horizontally on mobile. */}
-      <div className="mb-3 flex items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
-          {ITEM_TYPE_FILTERS.filter((f) => typeEnabled(f.value)).map(({ value, icon: Icon, labelKey, defaultLabel }) => {
-            const isActive = typeFilter === value;
-            return (
-              <button
-                key={value}
-                onClick={() => setTypeFilter(value)}
-                data-filter="type"
-                aria-pressed={isActive}
-                className={cn(
-                  "font-medium transition-colors cursor-pointer hover:text-text-primary",
-                  isActive ? chipActiveClass : chipClass,
-                )}
+          <div className="mb-3 flex items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+            {ITEM_TYPE_FILTERS.filter((f) => typeEnabled(f.value)).map(
+              ({ value, icon: Icon, labelKey, defaultLabel }) => {
+                const isActive = typeFilter === value;
+                return (
+                  <button
+                    key={value}
+                    onClick={() => setTypeFilter(value)}
+                    data-filter="type"
+                    aria-pressed={isActive}
+                    className={cn(
+                      "font-medium transition-colors cursor-pointer hover:text-text-primary",
+                      isActive ? chipActiveClass : chipClass,
+                    )}
+                  >
+                    <Icon size={14} strokeWidth={1.5} />
+                    {t(labelKey, { defaultValue: defaultLabel })}
+                  </button>
+                );
+              },
+            )}
+            {filtersExtra && (
+              <>
+                <div
+                  aria-hidden
+                  className="mx-1 h-4 w-px shrink-0 bg-surface-3"
+                />
+                {filtersExtra}
+              </>
+            )}
+            {currentFolderId && (
+              <Button
+                variant="ghost"
+                className="ml-auto gap-1 px-2 py-1 text-xs"
+                onClick={handleGoUp}
+                title={t("library.allBooks.upTitle", {
+                  shortcut: formatShortcut({ key: "Backspace", alt: true }),
+                })}
               >
-                <Icon size={14} strokeWidth={1.5} />
-                {t(labelKey, { defaultValue: defaultLabel })}
-              </button>
-            );
-          })}
-        {filtersExtra && (
-          <>
-            <div aria-hidden className="mx-1 h-4 w-px shrink-0 bg-surface-3" />
-            {filtersExtra}
-          </>
-        )}
-        {currentFolderId && (
-          <Button
-            variant="ghost"
-            className="ml-auto gap-1 px-2 py-1 text-xs"
-            onClick={handleGoUp}
-            title={t("library.allBooks.upTitle", {
-              shortcut: formatShortcut({ key: "Backspace", alt: true }),
-            })}
-          >
-            <ArrowUp size={16} strokeWidth={1.5} />
-            <span className="hidden sm:inline">
-              {t("library.allBooks.up")}
-            </span>
-          </Button>
-        )}
-      </div>
-
-      {/* ghost rows for in-flight uploads in this folder */}
-      <UploadGhostStrip currentFolderId={currentFolderId} />
-
-      {/* "Up to: <parent>" drop placeholder: only inside a folder, only
-          while dragging; lets an item leave the folder without aiming
-          at the breadcrumb. */}
-      {currentFolderId && (
-        <ParentDropZone
-          parentFolderId={parentFolderId}
-          parentName={
-            parentFolderId
-              ? (folderPath[folderPath.length - 2]?.name ?? "")
-              : t("library.list.breadcrumb.allFiles")
-          }
-          visible={activeId != null}
-        />
-      )}
-
-      {/* Search empty state */}
-      {isEmpty && query && (
-        <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <p className="font-display text-base font-medium text-text-primary">
-            {t("library.allBooks.noSearchResults", { query: searchQuery })}
-          </p>
-        </div>
-      )}
-
-      {/* skeleton tiles while fetchLibrary is in flight */}
-      {isEmpty && !query && isLoading && (
-        <BookCardSkeleton
-          viewMode={viewMode}
-          count={skeletonCount}
-          cardSize={effectiveCardSize}
-        />
-      )}
-
-      {/* tag filter hid everything (folder isn't really empty) */}
-      {isEmpty && !query && !isLoading && activeTag && (
-        <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <p className="font-display text-base font-medium text-text-primary">
-            {t("library.allBooks.noTagResults")}
-          </p>
-        </div>
-      )}
-
-      {/* type filter yielded nothing here (folder isn't really empty
-          when it holds folders, which stay visible above) */}
-      {isEmpty &&
-        !query &&
-        !isLoading &&
-        !activeTag &&
-        typeFilter !== "all" &&
-        typeFilter !== "books" && (
-          <div className="flex flex-col items-center gap-2 py-16 text-center">
-            <p className="font-display text-base font-medium text-text-primary">
-              {t("library.typeFilter.noItems", {
-                defaultValue: "No items of this type here.",
-              })}
-            </p>
-          </div>
-        )}
-
-      {isEmpty &&
-        !query &&
-        !isLoading &&
-        !activeTag &&
-        (typeFilter === "all" || typeFilter === "books") && (
-          <div className="flex flex-col items-center gap-4 py-16 text-center">
-            <div>
-              <p className="font-display text-lg font-medium text-text-primary">
-                {t("library.allBooks.emptyFolder")}
-              </p>
-              {!currentFolderId && (
-                <p className="mx-auto mt-1 max-w-sm text-sm text-text-muted">
-                  {t("library.allBooks.emptyDragHint", {
-                    defaultValue:
-                      "Just drag & drop a book anywhere to add it, the upload starts right away.",
-                  })}
-                </p>
-              )}
-            </div>
-            {!currentFolderId && features.catalog && (
-              <Button variant="ghost" onClick={() => navigate("/browse")}>
-                {t("library.allBooks.browseCatalog")}
+                <ArrowUp size={16} strokeWidth={1.5} />
+                <span className="hidden sm:inline">
+                  {t("library.allBooks.up")}
+                </span>
               </Button>
             )}
           </div>
-        )}
 
-      {/* Content */}
-      {!isEmpty && (
-        <>
-          <SortableContext items={orderedKeys} strategy={noShiftStrategy}>
-            {viewMode === "list" && (
-              <LibraryListView
-                folders={orderedFolders}
-                books={orderedBooks}
-                notes={orderedNotes}
-                whiteboards={orderedWhiteboards}
-                quizzes={orderedQuizzes}
-                chats={orderedChats}
-                resources={orderedResources}
-                orderedKeys={orderedKeys}
-                allFolders={folders}
-                allBooks={books}
-                allNotes={notes}
-                allWhiteboards={whiteboards}
-                allQuizzes={quizzes}
-                allChats={conversations}
-                allResources={resources}
-                selectedIds={selectedIds}
-                selectionActive={selectionActive}
-                onToggleSelect={onToggleSelect}
-                onNavigateFolder={navigateToFolder}
-                onRenameFolder={renameFolder}
-                onDeleteFolder={handleDeleteFolder}
-                onMoveBook={onMoveBook}
-                onRemoveBook={onRemoveBook}
-                onCreateSubfolder={handleCreateSubfolder}
-              />
-            )}
+          {/* ghost rows for in-flight uploads in this folder */}
+          <UploadGhostStrip currentFolderId={currentFolderId} />
 
-            {viewMode === "grid" && (
-              <div
-                className="grid gap-4"
-                style={{
-                  gridTemplateColumns: `repeat(auto-fill, minmax(min(${effectiveCardSize}px, 100%), 1fr))`,
-                }}
-              >
-                {/* iterate orderedKeys so a reorder that interleaves types shows up */}
-                {orderedKeys.map((key) => {
-                  const folder = folderMap.get(key);
-                  if (folder) {
-                    return (
-                      <FolderCard
-                        key={folder.id}
-                        folder={folder}
-                        sortableId={`folder:${folder.id}`}
-                        onNavigate={navigateToFolder}
-                        onRename={renameFolder}
-                        onDelete={handleDeleteFolder}
-                        coverHeight={coverHeight}
-                        selected={selectedIds.has(`folder:${folder.id}`)}
-                        selectionActive={selectionActive}
-                        onToggleSelect={onToggleSelect}
-                      />
-                    );
-                  }
-                  const entry = bookMap.get(key);
-                  if (entry) {
-                    return (
-                      <LibraryBookCard
-                        key={`${entry.source}-${entry.id}`}
-                        entry={entry}
-                        sortableId={`book:${entry.id}`}
-                        onMove={onMoveBook}
-                        onRemove={onRemoveBook}
-                        coverHeight={coverHeight}
-                        selected={selectedIds.has(`book:${entry.id}`)}
-                        selectionActive={selectionActive}
-                        onToggleSelect={onToggleSelect}
-                      />
-                    );
-                  }
-                  const note = noteMap.get(key);
-                  if (note) {
-                    return (
-                      <LibraryNoteCard
-                        key={`note:${note.id}`}
-                        note={note}
-                        sortableId={`note:${note.id}`}
-                        coverHeight={coverHeight}
-                        selected={selectedIds.has(`note:${note.id}`)}
-                        selectionActive={selectionActive}
-                        onToggleSelect={onToggleSelect}
-                      />
-                    );
-                  }
-                  const whiteboard = whiteboardMap.get(key);
-                  if (whiteboard) {
-                    return (
-                      <LibraryWhiteboardCard
-                        key={`whiteboard:${whiteboard.id}`}
-                        whiteboard={whiteboard}
-                        sortableId={`whiteboard:${whiteboard.id}`}
-                        coverHeight={coverHeight}
-                        selected={selectedIds.has(`whiteboard:${whiteboard.id}`)}
-                        selectionActive={selectionActive}
-                        onToggleSelect={onToggleSelect}
-                      />
-                    );
-                  }
-                  const quiz = quizMap.get(key);
-                  if (quiz) {
-                    return (
-                      <LibraryQuizCard
-                        key={`quiz:${quiz.id}`}
-                        quiz={quiz}
-                        sortableId={`quiz:${quiz.id}`}
-                        coverHeight={coverHeight}
-                        selected={selectedIds.has(`quiz:${quiz.id}`)}
-                        selectionActive={selectionActive}
-                        onToggleSelect={onToggleSelect}
-                      />
-                    );
-                  }
-                  const chat = chatMap.get(key);
-                  if (chat) {
-                    return (
-                      <LibraryChatCard
-                        key={`chat:${chat.id}`}
-                        conversation={chat}
-                        sortableId={`chat:${chat.id}`}
-                        coverHeight={coverHeight}
-                        selected={selectedIds.has(`chat:${chat.id}`)}
-                        selectionActive={selectionActive}
-                        onToggleSelect={onToggleSelect}
-                      />
-                    );
-                  }
-                  const resource = resourceMap.get(key);
-                  if (resource) {
-                    return (
-                      <LibraryResourceCard
-                        key={`resource:${resource.id}`}
-                        resource={resource}
-                        sortableId={`resource:${resource.id}`}
-                        coverHeight={coverHeight}
-                        selected={selectedIds.has(`resource:${resource.id}`)}
-                        selectionActive={selectionActive}
-                        onToggleSelect={onToggleSelect}
-                      />
-                    );
-                  }
-                  return null;
-                })}
+          {/* "Up to: <parent>" drop placeholder: only inside a folder, only
+          while dragging; lets an item leave the folder without aiming
+          at the breadcrumb. */}
+          {currentFolderId && (
+            <ParentDropZone
+              parentFolderId={parentFolderId}
+              parentName={
+                parentFolderId
+                  ? (folderPath[folderPath.length - 2]?.name ?? "")
+                  : t("library.list.breadcrumb.allFiles")
+              }
+              visible={activeId != null}
+            />
+          )}
+
+          {/* Search empty state */}
+          {isEmpty && query && (
+            <div className="flex flex-col items-center gap-2 py-16 text-center">
+              <p className="font-display text-base font-medium text-text-primary">
+                {t("library.allBooks.noSearchResults", { query: searchQuery })}
+              </p>
+            </div>
+          )}
+
+          {/* skeleton tiles while fetchLibrary is in flight */}
+          {isEmpty && !query && isLoading && (
+            <BookCardSkeleton
+              viewMode={viewMode}
+              count={skeletonCount}
+              cardSize={effectiveCardSize}
+            />
+          )}
+
+          {/* tag filter hid everything (folder isn't really empty) */}
+          {isEmpty && !query && !isLoading && activeTag && (
+            <div className="flex flex-col items-center gap-2 py-16 text-center">
+              <p className="font-display text-base font-medium text-text-primary">
+                {t("library.allBooks.noTagResults")}
+              </p>
+            </div>
+          )}
+
+          {/* type filter yielded nothing here (folder isn't really empty
+          when it holds folders, which stay visible above) */}
+          {isEmpty &&
+            !query &&
+            !isLoading &&
+            !activeTag &&
+            typeFilter !== "all" &&
+            typeFilter !== "books" && (
+              <div className="flex flex-col items-center gap-2 py-16 text-center">
+                <p className="font-display text-base font-medium text-text-primary">
+                  {t("library.typeFilter.noItems")}
+                </p>
               </div>
             )}
-          </SortableContext>
 
-          <DragOverlay dropAnimation={dropAnimation}>
-            <DragGhost viewMode={viewMode} />
-          </DragOverlay>
-        </>
-      )}
-      </DropIntentProvider>
+          {isEmpty &&
+            !query &&
+            !isLoading &&
+            !activeTag &&
+            (typeFilter === "all" || typeFilter === "books") && (
+              <div className="flex flex-col items-center gap-4 py-16 text-center">
+                <div>
+                  <p className="font-display text-lg font-medium text-text-primary">
+                    {t("library.allBooks.emptyFolder")}
+                  </p>
+                  {!currentFolderId && (
+                    <p className="mx-auto mt-1 max-w-sm text-sm text-text-muted">
+                      {t("library.allBooks.emptyDragHint")}
+                    </p>
+                  )}
+                </div>
+                {!currentFolderId && features.catalog && (
+                  <Button variant="ghost" onClick={() => navigate("/browse")}>
+                    {t("library.allBooks.browseCatalog")}
+                  </Button>
+                )}
+              </div>
+            )}
+
+          {/* Content */}
+          {!isEmpty && (
+            <>
+              <SortableContext items={orderedKeys} strategy={noShiftStrategy}>
+                {viewMode === "list" && (
+                  <LibraryListView
+                    folders={orderedFolders}
+                    books={orderedBooks}
+                    notes={orderedNotes}
+                    whiteboards={orderedWhiteboards}
+                    quizzes={orderedQuizzes}
+                    chats={orderedChats}
+                    resources={orderedResources}
+                    orderedKeys={orderedKeys}
+                    allFolders={folders}
+                    allBooks={books}
+                    allNotes={notes}
+                    allWhiteboards={whiteboards}
+                    allQuizzes={quizzes}
+                    allChats={conversations}
+                    allResources={resources}
+                    selectedIds={selectedIds}
+                    selectionActive={selectionActive}
+                    onToggleSelect={onToggleSelect}
+                    onNavigateFolder={navigateToFolder}
+                    onRenameFolder={renameFolder}
+                    onDeleteFolder={handleDeleteFolder}
+                    onMoveBook={onMoveBook}
+                    onRemoveBook={onRemoveBook}
+                    onCreateSubfolder={handleCreateSubfolder}
+                  />
+                )}
+
+                {viewMode === "grid" && (
+                  <div
+                    className="grid gap-4"
+                    style={{
+                      gridTemplateColumns: `repeat(auto-fill, minmax(min(${effectiveCardSize}px, 100%), 1fr))`,
+                    }}
+                  >
+                    {/* iterate orderedKeys so a reorder that interleaves types shows up */}
+                    {orderedKeys.map((key) => {
+                      const folder = folderMap.get(key);
+                      if (folder) {
+                        return (
+                          <FolderCard
+                            key={folder.id}
+                            folder={folder}
+                            sortableId={`folder:${folder.id}`}
+                            onNavigate={navigateToFolder}
+                            onRename={renameFolder}
+                            onDelete={handleDeleteFolder}
+                            coverHeight={coverHeight}
+                            selected={selectedIds.has(`folder:${folder.id}`)}
+                            selectionActive={selectionActive}
+                            onToggleSelect={onToggleSelect}
+                          />
+                        );
+                      }
+                      const entry = bookMap.get(key);
+                      if (entry) {
+                        return (
+                          <LibraryBookCard
+                            key={`${entry.source}-${entry.id}`}
+                            entry={entry}
+                            sortableId={`book:${entry.id}`}
+                            onMove={onMoveBook}
+                            onRemove={onRemoveBook}
+                            coverHeight={coverHeight}
+                            selected={selectedIds.has(`book:${entry.id}`)}
+                            selectionActive={selectionActive}
+                            onToggleSelect={onToggleSelect}
+                          />
+                        );
+                      }
+                      const note = noteMap.get(key);
+                      if (note) {
+                        return (
+                          <LibraryNoteCard
+                            key={`note:${note.id}`}
+                            note={note}
+                            sortableId={`note:${note.id}`}
+                            coverHeight={coverHeight}
+                            selected={selectedIds.has(`note:${note.id}`)}
+                            selectionActive={selectionActive}
+                            onToggleSelect={onToggleSelect}
+                          />
+                        );
+                      }
+                      const whiteboard = whiteboardMap.get(key);
+                      if (whiteboard) {
+                        return (
+                          <LibraryWhiteboardCard
+                            key={`whiteboard:${whiteboard.id}`}
+                            whiteboard={whiteboard}
+                            sortableId={`whiteboard:${whiteboard.id}`}
+                            coverHeight={coverHeight}
+                            selected={selectedIds.has(
+                              `whiteboard:${whiteboard.id}`,
+                            )}
+                            selectionActive={selectionActive}
+                            onToggleSelect={onToggleSelect}
+                          />
+                        );
+                      }
+                      const quiz = quizMap.get(key);
+                      if (quiz) {
+                        return (
+                          <LibraryQuizCard
+                            key={`quiz:${quiz.id}`}
+                            quiz={quiz}
+                            sortableId={`quiz:${quiz.id}`}
+                            coverHeight={coverHeight}
+                            selected={selectedIds.has(`quiz:${quiz.id}`)}
+                            selectionActive={selectionActive}
+                            onToggleSelect={onToggleSelect}
+                          />
+                        );
+                      }
+                      const chat = chatMap.get(key);
+                      if (chat) {
+                        return (
+                          <LibraryChatCard
+                            key={`chat:${chat.id}`}
+                            conversation={chat}
+                            sortableId={`chat:${chat.id}`}
+                            coverHeight={coverHeight}
+                            selected={selectedIds.has(`chat:${chat.id}`)}
+                            selectionActive={selectionActive}
+                            onToggleSelect={onToggleSelect}
+                          />
+                        );
+                      }
+                      const resource = resourceMap.get(key);
+                      if (resource) {
+                        return (
+                          <LibraryResourceCard
+                            key={`resource:${resource.id}`}
+                            resource={resource}
+                            sortableId={`resource:${resource.id}`}
+                            coverHeight={coverHeight}
+                            selected={selectedIds.has(
+                              `resource:${resource.id}`,
+                            )}
+                            selectionActive={selectionActive}
+                            onToggleSelect={onToggleSelect}
+                          />
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                )}
+              </SortableContext>
+
+              <DragOverlay dropAnimation={dropAnimation}>
+                <DragGhost viewMode={viewMode} />
+              </DragOverlay>
+            </>
+          )}
+        </DropIntentProvider>
       </DndContext>
 
       {/* Create folder modal */}
@@ -1195,9 +1252,7 @@ export function AllBooksTab({
         onClose={() => setCreateFolderOpen(false)}
         onCreate={handleConfirmCreateFolder}
         parentFolderName={
-          folderPath.length > 0
-            ? folderPath[folderPath.length - 1].name
-            : null
+          folderPath.length > 0 ? folderPath[folderPath.length - 1].name : null
         }
       />
 

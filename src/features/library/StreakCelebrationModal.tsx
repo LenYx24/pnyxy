@@ -4,10 +4,18 @@ import { Flame, Check } from "lucide-react";
 import { useStreakStore } from "@/stores/streak-store";
 
 const CONFETTI_COLORS = [
-  "#8b5cf6", "#a78bfa", "#c4b5fd",
-  "#f472b6", "#fb923c", "#facc15",
-  "#4ade80", "#60a5fa", "#34d399",
-  "#e879f9", "#f87171", "#fbbf24",
+  "#8b5cf6",
+  "#a78bfa",
+  "#c4b5fd",
+  "#f472b6",
+  "#fb923c",
+  "#facc15",
+  "#4ade80",
+  "#60a5fa",
+  "#34d399",
+  "#e879f9",
+  "#f87171",
+  "#fbbf24",
 ];
 
 const CONFETTI_COUNT = 48;
@@ -125,7 +133,7 @@ export function StreakCelebrationModal() {
             className="inline-flex items-center gap-1.5 rounded-control bg-success/15 px-3 py-1.5 text-xs font-medium text-success transition-colors hover:bg-success/25 cursor-pointer"
           >
             <Check size={14} strokeWidth={2.5} />
-            {t("library.celebration.acknowledge", { defaultValue: "Got it" })}
+            {t("library.celebration.acknowledge")}
           </button>
         </div>
       </div>

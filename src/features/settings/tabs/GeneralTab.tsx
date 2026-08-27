@@ -19,7 +19,11 @@ import {
 import { exportUserData } from "@/lib/export-user-data";
 import { useAuthStore } from "@/stores/auth-store";
 import { useFeatures } from "@/lib/use-features";
-import { FEATURE_KEYS, FEATURE_META, serverUnlockedFeatures } from "@/lib/features";
+import {
+  FEATURE_KEYS,
+  FEATURE_META,
+  serverUnlockedFeatures,
+} from "@/lib/features";
 import {
   Disclosure,
   OptionChips,
@@ -193,7 +197,10 @@ export function GeneralTab() {
           }
         />
         {pageScrollBehavior === "smooth" && (
-          <SettingRow label={t("settings.pageTurning.animationDuration")} stacked>
+          <SettingRow
+            label={t("settings.pageTurning.animationDuration")}
+            stacked
+          >
             <SliderWithInput
               value={scrollAnimationDuration}
               onChange={setScrollAnimationDuration}
@@ -291,7 +298,9 @@ export function GeneralTab() {
           }
         />
         {exportStatus.kind === "success" && (
-          <StatusLine tone="success">{t("settings.data.exportSuccess")}</StatusLine>
+          <StatusLine tone="success">
+            {t("settings.data.exportSuccess")}
+          </StatusLine>
         )}
         {exportStatus.kind === "partial" && (
           <StatusLine tone="warning">
@@ -326,9 +335,7 @@ export function GeneralTab() {
 
       {isAdmin && (
         <SettingsSection
-          caption={t("settings.features.adminCaption", {
-            defaultValue: "Admin",
-          })}
+          caption={t("settings.features.adminCaption")}
           title={t("settings.features.heading")}
           description={t("settings.features.description")}
         >

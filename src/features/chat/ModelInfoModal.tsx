@@ -3,11 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import type { ModelInfo } from "@/lib/ai/ai-models";
-import {
-  PNYXY_MODEL_OPTIONS,
-  usageRatio,
-  type PnyxyQuotaRow,
-} from "./quota";
+import { PNYXY_MODEL_OPTIONS, usageRatio, type PnyxyQuotaRow } from "./quota";
 import { cn } from "@/lib/cn";
 
 interface ModelInfoModalProps {
@@ -23,7 +19,11 @@ interface ModelInfoModalProps {
  * questions-left count. The old long-form catalog cards live on in
  * Settings → AI (ModelCard below).
  */
-export function ModelInfoModal({ open, onClose, rows = [] }: ModelInfoModalProps) {
+export function ModelInfoModal({
+  open,
+  onClose,
+  rows = [],
+}: ModelInfoModalProps) {
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -43,13 +43,13 @@ export function ModelInfoModal({ open, onClose, rows = [] }: ModelInfoModalProps
       <div className="relative z-10 flex max-h-[85vh] w-full max-w-md flex-col rounded-page bg-bg-tertiary p-6 shadow-page">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text-primary">
-            {t("chat.modelHelp.title", { defaultValue: "Modellek" })}
+            {t("chat.modelHelp.title")}
           </h2>
           <button
             type="button"
             onClick={onClose}
             className="rounded-control p-1 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
-            aria-label={t("common.close", { defaultValue: "Close" })}
+            aria-label={t("common.close")}
           >
             <X size={18} strokeWidth={1.5} />
           </button>
@@ -158,11 +158,11 @@ export function ModelCard({ model }: { model: ModelInfo }) {
 
       <div className="grid grid-cols-1 gap-2 text-2xs sm:grid-cols-3">
         <span className="rounded-control bg-bg-secondary px-2 py-1.5 text-text-secondary">
-          {t("chat.modelHelp.speed", { defaultValue: "Sebesség" })}:{" "}
+          {t("chat.modelHelp.speed")}:{" "}
           {{ fast: "Gyors", medium: "Közepes", slow: "Lassú" }[model.speed]}
         </span>
         <span className="rounded-control bg-bg-secondary px-2 py-1.5 text-text-secondary">
-          {t("chat.modelHelp.power", { defaultValue: "Erő" })}:{" "}
+          {t("chat.modelHelp.power")}:{" "}
           {
             { basic: "Alap", balanced: "Kiegyensúlyozott", powerful: "Erős" }[
               model.power
@@ -170,8 +170,7 @@ export function ModelCard({ model }: { model: ModelInfo }) {
           }
         </span>
         <span className="rounded-control bg-bg-secondary px-2 py-1.5 text-text-secondary">
-          {t("chat.modelHelp.context", { defaultValue: "Kontextus" })}:{" "}
-          {model.contextWindow}
+          {t("chat.modelHelp.context")}: {model.contextWindow}
         </span>
       </div>
     </article>

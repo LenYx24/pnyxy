@@ -6,6 +6,7 @@ export { Checkbox } from "./Checkbox";
 export { ConfirmModal } from "./ConfirmModal";
 export { ContextMenu } from "./ContextMenu";
 export { FloatingMenu } from "./FloatingMenu";
+export { FormModal } from "./FormModal";
 export { GlassCard } from "./GlassCard";
 export { PromptModal } from "./PromptModal";
 export { NumberInput } from "./NumberInput";

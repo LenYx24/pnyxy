@@ -88,13 +88,13 @@ export function LandingPage() {
             }
             aria-label={
               theme === "dark"
-                ? t("landing.themeLight", { defaultValue: "Switch to light" })
-                : t("landing.themeDark", { defaultValue: "Switch to dark" })
+                ? t("landing.themeLight")
+                : t("landing.themeDark")
             }
             title={
               theme === "dark"
-                ? t("landing.themeLight", { defaultValue: "Switch to light" })
-                : t("landing.themeDark", { defaultValue: "Switch to dark" })
+                ? t("landing.themeLight")
+                : t("landing.themeDark")
             }
             className="rounded-lg border border-glass-border p-2 text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
           >

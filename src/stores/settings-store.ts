@@ -25,6 +25,7 @@ import {
   type EpubFontFamily,
 } from "@/lib/epub-typography";
 import { useAuthStore } from "@/stores/auth-store";
+import { track } from "@/lib/telemetry";
 import {
   emptyAiContextBindings,
   newAiContextPresetId,
@@ -159,6 +160,10 @@ interface SettingsState {
   moveProvider: (provider: AiProvider, direction: -1 | 1) => void;
   setAnthropicApiKey: (v: string) => void;
   setOpenaiApiKey: (v: string) => void;
+  /** Null out every BYOK key in memory. Called on sign-out; these fields
+   *  are memory-only (excluded from `partialize`) so this is also what
+   *  actually erases them, not just an in-session convenience. */
+  clearSensitive: () => void;
   setPnyxyModel: (v: string | null) => void;
   setLocalBaseUrl: (v: string) => void;
   setLocalModel: (v: string) => void;
@@ -323,6 +328,8 @@ export const useSettingsStore = create<SettingsState>()(
       },
       setAnthropicApiKey: (v) => set({ anthropicApiKey: v }),
       setOpenaiApiKey: (v) => set({ openaiApiKey: v }),
+      clearSensitive: () =>
+        set({ anthropicApiKey: "", openaiApiKey: "", localApiKey: "" }),
       setPnyxyModel: (v: string | null) => set({ pnyxyModel: v }),
       setLocalBaseUrl: (v) => set({ localBaseUrl: v }),
       setLocalModel: (v) => set({ localModel: v }),
@@ -384,6 +391,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
       setAiDefaultContextId: (id) => {
         set({ aiDefaultContextId: id });
+        track("settings_ai_context_changed", { hasContext: id !== null });
         queueSync(get);
       },
       bindAiContext: (kind, entityId, presetId) => {
@@ -559,7 +567,12 @@ export const useSettingsStore = create<SettingsState>()(
             string,
             unknown
           >;
-          const merged = { ...existing, ...payload };
+          // `features` is the server-side unlock list: the DB trigger
+          // (00072) rejects client changes to it, so omit the key and let
+          // the server keep its own value.
+          const { features: _features, ...clientPrefs } = existing;
+          void _features;
+          const merged = { ...clientPrefs, ...payload };
           const { error } = await supabase
             .from("profiles")
             .update({ preferences: merged })
@@ -660,10 +673,23 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "pnyxy-reader:settings",
-      version: 14,
+      version: 15,
       partialize: (state) => {
-        // persist everything; pluginStorage stays local-only, never synced to Supabase
-        return state;
+        // persist everything except BYOK keys: those live in memory only
+        // for the session (H5 hardening) so a shared/borrowed machine, or
+        // a leaked localStorage dump, can't leak a user's own Anthropic/
+        // OpenAI/local-endpoint credentials. Re-entering them after a
+        // reload is the accepted tradeoff.
+        const {
+          anthropicApiKey: _anthropicApiKey,
+          openaiApiKey: _openaiApiKey,
+          localApiKey: _localApiKey,
+          ...rest
+        } = state;
+        void _anthropicApiKey;
+        void _openaiApiKey;
+        void _localApiKey;
+        return rest as SettingsState;
       },
       migrate: (persistedState, version) => {
         const state = (persistedState ?? {}) as Record<string, unknown>;
@@ -871,6 +897,15 @@ export const useSettingsStore = create<SettingsState>()(
             state.aiContexts = [preset];
             state.aiDefaultContextId = preset.id;
           }
+        }
+        // v15: BYOK keys move to memory-only storage (H5 hardening).
+        // Purge whatever a pre-v15 install already wrote to localStorage
+        // so it doesn't silently rehydrate this session; the user
+        // re-enters their key(s) once after the upgrade.
+        if (version < 15) {
+          delete state.anthropicApiKey;
+          delete state.openaiApiKey;
+          delete state.localApiKey;
         }
         return state as unknown as SettingsState;
       },

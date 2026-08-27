@@ -10,6 +10,7 @@ import {
   parseYouTubeId,
   youtubeEmbedUrl,
 } from "@/lib/resource-url";
+import { isSafeExternalUrl } from "@/lib/safe-url";
 
 /**
  * Full-page viewer for a library "resource", a saved web page or YouTube
@@ -66,7 +67,7 @@ export function ResourceViewerPage() {
       className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
     >
       <ArrowLeft size={16} />
-      {t("resources.back", { defaultValue: "Back" })}
+      {t("resources.back")}
     </button>
   );
 
@@ -78,7 +79,7 @@ export function ResourceViewerPage() {
           {backButton}
         </div>
         <div className="flex flex-1 items-center justify-center text-sm text-text-secondary">
-          {t("resources.loading", { defaultValue: "Loading…" })}
+          {t("resources.loading")}
         </div>
       </div>
     );
@@ -93,12 +94,14 @@ export function ResourceViewerPage() {
         </div>
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
           <p className="text-sm text-text-secondary">
-            {t("resources.notFound", {
-              defaultValue: "This resource could not be found.",
-            })}
+            {t("resources.notFound")}
           </p>
-          <Button variant="secondary" size="sm" onClick={() => navigate("/library")}>
-            {t("resources.backToLibrary", { defaultValue: "Go to library" })}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate("/library")}
+          >
+            {t("resources.backToLibrary")}
           </Button>
         </div>
       </div>
@@ -106,7 +109,8 @@ export function ResourceViewerPage() {
   }
 
   const host = displayHost(resource.url);
-  const openOriginal = (
+  const resourceUrlSafe = isSafeExternalUrl(resource.url);
+  const openOriginal = resourceUrlSafe ? (
     <a
       href={resource.url}
       target="_blank"
@@ -114,11 +118,12 @@ export function ResourceViewerPage() {
       className="flex items-center gap-1.5 rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary"
     >
       <ExternalLink size={14} />
-      {t("resources.openOriginal", { defaultValue: "Open original" })}
+      {t("resources.openOriginal")}
     </a>
-  );
+  ) : null;
 
-  const ytId = resource.kind === "youtube" ? parseYouTubeId(resource.url) : null;
+  const ytId =
+    resource.kind === "youtube" ? parseYouTubeId(resource.url) : null;
 
   return (
     <div className="flex h-full flex-col">
@@ -131,7 +136,7 @@ export function ResourceViewerPage() {
               {resource.title}
             </h1>
             <span className="shrink-0 rounded bg-accent/15 px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide text-accent">
-              {t("resources.beta", { defaultValue: "Beta" })}
+              {t("resources.beta")}
             </span>
           </div>
           <p className="truncate text-xs text-text-secondary">{host}</p>
@@ -187,20 +192,19 @@ export function ResourceViewerPage() {
                   {resource.description}
                 </p>
               )}
-              <a
-                href={resource.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mx-auto inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm text-white shadow-lg shadow-accent/25 transition-colors hover:bg-accent/80"
-              >
-                <ExternalLink size={16} />
-                {t("resources.openOriginal", { defaultValue: "Open original" })}
-              </a>
+              {resourceUrlSafe && (
+                <a
+                  href={resource.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mx-auto inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm text-white shadow-lg shadow-accent/25 transition-colors hover:bg-accent/80"
+                >
+                  <ExternalLink size={16} />
+                  {t("resources.openOriginal")}
+                </a>
+              )}
               <p className="text-2xs text-text-muted">
-                {t("resources.previewUnavailable", {
-                  defaultValue:
-                    "A readable preview isn't available yet. Extraction is a beta feature that needs the server ingest function.",
-                })}
+                {t("resources.previewUnavailable")}
               </p>
             </div>
           </div>

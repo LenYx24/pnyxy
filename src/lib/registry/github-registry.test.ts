@@ -92,6 +92,157 @@ describe("GitHubRegistry - URL construction", () => {
   });
 });
 
+describe("GitHubRegistry - id/version validation", () => {
+  it("rejects a theme id that isn't in the allowed charset (path traversal attempt)", async () => {
+    const reg = new GitHubRegistry({ baseUrl: "https://x/repo" });
+    await expect(
+      reg.fetchThemeManifest("../../other-user/other-repo/master/x"),
+    ).rejects.toThrow(/Invalid registry theme id/);
+    expect(fetchCachedMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a plugin id with an uppercase or slash character", async () => {
+    const reg = new GitHubRegistry({ baseUrl: "https://x/repo" });
+    await expect(reg.fetchPluginManifest("Evil/Plugin")).rejects.toThrow(
+      /Invalid registry plugin id/,
+    );
+    expect(fetchCachedMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a plugin version outside the allowed charset", async () => {
+    const reg = new GitHubRegistry({ baseUrl: "https://x/repo" });
+    await expect(
+      reg.fetchPluginBundle("hello", "../../../evil"),
+    ).rejects.toThrow(/Invalid registry version/);
+    expect(fetchCachedMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a fetched theme manifest whose id doesn't match the requested id", async () => {
+    fetchCachedMock.mockResolvedValueOnce(
+      JSON.stringify({ id: "not-solar", name: "Solar", apiVersion: 1, tokens: {} }),
+    );
+    const reg = new GitHubRegistry({ baseUrl: "https://x/repo" });
+    await expect(reg.fetchThemeManifest("solar")).rejects.toThrow(
+      /Theme manifest id mismatch/,
+    );
+  });
+
+  it("rejects a fetched plugin manifest whose id doesn't match the requested id", async () => {
+    fetchCachedMock.mockResolvedValueOnce(
+      JSON.stringify({
+        id: "not-hello",
+        name: "Hello",
+        version: "1.0.0",
+        apiVersion: 1,
+        author: "x",
+        description: "x",
+        entry: "",
+      }),
+    );
+    const reg = new GitHubRegistry({ baseUrl: "https://x/repo" });
+    await expect(reg.fetchPluginManifest("hello")).rejects.toThrow(
+      /Plugin manifest id mismatch/,
+    );
+  });
+
+  it("strips a theme's disallowed tokens on fetch (sanitizeTheme applied)", async () => {
+    fetchCachedMock.mockResolvedValueOnce(
+      JSON.stringify({
+        id: "solar",
+        name: "Solar",
+        apiVersion: 1,
+        tokens: {
+          "--color-bg-primary": "#000",
+          "--evil-injected": "#fff",
+          "--color-accent": "url(javascript:alert(1))",
+        },
+      }),
+    );
+    const reg = new GitHubRegistry({ baseUrl: "https://x/repo" });
+    const theme = await reg.fetchThemeManifest("solar");
+    expect(theme.tokens).toEqual({ "--color-bg-primary": "#000" });
+  });
+});
+
+async function sha256Hex(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+describe("GitHubRegistry - integrity verification", () => {
+  it("verifies a theme against the index entry's integrity hash after listThemes populated the index cache", async () => {
+    const themeJson = JSON.stringify({
+      id: "solar",
+      name: "Solar",
+      apiVersion: 1,
+      tokens: { "--color-bg-primary": "#000" },
+    });
+    const goodHash = await sha256Hex(themeJson);
+    fetchCachedMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("/index.json")) {
+        return JSON.stringify({
+          apiVersion: 1,
+          plugins: [],
+          themes: [
+            { kind: "theme", id: "solar", name: "Solar", version: "1", integrity: goodHash },
+          ],
+        });
+      }
+      if (url.endsWith("/themes/solar.json")) return themeJson;
+      throw new Error(`unexpected url ${url}`);
+    });
+    const reg = new GitHubRegistry({ baseUrl: "https://x/repo" });
+    await reg.listThemes();
+    const theme = await reg.fetchThemeManifest("solar");
+    expect(theme.id).toBe("solar");
+  });
+
+  it("throws when the fetched content doesn't match the index entry's integrity hash", async () => {
+    const themeJson = JSON.stringify({
+      id: "solar",
+      name: "Solar",
+      apiVersion: 1,
+      tokens: {},
+    });
+    fetchCachedMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("/index.json")) {
+        return JSON.stringify({
+          apiVersion: 1,
+          plugins: [],
+          themes: [
+            {
+              kind: "theme",
+              id: "solar",
+              name: "Solar",
+              version: "1",
+              integrity: "0".repeat(64),
+            },
+          ],
+        });
+      }
+      if (url.endsWith("/themes/solar.json")) return themeJson;
+      throw new Error(`unexpected url ${url}`);
+    });
+    const reg = new GitHubRegistry({ baseUrl: "https://x/repo" });
+    await reg.listThemes();
+    await expect(reg.fetchThemeManifest("solar")).rejects.toThrow(
+      /Integrity check failed/,
+    );
+  });
+
+  it("does not fetch the index (or check integrity) when no list call has populated the cache", async () => {
+    fetchCachedMock.mockResolvedValueOnce(
+      JSON.stringify({ id: "solar", name: "Solar", apiVersion: 1, tokens: {} }),
+    );
+    const reg = new GitHubRegistry({ baseUrl: "https://x/repo" });
+    const theme = await reg.fetchThemeManifest("solar");
+    expect(theme.id).toBe("solar");
+    expect(fetchCachedMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("GitHubRegistry - index parsing", () => {
   it("returns plugins/themes from the parsed index", async () => {
     fetchCachedMock.mockResolvedValue(

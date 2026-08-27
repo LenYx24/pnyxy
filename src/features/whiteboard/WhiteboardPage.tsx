@@ -83,11 +83,11 @@ export function WhiteboardPage() {
           <Button
             variant="ghost"
             onClick={() => setChatOpen((v) => !v)}
-            aria-label={t("whiteboard.chat.toggle", { defaultValue: "AI chat" })}
+            aria-label={t("whiteboard.chat.toggle")}
           >
             <Bot size={16} className={chatOpen ? "text-accent" : undefined} />
             <span className="hidden sm:inline">
-              {t("whiteboard.chat.toggle", { defaultValue: "AI chat" })}
+              {t("whiteboard.chat.toggle")}
             </span>
           </Button>
           <Button

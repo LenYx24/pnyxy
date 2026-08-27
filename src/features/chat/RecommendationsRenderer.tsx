@@ -61,12 +61,7 @@ function BookCard({ book }: { book: RecommendedBook }) {
     try {
       const orgId = useOrgStore.getState().currentOrgId;
       if (!orgId) {
-        throw new Error(
-          t("chat.recommend.noActiveOrg", {
-            defaultValue:
-              "You need an active workspace to add books, sign in or create one.",
-          }),
-        );
+        throw new Error(t("chat.recommend.noActiveOrg"));
       }
       const { error } = await supabase.from("books").insert({
         user_id: user.id,
@@ -121,12 +116,8 @@ function BookCard({ book }: { book: RecommendedBook }) {
           )}
           title={
             !user
-              ? t("chat.recommend.signInToSave", {
-                  defaultValue: "Sign in to save",
-                })
-              : t("chat.recommend.addToLibrary", {
-                  defaultValue: "Add as a placeholder book",
-                })
+              ? t("chat.recommend.signInToSave")
+              : t("chat.recommend.addToLibrary")
           }
         >
           {state === "saving" ? (
@@ -137,8 +128,8 @@ function BookCard({ book }: { book: RecommendedBook }) {
             <Plus size={11} />
           )}
           {state === "added"
-            ? t("chat.recommend.added", { defaultValue: "Added" })
-            : t("chat.recommend.add", { defaultValue: "Add to library" })}
+            ? t("chat.recommend.added")
+            : t("chat.recommend.add")}
         </button>
       </header>
       {book.description && (
@@ -207,7 +198,7 @@ function VideoCard({ video }: { video: RecommendedVideo }) {
             className="shrink-0 inline-flex items-center gap-1 rounded-md border border-glass-border bg-bg-primary/40 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
           >
             <ExternalLink size={11} />
-            {t("chat.recommend.open", { defaultValue: "Open" })}
+            {t("chat.recommend.open")}
           </button>
         )}
       </header>

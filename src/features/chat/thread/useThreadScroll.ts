@@ -41,13 +41,58 @@ export function useThreadScroll({
     setAtBottom(true);
   }, []);
 
-  // auto-scroll to latest: instant on conversation switch, smooth within it,
-  // but only while the user is already at the bottom, so scrolling up to
-  // re-read mid-stream isn't yanked back down on every token.
+  // Any upward wheel/touch intent releases the follow gate IMMEDIATELY,
+  // even mid-animation. Without this, the per-token smooth scroll kept
+  // swallowing the user's upward scroll while a reply streamed.
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const release = () => {
+      atBottomRef.current = false;
+      setAtBottom(false);
+    };
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY < 0) release();
+    };
+    let touchY = 0;
+    const onTouchStart = (e: TouchEvent) => {
+      touchY = e.touches[0]?.clientY ?? 0;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      const y = e.touches[0]?.clientY ?? 0;
+      if (y > touchY + 4) release();
+    };
+    el.addEventListener("wheel", onWheel, { passive: true });
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: true });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+    };
+  }, []);
+
+  // Auto-scroll to latest, but only while the user sits at the bottom.
+  // The follow is INSTANT: a per-token smooth animation fights the wheel
+  // (the animation is always "near bottom", so the gate never released).
   const lastScrollConvIdRef = useRef<string | null>(null);
+  const lastStreamingIdRef = useRef<string | null>(null);
   useEffect(() => {
     const isConvSwitch = lastScrollConvIdRef.current !== activeId;
     lastScrollConvIdRef.current = activeId;
+    // A send from this client (a stream just started) re-arms the follow
+    // gate even if the user had scrolled up to type: jump to the new turn
+    // and track the reply. A wheel-up afterwards releases it as usual.
+    const sendStarted =
+      streamingMessageId !== null && lastStreamingIdRef.current === null;
+    lastStreamingIdRef.current = streamingMessageId;
+    if (sendStarted && !isConvSwitch && !atBottomRef.current) {
+      atBottomRef.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAtBottom(true);
+      threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
     if (isConvSwitch) {
       atBottomRef.current = true;
       // resets the follow gate on a thread switch; same code as before the
@@ -56,7 +101,7 @@ export function useThreadScroll({
       setAtBottom(true);
       threadEndRef.current?.scrollIntoView({ behavior: "auto" });
     } else if (atBottomRef.current) {
-      threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      threadEndRef.current?.scrollIntoView({ behavior: "auto" });
     }
   }, [activeId, activeLeafId, messages, streamingMessageId]);
 

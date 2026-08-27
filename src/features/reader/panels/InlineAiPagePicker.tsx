@@ -51,17 +51,11 @@ export function InlineAiPagePicker({ onClose }: { onClose: () => void }) {
   const handleSelectAll = useCallback(async () => {
     if (!activeDoc || totalPages <= 0) return;
     const ok = await confirm({
-      title: t("chat.composer.wholeBook.confirmTitle", {
-        defaultValue: "Send the whole book?",
-      }),
+      title: t("chat.composer.wholeBook.confirmTitle"),
       body: t("chat.composer.wholeBook.confirmBody", {
-        defaultValue:
-          "All {{count}} pages of this document will be attached to the next message. Large books eat through your daily AI quota fast, review the selection in the TOC if unsure.",
         count: totalPages,
       }),
-      confirmLabel: t("chat.composer.wholeBook.confirmLabel", {
-        defaultValue: "Select all pages",
-      }),
+      confirmLabel: t("chat.composer.wholeBook.confirmLabel"),
     });
     if (!ok) return;
     selectAllAiPages();
@@ -119,7 +113,7 @@ export function InlineAiPagePicker({ onClose }: { onClose: () => void }) {
               onClick={() => clearAiPages()}
               className="rounded px-1.5 py-0.5 text-2xs text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
             >
-              {t("common.clear", { defaultValue: "Clear" })}
+              {t("common.clear")}
             </button>
           )}
           <button
@@ -127,20 +121,16 @@ export function InlineAiPagePicker({ onClose }: { onClose: () => void }) {
             onClick={() => void handleSelectAll()}
             disabled={allSelected}
             className="rounded px-1.5 py-0.5 text-2xs text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-muted"
-            title={t("reader.sidebar.aiSelectAll", {
-              defaultValue: "Select all pages",
-            })}
+            title={t("reader.sidebar.aiSelectAll")}
           >
-            {t("reader.sidebar.aiSelectAll", {
-              defaultValue: "Select all",
-            })}
+            {t("reader.sidebar.aiSelectAll")}
           </button>
           <button
             type="button"
             onClick={onClose}
             className="flex h-6 w-6 items-center justify-center rounded text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
-            aria-label={t("common.close", { defaultValue: "Close" })}
-            title={t("common.close", { defaultValue: "Close" })}
+            aria-label={t("common.close")}
+            title={t("common.close")}
           >
             <X size={12} />
           </button>

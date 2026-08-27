@@ -75,6 +75,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
         .order("updated_at", { ascending: false });
       if (error) throw error;
       set({ conversations: (data ?? []) as ChatConversation[] });
+      // best-effort purge of expired incognito chats (24h after creation)
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const expired = ((data ?? []) as ChatConversation[]).filter(
+        (c) => c.is_temporary && c.created_at < cutoff,
+      );
+      if (expired.length > 0) {
+        void supabase
+          .from("chat_conversations")
+          .delete()
+          .in(
+            "id",
+            expired.map((c) => c.id),
+          )
+          .then(({ error: delErr }) => {
+            if (delErr) logError("chat:purgeTemporary", delErr);
+            else
+              set((s) => ({
+                conversations: s.conversations.filter(
+                  (c) => !expired.some((e) => e.id === c.id),
+                ),
+              }));
+          });
+      }
     } catch (err) {
       logError("chat:fetchConversations", err);
     } finally {
@@ -88,6 +111,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     source = null,
     target = null,
     parentConversationId = null,
+    isTemporary = false,
   ) {
     const user = await requireUser("Sign in to use chat.");
     // Loose "quick" chats are filed under the real, shared "Quick chats" folder
@@ -115,6 +139,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         target_roadmap_id: target?.roadmapId ?? null,
         target_quiz_id: target?.quizId ?? null,
         parent_conversation_id: parentConversationId,
+        // only sent when set, so plain chats keep working while
+        // migration 00068 is not applied yet
+        ...(isTemporary ? { is_temporary: true } : {}),
       })
       .select()
       .single();
@@ -329,6 +356,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
         throw error;
       }
       idMap.set(m.id, data.id);
+      // carry the error field over too, best-effort: migration 00071 may not
+      // be applied everywhere yet, so a missing-column failure here must not
+      // fail the whole duplicate (the copy already has its content).
+      if (m.error) {
+        const { error: errFieldErr } = await supabase
+          .from("chat_messages")
+          .update({ error: m.error })
+          .eq("id", data.id);
+        if (errFieldErr) logError("chat:duplicateFromMessage:errorField", errFieldErr);
+      }
     }
 
     track("fork_create");
@@ -359,6 +396,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
     return newId;
   },
 
+  async setConversationArchived(id, archived) {
+    const archived_at = archived ? new Date().toISOString() : null;
+    set((s) => ({
+      conversations: s.conversations.map((c) =>
+        c.id === id ? { ...c, archived_at } : c,
+      ),
+      // an archived conversation leaves the screen too
+      ...(archived && s.activeConversationId === id
+        ? { activeConversationId: null, messages: new Map(), activeLeafId: null }
+        : {}),
+    }));
+    const { error } = await supabase
+      .from("chat_conversations")
+      .update({ archived_at })
+      .eq("id", id);
+    if (error) logError("chat:setConversationArchived", error);
+  },
+
   clearActive() {
     set({
       activeConversationId: null,
@@ -380,12 +435,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   async sendMessage(text, preferredProvider, attachments, options) {
     const { activeConversationId, activeLeafId } = get();
     if (!activeConversationId) return;
-    track("chat_send", {
-      book: !!get().conversations.find(
-        (c) => c.id === activeConversationId && c.source_doc_id !== null,
-      ),
-      images: attachments?.length ?? 0,
-    });
+    // chat_send telemetry fires once, inside sendOrBranch (the single send entry)
     await sendOrBranch(
       activeConversationId,
       activeLeafId,
@@ -401,7 +451,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
   async branchFrom(parentMessageId, text, preferredProvider, attachments, options) {
     const { activeConversationId } = get();
     if (!activeConversationId) return;
-    track("chat_send", { branch: true });
     await sendOrBranch(
       activeConversationId,
       parentMessageId,
@@ -482,6 +531,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
         ),
       }));
     }
+  },
+
+  reset() {
+    set({
+      conversations: [],
+      folders: [],
+      messages: new Map(),
+      activeConversationId: null,
+      activeLeafId: null,
+      streamingMessageId: null,
+      isLoading: false,
+      pendingDraft: null,
+      messageSuggestions: new Map(),
+    });
   },
 
   ...createChatFolderSlice(set, get),

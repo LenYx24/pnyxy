@@ -25,12 +25,7 @@ export function OfflineBanner() {
       className="fixed top-0 inset-x-0 z-40 flex items-center justify-center gap-2 border-b border-warning/30 bg-warning/15 backdrop-blur-md px-3 py-1.5 text-xs text-warning"
     >
       <WifiOff size={12} className="shrink-0" />
-      <span className="text-center">
-        {t("offline.banner", {
-          defaultValue:
-            "You're offline. Changes are saved locally and will sync when you're back online.",
-        })}
-      </span>
+      <span className="text-center">{t("offline.banner")}</span>
     </div>
   );
 }
