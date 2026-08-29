@@ -151,16 +151,6 @@ export function SidebarToolbar({
               ))}
             </div>
           )}
-          {!scope && (
-            <IconButton
-              size="sm"
-              onClick={onCreateFolder}
-              title={t("chat.folders.create")}
-              aria-label={t("chat.folders.create")}
-            >
-              <FolderPlus size={18} strokeWidth={1.5} />
-            </IconButton>
-          )}
           {showCollapseToggle && (
             <IconButton
               size="sm"
@@ -218,8 +208,14 @@ export function SidebarToolbar({
       </div>
 
       {/* conversation search, hidden when there's nothing to search */}
-      {showSearch && (
-        <div className="relative">
+      {/* "New folder" sits next to the search in the folder view: it
+          creates at the current level (the drilled folder, else the root);
+          nested folders come from a folder row's long-press / right-click
+          menu instead. */}
+      {(showSearch || (!scope && sidebarView !== "quick")) && (
+        <div className="flex items-center gap-1.5">
+        {showSearch && (
+        <div className="relative min-w-0 flex-1">
           <Search
             size={15}
             strokeWidth={1.5}
@@ -243,6 +239,19 @@ export function SidebarToolbar({
               <X size={14} strokeWidth={1.5} />
             </button>
           )}
+        </div>
+        )}
+        {!scope && sidebarView !== "quick" && (
+          <IconButton
+            size="sm"
+            onClick={onCreateFolder}
+            title={t("chat.folders.create")}
+            aria-label={t("chat.folders.create")}
+            className="shrink-0"
+          >
+            <FolderPlus size={17} strokeWidth={1.5} />
+          </IconButton>
+        )}
         </div>
       )}
     </>

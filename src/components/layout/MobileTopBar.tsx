@@ -9,7 +9,6 @@ import {
   User,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
-import { QuickChatCta } from "./Sidebar";
 import { useUIStore } from "@/stores/ui-store";
 import { FloatingMenu } from "@/components/ui/FloatingMenu";
 import { cn } from "@/lib/cn";
@@ -66,7 +65,6 @@ export function MobileTopBar() {
         >
           <Menu size={20} strokeWidth={1.5} />
         </button>
-        <QuickChatCta />
       </div>
 
       {user ? (

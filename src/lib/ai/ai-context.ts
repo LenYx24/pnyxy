@@ -149,8 +149,10 @@ async function extractSelectedPages(
 export async function buildAiContextPack(
   docId: string | null | undefined,
   conversationId?: string | null,
+  options: { attachToc?: boolean } = {},
 ): Promise<AiContextPack> {
   const settings = useSettingsStore.getState();
+  const attachToc = options.attachToc ?? settings.aiAttachToc;
   const customContext =
     resolveAiContextForConversation({ docId, conversationId })?.preset.body.trim() ??
     "";
@@ -172,7 +174,7 @@ export async function buildAiContextPack(
   const sections: string[] = [];
   let imageAttachments: ChatMessageAttachment[] = [];
 
-  if (settings.aiAttachToc && doc.toc.length > 0) {
+  if (attachToc && doc.toc.length > 0) {
     const { text: tocText, abbreviated } = renderTocWithinBudget(
       doc.toc,
       doc.currentPage,

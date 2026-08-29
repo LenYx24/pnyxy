@@ -1976,7 +1976,19 @@
       "copyPrompt": "Teljes prompt másolása",
       "copySuccess": "A prompt a vágólapra másolva.",
       "copyFailed": "Nem sikerült a másolás.",
-      "editPreset": "Kontextus preset szerkesztése"
+      "editPreset": "Kontextus preset szerkesztése",
+      "override": {
+        "switch": "Bekerüljön a következő üzenetbe",
+        "locked": "rögzített",
+        "lockedHint": "Az app állítja be (szerveroldalon érvényesített), itt nem módosítható.",
+        "toc": "Tartalomjegyzék csatolása",
+        "edit": "Szerkesztés ehhez a chathez",
+        "editAgain": "Újraszerkesztés",
+        "editedChip": "szerkesztett",
+        "reset": "Vissza az eredetire",
+        "apply": "Alkalmaz",
+        "hint": "Ebben a chatben minden további üzenetnél ezt a réteget helyettesíti; az eredeti érintetlen marad."
+      }
     },
     "inlineQuiz": {
       "title": "Gyors kvíz",

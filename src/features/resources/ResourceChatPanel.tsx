@@ -441,7 +441,7 @@ export function ResourceChatPanel({
           open={listOpen}
           anchorRef={listBtnRef}
           onClose={() => setListOpen(false)}
-          className="max-h-72 min-w-[14rem] overflow-y-auto py-1"
+          className="min-w-[14rem] py-1"
         >
           {resourceConversations.length === 0 ? (
             <p className="px-3 py-3 text-center text-xs text-text-muted">

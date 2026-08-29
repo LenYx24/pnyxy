@@ -1752,7 +1752,19 @@
       "copyPrompt": "Copy full prompt",
       "copySuccess": "Prompt copied to clipboard.",
       "copyFailed": "Couldn't copy the prompt.",
-      "editPreset": "Edit context preset"
+      "editPreset": "Edit context preset",
+      "override": {
+        "switch": "Include in the next message",
+        "locked": "fixed",
+        "lockedHint": "Set by the app (enforced server-side), can't be changed here.",
+        "toc": "Attach the table of contents",
+        "edit": "Edit for this chat",
+        "editAgain": "Edit again",
+        "editedChip": "edited",
+        "reset": "Reset to original",
+        "apply": "Apply",
+        "hint": "Replaces this layer for every following message in this chat; the original stays untouched."
+      }
     },
     "inlineQuiz": {
       "title": "Quick quiz",

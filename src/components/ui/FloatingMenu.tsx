@@ -49,7 +49,10 @@ export function FloatingMenu({
     const menu = menuRef.current;
     if (!anchor || !menu) return;
     const a = anchor.getBoundingClientRect();
-    const m = menu.getBoundingClientRect();
+    // offsetWidth/Height = layout size. getBoundingClientRect would report
+    // the pop-in animation's scaled-down box, and a maxHeight capped to
+    // that left every menu a few px short, hence the pointless scrollbar.
+    const m = { width: menu.offsetWidth, height: menu.offsetHeight };
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 

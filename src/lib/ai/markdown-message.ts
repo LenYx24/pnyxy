@@ -89,7 +89,9 @@ const codeRenderer = {
     return (
       `<pre class="pnyxy-code-block">` +
       `<div class="pnyxy-code-toolbar">${langBadge}` +
-      `<button type="button" data-copy-code data-copy-text="${encoded}" class="pnyxy-copy-code" aria-label="Copy code">Copy</button>` +
+      // a <span role=button>, not <button>: the sanitizer forbids form
+      // controls in model output, which silently dropped the old button
+      `<span role="button" tabindex="0" data-copy-code data-copy-text="${encoded}" class="pnyxy-copy-code" aria-label="Copy code">Copy</span>` +
       `</div>` +
       `<code class="hljs language-${escapeHtml(displayLang || "plaintext")}">${highlighted}</code>` +
       `</pre>`

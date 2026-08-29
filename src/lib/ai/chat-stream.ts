@@ -26,6 +26,7 @@ import { runLibraryAgenticLoop } from "@/lib/ai/library-agent";
 import { INLINE_GRAPH_SPEC } from "@/lib/ai/extract-graph";
 import { parseChatCommands } from "@/lib/ai/chat-commands";
 import { getFeatures } from "@/lib/use-features";
+import { applyContextOverrides, useContextOverridesStore } from "@/stores/context-overrides-store";
 import { pathFromRoot, windowChatHistory } from "@/stores/chat/chat-tree";
 import type {
   ChatGet,
@@ -115,9 +116,18 @@ export async function sendOrBranch(
   // attachments are saved on the message; re-streams/branches then pull them from the DB.
   const convForBuild = get().conversations.find((c) => c.id === conversationId);
   const sourceDocId = convForBuild?.source_doc_id ?? null;
+  // context inspector edits for this thread (layers switched off / replaced)
+  const overridesStore = useContextOverridesStore.getState();
+  overridesStore.adopt(conversationId);
+  const overrides = overridesStore.get(conversationId);
   let contextPack: Awaited<ReturnType<typeof buildAiContextPack>>;
   try {
-    contextPack = await buildAiContextPack(sourceDocId, conversationId);
+    contextPack = applyContextOverrides(
+      await buildAiContextPack(sourceDocId, conversationId, {
+        attachToc: overrides.disabled.includes("toc") ? false : undefined,
+      }),
+      overrides,
+    );
   } catch (err) {
     logError("chat:sendMessage:contextPack", err);
     contextPack = { customContext: "", pageContext: "", imageAttachments: [] };
@@ -216,15 +226,17 @@ export async function sendOrBranch(
 
   // 2. build the prompt path root->new user msg, carrying attachments so old image turns resend
   const path = pathFromRoot(get().messages, userMsg.id);
-  const promptMessages = windowChatHistory(
-    path
-      .filter((m) => m.role === "user" || m.role === "assistant")
-      .map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-        attachments: m.attachments ?? undefined,
-      })),
-  );
+  const historyTurns = path
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+      attachments: m.attachments ?? undefined,
+    }));
+  // history switched off in the inspector: only the message just sent
+  const promptMessages = overrides.disabled.includes("history")
+    ? historyTurns.slice(-1)
+    : windowChatHistory(historyTurns);
 
   // 3. insert an empty assistant message to stream into
   const { data: asstRow, error: asstErr } = await supabase

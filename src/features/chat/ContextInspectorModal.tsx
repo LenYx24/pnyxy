@@ -13,6 +13,7 @@ import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, Copy, Eye, Info } from "lucide-react";
 import { Button, FormModal, Tooltip, chipClass, chipAccentClass } from "@/components/ui";
+import { useContextOverridesStore, type OverridableLayer } from "@/stores/context-overrides-store";
 import {
   buildSystemPrompt,
   estimateTokens,
@@ -170,6 +171,42 @@ function TokenBadge({ tokens }: { tokens: number | null }) {
   );
 }
 
+/** Small on/off switch in a card header (stops the header's own toggle). */
+function LayerSwitch({
+  on,
+  onChange,
+  label,
+}: {
+  on: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      title={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange(!on);
+      }}
+      className={cn(
+        "relative h-4 w-7 shrink-0 rounded-full transition-colors cursor-pointer",
+        on ? "bg-accent" : "bg-surface-3",
+      )}
+    >
+      <span
+        className={cn(
+          "absolute top-0.5 h-3 w-3 rounded-full bg-white transition-[left]",
+          on ? "left-3.5" : "left-0.5",
+        )}
+      />
+    </button>
+  );
+}
+
 function LayerCard({
   badge,
   title,
@@ -178,6 +215,9 @@ function LayerCard({
   open,
   onToggle,
   children,
+  enabled = true,
+  onEnabledChange,
+  switchLabel,
 }: {
   badge: number;
   title: string;
@@ -186,12 +226,23 @@ function LayerCard({
   open: boolean;
   onToggle: () => void;
   children: React.ReactNode;
+  /** Layer switched off for the next sends (inspector override). */
+  enabled?: boolean;
+  onEnabledChange?: (next: boolean) => void;
+  switchLabel?: string;
 }) {
   return (
-    <div className="rounded-control bg-bg-secondary">
-      <button
-        type="button"
+    <div className={cn("rounded-control bg-bg-secondary", !enabled && "opacity-60")}>
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
         aria-expanded={open}
         className="flex w-full items-center gap-2 px-3 py-2.5 text-left cursor-pointer"
       >
@@ -202,7 +253,10 @@ function LayerCard({
           {title}
         </span>
         {chips}
-        <TokenBadge tokens={tokens} />
+        <TokenBadge tokens={enabled ? tokens : 0} />
+        {onEnabledChange && switchLabel && (
+          <LayerSwitch on={enabled} onChange={onEnabledChange} label={switchLabel} />
+        )}
         <ChevronDown
           size={14}
           strokeWidth={1.5}
@@ -211,12 +265,83 @@ function LayerCard({
             open && "rotate-180",
           )}
         />
-      </button>
+      </div>
       {open && (
         <div className="space-y-2 px-3 pb-3 text-sm text-text-secondary">
           {children}
         </div>
       )}
+    </div>
+  );
+}
+
+/** "Edit for this chat" box under a layer: the original stays visible
+ *  above, the replacement is stored per conversation and applied on send. */
+function LayerOverrideEditor({
+  original,
+  value,
+  onSave,
+  onReset,
+}: {
+  original: string;
+  value: string | undefined;
+  onSave: (text: string) => void;
+  onReset: () => void;
+}) {
+  const { t } = useTranslation();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? original);
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-2">
+        {value !== undefined && (
+          <span className={chipAccentClass}>{t("chat.contextInspector.override.editedChip")}</span>
+        )}
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(value ?? original);
+            setEditing(true);
+          }}
+          className="text-xs text-accent hover:opacity-80 cursor-pointer"
+        >
+          {value !== undefined
+            ? t("chat.contextInspector.override.editAgain")
+            : t("chat.contextInspector.override.edit")}
+        </button>
+        {value !== undefined && (
+          <button type="button" onClick={onReset} className="text-xs text-text-muted hover:text-text-primary cursor-pointer">
+            {t("chat.contextInspector.override.reset")}
+          </button>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        rows={8}
+        className="field w-full resize-y font-mono text-[11px] leading-relaxed"
+        aria-label={t("chat.contextInspector.override.edit")}
+      />
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => {
+            onSave(draft);
+            setEditing(false);
+          }}
+        >
+          {t("chat.contextInspector.override.apply")}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>
+          {t("common.cancel")}
+        </Button>
+        <span className="text-2xs text-text-muted">{t("chat.contextInspector.override.hint")}</span>
+      </div>
     </div>
   );
 }
@@ -238,6 +363,11 @@ export function ContextInspectorModal({
 
   // everything collapsed: the first view is the overview (bar + cards)
   const [openLayers, setOpenLayers] = useState<Set<LayerKey>>(() => new Set());
+  // per-conversation overrides (switch layers off / replace their text)
+  const overrides = useContextOverridesStore((s) => s.get(conversationId));
+  const setLayerDisabled = useContextOverridesStore((s) => s.setDisabled);
+  const setLayerEdit = useContextOverridesStore((s) => s.setEdit);
+  const layerOn = (l: OverridableLayer) => !overrides.disabled.includes(l);
   const toggleLayer = useCallback((key: LayerKey) => {
     setOpenLayers((prev) => {
       const next = new Set(prev);
@@ -452,6 +582,10 @@ export function ContextInspectorModal({
             badge={1}
             title={t("chat.contextInspector.base")}
             chips={
+              <>
+              <span className={chipClass} title={t("chat.contextInspector.override.lockedHint")}>
+                {t("chat.contextInspector.override.locked")}
+              </span>
               <span className={chipClass}>
                 {t(
                   hasDoc
@@ -459,6 +593,7 @@ export function ContextInspectorModal({
                     : "chat.contextInspector.modeChat",
                 )}
               </span>
+              </>
             }
             tokens={estimateTokens(baseText)}
             open={openLayers.has("base")}
@@ -472,13 +607,18 @@ export function ContextInspectorModal({
             badge={2}
             title={t("chat.contextInspector.teacher")}
             chips={
-              <span className={chipClass}>
-                {t(
-                  TEACHER_MODE_ENABLED
-                    ? "chat.contextInspector.active"
-                    : "chat.contextInspector.off",
-                )}
-              </span>
+              <>
+                <span className={chipClass} title={t("chat.contextInspector.override.lockedHint")}>
+                  {t("chat.contextInspector.override.locked")}
+                </span>
+                <span className={chipClass}>
+                  {t(
+                    TEACHER_MODE_ENABLED
+                      ? "chat.contextInspector.active"
+                      : "chat.contextInspector.off",
+                  )}
+                </span>
+              </>
             }
             tokens={TEACHER_MODE_ENABLED ? estimateTokens(TEACHER_GUARDRAIL) : 0}
             open={openLayers.has("teacher")}
@@ -498,9 +638,12 @@ export function ContextInspectorModal({
                 </span>
               ) : undefined
             }
-            tokens={estimateTokens(presetBody)}
+            tokens={estimateTokens(overrides.edits.preset ?? presetBody)}
             open={openLayers.has("preset")}
             onToggle={() => toggleLayer("preset")}
+            enabled={layerOn("preset")}
+            onEnabledChange={(on) => setLayerDisabled(conversationId, "preset", !on)}
+            switchLabel={t("chat.contextInspector.override.switch")}
           >
             {resolved ? (
               <>
@@ -523,6 +666,12 @@ export function ContextInspectorModal({
                 {t("chat.contextInspector.noPreset")}
               </p>
             )}
+            <LayerOverrideEditor
+              original={presetBody}
+              value={overrides.edits.preset}
+              onSave={(text) => setLayerEdit(conversationId, "preset", text)}
+              onReset={() => setLayerEdit(conversationId, "preset", null)}
+            />
           </LayerCard>
 
           {/* 4. Course, best-effort match, skipped when none */}
@@ -602,9 +751,12 @@ export function ContextInspectorModal({
                 </>
               ) : undefined
             }
-            tokens={estimateTokens(contextPack?.pageContext ?? "")}
+            tokens={estimateTokens(overrides.edits.document ?? contextPack?.pageContext ?? "")}
             open={openLayers.has("document")}
             onToggle={() => toggleLayer("document")}
+            enabled={layerOn("document")}
+            onEnabledChange={(on) => setLayerDisabled(conversationId, "document", !on)}
+            switchLabel={t("chat.contextInspector.override.switch")}
           >
             {!docId ? (
               <p className="text-xs text-text-muted">
@@ -620,6 +772,26 @@ export function ContextInspectorModal({
               <p className="text-xs text-text-muted">
                 {t("chat.contextInspector.noPagesSelected")}
               </p>
+            )}
+            {docId && (
+              <>
+                {tocAttached && (
+                  <label className="flex items-center gap-2 text-xs text-text-secondary">
+                    <LayerSwitch
+                      on={layerOn("toc")}
+                      onChange={(on) => setLayerDisabled(conversationId, "toc", !on)}
+                      label={t("chat.contextInspector.override.toc")}
+                    />
+                    {t("chat.contextInspector.override.toc")}
+                  </label>
+                )}
+                <LayerOverrideEditor
+                  original={contextPack?.pageContext ?? ""}
+                  value={overrides.edits.document}
+                  onSave={(text) => setLayerEdit(conversationId, "document", text)}
+                  onReset={() => setLayerEdit(conversationId, "document", null)}
+                />
+              </>
             )}
           </LayerCard>
 
@@ -669,6 +841,9 @@ export function ContextInspectorModal({
             tokens={histTokens}
             open={openLayers.has("history")}
             onToggle={() => toggleLayer("history")}
+            enabled={layerOn("history")}
+            onEnabledChange={(on) => setLayerDisabled(conversationId, "history", !on)}
+            switchLabel={t("chat.contextInspector.override.switch")}
           >
             {historyTurns.length === 0 ? (
               <p className="text-xs text-text-muted">

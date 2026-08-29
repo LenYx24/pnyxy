@@ -374,7 +374,8 @@ export function ChatSidebar({
           sidebarView={sidebarView}
           onSidebarViewChange={setSidebarView}
           onCreateFolder={() =>
-            setFolderAction({ kind: "create", parentId: null })
+            // create at the current level: the drilled folder, else the root
+            setFolderAction({ kind: "create", parentId: rootFolderId ?? null })
           }
           showCollapseToggle={!scope && !quickView && visibleFolderCount > 0}
           allFoldersCollapsed={allFoldersCollapsed}

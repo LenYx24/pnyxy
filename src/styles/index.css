@@ -723,6 +723,8 @@ html.tauri-app {
   text-transform: lowercase;
 }
 .ai-message .pnyxy-copy-code {
+  cursor: pointer;
+  user-select: none;
   margin-left: auto;
   padding: 0.15rem 0.5rem;
   border-radius: 0.25rem;

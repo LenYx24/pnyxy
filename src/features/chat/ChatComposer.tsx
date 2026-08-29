@@ -30,6 +30,7 @@ import {
   X,
   FolderTree,
   Globe,
+  Gauge,
 } from "lucide-react";
 import {
   FloatingMenu,
@@ -173,8 +174,8 @@ const menuRowClass =
 export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
   function ChatComposer(
     {
-      value,
-      onChange,
+      value: valueProp,
+      onChange: onChangeProp,
       onSubmit,
       isStreaming,
       onStop,
@@ -189,6 +190,20 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
   ) {
     const { t, i18n } = useTranslation();
     const { confirm, ConfirmModalElement } = useConfirm();
+    // The draft is LOCAL state: a keystroke re-renders only the composer,
+    // not the page around it (thread + sidebar), which is what made typing
+    // lag on weaker machines. The parent's `value` is a seed: prefills
+    // (intent chips, reader hand-offs) flow in through the sync effect;
+    // the parent hears back only through onSubmit's payload text.
+    const [value, setValue] = useState(valueProp);
+    useEffect(() => {
+      setValue(valueProp);
+    }, [valueProp]);
+    const onChange = useCallback((next: string) => setValue(next), []);
+    // keep the parent's copy in step at the points it cares about (the
+    // seed it holds, so a later identical prefill still re-triggers the
+    // sync effect above), without a re-render per keystroke
+    const notifyParent = onChangeProp;
     // On mobile, Enter inserts a newline and the send button sends; desktop is the inverse.
     const isMobile = useIsMobile();
 
@@ -329,16 +344,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
     const quotaRow = usesPnyxyQuota ? quotaSelection.row : null;
     // null hides the line: BYOK provider, anon, or the RPC returned nothing
     const questionsLeft = quotaRow ? computeQuestionsLeft(quotaRow) : null;
-    // share of today's bucket already used (requests or tokens, whichever is tighter)
-    const quotaUsedFraction = quotaRow
-      ? Math.min(
-          1,
-          Math.max(
-            quotaRow.request_limit > 0 ? quotaRow.request_count / quotaRow.request_limit : 0,
-            quotaRow.tokens_limit > 0 ? quotaRow.tokens_used / quotaRow.tokens_limit : 0,
-          ),
-        )
-      : 0;
     const [quotaModalOpen, setQuotaModalOpen] = useState(false);
 
     // Reasoning toggle persists across sends (unlike `mode`). Pnyxy route:
@@ -586,7 +591,10 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
         reasoning,
         webSearch,
       };
-      // Clear attachments + reset mode before the await so a slow send doesn't leave them stuck.
+      // Clear the draft + attachments + reset mode before the await so a
+      // slow send doesn't leave them stuck.
+      setValue("");
+      notifyParent("");
       setPendingAttachments([]);
       setAttachmentError(null);
       if (mode !== "default") setMode("default");
@@ -599,6 +607,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
       reasoning,
       webSearch,
       onSubmit,
+      notifyParent,
     ]);
 
     const canSend = value.trim().length > 0 || pendingAttachments.length > 0;
@@ -1073,6 +1082,20 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
                     <Eye size={16} strokeWidth={1.5} />
                     {t("chat.contextInspector.open")}
                   </button>
+                  {questionsLeft !== null && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuotaModalOpen(true);
+                        setPlusMenuOpen(false);
+                      }}
+                      className={menuRowClass}
+                      title={t("chat.quotaModal.title")}
+                    >
+                      <Gauge size={16} strokeWidth={1.5} />
+                      {t("chat.composer.quota.remaining", { count: questionsLeft })}
+                    </button>
+                  )}
                   {(isMobile ||
                     wholeBookAvailable ||
                     openAiConfigured ||
@@ -1168,28 +1191,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
           </div>
         </div>
 
-        {/* quota: a hairline bar under the composer (used share of today's
-            Pnyxy bucket), click for the breakdown. BYOK providers show nothing. */}
-        {!compact && questionsLeft !== null && quotaRow && (
-          <button
-            type="button"
-            onClick={() => setQuotaModalOpen(true)}
-            className="group mx-auto mt-1 block w-2/3 max-w-[320px] cursor-pointer py-1"
-            title={t("chat.composer.quota.remaining", { count: questionsLeft })}
-            aria-label={t("chat.composer.quota.remaining", { count: questionsLeft })}
-            aria-haspopup="dialog"
-          >
-            <span className="block h-[3px] w-full overflow-hidden rounded-full bg-surface-3">
-              <span
-                className={cn(
-                  "block h-full rounded-full transition-[width]",
-                  questionsLeft === 0 ? "bg-danger" : "bg-text-muted-2 group-hover:bg-accent",
-                )}
-                style={{ width: `${Math.round(quotaUsedFraction * 100)}%` }}
-              />
-            </span>
-          </button>
-        )}
         <ContextInspectorModal
           open={inspectorOpen}
           onClose={() => setInspectorOpen(false)}

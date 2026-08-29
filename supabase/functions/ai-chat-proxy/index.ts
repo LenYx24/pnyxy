@@ -774,12 +774,12 @@ Deno.serve(async (req) => {
         continue;
       }
       const model = provider.model;
-      const stream = await tryGeminiNativeVideo(
+      const stream = await tryGeminiNative(
         provider.apiKey,
         model,
         systemPrompt,
         body.messages,
-        videoClip,
+        { clip: videoClip },
         maxOutputTokens,
         (usedOutputTokens) => {
           const unused = maxOutputTokens - usedOutputTokens;
@@ -880,23 +880,38 @@ Deno.serve(async (req) => {
       continue;
     }
     const model = provider.model;
-    const stream = await tryOpenAiCompatible(
-      provider.url,
-      provider.apiKey,
-      model,
-      systemPrompt,
-      body.messages,
-      maxOutputTokens,
-      provider.name,
-      grounding,
-      reasoning,
-      // Reconcile the worst-case pre-bill with what the model actually
-      // produced (thinking included when the provider reports usage).
-      (usedOutputTokens) => {
-        const unused = maxOutputTokens - usedOutputTokens;
-        if (unused > 0) waitUntil(refundUsage(model, unused));
-      },
-    );
+    // Reconcile the worst-case pre-bill with what the model actually
+    // produced (thinking included when the provider reports usage).
+    const onUsage = (usedOutputTokens: number) => {
+      const unused = maxOutputTokens - usedOutputTokens;
+      if (unused > 0) waitUntil(refundUsage(model, unused));
+    };
+    // Grounded turns go through Gemini's native API: the OpenAI-compat
+    // endpoint rejects the search tool for chat models ("Unknown name
+    // tools at extra_body.google"), which 400'd every standalone chat's
+    // first attempt.
+    const stream = grounding
+      ? await tryGeminiNative(
+          provider.apiKey,
+          model,
+          systemPrompt,
+          body.messages,
+          { grounding: true },
+          maxOutputTokens,
+          onUsage,
+        )
+      : await tryOpenAiCompatible(
+          provider.url,
+          provider.apiKey,
+          model,
+          systemPrompt,
+          body.messages,
+          maxOutputTokens,
+          provider.name,
+          false,
+          reasoning,
+          onUsage,
+        );
     if (stream) {
       return new Response(stream, {
         headers: { ...sseHeaders, "x-pnyxy-model": model },
@@ -1218,25 +1233,31 @@ function toGeminiParts(
  * to every turn would multiply the media tokens. Output is converted to
  * the same Anthropic-style events the OpenAI-compat path emits.
  */
-async function tryGeminiNativeVideo(
+async function tryGeminiNative(
   apiKey: string,
   model: string,
   systemPrompt: string,
   messages: ChatRequestBody["messages"],
-  clip: { url: string; startSec: number | null; endSec: number | null },
+  opts: {
+    clip?: { url: string; startSec: number | null; endSec: number | null } | null;
+    /** Google Search grounding: only the native API accepts the tool for
+     *  chat models (the OpenAI-compat endpoint 400s on it). */
+    grounding?: boolean;
+  },
   maxOutputTokens: number,
   onUsage?: (outputTokens: number) => void,
 ): Promise<ReadableStream<Uint8Array> | null> {
+  const clip = opts.clip ?? null;
   const lastUserIdx = (() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === "user") return i;
     }
     return -1;
   })();
-  const videoPart: Record<string, unknown> = {
-    file_data: { file_uri: clip.url },
-  };
-  if (clip.startSec !== null || clip.endSec !== null) {
+  const videoPart: Record<string, unknown> | null = clip
+    ? { file_data: { file_uri: clip.url } }
+    : null;
+  if (videoPart && clip && (clip.startSec !== null || clip.endSec !== null)) {
     videoPart.video_metadata = {
       ...(clip.startSec !== null ? { start_offset: `${clip.startSec}s` } : {}),
       ...(clip.endSec !== null ? { end_offset: `${clip.endSec}s` } : {}),
@@ -1245,7 +1266,7 @@ async function tryGeminiNativeVideo(
   const contents = messages.map((m, i) => ({
     role: m.role === "assistant" ? "model" : "user",
     parts:
-      i === lastUserIdx
+      videoPart && i === lastUserIdx
         ? [videoPart, ...toGeminiParts(m.content)]
         : toGeminiParts(m.content),
   }));
@@ -1262,20 +1283,24 @@ async function tryGeminiNativeVideo(
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },
         contents,
+        ...(opts.grounding ? { tools: [{ google_search: {} }] } : {}),
         generationConfig: {
           maxOutputTokens,
           // ~100 tokens/s instead of ~300: matches VIDEO_TOKENS_PER_SECOND
-          mediaResolution: "MEDIA_RESOLUTION_LOW",
+          ...(clip ? { mediaResolution: "MEDIA_RESOLUTION_LOW" } : {}),
+          // no thinkingConfig on purpose: the field's shape differs per
+          // model generation (thinkingLevel vs thinkingBudget) and a bad
+          // one 400s the whole request; the model's default is fine here
         },
       }),
     });
   } catch (err) {
-    console.error(`gemini-video (${model}) request failed:`, err);
+    console.error(`gemini-native (${model}) request failed:`, err);
     return null;
   }
   if (!upstream.ok || !upstream.body) {
     const text = await upstream.text().catch(() => "");
-    console.error(`gemini-video (${model}) returned ${upstream.status}: ${text}`);
+    console.error(`gemini-native (${model}) returned ${upstream.status}: ${text}`);
     return null;
   }
   return geminiToAnthropicSse(upstream.body, onUsage);

@@ -7,7 +7,9 @@ import { useNetworkStore } from "@/stores/network-store";
  * select. Result feeds markServerCheck in the network store.
  */
 
-const PING_TIMEOUT_MS = 4_000;
+// mobile networks routinely take 4–6 s on a cold radio; a tight timeout
+// flagged "offline" on phones that were fine
+const PING_TIMEOUT_MS = 10_000;
 const PING_INTERVAL_MS = 60_000;
 
 async function pingOnce(): Promise<boolean> {
@@ -42,7 +44,7 @@ let started = false;
 
 // need FAIL_STREAK_OFFLINE consecutive failures to go offline, but one success
 // flips back online instantly. streak gate stops flaky wifi from dimming the UI.
-const FAIL_STREAK_OFFLINE = 2;
+const FAIL_STREAK_OFFLINE = 3;
 let consecutiveFailures = 0;
 
 export function startServerHeartbeat(): void {
