@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
-import type { Resource } from "@/types/resource";
+import type { Resource, TranscriptSegment } from "@/types/resource";
 import {
   detectResourceKind,
   deriveTitleFromUrl,
@@ -27,7 +27,14 @@ interface ResourceState {
   createResource: (input: {
     url: string;
     folderId?: string | null;
+    /** Pre-extracted page data (browser extension): skips the ingest
+     *  function and stores this text as the AI context. */
+    title?: string;
+    content?: string | null;
+    skipIngest?: boolean;
   }) => Promise<string | null>;
+  /** Resource whose normalized URL matches, if any. */
+  findByUrl: (url: string) => Resource | null;
   deleteResource: (id: string) => Promise<void>;
   renameResource: (id: string, title: string) => Promise<void>;
   moveResourceToFolder: (
@@ -36,6 +43,10 @@ interface ResourceState {
     sortOrder?: number,
   ) => Promise<void>;
   reorderResource: (id: string, sortOrder: number) => Promise<void>;
+  /** Re-run the ingest for a YouTube resource to (re)fetch its caption
+   *  transcript (migration 00074). Resolves to true when a transcript
+   *  was stored. Counts against the daily ingest limit. */
+  refreshTranscript: (id: string) => Promise<boolean>;
 }
 
 export const useResourceStore = create<ResourceState>((set, get) => ({
@@ -70,7 +81,19 @@ export const useResourceStore = create<ResourceState>((set, get) => ({
     }
   },
 
-  async createResource({ url, folderId = null }) {
+  findByUrl(url) {
+    const clean = normalizeUrl(url).replace(/#.*$/, "");
+    const vid = parseYouTubeId(clean);
+    return (
+      get().resources.find((r) =>
+        vid
+          ? r.kind === "youtube" && parseYouTubeId(r.url) === vid
+          : normalizeUrl(r.url).replace(/#.*$/, "") === clean,
+      ) ?? null
+    );
+  },
+
+  async createResource({ url, folderId = null, title: givenTitle, content: givenContent, skipIngest }) {
     const clean = normalizeUrl(url);
     if (!isValidUrl(clean)) throw new Error("Enter a valid URL.");
     const {
@@ -81,20 +104,24 @@ export const useResourceStore = create<ResourceState>((set, get) => ({
 
     // Enrichment via the ingest-url edge function; degrade gracefully so the
     // item is still saved as a plain link if the function isn't deployed.
-    let title = "";
+    let title = givenTitle?.trim() ?? "";
     let description: string | null = null;
     let thumbnail_url: string | null = null;
-    let content: string | null = null;
-    try {
+    let content: string | null = givenContent ?? null;
+    let transcript: TranscriptSegment[] | null = null;
+    let transcript_lang: string | null = null;
+    if (!skipIngest) try {
       const { data, error } = await supabase.functions.invoke("ingest-url", {
         body: { url: clean },
       });
       if (!error && data && typeof data === "object") {
         const r = data as Partial<Resource>;
-        if (typeof r.title === "string") title = r.title;
+        if (typeof r.title === "string" && !title) title = r.title;
         description = r.description ?? null;
         thumbnail_url = r.thumbnail_url ?? null;
-        content = r.content ?? null;
+        content = content ?? r.content ?? null;
+        transcript = Array.isArray(r.transcript) ? r.transcript : null;
+        transcript_lang = r.transcript_lang ?? null;
       }
     } catch (err) {
       logError("resource:ingest", err);
@@ -124,6 +151,9 @@ export const useResourceStore = create<ResourceState>((set, get) => ({
         thumbnail_url,
         content,
         sort_order: sortOrder,
+        // only sent when present so inserts keep working before
+        // migration 00074 is applied
+        ...(transcript ? { transcript, transcript_lang } : {}),
       })
       .select()
       .single();
@@ -192,6 +222,36 @@ export const useResourceStore = create<ResourceState>((set, get) => ({
       }));
       throw error;
     }
+  },
+
+  async refreshTranscript(id) {
+    const current = get().resources.find((r) => r.id === id);
+    if (!current || current.kind !== "youtube") return false;
+    const { data, error } = await supabase.functions.invoke("ingest-url", {
+      body: { url: current.url },
+    });
+    if (error) {
+      logError("resource:refreshTranscript", error);
+      throw error;
+    }
+    const r = (data ?? {}) as Partial<Resource>;
+    const transcript = Array.isArray(r.transcript) ? r.transcript : null;
+    if (!transcript || transcript.length === 0) return false;
+    const transcript_lang = r.transcript_lang ?? null;
+    const { error: updErr } = await supabase
+      .from("resources")
+      .update({ transcript, transcript_lang })
+      .eq("id", id);
+    if (updErr) {
+      logError("resource:refreshTranscript:update", updErr);
+      throw updErr;
+    }
+    set((s) => ({
+      resources: s.resources.map((x) =>
+        x.id === id ? { ...x, transcript, transcript_lang } : x,
+      ),
+    }));
+    return true;
   },
 
   async reorderResource(id, sortOrder) {

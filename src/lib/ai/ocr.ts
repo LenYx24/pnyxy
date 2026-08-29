@@ -14,7 +14,9 @@ import type { AiProvider } from "@/stores/settings-store";
  * "needs a vision-capable provider" error instead of silently
  * succeeding with empty output.
  */
-const VISION_CAPABLE_PROVIDERS: AiProvider[] = ["anthropic", "openai"];
+// Pnyxy first: the proxy's Gemini / GPT-4o-mini tiers read images fine
+// and need no BYOK key.
+const VISION_CAPABLE_PROVIDERS: AiProvider[] = ["pnyxy", "anthropic", "openai"];
 
 const OCR_SYSTEM_PROMPT =
   "You are an OCR system. Your job is to transcribe the text from " +

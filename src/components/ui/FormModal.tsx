@@ -1,7 +1,9 @@
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
+  useState,
   type FormEvent,
   type ReactNode,
 } from "react";
@@ -26,7 +28,11 @@ interface FormModalProps {
   /** Override the whole footer row. Omit for the default Cancel +
    *  submit pair. */
   footer?: ReactNode;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
+  /** Drag handle in the bottom-right corner; the chosen width/height is
+   *  remembered in localStorage under this key. The body scrolls as a
+   *  whole (header + footer stay put). */
+  resizeStorageKey?: string;
   /** Default footer's submit button. Omitted -> no submit button
    *  renders (Cancel-only footer). */
   onSubmit?: () => void;
@@ -50,6 +56,7 @@ export function FormModal({
   children,
   footer,
   size = "md",
+  resizeStorageKey,
   onSubmit,
   submitLabel,
   submitting = false,
@@ -57,6 +64,49 @@ export function FormModal({
 }: FormModalProps) {
   const { t } = useTranslation();
   const formRef = useRef<HTMLFormElement>(null);
+  const [dims, setDims] = useState<{ w: number; h: number } | null>(() => {
+    if (!resizeStorageKey) return null;
+    try {
+      const raw = localStorage.getItem(resizeStorageKey);
+      const parsed = raw ? (JSON.parse(raw) as { w?: number; h?: number }) : null;
+      return parsed && parsed.w && parsed.h ? { w: parsed.w, h: parsed.h } : null;
+    } catch {
+      return null;
+    }
+  });
+  // corner drag: track the pointer, clamp to the viewport, persist on release
+  const onResizeStart = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const el = formRef.current;
+      if (!el) return;
+      e.preventDefault();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startW = el.offsetWidth;
+      const startH = el.offsetHeight;
+      let last = { w: startW, h: startH };
+      const onMove = (ev: PointerEvent) => {
+        const w = Math.min(window.innerWidth - 32, Math.max(360, startW + (ev.clientX - startX)));
+        const h = Math.min(window.innerHeight - 32, Math.max(240, startH + (ev.clientY - startY)));
+        last = { w, h };
+        setDims(last);
+      };
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        if (resizeStorageKey) {
+          try {
+            localStorage.setItem(resizeStorageKey, JSON.stringify(last));
+          } catch {
+            /* storage unavailable */
+          }
+        }
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    },
+    [resizeStorageKey],
+  );
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
   // Focus the first focusable field on open, restore whatever had focus
@@ -117,9 +167,15 @@ export function FormModal({
         aria-modal="true"
         aria-labelledby="form-modal-title"
         onSubmit={handleSubmit}
+        style={
+          resizeStorageKey && dims
+            ? { width: dims.w, height: dims.h, maxWidth: "calc(100vw - 2rem)", maxHeight: "calc(100vh - 2rem)" }
+            : undefined
+        }
         className={cn(
           "relative z-10 w-full p-6",
-          size === "sm" ? "max-w-sm" : "max-w-md",
+          size === "sm" ? "max-w-sm" : size === "lg" ? "max-w-3xl" : "max-w-md",
+          resizeStorageKey && "flex max-h-[calc(100vh-2rem)] flex-col",
           modalSurfaceClass,
         )}
       >
@@ -134,9 +190,23 @@ export function FormModal({
           </h2>
         </div>
 
-        <div className="space-y-4">{children}</div>
+        <div className={cn("space-y-4", resizeStorageKey && "menu-scroll -mx-2 min-h-0 flex-1 overflow-y-auto px-2")}>{children}</div>
 
-        <div className="mt-5 flex justify-end gap-2">
+        {resizeStorageKey && (
+          <div
+            onPointerDown={onResizeStart}
+            title={t("common.resize")}
+            aria-label={t("common.resize")}
+            role="separator"
+            className="absolute bottom-1.5 right-1.5 h-4 w-4 cursor-nwse-resize rounded-sm opacity-50 hover:opacity-100"
+            style={{
+              backgroundImage:
+                "linear-gradient(135deg, transparent 0 55%, var(--color-text-muted-2) 55% 65%, transparent 65% 80%, var(--color-text-muted-2) 80% 90%, transparent 90%)",
+            }}
+          />
+        )}
+
+        <div className={cn("flex justify-end gap-2", resizeStorageKey ? "mt-3" : "mt-5")}>
           {footer ?? (
             <>
               <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>

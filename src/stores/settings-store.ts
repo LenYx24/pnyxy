@@ -97,6 +97,8 @@ interface SettingsState {
   aiContextBindings: AiContextBindings;
   /** Book-tied chats auto-include the book's TOC in the system prompt. */
   aiAttachToc: boolean;
+  /** Chat message / composer font size in px (13–18). */
+  chatFontSize: number;
   /** Default N for the "select pages [current-N, current+N] around current" button. */
   aiSurroundingPagesCount: number;
 
@@ -184,6 +186,7 @@ interface SettingsState {
     presetId: string | null,
   ) => void;
   setAiAttachToc: (v: boolean) => void;
+  setChatFontSize: (v: number) => void;
   setAiSurroundingPagesCount: (v: number) => void;
   setActiveTracker: (id: string) => void;
   updateTrackerSettings: (
@@ -248,6 +251,7 @@ export const useSettingsStore = create<SettingsState>()(
       aiDefaultContextId: null,
       aiContextBindings: emptyAiContextBindings(),
       aiAttachToc: true,
+      chatFontSize: 15,
       aiSurroundingPagesCount: 5,
       activeTrackerId: DEFAULT_TRACKER_ID,
       trackerSettings: buildDefaultTrackerSettings(),
@@ -404,6 +408,7 @@ export const useSettingsStore = create<SettingsState>()(
         queueSync(get);
       },
       setAiAttachToc: (v) => set({ aiAttachToc: v }),
+      setChatFontSize: (v) => set({ chatFontSize: Math.min(18, Math.max(13, Math.round(v))) }),
       // clamp 0..50 so one click can't flood the prompt with pages
       setAiSurroundingPagesCount: (v) =>
         set({ aiSurroundingPagesCount: Math.min(Math.max(Math.round(v), 0), 50) }),
@@ -810,6 +815,9 @@ export const useSettingsStore = create<SettingsState>()(
         if (version < 8) {
           if (typeof state.aiCustomDefaultContext !== "string") {
             state.aiCustomDefaultContext = "";
+          }
+          if (typeof state.chatFontSize !== "number") {
+            state.chatFontSize = 15;
           }
           if (typeof state.aiAttachToc !== "boolean") {
             state.aiAttachToc = true;

@@ -22,6 +22,8 @@ export function AppearanceTab() {
   // here because users set it once and don't want it taking up
   // header space on the actual library.
   const { cardSize, setCardSize } = useLibraryPrefs();
+  const chatFontSize = useSettingsStore((s) => s.chatFontSize);
+  const setChatFontSize = useSettingsStore((s) => s.setChatFontSize);
 
   const [browseOpen, setBrowseOpen] = useState(false);
 
@@ -102,6 +104,24 @@ export function AppearanceTab() {
       {browseOpen && (
         <BrowseCommunityModal mode="themes" onClose={() => setBrowseOpen(false)} />
       )}
+
+      <SettingsSection title={t("settings.appearanceSection.chat.heading")}>
+        <SettingRow
+          label={t("settings.appearanceSection.chat.fontSize", { value: chatFontSize })}
+          hint={t("settings.appearanceSection.chat.fontSizeHelp")}
+          stacked
+        >
+          <SliderWithInput
+            value={chatFontSize}
+            onChange={setChatFontSize}
+            min={13}
+            max={18}
+            step={1}
+            unit="px"
+            ariaLabel={t("settings.appearanceSection.chat.fontSizeHelp")}
+          />
+        </SettingRow>
+      </SettingsSection>
 
       <SettingsSection title={t("settings.appearanceSection.library.heading")}>
         <SettingRow

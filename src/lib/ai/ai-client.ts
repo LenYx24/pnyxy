@@ -13,6 +13,8 @@ import { INLINE_QUIZ_SPEC } from "@/lib/ai/extract-quiz";
 const ANTHROPIC_BYOK_MODEL = "claude-sonnet-4-5-20250929";
 const OPENAI_BYOK_MODEL = "gpt-4o-mini";
 const OPENAI_BYOK_REASONING_MODEL = "o3-mini";
+// Chat-completions model with built-in web search (`web_search_options`).
+const OPENAI_BYOK_SEARCH_MODEL = "gpt-4o-mini-search-preview";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -366,6 +368,23 @@ export interface StreamOptions {
   reasoning?: boolean;
   /** Abort throws AbortError from the generator. */
   signal?: AbortSignal;
+  /** Web search: Pnyxy → Gemini grounding (forces the Gemini-3 tier),
+   *  Anthropic BYOK → web_search server tool, OpenAI BYOK → the
+   *  search-preview model. Local ignores it. */
+  webSearch?: boolean;
+  /** Direct-video mode (YouTube side-chat): the Pnyxy proxy hands the
+   *  video to Gemini natively. Only the pnyxy route honors it; BYOK
+   *  providers can't take a video by reference and throw a config error. */
+  videoContext?: VideoContext;
+}
+
+/** YouTube video handed to the model by URL, optionally clipped (seconds). */
+export interface VideoContext {
+  url: string;
+  startSec?: number | null;
+  endSec?: number | null;
+  /** Full video length when known; sizes the proxy's quota pre-bill. */
+  durationSec?: number | null;
 }
 
 /** setTimeout that rejects with AbortError when the signal fires, so a
@@ -429,6 +448,14 @@ export async function* streamChatResponse(
   for (const provider of candidates) {
     let yielded = false;
     try {
+      // only the proxy can pass a video to the model by reference
+      if (options.videoContext && provider !== "pnyxy") {
+        throw new AiProviderError(
+          "Direct video input is only available through the Pnyxy route.",
+          "config",
+          provider,
+        );
+      }
       for await (const delta of streamForProvider(
         provider,
         messages,
@@ -517,6 +544,8 @@ async function* streamPnyxy(
     maxOutputTokens: options.maxOutputTokens,
     preferredModel,
     ...(options.reasoning ? { reasoning: true } : {}),
+    ...(options.webSearch ? { webSearch: true } : {}),
+    ...(options.videoContext ? { videoContext: options.videoContext } : {}),
   });
 
   // Transient failures (network blip, 5xx) retry silently with backoff
@@ -572,6 +601,15 @@ async function* streamAnthropic(
         role: m.role,
         content: toAnthropicChatContent(m),
       })),
+      // Anthropic's server-side web search tool: the model searches and
+      // cites on its own; we only forward the text deltas.
+      ...(options.webSearch
+        ? {
+            tools: [
+              { type: "web_search_20250305", name: "web_search", max_uses: 5 },
+            ] as unknown as never,
+          }
+        : {}),
     },
     options.signal ? { signal: options.signal } : undefined,
   );
@@ -617,9 +655,16 @@ async function* streamOpenAi(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: options.reasoning ? OPENAI_BYOK_REASONING_MODEL : OPENAI_BYOK_MODEL,
+        // search wins over reasoning: o3-mini has no web search, the
+        // search-preview model has no reasoning knob
+        model: options.webSearch
+          ? OPENAI_BYOK_SEARCH_MODEL
+          : options.reasoning
+            ? OPENAI_BYOK_REASONING_MODEL
+            : OPENAI_BYOK_MODEL,
         max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
         stream: true,
+        ...(options.webSearch ? { web_search_options: {} } : {}),
         messages: [
           {
             role: "system",
@@ -997,8 +1042,7 @@ function streamToolsForProvider(
     case "openai":
       return streamToolsOpenAi(messages, options);
     case "local":
-      // local model tool use is too inconsistent to support
-      return streamToolsNotSupported(provider);
+      return streamToolsLocal(messages, options);
   }
 }
 
@@ -1064,20 +1108,6 @@ class ToolCallAssembler {
     return out;
   }
 }
-
-async function* streamToolsNotSupported(
-  provider: AiProvider,
-): AsyncGenerator<ToolStreamEvent, void, unknown> {
-  throw new AiProviderError(
-    "Tool use isn't supported for the local provider yet, switch to Anthropic or OpenAI for this feature.",
-    "config",
-    provider,
-  );
-  // unreachable, but TS needs this to be a generator
-  yield { kind: "stop", reason: "other", provider };
-}
-
-// Anthropic tool use, browser-direct
 
 async function* streamToolsAnthropic(
   messages: ToolMessage[],
@@ -1206,6 +1236,8 @@ async function* streamToolsPnyxy(
         systemPromptOverride: options.systemPrompt,
         tools: options.tools,
         maxOutputTokens: options.maxOutputTokens,
+        // the user's ModelPicker pin applies to tool turns too
+        preferredModel: useSettingsStore.getState().pnyxyModel,
       }),
     },
     "pnyxy",
@@ -1289,17 +1321,61 @@ async function* streamToolsOpenAi(
   if (!apiKey) {
     throw new AiProviderError("OpenAI API key not set.", "config", "openai");
   }
-
-  const body = await openSseStream(
+  yield* streamToolsOpenAiCompat(
     "https://api.openai.com/v1/chat/completions",
+    { Authorization: `Bearer ${apiKey}` },
+    OPENAI_BYOK_MODEL,
+    "openai",
+    messages,
+    options,
+  );
+}
+
+// Local LLM tool use (Ollama / LM Studio / any OpenAI-compatible server
+// that implements `tools` on /chat/completions). Servers or models that
+// don't support function calling answer with plain text, which just
+// reads as "the model didn't use any tool".
+
+async function* streamToolsLocal(
+  messages: ToolMessage[],
+  options: StreamWithToolsOptions,
+): AsyncGenerator<ToolStreamEvent, void, unknown> {
+  const settings = useSettingsStore.getState();
+  const baseUrl = settings.localBaseUrl.trim();
+  const model = settings.localModel.trim();
+  const apiKey = settings.localApiKey.trim();
+  if (!baseUrl) {
+    throw new AiProviderError("Local LLM base URL is not set.", "config", "local");
+  }
+  if (!model) {
+    throw new AiProviderError("Local LLM model name is not set.", "config", "local");
+  }
+  yield* streamToolsOpenAiCompat(
+    `${baseUrl.replace(/\/+$/, "")}/chat/completions`,
+    apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+    model,
+    "local",
+    messages,
+    options,
+  );
+}
+
+/** Shared OpenAI chat-completions tool transport (OpenAI BYOK, local). */
+async function* streamToolsOpenAiCompat(
+  endpoint: string,
+  authHeaders: Record<string, string>,
+  model: string,
+  provider: AiProvider,
+  messages: ToolMessage[],
+  options: StreamWithToolsOptions,
+): AsyncGenerator<ToolStreamEvent, void, unknown> {
+  const body = await openSseStream(
+    endpoint,
     {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: { ...authHeaders, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: OPENAI_BYOK_MODEL,
+        model,
         max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
         stream: true,
         tools: options.tools.map((t) => ({
@@ -1316,11 +1392,11 @@ async function* streamToolsOpenAi(
         ],
       }),
     },
-    "openai",
+    provider,
     { signal: options.signal },
   );
 
-  yield* parseOpenAiSseTools(body, "openai");
+  yield* parseOpenAiSseTools(body, provider);
 }
 
 // tool-call assembly on the raw OpenAI SSE wire format

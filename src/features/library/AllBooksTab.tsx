@@ -74,6 +74,7 @@ import { useIsMobile } from "@/hooks/use-media-query";
 import { formatShortcut } from "@/lib/keyboard-shortcuts";
 import { UploadGhostStrip } from "./UploadGhosts";
 import { BreadcrumbDropTarget, ParentDropZone } from "./DropTargets";
+import { LibraryPathEditor } from "./LibraryPathEditor";
 import { FolderCard } from "./FolderCard";
 import { LibraryBookCard } from "./LibraryBookCard";
 import { LibraryNoteCard } from "./LibraryNoteCard";
@@ -823,6 +824,21 @@ export function AllBooksTab({
     handler: handleGoUp,
   });
 
+  // File-manager style path box: Ctrl+Shift+L (Ctrl+L is the browser's
+  // address bar) or clicking the trail swaps the breadcrumb for an
+  // editable, autocompleting path input.
+  const [pathEditing, setPathEditing] = useState(false);
+  const openPathEditor = useCallback(() => setPathEditing(true), []);
+  const closePathEditor = useCallback(() => setPathEditing(false), []);
+  useKeyboardShortcut({
+    id: "library:edit-path",
+    key: "l",
+    ctrl: true,
+    shift: true,
+    description: "Edit the folder path",
+    handler: openPathEditor,
+  });
+
   const isEmpty =
     filteredFolders.length === 0 &&
     filteredBooks.length === 0 &&
@@ -870,10 +886,25 @@ export function AllBooksTab({
   // folder; the org crumb opens the workspace switcher.
   // The h2 carries the page name for assistive tech (and the e2e header
   // check) while the visible text is the crumb trail.
-  const breadcrumb = (
+  const breadcrumb = pathEditing ? (
+    <LibraryPathEditor
+      folders={folders}
+      folderPath={folderPath}
+      onNavigate={navigateToFolder}
+      onClose={closePathEditor}
+    />
+  ) : (
     <h2
       aria-label={t("library.yourLibrary")}
-      className="flex min-w-0 items-center gap-1 overflow-x-auto font-display text-sm font-normal"
+      title={t("library.pathEditor.hint", {
+        shortcut: formatShortcut({ key: "L", ctrl: true, shift: true }),
+      })}
+      // a click on the trail itself (not on a crumb button) opens the
+      // path box, like clicking the address bar in a file manager
+      onClick={(e) => {
+        if (e.target === e.currentTarget) openPathEditor();
+      }}
+      className="flex min-w-0 flex-1 cursor-text items-center gap-1 overflow-x-auto rounded-control py-0.5 font-display text-sm font-normal transition-colors hover:bg-surface-3/40"
     >
       {/* root crumb: the active workspace, opens the org switcher */}
       <LibraryOrgCrumb />
@@ -897,17 +928,23 @@ export function AllBooksTab({
       )}
       {folderPath.map((folder, i) => (
         <span key={folder.id} className="flex min-w-0 items-center gap-1">
-          {i > 0 && (
-            <ChevronRight
-              size={14}
-              strokeWidth={1.5}
-              className="shrink-0 text-text-muted-2"
-            />
-          )}
+          {/* every folder crumb, the first included, is preceded by a chevron */}
+          <ChevronRight
+            size={14}
+            strokeWidth={1.5}
+            className="shrink-0 text-text-muted-2"
+          />
           {i === folderPath.length - 1 ? (
-            <span className="truncate px-1 font-medium text-text-primary">
+            <button
+              type="button"
+              onClick={openPathEditor}
+              title={t("library.pathEditor.hint", {
+                shortcut: formatShortcut({ key: "L", ctrl: true, shift: true }),
+              })}
+              className="truncate rounded-chip px-1 font-medium text-text-primary cursor-text hover:bg-surface-3"
+            >
               {folder.name}
-            </span>
+            </button>
           ) : (
             <BreadcrumbDropTarget
               dropId={`breadcrumb:${folder.id}`}
@@ -953,6 +990,23 @@ export function AllBooksTab({
           both sides; wraps on narrow desktop widths and scrolls
           horizontally on mobile. */}
           <div className="mb-3 flex items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+            {/* Parent-folder button leads the row (left), before the type
+            chips, so "back up" sits where users look for navigation. */}
+            {currentFolderId && (
+              <Button
+                variant="ghost"
+                className="shrink-0 gap-1 px-2 py-1 text-xs"
+                onClick={handleGoUp}
+                title={t("library.allBooks.upTitle", {
+                  shortcut: formatShortcut({ key: "Backspace", alt: true }),
+                })}
+              >
+                <ArrowUp size={16} strokeWidth={1.5} />
+                <span className="hidden sm:inline">
+                  {t("library.allBooks.up")}
+                </span>
+              </Button>
+            )}
             {ITEM_TYPE_FILTERS.filter((f) => typeEnabled(f.value)).map(
               ({ value, icon: Icon, labelKey, defaultLabel }) => {
                 const isActive = typeFilter === value;
@@ -981,21 +1035,6 @@ export function AllBooksTab({
                 />
                 {filtersExtra}
               </>
-            )}
-            {currentFolderId && (
-              <Button
-                variant="ghost"
-                className="ml-auto gap-1 px-2 py-1 text-xs"
-                onClick={handleGoUp}
-                title={t("library.allBooks.upTitle", {
-                  shortcut: formatShortcut({ key: "Backspace", alt: true }),
-                })}
-              >
-                <ArrowUp size={16} strokeWidth={1.5} />
-                <span className="hidden sm:inline">
-                  {t("library.allBooks.up")}
-                </span>
-              </Button>
             )}
           </div>
 

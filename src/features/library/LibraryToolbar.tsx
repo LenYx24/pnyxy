@@ -152,7 +152,8 @@ export function LibraryToolbar({
 
   return (
     <div className="mb-3 pb-1">
-      <div className="flex items-center gap-2 md:gap-3">
+      {/* relative: the library path editor overlays this row on mobile */}
+      <div className="relative flex items-center gap-2 md:gap-3">
         {leading}
         <div className="min-w-0 flex-1" />
         {!isMobile && searchField}

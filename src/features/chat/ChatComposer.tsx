@@ -28,6 +28,8 @@ import {
   Sparkles,
   Square,
   X,
+  FolderTree,
+  Globe,
 } from "lucide-react";
 import {
   FloatingMenu,
@@ -54,6 +56,8 @@ import {
 import { TEACHER_GUARDRAIL, TEACHER_MODE_ENABLED } from "@/lib/ai/teacher-mode";
 import { resolveAiContextForConversation } from "@/features/settings/ai-context/resolve-runtime";
 import type { RecommendationMode } from "@/lib/ai/recommendation-prompts";
+import { matchChatCommands } from "@/lib/ai/chat-commands";
+import { useFeatures } from "@/lib/use-features";
 import type { ChatMessageAttachment } from "@/types/chat";
 import { ContextInspectorModal } from "./ContextInspectorModal";
 import { ModelPicker } from "./composer/ModelPicker";
@@ -82,6 +86,7 @@ const MODE_ICONS: Record<RecommendationMode, typeof Sparkles> = {
   books: BookOpen,
   videos: Clapperboard,
   image: ImageIcon,
+  library: FolderTree,
 };
 
 /** Compact token count for the context chip ("~6,2k"): comma decimal for
@@ -117,6 +122,9 @@ export interface ChatComposerSubmitPayload {
   attachments: ChatMessageAttachment[];
   /** Only the OpenAI BYOK path honors this (swaps gpt-4o-mini -> o3-mini). */
   reasoning: boolean;
+  /** Web search for this turn: Gemini grounding on Pnyxy, Anthropic
+   *  web_search tool, OpenAI search-preview model; local ignores it. */
+  webSearch: boolean;
 }
 
 /** forwardRef handle letting external surfaces (e.g. reader rect-to-AI) drop in attachments. */
@@ -153,6 +161,10 @@ interface ChatComposerProps {
   /** Dropped/picked PDF handler: upload to the library + open a doc-scoped
    *  conversation. When unset, PDFs are rejected as unsupported. */
   onAttachPdf?: (file: File) => Promise<void>;
+  /** Narrow hosts (browser-extension side panel): no quota line, no
+   *  context-token chip, no model picker in the bottom row; the "+" menu
+   *  keeps mode / reasoning / web search. */
+  compact?: boolean;
 }
 
 const menuRowClass =
@@ -171,6 +183,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
       edgeToEdgeOnMobile = false,
       contextChip = null,
       onAttachPdf,
+      compact = false,
     },
     ref,
   ) {
@@ -316,11 +329,33 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
     const quotaRow = usesPnyxyQuota ? quotaSelection.row : null;
     // null hides the line: BYOK provider, anon, or the RPC returned nothing
     const questionsLeft = quotaRow ? computeQuestionsLeft(quotaRow) : null;
+    // share of today's bucket already used (requests or tokens, whichever is tighter)
+    const quotaUsedFraction = quotaRow
+      ? Math.min(
+          1,
+          Math.max(
+            quotaRow.request_limit > 0 ? quotaRow.request_count / quotaRow.request_limit : 0,
+            quotaRow.tokens_limit > 0 ? quotaRow.tokens_used / quotaRow.tokens_limit : 0,
+          ),
+        )
+      : 0;
     const [quotaModalOpen, setQuotaModalOpen] = useState(false);
 
     // Reasoning toggle persists across sends (unlike `mode`). Pnyxy route:
     // the proxy turns on Gemini thinking; OpenAI BYOK swaps to o3-mini.
     const [reasoning, setReasoning] = useState(false);
+    // "/gr" at the start of an otherwise empty message: slash-command hint
+    const features = useFeatures();
+    const commandPartial = /^\/\S*$/.test(value) ? value : null;
+    const commandMatches = useMemo(
+      () =>
+        commandPartial
+          ? matchChatCommands(commandPartial, (f) => (f ? features[f] : true))
+          : [],
+      [commandPartial, features],
+    );
+    // sticky like reasoning: stays on for follow-ups until switched off
+    const [webSearch, setWebSearch] = useState(false);
     const openAiConfigured = configuredProviders.includes("openai");
     // Image generation needs an OpenAI key; fall back to Chat if it disappears.
     useEffect(() => {
@@ -549,6 +584,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
         mode,
         attachments: pendingAttachments,
         reasoning,
+        webSearch,
       };
       // Clear attachments + reset mode before the await so a slow send doesn't leave them stuck.
       setPendingAttachments([]);
@@ -561,6 +597,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
       selectedProvider,
       mode,
       reasoning,
+      webSearch,
       onSubmit,
     ]);
 
@@ -571,10 +608,11 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
       books: t("chat.composer.modeBooks"),
       videos: t("chat.composer.modeVideos"),
       image: t("chat.composer.modeImage"),
+      library: t("chat.composer.modeLibrary"),
     };
     const modeOptions = openAiConfigured
-      ? (["default", "books", "videos", "image"] as const)
-      : (["default", "books", "videos"] as const);
+      ? (["default", "library", "books", "videos", "image"] as const)
+      : (["default", "library", "books", "videos"] as const);
     const wholeBookAvailable = !!activeDoc && activeDoc.totalPages > 0;
     const showWholeBookChip = wholeBookAvailable && allPagesAlreadySelected;
 
@@ -647,7 +685,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
             void handleAddFiles(e.dataTransfer.files);
           }}
           className={cn(
-            "flex flex-col gap-2.5 rounded-page bg-bg-tertiary px-4 pb-3 pt-3.5 shadow-page transition-shadow",
+            "flex flex-col gap-1.5 rounded-page bg-bg-tertiary px-3 pb-2 pt-2.5 shadow-page transition-shadow",
             // Mobile-flush: negative margin breaks out of the parent's px-3 to reach the viewport edge.
             edgeToEdgeOnMobile &&
               "-mx-3 rounded-b-none sm:mx-0 sm:rounded-page",
@@ -688,6 +726,12 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
             onPaste={handlePaste}
             onKeyDown={(e) => {
               if (e.key !== "Enter") return;
+              // "/gr⏎" completes the slash command instead of sending
+              if (commandMatches.length > 0 && !e.shiftKey) {
+                e.preventDefault();
+                onChange(`/${commandMatches[0].aliases[0]} `);
+                return;
+              }
               // IME composition guard: mid-composition Enter commits, it's not a send.
               // keyCode 229 is the legacy equivalent some Android webviews still emit.
               if (
@@ -712,7 +756,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
                 : t(placeholderKey)
             }
             rows={1}
-            className="block min-h-[1.75rem] w-full resize-none bg-transparent px-1 py-0.5 text-[15px] leading-normal text-text-primary outline-none placeholder:text-text-muted-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="block min-h-[1.5rem] w-full resize-none bg-transparent px-1 py-0 text-[length:var(--chat-font-size,15px)] leading-normal text-text-primary outline-none placeholder:text-text-muted-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           />
           <input
             ref={fileInputRef}
@@ -775,6 +819,33 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
                     onClick={() => setMode("default")}
                     aria-label={t("chat.composer.clearMode")}
                     title={t("chat.composer.clearMode")}
+                    className="ml-0.5 rounded-full p-0.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+                  >
+                    <X size={12} strokeWidth={1.5} />
+                  </button>
+                </span>
+              )}
+              {commandMatches.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => onChange(`/${c.aliases[0]} `)}
+                  className={cn(chipClass, "shrink-0 gap-1.5 cursor-pointer hover:bg-surface-3 hover:text-text-primary")}
+                  title={t(`chat.commands.${c.id}.hint`)}
+                >
+                  <span className="font-mono text-xs">/{c.aliases[0]}</span>
+                  <span className="text-2xs text-text-muted">{t(`chat.commands.${c.id}.label`)}</span>
+                </button>
+              ))}
+              {webSearch && (
+                <span className={cn(chipActiveClass, "shrink-0 pr-1.5")}>
+                  <Globe size={14} strokeWidth={1.5} className="shrink-0" />
+                  {t("chat.composer.webSearch.label")}
+                  <button
+                    type="button"
+                    onClick={() => setWebSearch(false)}
+                    aria-label={t("chat.composer.webSearch.off")}
+                    title={t("chat.composer.webSearch.off")}
                     className="ml-0.5 rounded-full p-0.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
                   >
                     <X size={12} strokeWidth={1.5} />
@@ -869,6 +940,25 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
                       )}
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWebSearch((v) => !v);
+                      setPlusMenuOpen(false);
+                    }}
+                    className={menuRowClass}
+                    title={t("chat.composer.webSearch.button")}
+                  >
+                    <Globe size={16} strokeWidth={1.5} />
+                    {t("chat.composer.webSearch.label")}
+                    {webSearch && (
+                      <Check
+                        size={14}
+                        strokeWidth={1.5}
+                        className="ml-auto shrink-0"
+                      />
+                    )}
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -1029,6 +1119,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
               </span>
             )}
             <div className="flex shrink-0 items-center gap-1">
+              {!compact && (
               <button
                 type="button"
                 onClick={() => setInspectorOpen(true)}
@@ -1048,6 +1139,8 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
                   ~{formatCompactTokens(composerContextTokens, i18n.language)}
                 </span>
               </button>
+              )}
+              {!compact && (
               <ModelPicker
                 value={selectedProvider}
                 options={configuredProviders}
@@ -1055,6 +1148,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
                 autoModel={activeQuotaModel}
                 quotaRows={quotaRows}
               />
+              )}
               {micButton}
               {!isMobile && (
                 <IconButton
@@ -1074,30 +1168,27 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
           </div>
         </div>
 
-        {/* quota line: the count opens the quota modal. On a BYOK provider
-          the Pnyxy quota is irrelevant, say so instead. */}
-        {(questionsLeft !== null ||
-          (selectedProvider && selectedProvider !== "pnyxy")) && (
-          <div className="flex items-center justify-center gap-1 pt-2 text-2xs text-text-muted-2">
-            {questionsLeft !== null ? (
-              <button
-                type="button"
-                onClick={() => setQuotaModalOpen(true)}
+        {/* quota: a hairline bar under the composer (used share of today's
+            Pnyxy bucket), click for the breakdown. BYOK providers show nothing. */}
+        {!compact && questionsLeft !== null && quotaRow && (
+          <button
+            type="button"
+            onClick={() => setQuotaModalOpen(true)}
+            className="group mx-auto mt-1 block w-2/3 max-w-[320px] cursor-pointer py-1"
+            title={t("chat.composer.quota.remaining", { count: questionsLeft })}
+            aria-label={t("chat.composer.quota.remaining", { count: questionsLeft })}
+            aria-haspopup="dialog"
+          >
+            <span className="block h-[3px] w-full overflow-hidden rounded-full bg-surface-3">
+              <span
                 className={cn(
-                  "rounded-control px-1 py-0.5 transition-colors hover:text-text-primary cursor-pointer",
-                  questionsLeft === 0 && "text-danger",
+                  "block h-full rounded-full transition-[width]",
+                  questionsLeft === 0 ? "bg-danger" : "bg-text-muted-2 group-hover:bg-accent",
                 )}
-                title={t("chat.quotaModal.title")}
-                aria-haspopup="dialog"
-              >
-                {t("chat.composer.quota.remaining", { count: questionsLeft })}
-              </button>
-            ) : (
-              <span className="px-1 py-0.5">
-                {t("chat.composer.quota.ownKey")}
-              </span>
-            )}
-          </div>
+                style={{ width: `${Math.round(quotaUsedFraction * 100)}%` }}
+              />
+            </span>
+          </button>
         )}
         <ContextInspectorModal
           open={inspectorOpen}

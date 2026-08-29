@@ -11,8 +11,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, Copy, Eye } from "lucide-react";
-import { Button, FormModal, chipClass, chipAccentClass } from "@/components/ui";
+import { ChevronDown, Copy, Eye, Info } from "lucide-react";
+import { Button, FormModal, Tooltip, chipClass, chipAccentClass } from "@/components/ui";
 import {
   buildSystemPrompt,
   estimateTokens,
@@ -236,9 +236,8 @@ export function ContextInspectorModal({
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const [openLayers, setOpenLayers] = useState<Set<LayerKey>>(
-    () => new Set<LayerKey>(["base", "preset", "document"]),
-  );
+  // everything collapsed: the first view is the overview (bar + cards)
+  const [openLayers, setOpenLayers] = useState<Set<LayerKey>>(() => new Set());
   const toggleLayer = useCallback((key: LayerKey) => {
     setOpenLayers((prev) => {
       const next = new Set(prev);
@@ -380,32 +379,37 @@ export function ContextInspectorModal({
       onClose={onClose}
       title={t("chat.contextInspector.title")}
       icon={Eye}
-      size="md"
+      size="lg"
+      resizeStorageKey="pnyxy:context-inspector-size"
       footer={
-        <div className="flex w-full flex-wrap justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={() => void handleCopyPrompt()}>
-            <Copy size={14} strokeWidth={1.5} />
+        <div className="flex w-full flex-wrap justify-end gap-1.5">
+          <Button type="button" size="sm" variant="ghost" onClick={() => void handleCopyPrompt()}>
+            <Copy size={13} strokeWidth={1.5} />
             {t("chat.contextInspector.copyPrompt")}
           </Button>
-          <Button type="button" variant="secondary" onClick={handleEditPreset}>
+          <Button type="button" size="sm" variant="secondary" onClick={handleEditPreset}>
             {t("chat.contextInspector.editPreset")}
           </Button>
-          <Button type="button" variant="primary" onClick={onClose}>
+          <Button type="button" size="sm" variant="primary" onClick={onClose}>
             {t("common.ok")}
           </Button>
         </div>
       }
     >
-      <p className="text-xs text-text-muted">
-        {t("chat.contextInspector.intro")}
-      </p>
-
       <div className="space-y-1.5">
-          <p className="text-xs text-text-secondary">
-            {t("chat.contextInspector.sizeSummary", {
-              tokens: totalTokens.toLocaleString(),
-              budget: DISPLAY_CONTEXT_BUDGET_TOKENS.toLocaleString(),
-            })}
+          <p className="flex items-center gap-1.5 text-xs text-text-secondary">
+            <span>
+              {t("chat.contextInspector.sizeSummary", {
+                tokens: totalTokens.toLocaleString(),
+                budget: DISPLAY_CONTEXT_BUDGET_TOKENS.toLocaleString(),
+              })}
+            </span>
+            {/* the "how to read this" line lives behind an (i), not inline */}
+            <Tooltip label={t("chat.contextInspector.intro")}>
+              <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-surface-3 text-2xs text-text-muted" aria-label={t("chat.contextInspector.intro")}>
+                <Info size={10} strokeWidth={1.75} />
+              </span>
+            </Tooltip>
           </p>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-secondary">
             <div
@@ -442,7 +446,7 @@ export function ContextInspectorModal({
           </div>
         </div>
 
-        <div className="menu-scroll -mx-1 max-h-[50vh] space-y-2 overflow-y-auto px-1">
+        <div className="space-y-2">
           {/* 1. Base instruction */}
           <LayerCard
             badge={1}

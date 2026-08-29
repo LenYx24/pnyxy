@@ -31,6 +31,8 @@ export const FEATURE_KEYS = [
   "readProgress",
   "catalog",
   "readingPlans",
+  "graphWidget",
+  "webArticles",
 ] as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
@@ -56,6 +58,8 @@ export const DEFAULT_FEATURES: FeatureSet = {
   readProgress: false,
   catalog: false,
   readingPlans: false,
+  graphWidget: false,
+  webArticles: false,
 };
 
 // TODO(library agent): gate the library empty-state "Browse catalog"
@@ -76,6 +80,8 @@ export const FEATURE_META: Record<FeatureKey, { label: string; hint: string }> =
   spaces: { label: "Spaces", hint: "Spaces, prompt gallery" },
   comments: { label: "Comments", hint: "Annotation comments sidebar" },
   graph: { label: "Conversation graph", hint: "Graph tab in the reader tools panel" },
+  webArticles: { label: "Web pages + extension", hint: "Save non-YouTube links to the library and use the browser extension's side-panel chat (YouTube links are always allowed)" },
+  graphWidget: { label: "Graph widget (AI)", hint: "```graph blocks in replies render as an editable diagram; spec added to the chat prompt" },
   leaderboards: { label: "Leaderboards", hint: "Streak leaderboards page" },
   plugins: { label: "Plugins", hint: "Plugin system: settings tab and every enabled plugin (all unloaded when off)" },
   bookmarks: { label: "Bookmarks", hint: "Bookmark button, Ctrl+B, sidebar bookmarks tab, book bookmarks tab" },

@@ -130,7 +130,11 @@ export function WhiteboardChatPanel({
         trimmed,
         payload.provider ?? undefined,
         payload.attachments.length > 0 ? payload.attachments : undefined,
-        { scope: "whiteboard", ...(payload.reasoning ? { reasoning: true } : {}) },
+        {
+          scope: "whiteboard",
+          ...(payload.reasoning ? { reasoning: true } : {}),
+          ...(payload.webSearch ? { webSearch: true } : {}),
+        },
       );
     },
     [

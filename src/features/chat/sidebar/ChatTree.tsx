@@ -133,9 +133,7 @@ export function ChatTree(props: ChatTreeProps) {
       <div className="flex flex-col gap-0.5">
         {flatGroups.map((group) => (
           <div key={group.key} className="flex flex-col gap-0.5">
-            <div className={cn("px-3 pb-1 pt-3", captionClass)}>
-              {dateGroupLabel(group.key, t)}
-            </div>
+            <DateCaption label={dateGroupLabel(group.key, t)} />
             {group.items.map((c) => (
               <ConversationRow
                 key={c.id}
@@ -188,19 +186,8 @@ export function ChatTree(props: ChatTreeProps) {
           {t("chat.sidebar.foldersEmpty")}
         </p>
       )}
-      {rootFolderId !== null && looseConvs.length > 0 && (
-        <div
-          className={cn(
-            "flex items-center gap-1.5 px-3 pb-0.5 pt-3",
-            captionClass,
-          )}
-        >
-          <span className="truncate">{t("chat.sidebar.folderChats")}</span>
-          <span className="shrink-0 font-normal tabular-nums">
-            {looseConvs.length}
-          </span>
-        </div>
-      )}
+      {/* drilled view: no "Conversations · N" caption, it read like a row;
+          the breadcrumb already says where we are */}
       {rootFolderId !== null && (
         <SortableContext
           items={looseConvIds}
@@ -209,9 +196,9 @@ export function ChatTree(props: ChatTreeProps) {
           {dateGroups.map((group) => (
             <div key={group.key} className="flex flex-col gap-0.5">
               <div
-                className={cn("px-3 pb-1 pt-2", captionClass, "font-normal")}
+                className="contents"
               >
-                {dateGroupLabel(group.key, t)}
+                <DateCaption label={dateGroupLabel(group.key, t)} />
               </div>
               {group.items.map((c) => (
                 <ConversationRow
@@ -403,11 +390,9 @@ const FolderRow = memo(function FolderRow({
           onClick={() => sidebar.onToggleFolder(folder.id)}
           // double-click drills into the folder (single click only toggles)
           onDoubleClick={() => sidebar.onEnterFolder?.(folder.id)}
-          className={cn(
-            "flex min-w-0 flex-1 items-center gap-1.5 px-3 py-2 text-left cursor-pointer",
-            captionClass,
-            "hover:text-text-secondary",
-          )}
+          // folder names read as navigation, not captions: body size,
+          // secondary text, primary on hover (Gemini-style contrast)
+          className="flex min-w-0 flex-1 items-center gap-1.5 px-3 py-2 text-left text-[13px] font-medium text-text-secondary transition-colors hover:text-text-primary cursor-pointer"
           title={folder.name}
           aria-expanded={expanded}
         >
@@ -667,6 +652,19 @@ export function RootDropZone({ label }: { label: string }) {
       )}
     >
       {dragging && label}
+    </div>
+  );
+}
+
+/** Date group label drawn as a hairline divider ("Today ———"), so it can't
+ *  be mistaken for a conversation row. */
+function DateCaption({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 px-3 pb-0.5 pt-2.5" aria-hidden="true">
+      <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-text-muted-2">
+        {label}
+      </span>
+      <span className="h-px flex-1 bg-surface-3" />
     </div>
   );
 }

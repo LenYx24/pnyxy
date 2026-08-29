@@ -1,4 +1,5 @@
 import type { AiProvider } from "@/stores/settings-store";
+import type { VideoContext } from "@/lib/ai/ai-client";
 import type { TextSelection } from "@/types/annotation";
 import type {
   ChatConversation,
@@ -24,16 +25,19 @@ export interface ChatDraft {
 }
 
 export interface ChatSourceContext {
+  /** Reader document id; empty string when the source is a resource. */
   docId: string;
   docTitle: string;
   page: number | null;
+  /** Library resource (YouTube video) the chat was opened from (00074). */
+  resourceId?: string | null;
 }
 
 /** Where a chat turn is sent from, for telemetry only. Derived from the
  *  conversation's `source_doc_id` when absent (book vs plain chat); the
  *  whiteboard panel and the course "Start learning" seed pass it explicitly
  *  since those two aren't distinguishable from conversation fields alone. */
-export type ChatSendScope = "chat" | "book" | "course" | "whiteboard";
+export type ChatSendScope = "chat" | "book" | "course" | "whiteboard" | "video" | "library";
 
 /** Per-send overrides. */
 export interface ChatSendOptions {
@@ -49,6 +53,17 @@ export interface ChatSendOptions {
     documentId: string;
     selection: TextSelection;
   };
+  /** Direct-video mode: the proxy hands this YouTube clip to Gemini. */
+  videoContext?: VideoContext;
+  /** Web search for this turn (composer toggle). */
+  webSearch?: boolean;
+  /** "Organize library" composer mode: route the turn through the
+   *  library tool loop (create folders / move items / start chats, each
+   *  behind the user's approval card). */
+  libraryTools?: boolean;
+  /** Extra situational line for the library tool loop's system prompt
+   *  (e.g. which resource the user is looking at). */
+  libraryToolsContext?: string;
 }
 
 export interface ChatState {
@@ -119,6 +134,14 @@ export interface ChatState {
   ) => Promise<void>;
   /** Same-parent reorder. Optimistic, rolls back on error. */
   reorderFolder: (id: string, sortOrder: number) => Promise<void>;
+
+  /** Tie an existing conversation to a library resource (the "save this
+   *  link" card in a quick chat): the resource viewer's side-chat then
+   *  resumes this thread. */
+  linkConversationToResource: (
+    conversationId: string,
+    resourceId: string,
+  ) => Promise<void>;
 
   /** Switch the active leaf without sending, for branch picking. */
   setActiveLeaf: (messageId: string) => Promise<void>;

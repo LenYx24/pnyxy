@@ -35,6 +35,21 @@ const GEMINI_3_FLASH_MODEL = "gemini-3.7-flash";
 // (finish_reason "length"). Pre-billed worst-case, unused part refunded
 // after the stream.
 const DEFAULT_MAX_OUTPUT_TOKENS = 4096;
+// Native video input. Gemini bills ~300 tokens per second of video at
+// default resolution and ~100/s at MEDIA_RESOLUTION_LOW, which is what
+// we request (lecture slides + speech survive it fine). The clip length
+// the user picked (or the whole video) is pre-billed at this rate, with
+// a ceiling so one 3-hour lecture can't be charged past a day's quota.
+const VIDEO_TOKENS_PER_SECOND = 100;
+const VIDEO_MAX_BILLED_SECONDS = 3600;
+// Only YouTube URLs can be passed to Gemini by reference.
+const VIDEO_URL_HOSTS = new Set([
+  "youtube.com",
+  "www.youtube.com",
+  "m.youtube.com",
+  "youtu.be",
+  "www.youtu.be",
+]);
 
 /**
  * OpenAI-compatible upstreams, tried in priority order; Anthropic is the
@@ -176,12 +191,32 @@ interface ChatRequestBody {
    *  field, so it is only attached on Gemini providers). Thinking
    *  tokens bill as output tokens, hence the raised output floor. */
   reasoning?: boolean;
+  /** Explicit web-search request from the composer toggle: forces
+   *  Google Search grounding on the Gemini-3 tier regardless of
+   *  document context or model pin (the auto rule below only grounds
+   *  standalone chats). */
+  webSearch?: boolean;
   /**
-   * Tool-use mode. When `tools` is non-empty we route exclusively to
-   * Anthropic (the only upstream we wire tool-use through), pass the
-   * structured `toolMessages` instead of `messages`, and forward every
-   * Anthropic SSE event type (not just text_delta), so the browser
-   * can collect tool_use blocks and run the agentic loop.
+   * Direct-video mode (YouTube resource side-chat, "Gemini watches the
+   * video" option). The proxy forces a Gemini upstream and hands the
+   * video URL to the model natively (`file_data` part) instead of
+   * through the OpenAI-compat endpoint, which has no video input.
+   * Optional start/end (seconds) clip the watched range; `durationSec`
+   * (when the client knows it) sizes the quota pre-bill.
+   */
+  videoContext?: {
+    url: string;
+    startSec?: number | null;
+    endSec?: number | null;
+    durationSec?: number | null;
+  };
+  /**
+   * Tool-use mode. When `tools` is non-empty we pass the structured
+   * (Anthropic-shaped) `toolMessages` instead of `messages`. The
+   * OpenAI-compat chain (Gemini, OpenAI) is tried first with function
+   * calling, its stream converted to Anthropic-style tool events;
+   * Anthropic is the fallback (its SSE is forwarded verbatim). The
+   * browser collects tool_use blocks and runs the agentic loop.
    */
   tools?: Array<{
     name: string;
@@ -403,6 +438,43 @@ Deno.serve(async (req) => {
   // grounded turns add a fixed surcharge below (search calls are billed per query upstream)
   let estimatedTotal = inputTokens + maxOutputTokens;
 
+  // ── Direct-video mode: validate the clip and pre-bill its length ──
+  const videoCtx = !toolMode && body.videoContext ? body.videoContext : null;
+  let videoClip: {
+    url: string;
+    startSec: number | null;
+    endSec: number | null;
+  } | null = null;
+  if (videoCtx) {
+    let vUrl: URL;
+    try {
+      vUrl = new URL(String(videoCtx.url ?? ""));
+    } catch {
+      return jsonError(400, "bad_request", "videoContext.url must be a URL");
+    }
+    if (
+      (vUrl.protocol !== "https:" && vUrl.protocol !== "http:") ||
+      !VIDEO_URL_HOSTS.has(vUrl.hostname.toLowerCase())
+    ) {
+      return jsonError(400, "bad_request", "videoContext.url must be a YouTube URL");
+    }
+    const num = (v: unknown) =>
+      typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.floor(v) : null;
+    const startSec = num(videoCtx.startSec);
+    let endSec = num(videoCtx.endSec);
+    if (startSec !== null && endSec !== null && endSec <= startSec) endSec = null;
+    const durationSec = num(videoCtx.durationSec);
+    const clipSeconds =
+      endSec !== null
+        ? endSec - (startSec ?? 0)
+        : durationSec !== null
+          ? Math.max(0, durationSec - (startSec ?? 0))
+          : VIDEO_MAX_BILLED_SECONDS;
+    estimatedTotal +=
+      Math.min(clipSeconds, VIDEO_MAX_BILLED_SECONDS) * VIDEO_TOKENS_PER_SECOND;
+    videoClip = { url: vUrl.toString(), startSec, endSec };
+  }
+
   // ── Per-model quota helper ────────────────────────────────
   //
   // checkAndRecord charges the estimated worst-case token cost against
@@ -541,11 +613,13 @@ Deno.serve(async (req) => {
   const groundingModelAvailable = openAiCompatChain.some(
     (p) => p.model === GEMINI_3_FLASH_MODEL,
   );
+  const autoGrounding =
+    !(body.documentTitle ?? "").trim() &&
+    (preferredModel === null || preferredModel === GEMINI_3_FLASH_MODEL);
   const useGrounding =
     !toolMode &&
-    !(body.documentTitle ?? "").trim() &&
-    (preferredModel === null || preferredModel === GEMINI_3_FLASH_MODEL) &&
-    groundingModelAvailable;
+    groundingModelAvailable &&
+    (body.webSearch === true || autoGrounding);
   if (useGrounding) estimatedTotal += GROUNDED_REQUEST_SURCHARGE_TOKENS;
 
   // Teacher mode is enforced server-side. Rule:
@@ -575,42 +649,158 @@ Deno.serve(async (req) => {
         ? override + teacherBlock()
         : override;
 
-  // ── Tool mode: Anthropic only (passes through all SSE events) ──
+  // ── Tool mode: OpenAI-compat chain with function calling, Anthropic
+  //    as fallback. Same billing/refund dance as plain mode; a pinned
+  //    model narrows the attempts like it does there. ──
   if (toolMode) {
-    if (!anthropicKey) {
+    const toolPin = body.preferredModel ?? null;
+    const knownCompat = new Set(OPENAI_COMPATIBLE_PROVIDERS.map((p) => p.model));
+    const pinnedCompat = !!toolPin && knownCompat.has(toolPin);
+    const toolCompatChain = pinnedCompat
+      ? openAiCompatChain.filter((p) => p.model === toolPin)
+      : toolPin === ANTHROPIC_MODEL
+        ? []
+        : openAiCompatChain;
+    // a compat pin that is actually available skips the Anthropic fallback
+    const tryAnthropicTools =
+      !!anthropicKey && !(pinnedCompat && toolCompatChain.length > 0);
+    if (toolCompatChain.length === 0 && !anthropicKey) {
       return jsonError(
         501,
         "tool_mode_unavailable",
-        "Tool-use requires an Anthropic upstream key.",
+        "Tool-use needs a Gemini, OpenAI or Anthropic upstream key.",
       );
     }
-    const billed = await checkAndRecord(ANTHROPIC_MODEL);
-    if ("rpcError" in billed) {
-      {
+    let toolQuotaFailure: QuotaResult | null = null;
+    for (const provider of toolCompatChain) {
+      const billed = await checkAndRecord(provider.model);
+      if ("rpcError" in billed) {
         console.error("quota rpc failed:", billed.rpcError);
         return jsonErrorPublic(500, "quota_check_failed", corsHeaders);
       }
+      if (!billed.ok) {
+        toolQuotaFailure = billed.quota;
+        continue;
+      }
+      const model = provider.model;
+      const stream = await tryOpenAiCompatibleTools(
+        provider.url,
+        provider.apiKey,
+        model,
+        systemPrompt,
+        body.toolMessages!,
+        body.tools!,
+        maxOutputTokens,
+        provider.name,
+        (usedOutputTokens) => {
+          const unused = maxOutputTokens - usedOutputTokens;
+          if (unused > 0) waitUntil(refundUsage(model, unused));
+        },
+      );
+      if (stream) {
+        return new Response(stream, {
+          headers: { ...sseHeaders, "x-pnyxy-model": model },
+        });
+      }
+      await refundUsage(model);
     }
-    if (!billed.ok) {
-      const q = billed.quota;
+    if (tryAnthropicTools) {
+      const billed = await checkAndRecord(ANTHROPIC_MODEL);
+      if ("rpcError" in billed) {
+        console.error("quota rpc failed:", billed.rpcError);
+        return jsonErrorPublic(500, "quota_check_failed", corsHeaders);
+      }
+      if (billed.ok) {
+        const stream = await tryAnthropic(
+          anthropicKey!,
+          systemPrompt,
+          body.toolMessages!,
+          maxOutputTokens,
+          body.tools!,
+        );
+        if (stream) {
+          return new Response(stream, {
+            headers: { ...sseHeaders, "x-pnyxy-model": ANTHROPIC_MODEL },
+          });
+        }
+        await refundUsage(ANTHROPIC_MODEL);
+      } else {
+        toolQuotaFailure = billed.quota;
+      }
+    }
+    if (toolQuotaFailure) {
       return jsonError(
         429,
-        q?.reason ?? "quota_exceeded",
-        `Daily AI quota reached for ${ANTHROPIC_MODEL} (${q?.tokens_used}/${q?.tokens_limit} tokens, ${q?.request_count}/${q?.request_limit} requests).`,
+        toolQuotaFailure.reason ?? "quota_exceeded",
+        `Daily AI quota reached on every available model (${toolQuotaFailure.tokens_used}/${toolQuotaFailure.tokens_limit} tokens, ${toolQuotaFailure.request_count}/${toolQuotaFailure.request_limit} requests on last model).`,
       );
     }
-    const stream = await tryAnthropic(
-      anthropicKey,
-      systemPrompt,
-      body.toolMessages!,
-      maxOutputTokens,
-      body.tools!,
+    return jsonError(502, "upstream_error", "All upstream providers failed (tool mode)");
+  }
+
+  // ── Direct-video mode: Gemini only, native API ────────────────
+  //
+  // The OpenAI-compat endpoint can't take a video by reference, so this
+  // path calls generateContent directly with a `file_data` part. Walks
+  // the Gemini tiers in the usual order (an explicit Gemini pin narrows
+  // to that model); a non-Gemini pin is ignored since it can't serve
+  // this request. No Anthropic/OpenAI fallback: they'd silently answer
+  // without having seen the video.
+  if (videoClip) {
+    const geminiChain = openAiCompatChain.filter((p) =>
+      p.name.startsWith("gemini"),
     );
-    if (stream) {
-      return new Response(stream, { headers: sseHeaders });
+    if (geminiChain.length === 0) {
+      return jsonError(
+        501,
+        "video_mode_unavailable",
+        "Direct video input needs a Gemini upstream key.",
+      );
     }
-    await refundUsage(ANTHROPIC_MODEL);
-    return jsonError(502, "upstream_error", "Anthropic upstream failed");
+    const pinned =
+      body.preferredModel &&
+      geminiChain.some((p) => p.model === body.preferredModel)
+        ? geminiChain.filter((p) => p.model === body.preferredModel)
+        : geminiChain;
+    let videoQuotaFailure: QuotaResult | null = null;
+    for (const provider of pinned) {
+      const billed = await checkAndRecord(provider.model);
+      if ("rpcError" in billed) {
+        console.error("quota rpc failed:", billed.rpcError);
+        return jsonErrorPublic(500, "quota_check_failed", corsHeaders);
+      }
+      if (!billed.ok) {
+        videoQuotaFailure = billed.quota;
+        continue;
+      }
+      const model = provider.model;
+      const stream = await tryGeminiNativeVideo(
+        provider.apiKey,
+        model,
+        systemPrompt,
+        body.messages,
+        videoClip,
+        maxOutputTokens,
+        (usedOutputTokens) => {
+          const unused = maxOutputTokens - usedOutputTokens;
+          if (unused > 0) waitUntil(refundUsage(model, unused));
+        },
+      );
+      if (stream) {
+        return new Response(stream, {
+          headers: { ...sseHeaders, "x-pnyxy-model": model },
+        });
+      }
+      await refundUsage(model);
+    }
+    if (videoQuotaFailure) {
+      return jsonError(
+        429,
+        videoQuotaFailure.reason ?? "quota_exceeded",
+        `Daily AI quota reached on every Gemini model (${videoQuotaFailure.tokens_used}/${videoQuotaFailure.tokens_limit} tokens, ${videoQuotaFailure.request_count}/${videoQuotaFailure.request_limit} requests on last model).`,
+      );
+    }
+    return jsonError(502, "upstream_error", "Gemini video request failed");
   }
 
   // ── Plain text mode: walk the OpenAI-compat chain in priority
@@ -754,6 +944,437 @@ Deno.serve(async (req) => {
   }
   return jsonError(502, "upstream_error", "All upstream providers failed");
 });
+
+// ── OpenAI-compat tool use (Gemini, OpenAI) ──────────────────
+
+type ToolBlock =
+  | { type: "text"; text: string }
+  | { type: "tool_use"; id: string; name: string; input: unknown }
+  | { type: "tool_result"; tool_use_id: string; content: string; is_error?: boolean };
+
+/** Anthropic-shaped tool turn → OpenAI chat messages: an assistant turn
+ *  becomes one message with `tool_calls`, a user turn splits into one
+ *  `tool` message per tool_result (mirrors src/lib/ai/ai-client.ts). */
+function toOpenAiToolMessages(
+  m: NonNullable<ChatRequestBody["toolMessages"]>[number],
+): Array<Record<string, unknown>> {
+  if (typeof m.content === "string") return [{ role: m.role, content: m.content }];
+  const blocks = m.content as unknown as ToolBlock[];
+  const textOf = (bs: ToolBlock[]) =>
+    bs.filter((b): b is Extract<ToolBlock, { type: "text" }> => b.type === "text")
+      .map((b) => b.text)
+      .join("");
+  if (m.role === "assistant") {
+    const text = textOf(blocks);
+    const uses = blocks.filter(
+      (b): b is Extract<ToolBlock, { type: "tool_use" }> => b.type === "tool_use",
+    );
+    const msg: Record<string, unknown> = { role: "assistant" };
+    if (text) msg.content = text;
+    if (uses.length > 0) {
+      msg.tool_calls = uses.map((b) => ({
+        id: b.id,
+        type: "function",
+        function: { name: b.name, arguments: JSON.stringify(b.input ?? {}) },
+      }));
+    }
+    if (!msg.content && !msg.tool_calls) msg.content = "";
+    return [msg];
+  }
+  const texts = textOf(blocks);
+  const results = blocks.filter(
+    (b): b is Extract<ToolBlock, { type: "tool_result" }> => b.type === "tool_result",
+  );
+  const out: Array<Record<string, unknown>> = [];
+  if (texts) out.push({ role: "user", content: texts });
+  for (const r of results) {
+    out.push({ role: "tool", tool_call_id: r.tool_use_id, content: r.content });
+  }
+  return out;
+}
+
+async function tryOpenAiCompatibleTools(
+  url: string,
+  apiKey: string,
+  model: string,
+  systemPrompt: string,
+  toolMessages: NonNullable<ChatRequestBody["toolMessages"]>,
+  tools: NonNullable<ChatRequestBody["tools"]>,
+  maxOutputTokens: number,
+  providerName: string,
+  onUsage?: (outputTokens: number) => void,
+): Promise<ReadableStream<Uint8Array> | null> {
+  let upstream: Response;
+  try {
+    upstream = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        max_tokens: maxOutputTokens,
+        stream: true,
+        stream_options: { include_usage: true },
+        ...(providerName.startsWith("gemini") ? { reasoning_effort: "low" } : {}),
+        tools: tools.map((t) => ({
+          type: "function",
+          function: { name: t.name, description: t.description, parameters: t.input_schema },
+        })),
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...toolMessages.flatMap(toOpenAiToolMessages),
+        ],
+      }),
+    });
+  } catch (err) {
+    console.error(`${providerName} (tools) request failed:`, err);
+    return null;
+  }
+  if (!upstream.ok || !upstream.body) {
+    const text = await upstream.text().catch(() => "");
+    console.error(`${providerName} (tools) returned ${upstream.status}: ${text}`);
+    return null;
+  }
+  return openAiToolsToAnthropicSse(upstream.body, onUsage);
+}
+
+interface ToolCallSlot {
+  id: string;
+  name: string;
+  /** content_block_start already emitted */
+  open: boolean;
+  /** argument JSON buffered before the name was known */
+  args: string;
+}
+
+/**
+ * OpenAI function-calling SSE → the Anthropic tool events the browser's
+ * parseAnthropicSseTools understands: text at block 0, each tool call at
+ * block 1+index (content_block_start / input_json_delta / content_block_stop),
+ * then message_delta with stop_reason tool_use | end_turn | max_tokens.
+ */
+function openAiToolsToAnthropicSse(
+  upstream: ReadableStream<Uint8Array>,
+  onUsage?: (outputTokens: number) => void,
+): ReadableStream<Uint8Array> {
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  let buffer = "";
+  let reportedOutputTokens: number | null = null;
+  let emittedChars = 0;
+  const slots = new Map<number, ToolCallSlot>();
+  let finishReason: string | null = null;
+  const finish = () => {
+    if (!onUsage) return;
+    onUsage(reportedOutputTokens ?? Math.ceil(emittedChars / 4));
+  };
+  return new ReadableStream({
+    async start(controller) {
+      const reader = upstream.getReader();
+      const emit = (event: unknown) =>
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+      const openBlock = (index: number, slot: ToolCallSlot) => {
+        if (slot.open || !slot.name) return;
+        slot.open = true;
+        emit({
+          type: "content_block_start",
+          index: index + 1,
+          content_block: { type: "tool_use", id: slot.id, name: slot.name },
+        });
+        if (slot.args) {
+          emit({
+            type: "content_block_delta",
+            index: index + 1,
+            delta: { type: "input_json_delta", partial_json: slot.args },
+          });
+          slot.args = "";
+        }
+      };
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let nlIdx;
+          while ((nlIdx = buffer.indexOf("\n")) !== -1) {
+            const line = buffer.slice(0, nlIdx).replace(/\r$/, "");
+            buffer = buffer.slice(nlIdx + 1);
+            if (!line.startsWith("data:")) continue;
+            const data = line.slice(5).trim();
+            if (!data || data === "[DONE]") continue;
+            try {
+              const event = JSON.parse(data);
+              if (event?.error) {
+                const msg =
+                  typeof event.error === "string" ? event.error : event.error?.message ?? "upstream error";
+                console.error("upstream (tools) stream error:", msg);
+                emit({ type: "error", error: { type: "api_error", message: msg } });
+                continue;
+              }
+              const usage = event?.usage?.completion_tokens;
+              if (typeof usage === "number") reportedOutputTokens = usage;
+              const choice = event?.choices?.[0];
+              const delta = choice?.delta;
+              if (typeof delta?.content === "string" && delta.content.length > 0) {
+                emittedChars += delta.content.length;
+                emit({
+                  type: "content_block_delta",
+                  index: 0,
+                  delta: { type: "text_delta", text: delta.content },
+                });
+              }
+              const tcs: Array<{
+                index?: number;
+                id?: string;
+                function?: { name?: string; arguments?: string };
+              }> = delta?.tool_calls ?? [];
+              for (const tc of tcs) {
+                if (typeof tc.index !== "number") continue;
+                let slot = slots.get(tc.index);
+                if (!slot) {
+                  slot = { id: tc.id ?? `call_${tc.index}`, name: "", open: false, args: "" };
+                  slots.set(tc.index, slot);
+                }
+                if (tc.id) slot.id = tc.id;
+                if (tc.function?.name) slot.name = tc.function.name;
+                const args = tc.function?.arguments;
+                if (typeof args === "string" && args.length > 0) {
+                  emittedChars += args.length;
+                  if (slot.open) {
+                    emit({
+                      type: "content_block_delta",
+                      index: tc.index + 1,
+                      delta: { type: "input_json_delta", partial_json: args },
+                    });
+                  } else {
+                    slot.args += args;
+                  }
+                }
+                openBlock(tc.index, slot);
+              }
+              if (typeof choice?.finish_reason === "string" && choice.finish_reason.length > 0) {
+                finishReason = choice.finish_reason;
+              }
+            } catch {
+              // skip malformed events
+            }
+          }
+        }
+        // close every tool block, then report the stop reason
+        for (const [index, slot] of slots) {
+          openBlock(index, slot);
+          if (slot.open) emit({ type: "content_block_stop", index: index + 1 });
+        }
+        const stop =
+          finishReason === "tool_calls" || (finishReason === "stop" && slots.size > 0)
+            ? "tool_use"
+            : finishReason
+              ? mapFinishReason(finishReason)
+              : "end_turn";
+        emit({ type: "message_delta", delta: { stop_reason: stop } });
+        controller.close();
+        finish();
+      } catch (err) {
+        finish();
+        console.error("upstream (tools) stream failed:", err);
+        try {
+          emit({
+            type: "error",
+            error: { type: "connection_error", message: "The connection to the model dropped mid-answer." },
+          });
+        } catch {
+          // already closed
+        }
+        controller.error(err);
+      } finally {
+        reader.releaseLock();
+      }
+    },
+  });
+}
+
+// ── Gemini native branch (direct video input) ────────────────
+
+/** Anthropic-shape content block → Gemini `parts`. */
+function toGeminiParts(
+  content: string | ContentBlock[],
+): Array<Record<string, unknown>> {
+  if (typeof content === "string") return [{ text: content }];
+  return content.map((block) =>
+    block.type === "text"
+      ? { text: block.text }
+      : {
+          inline_data: {
+            mime_type: block.source.media_type,
+            data: block.source.data,
+          },
+        },
+  );
+}
+
+/**
+ * Gemini generateContent (SSE) with the YouTube video attached by URL to
+ * the latest user turn. Earlier turns go in as plain history: Gemini
+ * only needs the video in the request being answered, and attaching it
+ * to every turn would multiply the media tokens. Output is converted to
+ * the same Anthropic-style events the OpenAI-compat path emits.
+ */
+async function tryGeminiNativeVideo(
+  apiKey: string,
+  model: string,
+  systemPrompt: string,
+  messages: ChatRequestBody["messages"],
+  clip: { url: string; startSec: number | null; endSec: number | null },
+  maxOutputTokens: number,
+  onUsage?: (outputTokens: number) => void,
+): Promise<ReadableStream<Uint8Array> | null> {
+  const lastUserIdx = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") return i;
+    }
+    return -1;
+  })();
+  const videoPart: Record<string, unknown> = {
+    file_data: { file_uri: clip.url },
+  };
+  if (clip.startSec !== null || clip.endSec !== null) {
+    videoPart.video_metadata = {
+      ...(clip.startSec !== null ? { start_offset: `${clip.startSec}s` } : {}),
+      ...(clip.endSec !== null ? { end_offset: `${clip.endSec}s` } : {}),
+    };
+  }
+  const contents = messages.map((m, i) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts:
+      i === lastUserIdx
+        ? [videoPart, ...toGeminiParts(m.content)]
+        : toGeminiParts(m.content),
+  }));
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
+  let upstream: Response;
+  try {
+    upstream = await fetch(url, {
+      method: "POST",
+      headers: {
+        "x-goog-api-key": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents,
+        generationConfig: {
+          maxOutputTokens,
+          // ~100 tokens/s instead of ~300: matches VIDEO_TOKENS_PER_SECOND
+          mediaResolution: "MEDIA_RESOLUTION_LOW",
+        },
+      }),
+    });
+  } catch (err) {
+    console.error(`gemini-video (${model}) request failed:`, err);
+    return null;
+  }
+  if (!upstream.ok || !upstream.body) {
+    const text = await upstream.text().catch(() => "");
+    console.error(`gemini-video (${model}) returned ${upstream.status}: ${text}`);
+    return null;
+  }
+  return geminiToAnthropicSse(upstream.body, onUsage);
+}
+
+/** Gemini streamGenerateContent SSE → Anthropic-style text_delta events. */
+function geminiToAnthropicSse(
+  upstream: ReadableStream<Uint8Array>,
+  onUsage?: (outputTokens: number) => void,
+): ReadableStream<Uint8Array> {
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  let buffer = "";
+  let reportedOutputTokens: number | null = null;
+  let emittedChars = 0;
+  const finish = () => {
+    if (!onUsage) return;
+    onUsage(reportedOutputTokens ?? Math.ceil(emittedChars / 4));
+  };
+  return new ReadableStream({
+    async start(controller) {
+      const reader = upstream.getReader();
+      const emit = (event: unknown) =>
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let nlIdx;
+          while ((nlIdx = buffer.indexOf("\n")) !== -1) {
+            const line = buffer.slice(0, nlIdx).replace(/\r$/, "");
+            buffer = buffer.slice(nlIdx + 1);
+            if (!line.startsWith("data:")) continue;
+            const data = line.slice(5).trim();
+            if (!data) continue;
+            try {
+              const event = JSON.parse(data);
+              if (event?.error) {
+                const msg = event.error?.message ?? "upstream error";
+                console.error("gemini-video stream error:", msg);
+                emit({ type: "error", error: { type: "api_error", message: msg } });
+                continue;
+              }
+              const usage = event?.usageMetadata;
+              if (usage && typeof usage.candidatesTokenCount === "number") {
+                reportedOutputTokens =
+                  usage.candidatesTokenCount +
+                  (typeof usage.thoughtsTokenCount === "number"
+                    ? usage.thoughtsTokenCount
+                    : 0);
+              }
+              const candidate = event?.candidates?.[0];
+              const parts: Array<{ text?: string; thought?: boolean }> =
+                candidate?.content?.parts ?? [];
+              for (const part of parts) {
+                if (part.thought || typeof part.text !== "string" || !part.text) continue;
+                emittedChars += part.text.length;
+                emit({
+                  type: "content_block_delta",
+                  index: 0,
+                  delta: { type: "text_delta", text: part.text },
+                });
+              }
+              const finishReason = candidate?.finishReason;
+              if (typeof finishReason === "string" && finishReason.length > 0) {
+                if (finishReason !== "STOP") {
+                  console.warn("gemini-video finishReason:", finishReason);
+                }
+                emit({
+                  type: "message_delta",
+                  delta: { stop_reason: mapFinishReason(finishReason.toLowerCase()) },
+                });
+              }
+            } catch {
+              // skip malformed events
+            }
+          }
+        }
+        controller.close();
+        finish();
+      } catch (err) {
+        finish();
+        console.error("gemini-video stream failed:", err);
+        try {
+          emit({
+            type: "error",
+            error: { type: "connection_error", message: "The connection to the model dropped mid-answer." },
+          });
+        } catch {
+          // controller already closed
+        }
+        controller.error(err);
+      } finally {
+        reader.releaseLock();
+      }
+    },
+  });
+}
 
 // ── OpenAI-compatible branch (OpenAI, Gemini, future Mistral/OR) ─
 

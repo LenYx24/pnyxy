@@ -21,6 +21,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { Button, FloatingMenu, Kbd } from "@/components/ui";
 import { modalBackdropClass, modalSurfaceClass } from "@/components/ui/classes";
 import { useContextMenu } from "@/hooks/use-context-menu";
+import { useFeatures } from "@/lib/use-features";
 import { CreateFolderModal } from "./modals/CreateFolderModal";
 import { cn } from "@/lib/cn";
 import { useOpenDocument } from "@/hooks/use-open-document";
@@ -149,6 +150,7 @@ export function LibraryPage() {
   const navigate = useNavigate();
   const createBtnRef = useRef<HTMLButtonElement>(null);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
+  const features = useFeatures();
 
   // View preferences
   const {
@@ -715,25 +717,39 @@ export function LibraryPage() {
   }, [createConversation, currentFolderId, navigate]);
 
   // "Create" rows, shared by the + New dropdown and the right-click menu.
+  // Entities behind a disabled feature flag (pilot) are hidden here too,
+  // otherwise the menu could create things the user can't open.
   const createEntries = [
-    {
-      id: "create-note",
-      label: t("library.create.note"),
-      icon: StickyNote,
-      onClick: handleCreateNote,
-    },
-    {
-      id: "create-whiteboard",
-      label: t("library.create.whiteboard"),
-      icon: PenLine,
-      onClick: handleCreateWhiteboard,
-    },
-    {
-      id: "create-quiz",
-      label: t("library.create.quiz"),
-      icon: FileQuestion,
-      onClick: handleCreateQuiz,
-    },
+    ...(features.notes
+      ? [
+          {
+            id: "create-note",
+            label: t("library.create.note"),
+            icon: StickyNote,
+            onClick: handleCreateNote,
+          },
+        ]
+      : []),
+    ...(features.whiteboard
+      ? [
+          {
+            id: "create-whiteboard",
+            label: t("library.create.whiteboard"),
+            icon: PenLine,
+            onClick: handleCreateWhiteboard,
+          },
+        ]
+      : []),
+    ...(features.quizzes
+      ? [
+          {
+            id: "create-quiz",
+            label: t("library.create.quiz"),
+            icon: FileQuestion,
+            onClick: handleCreateQuiz,
+          },
+        ]
+      : []),
     {
       id: "create-chat",
       label: t("library.create.chat"),
@@ -916,14 +932,10 @@ export function LibraryPage() {
             onViewModeChange={setViewMode}
             onRefresh={handleRefresh}
             isRefreshing={isLoading}
-            leading={
-              <div className="flex min-w-0 items-center gap-2">
-                {breadcrumb}
-                <StreakPill />
-              </div>
-            }
+            leading={breadcrumb}
             trailing={
               <div className="flex shrink-0 items-center gap-2">
+                <StreakPill />
                 {/* Primary "Add" dropdown: upload + the other add modes,
                     create entities and new folder, one click from the header.
                     Ctrl+U still uploads directly. */}

@@ -24,6 +24,8 @@ import { AuthPage } from "@/features/auth/AuthPage";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
 import { WelcomePage } from "@/features/auth/WelcomePage";
+import { ExtensionPanelPage } from "@/features/extension/ExtensionPanelPage";
+import { OpenUrlPage } from "@/features/resources/OpenUrlPage";
 
 // Lazy routes. Suspense fallback lives on AppLayout's <Outlet />.
 // .then unwraps named exports since React.lazy needs a default export.
@@ -313,6 +315,8 @@ export const router = createBrowserRouter([
       { path: "/auth/forgot-password", element: <ForgotPasswordPage /> },
       { path: "/auth/reset-password", element: <ResetPasswordPage /> },
       { path: "/auth/welcome", element: <WelcomePage /> },
+      // browser extension side panel (iframe); no app chrome
+      { path: "/ext", element: <ExtensionPanelPage /> },
     ],
   },
   {
@@ -372,6 +376,8 @@ export const router = createBrowserRouter([
       { path: "library", element: <LibraryPage /> },
       { path: "notes/:noteId", element: <FeatureGate feature="notes"><NotePage /></FeatureGate> },
       { path: "resources/:resourceId", element: <ResourceViewerPage /> },
+      // extension hand-off: save a link and land on its viewer
+      { path: "open", element: <OpenUrlPage /> },
       { path: "workspace", element: <Navigate to="/library" replace /> },
       { path: "streaks", element: <StreaksPage /> },
       { path: "plans/new", element: <FeatureGate feature="readingPlans"><PlanDetailPage /></FeatureGate> },

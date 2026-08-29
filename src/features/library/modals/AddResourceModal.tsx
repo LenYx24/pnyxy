@@ -12,6 +12,8 @@ import { Button } from "@/components/ui";
 import { modalBackdropClass, modalSurfaceClass } from "@/components/ui/classes";
 import { logError } from "@/lib/logger";
 import { useResourceStore } from "@/stores/resource-store";
+import { useFeature } from "@/lib/use-features";
+import { detectResourceKind } from "@/lib/resource-url";
 
 interface AddResourceModalProps {
   open: boolean;
@@ -36,6 +38,7 @@ export function AddResourceModal({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const createResource = useResourceStore((s) => s.createResource);
+  const webArticles = useFeature("webArticles");
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +69,11 @@ export function AddResourceModal({
       e.preventDefault();
       const trimmed = url.trim();
       if (!trimmed) return;
+      // pilot: only YouTube unless the web-articles flag is on
+      if (!webArticles && detectResourceKind(trimmed) !== "youtube") {
+        setError(t("library.resource.youtubeOnly"));
+        return;
+      }
 
       setLoading(true);
       setError(null);
@@ -82,7 +90,7 @@ export function AddResourceModal({
         setLoading(false);
       }
     },
-    [url, folderId, createResource, onClose, navigate, t],
+    [url, folderId, createResource, onClose, navigate, t, webArticles],
   );
 
   if (!open) return null;

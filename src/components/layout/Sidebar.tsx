@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
-import { NavLink } from "react-router";
+import { NavLink, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   GraduationCap,
   LogIn,
+  Plus,
   Settings as SettingsIcon,
   X,
   type LucideIcon,
@@ -214,6 +215,10 @@ function Rail() {
         </NavLink>
       </Tooltip>
 
+      {/* Quick-chat CTA: the zero-setup entry point ("I want to learn
+          about this video…"). Same as Ctrl+Shift+O. */}
+      <QuickChatCta className="mb-3" />
+
       <nav className="flex flex-1 flex-col items-center gap-2 overflow-y-auto">
         {primaryItems.map((item) => (
           <div key={item.to} className="contents">
@@ -353,6 +358,7 @@ function Drawer({ onNavigate }: { onNavigate: () => void }) {
         >
           <img src="/logo.svg" alt="Pnyxy" className="h-8 w-8" />
         </NavLink>
+        <QuickChatCta className="ml-3" onClick={onNavigate} />
         <button
           type="button"
           onClick={onNavigate}
@@ -499,5 +505,40 @@ export function Sidebar() {
     >
       <Rail />
     </aside>
+  );
+}
+
+/**
+ * Accent "+" that opens a fresh quick conversation from anywhere. The
+ * chat page reads the `newChat` state flag (same as Ctrl+Shift+O) and
+ * shows the intent chips ("learn from a YouTube video…") so the
+ * student never has to set up folders first.
+ */
+export function QuickChatCta({
+  className,
+  onClick,
+}: {
+  className?: string;
+  onClick?: () => void;
+}) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  return (
+    <Tooltip label={t("sidebar.quickChat")}>
+      <button
+        type="button"
+        onClick={() => {
+          onClick?.();
+          navigate("/chat", { state: { newChat: Date.now() } });
+        }}
+        aria-label={t("sidebar.quickChat")}
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-white shadow-lg shadow-accent/30 transition-transform hover:scale-105 active:scale-95 cursor-pointer",
+          className,
+        )}
+      >
+        <Plus size={18} strokeWidth={2} />
+      </button>
+    </Tooltip>
   );
 }

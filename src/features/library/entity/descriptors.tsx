@@ -248,7 +248,12 @@ export function useChatDescriptor(
     // auto-open-most-recent effect is skipped because activeId is set.
     open: () => {
       void openConversation(conversation.id);
-      navigate("/chat");
+      // land drilled into the conversation's folder (sidebar ?folder=)
+      navigate(
+        conversation.folder_id
+          ? `/chat?folder=${encodeURIComponent(conversation.folder_id)}`
+          : "/chat",
+      );
     },
     openLabel: t("library.allBooks.openChat"),
     openIcon: MessageSquare,

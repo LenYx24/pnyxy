@@ -43,7 +43,48 @@
     "loading": "Betöltés…",
     "notFound": "Ez az erőforrás nem található.",
     "openOriginal": "Eredeti megnyitása",
-    "previewUnavailable": "Az olvasható előnézet még nem érhető el. A kinyerés béta funkció, amelyhez a szerveroldali beolvasó függvény szükséges."
+    "previewUnavailable": "Az olvasható előnézet még nem érhető el. A kinyerés béta funkció, amelyhez a szerveroldali beolvasó függvény szükséges.",
+    "chat": {
+      "title": "AI chat",
+      "toggle": "AI chat",
+      "conversations": "Beszélgetések ehhez a videóhoz",
+      "newConversation": "Új beszélgetés",
+      "noConversations": "Még nincs beszélgetés ehhez a videóhoz.",
+      "newConversationFailed": "Nem sikerült beszélgetést indítani.",
+      "placeholder": "Kérdezz a videóról…",
+      "emptyTitle": "Kérdezz bármit erről a videóról",
+      "emptyBody": "Fent válaszd ki, hogyan kapja meg az AI a videót: átiratként (bármelyik modell) vagy magát a videót (Gemini). Időintervallummal egy részre szűkítheted.",
+      "modeTranscript": "Átirat",
+      "modeVideo": "Videó (Gemini)",
+      "modeTranscriptHint": "A feliratok ({{lang}}, {{count}} sor) szövegként mennek a modellnek. Minden modellel működik; a képet az AI nem látja.",
+      "modeTranscriptMissing": "Ehhez a videóhoz nincs elmentett átirat. Próbáld meg letölteni, vagy válts videó módra.",
+      "modeVideoHint": "A Gemini magát a videót nézi meg (kép + hang) a Pnyxy útvonalon. Lassabb és több napi kvótát fogyaszt, kb. 100 token a videó minden másodpercére.",
+      "modeVideoNeedsPnyxy": "A videó módhoz a Pnyxy szolgáltatót kell bekapcsolni a Beállítások › AI alatt.",
+      "fetchTranscript": "Átirat letöltése",
+      "transcriptFetched": "Átirat elmentve.",
+      "transcriptUnavailable": "Ehhez a videóhoz nem találtunk letölthető feliratot.",
+      "transcriptFetchFailed": "Nem sikerült letölteni az átiratot.",
+      "clipLabel": "A videó része",
+      "clipFrom": "ettől (p:mp)",
+      "clipTo": "eddig (p:mp)",
+      "now": "most",
+      "useCurrentTime": "A lejátszó aktuális ideje",
+      "wholeVideo": "Teljes videó",
+      "toEnd": "vége",
+      "clipInvalid": "p:mp vagy ó:pp:mp formátum, a vég a kezdet után legyen.",
+      "seekTo": "Ugrás ide: {{time}}",
+      "articleContext": "A teljes cikkszöveg az AI kontextusa.",
+      "articleMissing": "A cikk szövegét nem sikerült kinyerni; az AI csak a címet és az URL-t ismeri.",
+      "emptyBodyArticle": "Kérj összefoglalót, egy szakasz magyarázatát, vagy kérdezz ki belőle.",
+      "placeholderArticle": "Kérdezz a cikkről…",
+      "emptyTitleArticle": "Kérdezz bármit erről a cikkről"
+    },
+    "webReadElsewhere": "Az eredeti oldalon vagy a Pnyxy böngészőbővítménnyel olvasd; a hozzá tartozó beszélgetések itt maradnak.",
+    "open": {
+      "badUrl": "Ezt a linket nem lehet megnyitni.",
+      "saving": "Mentés a könyvtáradba…",
+      "pdfQueued": "A PDF letöltése a könyvtáradba…"
+    }
   },
   "spaces": {
     "list": {
@@ -271,7 +312,8 @@
     "skip": "Kihagyás",
     "clear": "Törlés",
     "beta": "Béta",
-    "add": "Hozzáadás"
+    "add": "Hozzáadás",
+    "resize": "Átméretezés"
   },
   "sidebar": {
     "home": "Kezdőlap",
@@ -300,7 +342,8 @@
     "orgSwitcher": {
       "title": "Munkaterület váltása",
       "manage": "Szervezetek kezelése"
-    }
+    },
+    "quickChat": "Új gyors chat"
   },
   "commandPalette": {
     "placeholder": "Keresés vagy ugrás…",
@@ -482,6 +525,11 @@
         "help": "Illessz be CSS szabályokat az alkalmazás stílusainak felülírásához. A Tailwind utility osztályok (pl. .bg-accent, .text-text-muted) és a :root-on lévő téma változók (--color-accent, --bg-primary, …) stabil szelektorok, ezekre érdemes hivatkozni. A változások azonnal érvényesülnek, és csak ezen az eszközön maradnak meg.",
         "placeholder": ":root { --color-accent: #ff7eb6; }\n\n/* Streak pille elrejtése */\n.streak-pill { display: none; }",
         "reset": "Visszaállítás"
+      },
+      "chat": {
+        "heading": "Chat",
+        "fontSize": "Szövegméret: {{value}} px",
+        "fontSizeHelp": "Az üzenetek és a beviteli mező betűmérete az AI chatben."
       }
     },
     "aboutSection": {
@@ -632,7 +680,7 @@
       "defaultModelHeading": "Alapértelmezett modell",
       "defaultModelLabel": "Modell",
       "defaultModelHint": "A beépített Pnyxy útvonal használja. Az Auto a legolcsóbb működő modellt választja, és feljebb lép, ha elfogy a keret.",
-      "routingNote": "A kvíz- és roadmap-generálás mindig Claude Haiku 4.5-öt használ (tool-use).",
+      "routingNote": "A kvíz-, roadmap- és könyvtár-rendező körök ugyanazt a modell-útvonalat használják (function calling), Claude Haiku 4.5 a végső fallback.",
       "autoModel": "Automatikus",
       "autoModelNote": "legolcsóbb működő modell, kvóta után feljebb lép",
       "noteCheap": "olcsó",
@@ -1180,7 +1228,8 @@
       "addError": "Nem sikerült elmenteni a linket.",
       "urlLabel": "Link URL",
       "save": "Mentés",
-      "saving": "Mentés…"
+      "saving": "Mentés…",
+      "youtubeOnly": "Egyelőre csak YouTube-linket lehet menteni; a webes cikkek mentése zárt pilotban van."
     },
     "allBooks": {
       "breadcrumbRoot": "Könyvtár",
@@ -1297,6 +1346,12 @@
     "dnd": {
       "dropHere": "Ide dobod",
       "moveUp": "Feljebb: {{name}}"
+    },
+    "pathEditor": {
+      "label": "Mappa útvonal",
+      "placeholder": "írj be egy mappa-útvonalat…",
+      "hint": "Kattints az útvonal szerkesztéséhez ({{shortcut}})",
+      "noMatch": "Nincs ilyen útvonalú mappa."
     }
   },
   "download": {
@@ -1685,7 +1740,7 @@
     "editSaveAndSend": "Mentés és küldés",
     "readAloud": "Felolvasás",
     "readAloudStop": "Felolvasás leállítása",
-    "searchPlaceholder": "Beszélgetések keresése…",
+    "searchPlaceholder": "Beszélgetések és mappák keresése…",
     "searchNoResults": "Nincs találat a keresésre.",
     "rename": "Átnevezés",
     "delete": "Törlés",
@@ -1777,7 +1832,13 @@
       "modeVideos": "Videóajánló",
       "modeImage": "Kép generálása",
       "moreActions": "Továbbiak",
-      "modeLabel": "Mód"
+      "modeLabel": "Mód",
+      "modeLibrary": "Könyvtár rendezése",
+      "webSearch": {
+        "label": "Webes keresés",
+        "off": "Webes keresés kikapcsolása",
+        "button": "Webes keresés: a modell rákeres a weben ehhez és a következő kérdésekhez (Pnyxy-n Gemini grounding, saját kulccsal Anthropic / OpenAI keresés). Körönként kicsit többe kerül."
+      }
     },
     "folders": {
       "create": "Új mappa",
@@ -1835,9 +1896,6 @@
     "branchPrev": "Előző ág",
     "branchNext": "Következő ág",
     "emptyHeadline": "Mit tanuljunk ma?",
-    "emptySuggestion1": "Magyarázd el egyszerűen a Bayes-tételt",
-    "emptySuggestion2": "Tervezd meg a tanulási hetemet",
-    "emptySuggestion3": "Kérdezz ki az utoljára olvasott fejezetből",
     "quotaModal": {
       "title": "Napi keret",
       "resetsAt": "Éjfélkor (UTC) nullázódik, nálad {{time}}-kor",
@@ -1988,6 +2046,59 @@
       "title": "Megnyitod ezt a linket?",
       "body": "Ezt az URL-t az AI javasolta. Az AI-modellek kitalálhatnak linkeket, megnyitás előtt ellenőrizd, hogy a domain rendben van-e.",
       "open": "Megnyitás új lapon"
+    },
+    "intents": {
+      "youtube": "YouTube videóból tanulás",
+      "youtubePrompt": "Ebből a YouTube videóból szeretnék tanulni: <illeszd be a linket>",
+      "article": "Cikk olvasása kérdésekkel",
+      "articlePrompt": "Ezt a cikket szeretném elolvasni és átbeszélni: <illeszd be a linket>",
+      "exam": "Vizsgára/ZH-ra készülök",
+      "examPrompt": "<tárgy> vizsgára/ZH-ra készülök. Segíts megtervezni, és állíts fel egy tanulási struktúrát a könyvtáramban.",
+      "chat": "Csak beszélgetnék",
+      "chatPrompt": ""
+    },
+    "linkOffer": {
+      "youtubeTitle": "YouTube videót találtam",
+      "youtubeBody": "Mentsd a könyvtáradba, letöltjük az átiratot, és ez a beszélgetés a lejátszó mellett folytatódik.",
+      "webTitle": "Linket találtam",
+      "webBody": "Mentsd a könyvtáradba, hogy az AI el tudja olvasni a tartalmát.",
+      "save": "Mentés és megnyitás AI-jal",
+      "saveWeb": "Mentés a könyvtárba",
+      "open": "Megnyitás AI-jal",
+      "saving": "Mentés…",
+      "failed": "Nem sikerült menteni a linket.",
+      "dismiss": "Elvetés"
+    },
+    "toolApproval": {
+      "title": "Az AI módosítana a könyvtáradon",
+      "approve": "Alkalmaz",
+      "approveAll": "Mindet ebben a körben",
+      "reject": "Kihagy",
+      "tool_create_folder": "Mappa létrehozása",
+      "tool_move_item": "Elem áthelyezése",
+      "tool_create_chat": "Chat indítása"
+    },
+    "inlineGraph": {
+      "title": "Gráf",
+      "edited": "szerkesztve",
+      "incoming": "Gráf rajzolása…",
+      "addNode": "Csúcs hozzáadása",
+      "rename": "Csúcs átnevezése",
+      "delete": "Csúcs törlése",
+      "makeDirected": "Legyen irányított",
+      "makeUndirected": "Legyen irányítatlan",
+      "relayout": "Automatikus elrendezés",
+      "hint": "Húzz csúcsok között az élhez, dupla katt az átnevezéshez, Delete töröl.",
+      "askAi": "Kérdés erről a gráfról",
+      "renameTitle": "Csúcs címkéje",
+      "askTitle": "Kérdezd az AI-t a szerkesztett gráfról",
+      "askPlaceholder": "pl. Futtass BFS-t A-ból ezen a gráfon"
+    },
+    "commands": {
+      "graph": {
+        "label": "gráf-ábra",
+        "hint": "A válasz szerkeszthető gráf-ábraként"
+      }
     }
   },
   "readingPlans": {
@@ -3057,7 +3168,8 @@
       "screenshot": "Képernyőkép a nézetről",
       "undo": "Utolsó jegyzetművelet visszavonása",
       "shortcutsSheet": "Gyorsbillentyű-lista",
-      "quickAsk": "Gyors kérdés"
+      "quickAsk": "Gyors kérdés",
+      "editPath": "Mappa útvonal szerkesztése"
     },
     "sheet": {
       "title": "Gyorsbillentyűk",
@@ -3083,5 +3195,19 @@
     "placeholderFrustrated": "Mi zavar? Minden választ elolvasunk.",
     "placeholder": "Bármi, amit tudnunk kellene: funkciók, hibák, ötletek.",
     "send": "Küldés"
+  },
+  "extension": {
+    "signInTitle": "Jelentkezz be a Pnyxybe",
+    "signInBody": "A panel a nyitott Pnyxy-füled munkamenetét használja. Ott jelentkezz be (a Google csak teljes fülben megy), aztán gyere vissza.",
+    "notEnabledTitle": "A fiókodon nincs bekapcsolva",
+    "notEnabledBody": "A bővítmény-chat zárt pilotban van.",
+    "waitingForPage": "Oldal beolvasása…",
+    "saving": "mentés a könyvtárba",
+    "savedTo": "elmentve ide: {{folder}}",
+    "saveFailed": "Nem sikerült elmenteni az oldalt a könyvtáradba.",
+    "openInApp": "Megnyitás a Pnyxyben",
+    "openAppToSignIn": "Pnyxy megnyitása a belépéshez",
+    "signInHere": "…vagy lépj be itt e-maillel",
+    "settings": "Bővítmény beállításai"
   }
 }

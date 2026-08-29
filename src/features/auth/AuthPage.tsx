@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, Navigate, useNavigate } from "react-router";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "lucide-react";
 import { MeshBackground, Button, Checkbox } from "@/components/ui";
@@ -39,6 +39,13 @@ function GoogleIcon({ size = 18 }: { size?: number }) {
 export function AuthPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  // ?next=/path: where to land after sign-in (the browser extension's
+  // side panel signs in inside its iframe and needs to get back to /ext).
+  // Only same-app absolute paths are honored.
+  const [searchParams] = useSearchParams();
+  const rawNext = searchParams.get("next");
+  const nextPath =
+    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : null;
   const { user, signIn, signUp, signInWithGoogle, error } = useAuthStore();
   const [tab, setTab] = useState<AuthTab>("sign-in");
   const [displayName, setDisplayName] = useState("");
@@ -53,7 +60,7 @@ export function AuthPage() {
   const [consent, setConsent] = useState(false);
 
   if (user) {
-    return <Navigate to="/library" replace />;
+    return <Navigate to={nextPath ?? "/library"} replace />;
   }
 
   const displayError = localError ?? error;
@@ -67,7 +74,7 @@ export function AuthPage() {
     try {
       if (tab === "sign-in") {
         await signIn(email, password);
-        navigate("/auth/welcome");
+        navigate(nextPath ?? "/auth/welcome");
       } else {
         if (!consent) {
           setLocalError(t("auth.consent.required"));

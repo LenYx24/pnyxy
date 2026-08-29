@@ -55,8 +55,15 @@ export function youtubeThumbnail(id: string): string {
   return `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
 }
 
-export function youtubeEmbedUrl(id: string): string {
-  return `https://www.youtube.com/embed/${id}`;
+/** Embed URL with the IFrame API enabled so the page can read the
+ *  playhead (see useYouTubePlayer) without loading YouTube's script. */
+export function youtubeEmbedUrl(id: string, startSeconds = 0): string {
+  const origin =
+    typeof window !== "undefined" && window.location.origin.startsWith("http")
+      ? `&origin=${encodeURIComponent(window.location.origin)}`
+      : "";
+  const start = startSeconds > 0 ? `&start=${Math.floor(startSeconds)}` : "";
+  return `https://www.youtube.com/embed/${id}?enablejsapi=1${origin}${start}`;
 }
 
 /** Best-effort human title from a URL when no metadata is available. */
@@ -85,4 +92,13 @@ export function displayHost(raw: string): string {
   } catch {
     return raw;
   }
+}
+
+const URL_RE = /https?:\/\/[^\s<>()"']+/i;
+
+/** First http(s) URL in free text, trailing punctuation stripped. */
+export function extractFirstUrl(text: string): string | null {
+  const m = text.match(URL_RE);
+  if (!m) return null;
+  return m[0].replace(/[.,;:!?)\]]+$/, "");
 }

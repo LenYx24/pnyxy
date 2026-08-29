@@ -152,6 +152,7 @@ export const SHORTCUT_CATALOG: CatalogEntry[] = [
   { id: "library:new-folder", group: "library", labelKey: "newFolder", key: "f", ctrl: true, shift: true },
   { id: "library:scan-device", group: "library", labelKey: "scanDevice", key: "d", ctrl: true, shift: true },
   { id: "library:go-up", group: "library", labelKey: "goUp", key: "Backspace", alt: true },
+  { id: "library:edit-path", group: "library", labelKey: "editPath", key: "l", ctrl: true, shift: true },
   // Chat
   { id: "chat:new", group: "chat", labelKey: "newChat", key: "o", ctrl: true, shift: true },
   // Reader

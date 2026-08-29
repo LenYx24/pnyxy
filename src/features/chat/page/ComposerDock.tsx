@@ -108,16 +108,19 @@ export function ComposerDock({
       const provider = payload.provider ?? undefined;
       // topic-first modes swap the system prompt for one turn; reasoning is sticky
       const sendOptions =
-        payload.mode !== "default" || payload.reasoning
+        payload.mode !== "default" || payload.reasoning || payload.webSearch
           ? {
-              ...(payload.mode !== "default"
-                ? {
-                    systemPromptOverride: buildRecommendationSystemPrompt(
-                      payload.mode,
-                    ),
-                  }
-                : {}),
+              ...(payload.mode === "library"
+                ? { libraryTools: true, scope: "library" as const }
+                : payload.mode !== "default"
+                  ? {
+                      systemPromptOverride: buildRecommendationSystemPrompt(
+                        payload.mode,
+                      ),
+                    }
+                  : {}),
               ...(payload.reasoning ? { reasoning: true } : {}),
+              ...(payload.webSearch ? { webSearch: true } : {}),
             }
           : undefined;
       if (!activeId) {

@@ -9,6 +9,37 @@ const DEFAULT_APP_URL = "https://pnyxy.com";
 const SELECTION_LIMIT = 4000;
 
 const MENU_ASK = "pnyxy-ask-selection";
+const MENU_ADD_PDF = "pnyxy-add-pdf";
+const PDF_URL_RE = /\.pdf(?:[?#]|$)/i;
+
+// PDF tabs: the built-in viewer takes no content scripts, so the hint is
+// a badge on the toolbar icon plus a context-menu entry; both hand the
+// URL to the app's /open route, which downloads it into the library.
+function updatePdfBadge(tabId, url) {
+  const isPdf = typeof url === "string" && PDF_URL_RE.test(url);
+  chrome.action.setBadgeText({ tabId, text: isPdf ? "PDF" : "" }).catch(() => {});
+  if (isPdf) {
+    chrome.action.setBadgeBackgroundColor({ tabId, color: "#5fb3c6" }).catch(() => {});
+    chrome.action.setTitle({ tabId, title: "Add this PDF to Pnyxy" }).catch(() => {});
+  } else {
+    chrome.action.setTitle({ tabId, title: "Pnyxy: chat about this page" }).catch(() => {});
+  }
+}
+chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+  if (info.url || info.status === "complete") updatePdfBadge(tabId, tab && tab.url);
+});
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  chrome.tabs.get(tabId).then((tab) => updatePdfBadge(tabId, tab && tab.url)).catch(() => {});
+});
+
+async function addPdfToApp(pdfUrl) {
+  if (!pdfUrl) return;
+  const appUrl = await getAppUrl();
+  const params = new URLSearchParams();
+  params.set("url", pdfUrl);
+  await chrome.tabs.create({ url: `${appUrl}/open?${params.toString()}` });
+}
+const MENU_CHAT_PANEL = "pnyxy-chat-panel";
 const MENU_SAVE_PAGE = "pnyxy-save-page";
 const MENU_SAVE_LINK = "pnyxy-save-link";
 
@@ -111,7 +142,44 @@ async function getSelectionFromTab(tabId) {
   }
 }
 
+// Side panel: the in-browser chat about the current page (app /ext route
+// in an iframe, fed by sidepanel.js). Opening it must happen in the same
+// user-gesture tick, so no awaits before chrome.sidePanel.open.
+function openChatPanel(tab) {
+  if (!chrome.sidePanel || !tab || tab.windowId == null) return Promise.resolve();
+  return chrome.sidePanel
+    .open({ windowId: tab.windowId })
+    .then(() => {
+      // a panel that is already open re-captures the page (fresh selection)
+      chrome.runtime.sendMessage({ type: "pnyxy-panel-refresh" }).catch(() => {});
+    })
+    .catch(() => {});
+}
+
+// Toolbar icon → side panel (Chrome handles the gesture itself).
+if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+}
+// Firefox / older Chromium without sidePanel: fall back to the old
+// "ask about the selection" hand-off into the app.
+chrome.action.onClicked.addListener(async (tab) => {
+  if (chrome.sidePanel) return;
+  const selection = tab && tab.id != null ? await getSelectionFromTab(tab.id) : "";
+  await askAboutSelection(selection, tab && tab.url, tab && tab.title);
+});
+
 chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: MENU_CHAT_PANEL,
+    title: "Chat with Pnyxy about this page",
+    contexts: ["page", "selection"],
+  });
+  chrome.contextMenus.create({
+    id: MENU_ADD_PDF,
+    title: "Add this PDF to Pnyxy",
+    contexts: ["page", "link"],
+    documentUrlPatterns: ["*://*/*.pdf", "*://*/*.pdf?*", "*://*/*.pdf#*"],
+  });
   chrome.contextMenus.create({
     id: MENU_ASK,
     title: "Ask Pnyxy about this",
@@ -130,7 +198,11 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === MENU_ASK) {
+  if (info.menuItemId === MENU_ADD_PDF) {
+    void addPdfToApp((info.linkUrl && PDF_URL_RE.test(info.linkUrl) ? info.linkUrl : null) || (tab && tab.url) || info.pageUrl);
+  } else if (info.menuItemId === MENU_CHAT_PANEL) {
+    void openChatPanel(tab);
+  } else if (info.menuItemId === MENU_ASK) {
     void askAboutSelection(info.selectionText, tab && tab.url, tab && tab.title);
   } else if (info.menuItemId === MENU_SAVE_PAGE) {
     void savePage((tab && tab.url) || info.pageUrl);
@@ -164,6 +236,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     void askAboutSelection(message.selectionText, message.pageUrl, message.pageTitle).then(
       () => sendResponse({ ok: true }),
     );
+    return true;
+  }
+  // YouTube "✦ Pnyxy" pill: open the video inside the app (embedded
+  // player + AI side-chat) in a new tab. The app's /open route saves it
+  // to the library's "YouTube" folder and redirects to the viewer.
+  if (message.type === "pnyxy-add-pdf") {
+    void addPdfToApp(message.url).then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (message.type === "pnyxy-open-in-app") {
+    void (async () => {
+      const appUrl = await getAppUrl();
+      const params = new URLSearchParams();
+      params.set("url", message.url || (sender.tab && sender.tab.url) || "");
+      if (message.title) params.set("title", message.title);
+      await chrome.tabs.create({ url: `${appUrl}/open?${params.toString()}` });
+      sendResponse({ ok: true });
+    })();
+    return true;
+  }
+  if (message.type === "pnyxy-open-panel") {
+    void openChatPanel(message.tab).then(() => sendResponse({ ok: true }));
     return true;
   }
   if (message.type === "pnyxy-save-page") {

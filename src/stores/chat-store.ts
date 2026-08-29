@@ -38,6 +38,9 @@ export {
   windowChatHistory,
 } from "@/stores/chat/chat-tree";
 
+/** Monotonic id of the latest openConversation call (see its finally). */
+let openSeq = 0;
+
 export const useChatStore = create<ChatState>((set, get) => ({
   conversations: [],
   folders: [],
@@ -133,9 +136,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
         title,
         folder_id: effectiveFolderId,
         sort_order: sortOrder,
-        source_doc_id: source?.docId ?? null,
+        source_doc_id: source?.docId || null,
         source_doc_title: source?.docTitle ?? null,
         source_page: source?.page ?? null,
+        // only sent when set, so plain chats keep working while
+        // migration 00074 is not applied yet
+        ...(source?.resourceId
+          ? { source_resource_id: source.resourceId }
+          : {}),
         target_roadmap_id: target?.roadmapId ?? null,
         target_quiz_id: target?.quizId ?? null,
         parent_conversation_id: parentConversationId,
@@ -157,11 +165,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: new Map(),
       activeLeafId: null,
       messageSuggestions: new Map(),
+      // a fresh conversation has nothing to load; also cancels the flag an
+      // in-flight openConversation (auto-open racing the "+" button) set
+      isLoading: false,
     }));
     return data.id as string;
   },
 
   async openConversation(conversationId) {
+    const seq = ++openSeq;
     set({
       activeConversationId: conversationId,
       messages: new Map(),
@@ -217,9 +229,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } catch (err) {
       logError("chat:openConversation", err);
     } finally {
-      if (get().activeConversationId === conversationId) {
-        set({ isLoading: false });
-      }
+      // Only the newest open owns the flag. The old "still the active
+      // conversation" check left isLoading stuck at true when a new chat
+      // was created mid-fetch (the "+" CTA racing the auto-open), which
+      // pinned the thread's settling spinner until a reload.
+      if (seq === openSeq) set({ isLoading: false });
     }
   },
 
@@ -314,11 +328,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const newId = await get().createConversation(
       newTitle,
       source.folder_id,
-      source.source_doc_id
+      source.source_doc_id || source.source_resource_id
         ? {
-            docId: source.source_doc_id,
+            docId: source.source_doc_id ?? "",
             docTitle: source.source_doc_title ?? "",
             page: source.source_page ?? null,
+            resourceId: source.source_resource_id ?? null,
           }
         : null,
       source.target_roadmap_id || source.target_quiz_id
@@ -430,6 +445,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .from("chat_conversations")
       .update({ active_leaf_id: messageId })
       .eq("id", activeConversationId);
+  },
+
+  async linkConversationToResource(conversationId, resourceId) {
+    const { error } = await supabase
+      .from("chat_conversations")
+      .update({ source_resource_id: resourceId })
+      .eq("id", conversationId);
+    if (error) {
+      logError("chat:linkConversationToResource", error);
+      throw error;
+    }
+    set((s) => ({
+      conversations: s.conversations.map((c) =>
+        c.id === conversationId ? { ...c, source_resource_id: resourceId } : c,
+      ),
+    }));
   },
 
   async sendMessage(text, preferredProvider, attachments, options) {

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="color-scheme" content="dark" />
+<title>Pnyxy</title>
+<link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+  <div id="settings" class="settings" hidden>
+    <label class="settings-row" for="appUrl">
+      <span>App URL</span>
+      <input id="appUrl" type="text" placeholder="https://pnyxy.com" autocomplete="off" spellcheck="false" />
+    </label>
+    <label class="settings-check" for="ytButton">
+      <input id="ytButton" type="checkbox" />
+      <span>Show a small "✦ Pnyxy" button on YouTube videos</span>
+    </label>
+    <div class="settings-actions">
+      <button id="saveSettingsBtn" class="btn btn-primary" type="button">Save &amp; reload</button>
+      <button id="closeSettingsBtn" class="btn" type="button">Close</button>
+      <span id="settingsStatus" class="gate-status" role="status"></span>
+    </div>
+  </div>
+  <div id="gate" class="gate" hidden>
+    <p class="gate-title">Read this page with Pnyxy</p>
+    <p class="gate-body">Pnyxy needs permission to read the text of the pages you open, so the AI can answer about them. Nothing is read until you open this panel.</p>
+    <button id="grantBtn" class="btn btn-primary" type="button">Allow reading pages</button>
+    <p id="gateStatus" class="gate-status" role="status"></p>
+  </div>
+  <div id="pdf" class="gate" hidden>
+    <p class="gate-title">This is a PDF</p>
+    <p class="gate-body">Add it to your Pnyxy library to read it there with the AI.</p>
+    <button id="addPdfBtn" class="btn btn-primary" type="button">Add to Pnyxy</button>
+  </div>
+  <div id="blocked" class="gate" hidden>
+    <p class="gate-title">Nothing to read here</p>
+    <p class="gate-body">This tab is a browser page (settings, store, new tab) the extension can't read. Switch to a web page.</p>
+  </div>
+  <iframe id="app" class="app" title="Pnyxy" allow="clipboard-write"></iframe>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

@@ -34,13 +34,15 @@ supabase secrets set ALLOWED_ORIGINS="https://pnyxy.com,https://www.pnyxy.com,ht
 
 ### ai-chat-proxy
 
-- Purpose: streams LLM responses to the browser as Anthropic-style SSE while enforcing per-user (or per-IP) daily quotas tracked in Postgres (`check_and_record_ai_usage_user` / `_anon`). OpenAI-compatible upstreams are tried in priority order (Gemini Flash-Lite, Gemini Flash, OpenAI, Gemini 3), Anthropic is the last fallback and the only tool-use path. All upstreams are normalised to one SSE shape.
+- Purpose: streams LLM responses to the browser as Anthropic-style SSE while enforcing per-user (or per-IP) daily quotas tracked in Postgres (`check_and_record_ai_usage_user` / `_anon`). OpenAI-compatible upstreams are tried in priority order (Gemini Flash-Lite, Gemini Flash, OpenAI, Gemini 3), Anthropic is the last fallback. Tool-use mode (`tools` + `toolMessages`) walks the same OpenAI-compat chain with function calling (the OpenAI `tool_calls` stream is converted to Anthropic-style `content_block_start` / `input_json_delta` / `content_block_stop` events, tool blocks at index 1+n) and falls back to Anthropic, whose SSE is forwarded verbatim; a `preferredModel` pin narrows tool turns the same way as plain ones. All upstreams are normalised to one SSE shape.
 - Auth: optional. Signed-in users are billed against their own quota. Anonymous callers are bucketed by a salted hash of their IP. `verify_jwt = false` in `config.toml`.
+- Web search: Google Search grounding runs on the Gemini-3 tier. It is automatic for standalone chats (empty `documentTitle`, no cheaper-model pin) and forced by the body's `webSearch: true` (composer toggle) in every chat, pin or not; the grounded attempt is pre-billed with `GROUNDED_REQUEST_SURCHARGE_TOKENS`.
+- Direct-video mode: when the body carries `videoContext: { url, startSec?, endSec?, durationSec? }` (the YouTube resource side-chat's "Video (Gemini)" option) the request bypasses the OpenAI-compat chain and calls Gemini's native `streamGenerateContent` with a `file_data` part referencing the YouTube URL (clipped via `video_metadata` start/end offsets, `MEDIA_RESOLUTION_LOW`). Only YouTube hosts are accepted; only Gemini tiers are tried (a Gemini pin narrows to that model, other pins are ignored) and there is no Anthropic/OpenAI fallback. The clip length (or the whole video, capped at 3600 s) is pre-billed at 100 tokens/s on top of the usual estimate.
 - Anonymous IP resolution: `cf-connecting-ip`, else the LAST element of `x-forwarded-for` (the hop appended by the trusted proxy; the first element is client-supplied and spoofable), else `x-real-ip`. When no IP can be derived the request falls into one shared `no-ip` bucket instead of being rejected.
 - Env vars:
   - `GEMINI_API_KEY`: Google AI Studio key, OpenAI-compatible endpoint, cheapest, tried first.
   - `OPENAI_API_KEY`: OpenAI key, next fallback.
-  - `ANTHROPIC_API_KEY`: Anthropic key, final fallback for plain chat, required for tool-use mode.
+  - `ANTHROPIC_API_KEY`: Anthropic key, final fallback for plain chat and tool-use mode.
   - At least one of the three must be set.
   - `IP_HASH_SALT`: secret salt for hashing anonymous IPs (HMAC-SHA256). Required: `ipHashSalt()` now fails closed (throws) when unset, instead of falling back to `SUPABASE_SERVICE_ROLE_KEY`, so the anonymous path 500s until it is set. Set it with `supabase secrets set IP_HASH_SALT=$(openssl rand -hex 32)` before enabling `ALLOW_ANON_CHAT`. Note: changing the salt resets the anonymous buckets (old hashes no longer match).
   - `ALLOWED_ORIGINS`: see CORS policy.
@@ -62,7 +64,7 @@ supabase secrets set ALLOWED_ORIGINS="https://pnyxy.com,https://www.pnyxy.com,ht
 
 ### ingest-url
 
-- Purpose: turns a URL into a library "resource" (beta). YouTube links resolve to title / author / thumbnail via the public oEmbed API; other pages are reduced to markdown via Jina Reader (`r.jina.ai`, keyless free tier, rate-limited). Content is capped at 200k chars. The client degrades to saving a bare link if this function is absent.
+- Purpose: turns a URL into a library "resource" (beta). YouTube links resolve to title / author / thumbnail via the public oEmbed API, plus a best-effort caption transcript (`transcript`: `[{start, dur, text}]`, `transcript_lang`; migration 00074) scraped from the watch page's caption track list (preferring hu, then en, human over auto-generated; capped at 6000 cues). The scrape has no official API behind it and can be blocked for datacenter IPs, in which case `transcript` is null and the resource is still saved (the viewer offers a retry). Other pages are reduced to markdown via Jina Reader (`r.jina.ai`, keyless free tier, rate-limited). Content is capped at 200k chars. The client degrades to saving a bare link if this function is absent.
 - Auth: `verify_jwt = true` in `config.toml` (gateway enforces a signed-in caller); the function additionally calls `requireUser()` for a verified user id. Rate limited to 30 ingests/day per user via `bump_rate_limit` (migration 00073), key `ingest:<uid>`; over the cap returns `429 rate_limited`.
 - Env vars: none beyond `ALLOWED_ORIGINS` (optional).
 - Deploy: `supabase functions deploy ingest-url`

@@ -11,6 +11,10 @@ export interface ChatConversation {
   source_doc_id: string | null;
   source_doc_title: string | null;
   source_page: number | null;
+  /** Set when opened from a library resource's side-chat (YouTube video
+   *  viewer). Drives the resource-scoped conversation list there.
+   *  Optional: absent until migration 00074 is applied. */
+  source_resource_id?: string | null;
   /** Tie to an editable artifact so the AI can apply live edits. Mutually
    *  exclusive with target_quiz_id. */
   target_roadmap_id: string | null;

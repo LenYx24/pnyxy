@@ -122,8 +122,9 @@ export function ChatSheetHeader({
         />
       )}
 
-      {/* desktop sheet header: title · book, overflow kebab */}
-      <div className="hidden items-center gap-2.5 px-7 py-4 sm:flex">
+      {/* desktop sheet header: floats over the thread (Gemini-style) so the
+          text uses the full height; a short gradient keeps the title legible */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 hidden items-center gap-2.5 bg-gradient-to-b from-bg-secondary via-bg-secondary/85 to-transparent px-7 pb-5 pt-3 sm:flex [&>*]:pointer-events-auto">
         <span
           className="min-w-0 truncate font-display text-base font-semibold text-text-primary"
           title={activeTitle}

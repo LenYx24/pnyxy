@@ -43,7 +43,48 @@
     "loading": "Loading…",
     "notFound": "This resource could not be found.",
     "openOriginal": "Open original",
-    "previewUnavailable": "A readable preview isn't available yet. Extraction is a beta feature that needs the server ingest function."
+    "previewUnavailable": "A readable preview isn't available yet. Extraction is a beta feature that needs the server ingest function.",
+    "chat": {
+      "title": "AI chat",
+      "toggle": "AI chat",
+      "conversations": "Conversations for this video",
+      "newConversation": "New conversation",
+      "noConversations": "No conversations for this video yet.",
+      "newConversationFailed": "Couldn't start a conversation.",
+      "placeholder": "Ask about the video…",
+      "emptyTitle": "Ask anything about this video",
+      "emptyBody": "Pick how the AI gets the video above: the transcript (any model) or the video itself (Gemini). Narrow it to a time range to focus on one part.",
+      "modeTranscript": "Transcript",
+      "modeVideo": "Video (Gemini)",
+      "modeTranscriptHint": "The captions ({{lang}}, {{count}} cues) are sent as text. Works with every model; the AI can't see the picture.",
+      "modeTranscriptMissing": "No transcript stored for this video. Try fetching it, or switch to the video mode.",
+      "modeVideoHint": "Gemini watches the video itself (picture + audio) through the Pnyxy route. Slower and uses more of your daily quota, roughly 100 tokens per second of video.",
+      "modeVideoNeedsPnyxy": "Video mode needs the Pnyxy provider enabled in Settings › AI.",
+      "fetchTranscript": "Fetch transcript",
+      "transcriptFetched": "Transcript saved.",
+      "transcriptUnavailable": "This video has no captions we could fetch.",
+      "transcriptFetchFailed": "Couldn't fetch the transcript.",
+      "clipLabel": "Part of the video",
+      "clipFrom": "from (m:ss)",
+      "clipTo": "to (m:ss)",
+      "now": "now",
+      "useCurrentTime": "Use the player's current time",
+      "wholeVideo": "Whole video",
+      "toEnd": "end",
+      "clipInvalid": "Use m:ss or h:mm:ss, with the end after the start.",
+      "seekTo": "Jump to {{time}}",
+      "articleContext": "The whole article text is the AI's context.",
+      "articleMissing": "The article text couldn't be extracted; the AI only knows the title and URL.",
+      "emptyBodyArticle": "Ask for a summary, an explanation of a section, or a quiz on it.",
+      "placeholderArticle": "Ask about the article…",
+      "emptyTitleArticle": "Ask anything about this article"
+    },
+    "webReadElsewhere": "Read it on the original site, or with the Pnyxy browser extension; your conversations about it live here.",
+    "open": {
+      "badUrl": "That link can't be opened.",
+      "saving": "Saving to your library…",
+      "pdfQueued": "Downloading the PDF into your library…"
+    }
   },
   "common": {
     "back": "Back",
@@ -71,7 +112,8 @@
     "skip": "Skip",
     "clear": "Clear",
     "beta": "Beta",
-    "add": "Add"
+    "add": "Add",
+    "resize": "Resize"
   },
   "sidebar": {
     "home": "Home",
@@ -100,7 +142,8 @@
     "orgSwitcher": {
       "title": "Switch workspace",
       "manage": "Manage organizations"
-    }
+    },
+    "quickChat": "New quick chat"
   },
   "commandPalette": {
     "placeholder": "Search or jump to…",
@@ -277,6 +320,11 @@
         "help": "Paste CSS rules to override the app's styles. Tailwind utility classes (e.g. .bg-accent, .text-text-muted) and the theme variables on :root (--color-accent, --bg-primary, …) are the stable selectors to target. Changes apply live and persist on this device.",
         "placeholder": ":root { --color-accent: #ff7eb6; }\n\n/* Hide the streak pill */\n.streak-pill { display: none; }",
         "reset": "Reset"
+      },
+      "chat": {
+        "heading": "Chat",
+        "fontSize": "Text size: {{value}} px",
+        "fontSizeHelp": "Size of messages and the composer in the AI chat."
       }
     },
     "aboutSection": {
@@ -427,7 +475,7 @@
       "defaultModelHeading": "Default model",
       "defaultModelLabel": "Model",
       "defaultModelHint": "Used by the built-in Pnyxy route. Auto picks the cheapest working model and steps up when a quota runs out.",
-      "routingNote": "Quiz and roadmap generation always use Claude Haiku 4.5 (tool-use).",
+      "routingNote": "Quiz, roadmap and library-organizing turns use the same model routing (function calling), with Claude Haiku 4.5 as the last fallback.",
       "autoModel": "Auto",
       "autoModelNote": "cheapest working model, steps up on quota",
       "noteCheap": "cheap",
@@ -970,7 +1018,8 @@
       "addError": "Couldn't save that link.",
       "urlLabel": "Link URL",
       "save": "Save",
-      "saving": "Saving..."
+      "saving": "Saving...",
+      "youtubeOnly": "Only YouTube links can be saved right now; saving web articles is in a limited pilot."
     },
     "allBooks": {
       "breadcrumbRoot": "Library",
@@ -1090,6 +1139,12 @@
     },
     "typeFilter": {
       "noItems": "No items of this type here."
+    },
+    "pathEditor": {
+      "label": "Folder path",
+      "placeholder": "type a folder path…",
+      "hint": "Click to edit the path ({{shortcut}})",
+      "noMatch": "No folder matches this path."
     }
   },
   "download": {
@@ -1461,7 +1516,7 @@
     "editSaveAndSend": "Save & resend",
     "readAloud": "Read aloud",
     "readAloudStop": "Stop reading",
-    "searchPlaceholder": "Search conversations…",
+    "searchPlaceholder": "Search chats and folders…",
     "searchNoResults": "No conversations match your search.",
     "rename": "Rename",
     "delete": "Delete",
@@ -1553,7 +1608,13 @@
       "modeVideos": "Recommend videos",
       "modeImage": "Generate image",
       "moreActions": "More",
-      "modeLabel": "Mode"
+      "modeLabel": "Mode",
+      "modeLibrary": "Organize library",
+      "webSearch": {
+        "label": "Web search",
+        "off": "Turn off web search",
+        "button": "Web search: the model looks things up on the web for this and following turns (Gemini grounding on Pnyxy, Anthropic / OpenAI search on your own key). Costs a bit more per turn."
+      }
     },
     "folders": {
       "create": "New folder",
@@ -1611,9 +1672,6 @@
     "branchPrev": "Previous branch",
     "branchNext": "Next branch",
     "emptyHeadline": "What are we learning today?",
-    "emptySuggestion1": "Explain Bayes' theorem simply",
-    "emptySuggestion2": "Plan my study week",
-    "emptySuggestion3": "Quiz me on the last chapter I read",
     "quotaModal": {
       "title": "Daily quota",
       "resetsAt": "Resets at {{time}} (midnight UTC)",
@@ -1779,6 +1837,59 @@
     "emptyResponse": "The model returned an empty response, please try again.",
     "errors": {
       "signInRequired": "Sign in to use the AI chat"
+    },
+    "intents": {
+      "youtube": "Learn from a YouTube video",
+      "youtubePrompt": "I want to learn from this YouTube video: <paste the link>",
+      "article": "Read an article with questions",
+      "articlePrompt": "I'd like to read and discuss this article: <paste the link>",
+      "exam": "I'm preparing for an exam",
+      "examPrompt": "I'm preparing for an exam in <subject>. Help me plan and set up a study structure in my library.",
+      "chat": "Just chat",
+      "chatPrompt": ""
+    },
+    "linkOffer": {
+      "youtubeTitle": "YouTube video spotted",
+      "youtubeBody": "Save it to your library, fetch the transcript, and continue this conversation next to the player.",
+      "webTitle": "Link spotted",
+      "webBody": "Save this page to your library so the AI can read its content.",
+      "save": "Save & open with AI",
+      "saveWeb": "Save to library",
+      "open": "Open with AI",
+      "saving": "Saving…",
+      "failed": "Couldn't save the link.",
+      "dismiss": "Dismiss"
+    },
+    "toolApproval": {
+      "title": "The AI wants to act on your library",
+      "approve": "Apply",
+      "approveAll": "Apply all this turn",
+      "reject": "Skip",
+      "tool_create_folder": "Create folder",
+      "tool_move_item": "Move item",
+      "tool_create_chat": "Start chat"
+    },
+    "inlineGraph": {
+      "title": "Graph",
+      "edited": "edited",
+      "incoming": "Drawing a graph…",
+      "addNode": "Add node",
+      "rename": "Rename node",
+      "delete": "Delete node",
+      "makeDirected": "Make directed",
+      "makeUndirected": "Make undirected",
+      "relayout": "Auto-layout",
+      "hint": "Drag between nodes to connect, double-click to rename, Delete removes.",
+      "askAi": "Ask about this graph",
+      "renameTitle": "Node label",
+      "askTitle": "Ask the AI about the edited graph",
+      "askPlaceholder": "e.g. Run BFS from A on this graph"
+    },
+    "commands": {
+      "graph": {
+        "label": "graph diagram",
+        "hint": "Draw the answer as an editable graph diagram"
+      }
     }
   },
   "readingPlans": {
@@ -2848,7 +2959,8 @@
       "screenshot": "Screenshot viewport",
       "undo": "Undo last annotation",
       "shortcutsSheet": "Keyboard shortcuts cheat sheet",
-      "quickAsk": "Quick ask"
+      "quickAsk": "Quick ask",
+      "editPath": "Edit the folder path"
     },
     "sheet": {
       "title": "Keyboard shortcuts",
@@ -3050,5 +3162,19 @@
     "showLess": "Show less",
     "showMore": "Show more",
     "upvote": "Upvote"
+  },
+  "extension": {
+    "signInTitle": "Sign in to Pnyxy",
+    "signInBody": "The panel uses the session of your open Pnyxy tab. Sign in there (Google works only in a full tab), then come back.",
+    "notEnabledTitle": "Not enabled for your account",
+    "notEnabledBody": "The extension chat is in a limited pilot.",
+    "waitingForPage": "Reading the page…",
+    "saving": "saving to library",
+    "savedTo": "saved in {{folder}}",
+    "saveFailed": "Couldn't save this page to your library.",
+    "openInApp": "Open in Pnyxy",
+    "openAppToSignIn": "Open Pnyxy to sign in",
+    "signInHere": "…or sign in here with email",
+    "settings": "Extension settings"
   }
 }

@@ -21,6 +21,9 @@ import { MessageBubble } from "../MessageBubble";
 import { SaveAsFlashcardsModal } from "../SaveAsFlashcardsModal";
 import type { ConfirmFn } from "../page/useChatPageState";
 import { useThreadScroll } from "./useThreadScroll";
+import { LinkOfferCard } from "./LinkOfferCard";
+import { detectResourceKind, extractFirstUrl } from "@/lib/resource-url";
+import { ToolApprovalCard } from "./ToolApprovalCard";
 
 interface ChatThreadProps {
   activeId: string | null;
@@ -57,6 +60,7 @@ export function ChatThread({
 }: ChatThreadProps) {
   const { t } = useTranslation();
   const flashcardsEnabled = useFeature("flashcards");
+  const webArticlesEnabled = useFeature("webArticles");
   // parent lookup for the fork banner
   const allConversations = useChatStore((s) => s.conversations);
   const { branchFrom, setActiveLeaf, messageSuggestions } = useChatStore(
@@ -123,11 +127,34 @@ export function ChatThread({
   const isEntering = (createdAt: string): boolean =>
     !baseline.pending && baseline.conv === activeId && createdAt > baseline.at;
 
-  const emptySuggestions = [
-    t("chat.emptySuggestion1"),
-    t("chat.emptySuggestion2"),
-    t("chat.emptySuggestion3"),
+  // Intent chips: each prefills the composer with a prompt that names
+  // what to paste (link / subject), so the zero-setup path is obvious.
+  const emptySuggestions: Array<{ label: string; prompt: string }> = [
+    { label: t("chat.intents.youtube"), prompt: t("chat.intents.youtubePrompt") },
+    { label: t("chat.intents.article"), prompt: t("chat.intents.articlePrompt") },
+    { label: t("chat.intents.exam"), prompt: t("chat.intents.examPrompt") },
+    { label: t("chat.intents.chat"), prompt: t("chat.intents.chatPrompt") },
   ];
+
+  // "Save this link?" offer under the latest user message carrying a URL.
+  // Session-only dismissal per message; plain chats only (a doc-scoped
+  // thread already has its source).
+  const [dismissedOffers, setDismissedOffers] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const linkOffer = useMemo(() => {
+    if (!activeConversation || activeConversation.source_doc_id) return null;
+    for (let i = threadPath.length - 1; i >= 0; i--) {
+      const m = threadPath[i];
+      if (m.role !== "user") continue;
+      const url = extractFirstUrl(m.content);
+      if (!url || dismissedOffers.has(m.id)) return null;
+      // non-YouTube links only with the web-articles pilot flag
+      if (!webArticlesEnabled && detectResourceKind(url) !== "youtube") return null;
+      return { messageId: m.id, url };
+    }
+    return null;
+  }, [activeConversation, threadPath, dismissedOffers, webArticlesEnabled]);
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -138,7 +165,7 @@ export function ChatThread({
       >
         <div
           className={cn(
-            "mx-auto flex w-full min-w-0 max-w-[820px] flex-col gap-7 px-3 pb-4 pt-3 sm:px-7 sm:pt-4",
+            "mx-auto flex w-full min-w-0 max-w-[820px] flex-col gap-7 px-3 pb-4 pt-3 sm:px-7 sm:pt-14",
             // empty state: pin the headline to the bottom of the
             // scroll area so it sits right above the centered composer
             sheetCentered && "min-h-full justify-end",
@@ -172,15 +199,15 @@ export function ChatThread({
               <div className="flex flex-wrap justify-center gap-2">
                 {emptySuggestions.map((s) => (
                   <button
-                    key={s}
+                    key={s.label}
                     type="button"
-                    onClick={() => onEmptySuggestion(s)}
+                    onClick={() => onEmptySuggestion(s.prompt)}
                     className={cn(
                       chipClass,
                       "px-3 py-[7px] text-[13px] transition-colors cursor-pointer hover:bg-surface-3 hover:text-text-primary",
                     )}
                   >
-                    {s}
+                    {s.label}
                   </button>
                 ))}
               </div>
@@ -332,6 +359,17 @@ export function ChatThread({
               </Fragment>
             );
           })}
+          {linkOffer && activeConversation && (
+            <LinkOfferCard
+              conversation={activeConversation}
+              messageId={linkOffer.messageId}
+              url={linkOffer.url}
+              onDismiss={(id) =>
+                setDismissedOffers((prev) => new Set(prev).add(id))
+              }
+            />
+          )}
+          <ToolApprovalCard />
           <div ref={threadEndRef} />
         </div>
       </div>

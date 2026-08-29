@@ -19,6 +19,10 @@ export type RecommendationMode =
   | "default"
   | "books"
   | "videos"
+  // "library" runs the turn through the library tool loop (organize
+  // folders / start chats, each action behind an approval card); the
+  // parent checks `mode === "library"` and sets `libraryTools` on send.
+  | "library"
   // "image" routes the next message through OpenAI's Images API
   // instead of a chat completion. The composer surfaces this in
   // the mode picker the same way as "books" / "videos"; the parent

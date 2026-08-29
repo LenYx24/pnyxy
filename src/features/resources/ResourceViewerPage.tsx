@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, Sparkles } from "lucide-react";
 import { useResourceStore } from "@/stores/resource-store";
 import { Button } from "@/components/ui";
-import { renderMarkdown } from "@/lib/ai/markdown-message";
+import { cn } from "@/lib/cn";
+import { useIsMobile } from "@/hooks/use-media-query";
+import type { Resource } from "@/types/resource";
+import { ResourceChatPanel } from "./ResourceChatPanel";
+import { useYouTubePlayer } from "./useYouTubePlayer";
 import {
   displayHost,
   parseYouTubeId,
@@ -15,11 +19,198 @@ import { isSafeExternalUrl } from "@/lib/safe-url";
 /**
  * Full-page viewer for a library "resource", a saved web page or YouTube
  * link (migration 00053, beta). Reached from the library cards at
- * `/resources/:resourceId`. YouTube resources embed a responsive player;
- * web resources render their extracted article markdown (when the server
- * ingest function has populated `content`) in a readable column, otherwise
- * fall back to a link card.
+ * `/resources/:resourceId`. YouTube resources embed a responsive player
+ * with an AI side-chat (see YouTubeResourceView); web resources render
+ * their extracted article markdown (when the server ingest function has
+ * populated `content`) in a readable column, otherwise fall back to a
+ * link card.
  */
+
+/**
+ * Saved web page: no in-app reader (extraction dropped images and
+ * visualizations, so reading happens on the original site or via the
+ * browser extension). The library keeps the record: what was read, and
+ * the conversations that belong to it, so this view is a link card plus
+ * the resource-scoped AI side-chat.
+ */
+function WebResourceView({
+  resource,
+  chatOpen,
+}: {
+  resource: Resource;
+  chatOpen: boolean;
+}) {
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
+  const safe = isSafeExternalUrl(resource.url);
+  const card = (
+    <div className="mx-auto w-full max-w-md px-4 py-6">
+      <div className="flex flex-col gap-3 rounded-xl border border-glass-border bg-glass-bg p-5 text-center">
+        {resource.thumbnail_url && (
+          <img src={resource.thumbnail_url} alt="" className="mx-auto max-h-40 w-full rounded-lg object-cover" draggable={false} />
+        )}
+        <h2 className="text-base font-medium text-text-primary">{resource.title}</h2>
+        <p className="text-xs text-text-secondary">{displayHost(resource.url)}</p>
+        {resource.description && (
+          <p className="text-sm text-text-secondary">{resource.description}</p>
+        )}
+        {safe && (
+          <a
+            href={resource.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mx-auto inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm text-white shadow-lg shadow-accent/25 transition-colors hover:bg-accent/80"
+          >
+            <ExternalLink size={16} />
+            {t("resources.openOriginal")}
+          </a>
+        )}
+        <p className="text-2xs text-text-muted">{t("resources.webReadElsewhere")}</p>
+      </div>
+    </div>
+  );
+  if (isMobile) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        {chatOpen ? (
+          <div className="min-h-0 flex-1">
+            <ResourceChatPanel resource={resource} currentTime={0} duration={null} onSeek={() => {}} compact showTitle={false} />
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto">{card}</div>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="flex min-h-0 flex-1">
+      <div className="min-h-0 flex-1 overflow-y-auto">{card}</div>
+      {chatOpen && (
+        <div className="w-[380px] shrink-0 border-l border-glass-border xl:w-[420px]">
+          <ResourceChatPanel resource={resource} currentTime={0} duration={null} onSeek={() => {}} compact showTitle={false} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+const PLAYHEAD_KEY = "pnyxy:yt-playhead";
+function loadPlayhead(videoId: string): number {
+  try {
+    const all = JSON.parse(localStorage.getItem(PLAYHEAD_KEY) ?? "{}") as Record<string, number>;
+    const v = all[videoId];
+    return typeof v === "number" && v > 5 ? Math.floor(v) : 0;
+  } catch {
+    return 0;
+  }
+}
+let lastSave = 0;
+function savePlayhead(videoId: string, seconds: number) {
+  const now = Date.now();
+  if (seconds !== 0 && now - lastSave < 5000) return;
+  lastSave = now;
+  try {
+    const all = JSON.parse(localStorage.getItem(PLAYHEAD_KEY) ?? "{}") as Record<string, number>;
+    if (seconds === 0) delete all[videoId];
+    else all[videoId] = seconds;
+    // keep the map small
+    const keys = Object.keys(all);
+    if (keys.length > 200) for (const k of keys.slice(0, keys.length - 200)) delete all[k];
+    localStorage.setItem(PLAYHEAD_KEY, JSON.stringify(all));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+/**
+ * Player + AI side-chat. Desktop: video column left, chat docked right.
+ * Mobile: the player sticks to the top and the chat fills the rest, with
+ * a header toggle to hide the chat when the student just wants to watch.
+ */
+function YouTubeResourceView({
+  resource,
+  ytId,
+  chatOpen,
+}: {
+  resource: Resource;
+  ytId: string;
+  chatOpen: boolean;
+}) {
+  const isMobile = useIsMobile();
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const { currentTime, duration, seekTo } = useYouTubePlayer(iframeRef);
+
+  // Resume where the student left off. The embed can't read YouTube's own
+  // watch history, so the playhead is remembered per video here and fed
+  // back through the embed's `start` parameter.
+  const [startAt] = useState(() => loadPlayhead(ytId));
+  useEffect(() => {
+    if (currentTime > 5 && (!duration || currentTime < duration - 10)) savePlayhead(ytId, currentTime);
+    else if (duration && currentTime >= duration - 10) savePlayhead(ytId, 0);
+  }, [ytId, currentTime, duration]);
+
+  const player = (
+    <div className="aspect-video w-full overflow-hidden bg-black md:rounded-lg md:border md:border-glass-border">
+      <iframe
+        ref={iframeRef}
+        src={youtubeEmbedUrl(ytId, startAt)}
+        title={resource.title}
+        className="h-full w-full"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+      />
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="shrink-0">{player}</div>
+        {chatOpen ? (
+          <div className="min-h-0 flex-1">
+            <ResourceChatPanel
+              resource={resource}
+              currentTime={currentTime}
+              duration={duration}
+              onSeek={seekTo}
+              compact
+              showTitle={false}
+            />
+          </div>
+        ) : (
+          resource.description && (
+            <p className="p-4 text-sm text-text-secondary">{resource.description}</p>
+          )
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-4xl p-4">
+          {player}
+          {resource.description && (
+            <p className="mt-4 text-sm text-text-secondary">{resource.description}</p>
+          )}
+        </div>
+      </div>
+      {chatOpen && (
+        <div className="w-[380px] shrink-0 border-l border-glass-border xl:w-[420px]">
+          <ResourceChatPanel
+            resource={resource}
+            currentTime={currentTime}
+            duration={duration}
+            onSeek={seekTo}
+            compact
+            showTitle={false}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 export function ResourceViewerPage() {
   const { resourceId } = useParams<{ resourceId: string }>();
   const { t } = useTranslation();
@@ -27,6 +218,7 @@ export function ResourceViewerPage() {
   const resources = useResourceStore((s) => s.resources);
   const fetchResources = useResourceStore((s) => s.fetchResources);
   const [resolving, setResolving] = useState(resources.length === 0);
+  const [chatOpen, setChatOpen] = useState(true);
 
   // Deep-link / refresh straight onto this route won't have hydrated the
   // store yet, so pull the list once if it's empty.
@@ -50,14 +242,6 @@ export function ResourceViewerPage() {
   const resource = useMemo(
     () => resources.find((r) => r.id === resourceId),
     [resources, resourceId],
-  );
-
-  const html = useMemo(
-    () =>
-      resource?.kind === "web" && resource.content
-        ? renderMarkdown(resource.content)
-        : "",
-    [resource?.kind, resource?.content],
   );
 
   const backButton = (
@@ -141,36 +325,36 @@ export function ResourceViewerPage() {
           </div>
           <p className="truncate text-xs text-text-secondary">{host}</p>
         </div>
-        <div className="shrink-0">{openOriginal}</div>
+        <div className="flex shrink-0 items-center gap-2">
+          {((resource.kind === "youtube" && ytId) || resource.kind === "web") && (
+            <button
+              type="button"
+              onClick={() => setChatOpen((v) => !v)}
+              aria-pressed={chatOpen}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors cursor-pointer",
+                chatOpen
+                  ? "border-accent/40 bg-accent/10 text-accent"
+                  : "border-glass-border bg-glass-bg text-text-secondary hover:bg-glass-hover hover:text-text-primary",
+              )}
+              title={t("resources.chat.toggle")}
+            >
+              <Sparkles size={14} strokeWidth={1.5} />
+              <span className="hidden sm:inline">{t("resources.chat.toggle")}</span>
+            </button>
+          )}
+          <span className="hidden sm:inline-flex">{openOriginal}</span>
+        </div>
       </div>
 
       {/* Body */}
+      {resource.kind === "youtube" && ytId ? (
+        <YouTubeResourceView resource={resource} ytId={ytId} chatOpen={chatOpen} />
+      ) : resource.kind === "web" ? (
+        <WebResourceView resource={resource} chatOpen={chatOpen} />
+      ) : (
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {resource.kind === "youtube" && ytId ? (
-          <div className="mx-auto w-full max-w-4xl p-4">
-            <div className="aspect-video w-full overflow-hidden rounded-lg border border-glass-border bg-black">
-              <iframe
-                src={youtubeEmbedUrl(ytId)}
-                title={resource.title}
-                className="h-full w-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-              />
-            </div>
-            {resource.description && (
-              <p className="mt-4 text-sm text-text-secondary">
-                {resource.description}
-              </p>
-            )}
-          </div>
-        ) : resource.kind === "web" && resource.content ? (
-          <article className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-            <div
-              className="ai-message break-words"
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
-          </article>
-        ) : (
+        {(
           // Fallback card: YouTube id unparseable, or web page not yet
           // ingested (content extraction is a beta server feature).
           <div className="mx-auto w-full max-w-md px-4 py-10">
@@ -210,6 +394,7 @@ export function ResourceViewerPage() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

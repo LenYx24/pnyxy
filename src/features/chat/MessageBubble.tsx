@@ -42,6 +42,9 @@ import { extractRecommendations } from "@/lib/ai/extract-recommendations";
 import { extractInlineQuiz } from "@/lib/ai/extract-quiz";
 import { RecommendationCards } from "./RecommendationsRenderer";
 import { InlineQuizCard } from "./InlineQuizCard";
+import { extractInlineGraph } from "@/lib/ai/extract-graph";
+import { useFeature } from "@/lib/use-features";
+import { InlineGraphCard } from "./InlineGraphCard";
 import { openMenuAtButton } from "./menu-anchor";
 import { PNYXY_MODEL_OPTIONS } from "./quota";
 import { track } from "@/lib/telemetry";
@@ -571,7 +574,7 @@ export function MessageBubble({
               // collapsed: the whole bubble is a click target to expand
               onClick={collapsed ? () => setCollapsed(false) : undefined}
               className={cn(
-                "relative flex min-w-0 max-w-full flex-col gap-2 rounded-[18px] rounded-br-[4px] bg-bg-tertiary px-4 py-3 text-[15px] leading-normal text-text-primary",
+                "relative flex min-w-0 max-w-full flex-col gap-2 rounded-[18px] rounded-br-[4px] bg-bg-tertiary px-4 py-3 text-[length:var(--chat-font-size,15px)] leading-normal text-text-primary",
                 // room for the collapse toggle pinned to the bottom-right corner
                 isLong && "pb-9",
                 collapsed && "cursor-pointer",
@@ -626,7 +629,7 @@ export function MessageBubble({
         entering && "chat-msg-enter",
       )}
     >
-      <div className="flex min-w-0 flex-1 flex-col gap-3 text-[15px] leading-normal text-text-primary">
+      <div className="flex min-w-0 flex-1 flex-col gap-3 text-[length:var(--chat-font-size,15px)] leading-normal text-text-primary">
         {isStreaming && !hasText ? (
           // placeholder while waiting for the first delta: shimmering skeleton
           // lines where the answer will appear (Gemini-style "thinking" state)
@@ -750,6 +753,7 @@ const AssistantContent = memo(function AssistantContent({
   const navigate = useNavigate();
   // throttle the rendered value while streaming; flush immediately once it stops
   const [throttled, setThrottled] = useState(content);
+  const graphWidgetEnabled = useFeature("graphWidget");
   // latest content, so the trailing timer flushes the freshest value
   const contentRef = useRef(content);
   contentRef.current = content;
@@ -787,9 +791,18 @@ const AssistantContent = memo(function AssistantContent({
   // quiz fence first (also strips a mid-stream open fence), then the
   // recommendation fences on what's left
   const quizExtract = useMemo(() => extractInlineQuiz(throttled), [throttled]);
+  // graph fence (admin pilot flag): only stripped/rendered when enabled,
+  // otherwise it stays a plain code block
+  const graphExtract = useMemo(
+    () =>
+      graphWidgetEnabled
+        ? extractInlineGraph(quizExtract.cleaned)
+        : { cleaned: quizExtract.cleaned },
+    [graphWidgetEnabled, quizExtract.cleaned],
+  );
   const { cleaned, books, videos } = useMemo(
-    () => extractRecommendations(quizExtract.cleaned),
-    [quizExtract.cleaned],
+    () => extractRecommendations(graphExtract.cleaned),
+    [graphExtract.cleaned],
   );
   // expensive marked.parse -> KaTeX -> DOMPurify, memoized on (cleaned, sourceDocId)
   const html = useMemo(
@@ -830,6 +843,13 @@ const AssistantContent = memo(function AssistantContent({
         </div>
       )}
       {quizExtract.quiz && <InlineQuizCard quiz={quizExtract.quiz} />}
+      {graphExtract.pending && (
+        <div className="flex items-center gap-2 rounded-panel bg-bg-tertiary px-4 py-3 text-xs text-text-muted">
+          <TypingIndicator />
+          {t("chat.inlineGraph.incoming")}
+        </div>
+      )}
+      {graphExtract.graph && <InlineGraphCard graph={graphExtract.graph} />}
     </>
   );
 });

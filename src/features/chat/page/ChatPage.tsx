@@ -11,6 +11,7 @@ import { cn } from "@/lib/cn";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import "../chat.css";
 import { ChatSidebar } from "../sidebar/ChatSidebar";
+import { useSettingsStore } from "@/stores/settings-store";
 import { ChatThread } from "../thread/ChatThread";
 import { ChatSheetHeader } from "./ChatSheetHeader";
 import { ComposerDock } from "./ComposerDock";
@@ -19,6 +20,7 @@ import { useChatPageState, type ChatPageScope } from "./useChatPageState";
 export type { ChatPageScope } from "./useChatPageState";
 
 export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
+  const chatFontSize = useSettingsStore((s) => s.chatFontSize);
   const { t } = useTranslation();
   // soft-keyboard height, lifts the composer. 100dvh alone lagged on Android.
   const keyboardInset = useKeyboardInset();
@@ -62,6 +64,8 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
         className="relative isolate flex min-w-0 flex-1 flex-col bg-bg-secondary transition-[padding] duration-150 ease-out sm:rounded-page sm:shadow-page"
         style={{
           paddingBottom: keyboardInset > 0 ? keyboardInset : undefined,
+          // message + composer text size (Settings › Appearance)
+          ["--chat-font-size" as string]: `${chatFontSize}px`,
         }}
       >
         <ChatSheetHeader

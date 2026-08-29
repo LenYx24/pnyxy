@@ -156,7 +156,9 @@ export function ChatSidebar({
     [sidebarWidth],
   );
 
-  // title-only case-insensitive substring match
+  // Case-insensitive substring match on conversation titles AND folder
+  // names. A matching folder is shown with its whole subtree (so it can
+  // be opened / browsed), a matching conversation with its ancestors.
   const [conversationSearch, setConversationSearch] = useState("");
   const filteredConversationData = useMemo(() => {
     const q = conversationSearch.trim().toLowerCase();
@@ -164,19 +166,39 @@ export function ChatSidebar({
       return { conversations: visibleConversations, folders };
     }
     const folderById = new Map(folders.map((f) => [f.id, f]));
-    const matched = visibleConversations.filter((c) =>
-      (c.title || "").toLowerCase().includes(q),
-    );
-    // keep every ancestor folder of a match so nested hits aren't orphaned
     const keptFolderIds = new Set<string>();
-    for (const c of matched) {
-      let fid = c.folder_id;
+    const keepAncestors = (start: string | null) => {
+      let fid = start;
       while (fid && !keptFolderIds.has(fid)) {
         keptFolderIds.add(fid);
-        const f = folderById.get(fid);
-        fid = f?.parent_id ?? null;
+        fid = folderById.get(fid)?.parent_id ?? null;
+      }
+    };
+    // folder hits: the folder, its ancestors and every descendant folder
+    const matchedFolderIds = new Set(
+      folders.filter((f) => f.name.toLowerCase().includes(q)).map((f) => f.id),
+    );
+    const insideMatchedFolder = (fid: string | null): boolean => {
+      let cur = fid;
+      let hops = 0;
+      while (cur && hops++ < 64) {
+        if (matchedFolderIds.has(cur)) return true;
+        cur = folderById.get(cur)?.parent_id ?? null;
+      }
+      return false;
+    };
+    for (const f of folders) {
+      if (matchedFolderIds.has(f.id) || insideMatchedFolder(f.parent_id)) {
+        keepAncestors(f.id);
       }
     }
+    // conversation hits: title match, or living inside a matched folder
+    const matched = visibleConversations.filter(
+      (c) =>
+        (c.title || "").toLowerCase().includes(q) ||
+        insideMatchedFolder(c.folder_id),
+    );
+    for (const c of matched) keepAncestors(c.folder_id);
     return {
       conversations: matched,
       folders: folders.filter((f) => keptFolderIds.has(f.id)),

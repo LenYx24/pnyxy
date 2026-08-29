@@ -271,6 +271,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       pendingCitationRef.current = null;
       const sendOptions: import("@/stores/chat-store").ChatSendOptions = {};
       if (payload.reasoning) sendOptions.reasoning = true;
+      if (payload.webSearch) sendOptions.webSearch = true;
       if (armedCitation) sendOptions.citation = armedCitation;
       const finalSendOptions =
         Object.keys(sendOptions).length > 0 ? sendOptions : undefined;
@@ -593,6 +594,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                     mode: "default",
                     attachments: [],
                     reasoning: false,
+                    webSearch: false,
                   })
                 }
                 className="chip inline-flex w-max items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary cursor-pointer"

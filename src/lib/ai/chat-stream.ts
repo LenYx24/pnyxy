@@ -22,6 +22,10 @@ import {
   runRoadmapGenerateLoop,
 } from "@/lib/roadmap/roadmap-agent";
 import { detectRoadmapIntent } from "@/lib/roadmap/roadmap-tools";
+import { runLibraryAgenticLoop } from "@/lib/ai/library-agent";
+import { INLINE_GRAPH_SPEC } from "@/lib/ai/extract-graph";
+import { parseChatCommands } from "@/lib/ai/chat-commands";
+import { getFeatures } from "@/lib/use-features";
 import { pathFromRoot, windowChatHistory } from "@/stores/chat/chat-tree";
 import type {
   ChatGet,
@@ -98,7 +102,14 @@ export async function sendOrBranch(
   get: ChatGet,
   options?: ChatSendOptions,
 ) {
-  const trimmed = text.trim();
+  // "/graph …": per-turn opt-in to the graph widget (flag-gated). The
+  // command is stripped from the stored message; a ```graph block in the
+  // text (the widget's "ask about this graph") counts as asking too.
+  const parsed = parseChatCommands(text);
+  const trimmed = parsed.text;
+  const wantsGraph =
+    getFeatures().graphWidget &&
+    (parsed.commands.has("graph") || /```graph/i.test(trimmed));
 
   // The context pack is built before inserting the user row so page-as-image
   // attachments are saved on the message; re-streams/branches then pull them from the DB.
@@ -110,6 +121,17 @@ export async function sendOrBranch(
   } catch (err) {
     logError("chat:sendMessage:contextPack", err);
     contextPack = { customContext: "", pageContext: "", imageAttachments: [] };
+  }
+
+  // Graph widget: the ```graph contract is only taught for turns that
+  // asked for it, so the model never draws unprompted. Rides on
+  // customContext so every provider's default prompt gets it.
+  if (wantsGraph) {
+    contextPack = {
+      ...contextPack,
+      customContext:
+        `${contextPack.customContext}\n\n${INLINE_GRAPH_SPEC}\n\nThe user asked for a graph in this message: answer with one \`\`\`graph block (plus a short explanation).`.trim(),
+    };
   }
 
   // page images first so the model sees source pages before the user's uploads
@@ -303,8 +325,11 @@ export async function sendOrBranch(
           systemPromptOverride: options?.systemPromptOverride,
           // OpenAI branch swaps to o3-mini; other branches ignore it
           reasoning: options?.reasoning,
+          webSearch: options?.webSearch,
           // "retry with another model": one-turn Pnyxy model pin
           pnyxyModelOverride: options?.pnyxyModelOverride,
+          // YouTube side-chat "Gemini watches the video" mode
+          videoContext: options?.videoContext,
         },
       )) {
         local += chunk.delta;
@@ -332,6 +357,24 @@ export async function sendOrBranch(
         patchAssistant,
         signal,
       );
+    } else if (options?.libraryTools) {
+      // "Organize library" mode: tool loop with per-action approval cards.
+      // Same degrade path as the roadmap skill when tools are unavailable.
+      try {
+        acc = await runLibraryAgenticLoop(
+          promptMessages,
+          preferredProvider,
+          patchAssistant,
+          signal,
+          options?.libraryToolsContext,
+        );
+      } catch (libraryErr) {
+        if (isAbortError(libraryErr)) throw libraryErr;
+        logError("chat:libraryTools:fallback", libraryErr);
+        acc = "";
+        patchAssistant("");
+        acc = await streamPlain();
+      }
     } else if (detectRoadmapIntent(trimmed)) {
       // "generate a roadmap" skill, auto-detected from the message. Routes this turn
       // through the tool-use path (the only branch wired for tools) and links the result
