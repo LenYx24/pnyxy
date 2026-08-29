@@ -223,8 +223,11 @@ export function AppLayout() {
             pageSurface &&
               "my-2.5 mr-2.5 min-h-0 overflow-clip rounded-page bg-bg-secondary shadow-page",
             // chat/reader: no sheet, but keep the flex/min-h-0/clip so the
-            // page itself never scrolls (their inner panes own scrolling)
-            !pageSurface && isDesktop && (isChatRoute || isReaderRoute) &&
+            // page itself never scrolls (their inner panes own scrolling).
+            // Every width: below the desktop breakpoint this used to be a
+            // plain block inside the 100dvh/overflow-hidden main, so the
+            // thread outgrew the viewport with no scrollbar anywhere.
+            !pageSurface && (isChatRoute || isReaderRoute) &&
               "flex min-h-0 flex-col overflow-clip",
             // course page keeps the sheet but its panes scroll inside it
             isCourseSpaceRoute && "flex min-h-0 flex-col overflow-clip",
