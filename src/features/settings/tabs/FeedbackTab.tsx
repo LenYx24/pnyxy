@@ -4,6 +4,7 @@ import { Mail, Send, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { SettingRow, SettingsSection } from "../ui";
+import { BugReportButton } from "@/features/feedback/BugReportButton";
 
 const FEEDBACK_EMAIL = "feedback@pnyxy.com";
 
@@ -84,6 +85,12 @@ export function FeedbackTab() {
     <SettingsSection
       description={t("settings.feedbackSection.description")}
     >
+      <SettingRow
+        label={t("bugReport.label")}
+        hint={t("bugReport.hint")}
+        control={<BugReportButton />}
+      />
+
       <SettingRow
         label={t("settings.feedbackSection.formLabel")}
         hint={

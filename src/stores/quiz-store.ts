@@ -26,6 +26,8 @@ interface QuizState {
   /** Quizzes the signed-in user owns. */
   myQuizzes: Quiz[];
   isLoading: boolean;
+  /** Set when the last fetchPublic/fetchMine call failed; cleared on the next attempt. */
+  error: string | null;
 
   fetchPublic: (filter?: {
     query?: string;
@@ -216,9 +218,10 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   publicQuizzes: [],
   myQuizzes: [],
   isLoading: false,
+  error: null,
 
   async fetchPublic(filter) {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
       let q = supabase
         .from("quizzes")
@@ -258,7 +261,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       set({ myQuizzes: [] });
       return;
     }
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
       const { data, error } = await supabase
         .from("quizzes")
@@ -269,6 +272,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       set({ myQuizzes: (data ?? []) as Quiz[] });
     } catch (err) {
       logError("quiz-store:fetchMine", err);
+      set({ error: "fetchFailed" });
     } finally {
       set({ isLoading: false });
     }

@@ -19,6 +19,12 @@ verify_jwt = true
 [functions.ingest-url]
 verify_jwt = true
 
+# delete-account permanently erases the caller's own account (GDPR
+# self-service deletion); requires a verified user JWT, same as
+# stripe-checkout/stripe-portal.
+[functions.delete-account]
+verify_jwt = true
+
 [auth]
 enabled = true
 site_url = "http://localhost:5173"
@@ -52,7 +58,7 @@ subject       = "Confirm your new Pnyxy email"
 content_path  = "./supabase/templates/email_change.html"
 
 [auth.external.google]
-enabled      = true
+enabled      = false
 client_id    = "env(GOOGLE_CLIENT_ID)"
 secret       = "env(GOOGLE_CLIENT_SECRET)"
 redirect_uri = ""

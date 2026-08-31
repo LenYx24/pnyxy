@@ -112,6 +112,11 @@ export const useAdminAnalyticsStore = create<AdminAnalyticsState>((set, get) => 
     const window = days ?? get().rangeDays;
     set({ loading: true, error: null, rangeDays: window });
     try {
+      // Warm the auth session once so the seven parallel RPCs below do not
+      // each contend on supabase-js's Navigator lock for a token refresh
+      // (that contention surfaces as "LockAcquireTimeoutError" and drops the
+      // auth header on some requests, failing the admin RPCs).
+      await supabase.auth.getSession();
       const [
         overviewRes,
         signupsRes,
@@ -138,7 +143,13 @@ export const useAdminAnalyticsStore = create<AdminAnalyticsState>((set, get) => 
         topRes.error ??
         booksRes.error ??
         featRes.error;
-      if (firstError) throw firstError;
+      if (firstError) {
+        // PostgrestError is a plain object, not an Error instance, so the
+        // catch below would otherwise mask it as a generic message.
+        throw new Error(
+          `${firstError.message}${firstError.code ? ` (${firstError.code})` : ""}`,
+        );
+      }
 
       const ov = (overviewRes.data?.[0] ?? null) as Record<string, unknown> | null;
       const dist = (distRes.data?.[0] ?? null) as Record<string, unknown> | null;

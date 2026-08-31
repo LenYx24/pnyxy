@@ -10,6 +10,8 @@ import {
   Loader2,
   LogOut,
   MessagesSquare,
+  Eye,
+  EyeOff,
   MoreHorizontal,
   PanelLeftClose,
   PanelLeftOpen,
@@ -18,7 +20,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { Button, FormModal, IconButton, chipClass } from "@/components/ui";
+import { Button, FormModal, IconButton, Select, chipClass } from "@/components/ui";
 import { openMenuAtButton } from "@/features/chat/menu-anchor";
 import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { useAuthStore } from "@/stores/auth-store";
@@ -96,6 +98,8 @@ export function CourseSpacePage() {
     enrollInCourse,
     removeOffering,
     deleteSpace,
+    previewAsMember,
+    setPreviewAsMember,
   } = useSpaceStore(
     useShallow((s) => ({
       activeSpace: s.activeSpace,
@@ -106,6 +110,8 @@ export function CourseSpacePage() {
       memberIds: s.memberIds,
       loadSpace: s.loadSpace,
       leaveSpace: s.leaveSpace,
+      previewAsMember: s.previewAsMember,
+      setPreviewAsMember: s.setPreviewAsMember,
       enrollInCourse: s.enrollInCourse,
       removeOffering: s.removeOffering,
       deleteSpace: s.deleteSpace,
@@ -182,7 +188,9 @@ export function CourseSpacePage() {
     );
   }
 
-  const owner = !!user && activeSpace.owner_id === user.id;
+  const realOwner = !!user && activeSpace.owner_id === user.id;
+  // editor affordances hide while previewing as a member
+  const owner = realOwner && !previewAsMember;
   const isMember = memberIds.has(spaceId);
 
   const handleEnroll = async () => {
@@ -470,6 +478,23 @@ export function CourseSpacePage() {
               <span className={chipClass}>
                 {activeSpaceOfferings[0].term_label}
               </span>
+            )}
+            {realOwner && (
+              <Button
+                variant={previewAsMember ? "soft" : "ghost"}
+                size="sm"
+                onClick={() => setPreviewAsMember(!previewAsMember)}
+                title={t("spaces.coursePage.viewToggleHint")}
+              >
+                {previewAsMember ? (
+                  <Eye size={14} strokeWidth={1.5} />
+                ) : (
+                  <EyeOff size={14} strokeWidth={1.5} />
+                )}
+                {previewAsMember
+                  ? t("spaces.coursePage.viewAsMember")
+                  : t("spaces.coursePage.viewAsEditor")}
+              </Button>
             )}
             {owner && (
               <span className={chipClass}>{t("spaces.ownerChip")}</span>
@@ -760,25 +785,19 @@ function AddTermModal({
       </div>
 
       <div>
-        <label
-          htmlFor="term-status"
-          className="mb-1 block text-sm font-medium text-text-secondary"
-        >
+        <label className="mb-1 block text-sm font-medium text-text-secondary">
           {t("spaces.termStatus")}
         </label>
-        <select
-          id="term-status"
+        <Select
           value={status}
-          onChange={(e) => setStatus(e.target.value as OfferingStatus)}
+          onChange={setStatus}
+          options={OFFERING_STATUSES.map((s) => ({
+            value: s,
+            label: t(`spaces.offeringStatus.${s}`, { defaultValue: s }),
+          }))}
           disabled={saving}
-          className="field cursor-pointer"
-        >
-          {OFFERING_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {t(`spaces.offeringStatus.${s}`, { defaultValue: s })}
-            </option>
-          ))}
-        </select>
+          ariaLabel={t("spaces.termStatus")}
+        />
       </div>
 
       {error && <p className="text-xs text-danger">{error}</p>}
@@ -852,47 +871,35 @@ function AddChildModal({
       </div>
 
       <div>
-        <label
-          htmlFor="child-kind"
-          className="mb-1 block text-sm font-medium text-text-secondary"
-        >
+        <label className="mb-1 block text-sm font-medium text-text-secondary">
           {t("spaces.childKind")}
         </label>
-        <select
-          id="child-kind"
+        <Select
           value={kind}
-          onChange={(e) => setKind(e.target.value as SpaceKind)}
+          onChange={setKind}
+          options={CHILD_KINDS.map((k) => ({
+            value: k,
+            label: t(`spaces.kind.${k}`, { defaultValue: k }),
+          }))}
           disabled={saving}
-          className="field cursor-pointer"
-        >
-          {CHILD_KINDS.map((k) => (
-            <option key={k} value={k}>
-              {t(`spaces.kind.${k}`, { defaultValue: k })}
-            </option>
-          ))}
-        </select>
+          ariaLabel={t("spaces.childKind")}
+        />
       </div>
 
       <div>
-        <label
-          htmlFor="child-visibility"
-          className="mb-1 block text-sm font-medium text-text-secondary"
-        >
+        <label className="mb-1 block text-sm font-medium text-text-secondary">
           {t("spaces.childVisibility")}
         </label>
-        <select
-          id="child-visibility"
+        <Select
           value={visibility}
-          onChange={(e) => setVisibility(e.target.value as SpaceVisibility)}
+          onChange={setVisibility}
+          options={CHILD_VISIBILITIES.map((v) => ({
+            value: v,
+            label: t(`spaces.visibility.${v}`, { defaultValue: v }),
+          }))}
           disabled={saving}
-          className="field cursor-pointer"
-        >
-          {CHILD_VISIBILITIES.map((v) => (
-            <option key={v} value={v}>
-              {t(`spaces.visibility.${v}`, { defaultValue: v })}
-            </option>
-          ))}
-        </select>
+          ariaLabel={t("spaces.childVisibility")}
+        />
       </div>
 
       {error && <p className="text-xs text-danger">{error}</p>}
@@ -987,25 +994,19 @@ function AddContentModal({
       </div>
 
       <div>
-        <label
-          htmlFor="content-kind"
-          className="mb-1 block text-sm font-medium text-text-secondary"
-        >
+        <label className="mb-1 block text-sm font-medium text-text-secondary">
           {t("spaces.contentKind")}
         </label>
-        <select
-          id="content-kind"
+        <Select
           value={kind}
-          onChange={(e) => setKind(e.target.value as SpaceContentKind)}
+          onChange={setKind}
+          options={CONTENT_KINDS.map((k) => ({
+            value: k,
+            label: t(`spaces.kind.${k}`, { defaultValue: k }),
+          }))}
           disabled={saving}
-          className="field cursor-pointer"
-        >
-          {CONTENT_KINDS.map((k) => (
-            <option key={k} value={k}>
-              {t(`spaces.kind.${k}`, { defaultValue: k })}
-            </option>
-          ))}
-        </select>
+          ariaLabel={t("spaces.contentKind")}
+        />
       </div>
 
       {error && <p className="text-xs text-danger">{error}</p>}

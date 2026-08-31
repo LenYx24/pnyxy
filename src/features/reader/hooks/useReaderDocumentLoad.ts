@@ -128,7 +128,13 @@ export function useReaderDocumentLoad(
     void (async () => {
       try {
         const recovered = await recoverBookFile(bookId);
-        if (cancelled || !recovered) return;
+        if (cancelled) return;
+        if (!recovered) {
+          // recoverBookFile already logged the underlying cause; the user
+          // just needs to know the open failed, same toast as the hot path.
+          showToast(t("reader.openFailed"), "error");
+          return;
+        }
         registerFile(bookId, recovered);
         const adapter = createAdapterForFile(recovered);
         await addDocument(adapter, recovered);

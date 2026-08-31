@@ -8,6 +8,7 @@ import { AiUsageTab } from "./tabs/AiUsageTab";
 import { ReportsTab } from "./tabs/ReportsTab";
 import { CatalogModerationTab } from "./tabs/CatalogModerationTab";
 import { UserManagementTab } from "./tabs/UserManagementTab";
+import { ErrorsTab } from "./tabs/ErrorsTab";
 
 const tabs = [
   { key: "dashboard", label: "Dashboard" },
@@ -16,6 +17,7 @@ const tabs = [
   { key: "reports", label: "Reports" },
   { key: "catalog", label: "Catalog" },
   { key: "users", label: "Users" },
+  { key: "errors", label: "Errors" },
 ] as const;
 
 type TabKey = (typeof tabs)[number]["key"];
@@ -56,6 +58,7 @@ export function AdminPage() {
         {activeTab === "reports" && <ReportsTab />}
         {activeTab === "catalog" && <CatalogModerationTab />}
         {activeTab === "users" && <UserManagementTab />}
+        {activeTab === "errors" && <ErrorsTab />}
       </div>
     </AdminGuard>
   );

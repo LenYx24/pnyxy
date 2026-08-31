@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  AlertTriangle,
   BookMarked,
   Download,
+  Loader2,
   Play,
   Shuffle,
   Trash2,
@@ -23,6 +25,7 @@ export function VocabularyPage() {
   const user = useAuthStore((s) => s.user);
   const entries = useVocabStore((s) => s.entries);
   const isLoading = useVocabStore((s) => s.isLoading);
+  const error = useVocabStore((s) => s.error);
   const loadEntries = useVocabStore((s) => s.loadEntries);
   const removeEntry = useVocabStore((s) => s.removeEntry);
 
@@ -248,9 +251,20 @@ export function VocabularyPage() {
 
       {/* List */}
       {isLoading ? (
-        <p className="py-10 text-center text-sm text-text-muted">
+        <div className="flex items-center justify-center gap-2 py-10 text-sm text-text-muted">
+          <Loader2 size={16} className="animate-spin" />
           {t("common.loading")}
-        </p>
+        </div>
+      ) : error && all.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-glass-border py-12 text-center">
+          <AlertTriangle size={28} className="text-warning" />
+          <p className="text-sm text-text-primary">
+            {t("vocabulary.loadFailed")}
+          </p>
+          <Button variant="secondary" size="sm" onClick={() => loadEntries()}>
+            {t("common.retry")}
+          </Button>
+        </div>
       ) : visible.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-glass-border py-12 text-center">
           <BookMarked size={28} className="text-text-muted" />

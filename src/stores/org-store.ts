@@ -28,6 +28,8 @@ interface OrgState {
   organizations: Organization[];
   currentOrgId: string | null;
   isLoading: boolean;
+  /** Set when the last fetchMine call failed; cleared on the next attempt. */
+  error: string | null;
 
   fetchMine: () => Promise<void>;
   /** Switch the active org. Persists to localStorage so the choice
@@ -44,6 +46,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
   organizations: [],
   currentOrgId: null,
   isLoading: false,
+  error: null,
 
   async fetchMine() {
     const {
@@ -53,7 +56,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       set({ organizations: [], currentOrgId: null });
       return;
     }
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
       const { data, error } = await supabase
         .from("organizations")
@@ -82,6 +85,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       set({ organizations: orgs, currentOrgId: nextId });
     } catch (err) {
       logError("org-store:fetchMine", err);
+      set({ error: "fetchFailed" });
     } finally {
       set({ isLoading: false });
     }

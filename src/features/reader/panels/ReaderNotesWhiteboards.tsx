@@ -59,9 +59,12 @@ export function ReaderNotesList({ panels }: { panels: ReaderDockPanels }) {
       />
       <div className="min-h-0 flex-1 overflow-y-auto p-1">
         {notes.length === 0 ? (
-          <p className="px-3 py-6 text-center text-xs text-text-muted">
-            {t("reader.sidebar.noNotes")}
-          </p>
+          <div className="flex flex-col items-center gap-2 px-3 py-8 text-center">
+            <StickyNote size={20} strokeWidth={1.5} className="text-text-muted" />
+            <p className="text-xs text-text-muted">
+              {t("reader.sidebar.noNotes")}
+            </p>
+          </div>
         ) : (
           notes.map((note) => (
             <div
@@ -149,9 +152,12 @@ export function ReaderWhiteboardsList({
       />
       <div className="min-h-0 flex-1 overflow-y-auto p-1">
         {visible.length === 0 ? (
-          <p className="px-3 py-6 text-center text-xs text-text-muted">
-            {t("reader.sidebar.noWhiteboards")}
-          </p>
+          <div className="flex flex-col items-center gap-2 px-3 py-8 text-center">
+            <PenTool size={20} strokeWidth={1.5} className="text-text-muted" />
+            <p className="text-xs text-text-muted">
+              {t("reader.sidebar.noWhiteboards")}
+            </p>
+          </div>
         ) : (
           visible.map((wb) => (
             <div

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Document, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -11,7 +12,7 @@ import { ReadProgressStrip } from "../controls/ReadProgressStrip";
 import { useFeature } from "@/lib/use-features";
 import { AnnotationContextMenu } from "../popovers/AnnotationContextMenu";
 import { CommentPopover } from "../popovers/CommentPopover";
-import { Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { PageSlot } from "./pdf/PageSlot";
 import { usePdfContainerSize } from "./pdf/usePdfContainerSize";
 import { usePdfPageDims } from "./pdf/usePdfPageDims";
@@ -37,6 +38,7 @@ interface PdfViewerProps {
 // so a re-anchor never runs against a stale sizer and the store-driven
 // pivot is always the last scrollTop write in a commit.
 export function PdfViewer({ documentId }: PdfViewerProps) {
+  const { t } = useTranslation();
   const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
   const docId = documentId ?? activeDocumentId;
   const doc = useDocumentState(docId ?? "");
@@ -243,12 +245,13 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
         loading={
           <div className="flex items-center justify-center h-full gap-2 text-text-secondary">
             <Loader2 size={20} className="animate-spin" />
-            <span className="text-sm">Loading PDF...</span>
+            <span className="text-sm">{t("reader.viewer.loading")}</span>
           </div>
         }
         error={
-          <div className="text-danger text-sm p-4 text-center">
-            Failed to load PDF. The file may be corrupted.
+          <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center text-text-secondary">
+            <AlertTriangle size={24} className="text-warning" />
+            <span className="text-sm">{t("reader.viewer.pdfLoadFailed")}</span>
           </div>
         }
         onLoadSuccess={handleDocumentLoadSuccess}

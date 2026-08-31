@@ -12,6 +12,7 @@ import { startServerHeartbeat } from "@/lib/sync/server-heartbeat";
 import { registerSyncEntityHandlers } from "@/lib/sync/sync-entity-handlers";
 import { loadUserCss } from "@/lib/user-css";
 import { isTauri } from "@/lib/tauri";
+import { installGlobalErrorCapture } from "@/lib/error-report";
 
 // native app: mark <html> so the custom title bar's height offset (the
 // --titlebar-h var) kicks in. No-op in the browser.
@@ -31,6 +32,9 @@ window.addEventListener("unhandledrejection", (event) => {
     event.preventDefault();
   }
 });
+
+// pilot crash/error capture (best-effort, content-free), see error-report.ts
+installGlobalErrorCapture();
 
 useAuthStore.getState().initialize();
 

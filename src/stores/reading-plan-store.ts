@@ -44,6 +44,8 @@ interface UpdatePlanPatch {
 interface PlanState {
   plans: ReadingPlanWithItems[];
   isLoading: boolean;
+  /** Set when the last fetchMine call failed; cleared on the next attempt. */
+  error: string | null;
 
   fetchMine: () => Promise<void>;
   /** Returns the plan with its items, or null. Used by the detail
@@ -68,9 +70,10 @@ interface PlanState {
 export const useReadingPlanStore = create<PlanState>((set, get) => ({
   plans: [],
   isLoading: false,
+  error: null,
 
   async fetchMine() {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
       const {
         data: { user },
@@ -115,6 +118,7 @@ export const useReadingPlanStore = create<PlanState>((set, get) => ({
       });
     } catch (err) {
       logError("reading-plan:fetchMine", err);
+      set({ error: "fetchFailed" });
     } finally {
       set({ isLoading: false });
     }

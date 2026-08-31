@@ -216,6 +216,11 @@ const ProfilePage = lazy(() =>
 const AdminPage = lazy(() =>
   import("@/features/admin/AdminPage").then((m) => ({ default: m.AdminPage })),
 );
+const AdminUserDetailPage = lazy(() =>
+  import("@/features/admin/AdminUserDetailPage").then((m) => ({
+    default: m.AdminUserDetailPage,
+  })),
+);
 const StreaksPage = lazy(() =>
   import("@/features/streaks/StreaksPage").then((m) => ({
     default: m.StreaksPage,
@@ -411,6 +416,7 @@ export const router = createBrowserRouter([
       },
       { path: "profile", element: <ProfilePage /> },
       { path: "admin", element: <AdminPage /> },
+      { path: "admin/users/:userId", element: <AdminUserDetailPage /> },
       { path: "vocabulary", element: <FeatureGate feature="vocabulary"><VocabularyPage /></FeatureGate> },
       { path: "spaces", element: <FeatureGate feature="spaces"><SpacesPage /></FeatureGate> },
       { path: "spaces/:spaceId", element: <FeatureGate feature="spaces"><CourseSpacePage /></FeatureGate> },

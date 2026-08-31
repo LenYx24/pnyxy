@@ -656,7 +656,7 @@ export function RootDropZone({ label }: { label: string }) {
   );
 }
 
-/** Date group label drawn as a hairline divider ("Today ———"), so it can't
+/** Date group label drawn as a hairline divider ("Today ---"), so it can't
  *  be mistaken for a conversation row. */
 function DateCaption({ label }: { label: string }) {
   return (

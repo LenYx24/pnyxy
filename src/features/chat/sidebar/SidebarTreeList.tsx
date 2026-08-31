@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import i18next from "i18next";
 import {
+  AlertTriangle,
   ChevronLeft,
   FilePlus2,
   Folder as FolderIcon,
@@ -14,6 +15,8 @@ import {
   Library,
   MessagesSquare,
 } from "lucide-react";
+import { Button } from "@/components/ui";
+import { useChatStore } from "@/stores/chat-store";
 import { useContextMenu } from "@/hooks/use-context-menu";
 import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { useChatSidebar } from "./ChatSidebarContext";
@@ -53,6 +56,8 @@ export function SidebarTreeList({
   const quickView = sidebarView === "quick";
   const dnd = useSidebarDnd({ folders, conversations, rootFolderId });
   const sidebar = useChatSidebar();
+  const conversationsError = useChatStore((s) => s.conversationsError);
+  const fetchConversations = useChatStore((s) => s.fetchConversations);
 
   // Right-click on the empty area below the rows while drilled into a
   // folder: the same folder actions as on the folder row itself, so the
@@ -105,10 +110,31 @@ export function SidebarTreeList({
         className="chat-scroll min-h-0 flex-1 overflow-y-auto"
         {...blankCtxMenu}
       >
-        {conversations.length === 0 && folders.length === 0 ? (
-          <p className="px-2 py-4 text-center text-xs text-text-muted">
-            {t("chat.sidebar.empty")}
-          </p>
+        {conversations.length === 0 && folders.length === 0 && conversationsError ? (
+          <div className="flex flex-col items-center gap-2 px-2 py-4 text-center">
+            <AlertTriangle size={20} strokeWidth={1.5} className="text-warning" />
+            <p className="text-xs text-text-muted">
+              {t("chat.errors.loadConversationsFailed")}
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void fetchConversations()}
+            >
+              {t("common.retry")}
+            </Button>
+          </div>
+        ) : conversations.length === 0 && folders.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 px-2 py-4 text-center">
+            <MessagesSquare
+              size={20}
+              strokeWidth={1.5}
+              className="text-text-muted"
+            />
+            <p className="text-xs text-text-muted">
+              {t("chat.sidebar.empty")}
+            </p>
+          </div>
         ) : filteredConversationData.conversations.length === 0 &&
           filteredConversationData.folders.length === 0 ? (
           <p className="px-2 py-4 text-center text-xs text-text-muted">

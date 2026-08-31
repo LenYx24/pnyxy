@@ -43,7 +43,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Checkbox, FormModal, IconButton } from "@/components/ui";
+import { Checkbox, FormModal, IconButton, Select } from "@/components/ui";
 import { openMenuAtButton } from "@/features/chat/menu-anchor";
 import type { ContextMenuEntry } from "@/stores/context-menu-store";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -592,20 +592,31 @@ export function CourseSections({
           </div>
         </div>
 
-        <SectionCard
-          groupKey={GENERAL_KEY}
-          anchorId="section-general"
-          title={t("spaces.coursePage.general")}
-          items={generalItems}
-          isOpen={!collapsed.has(GENERAL_KEY)}
-          onToggleOpen={() => toggleGroup(GENERAL_KEY)}
-          progress={sectionProgress(generalItems)}
-          showProgress={showProgress}
-          owner={owner}
-          pendingNames={pending[GENERAL_KEY] ?? []}
-          onAddMenu={(e) => openMenuAtButton(e, addMenuEntries(null))}
-          renderRow={renderRow}
-        />
+        {/* The implicit "no section" bucket: shown only when it actually
+            holds orphan items, or (for the owner) as the sole place to add
+            when the course has no real sections yet. A course seeds a real,
+            deletable first section, so a fresh course does not show it. */}
+        {(generalItems.length > 0 ||
+          (owner && activeSpaceSections.length === 0)) && (
+          <SectionCard
+            groupKey={GENERAL_KEY}
+            anchorId="section-general"
+            title={
+              activeSpaceSections.length === 0 && generalItems.length === 0
+                ? t("spaces.coursePage.general")
+                : t("spaces.coursePage.noSection")
+            }
+            items={generalItems}
+            isOpen={!collapsed.has(GENERAL_KEY)}
+            onToggleOpen={() => toggleGroup(GENERAL_KEY)}
+            progress={sectionProgress(generalItems)}
+            showProgress={showProgress}
+            owner={owner}
+            pendingNames={pending[GENERAL_KEY] ?? []}
+            onAddMenu={(e) => openMenuAtButton(e, addMenuEntries(null))}
+            renderRow={renderRow}
+          />
+        )}
 
         <SortableContext
           items={activeSpaceSections.map((s) => `section:${s.id}`)}
@@ -1282,19 +1293,19 @@ function MoveToSectionModal({
       submitLabel={t("common.save")}
       submitting={saving}
     >
-      <select
+      <Select
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={setValue}
+        options={[
+          { value: GENERAL_KEY, label: t("spaces.coursePage.general") },
+          ...sections.map((s) => ({
+            value: s.id,
+            label: s.title || t("spaces.coursePage.untitledSection"),
+          })),
+        ]}
         disabled={saving}
-        className="field cursor-pointer"
-      >
-        <option value={GENERAL_KEY}>{t("spaces.coursePage.general")}</option>
-        {sections.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.title || t("spaces.coursePage.untitledSection")}
-          </option>
-        ))}
-      </select>
+        ariaLabel={t("spaces.coursePage.moveToSection")}
+      />
     </FormModal>
   );
 }

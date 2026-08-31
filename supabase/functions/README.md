@@ -69,6 +69,13 @@ supabase secrets set ALLOWED_ORIGINS="https://pnyxy.com,https://www.pnyxy.com,ht
 - Env vars: none beyond `ALLOWED_ORIGINS` (optional).
 - Deploy: `supabase functions deploy ingest-url`
 
+### delete-account
+
+- Purpose: GDPR self-service account deletion. Purges the caller's own storage objects (`book-files/<uid>/...`, `avatars/<uid>/...`, `space-files/<space_id>/...` for every space they OWN, never a space they merely belong to), then hard-deletes the auth user via the admin API. Every user-owned table cascades from `auth.users` (directly, or transitively through `profiles.id references auth.users on delete cascade`), so the single `deleteUser` call removes the rest of the account's rows in one cascading transaction; see the migrations for the per-table evidence. Returns `{ ok: true }` on success.
+- Auth: required. `verify_jwt = true`; the function re-reads the JWT to scope every deletion to the caller's own uid.
+- Env vars: none beyond `ALLOWED_ORIGINS` (optional).
+- Deploy: `supabase functions deploy delete-account` (required before this works; not deployed automatically by this change).
+
 ### send-feedback
 
 - Purpose: relays a subject + body from the browser to the feedback inbox via Resend, attaching the signed-in user's email + id (as `reply_to`) when a session is present.

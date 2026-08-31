@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Plus, Calendar, BookOpen, Trash2, CheckCircle2 } from "lucide-react";
+import {
+  Plus,
+  Calendar,
+  AlertTriangle,
+  BookOpen,
+  Trash2,
+  CheckCircle2,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
@@ -23,6 +30,7 @@ export function ReadingPlansSection() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const plans = useReadingPlanStore((s) => s.plans);
+  const plansError = useReadingPlanStore((s) => s.error);
   const fetchPlans = useReadingPlanStore((s) => s.fetchMine);
   const deletePlan = useReadingPlanStore((s) => s.deletePlan);
   const setStatus = useReadingPlanStore((s) => s.setStatus);
@@ -132,7 +140,24 @@ export function ReadingPlansSection() {
         </Button>
       </div>
 
-      {plans.length === 0 && (
+      {plans.length === 0 && plansError && (
+        <div className="rounded-xl border border-dashed border-glass-border bg-glass-bg/30 p-6 text-center">
+          <AlertTriangle size={24} className="mx-auto mb-2 text-warning" />
+          <p className="text-sm font-medium text-text-primary">
+            {t("readingPlans.section.loadFailed")}
+          </p>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => fetchPlans()}
+            className="mt-3"
+          >
+            {t("common.retry")}
+          </Button>
+        </div>
+      )}
+
+      {plans.length === 0 && !plansError && (
         <div className="rounded-xl border border-dashed border-glass-border bg-glass-bg/30 p-6 text-center">
           <Calendar size={24} className="mx-auto mb-2 text-text-muted/50" />
           <p className="text-sm font-medium text-text-primary">

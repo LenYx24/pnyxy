@@ -380,6 +380,7 @@
       "description": "Group your work into separate spaces - School, Personal, Work - and switch between them from the sidebar.",
       "scopingNotice": "Right now organizations only scope your library (folders, uploaded books, catalog additions). Quizzes, reading plans, vocab, whiteboards, and roadmaps are still shared across orgs - per-feature scoping lands in follow-up updates.",
       "signInFirst": "Sign in to manage organizations.",
+      "loadFailed": "Couldn't load your organizations. Check your connection and try again.",
       "newOrg": "New organization",
       "create": "Create",
       "nameLabel": "Name",
@@ -561,7 +562,17 @@
     "community": {
       "installed": "Installed",
       "installing": "Installing...",
-      "download": "Download"
+      "download": "Download",
+      "titleThemes": "Browse Community Themes",
+      "titlePlugins": "Browse Community Plugins",
+      "offline": "Offline: showing bundled fallback registry",
+      "loading": "Loading registry...",
+      "loadFailed": "Couldn't load the registry. Check your connection and try again.",
+      "installFailed": "Couldn't install this item. Check your connection and try again.",
+      "emptyThemes": "No themes found in the registry.",
+      "emptyPlugins": "No plugins found in the registry.",
+      "submitTheme": "Submit your own theme on GitHub",
+      "submitPlugin": "Submit your own plugin on GitHub"
     }
   },
   "landing": {
@@ -1848,7 +1859,9 @@
     },
     "emptyResponse": "The model returned an empty response, please try again.",
     "errors": {
-      "signInRequired": "Sign in to use the AI chat"
+      "signInRequired": "Sign in to use the AI chat",
+      "loadThreadFailed": "Couldn't load this conversation. Check your connection and try again.",
+      "loadConversationsFailed": "Couldn't load your conversations. Check your connection and try again."
     },
     "intents": {
       "youtube": "Learn from a YouTube video",
@@ -1910,7 +1923,8 @@
       "subtitle": "Time-boxed goals across one or more books. Works alongside your streak.",
       "newPlan": "New plan",
       "emptyTitle": "No reading plans yet",
-      "emptyBody": "Set a goal like \"finish chapters 3–7 by Friday\" or \"read 3 books over the next 30 days\"."
+      "emptyBody": "Set a goal like \"finish chapters 3–7 by Friday\" or \"read 3 books over the next 30 days\".",
+      "loadFailed": "Couldn't load your reading plans. Check your connection and try again."
     },
     "card": {
       "pages": "pages",
@@ -2693,6 +2707,12 @@
     },
     "openFailed": "Couldn't open this document. It may be corrupt or unsupported.",
     "screenshotFailed": "Couldn't capture the screenshot. Please try again.",
+    "viewer": {
+      "loading": "Loading PDF...",
+      "pdfLoadFailed": "Couldn't load this PDF. The file may be corrupted.",
+      "epubLoadFailed": "Couldn't load this EPUB. The file may be corrupted.",
+      "textLoadFailed": "Couldn't load this document's text."
+    },
     "aiCitation": {
       "openPopoverAria": "View AI conversations citing this passage",
       "singleTitle": "Sent to AI · click to view conversation",
@@ -2717,6 +2737,7 @@
     "community": "Community",
     "emptyCommunitySignedIn": "No public quizzes yet. Be the first!",
     "emptyCommunitySignedOut": "No public quizzes yet. Sign in to post one.",
+    "loadFailed": "Couldn't load quizzes. Check your connection and try again.",
     "quizCount_one": "{{count}} question",
     "quizCount_other": "{{count}} questions",
     "private": "Private",
@@ -2775,6 +2796,7 @@
       "correctAnswerHint": "Matching is case-insensitive; extra spaces are ignored.",
       "explanationPlaceholder": "Explanation shown after answering (optional)",
       "signInFirst": "Please sign in to create a quiz.",
+      "loadFailed": "Couldn't load this quiz. Check your connection and try again.",
       "create": "Create quiz",
       "saveChanges": "Save changes",
       "errors": {
@@ -2882,6 +2904,7 @@
       "filtered": "No matching entries",
       "hint": "Open a book and use Define on any word. Looked-up words are saved here for review."
     },
+    "loadFailed": "Couldn't load your vocabulary. Check your connection and try again.",
     "review": {
       "title": "Review",
       "progress": "{{current}} / {{total}}",
@@ -3001,7 +3024,13 @@
       "leaveConfirmTitle": "Leave this space?",
       "leaveConfirmBody": "You can rejoin anytime if it's public or you have an invite.",
       "rowCount": "{{count}} spaces",
-      "courseCount": "{{count}} courses"
+      "courseCount": "{{count}} courses",
+      "mySpacesHeading": "My spaces",
+      "switcherAll": "All spaces",
+      "switcherLabel": "Switch space",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "addChildHere": "Add space here"
     },
     "newSpace": {
       "trigger": "New space",
@@ -3011,7 +3040,12 @@
       "whereLabel": "Where",
       "whereRoot": "Root",
       "privateLabel": "Private, invite code",
-      "error": "Could not create the space."
+      "error": "Could not create the space.",
+      "firstSection": "Introduction",
+      "kindOrg": "Organization",
+      "kindSubspace": "Subspace (faculty / major)",
+      "kindCourse": "Course",
+      "kindTopic": "Topic"
     },
     "backToParent": "Parent space",
     "managedByOwner": "managed by its owner",
@@ -3086,7 +3120,11 @@
         "empty": "No spaces yet."
       },
       "itemCount": "{{count}} item",
-      "official": "Official"
+      "official": "Official",
+      "noSection": "No section",
+      "viewAsMember": "Previewing as member",
+      "viewAsEditor": "View as member",
+      "viewToggleHint": "Switch between editor and member view"
     },
     "startSeed": {
       "intro": "I am starting to study the course \"{{name}}\"{{org}}{{term}}.",
@@ -3164,6 +3202,18 @@
     "placeholderFrustrated": "What's bugging you? We read every reply.",
     "placeholder": "Anything you'd like us to know, features, bugs, ideas.",
     "send": "Send"
+  },
+  "bugReport": {
+    "label": "Report a problem",
+    "hint": "Something broken? Send a one-click report with the page and a quick note.",
+    "trigger": "Report a problem",
+    "modalTitle": "Report a problem",
+    "bodyLabel": "What happened? (optional)",
+    "bodyPlaceholder": "What were you doing when it broke?",
+    "autoCaptureNote": "This includes the current page and any errors caught here this session, no document or message content.",
+    "send": "Send report",
+    "sent": "Thanks, we got your report.",
+    "noDescription": "(no description provided)"
   },
   "gallery": {
     "titleScoped": "Course answers",

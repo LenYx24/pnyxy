@@ -7,9 +7,9 @@
  */
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, GitBranch } from "lucide-react";
+import { AlertTriangle, ChevronDown, GitBranch } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
-import { TypingIndicator, chipClass } from "@/components/ui";
+import { Button, TypingIndicator, chipClass } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useFeature } from "@/lib/use-features";
 import { useReadAloud } from "@/hooks/use-read-aloud";
@@ -63,13 +63,15 @@ export function ChatThread({
   const webArticlesEnabled = useFeature("webArticles");
   // parent lookup for the fork banner
   const allConversations = useChatStore((s) => s.conversations);
-  const { branchFrom, setActiveLeaf, messageSuggestions } = useChatStore(
-    useShallow((s) => ({
-      branchFrom: s.branchFrom,
-      setActiveLeaf: s.setActiveLeaf,
-      messageSuggestions: s.messageSuggestions,
-    })),
-  );
+  const { branchFrom, setActiveLeaf, messageSuggestions, threadError } =
+    useChatStore(
+      useShallow((s) => ({
+        branchFrom: s.branchFrom,
+        setActiveLeaf: s.setActiveLeaf,
+        messageSuggestions: s.messageSuggestions,
+        threadError: s.threadError,
+      })),
+    );
 
   // model picker: null = default fallback chain, otherwise a strict pick
   const enabledProviders = useSettingsStore((s) => s.enabledProviders);
@@ -180,38 +182,58 @@ export function ChatThread({
             </div>
           )}
 
-          {sheetCentered && (
-            <div
-              className={cn(
-                "flex flex-col items-center gap-4 pb-1 text-center",
-                settling && "invisible",
-              )}
-              aria-hidden={settling || undefined}
-            >
-              <h1 className="font-display text-2xl font-semibold text-text-primary sm:text-3xl">
-                {t("chat.emptyHeadline")}
-              </h1>
-              {/* an open empty conversation gets no helper line: the
-                  headline + composer say it all, extra copy steals focus */}
-              {!activeId && (
-                <p className="text-sm text-text-muted">{t("chat.emptyBody")}</p>
-              )}
-              <div className="flex flex-wrap justify-center gap-2">
-                {emptySuggestions.map((s) => (
-                  <button
-                    key={s.label}
-                    type="button"
-                    onClick={() => onEmptySuggestion(s.prompt)}
-                    className={cn(
-                      chipClass,
-                      "px-3 py-[7px] text-[13px] transition-colors cursor-pointer hover:bg-surface-3 hover:text-text-primary",
-                    )}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
+          {sheetCentered && activeId && threadError && !loading ? (
+            // The open failed (network/RLS/deleted conversation): this is
+            // NOT the same as a genuinely new, empty conversation, so it
+            // gets its own message instead of the "what are we learning
+            // today" headline, plus a way back in.
+            <div className="flex flex-col items-center gap-3 pb-1 text-center">
+              <AlertTriangle size={28} className="text-warning" />
+              <p className="text-sm text-text-muted">
+                {t("chat.errors.loadThreadFailed")}
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void useChatStore.getState().openConversation(activeId)}
+              >
+                {t("common.retry")}
+              </Button>
             </div>
+          ) : (
+            sheetCentered && (
+              <div
+                className={cn(
+                  "flex flex-col items-center gap-4 pb-1 text-center",
+                  settling && "invisible",
+                )}
+                aria-hidden={settling || undefined}
+              >
+                <h1 className="font-display text-2xl font-semibold text-text-primary sm:text-3xl">
+                  {t("chat.emptyHeadline")}
+                </h1>
+                {/* an open empty conversation gets no helper line: the
+                    headline + composer say it all, extra copy steals focus */}
+                {!activeId && (
+                  <p className="text-sm text-text-muted">{t("chat.emptyBody")}</p>
+                )}
+                <div className="flex flex-wrap justify-center gap-2">
+                  {emptySuggestions.map((s) => (
+                    <button
+                      key={s.label}
+                      type="button"
+                      onClick={() => onEmptySuggestion(s.prompt)}
+                      className={cn(
+                        chipClass,
+                        "px-3 py-[7px] text-[13px] transition-colors cursor-pointer hover:bg-surface-3 hover:text-text-primary",
+                      )}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
           )}
 
           {/* forked conversation: where it came from, click = open the parent */}

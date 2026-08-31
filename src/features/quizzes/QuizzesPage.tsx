@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { BookOpen, FileQuestion, Plus, Search } from "lucide-react";
+import {
+  AlertTriangle,
+  BookOpen,
+  FileQuestion,
+  Loader2,
+  Plus,
+  Search,
+} from "lucide-react";
 import { Button, GlassCard } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useQuizStore } from "@/stores/quiz-store";
@@ -14,6 +21,7 @@ export function QuizzesPage() {
   const publicQuizzes = useQuizStore((s) => s.publicQuizzes);
   const myQuizzes = useQuizStore((s) => s.myQuizzes);
   const isLoading = useQuizStore((s) => s.isLoading);
+  const error = useQuizStore((s) => s.error);
   const fetchPublic = useQuizStore((s) => s.fetchPublic);
   const fetchMine = useQuizStore((s) => s.fetchMine);
   const user = useAuthStore((s) => s.user);
@@ -21,12 +29,17 @@ export function QuizzesPage() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
 
-  useEffect(() => {
+  const refetch = () => {
     fetchPublic({
       query: query.trim() || undefined,
       standaloneOnly: filter === "standalone",
     });
     if (user) fetchMine();
+  };
+
+  useEffect(() => {
+    refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, filter, user, fetchPublic, fetchMine]);
 
   const visible = useMemo(() => {
@@ -106,9 +119,18 @@ export function QuizzesPage() {
           {t("quizzes.community")}
         </h2>
         {isLoading && visible.length === 0 ? (
-          <p className="py-12 text-center text-sm text-text-muted">
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-text-muted">
+            <Loader2 size={16} className="animate-spin" />
             {t("common.loading")}
-          </p>
+          </div>
+        ) : error && visible.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-12 text-center">
+            <AlertTriangle size={28} className="text-warning" />
+            <p className="text-sm text-text-muted">{t("quizzes.loadFailed")}</p>
+            <Button variant="secondary" size="sm" onClick={refetch}>
+              {t("common.retry")}
+            </Button>
+          </div>
         ) : visible.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <FileQuestion size={36} className="text-text-muted/50" />

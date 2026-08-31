@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, processLock } from "@supabase/supabase-js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -24,6 +24,14 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     // under this flow.
     flowType: "pkce",
     detectSessionInUrl: true,
+    // In-tab promise lock instead of the Navigator LockManager. The
+    // navigator lock throws "Acquiring an exclusive lock immediately
+    // failed" when several token-dependent requests fire at once (seen
+    // on the admin dashboard's parallel RPCs and on fast reloads);
+    // processLock serializes token access within the tab without that
+    // contention. Cross-tab refresh coordination is dropped, which is
+    // fine here.
+    lock: processLock,
   },
 });
 

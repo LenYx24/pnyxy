@@ -50,6 +50,8 @@ interface SpaceState {
     visibility: SpaceVisibility;
     description?: string | null;
     parentId?: string | null;
+    /** Section titles to seed (courses get a first editable section). */
+    seedSections?: string[];
   }) => Promise<string | null>;
   joinSpace: (spaceId: string) => Promise<void>;
   /** Join a private space with its invite code; returns the space id. */
@@ -69,6 +71,10 @@ interface SpaceState {
   /** Find-or-create the member's library folder tree for a course:
    *  <course>/<section title> for each section. Returns the course
    *  folder id (null when folders are unavailable). */
+  /** Owner/admin preview: render the course page as a plain member sees
+   *  it (no editor affordances). Session-only, applies across navigation. */
+  previewAsMember: boolean;
+  setPreviewAsMember: (v: boolean) => void;
   ensureCourseFolders: (space: Space) => Promise<string | null>;
   /** Folder for one section of a course (<course>/<section>); null title
    *  = the course folder itself. Creates what is missing. */
@@ -149,6 +155,8 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
   activeSpaceChildren: [],
   activeSpaceSections: [],
   completedContentIds: new Set(),
+  previewAsMember: false,
+  setPreviewAsMember: (v) => set({ previewAsMember: v }),
 
   async fetchMine() {
     const user = await getUserOrNull();
@@ -207,7 +215,7 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
     }
   },
 
-  async createSpace({ name, kind, visibility, description = null, parentId = null }) {
+  async createSpace({ name, kind, visibility, description = null, parentId = null, seedSections = [] }) {
     const trimmed = name.trim();
     if (!trimmed) throw new Error("Name is required.");
     const user = await requireUser("Sign in to create a space.");
@@ -227,6 +235,16 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
     if (error || !data) {
       logError("space-store:createSpace", error);
       throw error ?? new Error("Could not create space.");
+    }
+    // Seed the requested starting sections (a fresh course gets one real,
+    // editable/deletable section instead of a phantom "General").
+    for (const title of seedSections) {
+      const t = title.trim();
+      if (!t) continue;
+      const { error: secErr } = await supabase
+        .from("space_sections")
+        .insert({ space_id: data.id, title: t.slice(0, 200), sort_order: 0 });
+      if (secErr) logError("space-store:createSpace:seedSection", secErr);
     }
     await get().fetchAll();
     return data.id as string;

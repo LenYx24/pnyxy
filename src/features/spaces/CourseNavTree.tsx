@@ -6,7 +6,7 @@
  * (`pnyxy:spaces-nav-collapsed`); the open/rail state lives one level
  * up (CourseSpacePage owns `pnyxy:spaces-nav-open`).
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import {
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useSpaceStore } from "@/stores/space-store";
+import { useAuthStore } from "@/stores/auth-store";
 import type { Space } from "@/types/space";
 
 const NAV_COLLAPSED_KEY = "pnyxy:spaces-nav-collapsed";
@@ -54,6 +55,17 @@ export function CourseNavTree({ onNavigate }: { onNavigate?: () => void }) {
   const activeSpace = useSpaceStore((s) => s.activeSpace);
   const activeSpaceAncestors = useSpaceStore((s) => s.activeSpaceAncestors);
   const activeSpaceSections = useSpaceStore((s) => s.activeSpaceSections);
+  const activeSpaceContent = useSpaceStore((s) => s.activeSpaceContent);
+  const previewAsMember = useSpaceStore((s) => s.previewAsMember);
+  const authUser = useAuthStore((s) => s.user);
+  // the "General" bucket link mirrors the card: shown only when it holds
+  // orphan items, or (for the owner in editor view) when there is no real
+  // section yet
+  const isOwnerView =
+    !previewAsMember && !!authUser && activeSpace?.owner_id === authUser.id;
+  const hasOrphanItems = activeSpaceContent.some((c) => !c.section_id);
+  const showGeneralLink =
+    hasOrphanItems || (isOwnerView && activeSpaceSections.length === 0);
 
   const [collapsed, setCollapsed] = useState<Set<string>>(() =>
     readCollapsed(),
@@ -67,6 +79,22 @@ export function CourseNavTree({ onNavigate }: { onNavigate?: () => void }) {
     if (activeSpace) ids.add(activeSpace.id);
     return ids;
   }, [activeSpaceAncestors, activeSpace]);
+
+  // Navigating to a space expands its ancestors once (so the current
+  // location is visible), but the user can still collapse them again;
+  // we do NOT force them open on every render.
+  const lastExpandedRef = useRef("");
+  useEffect(() => {
+    const key = [...activePathIds].sort().join(",");
+    if (key === lastExpandedRef.current) return;
+    lastExpandedRef.current = key;
+    setCollapsed((prev) => {
+      if (![...activePathIds].some((id) => prev.has(id))) return prev;
+      const next = new Set(prev);
+      for (const id of activePathIds) next.delete(id);
+      return next;
+    });
+  }, [activePathIds]);
 
   const toggle = (id: string) => {
     setCollapsed((prev) => {
@@ -143,7 +171,7 @@ export function CourseNavTree({ onNavigate }: { onNavigate?: () => void }) {
     const { space } = node;
     const isActive = activeSpace?.id === space.id;
     const hasChildren = node.children.length > 0;
-    const isOpen = activePathIds.has(space.id) || !collapsed.has(space.id);
+    const isOpen = !collapsed.has(space.id);
     const Icon = NODE_ICON(space.kind);
     return (
       <div key={space.id}>
@@ -192,21 +220,23 @@ export function CourseNavTree({ onNavigate }: { onNavigate?: () => void }) {
         </div>
         {isActive && (
           <div>
-            <button
-              type="button"
-              onClick={() => scrollToSection("section-general")}
-              className="flex w-full cursor-pointer items-center truncate rounded-control py-1.5 pr-2 text-left text-[13px] text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary"
-              style={{ paddingLeft: 8 + (depth + 1) * 16 }}
-            >
-              {t("spaces.coursePage.nav.general")}
-            </button>
+            {showGeneralLink && (
+              <button
+                type="button"
+                onClick={() => scrollToSection("section-general")}
+                className="flex w-full cursor-pointer items-center truncate rounded-control py-1.5 pr-2 text-left text-[13px] text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary"
+                style={{ paddingLeft: 8 + (depth + 1) * 16 + 22 }}
+              >
+                {t("spaces.coursePage.nav.general")}
+              </button>
+            )}
             {activeSpaceSections.map((section) => (
               <button
                 key={section.id}
                 type="button"
                 onClick={() => scrollToSection(`section-${section.id}`)}
                 className="flex w-full cursor-pointer items-center truncate rounded-control py-1.5 pr-2 text-left text-[13px] text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary"
-                style={{ paddingLeft: 8 + (depth + 1) * 16 }}
+                style={{ paddingLeft: 8 + (depth + 1) * 16 + 22 }}
                 title={section.title}
               >
                 {section.title || t("spaces.coursePage.untitledSection")}

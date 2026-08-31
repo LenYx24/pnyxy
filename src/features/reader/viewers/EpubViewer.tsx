@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Book, Contents, Rendition } from "epubjs";
+import { AlertTriangle } from "lucide-react";
 import { useReaderStore, useDocumentState } from "@/stores/reader-store";
 import { useSearchStore } from "@/stores/search-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { getReaderPalette } from "@/lib/reader-themes";
+import { logError } from "@/lib/logger";
 import {
   EPUB_COLUMN_WIDTH_CSS,
   EPUB_FONT_FAMILY_CSS,
@@ -25,11 +28,13 @@ interface EpubAdapterLike {
 
 /** Renders an EPUB via epubjs. Search jumps to the spine item holding the match. */
 export function EpubViewer({ documentId }: EpubViewerProps) {
+  const { t } = useTranslation();
   const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
   const docId = documentId ?? activeDocumentId;
   const doc = useDocumentState(docId ?? "");
   const containerRef = useRef<HTMLDivElement>(null);
   const renditionRef = useRef<Rendition | null>(null);
+  const [renderError, setRenderError] = useState(false);
 
   const matches = useSearchStore((s) => s.matches);
   const currentIdx = useSearchStore((s) => s.currentIdx);
@@ -52,9 +57,14 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
   useEffect(() => {
     const el = containerRef.current;
     if (!el || !doc) return;
+    setRenderError(false);
     const adapter = doc.adapter as EpubAdapterLike;
     const book = adapter.getBook?.();
-    if (!book) return;
+    if (!book) {
+      logError("epub:noBook", new Error(`epub adapter returned no book for ${doc.meta.id}`));
+      setRenderError(true);
+      return;
+    }
 
     const rendition =
       epubFlow === "paginated"
@@ -121,7 +131,12 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
     });
 
     // prefer the in-session ref, else the synced CFI for a fresh open
-    void rendition.display(lastCfiRef.current ?? doc.cfi ?? undefined);
+    rendition
+      .display(lastCfiRef.current ?? doc.cfi ?? undefined)
+      .catch((err: unknown) => {
+        logError("epub:displayError", err);
+        setRenderError(true);
+      });
 
     return () => {
       try {
@@ -187,6 +202,12 @@ export function EpubViewer({ documentId }: EpubViewerProps) {
         style={{ backgroundColor: palette.background, color: palette.text }}
         className="h-full w-full overflow-auto"
       />
+      {renderError && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-bg-primary p-4 text-center text-text-secondary">
+          <AlertTriangle size={24} className="text-warning" />
+          <span className="text-sm">{t("reader.viewer.epubLoadFailed")}</span>
+        </div>
+      )}
       {allowAnnotations && (
         <>
           <AnnotationContextMenu />

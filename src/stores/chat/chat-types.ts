@@ -76,6 +76,10 @@ export interface ChatState {
   activeLeafId: string | null;
   streamingMessageId: string | null;
   isLoading: boolean;
+  /** Set when the last fetchConversations call failed; cleared on the next attempt. */
+  conversationsError: string | null;
+  /** Set when the last openConversation call failed; cleared on the next attempt. */
+  threadError: string | null;
   pendingDraft: ChatDraft | null;
   /** Follow-up chips per assistant message. Ephemeral, cleared on openConversation. */
   messageSuggestions: Map<string, string[]>;

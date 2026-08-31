@@ -13,6 +13,7 @@ import { IconButton } from "@/components/ui";
 import { getRegistry } from "@/lib/registry";
 import type { RegistryIndexEntry, RegistryStatus } from "@/lib/registry";
 import { cn } from "@/lib/cn";
+import { logError } from "@/lib/logger";
 
 type Mode = "themes" | "plugins";
 
@@ -40,6 +41,10 @@ export function BrowseCommunityModal({
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<RegistryStatus>({ offline: false });
   const [installing, setInstalling] = useState<Set<string>>(new Set());
+  // Bumped by the "Try again" button on a failed load; included in the
+  // effect's deps so a retry re-runs the fetch without changing mode.
+  const [reloadToken, setReloadToken] = useState(0);
+  const retryLoad = () => setReloadToken((n) => n + 1);
 
   // Load registry index + subscribe to status.
   useEffect(() => {
@@ -58,7 +63,8 @@ export function BrowseCommunityModal({
       })
       .catch((err: Error) => {
         if (cancelled) return;
-        setError(err.message);
+        logError("BrowseCommunityModal:load", err);
+        setError(t("settings.community.loadFailed"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -68,7 +74,7 @@ export function BrowseCommunityModal({
       cancelled = true;
       unsub();
     };
-  }, [mode]);
+  }, [mode, reloadToken]);
 
   async function handleInstall(entry: RegistryIndexEntry) {
     if (installing.has(entry.id)) return;
@@ -87,7 +93,8 @@ export function BrowseCommunityModal({
         installPlugin(manifest, bundle);
       }
     } catch (err) {
-      setError(`Install failed: ${(err as Error).message}`);
+      logError("BrowseCommunityModal:install", err);
+      setError(t("settings.community.installFailed"));
     } finally {
       setInstalling((prev) => {
         const next = new Set(prev);
@@ -103,7 +110,9 @@ export function BrowseCommunityModal({
   };
 
   const title =
-    mode === "themes" ? "Browse Community Themes" : "Browse Community Plugins";
+    mode === "themes"
+      ? t("settings.community.titleThemes")
+      : t("settings.community.titlePlugins");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -114,7 +123,7 @@ export function BrowseCommunityModal({
             {status.offline && (
               <p className="mt-0.5 inline-flex items-center gap-1 text-2xs text-warning">
                 <WifiOff size={11} />
-                Offline: showing bundled fallback registry
+                {t("settings.community.offline")}
               </p>
             )}
           </div>
@@ -131,15 +140,26 @@ export function BrowseCommunityModal({
           {loading ? (
             <div className="flex items-center justify-center py-12 text-text-muted">
               <LoaderCircle size={20} className="animate-spin" />
-              <span className="ml-2 text-sm">Loading registry…</span>
+              <span className="ml-2 text-sm">
+                {t("settings.community.loading")}
+              </span>
             </div>
           ) : error ? (
-            <div className="rounded-lg border border-danger/40 bg-danger/10 p-3 text-sm text-danger">
-              {error}
+            <div className="flex flex-col items-center gap-2 py-8 text-center">
+              <p className="text-sm text-danger">{error}</p>
+              <button
+                type="button"
+                onClick={retryLoad}
+                className="rounded-md bg-glass-bg px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              >
+                {t("common.retry")}
+              </button>
             </div>
           ) : entries.length === 0 ? (
             <p className="py-8 text-center text-sm text-text-muted">
-              No {mode} found in the registry.
+              {mode === "themes"
+                ? t("settings.community.emptyThemes")
+                : t("settings.community.emptyPlugins")}
             </p>
           ) : (
             <ul className="space-y-2">
@@ -220,7 +240,9 @@ export function BrowseCommunityModal({
             className="inline-flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-accent"
           >
             <ExternalLink size={12} />
-            Submit your own {mode === "themes" ? "theme" : "plugin"} on GitHub
+            {mode === "themes"
+              ? t("settings.community.submitTheme")
+              : t("settings.community.submitPlugin")}
           </a>
         </div>
       </div>

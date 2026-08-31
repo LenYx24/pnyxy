@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, Loader2, Plus, Trash2, X } from "lucide-react";
 import { Button, IconButton, modalBackdropClass, modalSurfaceClass } from "@/components/ui";
 import { SettingsSection } from "../ui";
 import { cn } from "@/lib/cn";
@@ -18,6 +18,7 @@ export function OrganizationsTab() {
   const user = useAuthStore((s) => s.user);
   const organizations = useOrgStore((s) => s.organizations);
   const isLoading = useOrgStore((s) => s.isLoading);
+  const fetchError = useOrgStore((s) => s.error);
   const fetchMine = useOrgStore((s) => s.fetchMine);
   const createOrg = useOrgStore((s) => s.createOrg);
   const renameOrg = useOrgStore((s) => s.renameOrg);
@@ -97,7 +98,20 @@ export function OrganizationsTab() {
       {/* Existing orgs */}
       <div className="space-y-2">
         {isLoading && organizations.length === 0 ? (
-          <p className="text-xs text-text-muted">{t("common.loading")}</p>
+          <div className="flex items-center gap-2 text-xs text-text-muted">
+            <Loader2 size={14} className="animate-spin" />
+            {t("common.loading")}
+          </div>
+        ) : fetchError && organizations.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 rounded-panel bg-bg-tertiary px-4 py-6 text-center">
+            <AlertTriangle size={22} className="text-warning" />
+            <p className="text-xs text-text-muted">
+              {t("settings.organizationsSection.loadFailed")}
+            </p>
+            <Button variant="secondary" size="sm" onClick={() => fetchMine()}>
+              {t("common.retry")}
+            </Button>
+          </div>
         ) : (
           organizations.map((org) => (
             <OrgRow

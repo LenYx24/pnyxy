@@ -26,6 +26,8 @@ interface VocabState {
   /** All entries for the current user (or the local-only anon set). */
   entries: Map<string, VocabEntry>;
   isLoading: boolean;
+  /** Set when the last loadEntries call failed; cleared on the next attempt. */
+  error: string | null;
 
   loadEntries: () => Promise<void>;
   captureFromLookup: (input: CaptureInput) => Promise<VocabEntry>;
@@ -147,9 +149,10 @@ async function pushEntry(entry: VocabEntry, userId: string) {
 export const useVocabStore = create<VocabState>((set, get) => ({
   entries: new Map(),
   isLoading: false,
+  error: null,
 
   async loadEntries() {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
       const {
         data: { user },
@@ -181,6 +184,7 @@ export const useVocabStore = create<VocabState>((set, get) => ({
       }
     } catch (err) {
       logError("vocab-store.loadEntries", err);
+      set({ error: "loadFailed" });
     } finally {
       set({ isLoading: false });
     }

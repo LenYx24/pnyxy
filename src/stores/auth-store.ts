@@ -36,6 +36,14 @@ async function hydrateSyncedStores() {
  *  the in-memory form state) so it can be drained once a profile is loaded. */
 export const PENDING_CONSENT_KEY = "pnyxy:pendingConsentResearch";
 
+/** sessionStorage key: set right before the hard `window.location.replace`
+ *  that follows a successful self-service account deletion, so the fresh
+ *  `/auth` load (a full document reload, no in-memory React state survives
+ *  it) can still show a farewell toast. sessionStorage rather than
+ *  localStorage: it should only ever fire once, for the tab that just did
+ *  the deleting, never resurface on a later unrelated sign-in. */
+export const ACCOUNT_DELETED_KEY = "pnyxy:accountDeleted";
+
 /**
  * Drains a locally-stashed signup consent timestamp into
  * `profiles.preferences.consent_research_at`. Best-effort and idempotent:

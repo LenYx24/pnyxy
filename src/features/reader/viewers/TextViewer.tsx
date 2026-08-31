@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { marked } from "marked";
+import { AlertTriangle } from "lucide-react";
 import { sanitizeHtml } from "@/lib/sanitize-html";
 import { useReaderStore, useDocumentState } from "@/stores/reader-store";
 import { useSearchStore } from "@/stores/search-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { getReaderPalette } from "@/lib/reader-themes";
+import { logError } from "@/lib/logger";
 import { useTextSelection } from "@/hooks/use-text-selection";
 import { AnnotationContextMenu } from "../popovers/AnnotationContextMenu";
 import { CommentPopover } from "../popovers/CommentPopover";
@@ -22,10 +25,12 @@ interface TextViewerProps {
  * scrolls the current one into view.
  */
 export function TextViewer({ documentId }: TextViewerProps) {
+  const { t } = useTranslation();
   const activeDocumentId = useReaderStore((s) => s.activeDocumentId);
   const docId = documentId ?? activeDocumentId;
   const doc = useDocumentState(docId ?? "");
   const [content, setContent] = useState<string>("");
+  const [loadError, setLoadError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const selectionRootRef = useRef<HTMLDivElement>(null);
   const allowAnnotations = useSettingsStore(
@@ -39,18 +44,31 @@ export function TextViewer({ documentId }: TextViewerProps) {
 
   useEffect(() => {
     let alive = true;
+    setLoadError(false);
     if (!doc?.adapter.getContent) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- clear content when the active doc can't provide it
       setContent("");
       return;
     }
-    doc.adapter.getContent().then((text) => {
-      if (alive) setContent(text);
-    });
-    const unsubscribe = doc.adapter.subscribeContent?.(() => {
-      doc.adapter.getContent?.().then((text) => {
+    doc.adapter.getContent().then(
+      (text) => {
         if (alive) setContent(text);
-      });
+      },
+      (err: unknown) => {
+        logError("text:getContent", err);
+        if (alive) setLoadError(true);
+      },
+    );
+    const unsubscribe = doc.adapter.subscribeContent?.(() => {
+      doc.adapter.getContent?.().then(
+        (text) => {
+          if (alive) setContent(text);
+        },
+        (err: unknown) => {
+          logError("text:getContent:subscribe", err);
+          if (alive) setLoadError(true);
+        },
+      );
     });
     return () => {
       alive = false;
@@ -105,6 +123,20 @@ export function TextViewer({ documentId }: TextViewerProps) {
   }, [html, query, caseSensitive, wholeWord, regexEnabled, currentIdx, matches]);
 
   if (!doc) return null;
+
+  if (loadError) {
+    return (
+      <div
+        data-active-viewer
+        data-text-viewer
+        style={{ backgroundColor: palette.background, color: palette.text }}
+        className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center"
+      >
+        <AlertTriangle size={24} className="text-warning" />
+        <span className="text-sm">{t("reader.viewer.textLoadFailed")}</span>
+      </div>
+    );
+  }
 
   return (
     <div

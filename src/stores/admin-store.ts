@@ -21,6 +21,31 @@ interface UserWithBan extends Profile {
   activeBan: UserBan | null;
 }
 
+/** Minimal profile shape used to resolve "Submitted by" on pending
+ *  catalog books, and elsewhere a compact author card is enough. */
+export type SubmitterProfile = Pick<Profile, "display_name" | "avatar_url">;
+
+export interface AdminUserStats {
+  email: string | null;
+  created_at: string;
+  storage_tier: string;
+  books_count: number;
+  notes_count: number;
+  quizzes_count: number;
+  conversations_count: number;
+  tokens_30d: number;
+}
+
+export interface AdminUserDetail {
+  profile: Profile;
+  activeBan: UserBan | null;
+  /** Null while loading or when the admin_user_detail RPC (migration
+   *  00075) hasn't been deployed yet / errored; statsError then holds
+   *  a human-readable reason. */
+  stats: AdminUserStats | null;
+  statsError: string | null;
+}
+
 interface AdminState {
   // Stats
   stats: AdminStats | null;
@@ -37,6 +62,8 @@ interface AdminState {
   // Catalog
   pendingBooks: CatalogBook[];
   catalogLoading: boolean;
+  /** submitted_by id -> profile, resolved in a single batch per fetch. */
+  submitterProfiles: Record<string, SubmitterProfile>;
   fetchPendingBooks: () => Promise<void>;
   approveBook: (id: string) => Promise<void>;
   rejectBook: (id: string) => Promise<void>;
@@ -49,6 +76,13 @@ interface AdminState {
   banUser: (userId: string, reason: string, days: number | null) => Promise<void>;
   liftBan: (banId: string) => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => Promise<void>;
+
+  // User detail (admin-only drill-in view)
+  userDetail: AdminUserDetail | null;
+  userDetailLoading: boolean;
+  userDetailError: string | null;
+  fetchUserDetail: (userId: string) => Promise<void>;
+  clearUserDetail: () => void;
 }
 
 export const useAdminStore = create<AdminState>((set, get) => ({
@@ -136,6 +170,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   // Catalog
   pendingBooks: [],
   catalogLoading: false,
+  submitterProfiles: {},
 
   fetchPendingBooks: async () => {
     set({ catalogLoading: true });
@@ -147,7 +182,25 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      set({ pendingBooks: data ?? [] });
+      const books = data ?? [];
+
+      // Resolve "Submitted by" in one batch: distinct submitter ids ->
+      // profiles. Admins can read all profiles (RLS from 00004).
+      const submitterIds = [
+        ...new Set(books.map((b) => b.submitted_by).filter((id): id is string => !!id)),
+      ];
+      const submitterProfiles: Record<string, SubmitterProfile> = {};
+      if (submitterIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, display_name, avatar_url")
+          .in("id", submitterIds);
+        for (const p of profiles ?? []) {
+          submitterProfiles[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url };
+        }
+      }
+
+      set({ pendingBooks: books, submitterProfiles });
     } finally {
       set({ catalogLoading: false });
     }
@@ -283,4 +336,74 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       ),
     }));
   },
+
+  // User detail
+  userDetail: null,
+  userDetailLoading: false,
+  userDetailError: null,
+
+  fetchUserDetail: async (userId: string) => {
+    set({ userDetailLoading: true, userDetailError: null, userDetail: null });
+    try {
+      const [{ data: profile, error: profileError }, { data: bans }] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+        supabase
+          .from("user_bans")
+          .select("*")
+          .eq("user_id", userId)
+          .or("banned_until.is.null,banned_until.gt.now()")
+          .order("created_at", { ascending: false })
+          .limit(1),
+      ]);
+
+      if (profileError) throw profileError;
+      if (!profile) {
+        set({ userDetailError: "User not found." });
+        return;
+      }
+
+      // Stats/email need migration 00075 (admin_user_detail RPC) to be
+      // deployed. Until then, fail soft: show the profile fields we
+      // already have and surface a "stats need deploy" note instead of
+      // crashing the detail view.
+      let stats: AdminUserStats | null = null;
+      let statsError: string | null = null;
+      const { data: statsRows, error: statsErr } = await supabase.rpc(
+        "admin_user_detail",
+        { p_user: userId },
+      );
+      if (statsErr) {
+        statsError = statsErr.message;
+      } else {
+        const row = (statsRows as AdminUserStats[] | null)?.[0] ?? null;
+        stats = row
+          ? {
+              email: row.email,
+              created_at: row.created_at,
+              storage_tier: row.storage_tier,
+              books_count: Number(row.books_count) || 0,
+              notes_count: Number(row.notes_count) || 0,
+              quizzes_count: Number(row.quizzes_count) || 0,
+              conversations_count: Number(row.conversations_count) || 0,
+              tokens_30d: Number(row.tokens_30d) || 0,
+            }
+          : null;
+      }
+
+      set({
+        userDetail: {
+          profile,
+          activeBan: bans?.[0] ?? null,
+          stats,
+          statsError,
+        },
+      });
+    } catch (err) {
+      set({ userDetailError: err instanceof Error ? err.message : "Failed to load user." });
+    } finally {
+      set({ userDetailLoading: false });
+    }
+  },
+
+  clearUserDetail: () => set({ userDetail: null, userDetailError: null }),
 }));

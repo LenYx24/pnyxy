@@ -71,6 +71,7 @@ export const useAdminQuotaStore = create<AdminQuotaState>((set, get) => ({
     const activeMin = opts?.activeMin ?? get().activeMin;
     set({ loading: true, error: null, rangeDays: window, activeMin });
     try {
+      await supabase.auth.getSession();
       const [dailyRes, summaryRes, histRes] = await Promise.all([
         supabase.rpc("admin_quota_daily", { p_days: window }),
         supabase.rpc("admin_quota_cap_summary", {
@@ -81,7 +82,11 @@ export const useAdminQuotaStore = create<AdminQuotaState>((set, get) => ({
       ]);
 
       const firstError = dailyRes.error ?? summaryRes.error ?? histRes.error;
-      if (firstError) throw firstError;
+      if (firstError) {
+        throw new Error(
+          `${firstError.message}${firstError.code ? ` (${firstError.code})` : ""}`,
+        );
+      }
 
       const s = (summaryRes.data?.[0] ?? null) as Record<string, unknown> | null;
 

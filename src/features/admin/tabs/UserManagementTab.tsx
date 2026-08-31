@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import {
   Loader2,
   ChevronLeft,
@@ -6,6 +7,7 @@ import {
   ShieldCheck,
   ShieldBan,
   ShieldOff,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/Button";
@@ -24,6 +26,7 @@ export function UserManagementTab() {
     liftBan,
     updateUserRole,
   } = useAdminStore();
+  const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [acting, setActing] = useState<string | null>(null);
   const [banForm, setBanForm] = useState<{
@@ -85,10 +88,14 @@ export function UserManagementTab() {
         >
           <div className="flex flex-wrap items-center gap-3">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <p className="truncate font-medium text-text-primary">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/admin/users/${user.id}`)}
+                  className="truncate font-medium text-text-primary underline decoration-dotted hover:text-accent"
+                >
                   {user.display_name || "No name"}
-                </p>
+                </button>
                 <span
                   className={cn(
                     "rounded-full px-2 py-0.5 text-xs font-medium",
@@ -98,6 +105,16 @@ export function UserManagementTab() {
                   )}
                 >
                   {user.role}
+                </span>
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-xs font-medium",
+                    user.storage_tier === "premium"
+                      ? "bg-success/15 text-success"
+                      : "bg-glass-hover text-text-muted",
+                  )}
+                >
+                  {user.storage_tier === "premium" ? "Premium" : "Free"}
                 </span>
                 {user.activeBan && (
                   <span className="rounded-full bg-danger/15 px-2 py-0.5 text-xs font-medium text-danger">
@@ -110,10 +127,20 @@ export function UserManagementTab() {
               </div>
               <p className="text-xs text-text-muted">
                 Joined {new Date(user.created_at).toLocaleDateString()}
+                {" | "}
+                <span className="font-mono">{user.id.slice(0, 8)}...</span>
               </p>
             </div>
 
             <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => navigate(`/admin/users/${user.id}`)}
+              >
+                <ExternalLink size={14} />
+                View details
+              </Button>
+
               {user.role === "user" ? (
                 <Button
                   variant="ghost"

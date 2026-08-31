@@ -49,6 +49,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   activeLeafId: null,
   streamingMessageId: null,
   isLoading: false,
+  conversationsError: null,
+  threadError: null,
   pendingDraft: null,
   messageSuggestions: new Map(),
 
@@ -62,7 +64,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   async fetchConversations() {
-    set({ isLoading: true });
+    set({ isLoading: true, conversationsError: null });
     try {
       const user = await getUserOrNull();
       if (!user) {
@@ -103,6 +105,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } catch (err) {
       logError("chat:fetchConversations", err);
+      set({ conversationsError: "fetchFailed" });
     } finally {
       set({ isLoading: false });
     }
@@ -181,6 +184,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // suggestion keys are ids from the previous conversation
       messageSuggestions: new Map(),
       isLoading: true,
+      threadError: null,
     });
     try {
       const [{ data: conv, error: convErr }, { data: msgs, error: msgsErr }] =
@@ -228,6 +232,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
     } catch (err) {
       logError("chat:openConversation", err);
+      if (seq === openSeq) set({ threadError: "openFailed" });
     } finally {
       // Only the newest open owns the flag. The old "still the active
       // conversation" check left isLoading stuck at true when a new chat

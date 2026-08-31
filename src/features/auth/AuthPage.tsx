@@ -1,9 +1,10 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "lucide-react";
 import { MeshBackground, Button, Checkbox } from "@/components/ui";
-import { PENDING_CONSENT_KEY, useAuthStore } from "@/stores/auth-store";
+import { ACCOUNT_DELETED_KEY, PENDING_CONSENT_KEY, useAuthStore } from "@/stores/auth-store";
+import { showToast } from "@/stores/toast-store";
 
 type AuthTab = "sign-in" | "create-account";
 
@@ -58,6 +59,22 @@ export function AuthPage() {
   const [signUpSuccess, setSignUpSuccess] = useState(false);
   // pilot consent (telemetry + anonymized thesis use); gates sign-up only
   const [consent, setConsent] = useState(false);
+
+  // Farewell toast after a self-service account deletion: that flow ends
+  // with a hard `window.location.replace("/auth")`, a full document reload
+  // that drops all in-memory React state, so the flag has to survive in
+  // sessionStorage instead of being passed as component state.
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(ACCOUNT_DELETED_KEY)) {
+        sessionStorage.removeItem(ACCOUNT_DELETED_KEY);
+        showToast(t("settings.dangerZone.farewellToast"), "success", 8000);
+      }
+    } catch {
+      // sessionStorage unavailable (private mode etc.): skip the toast
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (user) {
     return <Navigate to={nextPath ?? "/library"} replace />;

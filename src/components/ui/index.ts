@@ -1,5 +1,6 @@
 export { Button } from "./Button";
 export type { ButtonVariant, ButtonSize } from "./Button";
+export { EmptyState } from "./EmptyState";
 export { IconButton } from "./IconButton";
 export type { IconButtonVariant, IconButtonSize } from "./IconButton";
 export { Checkbox } from "./Checkbox";
@@ -11,6 +12,8 @@ export { GlassCard } from "./GlassCard";
 export { PromptModal } from "./PromptModal";
 export { NumberInput } from "./NumberInput";
 export { Reveal } from "./Reveal";
+export { Select } from "./Select";
+export type { SelectOption } from "./Select";
 export { Kbd } from "./Kbd";
 export { MeshBackground } from "./MeshBackground";
 export { Toggle } from "./Toggle";

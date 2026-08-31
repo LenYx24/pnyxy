@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -24,6 +24,7 @@ import {
   restrictToWindowEdges,
 } from "@/lib/dnd-modifiers";
 import {
+  AlertTriangle,
   ArrowLeft,
   Plus,
   Trash2,
@@ -106,6 +107,7 @@ export function QuizEditorPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingInitial, setLoadingInitial] = useState(!!quizId);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   // MouseSensor (not PointerSensor) so touch events go to
   // TouchSensor only, otherwise PointerSensor's `distance: 8`
@@ -125,12 +127,24 @@ export function QuizEditorPage() {
     }),
   );
 
+  // Bumped by the "Try again" button on a failed load; included in the
+  // effect's deps so a retry re-runs the fetch without changing quizId.
+  const [reloadToken, setReloadToken] = useState(0);
+  const retryLoad = useCallback(() => setReloadToken((n) => n + 1), []);
+
   useEffect(() => {
     if (!quizId) return;
     let cancelled = false;
+    setLoadingInitial(true);
+    setLoadFailed(false);
     (async () => {
       const data = await getQuiz(quizId);
-      if (cancelled || !data) return;
+      if (cancelled) return;
+      if (!data) {
+        setLoadingInitial(false);
+        setLoadFailed(true);
+        return;
+      }
       setTitle(data.quiz.title);
       setDescription(data.quiz.description ?? "");
       setVisibility(data.quiz.visibility);
@@ -166,7 +180,7 @@ export function QuizEditorPage() {
     return () => {
       cancelled = true;
     };
-  }, [quizId, getQuiz]);
+  }, [quizId, getQuiz, reloadToken]);
 
   if (!user) {
     return (
@@ -180,6 +194,23 @@ export function QuizEditorPage() {
     return (
       <div className="flex h-64 items-center justify-center">
         <Loader2 size={20} className="animate-spin text-text-muted" />
+      </div>
+    );
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-3 p-6 text-center">
+        <AlertTriangle size={28} className="text-warning" />
+        <p className="text-text-muted">{t("quizzes.editor.loadFailed")}</p>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={retryLoad}>
+            {t("common.retry")}
+          </Button>
+          <Button variant="ghost" onClick={() => navigate("/quizzes")}>
+            {t("quizzes.detail.backToQuizzes")}
+          </Button>
+        </div>
       </div>
     );
   }

@@ -18,6 +18,7 @@ import {
 } from "@/lib/i18n";
 import { exportUserData } from "@/lib/export-user-data";
 import { useAuthStore } from "@/stores/auth-store";
+import { DeleteAccountSection } from "./DeleteAccountSection";
 import { useFeatures } from "@/lib/use-features";
 import {
   FEATURE_KEYS,
@@ -432,6 +433,8 @@ export function GeneralTab() {
           }
         />
       </SettingsSection>
+
+      <DeleteAccountSection />
     </div>
   );
 }

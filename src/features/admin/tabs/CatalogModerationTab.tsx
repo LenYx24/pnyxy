@@ -1,11 +1,18 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import { Loader2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useAdminStore } from "@/stores/admin-store";
 
 export function CatalogModerationTab() {
-  const { pendingBooks, catalogLoading, fetchPendingBooks, approveBook, rejectBook } =
-    useAdminStore();
+  const {
+    pendingBooks,
+    catalogLoading,
+    submitterProfiles,
+    fetchPendingBooks,
+    approveBook,
+    rejectBook,
+  } = useAdminStore();
   const [acting, setActing] = useState<string | null>(null);
 
   useEffect(() => {
@@ -74,7 +81,18 @@ export function CatalogModerationTab() {
             </p>
             <p className="text-xs text-text-muted">
               Source: {book.source}
-              {book.submitted_by && ` | Submitted by: ${book.submitted_by}`}
+              {book.submitted_by && (
+                <>
+                  {" | Submitted by: "}
+                  <Link
+                    to={`/admin/users/${book.submitted_by}`}
+                    className="text-text-secondary underline decoration-dotted hover:text-accent"
+                  >
+                    {submitterProfiles[book.submitted_by]?.display_name ||
+                      `${book.submitted_by.slice(0, 8)}...`}
+                  </Link>
+                </>
+              )}
             </p>
           </div>
 
