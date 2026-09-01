@@ -129,7 +129,7 @@
       "kindTopic": "Témakör"
     },
     "title": "Terek",
-    "subtitle": "Közösségek és kurzusok, szervezetek, kurzusok és témák.",
+    "subtitle": "A tárgyaid és a hozzájuk tartozó anyagok, egy helyen.",
     "signInPrompt": "Jelentkezz be a terek böngészéséhez és létrehozásához.",
     "createHeading": "Tér létrehozása",
     "namePlaceholder": "Név (pl. BME, BSz1, Health)",
@@ -423,7 +423,9 @@
       "mismatch": "A jelszavak nem egyeznek."
     },
     "consent": {
-      "text": "Elfogadom, hogy a Pnyxy anonim használati adatokat gyűjt (funkcióhasználat, munkamenet-hossz; üzenet- vagy dokumentumtartalmat soha), és hogy a pilot tapasztalatai anonimizálva tudományos munkában felhasználhatók.",
+      "text": "Elfogadom, hogy a Pnyxy anonim használati adatokat gyűjt (funkcióhasználat, munkamenet-hossz), és hogy a pilot tapasztalatai anonimizálva tudományos munkában felhasználhatók.",
+      "content": "Opcionálisan hozzájárulok, hogy a tanulási beszélgetéseimet (a kérdéseimet és az AI válaszait) a szakdolgozati kutatáshoz áttekinthessék, harmadik félnek nem adjuk át.",
+      "contentOptional": "(opcionális)",
       "privacyLink": "Adatkezelés",
       "required": "A regisztrációhoz fogadd el az adatkezelési hozzájárulást."
     }
@@ -522,6 +524,13 @@
       "exportSuccess": "Export letöltve.",
       "exportError": "Export sikertelen: {{message}}",
       "exportPartial": "Export letöltve, {{count}} hibás szekcióval - a fájl tartalmazza a részleteket."
+    },
+    "privacy": {
+      "heading": "Kutatás és adatvédelem",
+      "contentConsentLabel": "Hozzájárulok a beszélgetéseim áttekintéséhez kutatás céljából",
+      "contentConsentHint": "Engedélyezem, hogy a tanulási beszélgetéseimet (a kérdéseimet és az AI válaszait) a szakdolgozati kutatáshoz áttekintsék, harmadik félnek nem adjuk át. Bármikor kikapcsolhatod.",
+      "contentConsentOn": "Hozzájárulás megadva: {{date}}.",
+      "contentConsentError": "A hozzájárulás módosítása nem sikerült. Próbáld újra."
     },
     "appearanceSection": {
       "heading": "Megjelenés",
@@ -845,7 +854,7 @@
         "price": "-",
         "priceSuffix": "hamarosan",
         "comingSoon": "Hamarosan",
-        "tagline": "Haladó felhasználóknak, akik több AI-t, tárhelyet és eszközt szeretnének.",
+        "tagline": "Nagyobb AI-keret és tárhely, ha kinőnéd az ingyeneset.",
         "features": [
           "Nagyobb napi AI kvóta + hozzáférés erősebb modellekhez",
           "Több felhőalapú tárhely a saját könyvekhez",
@@ -861,7 +870,7 @@
       "items": {
         "isItFree": {
           "q": "Ingyenes a Pnyxy?",
-          "a": "Igen, az összes alapfunkció jelenleg ingyenes: olvasás, jelölések, jegyzetek, táblák, AI chat (napi kvótával), tanulókártyák, fórum és a közösségi katalógus. Egy fizetős Premium csomagot tervezünk azoknak, akiknek nagyobb AI kvóta, több tárhely vagy OCR kell. Ami ma ingyenes, az ingyenes marad."
+          "a": "Igen. A pilot alatt az alap ingyenes: a saját PDF-jeid és EPUB-jaid olvasása és jegyzetelése, az AI-tutor napi kerettel, minden rendszerezése a könyvtáradban, és a kurzus-terekhez csatlakozás. Egy fizetős Premium csomagot később tervezünk nagyobb AI-keretre, több tárhelyre és OCR-re. Ami ma ingyenes, az ingyenes marad."
         },
         "copyright": {
           "q": "Bármilyen könyvet olvashatok?",
@@ -1743,7 +1752,7 @@
       "failed": "Nem sikerült megosztani ezt a választ."
     },
     "emptyTitle": "Még nincs beszélgetés",
-    "emptyBody": "Kezdj egy újat - a beszélgetések rendezettek és bárhol elágazhatnak.",
+    "emptyBody": "Kezdj egy újat; a beszélgetéseid mappákba rendezve megmaradnak.",
     "loading": "Üzenetek betöltése…",
     "signInRequired": "Jelentkezz be a csevegéshez",
     "signInHint": "A beszélgetéseid csak a te fiókodból érhetők el.",

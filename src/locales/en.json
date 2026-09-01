@@ -208,7 +208,9 @@
       "mismatch": "Passwords don't match."
     },
     "consent": {
-      "text": "I agree that Pnyxy collects anonymous usage data (feature usage, session length, never message or document content) and that pilot findings may be used, anonymized, in academic work.",
+      "text": "I agree that Pnyxy collects anonymous usage data (feature usage, session length), and that the pilot experience may be used, anonymized, in academic work.",
+      "content": "Optionally, allow my learning conversations (my questions and the AI's answers) to be reviewed for the thesis research, not shared with third parties.",
+      "contentOptional": "(optional)",
       "privacyLink": "Privacy",
       "required": "Please accept the data-use consent to register."
     }
@@ -302,6 +304,13 @@
       "exportSuccess": "Export downloaded.",
       "exportError": "Export failed: {{message}}",
       "exportPartial": "Export downloaded with {{count}} section error(s) - see the file for details."
+    },
+    "privacy": {
+      "heading": "Research & privacy",
+      "contentConsentLabel": "Allow my conversations to be reviewed for research",
+      "contentConsentHint": "Let my learning conversations (my questions and the AI's answers) be reviewed for the thesis research, not shared with third parties. You can turn this off at any time.",
+      "contentConsentOn": "Consent given on {{date}}.",
+      "contentConsentError": "Could not update your consent. Please try again."
     },
     "appearanceSection": {
       "heading": "Appearance",
@@ -630,7 +639,7 @@
         "price": "-",
         "priceSuffix": "coming soon",
         "comingSoon": "Coming soon",
-        "tagline": "For power users who want more AI, more storage, more tools.",
+        "tagline": "Bigger AI quota and storage, when you outgrow the free tier.",
         "features": [
           "Larger daily AI quota + access to higher-quality models",
           "More cloud storage for your uploaded books",
@@ -646,7 +655,7 @@
       "items": {
         "isItFree": {
           "q": "Is Pnyxy free to use?",
-          "a": "Yes. Every core feature is free right now: reading, annotations, notes, whiteboards, AI chat (with a daily quota), vocabulary flashcards, forum, and the community book catalog. A paid Premium tier is planned for people who need bigger AI quotas, more storage, and OCR. Everything that's free today stays free."
+          "a": "Yes. During the pilot the core is free: reading and annotating your own PDFs and EPUBs, the AI tutor with a daily quota, organizing everything in your library, and joining course spaces. A paid Premium tier is planned later for bigger AI quotas, more storage, and OCR. Everything that's free today stays free."
         },
         "copyright": {
           "q": "Can I read any book on Pnyxy?",
@@ -1502,7 +1511,7 @@
     "newConversation": "New conversation",
     "scrollToBottom": "Scroll to latest",
     "emptyTitle": "No conversations yet",
-    "emptyBody": "Start a new chat - conversations stay organized and can branch at any point.",
+    "emptyBody": "Start a new one; your chats are kept and organized into folders.",
     "loading": "Loading messages…",
     "signInRequired": "Sign in to use chat",
     "signInHint": "Conversations are private to your account.",
@@ -3170,7 +3179,7 @@
     "signInPrompt": "Sign in to browse and create spaces.",
     "title": "Spaces",
     "discoverEmpty": "No public spaces to show.",
-    "subtitle": "Communities & courses, organizations, courses, and topics.",
+    "subtitle": "Your courses and their materials, in one place.",
     "join": "Join",
     "joinCode": {
       "tooMany": "Too many failed attempts. Try again in an hour.",

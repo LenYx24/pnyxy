@@ -48,7 +48,8 @@ export const DEFAULT_FEATURES: FeatureSet = {
   forum: false,
   roadmaps: false,
   vocabulary: false,
-  spaces: false,
+  // Greenlit for the pilot: the course/spaces flow is the pilot's core.
+  spaces: true,
   comments: false,
   graph: false,
   leaderboards: false,

@@ -62,6 +62,21 @@ export function GeneralTab() {
     }
   };
   const isAdmin = useAuthStore((s) => s.profile?.role === "admin");
+  const contentConsentAt = useAuthStore(
+    (s) =>
+      (s.profile?.preferences as Record<string, unknown> | undefined)
+        ?.consent_content_at,
+  );
+  const setContentConsent = useAuthStore((s) => s.setContentConsent);
+  const [consentError, setConsentError] = useState<string | null>(null);
+  const handleContentConsentToggle = async (enabled: boolean) => {
+    setConsentError(null);
+    try {
+      await setContentConsent(enabled);
+    } catch {
+      setConsentError(t("settings.privacy.contentConsentError"));
+    }
+  };
   const serverUnlocked = serverUnlockedFeatures(
     useAuthStore((s) => s.profile?.preferences),
   );
@@ -315,6 +330,29 @@ export function GeneralTab() {
         )}
         {exportStatus.kind !== "idle" && exportStatus.kind !== "exporting" && (
           <div className="pb-3" />
+        )}
+      </SettingsSection>
+
+      <SettingsSection title={t("settings.privacy.heading")}>
+        <SettingRow
+          label={t("settings.privacy.contentConsentLabel")}
+          hint={t("settings.privacy.contentConsentHint")}
+          control={
+            <Toggle
+              checked={typeof contentConsentAt === "string"}
+              onChange={handleContentConsentToggle}
+            />
+          }
+        />
+        {typeof contentConsentAt === "string" && (
+          <StatusLine tone="success">
+            {t("settings.privacy.contentConsentOn", {
+              date: new Date(contentConsentAt).toLocaleDateString(),
+            })}
+          </StatusLine>
+        )}
+        {consentError && (
+          <StatusLine tone="danger">{consentError}</StatusLine>
         )}
       </SettingsSection>
 

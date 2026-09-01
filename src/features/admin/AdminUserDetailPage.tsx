@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import {
   ArrowLeft,
@@ -11,9 +11,17 @@ import {
   ClipboardList,
   MessagesSquare,
   Zap,
+  ChevronRight,
+  ChevronDown,
+  ShieldAlert,
+  MessageSquareText,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useAdminStore, type AdminUserDetail } from "@/stores/admin-store";
+import {
+  useAdminStore,
+  type AdminUserDetail,
+  type AdminUserConversation,
+} from "@/stores/admin-store";
 import { AdminGuard } from "./AdminGuard";
 import { serverUnlockedFeatures, FEATURE_META } from "@/lib/features";
 
@@ -187,6 +195,166 @@ function UserDetailContent({ detail }: { detail: AdminUserDetail }) {
           </p>
         )}
       </div>
+
+      <ConversationsSection detail={detail} />
+    </div>
+  );
+}
+
+function ConversationsSection({ detail }: { detail: AdminUserDetail }) {
+  const {
+    userConversations,
+    userConversationsLoading,
+    userConversationsError,
+    fetchUserConversations,
+  } = useAdminStore();
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const loaded = userConversations !== null;
+
+  // Prefer the flag the RPC returned; fall back to the profile preference
+  // (e.g. when the user has no conversations yet) so the badge is accurate.
+  const consented =
+    userConversations && userConversations.length > 0
+      ? userConversations[0].consent_content
+      : typeof detail.profile.preferences?.consent_content_at === "string";
+
+  const toggle = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  return (
+    <div className="rounded-xl border border-glass-border bg-glass-bg p-5 backdrop-blur-md">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-text-primary">Conversations</h2>
+        {loaded && (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+              consented
+                ? "bg-success/15 text-success"
+                : "bg-glass-hover text-text-muted",
+            )}
+          >
+            {consented ? <ShieldCheck size={12} /> : <ShieldAlert size={12} />}
+            {consented
+              ? "User consented to content review"
+              : "No in-app content consent"}
+          </span>
+        )}
+      </div>
+
+      <p className="mb-3 text-xs text-text-muted">
+        Only review the conversations of users who consented to content review
+        via the recruiting form. The in-app consent flag above is a reminder,
+        not the sole basis for reviewing.
+      </p>
+
+      {!loaded && (
+        <button
+          type="button"
+          onClick={() => fetchUserConversations(detail.profile.id)}
+          disabled={userConversationsLoading}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-glass-border bg-glass-hover px-3 py-2 text-sm text-text-primary transition-colors hover:bg-glass-border disabled:opacity-60"
+        >
+          {userConversationsLoading ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <MessageSquareText size={16} />
+          )}
+          {userConversationsLoading ? "Loading…" : "Load conversations"}
+        </button>
+      )}
+
+      {userConversationsError && (
+        <p className="mt-2 text-sm text-text-muted">
+          Conversations need deploy: the admin_user_conversations RPC (migration
+          00077) has not been applied to this database yet.
+          <span className="mt-1 block font-mono text-xs text-text-muted/80">
+            {userConversationsError}
+          </span>
+        </p>
+      )}
+
+      {loaded && !userConversationsError && userConversations.length === 0 && (
+        <p className="text-sm text-text-muted">This user has no conversations.</p>
+      )}
+
+      {loaded && userConversations.length > 0 && (
+        <div className="space-y-2">
+          {userConversations.map((conv) => (
+            <ConversationRow
+              key={conv.conversation_id}
+              conversation={conv}
+              open={expanded.has(conv.conversation_id)}
+              onToggle={() => toggle(conv.conversation_id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ConversationRow({
+  conversation,
+  open,
+  onToggle,
+}: {
+  conversation: AdminUserConversation;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-glass-border bg-bg-primary/30">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left"
+      >
+        {open ? (
+          <ChevronDown size={16} className="shrink-0 text-text-muted" />
+        ) : (
+          <ChevronRight size={16} className="shrink-0 text-text-muted" />
+        )}
+        <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
+          {conversation.title || "Untitled conversation"}
+        </span>
+        <span className="shrink-0 text-xs text-text-muted">
+          {new Date(conversation.updated_at).toLocaleDateString()}
+        </span>
+        <span className="shrink-0 text-xs text-text-muted">
+          {conversation.messages.length} msg
+        </span>
+      </button>
+      {open && (
+        <div className="space-y-2 border-t border-glass-border p-3">
+          {conversation.messages.length === 0 ? (
+            <p className="text-xs text-text-muted">No messages.</p>
+          ) : (
+            conversation.messages.map((m, i) => (
+              <div key={i} className="text-sm">
+                <span className="mr-2 text-xs font-medium uppercase tracking-wide text-text-muted">
+                  {m.role}
+                </span>
+                {/* Rendered as plain text on purpose: stored content is
+                    never treated as markdown/HTML here, so nothing in a
+                    conversation can inject into the admin view. */}
+                <span className="whitespace-pre-wrap break-words text-text-secondary">
+                  {m.content}
+                </span>
+                {m.error && (
+                  <span className="ml-2 text-xs text-warning">({m.error})</span>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }

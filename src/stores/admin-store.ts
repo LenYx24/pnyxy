@@ -36,6 +36,25 @@ export interface AdminUserStats {
   tokens_30d: number;
 }
 
+export interface AdminConversationMessage {
+  role: string;
+  content: string;
+  error: string | null;
+  created_at: string;
+}
+
+export interface AdminUserConversation {
+  conversation_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  /** Whether the user granted the in-app content-review consent
+   *  (profiles.preferences.consent_content_at). Returned by the RPC so
+   *  the UI can badge the consent state; the RPC does NOT filter by it. */
+  consent_content: boolean;
+  messages: AdminConversationMessage[];
+}
+
 export interface AdminUserDetail {
   profile: Profile;
   activeBan: UserBan | null;
@@ -83,6 +102,12 @@ interface AdminState {
   userDetailError: string | null;
   fetchUserDetail: (userId: string) => Promise<void>;
   clearUserDetail: () => void;
+
+  // User conversations (admin research read path, loaded on demand)
+  userConversations: AdminUserConversation[] | null;
+  userConversationsLoading: boolean;
+  userConversationsError: string | null;
+  fetchUserConversations: (userId: string) => Promise<void>;
 }
 
 export const useAdminStore = create<AdminState>((set, get) => ({
@@ -405,5 +430,51 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
   },
 
-  clearUserDetail: () => set({ userDetail: null, userDetailError: null }),
+  clearUserDetail: () =>
+    set({
+      userDetail: null,
+      userDetailError: null,
+      userConversations: null,
+      userConversationsError: null,
+    }),
+
+  // User conversations
+  userConversations: null,
+  userConversationsLoading: false,
+  userConversationsError: null,
+
+  fetchUserConversations: async (userId: string) => {
+    set({ userConversationsLoading: true, userConversationsError: null });
+    try {
+      // Needs migration 00077 (admin_user_conversations RPC). Until it is
+      // deployed the RPC errors; surface a "needs deploy" note in the UI
+      // rather than crashing.
+      const { data, error } = await supabase.rpc("admin_user_conversations", {
+        p_user: userId,
+      });
+      if (error) {
+        set({ userConversationsError: error.message, userConversations: null });
+        return;
+      }
+      const rows = (data as AdminUserConversation[] | null) ?? [];
+      set({
+        userConversations: rows.map((r) => ({
+          conversation_id: r.conversation_id,
+          title: r.title,
+          created_at: r.created_at,
+          updated_at: r.updated_at,
+          consent_content: !!r.consent_content,
+          messages: Array.isArray(r.messages) ? r.messages : [],
+        })),
+      });
+    } catch (err) {
+      set({
+        userConversationsError:
+          err instanceof Error ? err.message : "Failed to load conversations.",
+        userConversations: null,
+      });
+    } finally {
+      set({ userConversationsLoading: false });
+    }
+  },
 }));

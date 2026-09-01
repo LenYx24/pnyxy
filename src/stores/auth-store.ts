@@ -36,6 +36,12 @@ async function hydrateSyncedStores() {
  *  the in-memory form state) so it can be drained once a profile is loaded. */
 export const PENDING_CONSENT_KEY = "pnyxy:pendingConsentResearch";
 
+/** localStorage key: the OPTIONAL "allow my conversations to be reviewed"
+ *  signup checkbox stashes its moment here, drained the same way as the
+ *  required research consent into `profiles.preferences.consent_content_at`.
+ *  Only ever written when the user ticks the optional box. */
+export const PENDING_CONTENT_CONSENT_KEY = "pnyxy:pendingConsentContent";
+
 /** sessionStorage key: set right before the hard `window.location.replace`
  *  that follows a successful self-service account deletion, so the fresh
  *  `/auth` load (a full document reload, no in-memory React state survives
@@ -45,27 +51,51 @@ export const PENDING_CONSENT_KEY = "pnyxy:pendingConsentResearch";
 export const ACCOUNT_DELETED_KEY = "pnyxy:accountDeleted";
 
 /**
- * Drains a locally-stashed signup consent timestamp into
- * `profiles.preferences.consent_research_at`. Best-effort and idempotent:
- * a missing/blank stash or an already-persisted timestamp is a no-op.
+ * Drains locally-stashed signup consent timestamps into
+ * `profiles.preferences`: the required research consent into
+ * `consent_research_at`, and the optional conversation-review opt-in into
+ * `consent_content_at`. Best-effort and idempotent: a missing/blank stash
+ * or an already-persisted timestamp is a no-op for that key. Both stashes
+ * are drained in a single profile update so a survived-email-confirmation
+ * or OAuth-redirect signup persists whatever the user ticked.
  */
 async function persistPendingConsent(profile: Profile) {
-  let pending: string | null = null;
+  let pendingResearch: string | null = null;
+  let pendingContent: string | null = null;
   try {
-    pending = localStorage.getItem(PENDING_CONSENT_KEY);
+    pendingResearch = localStorage.getItem(PENDING_CONSENT_KEY);
+    pendingContent = localStorage.getItem(PENDING_CONTENT_CONSENT_KEY);
   } catch {
     return;
   }
-  if (!pending) return;
+  if (!pendingResearch && !pendingContent) return;
+
   const existing = (profile.preferences ?? {}) as Record<string, unknown>;
-  if (existing.consent_research_at) {
+
+  // Only write keys that are both pending and not already persisted.
+  const updates: Record<string, unknown> = {};
+  if (pendingResearch && !existing.consent_research_at) {
+    updates.consent_research_at = pendingResearch;
+  }
+  if (pendingContent && !existing.consent_content_at) {
+    updates.consent_content_at = pendingContent;
+  }
+
+  const clearStashes = () => {
     try {
       localStorage.removeItem(PENDING_CONSENT_KEY);
+      localStorage.removeItem(PENDING_CONTENT_CONSENT_KEY);
     } catch {
       // ignore
     }
+  };
+
+  // Nothing new to persist (already drained on a prior load): just clear.
+  if (Object.keys(updates).length === 0) {
+    clearStashes();
     return;
   }
+
   try {
     const { error } = await supabase
       .from("profiles")
@@ -75,12 +105,12 @@ async function persistPendingConsent(profile: Profile) {
           ...Object.fromEntries(
             Object.entries(existing).filter(([k]) => k !== "features"),
           ),
-          consent_research_at: pending,
+          ...updates,
         },
       })
       .eq("id", profile.id);
     if (error) throw error;
-    localStorage.removeItem(PENDING_CONSENT_KEY);
+    clearStashes();
   } catch (err) {
     logError("auth-store:persistPendingConsent", err);
   }
@@ -167,6 +197,11 @@ interface AuthState {
   removeAvatar: () => Promise<void>;
   checkBanStatus: () => Promise<void>;
   markOnboarded: () => Promise<void>;
+  /** Turn the optional "allow my conversations to be reviewed for the
+   *  thesis research" consent on (stamp `consent_content_at`) or off
+   *  (null) in profiles.preferences. Writable by the user: the 00072
+   *  trigger only guards preferences.features, not other keys. */
+  setContentConsent: (enabled: boolean) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -467,6 +502,37 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     set((state) => ({
       profile: state.profile ? { ...state.profile, onboarded: true } : null,
+    }));
+  },
+
+  setContentConsent: async (enabled) => {
+    const user = get().user;
+    const profile = get().profile;
+    if (!user || !profile) return;
+
+    const existing = (profile.preferences ?? {}) as Record<string, unknown>;
+    // omit `features` (server-owned unlock list, see migration 00072); the
+    // trigger keeps its own value even when the payload drops the key.
+    const nextPreferences: Record<string, unknown> = {
+      ...Object.fromEntries(
+        Object.entries(existing).filter(([k]) => k !== "features"),
+      ),
+      consent_content_at: enabled ? new Date().toISOString() : null,
+    };
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ preferences: nextPreferences })
+      .eq("id", user.id);
+
+    if (error) {
+      set({ error: error.message });
+      throw error;
+    }
+    set((state) => ({
+      profile: state.profile
+        ? { ...state.profile, preferences: nextPreferences }
+        : null,
     }));
   },
 }));

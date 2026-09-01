@@ -3,7 +3,12 @@ import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "lucide-react";
 import { MeshBackground, Button, Checkbox } from "@/components/ui";
-import { ACCOUNT_DELETED_KEY, PENDING_CONSENT_KEY, useAuthStore } from "@/stores/auth-store";
+import {
+  ACCOUNT_DELETED_KEY,
+  PENDING_CONSENT_KEY,
+  PENDING_CONTENT_CONSENT_KEY,
+  useAuthStore,
+} from "@/stores/auth-store";
 import { showToast } from "@/stores/toast-store";
 
 type AuthTab = "sign-in" | "create-account";
@@ -59,6 +64,9 @@ export function AuthPage() {
   const [signUpSuccess, setSignUpSuccess] = useState(false);
   // pilot consent (telemetry + anonymized thesis use); gates sign-up only
   const [consent, setConsent] = useState(false);
+  // OPTIONAL, separate opt-in: allow learning conversations to be reviewed
+  // for the thesis research. Never gates sign-up.
+  const [contentConsent, setContentConsent] = useState(false);
 
   // Farewell toast after a self-service account deletion: that flow ends
   // with a hard `window.location.replace("/auth")`, a full document reload
@@ -101,7 +109,11 @@ export function AuthPage() {
         // may not exist until email confirmation completes, so auth-store
         // drains this into profiles.preferences once fetchProfile succeeds
         try {
-          localStorage.setItem(PENDING_CONSENT_KEY, new Date().toISOString());
+          const now = new Date().toISOString();
+          localStorage.setItem(PENDING_CONSENT_KEY, now);
+          if (contentConsent) {
+            localStorage.setItem(PENDING_CONTENT_CONSENT_KEY, now);
+          }
         } catch {
           // localStorage unavailable (private mode etc.): consent stays UI-gated only
         }
@@ -132,7 +144,11 @@ export function AuthPage() {
     }
     if (tab === "create-account") {
       try {
-        localStorage.setItem(PENDING_CONSENT_KEY, new Date().toISOString());
+        const now = new Date().toISOString();
+        localStorage.setItem(PENDING_CONSENT_KEY, now);
+        if (contentConsent) {
+          localStorage.setItem(PENDING_CONTENT_CONSENT_KEY, now);
+        }
       } catch {
         // localStorage unavailable (private mode etc.): consent stays UI-gated only
       }
@@ -289,6 +305,20 @@ export function AuthPage() {
                 >
                   {t("auth.consent.privacyLink")}
                 </Link>
+              </span>
+            </label>
+          )}
+
+          {tab === "create-account" && (
+            <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed text-text-muted">
+              <span className="mt-0.5 shrink-0">
+                <Checkbox checked={contentConsent} onChange={setContentConsent} />
+              </span>
+              <span>
+                {t("auth.consent.content")}{" "}
+                <span className="text-text-muted-2">
+                  {t("auth.consent.contentOptional")}
+                </span>
               </span>
             </label>
           )}
