@@ -141,7 +141,9 @@ function collectItems(): SnapshotItem[] {
     });
   }
   for (const c of chat.conversations) {
-    if (c.is_temporary || c.archived_at) continue;
+    // temporary chats are kept like normal quick chats now, so only
+    // archived ones are hidden from the AI's library snapshot
+    if (c.archived_at) continue;
     items.push({ kind: "chat", id: c.id, title: c.title || "(untitled chat)", folderId: c.folder_id });
   }
   for (const n of notes) {

@@ -108,13 +108,14 @@ export function useChatPageState(scope?: ChatPageScope) {
   const visibleConversations = useMemo(
     () =>
       conversations.filter((c) => {
-        // archived live under the quick view's Archive section only;
-        // temporary chats never enter the history (their own stays open)
+        // archived live under the quick view's Archive section only.
+        // Temporary chats are now kept and listed like any other quick
+        // chat (they used to be hidden + purged after 24h), so only the
+        // archived and scope filters remain.
         if (c.archived_at) return false;
-        if (c.is_temporary && c.id !== activeId) return false;
         return scope ? c.source_doc_id === scope.docId : true;
       }),
-    [scope, conversations, activeId],
+    [scope, conversations],
   );
   // new conversations started here inherit the book as their source context
   const scopeSource = useMemo<ScopeSource>(

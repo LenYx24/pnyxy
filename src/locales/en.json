@@ -19,6 +19,30 @@
     "tutor": {
       "title": "A tutor, not a solver",
       "body": "The AI teaches instead of solving: it guides you step by step and checks your attempts. Concept questions still get full explanations."
+    },
+    "chat": {
+      "composer": {
+        "title": "Ask anything here",
+        "body": "Type a question about your subject. Drop in a PDF or a link and the AI works from that."
+      },
+      "model": {
+        "title": "Pick the AI model",
+        "body": "Switch models here. Each has its own daily quota, shown as you use it."
+      },
+      "new": {
+        "title": "Start a fresh chat",
+        "body": "A new conversation keeps topics separate, so the AI's context stays clean."
+      }
+    },
+    "reader": {
+      "toolbar": {
+        "title": "Read and navigate",
+        "body": "Page controls, zoom and search live here. Highlight text to ask the AI about it."
+      },
+      "tools": {
+        "title": "AI and study tools",
+        "body": "Chat about the page, look up words, translate, and more, right next to what you read."
+      }
     }
   },
   "learnHub": {
@@ -848,6 +872,14 @@
     "title": "Library",
     "yourLibrary": "Your Library",
     "reading": "Reading",
+    "fromCourse": "From course: {{name}}",
+    "fromCourseGeneric": "From a course",
+    "course": {
+      "availableTitle_one": "{{count}} file available from this course",
+      "availableTitle_other": "{{count}} files available from this course",
+      "addFileHint": "Add \"{{name}}\" to your library and open it",
+      "addFailed": "Could not open the course file."
+    },
     "bookCount_one": "{{count}} book in your collection",
     "bookCount_other": "{{count}} books in your collection",
     "dropOverlay": {
@@ -1510,6 +1542,9 @@
     "untitled": "Untitled conversation",
     "newConversation": "New conversation",
     "scrollToBottom": "Scroll to latest",
+    "tabs": {
+      "close": "Close tab"
+    },
     "emptyTitle": "No conversations yet",
     "emptyBody": "Start a new one; your chats are kept and organized into folders.",
     "loading": "Loading messages…",
@@ -1802,7 +1837,7 @@
     "temporary": {
       "new": "Temporary chat",
       "chip": "Temporary",
-      "hint": "Not saved to your history; deleted about a day later."
+      "hint": "A quick, unfiled chat. It's kept with your other chats."
     },
     "archive": {
       "action": "Archive",

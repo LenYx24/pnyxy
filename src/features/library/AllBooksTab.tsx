@@ -73,6 +73,7 @@ import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { formatShortcut } from "@/lib/keyboard-shortcuts";
 import { UploadGhostStrip } from "./UploadGhosts";
+import { CourseAvailableStrip } from "./CourseAvailableStrip";
 import { BreadcrumbDropTarget, ParentDropZone } from "./DropTargets";
 import { LibraryPathEditor } from "./LibraryPathEditor";
 import { FolderCard } from "./FolderCard";
@@ -1037,6 +1038,9 @@ export function AllBooksTab({
               </>
             )}
           </div>
+
+          {/* not-yet-copied course files, when this folder mirrors a course */}
+          <CourseAvailableStrip currentFolderId={currentFolderId} />
 
           {/* ghost rows for in-flight uploads in this folder */}
           <UploadGhostStrip currentFolderId={currentFolderId} />

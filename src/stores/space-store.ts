@@ -142,6 +142,21 @@ async function ensureFolder(
   return await useChatStore.getState().createFolder(trimmed, parentId);
 }
 
+/** Tag a member's course folder with the space (and section) it mirrors, so
+ *  the library can show the course's not-yet-copied files as placeholders
+ *  (migration 00078). Idempotent; a failure is non-fatal. */
+async function linkFolderToCourse(
+  folderId: string,
+  spaceId: string,
+  sectionId: string | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from("folders")
+    .update({ source_space_id: spaceId, source_section_id: sectionId })
+    .eq("id", folderId);
+  if (error) logError("space-store:linkFolderToCourse", error.message);
+}
+
 export const useSpaceStore = create<SpaceState>((set, get) => ({
   mySpaces: [],
   publicSpaces: [],
@@ -343,11 +358,19 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
       await useChatStore.getState().fetchFolders();
       const courseFolderId = await ensureFolder(space.name, null);
       if (courseFolderId) {
+        // root folder mirrors the course itself (section null = General items)
+        await linkFolderToCourse(courseFolderId, space.id, null);
         // mirror the course page's sections (General items live in the root)
         const sections =
           get().activeSpace?.id === space.id ? get().activeSpaceSections : [];
         for (const section of sections) {
-          await ensureFolder(section.title.slice(0, 120), courseFolderId);
+          const secFolderId = await ensureFolder(
+            section.title.slice(0, 120),
+            courseFolderId,
+          );
+          if (secFolderId) {
+            await linkFolderToCourse(secFolderId, space.id, section.id);
+          }
         }
       }
       return courseFolderId;
@@ -361,7 +384,19 @@ export const useSpaceStore = create<SpaceState>((set, get) => ({
     const courseFolderId = await get().ensureCourseFolders(space);
     if (!courseFolderId || !sectionTitle) return courseFolderId;
     try {
-      return await ensureFolder(sectionTitle.slice(0, 120), courseFolderId);
+      const secFolderId = await ensureFolder(
+        sectionTitle.slice(0, 120),
+        courseFolderId,
+      );
+      if (secFolderId) {
+        const sectionId =
+          get().activeSpace?.id === space.id
+            ? (get().activeSpaceSections.find((s) => s.title === sectionTitle)
+                ?.id ?? null)
+            : null;
+        await linkFolderToCourse(secFolderId, space.id, sectionId);
+      }
+      return secFolderId;
     } catch (err) {
       logError("space-store:ensureSectionFolder", err);
       return courseFolderId;

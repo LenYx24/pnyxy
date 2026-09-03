@@ -1064,7 +1064,7 @@ export function ReaderToolbar({
   );
 
   return (
-    <div className="pt-safe-top pl-safe-left pr-safe-right">
+    <div className="pt-safe-top pl-safe-left pr-safe-right" data-tour="reader-toolbar">
       <div
         className={cn(
           "flex items-center gap-3 px-2 sm:px-4",

@@ -15,6 +15,7 @@
  */
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/stores/auth-store";
+import { captureToSentry } from "@/lib/sentry";
 
 export type ClientErrorKind = "crash" | "error" | "report";
 
@@ -78,6 +79,10 @@ export async function reportClientError(input: ReportClientErrorInput): Promise<
     lastSentAt.set(message, now);
     autoReportCount += 1;
   }
+
+  // Mirror to Sentry (inert without a DSN). Placed after the gates so
+  // Sentry only ever sees what client_errors also sees.
+  captureToSentry(message, input.kind, input.context);
 
   try {
     const { user } = useAuthStore.getState();

@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import {
-  X,
-  Sparkles,
-  FileText,
-  Brain,
-  Rocket,
-  type LucideIcon,
-} from "lucide-react";
+import { X, Sparkles, Rocket, type LucideIcon } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { Button } from "@/components/ui/Button";
@@ -37,21 +30,14 @@ export function OnboardingTour() {
 
   const shouldShow = Boolean(user) && !onboardingCompleted;
 
+  // A brief welcome only. The "what's where" teaching now happens in-context
+  // via the coach-mark tours on the chat and reader pages (arrows on the real
+  // UI), instead of a four-panel slideshow.
   const steps: Step[] = [
     {
       icon: Sparkles,
       title: t("onboarding.welcome.title"),
       body: t("onboarding.welcome.body"),
-    },
-    {
-      icon: FileText,
-      title: t("onboarding.read.title"),
-      body: t("onboarding.read.body"),
-    },
-    {
-      icon: Brain,
-      title: t("onboarding.tutor.title"),
-      body: t("onboarding.tutor.body"),
     },
     {
       icon: Rocket,

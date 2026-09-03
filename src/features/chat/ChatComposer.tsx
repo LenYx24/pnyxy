@@ -730,6 +730,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
           )}
           <textarea
             ref={textareaRef}
+            data-tour="chat-composer"
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onPaste={handlePaste}
@@ -1164,6 +1165,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
               </button>
               )}
               {!compact && (
+              <span data-tour="chat-model" className="inline-flex">
               <ModelPicker
                 value={selectedProvider}
                 options={configuredProviders}
@@ -1171,6 +1173,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
                 autoModel={activeQuotaModel}
                 quotaRows={quotaRows}
               />
+              </span>
               )}
               {micButton}
               {!isMobile && (

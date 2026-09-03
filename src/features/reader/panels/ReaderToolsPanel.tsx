@@ -226,7 +226,7 @@ export function ReaderToolsPanelContent({
         <span className="shrink-0 px-1 text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
           {t("reader.tools.margin")}
         </span>
-        <div className="min-w-0 flex-1 overflow-x-auto">
+        <div className="min-w-0 flex-1 overflow-x-auto" data-tour="reader-tools">
           <div className={cn(segmentedGroupClass, "w-max")}>
             {tabs.map(({ key, icon: Icon, label }) => (
               <button

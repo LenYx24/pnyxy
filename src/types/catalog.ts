@@ -105,6 +105,9 @@ export interface UploadedLibraryItem {
     storage_path: string | null;
     size_bytes: number | null;
     file_name: string | null;
+    /** Set when this copy came from a course (migration 00065); drives the
+     *  course-origin badge in the library. Null for normal uploads. */
+    source_space_id: string | null;
   };
 }
 

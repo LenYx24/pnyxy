@@ -226,6 +226,7 @@ export function ChatSheetHeader({
             size="sm"
             onClick={onNew}
             aria-label={t("chat.newConversation")}
+            data-tour="chat-new"
           >
             <SquarePen size={20} strokeWidth={1.5} />
           </IconButton>

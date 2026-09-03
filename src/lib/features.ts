@@ -33,6 +33,7 @@ export const FEATURE_KEYS = [
   "readingPlans",
   "graphWidget",
   "webArticles",
+  "chatTabs",
 ] as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
@@ -61,6 +62,7 @@ export const DEFAULT_FEATURES: FeatureSet = {
   readingPlans: false,
   graphWidget: false,
   webArticles: false,
+  chatTabs: false,
 };
 
 // TODO(library agent): gate the library empty-state "Browse catalog"
@@ -90,6 +92,7 @@ export const FEATURE_META: Record<FeatureKey, { label: string; hint: string }> =
   multiDoc: { label: "Multiple open documents", hint: "Reader document tabs; off = opening a book replaces the current one" },
   catalog: { label: "Catalog", hint: "Public catalog / Browse: off = bring your own books" },
   readingPlans: { label: "Reading plans", hint: "Reading plans on the streaks page" },
+  chatTabs: { label: "Chat tabs", hint: "Open several conversations as tabs on the chat page; off = single conversation view" },
 };
 
 export function isFeatureKey(v: unknown): v is FeatureKey {

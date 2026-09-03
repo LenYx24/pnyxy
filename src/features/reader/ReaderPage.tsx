@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
@@ -29,6 +29,9 @@ import { useSearchStore } from "@/stores/search-store";
 import { useFeatures } from "@/lib/use-features";
 import { useNoteStore } from "@/stores/note-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
+import { useSettingsStore } from "@/stores/settings-store";
+import { CoachMarks } from "@/features/onboarding/CoachMarks";
+import { readerTourSteps } from "@/features/onboarding/tours";
 import { useOpenDocument } from "@/hooks/use-open-document";
 import { useIsMobile, useMediaQuery } from "@/hooks/use-media-query";
 import { useReaderDockLayout } from "./use-reader-dock-panels";
@@ -200,6 +203,14 @@ export function ReaderPage() {
   // 6% cover tint over the desk colour (see dockview-theme.css / .reader-shell)
   const readerTint = useReaderTint(activeDocumentId);
 
+  // In-context coach-mark tour for the reader, once, when a document is open.
+  const onboardingCompleted = useSettingsStore((s) => s.onboardingCompleted);
+  const seenReaderTour = useSettingsStore((s) => s.seenReaderTour);
+  const setSeenReaderTour = useSettingsStore((s) => s.setSeenReaderTour);
+  const readerSteps = useMemo(() => readerTourSteps(t), [t]);
+  const showReaderTour =
+    hasDocuments && !zenMode && onboardingCompleted && !seenReaderTour;
+
   return (
     <div
       ref={readerContainerRef}
@@ -212,6 +223,11 @@ export function ReaderPage() {
           : undefined
       }
     >
+      <CoachMarks
+        steps={readerSteps}
+        open={showReaderTour}
+        onDone={() => setSeenReaderTour(true)}
+      />
       {hasDocuments && zenMode ? (
         <div className="relative flex-1 overflow-hidden">
           <ActiveViewer />

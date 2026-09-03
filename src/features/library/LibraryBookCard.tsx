@@ -11,6 +11,7 @@ import {
   BookOpen,
   Download,
   Pencil,
+  GraduationCap,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
@@ -34,6 +35,7 @@ import { containsProfanity } from "@/lib/profanity-filter";
 import { logError } from "@/lib/logger";
 import { PdfCoverThumbnail } from "@/components/ui/PdfCoverThumbnail";
 import { useLibraryStore } from "@/stores/library-store";
+import { useSpaceStore } from "@/stores/space-store";
 import { useTagStore, bookKey } from "@/stores/tag-store";
 import {
   useOpenUploadedDocument,
@@ -84,6 +86,16 @@ export function LibraryBookCard({
     s.inProgressDocIds.has(
       entry.source === "catalog" ? entry.catalog_book_id : entry.book.id,
     ),
+  );
+  // Course provenance (books.source_space_id): show a course badge instead
+  // of the generic "uploaded" glyph. The name comes from the user's joined
+  // spaces when available, otherwise a generic label.
+  const courseSpaceId =
+    entry.source === "uploaded" ? entry.book.source_space_id : null;
+  const courseName = useSpaceStore((s) =>
+    courseSpaceId
+      ? (s.mySpaces.find((sp) => sp.id === courseSpaceId)?.name ?? null)
+      : null,
   );
 
   const sortable = useSortable({
@@ -390,15 +402,27 @@ export function LibraryBookCard({
               </div>
             )}
 
-            {/* uploaded-source corner glyph */}
-            {entry.source === "uploaded" && (
+            {/* course-origin badge (books.source_space_id), else the
+                generic uploaded-source glyph */}
+            {courseSpaceId ? (
+              <span
+                className="absolute bottom-1.5 left-1.5 rounded bg-accent p-0.5 text-white backdrop-blur-sm"
+                title={
+                  courseName
+                    ? t("library.fromCourse", { name: courseName })
+                    : t("library.fromCourseGeneric")
+                }
+              >
+                <GraduationCap size={10} />
+              </span>
+            ) : entry.source === "uploaded" ? (
               <span
                 className="absolute bottom-1.5 left-1.5 rounded bg-bg-primary/80 p-0.5 text-text-secondary backdrop-blur-sm"
                 title="Uploaded file"
               >
                 <Upload size={10} />
               </span>
-            )}
+            ) : null}
 
             {/* "Reading" pill, hidden in selection mode so it doesn't
                 overlap the checkbox in the same corner */}

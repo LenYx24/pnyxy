@@ -9,10 +9,11 @@ const SETTINGS_KEY = "pnyxy-reader:settings";
 const SETTINGS_VERSION = 13;
 
 /**
- * Mark the first-run onboarding tour as completed before any script runs,
- * so the centered tour modal never covers the UI under test. Patches the
- * persisted settings blob in localStorage (creating a minimal one when the
- * setup project's storageState did not capture it).
+ * Mark the first-run onboarding tour AND the in-context coach-mark tours as
+ * seen before any script runs, so neither the centered tour modal nor the
+ * page coach-marks cover the UI under test. Patches the persisted settings
+ * blob in localStorage (creating a minimal one when the setup project's
+ * storageState did not capture it).
  */
 export async function skipOnboarding(page: Page) {
   await page.addInitScript(
@@ -20,7 +21,12 @@ export async function skipOnboarding(page: Page) {
       try {
         const raw = localStorage.getItem(key);
         const parsed = raw ? JSON.parse(raw) : { state: {}, version };
-        parsed.state = { ...(parsed.state ?? {}), onboardingCompleted: true };
+        parsed.state = {
+          ...(parsed.state ?? {}),
+          onboardingCompleted: true,
+          seenChatTour: true,
+          seenReaderTour: true,
+        };
         if (typeof parsed.version !== "number") parsed.version = version;
         localStorage.setItem(key, JSON.stringify(parsed));
       } catch {

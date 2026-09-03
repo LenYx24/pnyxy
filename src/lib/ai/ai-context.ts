@@ -52,6 +52,17 @@ const tocLine = (e: FlatTocEntry) =>
 /** ~1.5k tokens at 4 chars/token. */
 const TOC_CHAR_BUDGET = 6000;
 
+/** Selected-page text budget, mirroring the scoped-doc path (~45k chars ≈
+ *  11k tokens). A user can select every page of a 1000-page book via
+ *  selectAllAiPages, so the LLM context must cap independently of the UI
+ *  selection; without this the whole book was concatenated and sent, with
+ *  only the daily quota as a backstop. */
+const MAX_SELECTED_CHARS = 45_000;
+
+/** Image mode sends one attachment per selected page. Cap the count so
+ *  "select all" can't push hundreds of multi-hundred-KB page images. */
+const MAX_IMAGE_PAGES = 20;
+
 /** Render the TOC as an indented outline within TOC_CHAR_BUDGET. When
  *  over budget, keep every top-level chapter plus the sub-sections
  *  nearest currentPage; skipped runs collapse to a "  …" line. */
@@ -116,8 +127,8 @@ function renderTocWithinBudget(
 async function extractSelectedPages(
   fileUrl: string,
   pages: readonly number[],
-): Promise<string> {
-  if (pages.length === 0) return "";
+): Promise<{ text: string; truncated: boolean }> {
+  if (pages.length === 0) return { text: "", truncated: false };
   const sorted = [...pages].sort((a, b) => a - b);
   const runs: { from: number; to: number }[] = [];
   let runStart = sorted[0];
@@ -135,11 +146,21 @@ async function extractSelectedPages(
   runs.push({ from: runStart, to: runEnd });
 
   const chunks: string[] = [];
+  let total = 0;
+  let truncated = false;
   for (const r of runs) {
-    const text = await extractPdfText(fileUrl, r.from, r.to);
-    if (text.trim()) chunks.push(text);
+    const text = (await extractPdfText(fileUrl, r.from, r.to)).trim();
+    if (!text) continue;
+    if (total + text.length > MAX_SELECTED_CHARS) {
+      const remaining = MAX_SELECTED_CHARS - total;
+      if (remaining > 0) chunks.push(text.slice(0, remaining));
+      truncated = true;
+      break;
+    }
+    chunks.push(text);
+    total += text.length;
   }
-  return chunks.join("\n\n");
+  return { text: chunks.join("\n\n"), truncated };
 }
 
 /** Build the AI context pack for `docId`. Returns empty strings when
@@ -198,9 +219,12 @@ export async function buildAiContextPack(
 
     // In image mode, skip text extraction to save a pdfjs pass.
     let pagesText = "";
+    let pagesTruncated = false;
     if (!forceImage) {
       try {
-        pagesText = await extractSelectedPages(doc.meta.fileUrl, pages);
+        const res = await extractSelectedPages(doc.meta.fileUrl, pages);
+        pagesText = res.text;
+        pagesTruncated = res.truncated;
       } catch (err) {
         logError("ai:context", err);
       }
@@ -210,8 +234,13 @@ export async function buildAiContextPack(
     const shouldRender = forceImage || textIsEmpty;
 
     if (shouldRender) {
+      // Cap the page count so "select all" can't render hundreds of images.
+      const imagePages = [...pages].sort((a, b) => a - b).slice(0, MAX_IMAGE_PAGES);
       try {
-        const rendered = await renderPdfPagesToImages(doc.meta.fileUrl, pages);
+        const rendered = await renderPdfPagesToImages(
+          doc.meta.fileUrl,
+          imagePages,
+        );
         imageAttachments = rendered.map((r) => ({
           kind: "image",
           media_type: r.mediaType,
@@ -221,10 +250,19 @@ export async function buildAiContextPack(
       } catch (err) {
         logError("ai:context", err);
       }
+      if (pages.length > MAX_IMAGE_PAGES) {
+        sections.push(
+          `[Only the first ${MAX_IMAGE_PAGES} selected pages are shown as images; tell the user if their question likely concerns a later page.]`,
+        );
+      }
     }
 
     if (!shouldRender && pagesText.trim()) {
-      sections.push(pagesText);
+      sections.push(
+        pagesTruncated
+          ? `${pagesText}\n\n[Selected-page text was truncated to fit; tell the user when their question likely concerns a later page.]`
+          : pagesText,
+      );
     }
   }
 

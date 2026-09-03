@@ -41,6 +41,12 @@ export {
 /** Monotonic id of the latest openConversation call (see its finally). */
 let openSeq = 0;
 
+/** Append a conversation to the open-tabs list (chatTabs), keeping order
+ *  stable and ids unique. New tabs land at the end. */
+function withTab(ids: string[], id: string): string[] {
+  return ids.includes(id) ? ids : [...ids, id];
+}
+
 export const useChatStore = create<ChatState>((set, get) => ({
   conversations: [],
   folders: [],
@@ -53,6 +59,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   threadError: null,
   pendingDraft: null,
   messageSuggestions: new Map(),
+  openTabIds: [],
 
   setPendingDraft(draft) {
     set({ pendingDraft: draft });
@@ -79,30 +86,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         .order("sort_order", { ascending: true })
         .order("updated_at", { ascending: false });
       if (error) throw error;
+      // Temporary chats are no longer purged: every conversation is kept
+      // like a normal quick chat (nothing the user starts should silently
+      // disappear). The is_temporary flag is retained only as a marker.
       set({ conversations: (data ?? []) as ChatConversation[] });
-      // best-effort purge of expired incognito chats (24h after creation)
-      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const expired = ((data ?? []) as ChatConversation[]).filter(
-        (c) => c.is_temporary && c.created_at < cutoff,
-      );
-      if (expired.length > 0) {
-        void supabase
-          .from("chat_conversations")
-          .delete()
-          .in(
-            "id",
-            expired.map((c) => c.id),
-          )
-          .then(({ error: delErr }) => {
-            if (delErr) logError("chat:purgeTemporary", delErr);
-            else
-              set((s) => ({
-                conversations: s.conversations.filter(
-                  (c) => !expired.some((e) => e.id === c.id),
-                ),
-              }));
-          });
-      }
     } catch (err) {
       logError("chat:fetchConversations", err);
       set({ conversationsError: "fetchFailed" });
@@ -168,6 +155,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: new Map(),
       activeLeafId: null,
       messageSuggestions: new Map(),
+      openTabIds: withTab(s.openTabIds, data.id as string),
       // a fresh conversation has nothing to load; also cancels the flag an
       // in-flight openConversation (auto-open racing the "+" button) set
       isLoading: false,
@@ -183,6 +171,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       activeLeafId: null,
       // suggestion keys are ids from the previous conversation
       messageSuggestions: new Map(),
+      openTabIds: withTab(get().openTabIds, conversationId),
       isLoading: true,
       threadError: null,
     });
@@ -440,6 +429,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: new Map(),
       activeLeafId: null,
     });
+  },
+
+  closeTab(id) {
+    const { openTabIds, activeConversationId } = get();
+    const idx = openTabIds.indexOf(id);
+    if (idx === -1) return;
+    const next = openTabIds.filter((x) => x !== id);
+    set({ openTabIds: next });
+    if (id !== activeConversationId) return;
+    // Switch to the tab that took its place, else the previous one, else none.
+    const fallback = next[idx] ?? next[idx - 1] ?? next[next.length - 1] ?? null;
+    if (fallback) void get().openConversation(fallback);
+    else get().clearActive();
   },
 
   async setActiveLeaf(messageId) {

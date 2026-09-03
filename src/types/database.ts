@@ -81,6 +81,8 @@ export interface Book {
   visibility: BookVisibility;
   category_id: string | null;
   folder_id: string | null;
+  /** Course this copy came from (migration 00065); null for normal uploads. */
+  source_space_id: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -136,6 +138,12 @@ export interface Folder {
   name: string;
   color: string | null;
   sort_order: number;
+  /** Course (space) this folder mirrors (migration 00078); null for normal
+   *  folders. Drives the "available from this course" placeholders. */
+  source_space_id: string | null;
+  /** Course section this subfolder mirrors; null for the course root
+   *  folder (General items) and normal folders. */
+  source_section_id: string | null;
   created_at: string;
   updated_at: string;
 }

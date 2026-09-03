@@ -19,6 +19,30 @@
     "tutor": {
       "title": "Tanár, nem megoldó",
       "body": "Az AI tanít, nem megold: lépésenként vezet és ellenőrzi a próbálkozásod. Fogalmi kérdésre teljes magyarázatot kapsz."
+    },
+    "chat": {
+      "composer": {
+        "title": "Ide írj bármit",
+        "body": "Írj egy kérdést a tárgyadról. Dobj be egy PDF-et vagy linket, és az AI abból dolgozik."
+      },
+      "model": {
+        "title": "Válassz AI-modellt",
+        "body": "Itt válthatsz modellt. Mindegyiknek saját napi kerete van, ami használat közben látszik."
+      },
+      "new": {
+        "title": "Új beszélgetés",
+        "body": "Az új beszélgetés különválasztja a témákat, így az AI kontextusa tiszta marad."
+      }
+    },
+    "reader": {
+      "toolbar": {
+        "title": "Olvasás és navigáció",
+        "body": "Lapozás, nagyítás és keresés itt van. Jelölj ki szöveget, és kérdezd meg róla az AI-t."
+      },
+      "tools": {
+        "title": "AI és tanulási eszközök",
+        "body": "Chatelj az oldalról, keress szavakat, fordíts, és még több, közvetlenül az olvasott anyag mellett."
+      }
     }
   },
   "learnHub": {
@@ -1063,6 +1087,14 @@
     "title": "Könyvtár",
     "yourLibrary": "A könyvtárad",
     "reading": "Olvasás",
+    "fromCourse": "Kurzusból: {{name}}",
+    "fromCourseGeneric": "Kurzusból",
+    "course": {
+      "availableTitle_one": "{{count}} fájl elérhető a kurzusból",
+      "availableTitle_other": "{{count}} fájl elérhető a kurzusból",
+      "addFileHint": "\"{{name}}\" hozzáadása a könyvtáradhoz és megnyitása",
+      "addFailed": "A kurzusfájl megnyitása nem sikerült."
+    },
     "bookCount_one": "{{count}} könyv a gyűjteményedben",
     "bookCount_other": "{{count}} könyv a gyűjteményedben",
     "dropOverlay": {
@@ -1732,6 +1764,9 @@
     "untitled": "Névtelen beszélgetés",
     "newConversation": "Új beszélgetés",
     "scrollToBottom": "Ugrás a legújabbra",
+    "tabs": {
+      "close": "Fül bezárása"
+    },
     "emptyResponse": "A modell üres választ adott, próbáld újra.",
     "errors": {
       "signInRequired": "Jelentkezz be az AI-chat használatához.",
@@ -2043,7 +2078,7 @@
     "temporary": {
       "new": "Ideiglenes chat",
       "chip": "Ideiglenes",
-      "hint": "Nem kerül az előzményeid közé; kb. egy nap múlva törlődik."
+      "hint": "Gyors, mappázatlan beszélgetés. A többi chateddel együtt megmarad."
     },
     "archive": {
       "action": "Archiválás",

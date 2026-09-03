@@ -696,6 +696,7 @@ function UploadedOverview({
             storage_path: storagePath,
             size_bytes: sizeBytes,
             file_name: fileName,
+            source_space_id: book.source_space_id ?? null,
           },
         }
       : null;

@@ -5,6 +5,7 @@ import {
   BookOpen,
   Download,
   FolderInput,
+  GraduationCap,
   Info,
   Pencil,
   Share2,
@@ -17,6 +18,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Checkbox, CustomTagBadge, PromptModal, TagBadge } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useLibraryStore } from "@/stores/library-store";
+import { useSpaceStore } from "@/stores/space-store";
 import { bookKey, useTagStore } from "@/stores/tag-store";
 import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
 import { bookIdSegment } from "@/lib/slugify";
@@ -165,6 +167,14 @@ export function BookRow({
   const selKey = `book:${entry.id}`;
   const title = getTitle(entry);
   const author = getAuthor(entry);
+  // Course provenance (books.source_space_id): a small badge next to the title.
+  const courseSpaceId =
+    entry.source === "uploaded" ? entry.book.source_space_id : null;
+  const courseName = useSpaceStore((s) =>
+    courseSpaceId
+      ? (s.mySpaces.find((sp) => sp.id === courseSpaceId)?.name ?? null)
+      : null,
+  );
 
   const openBookPage = () => {
     // Pre-bake slug, same reasoning as the grid card.
@@ -317,6 +327,18 @@ export function BookRow({
           <span className="truncate font-medium text-text-primary">
             {title}
           </span>
+          {courseSpaceId && (
+            <span
+              className="shrink-0 text-accent"
+              title={
+                courseName
+                  ? t("library.fromCourse", { name: courseName })
+                  : t("library.fromCourseGeneric")
+              }
+            >
+              <GraduationCap size={13} />
+            </span>
+          )}
           {(tags.length > 0 || customTags.length > 0) && (
             <span className="hidden shrink-0 items-center gap-1 sm:flex">
               {tags.slice(0, 2).map((tag) => (

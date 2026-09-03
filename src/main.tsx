@@ -13,6 +13,12 @@ import { registerSyncEntityHandlers } from "@/lib/sync/sync-entity-handlers";
 import { loadUserCss } from "@/lib/user-css";
 import { isTauri } from "@/lib/tauri";
 import { installGlobalErrorCapture } from "@/lib/error-report";
+import { initSentry } from "@/lib/sentry";
+
+// Error monitoring first, so it's live before any other bootstrap runs.
+// No-op unless VITE_SENTRY_DSN is set; events still flow through
+// reportClientError, so this only adds a Sentry mirror when configured.
+initSentry();
 
 // native app: mark <html> so the custom title bar's height offset (the
 // --titlebar-h var) kicks in. No-op in the browser.

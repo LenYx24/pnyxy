@@ -83,6 +83,9 @@ export interface ChatState {
   pendingDraft: ChatDraft | null;
   /** Follow-up chips per assistant message. Ephemeral, cleared on openConversation. */
   messageSuggestions: Map<string, string[]>;
+  /** Conversation ids kept open as tabs (chatTabs feature). Session-only,
+   *  newest-first; the active conversation is always present. */
+  openTabIds: string[];
 
   fetchConversations: () => Promise<void>;
   createConversation: (
@@ -119,6 +122,9 @@ export interface ChatState {
   /** Archive / restore a conversation (hidden from the main lists). */
   setConversationArchived: (id: string, archived: boolean) => Promise<void>;
   clearActive: () => void;
+  /** Close a conversation tab (chatTabs). If it was active, switches to an
+   *  adjacent open tab, or clears the thread when none remain. */
+  closeTab: (id: string) => void;
 
   // Folders
   fetchFolders: () => Promise<void>;

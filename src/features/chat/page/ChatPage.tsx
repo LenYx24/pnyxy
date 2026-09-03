@@ -4,7 +4,7 @@
  * through useChatPageState. No feature logic lives here: the sidebar,
  * thread and composer each own their state; this file only composes.
  */
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { MessagesSquare } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -12,6 +12,10 @@ import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import "../chat.css";
 import { ChatSidebar } from "../sidebar/ChatSidebar";
 import { useSettingsStore } from "@/stores/settings-store";
+import { CoachMarks } from "@/features/onboarding/CoachMarks";
+import { chatTourSteps } from "@/features/onboarding/tours";
+import { useFeatures } from "@/lib/use-features";
+import { ChatTabs } from "./ChatTabs";
 import { ChatThread } from "../thread/ChatThread";
 import { ChatSheetHeader } from "./ChatSheetHeader";
 import { ComposerDock } from "./ComposerDock";
@@ -27,6 +31,15 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
   const page = useChatPageState(scope);
   const { setMobileListOpen } = page;
   const closeDrawer = useCallback(() => setMobileListOpen(false), [setMobileListOpen]);
+
+  // In-context coach-mark tour, once, on the main chat page after the welcome.
+  const onboardingCompleted = useSettingsStore((s) => s.onboardingCompleted);
+  const seenChatTour = useSettingsStore((s) => s.seenChatTour);
+  const setSeenChatTour = useSettingsStore((s) => s.setSeenChatTour);
+  const chatSteps = useMemo(() => chatTourSteps(t), [t]);
+  const showChatTour =
+    !scope && !!page.user && onboardingCompleted && !seenChatTour;
+  const features = useFeatures();
 
   if (!page.user) {
     return (
@@ -46,6 +59,11 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
 
   return (
     <div className="relative flex h-full min-h-0 w-full">
+      <CoachMarks
+        steps={chatSteps}
+        open={showChatTour}
+        onDone={() => setSeenChatTour(true)}
+      />
       <ChatSidebar
         scope={scope}
         scopeSource={page.scopeSource}
@@ -80,6 +98,8 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
           docId={page.activeConversation?.source_doc_id ?? scope?.docId ?? null}
           conversationId={page.activeId}
         />
+
+        {features.chatTabs && !scope && <ChatTabs />}
 
         {/* conversation sheet, thread capped at 820 and centered. While the
             thread is empty (no conversation or a fresh one) the composer is

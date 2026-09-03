@@ -140,7 +140,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         .order("added_at", { ascending: false }),
       supabase
         .from("books")
-        .select("id, title, authors, author, cover_url, page_count, format, file_hash, folder_id, created_at, metadata, book_files(storage_path, file_name, size_bytes)")
+        .select("id, title, authors, author, cover_url, page_count, format, file_hash, folder_id, source_space_id, created_at, metadata, book_files(storage_path, file_name, size_bytes)")
         .eq("user_id", user.id)
         .eq("org_id", orgId)
         .order("created_at", { ascending: false }),
@@ -192,6 +192,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
             storage_path: file?.storage_path ?? null,
             size_bytes: file?.size_bytes ?? null,
             file_name: file?.file_name ?? null,
+            source_space_id: row.source_space_id ?? null,
           },
         };
       });
@@ -320,6 +321,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       name,
       color: null,
       sort_order: 0,
+      source_space_id: null,
+      source_section_id: null,
       created_at: now,
       updated_at: now,
     };

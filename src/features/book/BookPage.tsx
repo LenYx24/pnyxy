@@ -185,6 +185,7 @@ export function BookPage() {
                 storage_path: data.storagePath ?? "",
                 size_bytes: data.sizeBytes,
                 file_name: data.fileName ?? "",
+                source_space_id: data.book.source_space_id ?? null,
               },
             };
             // optimistic local patch so sidebar + URL slug update before the round-trip

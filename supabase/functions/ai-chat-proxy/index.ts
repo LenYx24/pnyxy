@@ -35,6 +35,13 @@ const GEMINI_3_FLASH_MODEL = "gemini-3.7-flash";
 // (finish_reason "length"). Pre-billed worst-case, unused part refunded
 // after the stream.
 const DEFAULT_MAX_OUTPUT_TOKENS = 4096;
+// Hard ceiling on estimated INPUT tokens per request. The client caps its
+// context paths (scoped doc 45k chars, selected pages 45k, TOC 6k, 16-turn
+// window), so a legitimate turn lands far below this. It exists as a
+// defense-in-depth backstop: a crafted or buggy client can't push a whole
+// textbook through and burn a day's quota (or blow the provider context)
+// in one call. Generous on purpose, so it never trips real use.
+const MAX_INPUT_TOKENS = 200_000;
 // Native video input. Gemini bills ~300 tokens per second of video at
 // default resolution and ~100/s at MEDIA_RESOLUTION_LOW, which is what
 // we request (lecture slides + speech survive it fine). The clip length
@@ -435,6 +442,16 @@ Deno.serve(async (req) => {
         0,
       ) +
       estimateTokens(body.documentTitle ?? "");
+  // Reject oversized input before touching the provider or the quota: the
+  // client caps every context path, so anything past this ceiling is a
+  // crafted/buggy caller, not a real study turn.
+  if (inputTokens > MAX_INPUT_TOKENS) {
+    return jsonError(
+      413,
+      "input_too_large",
+      "Request context is too large. Select fewer pages or trim the attached text.",
+    );
+  }
   // grounded turns add a fixed surcharge below (search calls are billed per query upstream)
   let estimatedTotal = inputTokens + maxOutputTokens;
 

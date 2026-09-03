@@ -114,6 +114,8 @@ export function GeneralTab() {
     setExperimentalAnnotations,
     setExperimentalWhiteboard,
     setOnboardingCompleted,
+    setSeenChatTour,
+    setSeenReaderTour,
   } = useSettingsStore();
 
   const fitModeOptions: { value: FitMode; label: string; title: string }[] = [
@@ -363,7 +365,12 @@ export function GeneralTab() {
           control={
             <Button
               variant="secondary"
-              onClick={() => setOnboardingCompleted(false)}
+              onClick={() => {
+                setOnboardingCompleted(false);
+                // also replay the in-context coach-mark tours
+                setSeenChatTour(false);
+                setSeenReaderTour(false);
+              }}
             >
               <RotateCcw size={16} />
               {t("settings.onboarding.restartButton")}

@@ -142,6 +142,9 @@ interface SettingsState {
   readerSecondaryPanelOpen: boolean;
   /** Whether the first-run onboarding tour has been finished or dismissed. */
   onboardingCompleted: boolean;
+  /** Per-page coach-mark tours seen (chat page, reader). Shown once each. */
+  seenChatTour: boolean;
+  seenReaderTour: boolean;
   /** PDF reflow: render the pdf.js text layer as flowing text so phones don't pan sideways. Local-only. */
   pdfReflowMode: boolean;
 
@@ -218,6 +221,8 @@ interface SettingsState {
   setPdfReflowMode: (v: boolean) => void;
   setReaderSecondaryPanelOpen: (v: boolean) => void;
   setOnboardingCompleted: (v: boolean) => void;
+  setSeenChatTour: (v: boolean) => void;
+  setSeenReaderTour: (v: boolean) => void;
 
   // Cloud sync
   syncPreferences: () => Promise<void>;
@@ -277,6 +282,8 @@ export const useSettingsStore = create<SettingsState>()(
       pdfReflowMode: false,
       readerSecondaryPanelOpen: false,
       onboardingCompleted: false,
+      seenChatTour: false,
+      seenReaderTour: false,
 
       setTranslateSourceLanguage: (v) => set({ translateSourceLanguage: v }),
       setTranslateTargetLanguage: (v) => set({ translateTargetLanguage: v }),
@@ -539,6 +546,8 @@ export const useSettingsStore = create<SettingsState>()(
       setPdfReflowMode: (v) => set({ pdfReflowMode: v }),
       setReaderSecondaryPanelOpen: (v) => set({ readerSecondaryPanelOpen: v }),
       setOnboardingCompleted: (v) => set({ onboardingCompleted: v }),
+      setSeenChatTour: (v) => set({ seenChatTour: v }),
+      setSeenReaderTour: (v) => set({ seenReaderTour: v }),
 
       // Cloud sync
       syncPreferences: async () => {
