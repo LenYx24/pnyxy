@@ -204,6 +204,13 @@ interface AuthState {
   setContentConsent: (enabled: boolean) => Promise<void>;
 }
 
+// One-time-per-session guard: mirror the server `onboarded` flag into the
+// local (localStorage) first-run-tour flag on the FIRST profile load, so the
+// tour does not replay on a fresh browser where the local flag was never set.
+// Captured only on the first load, so a brand-new user (whose `onboarded`
+// flips false->true at the welcome page later this session) still sees it.
+let onboardedFlagSynced = false;
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   session: null,
@@ -366,6 +373,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
     set({ profile: data });
+    if (!onboardedFlagSynced) {
+      onboardedFlagSynced = true;
+      if ((data as Profile)?.onboarded) {
+        const { useSettingsStore } = await import("./settings-store");
+        if (!useSettingsStore.getState().onboardingCompleted) {
+          useSettingsStore.getState().setOnboardingCompleted(true);
+        }
+      }
+    }
     void persistPendingConsent(data as Profile);
   },
 

@@ -214,6 +214,10 @@ export function AllBooksTab({
   const folderPath = useLibraryStore((s) => s.folderPath);
   const folders = useLibraryStore((s) => s.folders);
   const books = useLibraryStore((s) => s.books);
+  const booksFetchedAt = useLibraryStore((s) => s.lastFetchedAt.books);
+  // Distinguish "not fetched yet" from "fetched and genuinely empty" so the
+  // empty state never flashes before the first library load resolves.
+  const hasLoaded = booksFetchedAt !== null;
   const navigateToFolder = useLibraryStore((s) => s.navigateToFolder);
   const createFolderPath = useLibraryStore((s) => s.createFolderPath);
   const renameFolder = useLibraryStore((s) => s.renameFolder);
@@ -1069,8 +1073,9 @@ export function AllBooksTab({
             </div>
           )}
 
-          {/* skeleton tiles while fetchLibrary is in flight */}
-          {isEmpty && !query && isLoading && (
+          {/* skeleton tiles while fetchLibrary is in flight, or before the
+          first load has resolved (so the empty state never flashes first) */}
+          {isEmpty && !query && (isLoading || !hasLoaded) && (
             <BookCardSkeleton
               viewMode={viewMode}
               count={skeletonCount}
@@ -1079,7 +1084,7 @@ export function AllBooksTab({
           )}
 
           {/* tag filter hid everything (folder isn't really empty) */}
-          {isEmpty && !query && !isLoading && activeTag && (
+          {isEmpty && !query && !isLoading && hasLoaded && activeTag && (
             <div className="flex flex-col items-center gap-2 py-16 text-center">
               <p className="font-display text-base font-medium text-text-primary">
                 {t("library.allBooks.noTagResults")}
@@ -1092,6 +1097,7 @@ export function AllBooksTab({
           {isEmpty &&
             !query &&
             !isLoading &&
+            hasLoaded &&
             !activeTag &&
             typeFilter !== "all" &&
             typeFilter !== "books" && (
@@ -1105,6 +1111,7 @@ export function AllBooksTab({
           {isEmpty &&
             !query &&
             !isLoading &&
+            hasLoaded &&
             !activeTag &&
             (typeFilter === "all" || typeFilter === "books") && (
               <div className="flex flex-col items-center gap-4 py-16 text-center">

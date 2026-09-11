@@ -83,7 +83,9 @@ export function AuthPage() {
   }, []);
 
   if (user) {
-    return <Navigate to={nextPath ?? "/library"} replace />;
+    // Default landing is the AI chat (the heart of the app); a deep link the
+    // user was bounced from still wins via nextPath.
+    return <Navigate to={nextPath ?? "/chat"} replace />;
   }
 
   const displayError = localError ?? error;

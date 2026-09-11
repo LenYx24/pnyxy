@@ -48,9 +48,10 @@ export function WelcomePage() {
     );
   }
 
-  // Returning user, already onboarded, skip straight to the app.
+  // Returning user, already onboarded, skip straight to the app (the AI
+  // chat is the default landing, matching a fresh sign-in).
   if (profile.onboarded) {
-    return <Navigate to="/library" replace />;
+    return <Navigate to="/chat" replace />;
   }
 
   async function handleContinue() {
