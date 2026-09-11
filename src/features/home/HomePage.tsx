@@ -1,8 +1,11 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Library, Compass, ArrowRight } from "lucide-react";
+import { Library, Compass, ArrowRight, FileText } from "lucide-react";
 import { GlassCard, Button } from "@/components/ui";
+import { openDocumentFromFile } from "@/lib/open-document";
+import { showToast } from "@/stores/toast-store";
+import { logError } from "@/lib/logger";
 import { useBrowseStore } from "@/stores/browse-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useAuthStore } from "@/stores/auth-store";
@@ -53,6 +56,61 @@ export function HomePage() {
   const topCategories = categories
     .filter((c) => c.parent_id === null)
     .slice(0, 3);
+
+  // Signed-out landing: the default app home is empty for a logged-out
+  // visitor (every shelf is user- or catalog-gated), which reads as broken.
+  // Give them a clear welcome + the next step instead.
+  if (!user) {
+    // Open the bundled sample PDF session-only (no account, not saved) so a
+    // visitor can feel the reader before deciding to sign up.
+    const trySamplePdf = async () => {
+      try {
+        const res = await fetch("/samples/pnyxy-sample.pdf");
+        if (!res.ok) throw new Error(`sample fetch ${res.status}`);
+        const blob = await res.blob();
+        const file = new File([blob], "pnyxy-sample.pdf", {
+          type: "application/pdf",
+        });
+        await openDocumentFromFile({ file, navigate });
+      } catch (err) {
+        logError("home:trySamplePdf", err);
+        showToast(t("home.signedOut.tryFailed"), "error");
+      }
+    };
+    return (
+      <div className="mx-auto flex min-h-[68vh] max-w-2xl flex-col items-center justify-center px-4 text-center">
+        <span className="mb-3 rounded-chip bg-accent-soft px-3 py-1 text-xs font-medium text-accent">
+          {t("home.signedOut.eyebrow")}
+        </span>
+        <h1 className="text-balance text-3xl font-bold leading-tight text-text-primary sm:text-4xl">
+          {t("home.signedOut.title")}
+        </h1>
+        <p className="mt-3 max-w-md text-sm text-text-secondary">
+          {t("home.signedOut.subtitle")}
+        </p>
+        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+          <Button variant="primary" onClick={() => navigate("/auth")}>
+            {t("home.signedOut.getStarted")}
+            <ArrowRight size={16} />
+          </Button>
+          <Button variant="secondary" onClick={() => void trySamplePdf()}>
+            <FileText size={16} />
+            {t("home.signedOut.trySample")}
+          </Button>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate("/landing")}
+          className="mt-4 text-xs font-medium text-accent hover:underline cursor-pointer"
+        >
+          {t("home.signedOut.learnMore")}
+        </button>
+        <p className="mt-4 max-w-md text-xs text-text-muted">
+          {t("home.signedOut.uploadHint")}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>

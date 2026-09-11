@@ -14,13 +14,16 @@ import { supabase } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
 import { getUserOrNull, requireUser } from "@/lib/supabase-auth";
 import { abortActiveStream, sendOrBranch } from "@/lib/ai/chat-stream";
+import { streamChatResponse } from "@/lib/ai/ai-client";
 import { sendImageMessageTurn } from "@/lib/ai/chat-image-message";
+import i18n from "@/lib/i18n";
 import { track } from "@/lib/telemetry";
 import { createChatFolderSlice } from "@/stores/chat/chat-folders";
 import {
   newestMessage,
   pathFromRoot,
   subtreeIds,
+  windowChatHistory,
 } from "@/stores/chat/chat-tree";
 import type { ChatState } from "@/stores/chat/chat-types";
 import type { ChatConversation, ChatMessage } from "@/types/chat";
@@ -484,6 +487,99 @@ export const useChatStore = create<ChatState>((set, get) => ({
       get,
       options,
     );
+  },
+
+  async sendAnonMessage(text, preferredProvider) {
+    const trimmed = text.trim();
+    if (trimmed.length === 0) return;
+    const iso = () => new Date().toISOString();
+
+    // Ensure an in-memory conversation (a guest has no DB rows).
+    let convId = get().activeConversationId;
+    if (!convId || !get().conversations.some((c) => c.id === convId)) {
+      convId = crypto.randomUUID();
+      const conv: ChatConversation = {
+        id: convId,
+        user_id: "anon",
+        title: "",
+        folder_id: null,
+        source_doc_id: null,
+        source_doc_title: null,
+        source_page: null,
+        target_roadmap_id: null,
+        target_quiz_id: null,
+        sort_order: 0,
+        parent_conversation_id: null,
+        created_at: iso(),
+        updated_at: iso(),
+        active_leaf_id: null,
+      };
+      set((s) => ({
+        conversations: [conv, ...s.conversations],
+        activeConversationId: convId,
+        messages: new Map(),
+        activeLeafId: null,
+      }));
+    }
+
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      conversation_id: convId,
+      parent_message_id: get().activeLeafId,
+      role: "user",
+      content: trimmed,
+      created_at: iso(),
+    };
+    const asstMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      conversation_id: convId,
+      parent_message_id: userMsg.id,
+      role: "assistant",
+      content: "",
+      created_at: iso(),
+    };
+    set((s) => {
+      const next = new Map(s.messages);
+      next.set(userMsg.id, userMsg);
+      next.set(asstMsg.id, asstMsg);
+      return {
+        messages: next,
+        activeLeafId: asstMsg.id,
+        streamingMessageId: asstMsg.id,
+      };
+    });
+
+    const historyTurns = pathFromRoot(get().messages, userMsg.id)
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        attachments: m.attachments ?? undefined,
+      }));
+    const promptMessages = windowChatHistory(historyTurns);
+    const patch = (content: string, error?: string) =>
+      set((s) => {
+        const next = new Map(s.messages);
+        const existing = next.get(asstMsg.id);
+        if (existing) next.set(asstMsg.id, { ...existing, content, error });
+        return { messages: next };
+      });
+
+    let acc = "";
+    try {
+      for await (const { delta } of streamChatResponse(promptMessages, "", "", {
+        preferredProvider,
+      })) {
+        acc += delta;
+        patch(acc);
+      }
+      if (acc.trim().length === 0) patch(i18n.t("chat.anon.limitReached"), "anon");
+    } catch {
+      // Most likely the anon rate-limit; a generic sign-in nudge covers the rest.
+      patch(acc.trim() || i18n.t("chat.anon.limitReached"), "anon");
+    } finally {
+      set({ streamingMessageId: null });
+    }
   },
 
   async branchFrom(parentMessageId, text, preferredProvider, attachments, options) {

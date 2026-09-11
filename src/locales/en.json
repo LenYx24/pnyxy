@@ -167,7 +167,8 @@
       "title": "Switch workspace",
       "manage": "Manage organizations"
     },
-    "quickChat": "New quick chat"
+    "quickChat": "New quick chat",
+    "signInToChat": "Sign in to start a chat with the AI."
   },
   "commandPalette": {
     "placeholder": "Search or jump to…",
@@ -209,8 +210,8 @@
     "continueAnonymous": "Continue without account",
     "welcome": {
       "title": "Welcome to Pnyxy!",
-      "body": "You're all set to start building your library.",
-      "continueCta": "Continue to your library"
+      "body": "Start by asking the AI tutor anything. Your reading library is a tap away.",
+      "continueCta": "Start with the AI chat"
     },
     "forgot": {
       "subtitle": "Reset your password",
@@ -232,7 +233,7 @@
       "mismatch": "Passwords don't match."
     },
     "consent": {
-      "text": "I agree that Pnyxy collects anonymous usage data (feature usage, session length), and that the pilot experience may be used, anonymized, in academic work.",
+      "text": "I agree that Pnyxy collects anonymous usage data (feature usage, session length).",
       "content": "Optionally, allow my learning conversations (my questions and the AI's answers) to be reviewed for the thesis research, not shared with third parties.",
       "contentOptional": "(optional)",
       "privacyLink": "Privacy",
@@ -240,6 +241,25 @@
     }
   },
   "settings": {
+    "dangerZone": {
+      "heading": "Danger zone",
+      "description": "Irreversible actions for your account.",
+      "deleteLabel": "Delete account",
+      "deleteHint": "Permanently remove your account and all of its data.",
+      "deleteButton": "Delete account",
+      "modalTitle": "Delete your account?",
+      "modalIntro": "This permanently deletes your account and everything tied to it:",
+      "itemLibrary": "Your library and uploaded documents",
+      "itemNotes": "Your notes, quizzes and whiteboards",
+      "itemChats": "Your chats and conversation history",
+      "itemCourses": "Your courses, spaces and progress",
+      "itemEverything": "Every setting and preference",
+      "irreversible": "This action cannot be undone.",
+      "confirmLabel": "Type {{email}} to confirm",
+      "confirmPlaceholder": "Type here to confirm",
+      "confirmButton": "Delete permanently",
+      "farewellToast": "Your account has been deleted. Take care!"
+    },
     "title": "Settings",
     "general": "General",
     "plan": "Plan",
@@ -830,6 +850,16 @@
     },
     "title": "Home",
     "subtitle": "Your reading starting point.",
+    "signedOut": {
+      "eyebrow": "Reading + an AI tutor",
+      "title": "Learn from your own materials, with a tutor that won't do it for you",
+      "subtitle": "Open your books and lecture notes, ask questions, and get answers with page citations, not just a chatbot.",
+      "getStarted": "Get started",
+      "trySample": "Try it with a PDF",
+      "tryFailed": "Could not open the sample. Please try again.",
+      "learnMore": "See how it works",
+      "uploadHint": "Sign in to upload your own books, save your progress, and chat with your materials."
+    },
     "seeAll": "See all →",
     "shelves": {
       "featured": "Featured",
@@ -1550,6 +1580,9 @@
     "loading": "Loading messages…",
     "signInRequired": "Sign in to use chat",
     "signInHint": "Conversations are private to your account.",
+    "anon": {
+      "limitReached": "You've reached the free limit for now. Sign in to keep chatting and to save your conversations."
+    },
     "composerPlaceholder": "Ask anything",
     "send": "Send",
     "stop": "Stop generating",
@@ -2417,6 +2450,10 @@
     "signOut": "Sign Out"
   },
   "reader": {
+    "sessionOnly": {
+      "notice": "This document is not saved.",
+      "signInToSave": "Sign in to save it"
+    },
     "addCommentTitle": "Add comment",
     "addCommentPlaceholder": "Your thoughts on this passage…",
     "addCommentSubmit": "Add",

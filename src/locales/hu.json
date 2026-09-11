@@ -382,7 +382,8 @@
       "title": "Munkaterület váltása",
       "manage": "Szervezetek kezelése"
     },
-    "quickChat": "Új gyors chat"
+    "quickChat": "Új gyors chat",
+    "signInToChat": "Jelentkezz be, hogy chatelhess az AI-jal."
   },
   "commandPalette": {
     "placeholder": "Keresés vagy ugrás…",
@@ -424,8 +425,8 @@
     "continueAnonymous": "Tovább fiók nélkül",
     "welcome": {
       "title": "Üdv a Pnyxy-n!",
-      "body": "Mehet a könyvtár építése.",
-      "continueCta": "Tovább a könyvtárhoz"
+      "body": "Kezdd azzal, hogy kérdezel valamit az AI tanártól. A könyvtárad egy kattintásra van.",
+      "continueCta": "Kezdjük az AI chattel"
     },
     "forgot": {
       "subtitle": "Jelszó visszaállítása",
@@ -447,7 +448,7 @@
       "mismatch": "A jelszavak nem egyeznek."
     },
     "consent": {
-      "text": "Elfogadom, hogy a Pnyxy anonim használati adatokat gyűjt (funkcióhasználat, munkamenet-hossz), és hogy a pilot tapasztalatai anonimizálva tudományos munkában felhasználhatók.",
+      "text": "Elfogadom, hogy a Pnyxy anonim használati adatokat gyűjt (funkcióhasználat, munkamenet-hossz).",
       "content": "Opcionálisan hozzájárulok, hogy a tanulási beszélgetéseimet (a kérdéseimet és az AI válaszait) a szakdolgozati kutatáshoz áttekinthessék, harmadik félnek nem adjuk át.",
       "contentOptional": "(opcionális)",
       "privacyLink": "Adatkezelés",
@@ -455,6 +456,25 @@
     }
   },
   "settings": {
+    "dangerZone": {
+      "heading": "Veszélyzóna",
+      "description": "Visszafordíthatatlan műveletek a fiókodon.",
+      "deleteLabel": "Fiók törlése",
+      "deleteHint": "A fiókod és minden adatod végleges eltávolítása.",
+      "deleteButton": "Fiók törlése",
+      "modalTitle": "Törlöd a fiókodat?",
+      "modalIntro": "Ez véglegesen törli a fiókodat és mindent, ami hozzá tartozik:",
+      "itemLibrary": "A könyvtárad és a feltöltött dokumentumaid",
+      "itemNotes": "A jegyzeteid, kvízeid és tábláid",
+      "itemChats": "A beszélgetéseid és a chat-előzményeid",
+      "itemCourses": "A kurzusaid, tereid és a haladásod",
+      "itemEverything": "Minden beállításod és preferenciád",
+      "irreversible": "Ez a művelet nem vonható vissza.",
+      "confirmLabel": "Írd be, hogy {{email}} a megerősítéshez",
+      "confirmPlaceholder": "Írd ide a megerősítéshez",
+      "confirmButton": "Végleges törlés",
+      "farewellToast": "A fiókodat töröltük. Vigyázz magadra!"
+    },
     "onboarding": {
       "heading": "Bevezető",
       "description": "Játszd le újra a Pnyxy főbb funkcióit bemutató gyors körutat.",
@@ -1045,6 +1065,16 @@
     },
     "title": "Kezdőlap",
     "subtitle": "Innen indul az olvasás.",
+    "signedOut": {
+      "eyebrow": "Olvasás + AI-tanár",
+      "title": "Tanulj a saját anyagaidból, egy tanárral, aki nem old meg helyetted",
+      "subtitle": "Nyisd meg a könyveidet és jegyzeteidet, kérdezz, és oldal-hivatkozott válaszokat kapsz, nem csak egy chatbotot.",
+      "getStarted": "Kezdés",
+      "trySample": "Próbáld ki egy PDF-fel",
+      "tryFailed": "A minta megnyitása nem sikerült. Próbáld újra.",
+      "learnMore": "Hogyan működik",
+      "uploadHint": "Jelentkezz be, hogy feltölthesd a saját könyveidet, mentsd a haladásod, és chatelj az anyagaiddal."
+    },
     "seeAll": "Összes →",
     "shelves": {
       "featured": "Kiemelt",
@@ -1791,6 +1821,9 @@
     "loading": "Üzenetek betöltése…",
     "signInRequired": "Jelentkezz be a csevegéshez",
     "signInHint": "A beszélgetéseid csak a te fiókodból érhetők el.",
+    "anon": {
+      "limitReached": "Egyelőre elérted az ingyenes limitet. Jelentkezz be a folytatáshoz és a beszélgetéseid mentéséhez."
+    },
     "composerPlaceholder": "Kérdezz bármit",
     "send": "Küldés",
     "stop": "Generálás leállítása",
@@ -2641,6 +2674,10 @@
     "signOut": "Kijelentkezés"
   },
   "reader": {
+    "sessionOnly": {
+      "notice": "Ez a dokumentum nem lesz elmentve.",
+      "signInToSave": "Jelentkezz be a mentéshez"
+    },
     "openFailed": "Nem sikerült megnyitni a dokumentumot. Lehet, hogy sérült vagy nem támogatott.",
     "screenshotFailed": "Nem sikerült elkészíteni a képet. Próbáld újra.",
     "viewer": {

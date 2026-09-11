@@ -159,6 +159,9 @@ export default defineConfig({
     // Allow Tauri's dev host for mobile development
     host: host || false,
     port: 5173,
+    // Let a quick tunnel (cloudflared / localtunnel) reach the dev server
+    // for phone testing; Vite otherwise blocks non-localhost hosts.
+    allowedHosts: [".trycloudflare.com", ".loca.lt"],
   },
   // Produce sourcemaps for Tauri debug builds
   envPrefix: ["VITE_", "TAURI_ENV_*"],

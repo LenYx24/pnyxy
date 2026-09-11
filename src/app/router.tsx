@@ -221,6 +221,33 @@ const AdminUserDetailPage = lazy(() =>
     default: m.AdminUserDetailPage,
   })),
 );
+// Admin sub-sections, lazy like the settings tabs so they load with the
+// admin chunk; they render inside AdminPage's <Outlet />.
+const AdminDashboardTab = lazy(() =>
+  import("@/features/admin/tabs/DashboardTab").then((m) => ({ default: m.DashboardTab })),
+);
+const AdminAnalyticsTab = lazy(() =>
+  import("@/features/admin/tabs/AnalyticsTab").then((m) => ({ default: m.AnalyticsTab })),
+);
+const AdminAiUsageTab = lazy(() =>
+  import("@/features/admin/tabs/AiUsageTab").then((m) => ({ default: m.AiUsageTab })),
+);
+const AdminReportsTab = lazy(() =>
+  import("@/features/admin/tabs/ReportsTab").then((m) => ({ default: m.ReportsTab })),
+);
+const AdminCatalogModerationTab = lazy(() =>
+  import("@/features/admin/tabs/CatalogModerationTab").then((m) => ({
+    default: m.CatalogModerationTab,
+  })),
+);
+const AdminUserManagementTab = lazy(() =>
+  import("@/features/admin/tabs/UserManagementTab").then((m) => ({
+    default: m.UserManagementTab,
+  })),
+);
+const AdminErrorsTab = lazy(() =>
+  import("@/features/admin/tabs/ErrorsTab").then((m) => ({ default: m.ErrorsTab })),
+);
 const StreaksPage = lazy(() =>
   import("@/features/streaks/StreaksPage").then((m) => ({
     default: m.StreaksPage,
@@ -415,7 +442,20 @@ export const router = createBrowserRouter([
         ],
       },
       { path: "profile", element: <ProfilePage /> },
-      { path: "admin", element: <AdminPage /> },
+      {
+        path: "admin",
+        element: <AdminPage />,
+        children: [
+          { index: true, element: <Navigate to="dashboard" replace /> },
+          { path: "dashboard", element: <AdminDashboardTab /> },
+          { path: "analytics", element: <AdminAnalyticsTab /> },
+          { path: "quota", element: <AdminAiUsageTab /> },
+          { path: "reports", element: <AdminReportsTab /> },
+          { path: "catalog", element: <AdminCatalogModerationTab /> },
+          { path: "users", element: <AdminUserManagementTab /> },
+          { path: "errors", element: <AdminErrorsTab /> },
+        ],
+      },
       { path: "admin/users/:userId", element: <AdminUserDetailPage /> },
       { path: "vocabulary", element: <FeatureGate feature="vocabulary"><VocabularyPage /></FeatureGate> },
       { path: "spaces", element: <FeatureGate feature="spaces"><SpacesPage /></FeatureGate> },

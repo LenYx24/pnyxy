@@ -19,6 +19,7 @@ import {
   downloadMarkdown,
 } from "@/lib/export-conversation";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
+import { useIsMobile } from "@/hooks/use-media-query";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useAuthStore } from "@/stores/auth-store";
 import { useChatStore, pathFromRoot } from "@/stores/chat-store";
@@ -262,12 +263,17 @@ export function useChatPageState(scope?: ChatPageScope) {
   }, [scope, user, activeId, routeConvId, navigate, location.search]);
 
   // auto-open the most recent conversation on a fresh /chat, unless a
-  // reader-handoff draft is in flight or a deep link names the thread
+  // reader-handoff draft is in flight or a deep link names the thread.
+  // Mobile opens Gemini-style straight into a fresh empty composer instead
+  // (the conversation is created on first send), so a phone user isn't
+  // dropped into an old thread; the drawer still lists everything.
+  const isMobile = useIsMobile();
   useEffect(() => {
     if (!user) return;
     if (activeId || routeConvId) return;
     if (visibleConversations.length === 0) return;
     if (!scope && useChatStore.getState().pendingDraft !== null) return;
+    if (isMobile && !scope) return;
     void openConversation(visibleConversations[0].id);
   }, [
     user,
@@ -276,6 +282,7 @@ export function useChatPageState(scope?: ChatPageScope) {
     visibleConversations,
     openConversation,
     scope,
+    isMobile,
   ]);
 
   const activeConversation = useMemo(

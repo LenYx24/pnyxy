@@ -309,12 +309,13 @@ export async function sendOrBranch(
     const pump = (async () => {
       while (!signal.aborted) {
         if (revealed < local.length) {
-          const remaining = local.length - revealed;
-          revealed = Math.min(
-            local.length,
-            revealed + Math.max(2, Math.ceil(remaining / 6)),
-          );
-          patchAssistant(local.slice(0, revealed));
+          // Reveal everything received so far immediately, no artificial
+          // type-out: the reply should feel as fast as the model streams.
+          // The rAF loop still frame-bounds the writes, and the render
+          // itself is throttled downstream (STREAM_RENDER_THROTTLE_MS), so
+          // this doesn't add markdown-parse cost.
+          revealed = local.length;
+          patchAssistant(local);
         } else if (streamDone) {
           return;
         }

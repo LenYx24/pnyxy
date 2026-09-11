@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router";
+import { useParams, useSearchParams, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { DockviewReact, type DockviewApi } from "dockview";
@@ -30,6 +30,7 @@ import { useFeatures } from "@/lib/use-features";
 import { useNoteStore } from "@/stores/note-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useAuthStore } from "@/stores/auth-store";
 import { CoachMarks } from "@/features/onboarding/CoachMarks";
 import { readerTourSteps } from "@/features/onboarding/tours";
 import { useOpenDocument } from "@/hooks/use-open-document";
@@ -211,6 +212,20 @@ export function ReaderPage() {
   const showReaderTour =
     hasDocuments && !zenMode && onboardingCompleted && !seenReaderTour;
 
+  // Session-only docs (opened from a File, e.g. the logged-out sample) have a
+  // content-hash id, not a library UUID: they are not saved. Surface that so
+  // a visitor knows to sign in if they want to keep it.
+  const navigate = useNavigate();
+  const authedUser = useAuthStore((s) => s.user);
+  const [sessionNoticeDismissed, setSessionNoticeDismissed] = useState(false);
+  const isSessionOnly =
+    !!activeDocumentId &&
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      activeDocumentId,
+    );
+  const showSessionNotice =
+    isSessionOnly && hasDocuments && !zenMode && !sessionNoticeDismissed;
+
   return (
     <div
       ref={readerContainerRef}
@@ -228,6 +243,28 @@ export function ReaderPage() {
         open={showReaderTour}
         onDone={() => setSeenReaderTour(true)}
       />
+      {showSessionNotice && (
+        <div className="flex shrink-0 items-center justify-center gap-2 bg-accent-soft px-3 py-1.5 text-center text-xs text-text-secondary">
+          <span>{t("reader.sessionOnly.notice")}</span>
+          {!authedUser && (
+            <button
+              type="button"
+              onClick={() => navigate("/auth")}
+              className="font-medium text-accent hover:underline cursor-pointer"
+            >
+              {t("reader.sessionOnly.signInToSave")}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setSessionNoticeDismissed(true)}
+            aria-label={t("common.close")}
+            className="ml-1 text-text-muted hover:text-text-primary cursor-pointer"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
       {hasDocuments && zenMode ? (
         <div className="relative flex-1 overflow-hidden">
           <ActiveViewer />

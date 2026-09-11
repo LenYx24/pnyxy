@@ -102,6 +102,12 @@ export interface ChatState {
   /** Read and clear in one step so the next mount doesn't replay it. */
   consumePendingDraft: () => ChatDraft | null;
   openConversation: (conversationId: string) => Promise<void>;
+  /** Signed-out send: in-memory only (no DB), rate-limited server-side.
+   *  Reuses the normal chat UI; see src/lib/ai/anon-chat.ts. */
+  sendAnonMessage: (
+    text: string,
+    preferredProvider?: AiProvider,
+  ) => Promise<void>;
   renameConversation: (id: string, title: string) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
   /** Delete a message and its whole subtree; leaf rewinds to parent if inside it. */

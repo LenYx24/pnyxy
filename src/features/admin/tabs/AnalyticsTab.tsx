@@ -67,10 +67,26 @@ const FALLBACK_COLORS = ["#ec4899", "#f59e0b", "#14b8a6", "#f43f5e"];
 
 const RANGES = [7, 30, 90];
 
+// Sign-in provider labels/colors. Google is Gmail OAuth, email is
+// email+password; anything else falls back to a neutral chip.
+const PROVIDER_META: Record<string, { label: string; color: string }> = {
+  google: { label: "Google (Gmail)", color: "#ea4335" },
+  email: { label: "Email + password", color: "#3b82f6" },
+};
+const providerMeta = (p: string) =>
+  PROVIDER_META[p] ?? { label: p, color: "#6b7280" };
+
 const fmt = (n: number): string => {
   if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return `${n}`;
+};
+
+const fmtBytes = (n: number): string => {
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)} GB`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)} MB`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)} KB`;
+  return `${n} B`;
 };
 
 const tickStyle = { fill: "#9ca3af", fontSize: 12 } as const;
@@ -154,8 +170,15 @@ export function AnalyticsTab() {
     topUsers,
     booksHistogram,
     featureUsage,
+    providers,
+    activation,
+    retention,
+    activeDaily,
+    storage,
     fetchAll,
   } = useAdminAnalyticsStore();
+
+  const providerTotal = providers.reduce((sum, p) => sum + p.users, 0);
 
   useEffect(() => {
     fetchAll(rangeDays);
@@ -253,6 +276,43 @@ export function AnalyticsTab() {
             </div>
           )}
 
+          {/* Sign-in method breakdown (Google vs email+password) */}
+          {providers.length > 0 && (
+            <ChartCard title="Sign-in method" subtitle="How registered users authenticate">
+              <div className="space-y-3">
+                {providers.map((p) => {
+                  const { label, color } = providerMeta(p.provider);
+                  const pct =
+                    providerTotal > 0
+                      ? Math.round((p.users / providerTotal) * 100)
+                      : 0;
+                  return (
+                    <div key={p.provider}>
+                      <div className="mb-1 flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full"
+                            style={{ background: color }}
+                          />
+                          <span className="text-text-primary">{label}</span>
+                        </div>
+                        <span className="text-text-muted">
+                          {p.users.toLocaleString()} ({pct}%)
+                        </span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-glass-hover">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${pct}%`, background: color }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </ChartCard>
+          )}
+
           {/* Signups + token cost side by side */}
           <div className="grid gap-4 lg:grid-cols-2">
             <ChartCard title="New signups" subtitle={`Daily, last ${rangeDays} days`}>
@@ -302,6 +362,94 @@ export function AnalyticsTab() {
                   ))}
                 </AreaChart>
               </ResponsiveContainer>
+            </ChartCard>
+          </div>
+
+          {/* Active users trend */}
+          <ChartCard
+            title="Active users"
+            subtitle={`Distinct users who used AI per day · last ${rangeDays} days`}
+          >
+            <ResponsiveContainer width="100%" height={240}>
+              <AreaChart data={activeDaily} margin={{ top: 5, right: 8, left: -16, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gActive" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.5} />
+                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke={gridStroke} vertical={false} />
+                <XAxis dataKey="day" tick={tickStyle} tickFormatter={(d) => String(d).slice(5)} minTickGap={24} />
+                <YAxis tick={tickStyle} allowDecimals={false} width={36} />
+                <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: "#e5e7eb" }} />
+                <Area type="monotone" dataKey="active_users" stroke="#06b6d4" fill="url(#gActive)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* Activation funnel + retention */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ChartCard title="Activation funnel" subtitle="How far new users get">
+              {activation && (
+                <div className="space-y-3">
+                  {[
+                    { label: "Registered", value: activation.registered },
+                    { label: "Onboarded", value: activation.onboarded },
+                    { label: "Added a book", value: activation.with_book },
+                    { label: "Started a chat", value: activation.with_chat },
+                  ].map((step) => {
+                    const base = activation.registered || 1;
+                    const pct = Math.round((step.value / base) * 100);
+                    return (
+                      <div key={step.label}>
+                        <div className="mb-1 flex items-center justify-between text-sm">
+                          <span className="text-text-primary">{step.label}</span>
+                          <span className="text-text-muted">
+                            {step.value.toLocaleString()} ({pct}%)
+                          </span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-glass-hover">
+                          <div
+                            className="h-full rounded-full bg-accent"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </ChartCard>
+
+            <ChartCard title="Retention" subtitle="Do new users come back?">
+              {retention && (
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    {
+                      label: "Next-day (D1)",
+                      retained: retention.d1_retained,
+                      eligible: retention.d1_eligible,
+                    },
+                    {
+                      label: "Week-1 (D7)",
+                      retained: retention.d7_retained,
+                      eligible: retention.d7_eligible,
+                    },
+                  ].map((r) => {
+                    const pct =
+                      r.eligible > 0 ? Math.round((r.retained / r.eligible) * 100) : 0;
+                    return (
+                      <div key={r.label} className="rounded-lg bg-glass-hover p-4 text-center">
+                        <p className="text-2xl font-bold text-text-primary">{pct}%</p>
+                        <p className="mt-1 text-xs text-text-muted">{r.label}</p>
+                        <p className="mt-0.5 text-2xs text-text-muted-2">
+                          {r.retained}/{r.eligible} users
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </ChartCard>
           </div>
 
@@ -416,6 +564,39 @@ export function AnalyticsTab() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+          </ChartCard>
+
+          {/* Storage usage */}
+          <ChartCard
+            title="Storage usage"
+            subtitle={`Total ${fmtBytes(storage?.total_bytes ?? 0)} across all users · top by footprint`}
+          >
+            {storage && storage.top.length > 0 ? (
+              <div className="space-y-2">
+                {storage.top.map((u) => {
+                  const max = storage.top[0]?.bytes || 1;
+                  const pct = Math.round((u.bytes / max) * 100);
+                  return (
+                    <div key={u.user_id}>
+                      <div className="mb-1 flex items-center justify-between text-sm">
+                        <span className="truncate text-text-primary">
+                          {u.display_name || `${u.user_id.slice(0, 8)}…`}
+                        </span>
+                        <span className="text-text-muted">{fmtBytes(u.bytes)}</span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-glass-hover">
+                        <div
+                          className="h-full rounded-full bg-purple-400"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="py-8 text-center text-sm text-text-muted">No stored files yet.</p>
+            )}
           </ChartCard>
         </>
       )}

@@ -1,64 +1,38 @@
-import { useState } from "react";
+import { Outlet, useLocation } from "react-router";
 import { Shield } from "lucide-react";
-import { cn } from "@/lib/cn";
 import { AdminGuard } from "./AdminGuard";
-import { DashboardTab } from "./tabs/DashboardTab";
-import { AnalyticsTab } from "./tabs/AnalyticsTab";
-import { AiUsageTab } from "./tabs/AiUsageTab";
-import { ReportsTab } from "./tabs/ReportsTab";
-import { CatalogModerationTab } from "./tabs/CatalogModerationTab";
-import { UserManagementTab } from "./tabs/UserManagementTab";
-import { ErrorsTab } from "./tabs/ErrorsTab";
+import { ADMIN_TABS, AdminNav } from "./AdminNav";
 
-const tabs = [
-  { key: "dashboard", label: "Dashboard" },
-  { key: "analytics", label: "Analytics" },
-  { key: "quota", label: "AI Quota" },
-  { key: "reports", label: "Reports" },
-  { key: "catalog", label: "Catalog" },
-  { key: "users", label: "Users" },
-  { key: "errors", label: "Errors" },
-] as const;
-
-type TabKey = (typeof tabs)[number]["key"];
-
+/**
+ * Admin hub shell. A left-sidebar submenu (AdminNav) plus the active
+ * sub-section rendered in <Outlet />; the child routes live in
+ * src/app/router.tsx, so each section is URL-addressable
+ * (/admin/analytics, /admin/users, ...) and survives a refresh.
+ */
 export function AdminPage() {
-  const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
+  const { pathname } = useLocation();
+  const lastSegment = pathname.split("/").filter(Boolean).pop() ?? "";
+  const currentTab =
+    ADMIN_TABS.find((tab) => tab.to === lastSegment) ?? ADMIN_TABS[0];
 
   return (
     <AdminGuard>
-      <div className="mx-auto max-w-5xl pt-14">
-        <div className="mb-6 flex items-center gap-3">
-          <Shield className="h-6 w-6 text-accent" />
-          <h1 className="text-2xl font-bold text-text-primary">Admin Panel</h1>
+      <div className="w-full px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-6 flex items-center gap-3">
+            <Shield className="h-6 w-6 text-accent" />
+            <h1 className="text-2xl font-bold text-text-primary">Admin</h1>
+          </div>
+          <div className="grid gap-6 md:grid-cols-[210px_minmax(0,1fr)] md:gap-8">
+            <AdminNav currentTo={currentTab.to} />
+            <div className="min-w-0 space-y-6">
+              <h2 className="text-lg font-semibold text-text-primary">
+                {currentTab.label}
+              </h2>
+              <Outlet />
+            </div>
+          </div>
         </div>
-
-        {/* Tab bar */}
-        <div className="mb-6 flex gap-1 overflow-x-auto rounded-lg border border-glass-border bg-glass-bg p-1 backdrop-blur-md">
-          {tabs.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              className={cn(
-                "flex-1 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors cursor-pointer",
-                activeTab === key
-                  ? "bg-accent/15 text-accent"
-                  : "text-text-secondary hover:bg-glass-hover hover:text-text-primary",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab content */}
-        {activeTab === "dashboard" && <DashboardTab />}
-        {activeTab === "analytics" && <AnalyticsTab />}
-        {activeTab === "quota" && <AiUsageTab />}
-        {activeTab === "reports" && <ReportsTab />}
-        {activeTab === "catalog" && <CatalogModerationTab />}
-        {activeTab === "users" && <UserManagementTab />}
-        {activeTab === "errors" && <ErrorsTab />}
       </div>
     </AdminGuard>
   );

@@ -24,6 +24,7 @@ import {
   formatReadingContextPrompt,
 } from "@/lib/reading-context";
 import { useChatStore } from "@/stores/chat-store";
+import { useAuthStore } from "@/stores/auth-store";
 import { useUploadStore } from "@/stores/upload-store";
 import { track } from "@/lib/telemetry";
 import { useRoadmap, useRoadmapStore } from "@/stores/roadmap-store";
@@ -56,15 +57,18 @@ export function ComposerDock({
     streamingMessageId,
     createConversation,
     sendMessage,
+    sendAnonMessage,
     sendImageMessage,
   } = useChatStore(
     useShallow((s) => ({
       streamingMessageId: s.streamingMessageId,
       createConversation: s.createConversation,
       sendMessage: s.sendMessage,
+      sendAnonMessage: s.sendAnonMessage,
       sendImageMessage: s.sendImageMessage,
     })),
   );
+  const user = useAuthStore((s) => s.user);
 
   // roadmap-edit mode: load the roadmap store and resolve its title for the pill
   const targetRoadmapId = activeConversation?.target_roadmap_id ?? null;
@@ -96,6 +100,14 @@ export function ComposerDock({
       // allow attachment-only sends
       if (!text && !attachments) return;
       onChange("");
+      // Signed-out (anon chat enabled): in-memory, plain-text only, no DB.
+      // Attachments/modes/image are account features, so a guest send is a
+      // simple question routed to the rate-limited anon path.
+      if (!user) {
+        if (!text) return;
+        await sendAnonMessage(text, payload.provider ?? undefined);
+        return;
+      }
       // image mode routes to the Images API, needs a conversation first
       if (payload.mode === "image") {
         if (!activeId) {
@@ -134,8 +146,10 @@ export function ComposerDock({
       activeId,
       createConversation,
       sendMessage,
+      sendAnonMessage,
       sendImageMessage,
       scopeSource,
+      user,
     ],
   );
 

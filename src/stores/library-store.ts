@@ -78,6 +78,10 @@ function buildFolderPath(folders: Folder[], targetId: string | null): Folder[] {
 // Skip a refetch if the last one was this recent. Refresh button passes force=true.
 const FRESH_FETCH_MS = 60_000;
 
+// De-dupes overlapping fetchLibrary() calls onto one network round-trip so the
+// loading skeleton spins once, not twice. See the coalescing note in fetchLibrary.
+let inFlightLibrary: Promise<void> | null = null;
+
 export const useLibraryStore = create<LibraryState>((set, get) => ({
   books: [],
   folders: [],
@@ -117,114 +121,128 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   fetchLibrary: async (force = false) => {
     const last = get().lastFetchedAt.books;
     if (!force && last !== null && Date.now() - last < FRESH_FETCH_MS) return;
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
+    // Coalesce concurrent callers onto one in-flight fetch so the skeleton
+    // spins once, not twice. Several triggers can fire in the same tick: the
+    // LibraryPage mount effect, the org-store subscription (once currentOrgId
+    // resolves from null), and, in dev, StrictMode's double-invoked mount
+    // effect. All pass force=true, so without this guard each would run a full
+    // fetch and flip isLoading on its own.
+    if (inFlightLibrary) return inFlightLibrary;
+    inFlightLibrary = (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
 
-    // no active org: show empty rather than another org's contents (org-store sub retriggers once set)
-    const orgId = useOrgStore.getState().currentOrgId;
-    if (!orgId) {
-      set({ books: [], isLoading: false });
-      return;
-    }
+      // no active org: show empty rather than another org's contents (org-store sub retriggers once set)
+      const orgId = useOrgStore.getState().currentOrgId;
+      if (!orgId) {
+        set({ books: [], isLoading: false });
+        return;
+      }
 
-    set({ isLoading: true });
+      set({ isLoading: true });
 
-    const [catalogRes, uploadedRes] = await Promise.all([
-      supabase
-        .from("user_library")
-        .select("id, catalog_book_id, folder_id, added_at, catalog_book:catalog_books(*)")
-        .eq("user_id", user.id)
-        .eq("org_id", orgId)
-        .order("added_at", { ascending: false }),
-      supabase
-        .from("books")
-        .select("id, title, authors, author, cover_url, page_count, format, file_hash, folder_id, source_space_id, created_at, metadata, book_files(storage_path, file_name, size_bytes)")
-        .eq("user_id", user.id)
-        .eq("org_id", orgId)
-        .order("created_at", { ascending: false }),
-    ]);
+      const [catalogRes, uploadedRes] = await Promise.all([
+        supabase
+          .from("user_library")
+          .select("id, catalog_book_id, folder_id, added_at, catalog_book:catalog_books(*)")
+          .eq("user_id", user.id)
+          .eq("org_id", orgId)
+          .order("added_at", { ascending: false }),
+        supabase
+          .from("books")
+          .select("id, title, authors, author, cover_url, page_count, format, file_hash, folder_id, source_space_id, created_at, metadata, book_files(storage_path, file_name, size_bytes)")
+          .eq("user_id", user.id)
+          .eq("org_id", orgId)
+          .order("created_at", { ascending: false }),
+      ]);
 
-    if (catalogRes.error) {
-      logError("library-store:fetchLibrary:catalog", catalogRes.error.message);
-    }
-    if (uploadedRes.error) {
-      logError("library-store:fetchLibrary:uploaded", uploadedRes.error.message);
-    }
+      if (catalogRes.error) {
+        logError("library-store:fetchLibrary:catalog", catalogRes.error.message);
+      }
+      if (uploadedRes.error) {
+        logError("library-store:fetchLibrary:uploaded", uploadedRes.error.message);
+      }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase join response is dynamically shaped
-    const catalogItems: CatalogLibraryItem[] = ((catalogRes.data ?? []) as any[]).map(
-      (row) => ({
-        source: "catalog" as const,
-        id: row.id,
-        folder_id: row.folder_id,
-        added_at: row.added_at,
-        catalog_book_id: row.catalog_book_id,
-        catalog_book: row.catalog_book,
-      }),
-    );
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase join response is dynamically shaped
-    const uploadedItems: UploadedLibraryItem[] = ((uploadedRes.data ?? []) as any[])
-      // keep books with a file plus manual_entry shells; file check hides mid-upload rows
-      .filter(
-        (row) =>
-          (row.book_files && row.book_files.length > 0) ||
-          row.metadata?.manual_entry === true,
-      )
-      .map((row) => {
-        const file = row.book_files?.[0];
-        return {
-          source: "uploaded" as const,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase join response is dynamically shaped
+      const catalogItems: CatalogLibraryItem[] = ((catalogRes.data ?? []) as any[]).map(
+        (row) => ({
+          source: "catalog" as const,
           id: row.id,
           folder_id: row.folder_id,
-          added_at: row.created_at,
-          book: {
+          added_at: row.added_at,
+          catalog_book_id: row.catalog_book_id,
+          catalog_book: row.catalog_book,
+        }),
+      );
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase join response is dynamically shaped
+      const uploadedItems: UploadedLibraryItem[] = ((uploadedRes.data ?? []) as any[])
+        // keep books with a file plus manual_entry shells; file check hides mid-upload rows
+        .filter(
+          (row) =>
+            (row.book_files && row.book_files.length > 0) ||
+            row.metadata?.manual_entry === true,
+        )
+        .map((row) => {
+          const file = row.book_files?.[0];
+          return {
+            source: "uploaded" as const,
             id: row.id,
-            title: row.title,
-            authors: row.authors ?? [],
-            author: row.author,
-            cover_url: row.cover_url,
-            page_count: row.page_count,
-            format: row.format,
-            file_hash: row.file_hash,
-            storage_path: file?.storage_path ?? null,
-            size_bytes: file?.size_bytes ?? null,
-            file_name: file?.file_name ?? null,
-            source_space_id: row.source_space_id ?? null,
-          },
-        };
+            folder_id: row.folder_id,
+            added_at: row.created_at,
+            book: {
+              id: row.id,
+              title: row.title,
+              authors: row.authors ?? [],
+              author: row.author,
+              cover_url: row.cover_url,
+              page_count: row.page_count,
+              format: row.format,
+              file_hash: row.file_hash,
+              storage_path: file?.storage_path ?? null,
+              size_bytes: file?.size_bytes ?? null,
+              file_name: file?.file_name ?? null,
+              source_space_id: row.source_space_id ?? null,
+            },
+          };
+        });
+
+      const all: UnifiedLibraryItem[] = [...catalogItems, ...uploadedItems].sort(
+        (a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime(),
+      );
+
+      set({
+        books: all,
+        isLoading: false,
+        lastFetchedAt: { ...get().lastFetchedAt, books: Date.now() },
       });
 
-    const all: UnifiedLibraryItem[] = [...catalogItems, ...uploadedItems].sort(
-      (a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime(),
-    );
+      // per-folder counts so the next mount sizes skeletons right
+      const byFolder: Record<string, number> = {};
+      for (const entry of all) {
+        const k = entry.folder_id ?? ROOT_FOLDER_KEY;
+        byFolder[k] = (byFolder[k] ?? 0) + 1;
+      }
+      writeBookCounts(orgId, { total: all.length, byFolder });
 
-    set({
-      books: all,
-      isLoading: false,
-      lastFetchedAt: { ...get().lastFetchedAt, books: Date.now() },
-    });
+      // warm the HTTP cache for recent covers (helper caps at 16)
+      prefetchImages(
+        all.map((entry) =>
+          entry.source === "catalog"
+            ? entry.catalog_book.cover_url
+            : entry.book.cover_url,
+        ),
+      );
 
-    // per-folder counts so the next mount sizes skeletons right
-    const byFolder: Record<string, number> = {};
-    for (const entry of all) {
-      const k = entry.folder_id ?? ROOT_FOLDER_KEY;
-      byFolder[k] = (byFolder[k] ?? 0) + 1;
+      useTagStore.getState().fetchUserTags();
+    })();
+    try {
+      await inFlightLibrary;
+    } finally {
+      inFlightLibrary = null;
     }
-    writeBookCounts(orgId, { total: all.length, byFolder });
-
-    // warm the HTTP cache for recent covers (helper caps at 16)
-    prefetchImages(
-      all.map((entry) =>
-        entry.source === "catalog"
-          ? entry.catalog_book.cover_url
-          : entry.book.cover_url,
-      ),
-    );
-
-    useTagStore.getState().fetchUserTags();
   },
 
   fetchFolders: async (force = false) => {

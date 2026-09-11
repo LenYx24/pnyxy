@@ -13,6 +13,8 @@ import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
 import { useFeatures } from "@/lib/use-features";
 import { useAuthStore } from "@/stores/auth-store";
+import { showToast } from "@/stores/toast-store";
+import { isAnonChatEnabled } from "@/lib/ai/anon-chat";
 import { useReaderStore } from "@/stores/reader-store";
 import { useIsDesktop } from "@/hooks/use-media-query";
 import { FloatingMenu, Tooltip } from "@/components/ui";
@@ -523,12 +525,21 @@ export function QuickChatCta({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
   return (
     <Tooltip label={t("sidebar.quickChat")}>
       <button
         type="button"
         onClick={() => {
           onClick?.();
+          // Logged out with anon chat OFF the chat can't work; give feedback
+          // and route to sign-in rather than a dead "sign in required" screen.
+          // With anon chat ON, a guest can chat (rate-limited), so fall through.
+          if (!user && !isAnonChatEnabled()) {
+            showToast(t("sidebar.signInToChat"), "info");
+            navigate("/auth");
+            return;
+          }
           navigate("/chat", { state: { newChat: Date.now() } });
         }}
         aria-label={t("sidebar.quickChat")}

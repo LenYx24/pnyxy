@@ -17,10 +17,6 @@ interface ReportWithProfiles extends UserReport {
   reported_user: Pick<Profile, "id" | "display_name" | "avatar_url"> | null;
 }
 
-interface UserWithBan extends Profile {
-  activeBan: UserBan | null;
-}
-
 /** Minimal profile shape used to resolve "Submitted by" on pending
  *  catalog books, and elsewhere a compact author card is enough. */
 export type SubmitterProfile = Pick<Profile, "display_name" | "avatar_url">;
@@ -34,6 +30,25 @@ export interface AdminUserStats {
   quizzes_count: number;
   conversations_count: number;
   tokens_30d: number;
+}
+
+/** One row of the searchable admin users table (admin_users_list RPC,
+ *  migration 00081). `ban_id` is the newest active ban, null when not
+ *  banned; `total_count` drives server-side pagination. */
+export interface AdminUserRow {
+  id: string;
+  display_name: string | null;
+  email: string | null;
+  provider: string;
+  role: UserRole;
+  storage_tier: string;
+  subscription_status: string | null;
+  created_at: string;
+  last_active_at: string | null;
+  book_count: number;
+  chat_count: number;
+  ban_id: string | null;
+  banned_until: string | null;
 }
 
 export interface AdminConversationMessage {
@@ -88,10 +103,12 @@ interface AdminState {
   rejectBook: (id: string) => Promise<void>;
 
   // Users
-  users: UserWithBan[];
+  users: AdminUserRow[];
   usersLoading: boolean;
   usersTotal: number;
-  fetchUsers: (page: number) => Promise<void>;
+  usersPage: number;
+  usersSearch: string;
+  fetchUsers: (page: number, search: string) => Promise<void>;
   banUser: (userId: string, reason: string, days: number | null) => Promise<void>;
   liftBan: (banId: string) => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => Promise<void>;
@@ -269,41 +286,41 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   users: [],
   usersLoading: false,
   usersTotal: 0,
+  usersPage: 0,
+  usersSearch: "",
 
-  fetchUsers: async (page: number) => {
+  fetchUsers: async (page, search) => {
     set({ usersLoading: true });
     try {
-      const from = page * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-
-      const { data: profiles, count, error } = await supabase
-        .from("profiles")
-        .select("*", { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range(from, to);
-
+      const { data, error } = await supabase.rpc("admin_users_list", {
+        p_search: search,
+        p_limit: PAGE_SIZE,
+        p_offset: page * PAGE_SIZE,
+      });
       if (error) throw error;
 
-      // Fetch active bans for these users
-      const userIds = (profiles ?? []).map((p) => p.id);
-      const { data: bans } = userIds.length > 0
-        ? await supabase
-            .from("user_bans")
-            .select("*")
-            .in("user_id", userIds)
-            .or("banned_until.is.null,banned_until.gt.now()")
-        : { data: [] };
-
-      const banMap = new Map<string, UserBan>();
-      for (const ban of bans ?? []) {
-        if (!banMap.has(ban.user_id) || ban.created_at > banMap.get(ban.user_id)!.created_at) {
-          banMap.set(ban.user_id, ban);
-        }
-      }
-
+      const rows = (data ?? []) as Record<string, unknown>[];
       set({
-        users: (profiles ?? []).map((p) => ({ ...p, activeBan: banMap.get(p.id) ?? null })),
-        usersTotal: count ?? 0,
+        users: rows.map((r) => ({
+          id: String(r.id),
+          display_name: r.display_name ? String(r.display_name) : null,
+          email: r.email ? String(r.email) : null,
+          provider: String(r.provider),
+          role: String(r.role) as UserRole,
+          storage_tier: String(r.storage_tier),
+          subscription_status: r.subscription_status
+            ? String(r.subscription_status)
+            : null,
+          created_at: String(r.created_at),
+          last_active_at: r.last_active_at ? String(r.last_active_at) : null,
+          book_count: Number(r.book_count) || 0,
+          chat_count: Number(r.chat_count) || 0,
+          ban_id: r.ban_id ? String(r.ban_id) : null,
+          banned_until: r.banned_until ? String(r.banned_until) : null,
+        })),
+        usersTotal: rows.length > 0 ? Number(rows[0].total_count) || 0 : 0,
+        usersPage: page,
+        usersSearch: search,
       });
     } finally {
       set({ usersLoading: false });
@@ -327,9 +344,8 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
     if (error) throw error;
 
-    // Refresh user list to show updated ban status
-    const currentPage = Math.floor(get().users.length > 0 ? 0 : 0);
-    await get().fetchUsers(currentPage);
+    // Reload the current view so the ban pill/actions reflect the change.
+    await get().fetchUsers(get().usersPage, get().usersSearch);
   },
 
   liftBan: async (banId) => {
@@ -340,11 +356,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
     if (error) throw error;
 
-    set((s) => ({
-      users: s.users.map((u) =>
-        u.activeBan?.id === banId ? { ...u, activeBan: null } : u,
-      ),
-    }));
+    await get().fetchUsers(get().usersPage, get().usersSearch);
   },
 
   updateUserRole: async (userId, role) => {
@@ -355,11 +367,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
     if (error) throw error;
 
-    set((s) => ({
-      users: s.users.map((u) =>
-        u.id === userId ? { ...u, role } : u,
-      ),
-    }));
+    await get().fetchUsers(get().usersPage, get().usersSearch);
   },
 
   // User detail

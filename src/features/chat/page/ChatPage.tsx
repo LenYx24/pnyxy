@@ -15,6 +15,7 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { CoachMarks } from "@/features/onboarding/CoachMarks";
 import { chatTourSteps } from "@/features/onboarding/tours";
 import { useFeatures } from "@/lib/use-features";
+import { isAnonChatEnabled } from "@/lib/ai/anon-chat";
 import { ChatTabs } from "./ChatTabs";
 import { ChatThread } from "../thread/ChatThread";
 import { ChatSheetHeader } from "./ChatSheetHeader";
@@ -41,7 +42,7 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
     !scope && !!page.user && onboardingCompleted && !seenChatTour;
   const features = useFeatures();
 
-  if (!page.user) {
+  if (!page.user && !isAnonChatEnabled()) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center p-6">
         <div className="text-center">

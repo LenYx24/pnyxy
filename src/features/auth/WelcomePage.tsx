@@ -57,7 +57,9 @@ export function WelcomePage() {
     setSubmitting(true);
     try {
       await markOnboarded();
-      navigate("/library");
+      // Start new users in the AI chat (it has its own coach-mark tour);
+      // the library is one tap away from the nav afterwards.
+      navigate("/chat");
     } finally {
       setSubmitting(false);
     }

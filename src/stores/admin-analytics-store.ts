@@ -76,6 +76,42 @@ export interface FeatureUsageRow {
   total_items: number;
 }
 
+export interface ProviderBreakdownRow {
+  /** 'google' for Gmail sign-in, 'email' for email+password. */
+  provider: string;
+  users: number;
+}
+
+export interface ActivationFunnel {
+  registered: number;
+  onboarded: number;
+  with_book: number;
+  with_chat: number;
+}
+
+export interface RetentionStats {
+  d1_eligible: number;
+  d1_retained: number;
+  d7_eligible: number;
+  d7_retained: number;
+}
+
+export interface ActiveUserPoint {
+  day: string;
+  active_users: number;
+}
+
+export interface StorageUser {
+  user_id: string;
+  display_name: string | null;
+  bytes: number;
+}
+
+export interface StorageUsage {
+  total_bytes: number;
+  top: StorageUser[];
+}
+
 interface AdminAnalyticsState {
   rangeDays: number;
   loading: boolean;
@@ -88,6 +124,11 @@ interface AdminAnalyticsState {
   topUsers: TopTokenUser[];
   booksHistogram: BooksHistogramBucket[];
   featureUsage: FeatureUsageRow[];
+  providers: ProviderBreakdownRow[];
+  activation: ActivationFunnel | null;
+  retention: RetentionStats | null;
+  activeDaily: ActiveUserPoint[];
+  storage: StorageUsage | null;
 
   setRangeDays: (days: number) => void;
   fetchAll: (days?: number) => Promise<void>;
@@ -105,6 +146,11 @@ export const useAdminAnalyticsStore = create<AdminAnalyticsState>((set, get) => 
   topUsers: [],
   booksHistogram: [],
   featureUsage: [],
+  providers: [],
+  activation: null,
+  retention: null,
+  activeDaily: [],
+  storage: null,
 
   setRangeDays: (days) => set({ rangeDays: days }),
 
@@ -125,6 +171,11 @@ export const useAdminAnalyticsStore = create<AdminAnalyticsState>((set, get) => 
         topRes,
         booksRes,
         featRes,
+        providersRes,
+        activationRes,
+        retentionRes,
+        activeDailyRes,
+        storageRes,
       ] = await Promise.all([
         supabase.rpc("admin_overview"),
         supabase.rpc("admin_signups_daily", { p_days: window }),
@@ -133,6 +184,11 @@ export const useAdminAnalyticsStore = create<AdminAnalyticsState>((set, get) => 
         supabase.rpc("admin_top_token_users", { p_days: window, p_limit: 10 }),
         supabase.rpc("admin_books_per_user_histogram"),
         supabase.rpc("admin_feature_usage"),
+        supabase.rpc("admin_provider_breakdown"),
+        supabase.rpc("admin_activation_funnel"),
+        supabase.rpc("admin_retention"),
+        supabase.rpc("admin_active_users_daily", { p_days: window }),
+        supabase.rpc("admin_storage_usage", { p_limit: 8 }),
       ]);
 
       const firstError =
@@ -142,7 +198,12 @@ export const useAdminAnalyticsStore = create<AdminAnalyticsState>((set, get) => 
         distRes.error ??
         topRes.error ??
         booksRes.error ??
-        featRes.error;
+        featRes.error ??
+        providersRes.error ??
+        activationRes.error ??
+        retentionRes.error ??
+        activeDailyRes.error ??
+        storageRes.error;
       if (firstError) {
         // PostgrestError is a plain object, not an Error instance, so the
         // catch below would otherwise mask it as a generic message.
@@ -209,6 +270,40 @@ export const useAdminAnalyticsStore = create<AdminAnalyticsState>((set, get) => 
           users_with: num(r.users_with),
           total_items: num(r.total_items),
         })),
+        providers: ((providersRes.data ?? []) as Record<string, unknown>[]).map((r) => ({
+          provider: String(r.provider),
+          users: num(r.users),
+        })),
+        activation: activationRes.data?.[0]
+          ? {
+              registered: num((activationRes.data[0] as Record<string, unknown>).registered),
+              onboarded: num((activationRes.data[0] as Record<string, unknown>).onboarded),
+              with_book: num((activationRes.data[0] as Record<string, unknown>).with_book),
+              with_chat: num((activationRes.data[0] as Record<string, unknown>).with_chat),
+            }
+          : null,
+        retention: retentionRes.data?.[0]
+          ? {
+              d1_eligible: num((retentionRes.data[0] as Record<string, unknown>).d1_eligible),
+              d1_retained: num((retentionRes.data[0] as Record<string, unknown>).d1_retained),
+              d7_eligible: num((retentionRes.data[0] as Record<string, unknown>).d7_eligible),
+              d7_retained: num((retentionRes.data[0] as Record<string, unknown>).d7_retained),
+            }
+          : null,
+        activeDaily: ((activeDailyRes.data ?? []) as Record<string, unknown>[]).map((r) => ({
+          day: String(r.day),
+          active_users: num(r.active_users),
+        })),
+        storage: {
+          total_bytes: num(
+            (storageRes.data?.[0] as Record<string, unknown> | undefined)?.total_bytes,
+          ),
+          top: ((storageRes.data ?? []) as Record<string, unknown>[]).map((r) => ({
+            user_id: String(r.user_id),
+            display_name: r.display_name ? String(r.display_name) : null,
+            bytes: num(r.bytes),
+          })),
+        },
       });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : "Failed to load analytics" });
