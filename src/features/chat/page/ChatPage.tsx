@@ -16,7 +16,7 @@ import { CoachMarks } from "@/features/onboarding/CoachMarks";
 import { chatTourSteps } from "@/features/onboarding/tours";
 import { useFeatures } from "@/lib/use-features";
 import { isAnonChatEnabled } from "@/lib/ai/anon-chat";
-import { ChatTabs } from "./ChatTabs";
+import { ChatTabs, useOpenChatTabs } from "./ChatTabs";
 import { ChatThread } from "../thread/ChatThread";
 import { ChatSheetHeader } from "./ChatSheetHeader";
 import { ComposerDock } from "./ComposerDock";
@@ -41,6 +41,10 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
   const showChatTour =
     !scope && !!page.user && onboardingCompleted && !seenChatTour;
   const features = useFeatures();
+  // Whether the tab bar is showing (>= 2 open tabs), so the floating desktop
+  // header can be pushed below it instead of covering it.
+  const openTabs = useOpenChatTabs();
+  const showChatTabs = features.chatTabs && !scope && openTabs.length >= 2;
 
   if (!page.user && !isAnonChatEnabled()) {
     return (
@@ -98,9 +102,10 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
           scopeDocId={scope?.docId}
           docId={page.activeConversation?.source_doc_id ?? scope?.docId ?? null}
           conversationId={page.activeId}
+          hasTabs={showChatTabs}
         />
 
-        {features.chatTabs && !scope && <ChatTabs />}
+        {showChatTabs && <ChatTabs />}
 
         {/* conversation sheet, thread capped at 820 and centered. While the
             thread is empty (no conversation or a fresh one) the composer is

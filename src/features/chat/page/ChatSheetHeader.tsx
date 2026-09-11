@@ -44,6 +44,9 @@ interface ChatSheetHeaderProps {
   docId?: string | null;
   /** Active conversation id, for the context inspector's history layer. */
   conversationId?: string | null;
+  /** The chat tab bar is showing below the header: push the floating
+   *  desktop header down by its height so the title never covers the tabs. */
+  hasTabs?: boolean;
 }
 
 export function ChatSheetHeader({
@@ -57,6 +60,7 @@ export function ChatSheetHeader({
   scopeDocId,
   docId = null,
   conversationId = null,
+  hasTabs = false,
 }: ChatSheetHeaderProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -124,7 +128,9 @@ export function ChatSheetHeader({
 
       {/* desktop sheet header: floats over the thread (Gemini-style) so the
           text uses the full height; a short gradient keeps the title legible */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 hidden items-center gap-2.5 bg-gradient-to-b from-bg-secondary via-bg-secondary/85 to-transparent px-7 pb-5 pt-3 sm:flex [&>*]:pointer-events-auto">
+      <div
+        className={`pointer-events-none absolute inset-x-0 ${hasTabs ? "top-9" : "top-0"} z-10 hidden items-center gap-2.5 bg-gradient-to-b from-bg-secondary via-bg-secondary/85 to-transparent px-7 pb-5 pt-3 sm:flex [&>*]:pointer-events-auto`}
+      >
         <span
           className="min-w-0 truncate font-display text-base font-semibold text-text-primary"
           title={activeTitle}

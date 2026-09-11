@@ -15,27 +15,34 @@ import { MessageSquare, X } from "lucide-react";
 import { useChatStore } from "@/stores/chat-store";
 import { cn } from "@/lib/cn";
 
-export function ChatTabs() {
-  const { t } = useTranslation();
+/**
+ * Open tabs resolved to live conversations (deleted/archived dropped).
+ * Shared by the tab bar and by ChatPage, which uses the count to offset the
+ * floating desktop header so the title never covers the tab bar.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useOpenChatTabs() {
   const openTabIds = useChatStore((s) => s.openTabIds);
   const conversations = useChatStore((s) => s.conversations);
-  const activeConversationId = useChatStore((s) => s.activeConversationId);
-  const openConversation = useChatStore((s) => s.openConversation);
-  const closeTab = useChatStore((s) => s.closeTab);
-
-  // Resolve open ids to live conversations, dropping any that were deleted or
-  // archived out from under the tab bar.
-  const tabs = useMemo(() => {
+  return useMemo(() => {
     const byId = new Map(conversations.map((c) => [c.id, c]));
     return openTabIds
       .map((id) => byId.get(id))
       .filter((c): c is (typeof conversations)[number] => Boolean(c) && !c!.archived_at);
   }, [openTabIds, conversations]);
+}
+
+export function ChatTabs() {
+  const { t } = useTranslation();
+  const tabs = useOpenChatTabs();
+  const activeConversationId = useChatStore((s) => s.activeConversationId);
+  const openConversation = useChatStore((s) => s.openConversation);
+  const closeTab = useChatStore((s) => s.closeTab);
 
   if (tabs.length < 2) return null;
 
   return (
-    <div className="flex items-center gap-1 overflow-x-auto border-b border-glass-border bg-bg-secondary/40 px-2 py-1">
+    <div className="flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-glass-border bg-bg-secondary/40 px-2">
       {tabs.map((conv) => {
         const isActive = conv.id === activeConversationId;
         const title = conv.title?.trim() || t("chat.untitled");
