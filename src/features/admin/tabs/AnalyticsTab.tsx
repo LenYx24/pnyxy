@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Users,
   Crown,
@@ -25,6 +25,8 @@ import {
   Cell,
 } from "recharts";
 import { cn } from "@/lib/cn";
+import { supabase } from "@/lib/supabase";
+import { FormModal } from "@/components/ui/FormModal";
 import {
   useAdminAnalyticsStore,
   type AdminOverview,
@@ -65,7 +67,7 @@ const MODEL_COLOR: Record<string, string> = {
 };
 const FALLBACK_COLORS = ["#ec4899", "#f59e0b", "#14b8a6", "#f43f5e"];
 
-const RANGES = [7, 30, 90];
+const RANGES = [1, 7, 30, 90];
 
 // Sign-in provider labels/colors. Google is Gmail OAuth, email is
 // email+password; anything else falls back to a neutral chip.
@@ -156,6 +158,127 @@ const KPIS: KpiDef[] = [
   { key: "total_conversations", label: "Chats", Icon: MessagesSquare, color: "text-indigo-400" },
 ];
 
+// New-users list (behind the clickable "New" KPI)
+
+interface NewUser {
+  id: string;
+  display_name: string | null;
+  email: string;
+  provider: string;
+  created_at: string;
+}
+
+function NewUsersModal({
+  open,
+  onClose,
+  rangeDays,
+}: {
+  open: boolean;
+  onClose: () => void;
+  rangeDays: number;
+}) {
+  const [rows, setRows] = useState<NewUser[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    supabase
+      .rpc("admin_new_users", { p_days: rangeDays })
+      .then(({ data, error: rpcError }) => {
+        if (cancelled) return;
+        if (rpcError) {
+          setError(rpcError.message);
+          setRows([]);
+        } else {
+          setRows(
+            ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+              id: String(r.id),
+              display_name: r.display_name ? String(r.display_name) : null,
+              email: String(r.email),
+              provider: String(r.provider),
+              created_at: String(r.created_at),
+            })),
+          );
+        }
+      })
+      .then(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [open, rangeDays]);
+
+  const rangeLabel =
+    rangeDays === 1 ? "today" : `the last ${rangeDays} days`;
+
+  return (
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title={`New users · ${rangeLabel}`}
+      icon={UserPlus}
+      size="lg"
+      resizeStorageKey="admin:new-users"
+    >
+      {loading ? (
+        <div className="flex h-32 items-center justify-center">
+          <Loader2 className="h-5 w-5 animate-spin text-accent" />
+        </div>
+      ) : error ? (
+        <div className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
+          {error}
+        </div>
+      ) : rows.length === 0 ? (
+        <p className="py-8 text-center text-sm text-text-muted">
+          No new sign-ups in {rangeLabel}.
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-text-muted">
+                <th className="pb-2 font-medium">User</th>
+                <th className="pb-2 font-medium">Sign-in</th>
+                <th className="pb-2 text-right font-medium">Registered</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((u) => {
+                const { label, color } = providerMeta(u.provider);
+                return (
+                  <tr key={u.id} className="border-t border-glass-border">
+                    <td className="py-2">
+                      <div className="text-text-primary">
+                        {u.display_name || "(no name)"}
+                      </div>
+                      <div className="text-xs text-text-muted">{u.email}</div>
+                    </td>
+                    <td className="py-2">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ background: color }}
+                        />
+                        {label}
+                      </span>
+                    </td>
+                    <td className="py-2 text-right text-text-muted">
+                      {new Date(u.created_at).toLocaleString()}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </FormModal>
+  );
+}
+
 // main tab
 
 export function AnalyticsTab() {
@@ -178,7 +301,13 @@ export function AnalyticsTab() {
     fetchAll,
   } = useAdminAnalyticsStore();
 
+  const [showNewUsers, setShowNewUsers] = useState(false);
+
   const providerTotal = providers.reduce((sum, p) => sum + p.users, 0);
+  // New sign-ups within the selected range. The daily signups series is
+  // generate_series-backed over the same window, so this sum equals the
+  // length of the admin_new_users list the modal shows.
+  const newInRange = signups.reduce((sum, p) => sum + p.signups, 0);
 
   useEffect(() => {
     fetchAll(rangeDays);
@@ -254,25 +383,56 @@ export function AnalyticsTab() {
           {/* KPI cards */}
           {overview && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              {KPIS.map(({ key, label, Icon, color, suffix }) => (
-                <div
-                  key={key}
-                  className="rounded-xl border border-glass-border bg-glass-bg p-4 backdrop-blur-md"
-                >
-                  <div className="flex items-center gap-2">
-                    <Icon size={16} className={color} />
-                    <span className="text-xs text-text-muted">{label}</span>
-                  </div>
-                  <p className="mt-2 text-xl font-bold text-text-primary">
-                    {overview[key].toLocaleString()}
-                    {suffix && (
-                      <span className="text-sm font-normal text-text-muted">
-                        {suffix(overview)}
+              {KPIS.map(({ key, label, Icon, color, suffix }) => {
+                // The "New" card is range-aware (sum over the selected
+                // range, not the fixed 30d overview figure) and opens the
+                // who-are-they list on click.
+                const isNew = key === "new_users_30d";
+                const value = isNew ? newInRange : overview[key];
+                const displayLabel = isNew ? `New (${rangeDays}d)` : label;
+                const body = (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Icon size={16} className={color} />
+                      <span className="text-xs text-text-muted">
+                        {displayLabel}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xl font-bold text-text-primary">
+                      {value.toLocaleString()}
+                      {suffix && (
+                        <span className="text-sm font-normal text-text-muted">
+                          {suffix(overview)}
+                        </span>
+                      )}
+                    </p>
+                    {isNew && (
+                      <span className="mt-1 block text-2xs text-accent">
+                        View who →
                       </span>
                     )}
-                  </p>
-                </div>
-              ))}
+                  </>
+                );
+                const cardClass =
+                  "rounded-xl border border-glass-border bg-glass-bg p-4 text-left backdrop-blur-md";
+                return isNew ? (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setShowNewUsers(true)}
+                    className={cn(
+                      cardClass,
+                      "cursor-pointer transition-colors hover:border-accent/40 hover:bg-glass-hover",
+                    )}
+                  >
+                    {body}
+                  </button>
+                ) : (
+                  <div key={key} className={cardClass}>
+                    {body}
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -600,6 +760,12 @@ export function AnalyticsTab() {
           </ChartCard>
         </>
       )}
+
+      <NewUsersModal
+        open={showNewUsers}
+        onClose={() => setShowNewUsers(false)}
+        rangeDays={rangeDays}
+      />
     </div>
   );
 }

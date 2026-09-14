@@ -34,11 +34,24 @@ export function usePdfVirtualization({
   zoomBoostActive,
   scrollToPage,
 }: PdfVirtualizationArgs): PdfVirtualization {
-  const [scrollVelocity, setScrollVelocity] = useState(0);
+  // Scroll velocity drives the overscan, but feeding the raw value into React
+  // state re-rendered the viewer on EVERY scroll frame. Instead the smoothed
+  // velocity lives in a ref and only a coarse, signed "bucket" is state, so a
+  // re-render happens only when the overscan window would actually change
+  // (crossing the fast-scroll threshold or a whole velocity step), not per
+  // frame. Sign encodes direction; magnitude the fast-scroll step (0 = slow).
+  const [velocityBucket, setVelocityBucket] = useState(0);
+  const velocityRef = useRef(0);
   const lastScrollSampleRef = useRef<{ y: number; t: number } | null>(null);
   const velocityDecayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+
+  const commitBucket = useCallback((v: number) => {
+    const bucket =
+      Math.abs(v) <= 1.5 ? 0 : Math.sign(v) * Math.min(6, Math.round(Math.abs(v)));
+    setVelocityBucket((prev) => (prev === bucket ? prev : bucket));
+  }, []);
 
   const sampleScrollVelocity = useCallback(
     (st: number, now: number, isProgrammatic: boolean) => {
@@ -51,7 +64,8 @@ export function usePdfVirtualization({
         const dt = now - prev.t;
         if (dt > 0) {
           const dy = st - prev.y;
-          setScrollVelocity((v) => v * 0.4 + (dy / dt) * 0.6);
+          velocityRef.current = velocityRef.current * 0.4 + (dy / dt) * 0.6;
+          commitBucket(velocityRef.current);
         }
       }
       lastScrollSampleRef.current = { y: st, t: now };
@@ -59,11 +73,12 @@ export function usePdfVirtualization({
         clearTimeout(velocityDecayTimerRef.current);
       }
       velocityDecayTimerRef.current = setTimeout(() => {
-        setScrollVelocity(0);
+        velocityRef.current = 0;
+        setVelocityBucket((prev) => (prev === 0 ? prev : 0));
         lastScrollSampleRef.current = null;
       }, 250);
     },
-    [],
+    [commitBucket],
   );
 
   const visiblePages = useMemo(() => {
@@ -72,13 +87,19 @@ export function usePdfVirtualization({
     const trayViewportTop = scrollTop / scale;
     const trayViewportH = containerHeight / scale;
 
-    const fastScroll = scrollVelocity > 1.5;
-    const aheadFactor = fastScroll
-      ? Math.min(6, 2 + scrollVelocity * 0.8)
-      : 2;
-    const goingDown = scrollVelocity >= 0;
-    let aboveFactor = goingDown ? 1 : aheadFactor;
-    let belowFactor = goingDown ? aheadFactor : 1;
+    // velocityBucket 0 = slow: symmetric overscan (no per-frame direction
+    // flips). Fast: sign is the direction, magnitude the step; widen ahead.
+    let aboveFactor: number;
+    let belowFactor: number;
+    if (velocityBucket === 0) {
+      aboveFactor = 2;
+      belowFactor = 2;
+    } else {
+      const ahead = Math.min(6, 2 + Math.abs(velocityBucket) * 0.8);
+      const goingDown = velocityBucket > 0;
+      aboveFactor = goingDown ? 1 : ahead;
+      belowFactor = goingDown ? ahead : 1;
+    }
     if (zoomBoostActive) {
       // pre-mount extra pages so a fast zoom-out doesn't reveal blanks
       aboveFactor = Math.max(aboveFactor, 3);
@@ -109,7 +130,7 @@ export function usePdfVirtualization({
     totalPages,
     pageOffsets,
     getPageHeight,
-    scrollVelocity,
+    velocityBucket,
     liveScaleTrigger,
     zoomBoostActive,
   ]);

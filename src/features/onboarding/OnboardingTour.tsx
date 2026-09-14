@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { X, Sparkles, Rocket, type LucideIcon } from "lucide-react";
@@ -27,6 +27,16 @@ export function OnboardingTour() {
     (s) => s.setOnboardingCompleted,
   );
   const [index, setIndex] = useState(0);
+  // Swallow a second step change from one interaction: the modal's primary
+  // button sits at the same spot every step, so a double-fired click could
+  // advance past a step (or advance-then-finish). Ignore actions < 400ms apart.
+  const lastActionRef = useRef(0);
+  const guardAction = (): boolean => {
+    const now = Date.now();
+    if (now - lastActionRef.current < 400) return false;
+    lastActionRef.current = now;
+    return true;
+  };
 
   const shouldShow = Boolean(user) && !onboardingCompleted;
 
@@ -133,14 +143,22 @@ export function OnboardingTour() {
               </Button>
             )}
             {isLast ? (
-              <Button variant="primary" size="sm" onClick={finish}>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  if (guardAction()) finish();
+                }}
+              >
                 {t("onboarding.done")}
               </Button>
             ) : (
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => setIndex((i) => i + 1)}
+                onClick={() => {
+                  if (guardAction()) setIndex((i) => i + 1);
+                }}
               >
                 {t("onboarding.next")}
               </Button>

@@ -8,6 +8,8 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
+  ArrowDownToLine,
+  Check,
   Download,
   Eye,
   Gauge,
@@ -18,6 +20,7 @@ import {
 } from "lucide-react";
 import { FloatingMenu, IconButton, Tooltip } from "@/components/ui";
 import { useFeature } from "@/lib/use-features";
+import { useSettingsStore } from "@/stores/settings-store";
 import { ContextInspectorModal } from "../ContextInspectorModal";
 import { ChatGraphOverlay } from "./ChatGraphOverlay";
 
@@ -73,6 +76,12 @@ export function ChatSheetHeader({
   const [overflowOpenMobile, setOverflowOpenMobile] = useState(false);
   const [showGraph, setShowGraph] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const autoScrollStreaming = useSettingsStore(
+    (s) => s.chatAutoScrollStreaming,
+  );
+  const setAutoScrollStreaming = useSettingsStore(
+    (s) => s.setChatAutoScrollStreaming,
+  );
 
   // header overflow entries, shared by the desktop and mobile kebabs
   const renderOverflowItems = (close: () => void) => (
@@ -113,6 +122,19 @@ export function ChatSheetHeader({
       >
         <Gauge size={16} strokeWidth={1.5} />
         {t("settings.aiSection.openQuotas")}
+      </button>
+      <button
+        type="button"
+        role="menuitemcheckbox"
+        aria-checked={autoScrollStreaming}
+        onClick={() => setAutoScrollStreaming(!autoScrollStreaming)}
+        className={menuRowClass}
+      >
+        <ArrowDownToLine size={16} strokeWidth={1.5} />
+        <span className="flex-1">{t("chat.autoScrollStreaming")}</span>
+        {autoScrollStreaming && (
+          <Check size={15} strokeWidth={2} className="text-accent" />
+        )}
       </button>
     </>
   );

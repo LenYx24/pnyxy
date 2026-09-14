@@ -20,7 +20,11 @@ import { getClientIp, hashIp, ipHashSalt } from "../_shared/tokens.ts";
 const MAX_SUBJECT = 200;
 const MAX_BODY = 10_000;
 const AUTHED_DAILY_LIMIT = 10;
-const ANON_DAILY_LIMIT = 2;
+const ANON_DAILY_LIMIT = 5;
+// Overall safety ceiling across ALL senders (anon + signed-in) per day, so a
+// coordinated abuse burst can't blow up the mail relay / inbox even if it
+// spreads across many IPs. A hard-hard limit, well above real pilot volume.
+const GLOBAL_DAILY_LIMIT = 100;
 // No derivable client IP: fall into one shared bucket instead of
 // skipping the rate limit outright.
 const NO_IP_SENTINEL = "no-ip";
@@ -48,15 +52,19 @@ Deno.serve(async (req) => {
     return jsonError(405, "method_not_allowed", "POST only");
   }
 
+  // Email is best-effort (see below); a missing key just skips the email,
+  // the feedback is still stored in the DB.
   const resendKey = Deno.env.get("RESEND_API_KEY");
-  if (!resendKey) {
-    return jsonError(500, "misconfigured", "RESEND_API_KEY not set");
-  }
   const from = Deno.env.get("FEEDBACK_FROM") ??
     "Pnyxy Feedback <onboarding@resend.dev>";
   const to = Deno.env.get("FEEDBACK_TO") ?? "feedback@pnyxy.com";
 
-  let body: { subject?: unknown; body?: unknown };
+  let body: {
+    subject?: unknown;
+    body?: unknown;
+    kind?: unknown;
+    page_url?: unknown;
+  };
   try {
     body = await req.json();
   } catch {
@@ -65,8 +73,14 @@ Deno.serve(async (req) => {
 
   const subject = typeof body.subject === "string" ? body.subject.trim() : "";
   const message = typeof body.body === "string" ? body.body.trim() : "";
-  if (!subject || !message) {
-    return jsonError(400, "bad_request", "subject and body are required");
+  const kind =
+    body.kind === "bug" || body.kind === "idea" || body.kind === "other"
+      ? body.kind
+      : "bug";
+  const pageUrl =
+    typeof body.page_url === "string" ? body.page_url.slice(0, 500) : null;
+  if (!message) {
+    return jsonError(400, "bad_request", "body is required");
   }
   if (subject.length > MAX_SUBJECT) {
     return jsonError(400, "subject_too_long", `Subject exceeds ${MAX_SUBJECT} chars`);
@@ -99,6 +113,7 @@ Deno.serve(async (req) => {
 
   let rateKey: string;
   let rateLimit: number;
+  let anonIpHash: string | null = null;
   if (userId) {
     rateKey = `feedback:${userId}`;
     rateLimit = AUTHED_DAILY_LIMIT;
@@ -110,7 +125,8 @@ Deno.serve(async (req) => {
       return jsonError(403, "sign_in_required", "Sign in to send feedback.");
     }
     const ip = getClientIp(req) ?? NO_IP_SENTINEL;
-    rateKey = `feedback:${await hashIp(ip, salt)}`;
+    anonIpHash = await hashIp(ip, salt);
+    rateKey = `feedback:${anonIpHash}`;
     rateLimit = ANON_DAILY_LIMIT;
   }
 
@@ -126,20 +142,54 @@ Deno.serve(async (req) => {
     return jsonError(429, "rate_limited", "You've hit today's feedback limit, try again tomorrow.");
   }
 
+  // Global hard cap across everyone for the day (abuse ceiling).
+  const { data: withinGlobal, error: globalErr } = await admin.rpc(
+    "bump_rate_limit",
+    { p_key: "feedback:global", p_limit: GLOBAL_DAILY_LIMIT },
+  );
+  if (globalErr) {
+    console.error("send-feedback: global bump_rate_limit rpc failed", globalErr);
+    return jsonErrorPublic(500, sanitizeErrorForClient(globalErr));
+  }
+  if (!withinGlobal) {
+    return jsonError(
+      429,
+      "rate_limited",
+      "Feedback is at capacity for today, please try again tomorrow.",
+    );
+  }
+
+  // Durable record first: store the feedback (service role bypasses RLS, so
+  // anonymous rows with a null user_id are fine). This is the source of truth;
+  // the email below is a best-effort notification on top.
+  const { error: insertErr } = await admin.from("feedback").insert({
+    user_id: userId,
+    kind,
+    subject: subject || null,
+    body: message,
+    page_url: pageUrl,
+    ip_hash: anonIpHash,
+  });
+  if (insertErr) {
+    console.error("send-feedback: feedback insert failed", insertErr);
+    return jsonErrorPublic(500, sanitizeErrorForClient(insertErr));
+  }
+
   const attribution = userEmail
     ? `From: ${userEmail} (${userId})`
     : "From: anonymous (not signed in)";
+  const kindLine = kind ? `Type: ${kind}\n` : "";
 
-  const textBody = `${attribution}\n\n${message}`;
+  const textBody = `${attribution}\n${kindLine}\n${message}`;
   const htmlBody = `
-    <p style="color:#666;font-size:12px;margin:0 0 16px">${escapeHtml(attribution)}</p>
+    <p style="color:#666;font-size:12px;margin:0 0 16px">${escapeHtml(attribution)}${kind ? ` &middot; ${escapeHtml(kind)}` : ""}</p>
     <div style="white-space:pre-wrap;font-family:system-ui,sans-serif;font-size:14px;line-height:1.6">${escapeHtml(message)}</div>
   `;
 
   const resendPayload: Record<string, unknown> = {
     from,
     to: [to],
-    subject: `[Pnyxy Feedback] ${subject}`,
+    subject: `[Pnyxy Feedback · ${kind}] ${subject || "(no subject)"}`,
     text: textBody,
     html: htmlBody,
   };
@@ -147,27 +197,28 @@ Deno.serve(async (req) => {
     resendPayload.reply_to = userEmail;
   }
 
-  let upstream: Response;
-  try {
-    upstream = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(resendPayload),
-    });
-  } catch (err) {
-    // Never echo the raw error to the client (it can carry network /
-    // internal details); log it server-side instead.
-    console.error("send-feedback: resend request failed", err);
-    return jsonErrorPublic(502, sanitizeErrorForClient(err));
-  }
-
-  if (!upstream.ok) {
-    const text = await upstream.text().catch(() => "");
-    console.error(`Resend returned ${upstream.status}: ${text}`);
-    return jsonError(502, "upstream_error", `Resend error (${upstream.status})`);
+  // Best-effort email notification. The feedback is already saved, so an email
+  // failure (bad key, unverified sender/domain, Resend outage) must NOT fail
+  // the request, it just gets logged.
+  if (resendKey) {
+    try {
+      const upstream = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(resendPayload),
+      });
+      if (!upstream.ok) {
+        const text = await upstream.text().catch(() => "");
+        console.error(`send-feedback: Resend returned ${upstream.status}: ${text}`);
+      }
+    } catch (err) {
+      console.error("send-feedback: resend request failed", err);
+    }
+  } else {
+    console.error("send-feedback: RESEND_API_KEY not set, skipping email");
   }
 
   return json(200, { ok: true }, corsHeaders);

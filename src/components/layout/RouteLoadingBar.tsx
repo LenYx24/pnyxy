@@ -15,14 +15,20 @@ const SHOW_DELAY_MS = 150;
  */
 export function RouteLoadingBar() {
   const location = useLocation();
-  const committed = location.pathname + location.search;
+  // Track the PATHNAME only. Lazy route chunks load per route (pathname),
+  // not per query string, so a same-route search-param update (the reader
+  // syncing page/zoom, chat state, a tab switch) is not a pending
+  // navigation and must not flash the bar. Comparing the full path+search
+  // made the bar fire on that churn, and any search normalization mismatch
+  // kept it stuck visible.
+  const committed = location.pathname;
   const [target, setTarget] = useState(committed);
 
   useEffect(() => {
     const router = getAppRouter();
     if (!router) return;
     return router.subscribe((state) => {
-      setTarget(state.location.pathname + state.location.search);
+      setTarget(state.location.pathname);
     });
   }, []);
 

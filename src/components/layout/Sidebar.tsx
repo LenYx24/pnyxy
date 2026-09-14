@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import {
   GraduationCap,
   LogIn,
+  MessageSquareText,
   Plus,
   Settings as SettingsIcon,
   X,
@@ -245,6 +246,17 @@ function Rail() {
             breadcrumb mounts OrgSwitcherPopover instead */}
         {user ? (
           <>
+            <Tooltip label={t("sidebar.feedback")}>
+              <NavLink
+                to="/feedback"
+                aria-label={t("sidebar.feedback")}
+                className={({ isActive }) =>
+                  cn(railItemClass, isActive ? railActive : railInactive)
+                }
+              >
+                <MessageSquareText {...ICON} />
+              </NavLink>
+            </Tooltip>
             <Tooltip label={t("sidebar.settings")} shortcut="app:open-settings">
               <NavLink
                 to="/settings"

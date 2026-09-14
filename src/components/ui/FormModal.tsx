@@ -168,8 +168,14 @@ export function FormModal({
         aria-labelledby="form-modal-title"
         onSubmit={handleSubmit}
         style={
-          resizeStorageKey && dims
-            ? { width: dims.w, height: dims.h, maxWidth: "calc(100vw - 2rem)", maxHeight: "calc(100vh - 2rem)" }
+          resizeStorageKey
+            ? dims
+              ? { width: dims.w, height: dims.h, maxWidth: "calc(100vw - 2rem)", maxHeight: "calc(100vh - 2rem)" }
+              : // No saved size yet: pin a stable default height so the body
+                // scrolls and expanding a section grows WITHIN the modal
+                // instead of resizing (and re-centering) the whole dialog,
+                // which yanked what you were reading out of view.
+                { height: "min(680px, calc(100vh - 2rem))", maxWidth: "calc(100vw - 2rem)", maxHeight: "calc(100vh - 2rem)" }
             : undefined
         }
         className={cn(

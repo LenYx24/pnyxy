@@ -37,7 +37,7 @@
     "reader": {
       "toolbar": {
         "title": "Olvasás és navigáció",
-        "body": "Lapozás, nagyítás és keresés itt van. Jelölj ki szöveget, és kérdezd meg róla az AI-t."
+        "body": "Lapozás, nagyítás és keresés itt van a felső sávon."
       },
       "tools": {
         "title": "AI és tanulási eszközök",
@@ -354,6 +354,32 @@
     "add": "Hozzáadás",
     "resize": "Átméretezés"
   },
+  "feedback": {
+    "title": "Visszajelzés",
+    "subtitle": "Találtál egy hibát, vagy van ötleted? Küldd be itt. Az elején különösen sokat segít.",
+    "kindLabel": "Típus",
+    "kind": { "bug": "Hiba", "idea": "Ötlet", "other": "Egyéb" },
+    "subjectLabel": "Tárgy (opcionális)",
+    "subjectPlaceholder": "Rövid összefoglaló",
+    "bodyLabel": "Üzenet",
+    "bodyPlaceholder": "Írd le a hibát vagy ötletet. Hibánál: mit csináltál, mi történt, és mit vártál?",
+    "send": "Küldés",
+    "sending": "Küldés…",
+    "sent": "Köszönjük a visszajelzést!",
+    "errorGeneric": "Nem sikerült elküldeni. Próbáld újra.",
+    "rateLimited": "Elérted a mai visszajelzés-limitet. Próbáld újra holnap.",
+    "anonHistoryNote": "Jelentkezz be, hogy nyomon követhesd a visszajelzéseidet és a státuszukat:",
+    "signInRequired": "Jelentkezz be a visszajelzés küldéséhez és az előzményekhez.",
+    "historyTitle": "A visszajelzéseid",
+    "empty": "Még nem küldtél visszajelzést.",
+    "status": {
+      "open": "Beérkezett",
+      "planned": "Tervezett",
+      "in_progress": "Folyamatban",
+      "done": "Kész",
+      "declined": "Nem lesz"
+    }
+  },
   "sidebar": {
     "home": "Kezdőlap",
     "browse": "Katalógus",
@@ -369,6 +395,7 @@
     "forum": "Fórum",
     "spaces": "Terek",
     "settings": "Beállítások",
+    "feedback": "Visszajelzés",
     "admin": "Admin",
     "signIn": "Bejelentkezés",
     "profile": "Profil",
@@ -438,6 +465,7 @@
     },
     "reset": {
       "subtitle": "Válassz új jelszót",
+      "forAccount": "Új jelszó beállítása ehhez: {{account}}",
       "newPassword": "Új jelszó",
       "confirmNewPassword": "Új jelszó megerősítése",
       "linkInvalid": "Ez a visszaállító link érvénytelen vagy lejárt.",
@@ -523,6 +551,8 @@
       "heading": "Olvasó",
       "fitMode": "Alapértelmezett illesztési mód",
       "fitModeHint": "Hogyan méretezzük az új dokumentumokat megnyitáskor",
+      "fitAuto": "Automatikus",
+      "fitAutoHint": "Szélességhez igazít, de 100% fölé sosem nagyít, olvasásra a legjobb",
       "fitWidth": "Szélességhez",
       "fitWidthHint": "Oldalak az olvasó szélességére skálázva",
       "fitPage": "Oldalhoz",
@@ -728,12 +758,12 @@
       "modelsHeading": "Elérhető modellek",
       "modelsSubtitle": "Az árak 1M tokenre vonatkoznak (bemenet / kimenet).",
       "providersHeading": "Szolgáltatók",
-      "providersSubtitle": "A Pnyxy beépített. Saját kulccsal közvetlenül az OpenAI-t vagy az Anthropic-ot is használhatod, vagy megadhatsz egy helyi modellt.",
+      "providersSubtitle": "A Pnyxy AI-ja beépített, ingyenes napi limitekkel. Lent kiválaszthatod, melyik modellt használja a beépített útvonal. A saját kulcsos szolgáltatók később jönnek.",
       "statusActive": "Aktív",
       "statusByok": "Saját kulcs",
       "statusLocal": "Helyi",
       "statusSoon": "Hamarosan",
-      "providersShort": "A Pnyxy beépített. Saját kulccsal közvetlenül az OpenAI-t vagy az Anthropic-ot is használhatod, vagy megadhatsz egy helyi modellt.",
+      "providersShort": "A Pnyxy AI-ja beépített, ingyenes napi limitekkel. Lent kiválaszthatod, melyik modellt használja a beépített útvonal. A saját kulcsos szolgáltatók később jönnek.",
       "statusBuiltin": "Beépített",
       "statusKeySet": "Kulcs megadva",
       "statusNoKey": "Nincs kulcs",
@@ -881,16 +911,15 @@
         "name": "Ingyenes",
         "price": "0 Ft",
         "priceSuffix": "örökre",
-        "tagline": "Minden alapfunkció, a legtöbbhöz még fiók sem kell.",
+        "tagline": "Az olvasó + AI alapélmény, ingyen.",
         "features": [
-          "Teljes PDF- és EPUB-olvasó jelölésekkel, jegyzetekkel, táblákkal",
-          "Szabadon elérhető klasszikusok nyilvános katalógusa",
-          "AI chat a nyitott oldalhoz (napi kvótával)",
-          "Szótár / tanulókártyák FSRS ütemezéssel",
-          "Közösségi fórum, értékelések, megbeszélések",
-          "Eszközök közötti szinkron szótárhoz, táblákhoz, értékelésekhez, könyvtárhoz",
-          "Mobil + asztali + web (PWA)",
-          "Az egész stack önhosztolható, nyílt forráskódú"
+          "Teljes PDF- és EPUB-olvasó kijelöléssel",
+          "AI chat, amely ismeri az éppen olvasott oldalt (napi kvótával)",
+          "Válaszd meg a modellt: Gemini, Claude vagy GPT",
+          "Saját könyvtár, eszközök közötti szinkronnal",
+          "Kurzusok és tanulóterek",
+          "Mobil, asztali és web (PWA)",
+          "Nyílt forráskódú, önhosztolható"
         ]
       },
       "premium": {
@@ -918,7 +947,7 @@
         },
         "copyright": {
           "q": "Bármilyen könyvet olvashatok?",
-          "a": "A beépített katalógus csak szabadon elérhető műveket oszt meg (Project Gutenberg, Standard Ebooks, MEK). Saját, szerzői jogvédett könyveidet (papírból szkennelve vagy megvett PDF) vagy feltöltheted privátan, vagy létrehozhatsz egy csak metaadat-alapú „héj” bejegyzést, és használhatod a jegyzetelést és a közösségi funkciókat anélkül, hogy bármit feltöltenél. Szerzői jogvédett anyagot nem tárolunk."
+          "a": "A saját könyveidet hozod. A birtokodban lévő könyveket (papírból szkennelve, vagy megvett PDF és EPUB) feltöltheted privátan, vagy létrehozhatsz egy csak metaadat-alapú „héj” bejegyzést, és annotálhatsz rá anélkül, hogy bármit feltöltenél. Egy közkincs-katalógus (Project Gutenberg, Standard Ebooks, MEK) hamarosan érkezik. Szerzői jogvédett anyagot nem tárolunk."
         },
         "privacy": {
           "q": "Ki látja a jegyzeteimet és kijelöléseimet?",
@@ -926,7 +955,7 @@
         },
         "ai": {
           "q": "Tanul az AI a könyveimen vagy jegyzeteimen?",
-          "a": "Nem. AI chat-kor a nyitott oldal szövegét és a kérdésedet küldjük el az AI szolgáltatónak (OpenAI vagy Anthropic), hogy választ generáljon. Mi nem tréningezünk semmilyen modellt felhasználói tartalmon, és a szolgáltatók alapértelmezett policy-je is tiltja az API-forgalmon való tanítást."
+          "a": "Nem. AI chat-kor a nyitott oldal szövegét és a kérdésedet küldjük el az AI szolgáltatónak - alapból a Google Gemininek a Pnyxy proxyján keresztül, de Claude és GPT modellek is elérhetők -, kizárólag a válasz elkészítéséhez. Mi nem tréningezünk semmilyen modellt a könyveiden vagy jegyzeteiden."
         },
         "offline": {
           "q": "Működik offline?",
@@ -1119,6 +1148,7 @@
     "reading": "Olvasás",
     "fromCourse": "Kurzusból: {{name}}",
     "fromCourseGeneric": "Kurzusból",
+    "signInToCreateFolder": "Jelentkezz be mappa létrehozásához.",
     "course": {
       "availableTitle_one": "{{count}} fájl elérhető a kurzusból",
       "availableTitle_other": "{{count}} fájl elérhető a kurzusból",
@@ -1140,7 +1170,8 @@
       "success": "Feltöltve",
       "retry": "Újra",
       "cancel": "Feltöltés megszakítása",
-      "unsupportedFormat": "A {{formats}} formátum még nem támogatott. Feljegyeztük, hogy érdekel - ha elég sokan kérik, beletesszük."
+      "unsupportedFormat": "A {{formats}} formátum még nem támogatott. Feljegyeztük, hogy érdekel - ha elég sokan kérik, beletesszük.",
+      "folderNotSupported": "Mappát egyelőre nem lehet ide behúzni. Húzd be magukat a fájlokat (PDF), vagy nyisd meg a mappát és jelöld ki a fájlokat."
     },
     "actions": {
       "scan": "Mappa beolvasása",
@@ -1493,6 +1524,11 @@
     }
   },
   "static": {
+    "notFound": {
+      "title": "Az oldal nem található",
+      "body": "A keresett oldal nem létezik, vagy áthelyezték.",
+      "home": "Vissza a főoldalra"
+    },
     "about": {
       "title": "A Pnyxy-ről",
       "p1": "A Pnyxy egy modern, több formátumot támogató olvasóalkalmazás. PDF, EPUB, Markdown és sima szöveges fájlokat kezel, beépített jegyzeteléssel, táblával és kereséssel.",
@@ -1528,16 +1564,17 @@
     },
     "tutorial": {
       "title": "Első lépések a Pnyxy-vel",
-      "intro": "A Pnyxy egy olvasó- és tanulóalkalmazás: hozd a saját könyveidet, beszélgess róluk az AI-jal, és alakítsd át az olvasottakat kvízekké, szótárrá és tanulási útvonalakká. Ez az oldal egy 5 perces áttekintés azokról a részekről, amiket nap mint nap használni fogsz.",
+      "intro": "A Pnyxy egy olvasó- és tanulóalkalmazás: hozd a saját könyveidet, olvasd őket, és beszélgess róluk egy AI tutorral, ami az oldalra hivatkozik. Ez egy 5 perces áttekintés a nap mint nap használt részekről; a \"hamarosan\" jelölésű tanulóeszközök úton vannak.",
+      "comingSoon": "Hamarosan",
       "tocTitle": "Az oldalon",
       "tocLabel": "Tutorial szakaszok",
       "sections": {
         "quickStart": {
           "title": "Gyors indítás",
-          "body": "Egy percen belül olvashatsz. Bejelentkezés csak a felhőszinkronhoz, az AI-kvótához és a közösségi funkciókhoz kell - a katalógus névtelen böngészése regisztráció nélkül is működik.",
+          "body": "Egy percen belül olvashatsz. Az olvasót fiók nélkül is kipróbálhatod; a bejelentkezés hozza a felhőszinkront, az AI-kvótát és a közösségi funkciókat.",
           "bullets": {
             "0": "Jelentkezz be vagy regisztrálj a kezdőoldalról (Google vagy email).",
-            "1": "Nyisd meg a Könyvtárat, és kattints a \"Feltöltés\" gombra egy PDF hozzáadásához, vagy válassz egy ingyenes könyvet a Katalógusból.",
+            "1": "Nyisd meg a Könyvtárat, és kattints a \"Feltöltés\" gombra egy saját PDF vagy EPUB hozzáadásához.",
             "2": "Bármelyik feltöltött könyvön kattints az \"Olvasás\" gombra, hogy egyből az olvasóba ugorj.",
             "3": "Húzz egy PDF / EPUB / TXT / Markdown fájlt bárhova a Könyvtár oldalon a gyors importáláshoz."
           }
@@ -1548,18 +1585,18 @@
           "bullets": {
             "0": "Jelölj ki kiválasztott szöveget tetszőleges színnel. Az annotációs panel összegyűjti az összes jelölést a könyvben átnézéshez.",
             "1": "Tetszőleges megjegyzést fűzhetsz egy kiemeléshez - hasznos az aktív olvasás \"miért fontos ez\" feléhez.",
-            "2": "Nyisd meg az oldalsó jegyzettömböt szabad szöveghez és táblavázlathoz, ami nem köthető konkrét szakaszhoz.",
+            "2": "Keress a teljes dokumentumban, és legközelebb pontosan ott folytasd, ahol abbahagytad.",
             "3": "Jobb klikk egy kijelölésen: lefordíthatod, kikeresheted a szótárban, vagy elküldheted az AI chatbe oldalhivatkozással."
           }
         },
         "aiChat": {
           "title": "AI chat, ami ismeri a könyved",
-          "body": "Az AI panel három módban működik: általános asszisztensként, dokumentumhoz horgonyozva (a hivatkozásai konkrét oldalakra mutatnak vissza), és roadmaphez kötve (így szerkesztheti a gráfot helyetted).",
+          "body": "Az AI panel általános asszisztensként vagy dokumentumhoz horgonyozva működik, így a hivatkozásai az olvasott anyag konkrét oldalaira mutatnak vissza.",
           "bullets": {
-            "0": "Válaszd ki a szolgáltatót a komponálóban - Pnyxy ingyenes kvótája, saját Anthropic kulcs vagy OpenAI kulcs.",
+            "0": "Válaszd ki a modellt a szerkesztőben - Gemini, Claude vagy GPT, mind a Pnyxy ingyenes napi kvótáján.",
             "1": "Ha a chatet az olvasó kijelöléséből indítod, a válaszok [p.42] formátumú hivatkozásokat tartalmaznak, amik visszavezetnek az oldalra.",
-            "2": "Bármelyik AI üzenetből kattints a \"Mentés flashcardokként\" gombra a kérdés/válasz párok kivonásához a szótárba.",
-            "3": "Roadmapen kattints a \"Szerkesztés AI-jal\" gombra, és beszélgess a gráfról - a modell élőben tud csomópontokat hozzáadni, eltávolítani és átrendezni."
+            "2": "Szókratészi módban a tutor lépésről lépésre vezet, ahelyett hogy egyből megadná a megoldást.",
+            "3": "Válts modellt beszélgetés közben, és bármelyik választ újragenerálhatod egy másikkal."
           }
         },
         "activeRecall": {
@@ -1574,7 +1611,7 @@
         },
         "planTrack": {
           "title": "Roadmapek és sorozatok",
-          "body": "Tervezz meg egy tanulási utat, majd tartsd fenn a napi szokást. A roadmap témák irányított gráfja; a sorozat (streak) egy napi 5 perces olvasási cél.",
+          "body": "A roadmapekkel tanulási utat tervezhetsz (hamarosan). A napi olvasási sorozat viszont már ma működik: egy napi 5 perces cél, ami szokást épít a féléven át.",
           "bullets": {
             "0": "Generálj roadmapet egy témából (\"Lineáris algebra ML-hez\"), és az AI felvázolja az előfeltétel szerint rendezett csomópontokat.",
             "1": "Iratkozz be egy roadmapre, és a heti óraszám alapján a rendszer megbecsüli a befejezés dátumát - pipáld ki a csomópontokat menet közben.",
@@ -1793,6 +1830,7 @@
     "title": "Csevegés",
     "untitled": "Névtelen beszélgetés",
     "newConversation": "Új beszélgetés",
+    "autoScrollStreaming": "Görgetés generálás közben",
     "scrollToBottom": "Ugrás a legújabbra",
     "tabs": {
       "close": "Fül bezárása"
@@ -1819,8 +1857,10 @@
     "emptyTitle": "Még nincs beszélgetés",
     "emptyBody": "Kezdj egy újat; a beszélgetéseid mappákba rendezve megmaradnak.",
     "loading": "Üzenetek betöltése…",
+    "thinking": "Gondolkodik…",
     "signInRequired": "Jelentkezz be a csevegéshez",
     "signInHint": "A beszélgetéseid csak a te fiókodból érhetők el.",
+    "signInToSave": "Jelentkezz be beszélgetés indításához és mentéséhez.",
     "anon": {
       "limitReached": "Egyelőre elérted az ingyenes limitet. Jelentkezz be a folytatáshoz és a beszélgetéseid mentéséhez."
     },
@@ -2108,6 +2148,13 @@
       "saved": "Mentve, a könyvtáradból újra kitöltheted.",
       "saveFailed": "Nem sikerült menteni a kvízt."
     },
+    "inlinePlot": {
+      "title": "Diagram",
+      "incoming": "Készül a diagram…"
+    },
+    "inlineOpenDoc": {
+      "open": "Megnyitás az olvasóban"
+    },
     "temporary": {
       "new": "Ideiglenes chat",
       "chip": "Ideiglenes",
@@ -2137,6 +2184,10 @@
     "continuePrompt": "Folytasd pontosan ott, ahol abbahagytad.",
     "regenerateWith": "Újra ezzel: {{model}}",
     "regenerateWithLabel": "Újra másik modellel",
+    "modelSuggestion": {
+      "cta": "Váltás erre: {{model}}, és újra",
+      "dismiss": "Elvetés"
+    },
     "retryAction": "Újrapróbálás",
     "streamCut": {
       "maxTokens": "A válasz elérte a hosszkorlátot. A Folytatás gombbal kérheted a többit.",
@@ -2172,7 +2223,9 @@
       "exam": "Vizsgára/ZH-ra készülök",
       "examPrompt": "<tárgy> vizsgára/ZH-ra készülök. Segíts megtervezni, és állíts fel egy tanulási struktúrát a könyvtáramban.",
       "chat": "Csak beszélgetnék",
-      "chatPrompt": ""
+      "chatPrompt": "",
+      "onboarding": "Először vagy itt? Mutasd be a Pnyxy-t",
+      "onboardingPrompt": "Most használom először a Pnyxy-t. Mutasd be röviden, mit tud a szoftver és hogyan kezdjek neki."
     },
     "linkOffer": {
       "youtubeTitle": "YouTube videót találtam",
@@ -2330,6 +2383,9 @@
     "related": {
       "heading": "Kapcsolódó a könyvtáradban",
       "openChatPage": "Chat oldal megnyitása",
+      "recentChats": "Legutóbbi beszélgetések",
+      "noChats": "Még nincs beszélgetés ehhez a könyvhöz.",
+      "allLinks": "Kapcsolódó linkek",
       "flashcards_one": "{{count}} kártya",
       "flashcards_other": "{{count}} kártya",
       "flashcardsKind": "Kártyák"
@@ -2666,6 +2722,7 @@
     "pasteNoImage": "Nincs kép a vágólapon.",
     "pasteUnsupported": "A böngésződ nem támogatja a vágólapról beillesztést. Használd inkább a Feltöltés gombot.",
     "pasteFailed": "Nem sikerült olvasni a vágólapot.",
+    "pasteDenied": "A vágólap-hozzáférés le van tiltva. Engedélyezd a böngésző címsorában lévő ikonnál (vagy az oldal beállításainál), majd próbáld újra.",
     "avatarHint": "JPEG, PNG, WebP vagy GIF · max. 5 MB · beillesztés Ctrl+V-vel vagy a Beillesztés gombbal",
     "save": "Mentés",
     "saving": "Mentés…",
@@ -2769,7 +2826,8 @@
       "empty": "A könyvtárad üres. Először adj hozzá egy könyvet.",
       "noMatches": "Nincs találat.",
       "alreadyOpen": "Már nyitva",
-      "noFile": "Nincs fájl"
+      "noFile": "Nincs fájl",
+      "root": "Könyvtár"
     },
     "page": {
       "panelNote": "Jegyzet",
@@ -2802,7 +2860,7 @@
       "emptyTranslate": "Írj be szöveget fentre a fordításhoz.",
       "openInNewTab": "Megnyitás új lapon",
       "teacher": "Tanár",
-      "margin": "Margó"
+      "margin": "Eszközök"
     },
     "toolbar": {
       "backToLibrary": "Vissza a könyvtárba",
@@ -2937,6 +2995,9 @@
       "translateTargetLabel": "Hová",
       "translateAutoDetect": "Automatikus",
       "translateSwap": "Nyelvek cseréje",
+      "translateLangSearch": "Nyelv keresése…",
+      "translateLangNoResults": "Nincs találat",
+      "translateEmptyHint": "Írj be egy szót vagy mondatot a fordításhoz.",
       "translating": "Fordítás…",
       "translateFailed": "A fordítás sikertelen",
       "translateConnectFailed": "Nem sikerült csatlakozni a fordító szolgáltatáshoz",

@@ -221,11 +221,8 @@ export function ReaderToolsPanelContent({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Caption row: "Margin" + the tools as a compact segmented control */}
+      {/* Tool tabs as a compact segmented control. */}
       <div className="flex items-center gap-2 pl-3 pr-2 pb-1 pt-3.5">
-        <span className="shrink-0 px-1 text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
-          {t("reader.tools.margin")}
-        </span>
         <div className="min-w-0 flex-1 overflow-x-auto" data-tour="reader-tools">
           <div className={cn(segmentedGroupClass, "w-max")}>
             {tabs.map(({ key, icon: Icon, label }) => (
@@ -329,13 +326,9 @@ export function ReaderToolsPanelContent({
             onSubmit={handleTransSubmit}
             placeholder={t("reader.tools.translatePlaceholder")}
           />
-          {transQuery ? (
-            <AnnotationMenuTranslatePanel selectedText={transQuery} fullWidth />
-          ) : (
-            <p className="px-3 py-6 text-center text-xs text-text-muted-2">
-              {t("reader.tools.emptyTranslate")}
-            </p>
-          )}
+          {/* Always mounted so the language pickers are set-able before a
+              word is entered; the panel shows an empty hint until then. */}
+          <AnnotationMenuTranslatePanel selectedText={transQuery} fullWidth />
         </div>
       )}
     </div>

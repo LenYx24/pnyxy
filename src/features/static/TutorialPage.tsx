@@ -17,6 +17,8 @@ import { cn } from "@/lib/cn";
 interface Section {
   id: string;
   icon: LucideIcon;
+  /** Features described here aren't enabled yet in the pilot. */
+  comingSoon?: boolean;
 }
 
 // Section ordering matches the user's first-time journey: get a book
@@ -26,9 +28,9 @@ const SECTIONS: Section[] = [
   { id: "quickStart", icon: Rocket },
   { id: "reading", icon: Library },
   { id: "aiChat", icon: Bot },
-  { id: "activeRecall", icon: BrainCircuit },
-  { id: "planTrack", icon: GraduationCap },
-  { id: "community", icon: MessagesSquare },
+  { id: "activeRecall", icon: BrainCircuit, comingSoon: true },
+  { id: "planTrack", icon: GraduationCap, comingSoon: true },
+  { id: "community", icon: MessagesSquare, comingSoon: true },
   { id: "powerTips", icon: Keyboard },
 ];
 
@@ -141,6 +143,11 @@ function TutorialSection({ section }: { section: Section }) {
         <h2 className="text-xl font-semibold text-text-primary">
           {t(`static.tutorial.sections.${id}.title`)}
         </h2>
+        {section.comingSoon && (
+          <span className="inline-flex items-center rounded-full bg-accent-soft px-2.5 py-0.5 text-2xs font-semibold text-accent">
+            {t("static.tutorial.comingSoon")}
+          </span>
+        )}
       </div>
       <p className="mb-3 text-sm leading-relaxed text-text-secondary">
         {t(`static.tutorial.sections.${id}.body`)}

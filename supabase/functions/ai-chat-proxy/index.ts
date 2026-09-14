@@ -243,6 +243,32 @@ const INLINE_QUIZ_SPEC = `When the user asks to be quizzed, or a quick knowledge
 \`\`\`
 3-8 questions, 2-4 options each, "correct" is the zero-based index of the right option. Write the quiz in the user's language; when you have document context, cite pages in the explanations ([p.N]). Put no other text inside the block, and never reveal the answers in the prose around it.`;
 
+// Cross-model suggestion. Only injected on the free auto-routed tier
+// (this server-owned prompt): a cheap model answers by default and may
+// offer to redo a hard answer on a stronger Pnyxy model. The fence tag,
+// JSON shape and the allowed model ids are read client-side by
+// src/lib/ai/extract-model-suggestion.ts + the InlineModelSuggestion
+// card (validated against PNYXY_MODEL_OPTIONS); keep them in sync.
+const MODEL_SUGGEST_SPEC = `You are answering on Pnyxy's free tier, which defaults to a fast, inexpensive model. If, and ONLY if, the user's request clearly needs more capability than a light model handles well (deep multi-step reasoning, careful proofs or maths, subtle analysis, or intricate code), you MAY offer to redo the answer on a stronger model. First give your best answer, then append ONE fenced block tagged \`pnyxy-suggest-model\` containing ONLY this JSON:
+\`\`\`pnyxy-suggest-model
+{"model": "claude-haiku-4-5", "reason": "…"}
+\`\`\`
+"model" must be exactly one of: "claude-haiku-4-5" (highest quality, best for hard reasoning) or "gemini-3.7-flash" (newest Google model, strong all-round). "reason" is ONE short sentence, in the user's language, on why the stronger model would help. Rules: at most one such block per reply; NEVER add it for simple, factual, or short questions, most replies must have NO block; never mention the block or the suggestion in your prose; do not suggest when you are already confident your answer is complete and correct.`;
+
+// keep in sync with src/lib/ai/extract-plot.ts PLOT_SPEC
+const PLOT_SPEC = `When a function or a numeric trend would be clearer as a chart than as prose (plotting y = f(x), comparing curves, showing how a quantity changes), draw it as a fenced code block tagged \`pnyxy-plot\` containing ONLY JSON in this exact shape:
+\`\`\`pnyxy-plot
+{"title": "…", "xLabel": "x", "yLabel": "y", "series": [{"name": "sin(x)", "points": [{"x": 0, "y": 0}, {"x": 1.57, "y": 1}]}]}
+\`\`\`
+Sample the function YOURSELF into 20-60 ascending (x, y) points per series (there is no formula evaluation on the client); use 1-3 series. Keep numbers finite. Briefly say in the prose what the plot shows; put no other text inside the block. Only plot when it genuinely aids understanding, most replies need no plot.`;
+
+// keep in sync with src/lib/ai/extract-matrix.ts MATRIX_SPEC
+const MATRIX_SPEC = `When a matrix, vector, or small numeric table is the subject (linear algebra, a system of equations, a transformation), render it as a fenced code block tagged \`pnyxy-matrix\` containing ONLY JSON in this exact shape:
+\`\`\`pnyxy-matrix
+{"name": "A", "rows": [[1, 2], [3, 4]]}
+\`\`\`
+"rows" is a rectangular array of numbers (every row the same length); a single row is a row vector, a single column of one-element rows is a column vector. Keep it reasonably sized (up to ~8x8). Explain it in the prose; put no other text inside the block. Only use this when a matrix is genuinely what you're showing.`;
+
 function buildSystemPrompt(
   documentTitle: string,
   pageContext: string,
@@ -273,7 +299,13 @@ ${
 }
 When you write mathematical expressions, wrap inline math in single-dollar delimiters ($x^2$) and display equations in double-dollar delimiters ($$\\sum_{i=1}^n i$$). The chat UI renders these as proper formulas via KaTeX.
 
-${INLINE_QUIZ_SPEC}${
+${INLINE_QUIZ_SPEC}
+
+${PLOT_SPEC}
+
+${MATRIX_SPEC}
+
+${MODEL_SUGGEST_SPEC}${
       pageContext.trim()
         ? `\n\nContext the user attached to this chat (their profile preset and any material); follow it:\n${pageContext.trim()}`
         : ""
@@ -312,7 +344,13 @@ Answer questions about this document. Be concise and helpful. Reference specific
 
 ${langRule}
 
-${INLINE_QUIZ_SPEC}`;
+${INLINE_QUIZ_SPEC}
+
+${PLOT_SPEC}
+
+${MATRIX_SPEC}
+
+${MODEL_SUGGEST_SPEC}`;
   }
 
   // Doc set but nothing selected and nothing attached: generic doc

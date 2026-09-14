@@ -47,6 +47,7 @@ export function AppLayout() {
   useEffect(() => {
     if (telemetryUser) startTelemetry();
   }, [telemetryUser]);
+
   const focusActive = useFocusStore((s) => s.active);
   const isDesktop = useIsDesktop();
   const location = useLocation();

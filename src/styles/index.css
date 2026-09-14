@@ -310,14 +310,12 @@ html.tauri-app {
      * by default, but older versions and some webview wrappers (e.g.,
      * Tauri / Capacitor) regress without an explicit declaration. */
     -webkit-overflow-scrolling: touch;
-    /* Firefox scrollbar styling (it ignores ::-webkit-scrollbar). The
-     * thumb is a theme-token mix so it stays visible in BOTH light and
-     * dark, the old glass-border thumb was near-invisible on the light
-     * public pages. Inherits to all scroll containers. */
-    /* Theme-independent mid grey: readable on the black app chrome, the
-       off-white light theme and a white PDF page alike. */
-    scrollbar-width: auto;
-    scrollbar-color: #8a8f9e rgba(128, 128, 128, 0.16);
+    /* Firefox scrollbar (it ignores ::-webkit-scrollbar). Thin, with a
+       transparent track and a low-alpha mid-grey thumb so it reads on the
+       black app chrome, the off-white light theme and a white PDF page
+       alike without a contrasting rail. Inherits to all scroll containers. */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(138, 143, 158, 0.5) transparent;
   }
 
   body {
@@ -326,21 +324,29 @@ html.tauri-app {
   }
 
   *::-webkit-scrollbar {
-    width: 12px;
-    height: 12px;
+    width: 11px;
+    height: 11px;
   }
 
-  *::-webkit-scrollbar-track {
-    /* faint rail so the thumb has something to sit in */
-    background: rgba(128, 128, 128, 0.16);
+  /* No contrasting rail and no up/down arrow buttons: the thumb floats on
+     the content, so the scrollbar stops standing out from the background. */
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
   }
 
   *::-webkit-scrollbar-thumb {
-    /* text-muted mix, not glass-border: the latter is ~10% ink on the
-       light theme and effectively invisible. */
-    background: #8a8f9e;
+    /* Low-alpha mid grey: subtle on a dark page yet still visible on the
+       light theme and a white PDF page. */
+    background: rgba(138, 143, 158, 0.45);
     border-radius: 6px;
-    /* inset border keeps a gap from the rail without shrinking the hit area */
+    /* inset border keeps a gap from the edge without shrinking the hit area */
     border: 3px solid transparent;
     background-clip: padding-box;
     min-height: 40px;
@@ -348,7 +354,7 @@ html.tauri-app {
 
   *::-webkit-scrollbar-thumb:hover,
   *::-webkit-scrollbar-thumb:active {
-    background: #b3b8c6;
+    background: rgba(138, 143, 158, 0.8);
     background-clip: padding-box;
   }
 

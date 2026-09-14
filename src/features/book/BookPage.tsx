@@ -80,7 +80,7 @@ export function BookPage() {
       {/* mobile stacks; desktop is a two-pane rail + content */}
       <div className="flex min-h-full flex-col md:flex-row">
         {/* aside is sticky + full-height so its right border reaches the viewport bottom */}
-        <aside className="md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:overflow-y-auto md:border-r md:border-glass-border md:bg-glass-bg/40">
+        <aside className="md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:overflow-y-auto md:border-r md:border-glass-border">
           <div className="space-y-3 p-4 md:p-3">
             <button
               onClick={() => navigate(-1)}
@@ -233,7 +233,7 @@ function BookTabSkeleton() {
 function BookPageSkeleton() {
   return (
     <div className="flex min-h-full flex-col md:flex-row">
-      <aside className="md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:overflow-y-auto md:border-r md:border-glass-border md:bg-glass-bg/40">
+      <aside className="md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:overflow-y-auto md:border-r md:border-glass-border">
         <div className="space-y-3 p-4 md:p-3">
           <div className="h-3 w-16 animate-pulse rounded bg-bg-tertiary/70" />
           <div className="flex animate-pulse items-start gap-3">

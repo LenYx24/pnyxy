@@ -24,6 +24,8 @@ import {
 import { detectRoadmapIntent } from "@/lib/roadmap/roadmap-tools";
 import { runLibraryAgenticLoop } from "@/lib/ai/library-agent";
 import { INLINE_GRAPH_SPEC } from "@/lib/ai/extract-graph";
+import { OPEN_DOC_SPEC } from "@/lib/ai/extract-open-doc";
+import { useLibraryStore } from "@/stores/library-store";
 import { parseChatCommands } from "@/lib/ai/chat-commands";
 import { getFeatures } from "@/lib/use-features";
 import { applyContextOverrides, useContextOverridesStore } from "@/stores/context-overrides-store";
@@ -142,6 +144,41 @@ export async function sendOrBranch(
       customContext:
         `${contextPack.customContext}\n\n${INLINE_GRAPH_SPEC}\n\nThe user asked for a graph in this message: answer with one \`\`\`graph block (plus a short explanation).`.trim(),
     };
+  }
+
+  // Library-aware plain chat: hand the model the list of the user's own
+  // uploaded files (title + id) plus the pnyxy-open-doc contract, so it can
+  // point them at a file with a clickable card (e.g. the onboarding guide).
+  // Rides on customContext (like the graph spec) so it reaches both the BYOK
+  // prompt and the proxy without a server change. Standalone chats only; a
+  // doc-scoped thread already has its source in the page context.
+  if (!sourceDocId) {
+    const lib = useLibraryStore.getState();
+    if (lib.books.length === 0 && lib.lastFetchedAt.books === null) {
+      try {
+        await lib.fetchLibrary();
+      } catch {
+        // best-effort: no library section if the fetch fails
+      }
+    }
+    const files = useLibraryStore
+      .getState()
+      .books.filter(
+        (b) => b.source === "uploaded" && b.book.storage_path,
+      )
+      .slice(0, 60)
+      .map((b) =>
+        b.source === "uploaded" ? `- ${b.book.title} (id: ${b.id})` : "",
+      )
+      .filter(Boolean)
+      .join("\n");
+    if (files) {
+      contextPack = {
+        ...contextPack,
+        customContext:
+          `${contextPack.customContext}\n\n[Library files] (the user's own saved documents; link one with a pnyxy-open-doc block when relevant):\n${files}\n\n${OPEN_DOC_SPEC}`.trim(),
+      };
+    }
   }
 
   // page images first so the model sees source pages before the user's uploads

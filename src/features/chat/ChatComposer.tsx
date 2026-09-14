@@ -43,6 +43,7 @@ import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
+import { useAiModelConfigStore } from "@/stores/ai-model-config-store";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 import { useChatStore, pathFromRoot, windowChatHistory } from "@/stores/chat-store";
 import {
@@ -214,6 +215,27 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [enabledProviders],
     );
+
+    // Admin-editable offering (00083): hide providers the admin disabled and
+    // order the picker by the admin's sort order. Loads once; until then
+    // everything is treated as enabled so the picker never flickers empty.
+    const loadModelConfig = useAiModelConfigStore((s) => s.load);
+    const modelConfig = useAiModelConfigStore((s) => s.config);
+    useEffect(() => {
+      void loadModelConfig();
+    }, [loadModelConfig]);
+    const visibleProviders = useMemo(
+      () =>
+        configuredProviders
+          .filter((p) => modelConfig[p]?.enabled ?? true)
+          .sort(
+            (a, b) =>
+              (modelConfig[a]?.sortOrder ?? 999) -
+              (modelConfig[b]?.sortOrder ?? 999),
+          ),
+      [configuredProviders, modelConfig],
+    );
+    const pnyxyEnabled = modelConfig.pnyxy?.enabled ?? true;
 
     // "Use whole book": only shown with an active reader doc. Confirm modal -> selectAllAiPages.
     const activeDoc = useActiveDocument();
@@ -1168,10 +1190,11 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
               <span data-tour="chat-model" className="inline-flex">
               <ModelPicker
                 value={selectedProvider}
-                options={configuredProviders}
+                options={visibleProviders}
                 onChange={setSelectedProvider}
                 autoModel={activeQuotaModel}
                 quotaRows={quotaRows}
+                pnyxyEnabled={pnyxyEnabled}
               />
               </span>
               )}

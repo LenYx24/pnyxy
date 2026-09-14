@@ -33,8 +33,7 @@ export function HeroSection() {
       <div className="mx-auto grid w-full max-w-6xl items-center gap-12 lg:grid-cols-2 lg:gap-8">
         {/* Left: copy + actions. */}
         <div className="relative flex flex-col items-center text-center lg:items-start lg:text-left">
-          <span className="mb-6 inline-flex items-center gap-2.5 font-mono text-2xs font-medium uppercase tracking-[0.22em] text-accent">
-            <span className="h-px w-6 bg-accent" />
+          <span className="mb-6 inline-flex items-center rounded-full bg-accent-soft px-3 py-1 text-xs font-medium text-accent">
             {t("landing.h1Purpose")}
           </span>
 
@@ -75,7 +74,7 @@ export function HeroSection() {
           {!user && (
             <Link
               to="/library"
-              className="mt-5 font-mono text-2xs uppercase tracking-[0.15em] text-text-muted underline-offset-4 transition-colors hover:text-accent hover:underline"
+              className="mt-5 text-xs text-text-muted underline-offset-4 transition-colors hover:text-accent hover:underline"
             >
               {t("landing.continueNoAccount")}
             </Link>

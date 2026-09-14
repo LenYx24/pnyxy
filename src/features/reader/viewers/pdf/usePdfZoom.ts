@@ -358,7 +358,14 @@ export function usePdfZoom({
       const curX = el.scrollLeft;
       const dy = scrollTargetY - curY;
       const dx = scrollTargetX - curX;
-      if (Math.abs(dy) < 0.5 && Math.abs(dx) < 0.5) {
+      // Chrome snaps scrollTop/Left to whole pixels, so a target with a
+      // fractional part (touchpad deltas, the zoom-damping `mul` and the
+      // burst multiplier all produce them) can never satisfy a sub-pixel
+      // exit test: at DPR 1 `dy` stays stuck at e.g. 0.6, the rAF loop never
+      // terminates, and that zombie animation then fights every later input
+      // (a thumb drag, middle-click autoscroll or touch gets pulled 25% back
+      // toward the stale wheel target each frame). Finish within 1px.
+      if (Math.abs(dy) < 1 && Math.abs(dx) < 1) {
         el.scrollTop = scrollTargetY;
         el.scrollLeft = scrollTargetX;
         scrollAnimating = false;
@@ -366,6 +373,17 @@ export function usePdfZoom({
       }
       el.scrollTop = curY + dy * SCROLL_LERP;
       el.scrollLeft = curX + dx * SCROLL_LERP;
+      // Stall guard: once the remaining delta is small enough that a 25% step
+      // rounds back to the same pixel on both axes, the position stops
+      // advancing. Snap to the target and stop rather than spin on a value
+      // that never changes (belt-and-suspenders with the <1px exit above, for
+      // any DPR/rounding where a step can round to zero before |d| drops < 1).
+      if (el.scrollTop === curY && el.scrollLeft === curX) {
+        el.scrollTop = scrollTargetY;
+        el.scrollLeft = scrollTargetX;
+        scrollAnimating = false;
+        return;
+      }
       scrollAnimRaf = requestAnimationFrame(animateScrollFrame);
     };
 

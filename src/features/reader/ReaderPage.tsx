@@ -22,6 +22,8 @@ import { getZoomControls } from "./gestures/pinch-zoom-controller";
 import { ScreenshotRectSelector } from "./popovers/ScreenshotRectSelector";
 import { FocusSessionBadge } from "./controls/FocusSessionBadge";
 import { useReaderStore } from "@/stores/reader-store";
+import { useLibraryStore } from "@/stores/library-store";
+import { useDocumentTitle } from "@/hooks/use-document-title";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useBookmarkStore } from "@/stores/bookmark-store";
 import { useUIStore } from "@/stores/ui-store";
@@ -212,19 +214,41 @@ export function ReaderPage() {
   const showReaderTour =
     hasDocuments && !zenMode && onboardingCompleted && !seenReaderTour;
 
-  // Session-only docs (opened from a File, e.g. the logged-out sample) have a
-  // content-hash id, not a library UUID: they are not saved. Surface that so
-  // a visitor knows to sign in if they want to keep it.
+  // Session-only docs (opened from a File, e.g. the logged-out sample) aren't
+  // saved. Surface that so a visitor knows to sign in if they want to keep it.
+  // Uploaded library books use a content-hash id (not a UUID), so the old
+  // "id isn't a UUID => session-only" check wrongly flagged saved books.
+  // Instead treat a doc as saved when it was reached via the /books/:uuid
+  // library route, or when it matches a book in the loaded library.
   const navigate = useNavigate();
   const authedUser = useAuthStore((s) => s.user);
+  const libraryBooks = useLibraryStore((s) => s.books);
   const [sessionNoticeDismissed, setSessionNoticeDismissed] = useState(false);
-  const isSessionOnly =
-    !!activeDocumentId &&
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      activeDocumentId,
-    );
+  const isUuid = (s: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+  const isSavedInLibrary =
+    (!!bookId && isUuid(bookId)) ||
+    (!!activeDocumentId &&
+      libraryBooks.some(
+        (b) =>
+          b.id === activeDocumentId ||
+          (b.source === "uploaded" &&
+            b.book.file_hash === activeDocumentId) ||
+          (b.source === "catalog" &&
+            b.catalog_book_id === activeDocumentId),
+      ));
+  const isSessionOnly = !!activeDocumentId && !isSavedInLibrary;
   const showSessionNotice =
     isSessionOnly && hasDocuments && !zenMode && !sessionNoticeDismissed;
+
+  // Name the browser tab after the open document (distinguishes Pnyxy tabs).
+  const activeDocTitle = useReaderStore((s) => {
+    const d = s.activeDocumentId
+      ? s.documents.get(s.activeDocumentId)
+      : undefined;
+    return d?.customTitle || d?.meta.title || null;
+  });
+  useDocumentTitle(activeDocTitle);
 
   return (
     <div

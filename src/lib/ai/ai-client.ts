@@ -1,11 +1,17 @@
 import { pdfjs } from "react-pdf";
 import { useServedModelStore } from "@/lib/ai/served-model";
-import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
+import {
+  useSettingsStore,
+  AI_PROVIDERS_ENABLED,
+  type AiProvider,
+} from "@/stores/settings-store";
 import { supabase } from "@/lib/supabase";
 import type { ToolDef } from "@/lib/roadmap/roadmap-tools";
 import type { ChatMessageAttachment } from "@/types/chat";
 import { teacherBlock } from "@/lib/ai/teacher-mode";
 import { INLINE_QUIZ_SPEC } from "@/lib/ai/extract-quiz";
+import { PLOT_SPEC } from "@/lib/ai/extract-plot";
+import { MATRIX_SPEC } from "@/lib/ai/extract-matrix";
 
 // BYOK request model ids (this file talks to Anthropic/OpenAI directly).
 // Pnyxy-route model ids are a separate, server-routed list; see
@@ -121,7 +127,9 @@ export function isProviderConfigured(provider: AiProvider): boolean {
 export function getConfiguredProviders(): AiProvider[] {
   return useSettingsStore
     .getState()
-    .enabledProviders.filter(isProviderConfigured);
+    .enabledProviders.filter(
+      (p) => AI_PROVIDERS_ENABLED.includes(p) && isProviderConfigured(p),
+    );
 }
 
 export function hasAnyConfiguredProvider(): boolean {
@@ -316,7 +324,11 @@ When you don't know something or have ambiguous context, say so and ask a clarif
 
 ${mathHint}
 
-${INLINE_QUIZ_SPEC}${teacherBlock()}`;
+${INLINE_QUIZ_SPEC}
+
+${PLOT_SPEC}
+
+${MATRIX_SPEC}${teacherBlock()}`;
   }
   // [p.N] / [p.N:"..."] tokens are load-bearing: renderer turns these exact
   // shapes into reader deep-links, quote variant highlights. Other formats won't link.
@@ -348,7 +360,11 @@ When you reference the book, cite it inline using one of these two formats:
 
 Only use the quote variant when the wording appears verbatim in the provided context; never fabricate a quote, it would highlight nothing and confuse the reader. Keep quotes under ~15 words. If the answer is not in the provided text, say so, and feel free to suggest which pages or chapters from the TOC would help, so the user can attach them. ${mathHint}
 
-${INLINE_QUIZ_SPEC}${teacherBlock()}`;
+${INLINE_QUIZ_SPEC}
+
+${PLOT_SPEC}
+
+${MATRIX_SPEC}${teacherBlock()}`;
 }
 
 export interface StreamOptions {

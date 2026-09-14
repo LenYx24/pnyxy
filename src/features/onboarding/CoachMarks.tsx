@@ -5,7 +5,7 @@
  * attribute stays. A step whose target isn't on the page is skipped, so the
  * same tour is safe across layouts (a control hidden on mobile just drops out).
  */
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
@@ -50,6 +50,9 @@ export function CoachMarks({
   const { t } = useTranslation();
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
+  // Timestamp of the last step advance, used to swallow a second advance from
+  // one interaction (see `next`).
+  const lastAdvanceRef = useRef(0);
 
   const step = steps[index];
 
@@ -116,7 +119,17 @@ export function CoachMarks({
   if (!open || !step || typeof document === "undefined") return null;
 
   const isLast = index === steps.length - 1;
-  const next = () => (isLast ? finish() : setIndex((i) => i + 1));
+  const next = () => {
+    // Consecutive steps can place their primary button at the same screen
+    // spot, so one physical click (or a touch->click emulation) can land on
+    // both the old and the freshly-rendered button and skip a step. Ignore a
+    // second advance fired within 400 ms of the previous one.
+    const now = Date.now();
+    if (now - lastAdvanceRef.current < 400) return;
+    lastAdvanceRef.current = now;
+    if (isLast) finish();
+    else setIndex((i) => i + 1);
+  };
 
   // Card placement: below the target when there's room, else above; centered
   // on the target and clamped to the viewport.

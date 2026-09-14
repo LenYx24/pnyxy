@@ -41,7 +41,11 @@ export function ContextMenu({
         open={open}
         anchorRef={triggerRef}
         onClose={onToggle}
-        className="w-44"
+        // Size to the widest row instead of a fixed width so long localized
+        // labels (e.g. "Megosztás a közösséggel") stay on one line rather than
+        // wrapping and pushing the icon out of line. FloatingMenu keeps the
+        // 11rem minimum.
+        className="w-max"
       >
         {children}
       </FloatingMenu>
@@ -67,12 +71,12 @@ export function MenuItem({
         onClick();
       }}
       className={cn(
-        "flex w-full items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-surface-3 cursor-pointer",
+        "flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors hover:bg-surface-3 cursor-pointer",
         danger ? "text-danger" : "text-text-secondary hover:text-text-primary",
       )}
     >
-      <Icon size={16} strokeWidth={1.5} />
-      {label}
+      <Icon size={16} strokeWidth={1.5} className="shrink-0" />
+      <span className="whitespace-nowrap">{label}</span>
     </button>
   );
 }

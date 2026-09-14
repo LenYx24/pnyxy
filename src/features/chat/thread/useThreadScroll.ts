@@ -19,6 +19,8 @@ interface UseThreadScrollArgs {
   activeLeafId: string | null;
   messages: Map<string, ChatMessage>;
   streamingMessageId: string | null;
+  /** Follow the bottom as tokens stream in. Off = stay put during a reply. */
+  autoScrollStreaming: boolean;
 }
 
 // Show the jump-to-latest button once the user is this far from the bottom.
@@ -57,6 +59,7 @@ export function useThreadScroll({
   activeLeafId,
   messages,
   streamingMessageId,
+  autoScrollStreaming,
 }: UseThreadScrollArgs) {
   const threadEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -149,9 +152,20 @@ export function useThreadScroll({
         threadEndRef.current?.scrollIntoView({ behavior: "auto" });
       }
     } else if (followRef.current && !hasPendingRestore) {
-      threadEndRef.current?.scrollIntoView({ behavior: "auto" });
+      // While a reply streams in, only follow the bottom if the user opted in;
+      // otherwise the view stays where they left it during generation.
+      const streaming = streamingMessageId !== null;
+      if (!streaming || autoScrollStreaming) {
+        threadEndRef.current?.scrollIntoView({ behavior: "auto" });
+      }
     }
-  }, [activeId, activeLeafId, messages, streamingMessageId]);
+  }, [
+    activeId,
+    activeLeafId,
+    messages,
+    streamingMessageId,
+    autoScrollStreaming,
+  ]);
 
   // Apply a pending restore once the conversation's messages exist, so the
   // container has real height to scroll within. Runs after the effect above

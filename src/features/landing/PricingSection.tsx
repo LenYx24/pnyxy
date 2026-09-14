@@ -66,7 +66,7 @@ export function PricingSection() {
                 "radial-gradient(ellipse 70% 100% at 50% 0%, rgba(8,145,178,0.14), transparent)",
             }}
           />
-          <span className="absolute -top-3 right-4 flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-2xs font-semibold uppercase tracking-wide text-white">
+          <span className="absolute top-4 right-4 z-10 flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-2xs font-semibold text-white">
             <Sparkles size={12} />
             {t("landing.pricing.premium.comingSoon")}
           </span>
@@ -74,17 +74,9 @@ export function PricingSection() {
             <h3 className="font-display text-lg font-semibold text-text-primary">
               {t("landing.pricing.premium.name")}
             </h3>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="font-display text-3xl font-bold text-text-primary">
-                {t("landing.pricing.premium.price")}
-              </span>
-              <span className="text-sm text-text-muted">
-                {t("landing.pricing.premium.priceSuffix")}
-              </span>
-            </div>
-            {/* explicit "this tier costs money" note so nobody mistakes
-                Premium for another free plan */}
-            <span className="mt-2 inline-flex w-fit items-center rounded-full border border-accent/40 bg-accent/10 px-2.5 py-0.5 text-2xs font-semibold uppercase tracking-wide text-accent">
+            {/* no price yet (coming soon): the badge above says it. Just the
+                "this is a paid tier" note so nobody mistakes it for free. */}
+            <span className="mt-3 inline-flex w-fit items-center rounded-full border border-accent/40 bg-accent/10 px-2.5 py-0.5 text-2xs font-semibold text-accent">
               {t("landing.pricing.premium.paidNote")}
             </span>
             <p className="mt-2 text-xs text-text-muted">

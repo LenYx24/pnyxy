@@ -16,6 +16,7 @@ export function ModelPicker({
   onChange,
   autoModel,
   quotaRows = [],
+  pnyxyEnabled = true,
 }: {
   /** null = Default (full fallback chain). A provider = strict pick, no fallback. */
   value: AiProvider | null;
@@ -25,6 +26,9 @@ export function ModelPicker({
   autoModel: string;
   /** Today's per-model usage (shared with the footer so it never goes stale). */
   quotaRows?: ReadonlyArray<PnyxyQuotaRow>;
+  /** Admin offering (00083): when false the free Pnyxy route (Default +
+   *  its pinnable sub-models) is hidden from the picker. */
+  pnyxyEnabled?: boolean;
 }) {
   const { t } = useTranslation();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -33,9 +37,9 @@ export function ModelPicker({
   // persisted in settings store
   const pnyxyModel = useSettingsStore((s) => s.pnyxyModel);
   const setPnyxyModel = useSettingsStore((s) => s.setPnyxyModel);
-  const pnyxyConfigured = useSettingsStore((s) =>
-    s.enabledProviders.includes("pnyxy"),
-  );
+  const pnyxyConfigured =
+    useSettingsStore((s) => s.enabledProviders.includes("pnyxy")) &&
+    pnyxyEnabled;
 
   // Most-constrained model (higher of the tokens/requests ratios) headlines the Default subtitle.
   const quotaHeadline =
@@ -74,17 +78,19 @@ export function ModelPicker({
         onClose={() => setOpen(false)}
         className="w-64"
       >
-        <ModelOption
-          active={value === null && pnyxyModel === null}
-          label={t("chat.composer.modelDefault")}
-          subtitle={t("chat.composer.modelDefaultSubtitle")}
-          quotaHeadline={quotaHeadline}
-          onClick={() => {
-            setPnyxyModel(null);
-            onChange(null);
-            setOpen(false);
-          }}
-        />
+        {pnyxyEnabled && (
+          <ModelOption
+            active={value === null && pnyxyModel === null}
+            label={t("chat.composer.modelDefault")}
+            subtitle={t("chat.composer.modelDefaultSubtitle")}
+            quotaHeadline={quotaHeadline}
+            onClick={() => {
+              setPnyxyModel(null);
+              onChange(null);
+              setOpen(false);
+            }}
+          />
+        )}
         {pnyxyConfigured && (
           <>
             <div className="my-0.5 h-px bg-surface-3" />

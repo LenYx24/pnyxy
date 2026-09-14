@@ -734,11 +734,6 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             </button>
           </div>
         )}
-        {(activeDoc?.aiSelectedPages.size ?? 0) > 0 && (
-          <p className="rounded-control bg-bg-secondary px-2.5 py-1.5 text-2xs text-text-muted">
-            {t("reader.aiChat.pagesContextNote")}
-          </p>
-        )}
         {/* the ask pill: surface 2 + the one shadow, wraps the shared composer */}
         <div className="reader-ask-pill rounded-[22px] bg-bg-tertiary p-1.5 shadow-page">
           <ChatComposer

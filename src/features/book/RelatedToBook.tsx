@@ -7,7 +7,9 @@ import {
   Shapes,
   GraduationCap,
   Bot,
+  Link2,
 } from "lucide-react";
+import { FormModal } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { bookIdSegment } from "@/lib/slugify";
 import {
@@ -65,6 +67,7 @@ export function RelatedToBook() {
 
   const [quizzes, setQuizzes] = useState<RelatedQuiz[]>([]);
   const [chats, setChats] = useState<RelatedChat[]>([]);
+  const [linksOpen, setLinksOpen] = useState(false);
 
   useEffect(() => {
     void loadWhiteboards();
@@ -138,60 +141,105 @@ export function RelatedToBook() {
   };
 
   const bookChatHref = `/books/${bookIdSegment(bookRowId, data.book.title)}/chat`;
+  const recentChats = chats.slice(0, 3);
+
+  // Full related list, reused inside the "related links" modal.
+  const allRows = (
+    <div className="space-y-1.5">
+      {chats.map((c) => (
+        <RelatedRow
+          key={`chat:${c.id}`}
+          icon={<MessageSquare size={14} className="text-sky-400/80" />}
+          label={conversationDisplayTitle(c, t)}
+          kind={t("library.allBooks.chatLabel")}
+          onClick={() => openChat(c.id)}
+        />
+      ))}
+      {quizzes.map((q) => (
+        <RelatedRow
+          key={`quiz:${q.id}`}
+          icon={<ListChecks size={14} className="text-warning/80" />}
+          label={q.title || t("library.allBooks.untitledQuiz")}
+          kind={t("library.allBooks.quizLabel")}
+          onClick={() => navigate(`/quizzes/${q.id}`)}
+        />
+      ))}
+      {relatedWhiteboards.map((w) => (
+        <RelatedRow
+          key={`whiteboard:${w.id}`}
+          icon={<Shapes size={14} className="text-success/80" />}
+          label={whiteboardDisplayTitle(w, t)}
+          kind={t("library.allBooks.whiteboardLabel")}
+          onClick={() => navigate(`/whiteboards/${w.id}`)}
+        />
+      ))}
+      {vocabCount > 0 && (
+        <RelatedRow
+          icon={<GraduationCap size={14} className="text-pink-400/80" />}
+          label={t("book.related.flashcards", { count: vocabCount })}
+          kind={t("book.related.flashcardsKind")}
+          onClick={() => navigate("/vocabulary")}
+        />
+      )}
+    </div>
+  );
 
   return (
-    <section className="rounded-lg border border-glass-border bg-glass-bg p-4">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-text-primary">
-          {t("book.related.heading")}
-        </h3>
-        <button
-          type="button"
-          onClick={() => navigate(bookChatHref)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-accent/30 bg-accent/10 px-2 py-1 text-2xs font-medium text-accent transition-colors hover:bg-accent/20 cursor-pointer"
-        >
-          <Bot size={12} />
-          {t("book.related.openChatPage")}
-        </button>
-      </div>
-      <div className="space-y-1.5">
-        {quizzes.map((q) => (
-          <RelatedRow
-            key={`quiz:${q.id}`}
-            icon={<ListChecks size={14} className="text-warning/80" />}
-            label={q.title || t("library.allBooks.untitledQuiz")}
-            kind={t("library.allBooks.quizLabel")}
-            onClick={() => navigate(`/quizzes/${q.id}`)}
-          />
-        ))}
-        {chats.map((c) => (
-          <RelatedRow
-            key={`chat:${c.id}`}
-            icon={<MessageSquare size={14} className="text-sky-400/80" />}
-            label={conversationDisplayTitle(c, t)}
-            kind={t("library.allBooks.chatLabel")}
-            onClick={() => openChat(c.id)}
-          />
-        ))}
-        {relatedWhiteboards.map((w) => (
-          <RelatedRow
-            key={`whiteboard:${w.id}`}
-            icon={<Shapes size={14} className="text-success/80" />}
-            label={whiteboardDisplayTitle(w, t)}
-            kind={t("library.allBooks.whiteboardLabel")}
-            onClick={() => navigate(`/whiteboards/${w.id}`)}
-          />
-        ))}
-        {vocabCount > 0 && (
-          <RelatedRow
-            icon={<GraduationCap size={14} className="text-pink-400/80" />}
-            label={t("book.related.flashcards", { count: vocabCount })}
-            kind={t("book.related.flashcardsKind")}
-            onClick={() => navigate("/vocabulary")}
-          />
+    <>
+      <section className="rounded-lg border border-glass-border bg-glass-bg p-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-text-primary">
+            {t("book.related.heading")}
+          </h3>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setLinksOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-glass-border px-2 py-1 text-2xs font-medium text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+            >
+              <Link2 size={12} />
+              {t("book.related.allLinks")}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(bookChatHref)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-accent/30 bg-accent/10 px-2 py-1 text-2xs font-medium text-accent transition-colors hover:bg-accent/20 cursor-pointer"
+            >
+              <Bot size={12} />
+              {t("book.related.openChatPage")}
+            </button>
+          </div>
+        </div>
+        <p className="mb-1.5 text-2xs font-medium uppercase tracking-wide text-text-muted">
+          {t("book.related.recentChats")}
+        </p>
+        {recentChats.length > 0 ? (
+          <div className="space-y-1.5">
+            {recentChats.map((c) => (
+              <RelatedRow
+                key={`recent:${c.id}`}
+                icon={<MessageSquare size={14} className="text-sky-400/80" />}
+                label={conversationDisplayTitle(c, t)}
+                kind={t("library.allBooks.chatLabel")}
+                onClick={() => openChat(c.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="px-2 py-1.5 text-sm text-text-muted">
+            {t("book.related.noChats")}
+          </p>
         )}
-      </div>
-    </section>
+      </section>
+
+      <FormModal
+        open={linksOpen}
+        onClose={() => setLinksOpen(false)}
+        title={t("book.related.allLinks")}
+      >
+        {allRows}
+      </FormModal>
+    </>
   );
 }
 

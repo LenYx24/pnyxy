@@ -25,6 +25,8 @@ export function HomePage() {
   const user = useAuthStore((s) => s.user);
   // public catalog is feature-gated: off = every catalog shelf / CTA hidden
   const catalogOn = useFeature("catalog");
+  // "Today" only aggregates plan/roadmap items, so hide it until roadmaps ship.
+  const roadmapsOn = useFeature("roadmaps");
 
   const { featuredBooks, newThisWeekBooks, fetchShelves, checkUserLibrary } =
     useBrowseStore();
@@ -132,7 +134,7 @@ export function HomePage() {
               panel renders nothing when none of those have content,
               so signed-out users / users who haven't set anything up
               don't see an empty shell. */}
-          {user && <TodayPanel />}
+          {user && roadmapsOn && <TodayPanel />}
 
           {/* User's own books first, what they care about most when
               they land on home. The shelf renders nothing if the

@@ -32,12 +32,20 @@ export function initSentry(): void {
     tracesSampleRate: 0,
     // Remove Sentry's own uncaught-error/rejection handlers: we capture
     // explicitly from reportClientError so consent + rate-limit + the
-    // content-free shape are applied first. Filtering by name is
-    // tolerant if a future SDK renames these (worst case: a handler
-    // stays on, which is harmless double-capture, never a crash).
+    // content-free shape are applied first. Also drop the performance /
+    // web-vitals integrations (BrowserTracing, Replay): we run
+    // errors-only (tracesSampleRate: 0), and BrowserTracing's web-vitals
+    // instrumentation is what throws the noisy "reading 'startTime'"
+    // TypeError when a PerformanceEntry is missing. Filtering by name is
+    // tolerant if a future SDK renames these (worst case: an integration
+    // stays on, which is harmless, never a crash).
     integrations: (defaults) =>
       defaults.filter(
-        (i) => i.name !== "GlobalHandlers" && i.name !== "BrowserApiErrors",
+        (i) =>
+          i.name !== "GlobalHandlers" &&
+          i.name !== "BrowserApiErrors" &&
+          i.name !== "BrowserTracing" &&
+          i.name !== "Replay",
       ),
   });
   enabled = true;

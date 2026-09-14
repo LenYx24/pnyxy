@@ -117,56 +117,72 @@ export function ThumbnailToc() {
               ? t("reader.sidebar.aiSelectModeOff")
               : t("reader.sidebar.aiSelectMode")}
           </button>
-          {selectionMode && (
-            <span className="text-2xs text-text-muted">
-              {selectedCount > 0
-                ? t("reader.sidebar.aiSelectedCount", { count: selectedCount })
-                : t("reader.sidebar.aiSelectionEmpty")}
-            </span>
-          )}
+          {selectionMode &&
+            (selectedCount > 0 ? (
+              <span
+                className="shrink-0 whitespace-nowrap rounded-full bg-accent/15 px-2 py-0.5 text-2xs font-medium text-accent"
+                title={t("reader.sidebar.aiSelectedCount", {
+                  count: selectedCount,
+                })}
+              >
+                {selectedCount}
+              </span>
+            ) : (
+              <span className="shrink-0 whitespace-nowrap text-2xs text-text-muted-2">
+                {t("reader.sidebar.aiSelectionEmpty")}
+              </span>
+            ))}
         </div>
         {selectionMode && (
-          <div className="flex flex-wrap items-center gap-1">
+          // Icon-only actions so they stay on one tidy row in the narrow
+          // panel instead of wrapping into a cramped block.
+          <div className="flex items-center gap-0.5">
             <button
               type="button"
               onClick={() => selectAllAiPages()}
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-2xs text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              title={t("reader.sidebar.aiSelectAll")}
+              aria-label={t("reader.sidebar.aiSelectAll")}
+              className="flex h-7 w-7 items-center justify-center rounded text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
             >
-              <CheckSquare size={12} />
-              {t("reader.sidebar.aiSelectAll")}
+              <CheckSquare size={15} />
             </button>
             <button
               type="button"
               onClick={() => clearAiPages()}
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-2xs text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              title={t("reader.sidebar.aiClearSelection")}
+              aria-label={t("reader.sidebar.aiClearSelection")}
+              className="flex h-7 w-7 items-center justify-center rounded text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
             >
-              <Square size={12} />
-              {t("reader.sidebar.aiClearSelection")}
+              <Square size={15} />
             </button>
             <button
               type="button"
               onClick={() => selectAiPagesAround()}
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-2xs text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
+              title={t("reader.sidebar.aiSelectAround", { n: surroundingCount })}
+              aria-label={t("reader.sidebar.aiSelectAround", {
+                n: surroundingCount,
+              })}
+              className="flex h-7 w-7 items-center justify-center rounded text-text-muted hover:bg-glass-hover hover:text-text-primary cursor-pointer"
             >
-              <Crosshair size={12} />
-              {t("reader.sidebar.aiSelectAround", { n: surroundingCount })}
+              <Crosshair size={15} />
             </button>
+            <div className="mx-0.5 h-4 w-px bg-glass-border" />
             {/* When on, selected pages go as JPEG attachments instead of extracted text.
                 Also the fallback for scanned PDFs. */}
             <button
               type="button"
               onClick={() => setAiSendPagesAsImage(!sendAsImage)}
               aria-pressed={sendAsImage}
+              title={t("reader.sidebar.aiSendAsImageHint")}
+              aria-label={t("reader.sidebar.aiSendAsImage")}
               className={cn(
-                "flex items-center gap-1 rounded px-1.5 py-0.5 text-2xs cursor-pointer transition-colors",
+                "flex h-7 w-7 items-center justify-center rounded cursor-pointer transition-colors",
                 sendAsImage
                   ? "bg-accent/20 text-accent"
                   : "text-text-muted hover:bg-glass-hover hover:text-text-primary",
               )}
-              title={t("reader.sidebar.aiSendAsImageHint")}
             >
-              <ImageIcon size={12} />
-              {t("reader.sidebar.aiSendAsImage")}
+              <ImageIcon size={15} />
             </button>
           </div>
         )}

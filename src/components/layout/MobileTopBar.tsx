@@ -5,6 +5,7 @@ import {
   LogIn,
   LogOut,
   Menu,
+  MessageSquareText,
   Settings as SettingsIcon,
   User,
 } from "lucide-react";
@@ -90,6 +91,12 @@ export function MobileTopBar() {
               to="/profile"
               icon={User}
               label={t("sidebar.profile")}
+              onClick={close}
+            />
+            <MobileTopBarMenuItem
+              to="/feedback"
+              icon={MessageSquareText}
+              label={t("sidebar.feedback")}
               onClick={close}
             />
             <MobileTopBarMenuItem

@@ -37,7 +37,7 @@
     "reader": {
       "toolbar": {
         "title": "Read and navigate",
-        "body": "Page controls, zoom and search live here. Highlight text to ask the AI about it."
+        "body": "Page controls, zoom and search live here in the top bar."
       },
       "tools": {
         "title": "AI and study tools",
@@ -139,6 +139,32 @@
     "add": "Add",
     "resize": "Resize"
   },
+  "feedback": {
+    "title": "Feedback",
+    "subtitle": "Found a bug or have an idea? Send it here. Especially helpful early on.",
+    "kindLabel": "Type",
+    "kind": { "bug": "Bug", "idea": "Idea", "other": "Other" },
+    "subjectLabel": "Subject (optional)",
+    "subjectPlaceholder": "Short summary",
+    "bodyLabel": "Message",
+    "bodyPlaceholder": "Describe the bug or idea. For a bug: what did you do, what happened, and what did you expect?",
+    "send": "Send",
+    "sending": "Sending…",
+    "sent": "Thanks for the feedback!",
+    "errorGeneric": "Couldn't send. Please try again.",
+    "rateLimited": "You've hit today's feedback limit. Please try again tomorrow.",
+    "anonHistoryNote": "Sign in to keep track of your feedback and its status:",
+    "signInRequired": "Sign in to send feedback and see your history.",
+    "historyTitle": "Your feedback",
+    "empty": "You haven't sent any feedback yet.",
+    "status": {
+      "open": "Received",
+      "planned": "Planned",
+      "in_progress": "In progress",
+      "done": "Done",
+      "declined": "Won't do"
+    }
+  },
   "sidebar": {
     "home": "Home",
     "browse": "Catalog",
@@ -154,6 +180,7 @@
     "forum": "Forum",
     "spaces": "Spaces",
     "settings": "Settings",
+    "feedback": "Feedback",
     "admin": "Admin",
     "signIn": "Sign in",
     "profile": "Profile",
@@ -223,6 +250,7 @@
     },
     "reset": {
       "subtitle": "Choose a new password",
+      "forAccount": "Setting a new password for {{account}}",
       "newPassword": "New password",
       "confirmNewPassword": "Confirm new password",
       "linkInvalid": "This reset link is invalid or has expired.",
@@ -303,6 +331,8 @@
       "heading": "Reader",
       "fitMode": "Default fit mode",
       "fitModeHint": "How new documents are scaled when first opened",
+      "fitAuto": "Automatic",
+      "fitAutoHint": "Fit the width but never zoom past 100%, best for reading",
       "fitWidth": "Fit Width",
       "fitWidthHint": "Scale pages to fill the viewer width",
       "fitPage": "Fit Page",
@@ -508,12 +538,12 @@
       "modelsHeading": "Available models",
       "modelsSubtitle": "Prices are per 1M tokens (input / output).",
       "providersHeading": "Providers",
-      "providersSubtitle": "Pnyxy is built in. Add your own key to talk to OpenAI or Anthropic directly, or point at a local model.",
+      "providersSubtitle": "Pnyxy's AI is built in, with free daily limits. Pick the model the built-in route uses below. Bring-your-own-key providers are coming later.",
       "statusActive": "Active",
       "statusByok": "BYOK",
       "statusLocal": "Local",
       "statusSoon": "Soon",
-      "providersShort": "Pnyxy is built in. Add your own key to talk to OpenAI or Anthropic directly, or point at a local model.",
+      "providersShort": "Pnyxy's AI is built in, with free daily limits. Pick the model the built-in route uses below. Bring-your-own-key providers are coming later.",
       "statusBuiltin": "Built in",
       "statusKeySet": "Key set",
       "statusNoKey": "No key",
@@ -666,16 +696,15 @@
         "name": "Free",
         "price": "$0",
         "priceSuffix": "forever",
-        "tagline": "Everything core, no account required for most of it.",
+        "tagline": "The core reading + AI loop, free.",
         "features": [
-          "Full PDF and EPUB reader with annotations, notes, whiteboards",
-          "Browse a public catalog of open-domain books",
-          "AI chat for the open page (daily quota)",
-          "Vocabulary flashcards with FSRS spaced repetition",
-          "Community forum, ratings, and shared discussions",
-          "Cross-device sync for vocab, whiteboards, ratings, and library",
-          "Mobile + desktop + web (PWA)",
-          "Self-host the whole stack, it's open source"
+          "Full PDF and EPUB reader with highlighting",
+          "AI chat that knows the page you're reading (daily quota)",
+          "Choose the model: Gemini, Claude, or GPT",
+          "Your own library, synced across your devices",
+          "Courses and study spaces",
+          "Mobile, desktop, and web (PWA)",
+          "Open source, self-hostable"
         ]
       },
       "premium": {
@@ -703,7 +732,7 @@
         },
         "copyright": {
           "q": "Can I read any book on Pnyxy?",
-          "a": "The built-in catalog only redistributes public-domain books (Project Gutenberg, Standard Ebooks, MEK). For copyrighted books you legally own (physical copies, PDFs you bought), you can either upload the file privately, or add a metadata-only \"shell\" entry and use notes, annotations, and community features against it without uploading anything. We do not host or distribute copyrighted material."
+          "a": "You bring your own books. For books you legally own (physical copies, or PDFs and EPUBs you bought) you can upload the file privately, or add a metadata-only \"shell\" entry and annotate against it without uploading anything. A catalog of public-domain books (Project Gutenberg, Standard Ebooks, MEK) is on the way. We do not host or distribute copyrighted material."
         },
         "privacy": {
           "q": "Who can see my notes and highlights?",
@@ -711,7 +740,7 @@
         },
         "ai": {
           "q": "Does the AI train on my books or notes?",
-          "a": "No. When you use AI chat, the current page's text and your question are sent to the AI provider (OpenAI or Anthropic, depending on your settings) to generate a response. We don't train any model on user content, and the providers' own policies prohibit training on API traffic by default."
+          "a": "No. When you use AI chat, the current page's text and your question are sent to the AI provider that answers it - by default Google's Gemini through Pnyxy's proxy, with Claude and GPT also available - only to generate that response. We don't train any model on your books or notes."
         },
         "offline": {
           "q": "Does it work offline?",
@@ -904,6 +933,7 @@
     "reading": "Reading",
     "fromCourse": "From course: {{name}}",
     "fromCourseGeneric": "From a course",
+    "signInToCreateFolder": "Sign in to create folders.",
     "course": {
       "availableTitle_one": "{{count}} file available from this course",
       "availableTitle_other": "{{count}} files available from this course",
@@ -925,7 +955,8 @@
       "success": "Uploaded",
       "retry": "Retry",
       "cancel": "Cancel upload",
-      "unsupportedFormat": "The {{formats}} format isn't supported yet. We've recorded that you're interested - if enough people ask, we'll add it."
+      "unsupportedFormat": "The {{formats}} format isn't supported yet. We've recorded that you're interested - if enough people ask, we'll add it.",
+      "folderNotSupported": "Folders can't be dropped here yet. Drop the files themselves (PDF), or open the folder and select the files."
     },
     "actions": {
       "scan": "Scan folder",
@@ -1271,6 +1302,11 @@
     }
   },
   "static": {
+    "notFound": {
+      "title": "Page not found",
+      "body": "The page you're looking for doesn't exist or may have moved.",
+      "home": "Back to home"
+    },
     "about": {
       "title": "About Pnyxy",
       "p1": "Pnyxy is a modern, multi-format reading app. It supports PDF, EPUB, Markdown, and plain-text documents, with annotation, whiteboard, and search tooling built in.",
@@ -1306,17 +1342,18 @@
     },
     "tutorial": {
       "title": "Getting started with Pnyxy",
-      "intro": "Pnyxy is a reading + study app: bring your own books, talk to them with AI, and turn what you read into quizzes, vocabulary, and learning roadmaps. This page is a 5-minute walkthrough of the parts you'll actually use day to day.",
+      "intro": "Pnyxy is a reading + study app: bring your own books, read them, and talk to them with an AI tutor that cites the page. This is a 5-minute walkthrough of the parts you'll use day to day; the study tools marked \"coming soon\" are on the way.",
+      "comingSoon": "Coming soon",
       "tocTitle": "On this page",
       "tocLabel": "Tutorial sections",
       "sections": {
         "quickStart": {
           "title": "Quick start",
-          "body": "You can be reading inside a minute. Sign in is only required for cloud sync, AI quotas, and the social features - anonymous browsing of the catalog works without an account.",
+          "body": "You can be reading inside a minute. You can try the reader without an account; signing in adds cloud sync, your AI quota, and the social features.",
           "bullets": {
             "0": "Sign in or create an account from the landing page (Google or email).",
-            "1": "Open the Library and click \"Upload\" to add a PDF, or pick a free book from the Catalog.",
-            "2": "Click the small \"Open in reader\" button on any uploaded book to jump straight into reading.",
+            "1": "Open the Library and click \"Upload\" to add a PDF or EPUB you own.",
+            "2": "Click a book in your Library and hit \"Read\" to jump straight into the reader.",
             "3": "Drag a PDF / EPUB / TXT / Markdown file anywhere on the Library page to import it the fast way."
           }
         },
@@ -1326,18 +1363,18 @@
           "bullets": {
             "0": "Highlight selected text in any color. The annotation panel collects every mark across the book for review.",
             "1": "Add a free-form comment to a highlight - useful for the \"why does this matter\" half of active reading.",
-            "2": "Open the side notes pad for free-form text and whiteboard sketches that aren't tied to a specific passage.",
+            "2": "Search the whole document, and jump back to exactly where you left off the next time you open it.",
             "3": "Right-click a selection to translate it, look the word up, or send it to the AI chat with a citation back to the page."
           }
         },
         "aiChat": {
           "title": "AI chat that knows your book",
-          "body": "The AI panel works in three modes: as a general assistant, anchored to a document (so its citations link back to specific pages), and tied to a roadmap (so it can edit the graph for you).",
+          "body": "The AI panel works as a general assistant or anchored to a document, so its citations link back to the specific pages of what you're reading.",
           "bullets": {
-            "0": "Pick the provider in the composer - Pnyxy's free quota, your own Anthropic key, or your OpenAI key.",
+            "0": "Pick the model in the composer - Gemini, Claude, or GPT, all on Pnyxy's free daily quota.",
             "1": "When chat is started from a reader selection, replies use [p.42] tokens that link straight back to the page.",
-            "2": "From any AI message, hit \"Save as flashcards\" to extract Q/A pairs into the vocabulary deck.",
-            "3": "On a roadmap, click \"Edit with AI\" to chat about the graph - the model can add, remove, and reorder nodes live."
+            "2": "Ask in Socratic mode and the tutor guides you step by step instead of just handing over the answer.",
+            "3": "Switch between models mid-conversation and regenerate any answer with a different one."
           }
         },
         "activeRecall": {
@@ -1352,7 +1389,7 @@
         },
         "planTrack": {
           "title": "Roadmaps & streaks",
-          "body": "Plan a learning path, then keep the daily habit going. Roadmaps are directed graphs of topics; streaks are a 5-minute-a-day reading goal.",
+          "body": "Roadmaps let you plan a learning path (coming soon). The daily reading streak already works today: a 5-minute-a-day goal that builds a habit through the semester.",
           "bullets": {
             "0": "Generate a roadmap from a topic (\"Linear algebra for ML\") and the AI sketches a prerequisite-ordered set of nodes.",
             "1": "Enroll in a roadmap to project a finish date based on your weekly hours, then check off nodes as you go.",
@@ -1571,6 +1608,7 @@
     "title": "Chat",
     "untitled": "Untitled conversation",
     "newConversation": "New conversation",
+    "autoScrollStreaming": "Scroll while generating",
     "scrollToBottom": "Scroll to latest",
     "tabs": {
       "close": "Close tab"
@@ -1578,8 +1616,10 @@
     "emptyTitle": "No conversations yet",
     "emptyBody": "Start a new one; your chats are kept and organized into folders.",
     "loading": "Loading messages…",
+    "thinking": "Thinking…",
     "signInRequired": "Sign in to use chat",
     "signInHint": "Conversations are private to your account.",
+    "signInToSave": "Sign in to start and save conversations.",
     "anon": {
       "limitReached": "You've reached the free limit for now. Sign in to keep chatting and to save your conversations."
     },
@@ -1867,6 +1907,13 @@
       "saved": "Saved, you can retake it from your library.",
       "saveFailed": "Couldn't save the quiz."
     },
+    "inlinePlot": {
+      "title": "Plot",
+      "incoming": "Drawing a plot…"
+    },
+    "inlineOpenDoc": {
+      "open": "Open in reader"
+    },
     "temporary": {
       "new": "Temporary chat",
       "chip": "Temporary",
@@ -1896,6 +1943,10 @@
     "continuePrompt": "Continue exactly where you left off.",
     "regenerateWith": "Retry with {{model}}",
     "regenerateWithLabel": "Retry with another model",
+    "modelSuggestion": {
+      "cta": "Switch to {{model}} and retry",
+      "dismiss": "Dismiss"
+    },
     "retryAction": "Try again",
     "streamCut": {
       "maxTokens": "The answer hit the output limit. Use Continue to get the rest.",
@@ -1948,7 +1999,9 @@
       "exam": "I'm preparing for an exam",
       "examPrompt": "I'm preparing for an exam in <subject>. Help me plan and set up a study structure in my library.",
       "chat": "Just chat",
-      "chatPrompt": ""
+      "chatPrompt": "",
+      "onboarding": "First time here? Show me around",
+      "onboardingPrompt": "I'm using Pnyxy for the first time. Briefly introduce what the software can do and how to get started."
     },
     "linkOffer": {
       "youtubeTitle": "YouTube video spotted",
@@ -2107,7 +2160,10 @@
       "flashcards_one": "{{count}} flashcard",
       "flashcards_other": "{{count}} flashcards",
       "flashcardsKind": "Flashcards",
-      "openChatPage": "Open chat page"
+      "openChatPage": "Open chat page",
+      "recentChats": "Recent conversations",
+      "noChats": "No conversations for this book yet.",
+      "allLinks": "Related links"
     },
     "back": "Back",
     "unknownAuthor": "Unknown author",
@@ -2442,6 +2498,7 @@
     "pasteNoImage": "No image found in the clipboard.",
     "pasteUnsupported": "Your browser doesn't support pasting from the clipboard. Use the Upload button instead.",
     "pasteFailed": "Couldn't read the clipboard.",
+    "pasteDenied": "Clipboard access is blocked. Allow it via the icon in your browser's address bar (or site settings), then try again.",
     "avatarHint": "JPEG, PNG, WebP, or GIF · max 5 MB · paste with Ctrl+V or the Paste button",
     "save": "Save",
     "saving": "Saving…",
@@ -2537,7 +2594,8 @@
       "empty": "Your library is empty. Add a book first.",
       "noMatches": "No matches.",
       "alreadyOpen": "Already open",
-      "noFile": "No file"
+      "noFile": "No file",
+      "root": "Library"
     },
     "page": {
       "panelNote": "Note",
@@ -2570,7 +2628,7 @@
       "emptyTranslate": "Type text above to translate it.",
       "openInNewTab": "Open in new tab",
       "teacher": "Teacher",
-      "margin": "Margin"
+      "margin": "Tools"
     },
     "toolbar": {
       "backToLibrary": "Back to library",
@@ -2705,6 +2763,9 @@
       "translateTargetLabel": "To",
       "translateAutoDetect": "Auto-detect",
       "translateSwap": "Swap languages",
+      "translateLangSearch": "Search language…",
+      "translateLangNoResults": "No matches",
+      "translateEmptyHint": "Enter a word or sentence to translate.",
       "translating": "Translating…",
       "translateFailed": "Translation failed",
       "translateConnectFailed": "Could not connect to translation service",

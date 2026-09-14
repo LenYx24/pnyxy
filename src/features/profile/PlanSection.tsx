@@ -25,8 +25,13 @@ import { SettingsSection } from "@/features/settings/ui";
  * few times, since the webhook that grants premium may land a moment
  * after the browser redirect.
  */
-const BILLING_ENABLED =
-  (import.meta.env.VITE_BILLING_ENABLED as string | undefined) === "true";
+// Pre-launch kill switch: billing is OFF for everyone during the pilot, so the
+// app can never open a Stripe checkout regardless of the environment (a local
+// .env or the Cloudflare build having VITE_BILLING_ENABLED=true). The upgrade
+// button stays a disabled "coming soon". When billing is ready to go live,
+// restore the env-gated version:
+//   (import.meta.env.VITE_BILLING_ENABLED as string | undefined) === "true"
+const BILLING_ENABLED = false;
 
 const PREMIUM_FEATURE_KEYS = [
   "largerQuota",

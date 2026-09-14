@@ -11,6 +11,7 @@ import { useChatStore } from "@/stores/chat-store";
 import { GOAL_SECONDS, useStreakStore } from "@/stores/streak-store";
 import { useOpenUploadedDocument } from "@/hooks/use-open-uploaded-document";
 import { useOpenCatalogBook } from "@/hooks/use-open-catalog-book";
+import { bookIdSegment } from "@/lib/slugify";
 import {
   loadResumePage,
   useResumePage,
@@ -112,6 +113,12 @@ function BookHero({ entry }: { entry: UnifiedLibraryItem }) {
       ? Math.min(100, Math.round((resume.page / pageCount) * 100))
       : 0;
 
+  // Cover + title open the book's page (details), matching the library.
+  const bookRouteId =
+    entry.source === "catalog" ? entry.catalog_book_id : entry.book.id;
+  const openBookPage = () =>
+    navigate(`/books/${bookIdSegment(bookRouteId, title)}`);
+
   const openReader = () => {
     if (entry.source === "uploaded") {
       if (entry.book.storage_path) {
@@ -145,8 +152,13 @@ function BookHero({ entry }: { entry: UnifiedLibraryItem }) {
   return (
     <section className="mb-6 rounded-page bg-bg-secondary p-5 sm:p-6">
       <div className="flex flex-col gap-5 md:flex-row md:items-stretch">
-        {/* cover */}
-        <div className="shrink-0">
+        {/* cover, opens the book page */}
+        <button
+          type="button"
+          onClick={openBookPage}
+          aria-label={title}
+          className="shrink-0 cursor-pointer rounded-[6px] transition-opacity hover:opacity-90"
+        >
           {coverUrl ? (
             <img
               src={coverUrl}
@@ -162,15 +174,21 @@ function BookHero({ entry }: { entry: UnifiedLibraryItem }) {
               <BookOpen size={36} strokeWidth={1.25} />
             </div>
           )}
-        </div>
+        </button>
 
         {/* copy + actions */}
         <div className="flex min-w-0 flex-1 flex-col">
           <p className="text-xs font-medium uppercase tracking-wide text-text-muted-2">
             {t("home.hero.caption")}
           </p>
-          <h2 className="mt-1 line-clamp-2 font-display text-[30px] font-bold leading-tight text-text-primary">
-            {title}
+          <h2 className="mt-1">
+            <button
+              type="button"
+              onClick={openBookPage}
+              className="line-clamp-2 cursor-pointer text-left font-display text-[30px] font-bold leading-tight text-text-primary transition-colors hover:text-accent"
+            >
+              {title}
+            </button>
           </h2>
           <p className="mt-1.5 truncate text-sm text-text-secondary">
             {author}

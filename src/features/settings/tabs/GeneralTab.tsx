@@ -18,7 +18,6 @@ import {
 } from "@/lib/i18n";
 import { exportUserData } from "@/lib/export-user-data";
 import { useAuthStore } from "@/stores/auth-store";
-import { DeleteAccountSection } from "./DeleteAccountSection";
 import { useFeatures } from "@/lib/use-features";
 import {
   FEATURE_KEYS,
@@ -119,6 +118,11 @@ export function GeneralTab() {
   } = useSettingsStore();
 
   const fitModeOptions: { value: FitMode; label: string; title: string }[] = [
+    {
+      value: "auto",
+      label: t("settings.reader.fitAuto"),
+      title: t("settings.reader.fitAutoHint"),
+    },
     {
       value: "fit-width",
       label: t("settings.reader.fitWidth"),
@@ -478,8 +482,6 @@ export function GeneralTab() {
           }
         />
       </SettingsSection>
-
-      <DeleteAccountSection />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { SettingRow, SettingsSection, StatusLine } from "@/features/settings/ui"
 import { useAuthStore } from "@/stores/auth-store";
 import { containsProfanity } from "@/lib/profanity-filter";
 import { PlanSection } from "./PlanSection";
+import { DeleteAccountSection } from "@/features/settings/tabs/DeleteAccountSection";
 
 export function ProfilePage() {
   const { t } = useTranslation();
@@ -146,7 +147,14 @@ export function ProfilePage() {
       }
       setAvatarError(t("profile.pasteNoImage"));
     } catch (err) {
-      if (err instanceof Error) setAvatarError(err.message);
+      // A denied clipboard permission is sticky: the browser will not
+      // re-prompt on the next click, so a raw error or silence looks broken.
+      // Tell the user how to re-enable it instead.
+      const denied =
+        err instanceof DOMException &&
+        (err.name === "NotAllowedError" || err.name === "SecurityError");
+      if (denied) setAvatarError(t("profile.pasteDenied"));
+      else if (err instanceof Error) setAvatarError(err.message);
       else setAvatarError(t("profile.pasteFailed"));
     }
   }
@@ -296,6 +304,8 @@ export function ProfilePage() {
           }
         />
       </SettingsSection>
+
+      <DeleteAccountSection />
     </div>
   );
 }

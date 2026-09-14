@@ -51,6 +51,14 @@ export function AnnotationMenuWikiPanel({
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
+    // Hard timeout so a slow/unreachable Wikipedia host can't hang the
+    // spinner. `timedOut` lets the catch tell a timeout (show the error)
+    // apart from a supersede-abort by the next lookup (stay silent).
+    let timedOut = false;
+    const timer = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 8000);
     setQuery(trimmed);
     setLang(languageCode);
     setLoading(true);
@@ -64,10 +72,14 @@ export function AnnotationMenuWikiPanel({
       if (!result) setError("not_found");
       else setSummary(result);
     } catch (err) {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) {
+        if (timedOut) setError("connect_failed");
+        return;
+      }
       if (isAbortError(err)) return;
       setError("connect_failed");
     } finally {
+      window.clearTimeout(timer);
       if (abortRef.current === controller) {
         abortRef.current = null;
         setLoading(false);

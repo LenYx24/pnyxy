@@ -371,6 +371,10 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   },
 
   hideContextMenu() {
+    // A capture-phase scroll listener calls this on every scroll frame. Bail
+    // when the menu is already hidden so a plain scroll doesn't write the
+    // store (and re-run every annotation-layer selector + the menu) 60x/sec.
+    if (!get().contextMenu.visible) return;
     set({
       contextMenu: {
         visible: false,

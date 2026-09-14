@@ -8,6 +8,7 @@ import {
   Flag,
   BookMarked,
   TriangleAlert,
+  Bot,
   ChevronDown,
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-media-query";
@@ -33,6 +34,7 @@ export const ADMIN_TABS: AdminTabDef[] = [
   { to: "users", label: "Users", icon: Users, group: "moderation" },
   { to: "reports", label: "Reports", icon: Flag, group: "moderation" },
   { to: "catalog", label: "Catalog", icon: BookMarked, group: "moderation" },
+  { to: "models", label: "Models", icon: Bot, group: "system" },
   { to: "errors", label: "Errors", icon: TriangleAlert, group: "system" },
 ];
 

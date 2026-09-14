@@ -29,6 +29,7 @@ import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { getCatalogShortcut } from "@/lib/keyboard-shortcuts";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useAuthStore } from "@/stores/auth-store";
+import { showToast } from "@/stores/toast-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useNoteStore } from "@/stores/note-store";
 import { useWhiteboardStore } from "@/stores/whiteboard-store";
@@ -46,6 +47,7 @@ import { StorageUsageBar } from "./StorageUsageBar";
 import { StreakPill } from "./StreakCard";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { useDocumentTitle } from "@/hooks/use-document-title";
 import { RefreshCw } from "lucide-react";
 import { useLibraryPrefs } from "./useLibraryPrefs";
 import { LibraryToolbar } from "./LibraryToolbar";
@@ -103,6 +105,7 @@ function CreateMenuHeading({ children }: { children: React.ReactNode }) {
 
 export function LibraryPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t("library.title"));
   const isMobile = useIsMobile();
   const { fileInputRef, triggerFilePicker, handleFileSelect, openFile } =
     useOpenDocument();
@@ -120,6 +123,7 @@ export function LibraryPage() {
   const storageUsage = useUploadStore((s) => s.storageUsage);
   const fetchStorageUsage = useUploadStore((s) => s.fetchStorageUsage);
   const enqueueUpload = useUploadStore((s) => s.enqueueUpload);
+  const uploadPdf = useUploadStore((s) => s.uploadPdf);
   const moveBookToFolder = useLibraryStore((s) => s.moveBookToFolder);
   const moveFolderToFolder = useLibraryStore((s) => s.moveFolderToFolder);
   const removeFromLibrary = useLibraryStore((s) => s.removeFromLibrary);
@@ -295,17 +299,21 @@ export function LibraryPage() {
     );
   }, [searchParams, setSearchParams, handlePasteUrl]);
 
-  // upload pipeline is PDF-only; other formats just open in the reader
+  // upload pipeline is PDF-only; other formats just open in the reader.
+  // Used by the "Open from URL" modal: await the upload so a failure surfaces
+  // in the modal (throwing keeps it open with the error) instead of the modal
+  // closing as if it worked, and land the book in the folder the user is in.
   const importFile = useCallback(
     async (file: File) => {
       const isPdf = /\.pdf$/i.test(file.name);
       if (isPdf && user) {
-        enqueueUpload(file);
+        const { error } = await uploadPdf(file, currentFolderId);
+        if (error) throw new Error(error);
       } else {
         await openFile(file);
       }
     },
-    [user, enqueueUpload, openFile],
+    [user, uploadPdf, currentFolderId, openFile],
   );
 
   // Move-to-folder modal state
@@ -370,11 +378,19 @@ export function LibraryPage() {
   const triggerUpload = useCallback(() => uploadInputRef.current?.click(), []);
   const handleUploadPick = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(e.target.files ?? []).filter((f) =>
-        /\.pdf$/i.test(f.name),
-      );
+      const picked = Array.from(e.target.files ?? []);
+      const files = picked.filter((f) => /\.pdf$/i.test(f.name));
       e.target.value = "";
-      if (files.length === 0 || !user) return;
+      if (!user) return;
+      if (files.length === 0) {
+        // The user picked something, but nothing usable slipped through
+        // (e.g. a non-PDF on a platform that ignores the accept filter).
+        // Tell them instead of silently doing nothing.
+        if (picked.length > 0) {
+          showUnsupportedNotice(picked.map((f) => fileExtension(f.name) || f.name));
+        }
+        return;
+      }
       // Big batches get the review modal; everything else uploads straight
       // away with progress items (cancel via the X on each).
       if (files.length > 10) {
@@ -384,6 +400,9 @@ export function LibraryPage() {
       }
       for (const f of files) enqueueUpload(f, currentFolderId);
     },
+    // showUnsupportedNotice is a stable useCallback defined below; listing it
+    // here would hit the temporal dead zone, and its identity never changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [user, enqueueUpload, currentFolderId],
   );
   const openScanModal = useCallback(() => setScanModalOpen(true), []);
@@ -633,9 +652,25 @@ export function LibraryPage() {
       dragDepth.current = 0;
       setDragOver(false);
 
+      // Folders don't come through as usable File entries here (that needs
+      // entry traversal); detect them up front so a folder drop gets a clear
+      // message instead of silently doing nothing.
+      let hasDirectory = false;
+      const items = e.dataTransfer.items;
+      if (items) {
+        for (let i = 0; i < items.length; i++) {
+          const entry = items[i].webkitGetAsEntry?.();
+          if (entry?.isDirectory) {
+            hasDirectory = true;
+            break;
+          }
+        }
+      }
+
       const all = Array.from(e.dataTransfer.files);
 
-      // known-unsupported formats get logged; unknown extensions ignored
+      // known-unsupported formats get logged; unknown extensions (zip, junk)
+      // still surface a notice so nothing fails silently.
       const supported: File[] = [];
       const rejectedExtensions = new Set<string>();
       for (const file of all) {
@@ -648,7 +683,16 @@ export function LibraryPage() {
             file,
             status: "rejected_unsupported_format",
           });
+        } else {
+          // unknown: a real extension (.zip, .xyz) is worth naming; a folder's
+          // phantom entry has no extension and is covered by hasDirectory.
+          const ext = fileExtension(file.name);
+          if (ext) rejectedExtensions.add(ext);
         }
+      }
+
+      if (hasDirectory) {
+        showToast(t("library.upload.folderNotSupported"), "error");
       }
 
       if (rejectedExtensions.size > 0) {
@@ -671,7 +715,7 @@ export function LibraryPage() {
         }
       }
     },
-    [user, enqueueUpload, openFile, currentFolderId, showUnsupportedNotice],
+    [user, enqueueUpload, openFile, currentFolderId, showUnsupportedNotice, t],
   );
 
   useEffect(() => {
@@ -684,7 +728,15 @@ export function LibraryPage() {
 
   const isUploaded = removeEntry?.source === "uploaded";
 
-  const handleNewFolder = useCallback(() => setNewFolderOpen(true), []);
+  const handleNewFolder = useCallback(() => {
+    // Folders are stored per account; a signed-out user can't create one, so
+    // give feedback instead of opening a modal that would fail on submit.
+    if (!user) {
+      showToast(t("library.signInToCreateFolder"), "info");
+      return;
+    }
+    setNewFolderOpen(true);
+  }, [user, t]);
   const handleConfirmNewFolder = useCallback(
     async (name: string) => {
       // create in the current folder

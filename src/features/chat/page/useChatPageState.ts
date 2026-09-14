@@ -22,6 +22,8 @@ import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useAuthStore } from "@/stores/auth-store";
+import { showToast } from "@/stores/toast-store";
+import { isAnonChatEnabled } from "@/lib/ai/anon-chat";
 import { useChatStore, pathFromRoot } from "@/stores/chat-store";
 
 /**
@@ -375,6 +377,18 @@ export function useChatPageState(scope?: ChatPageScope) {
 
   const handleNew = async () => {
     setMobileListOpen(false);
+    // Signed out: a persisted conversation needs an account. If anon chat is
+    // on, "new" just clears to a fresh in-memory thread (the composer creates
+    // it on first send); otherwise tell the user to sign in.
+    if (!user) {
+      if (isAnonChatEnabled()) {
+        useChatStore.getState().clearActive();
+        focusComposer();
+      } else {
+        showToast(t("chat.signInToSave"), "info");
+      }
+      return;
+    }
     // In a drilled view the new chat lands directly in that folder (same as
     // the folder's "New conversation here"); at the root it goes to the
     // shared quick-chats folder (createConversation handles null -> shared).
@@ -387,6 +401,12 @@ export function useChatPageState(scope?: ChatPageScope) {
   // incognito: not listed in history, purged ~24h later
   const handleNewTemporary = async () => {
     setMobileListOpen(false);
+    // Temporary chats are stored (then purged) server-side, so they always
+    // need an account.
+    if (!user) {
+      showToast(t("chat.signInToSave"), "info");
+      return;
+    }
     await createConversation("", null, scopeSource, null, null, true);
     focusComposer();
   };

@@ -14,38 +14,73 @@ interface DictionaryEntry {
   }[];
 }
 
+/** The Wiktionary definition API returns HTML fragments (wikilinks,
+ *  <i> emphasis). Strip tags and decode the few entities that show up so
+ *  the panel renders plain, readable text. */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+interface WiktionaryDefinition {
+  definition?: string;
+  examples?: string[];
+  parsedExamples?: { example?: string }[];
+}
+interface WiktionarySection {
+  partOfSpeech?: string;
+  language?: string;
+  definitions?: WiktionaryDefinition[];
+}
+
 /**
- * Free Dictionary API client, no auth, English-only, 404 when the
- * lookup misses. Returns null on 404; throws on 5xx so the caller's
- * "connect_failed" branch can light up. Kept module-local because
- * nothing else in the app talks to the dictionary API today.
+ * Wiktionary REST client (Wikimedia infra: reliable, keyless, generous
+ * CORS). English-only lookup; returns null on 404 / no English section,
+ * throws on 5xx / timeout so the caller's "connect_failed" branch lights
+ * up. Replaces the old api.dictionaryapi.dev, a hobby API that went dark
+ * and, with no timeout, left the panel spinning forever.
  */
-async function fetchDefinition(word: string): Promise<DictionaryEntry | null> {
+async function fetchDefinition(
+  word: string,
+  signal?: AbortSignal,
+): Promise<DictionaryEntry | null> {
   const res = await fetch(
-    `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
+    `https://en.wiktionary.org/api/rest_v1/page/definition/${encodeURIComponent(
+      word.toLowerCase(),
+    )}`,
+    { headers: { accept: "application/json" }, signal },
   );
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = (await res.json()) as Array<{
-    word: string;
-    phonetic?: string;
-    phonetics?: { text?: string }[];
-    meanings?: {
-      partOfSpeech?: string;
-      definitions?: { definition: string; example?: string }[];
-    }[];
-  }>;
-  const first = data[0];
-  if (!first) return null;
-  const phonetic =
-    first.phonetic ?? first.phonetics?.find((p) => p.text)?.text ?? undefined;
-  const meanings = (first.meanings ?? [])
-    .map((m) => ({
-      partOfSpeech: m.partOfSpeech ?? "",
-      definitions: (m.definitions ?? []).slice(0, 3), // cap per part-of-speech
+  const data = (await res.json()) as Record<string, WiktionarySection[]>;
+  // Prefer the English section; fall back to whatever the word has.
+  const sections = data.en ?? Object.values(data)[0] ?? [];
+  const meanings = sections
+    .map((s) => ({
+      partOfSpeech: s.partOfSpeech ?? "",
+      definitions: (s.definitions ?? [])
+        .map((d) => ({
+          definition: stripHtml(d.definition ?? ""),
+          example: d.parsedExamples?.[0]?.example
+            ? stripHtml(d.parsedExamples[0].example)
+            : d.examples?.[0]
+              ? stripHtml(d.examples[0])
+              : undefined,
+        }))
+        .filter((d) => d.definition.length > 0)
+        .slice(0, 3), // cap per part-of-speech
     }))
     .filter((m) => m.definitions.length > 0);
-  return { word: first.word, phonetic, meanings };
+  if (meanings.length === 0) return null;
+  return { word, meanings };
 }
 
 interface Props {
@@ -82,13 +117,17 @@ export function AnnotationMenuDefinePanel({
     const word = selectedText.trim();
     if (!word) return;
     let cancelled = false;
+    // Hard timeout so a slow/unreachable dictionary host can't leave the
+    // panel spinning forever (the old provider used to hang indefinitely).
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 8000);
     setDefining(true);
     setDefinition(null);
     setError("");
     setCapturedVocabId(null);
     void (async () => {
       try {
-        const entry = await fetchDefinition(word);
+        const entry = await fetchDefinition(word, controller.signal);
         if (cancelled) return;
         if (entry) {
           setDefinition(entry);
@@ -98,11 +137,14 @@ export function AnnotationMenuDefinePanel({
       } catch {
         if (!cancelled) setError("connect_failed");
       } finally {
+        window.clearTimeout(timer);
         if (!cancelled) setDefining(false);
       }
     })();
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
+      controller.abort();
     };
   }, [selectedText]);
 

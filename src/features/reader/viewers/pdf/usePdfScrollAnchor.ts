@@ -81,6 +81,12 @@ export function usePdfScrollAnchor({
 }: PdfScrollAnchorArgs): PdfScrollAnchor {
   const offsetReportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rafRef = useRef<number>(0);
+  // Half-viewport band the last committed scrollTop fell in. The scroll
+  // handler only pushes scrollTop to React (driving the virtualization
+  // re-render) when this band changes, so smooth scrolling within a band is
+  // native, not a React re-render per frame. The overscan window covers the
+  // quantum so no page blanks.
+  const lastCommittedBandRef = useRef(-1);
 
   // True while the user is driving the scroll: set on every non-programmatic
   // scroll event and cleared 150ms after the last one, and held for the
@@ -160,7 +166,23 @@ export function usePdfScrollAnchor({
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       const st = el.scrollTop;
-      setScrollTop(st);
+      // Quantize the React commit to half-viewport bands so wheel/touch
+      // scrolling within a band is a native paint with no React re-render.
+      // BUT a scrollbar-thumb drag must stay exactly in sync: with the mounted
+      // window a half-viewport stale, pages that mount late resolve their real
+      // height under the thumb and shift the content, which reads as the drag
+      // jumping around. So during a thumb drag (and programmatic writes) commit
+      // every frame.
+      const band =
+        containerHeight > 0 ? Math.floor(st / (containerHeight * 0.5)) : 0;
+      if (
+        isProgrammatic ||
+        scrollbarDragRef.current ||
+        band !== lastCommittedBandRef.current
+      ) {
+        lastCommittedBandRef.current = band;
+        setScrollTop(st);
+      }
 
       sampleScrollVelocity(st, performance.now(), isProgrammatic);
 
@@ -497,7 +519,10 @@ export function usePdfScrollAnchor({
       return;
     }
     const scale = liveScaleRef.current;
-    const viewportCenter = (scrollTop + containerHeight / 2) / scale;
+    // Read the live scrollTop (not the band-quantized state) so the saved
+    // resume position is exact.
+    const liveTop = containerRef.current?.scrollTop ?? scrollTop;
+    const viewportCenter = (liveTop + containerHeight / 2) / scale;
     const idx = Math.max(0, upperBound(pageOffsets, viewportCenter) - 1);
     const pageTop = pageOffsets[idx];
     const pageHeight = getPageHeight(idx + 1);
@@ -517,6 +542,7 @@ export function usePdfScrollAnchor({
     docId,
     lastScrollWasProgrammaticRef,
     liveScaleRef,
+    containerRef,
   ]);
 
   return { handleScroll, handleMouseDown };

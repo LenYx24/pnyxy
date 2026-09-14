@@ -27,7 +27,11 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ALL_AI_PROVIDERS, useSettingsStore } from "@/stores/settings-store";
+import {
+  ALL_AI_PROVIDERS,
+  AI_PROVIDERS_ENABLED,
+  useSettingsStore,
+} from "@/stores/settings-store";
 import type { AiProvider } from "@/stores/settings-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { supabase } from "@/lib/supabase";
@@ -278,7 +282,11 @@ export function AiTab() {
     };
   }, [pnyxyEnabled, user]);
 
-  const providers = PROVIDER_ORDER.filter((p) => ALL_AI_PROVIDERS.includes(p));
+  // BYOK + local are disabled for now (AI_PROVIDERS_ENABLED); only show the
+  // provider rows the user may actually configure.
+  const providers = PROVIDER_ORDER.filter(
+    (p) => ALL_AI_PROVIDERS.includes(p) && AI_PROVIDERS_ENABLED.includes(p),
+  );
 
   return (
     <div className="space-y-8">

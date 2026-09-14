@@ -9,6 +9,8 @@ import { useTranslation } from "react-i18next";
 import { MessagesSquare } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
+import { useDocumentTitle } from "@/hooks/use-document-title";
+import { conversationDisplayTitle } from "@/lib/entity-title";
 import "../chat.css";
 import { ChatSidebar } from "../sidebar/ChatSidebar";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -30,6 +32,13 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
   // soft-keyboard height, lifts the composer. 100dvh alone lagged on Android.
   const keyboardInset = useKeyboardInset();
   const page = useChatPageState(scope);
+  // Name the browser tab after the open conversation so several Pnyxy tabs
+  // are distinguishable.
+  useDocumentTitle(
+    page.activeConversation
+      ? conversationDisplayTitle(page.activeConversation, t)
+      : null,
+  );
   const { setMobileListOpen } = page;
   const closeDrawer = useCallback(() => setMobileListOpen(false), [setMobileListOpen]);
 

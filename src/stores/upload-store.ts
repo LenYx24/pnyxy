@@ -245,6 +245,13 @@ async function uploadBytes(
   return { error: null };
 }
 
+/** Supabase storage's 409 for an existing object (error code "Duplicate",
+ *  message "The resource already exists") when uploading with upsert:false. */
+function isDuplicateStorageError(message: string): boolean {
+  const m = message.toLowerCase();
+  return m.includes("already exists") || m.includes("duplicate");
+}
+
 /** Background runner for one job's lifecycle. Patches the job row as it progresses. */
 async function runUploadJob(
   id: string,
@@ -360,11 +367,26 @@ async function runUploadJob(
     // 3. upload bytes. path includes org id so per-org deletes don't cross-contaminate.
     // uploadBytes threads the abort signal so cancel actually stops the transfer.
     const storagePath = `${user.id}/${orgId}/${fileHash}.pdf`;
-    const { error: uploadError } = await uploadBytes(
+    let { error: uploadError } = await uploadBytes(
       storagePath,
       file,
       controller.signal,
     );
+    if (uploadError && isDuplicateStorageError(uploadError)) {
+      // Bytes already sit at this path, but the org-scoped duplicate check
+      // above found no book owning this hash: they're an orphan, left by an
+      // interrupted upload or a delete whose storage cleanup never landed.
+      // The path is content-addressed (same hash = same bytes), and upload is
+      // upsert:false (there's no storage UPDATE policy, only delete), so clear
+      // the stale object and re-upload. This self-heals the "says it already
+      // exists but it's not in my library" case instead of dead-ending.
+      await supabase.storage.from("book-files").remove([storagePath]);
+      ({ error: uploadError } = await uploadBytes(
+        storagePath,
+        file,
+        controller.signal,
+      ));
+    }
     if (uploadError) {
       fail(`Upload failed: ${uploadError}`);
       return;

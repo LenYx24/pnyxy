@@ -190,29 +190,60 @@ export function BookRow({
   const toggle = (e?: { ctrlKey: boolean; shiftKey: boolean }) =>
     onToggleSelect(selKey, e ?? { ctrlKey: false, shiftKey: false });
 
-  // Plain click expands the inline detail (and selects); modifier
-  // clicks only toggle selection; double-click goes straight to the
-  // book page.
+  // Open straight in the reader (uploaded books with a file). Catalog or
+  // file-less rows fall back to the book page, which has its own read CTA.
+  const openReader = () => {
+    if (entry.source === "uploaded" && entry.book.storage_path) {
+      void openUploadedBook(entry);
+    } else {
+      openBookPage();
+    }
+  };
+
+  // Single click expands the inline detail; double click opens the reader.
+  // The single-click action is deferred briefly so a following double click
+  // can cancel it, otherwise the detail flashes open before the reader opens.
+  const clickTimerRef = useRef<number | null>(null);
+  const clearClickTimer = () => {
+    if (clickTimerRef.current !== null) {
+      window.clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+    }
+  };
   const handleClick = (e: React.MouseEvent) => {
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
       e.preventDefault();
       toggle({ ctrlKey: e.ctrlKey || e.metaKey, shiftKey: e.shiftKey });
       return;
     }
-    // plain click only expands/collapses; selection is the checkbox's job
-    if (onActivate) {
-      onActivate(selKey);
-      return;
-    }
-    openBookPage();
+    clearClickTimer();
+    clickTimerRef.current = window.setTimeout(() => {
+      clickTimerRef.current = null;
+      // plain click only expands/collapses; selection is the checkbox's job
+      if (onActivate) onActivate(selKey);
+      else openBookPage();
+    }, 200);
+  };
+  const handleDoubleClick = () => {
+    clearClickTimer();
+    openReader();
   };
 
   const contextHandlers = useContextMenu((): ContextMenuEntry[] => {
-    const items: ContextMenuEntry[] = [
+    const items: ContextMenuEntry[] = [];
+    if (entry.source === "uploaded" && entry.book.storage_path) {
+      items.push({
+        id: "read",
+        label: t("library.actions.openInReader"),
+        icon: BookOpen,
+        onClick: openReader,
+      });
+    }
+    items.push(
       {
         id: "open",
         label: t("library.actions.open"),
-        icon: BookOpen,
+        icon: Info,
         onClick: openBookPage,
       },
       {
@@ -233,7 +264,7 @@ export function BookRow({
         icon: FolderInput,
         onClick: () => onMove(entry),
       },
-    ];
+    );
     if (entry.source === "uploaded") {
       items.push({
         id: "rename",
@@ -301,7 +332,7 @@ export function BookRow({
           isDragging && "opacity-40",
         )}
         onClick={handleClick}
-        onDoubleClick={openBookPage}
+        onDoubleClick={handleDoubleClick}
         aria-expanded={onActivate ? expanded : undefined}
       >
         <DropIndicator position={dropPosition} orientation="row" />

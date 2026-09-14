@@ -8,7 +8,7 @@ import { useAuthStore } from "@/stores/auth-store";
 export function ResetPasswordPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { session, updatePassword } = useAuthStore();
+  const { session, profile, updatePassword } = useAuthStore();
   const [checkedSession, setCheckedSession] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -16,10 +16,13 @@ export function ResetPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
-  // Give Supabase's auto-session-from-URL a tick to land before we render
-  // the "invalid/expired" state.
+  // Give Supabase's auto-session-from-URL time to land before we conclude the
+  // link is invalid. The recovery session can take a moment; a short timeout
+  // flashed the "invalid link" state before it arrived. Once a session is
+  // present we render the form immediately (below), so this only bounds how
+  // long we wait before giving up.
   useEffect(() => {
-    const timer = setTimeout(() => setCheckedSession(true), 500);
+    const timer = setTimeout(() => setCheckedSession(true), 2500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -50,6 +53,12 @@ export function ResetPasswordPage() {
   }
 
   const linkInvalid = checkedSession && !session;
+  // Show which account this reset is for, so the user is sure it's theirs.
+  const accountEmail = session?.user?.email ?? null;
+  const accountName = profile?.display_name?.trim() || null;
+  const accountLabel = accountName
+    ? `${accountName} (${accountEmail})`
+    : accountEmail;
 
   return (
     <div className="relative flex min-h-screen items-center justify-center px-4">
@@ -78,12 +87,17 @@ export function ResetPasswordPage() {
               </Button>
             </Link>
           </div>
-        ) : !checkedSession ? (
+        ) : !session && !checkedSession ? (
           <p className="text-center text-sm text-text-muted">
             {t("common.loading")}
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
+            {accountLabel && (
+              <p className="rounded-lg bg-bg-tertiary px-3 py-2 text-center text-xs text-text-secondary">
+                {t("auth.reset.forAccount", { account: accountLabel })}
+              </p>
+            )}
             <div>
               <label
                 htmlFor="new-password"

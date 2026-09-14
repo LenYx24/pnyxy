@@ -132,7 +132,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        // Signed out: there is no personal library. Land in a "loaded empty"
+        // state (not an endless skeleton) so the anon view renders cleanly.
+        set({
+          books: [],
+          isLoading: false,
+          lastFetchedAt: { ...get().lastFetchedAt, books: Date.now() },
+        });
+        return;
+      }
 
       // no active org: show empty rather than another org's contents (org-store sub retriggers once set)
       const orgId = useOrgStore.getState().currentOrgId;
@@ -141,7 +150,10 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         return;
       }
 
-      set({ isLoading: true });
+      // Only show the full skeleton on the very first load. Later refetches
+      // (the org-store subscription firing after mount, a manual refresh)
+      // update the list in place instead of flashing the skeleton again.
+      if (get().lastFetchedAt.books === null) set({ isLoading: true });
 
       const [catalogRes, uploadedRes] = await Promise.all([
         supabase

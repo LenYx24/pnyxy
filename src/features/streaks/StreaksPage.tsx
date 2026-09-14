@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Flame, Trophy, Target, Calendar, Brain, Plus } from "lucide-react";
 import { Button } from "@/components/ui";
@@ -85,13 +84,9 @@ export function StreaksPage() {
             <Plus size={14} />
             {t("streaks.log.button")}
           </Button>
-          <Link
-            to="/leaderboards"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-glass-border bg-glass-bg px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-glass-hover hover:text-text-primary"
-          >
-            <Trophy size={14} className="text-warning" />
-            {t("streaks.viewLeaderboards")}
-          </Link>
+          {/* Leaderboards is gated off during the pilot, so its /leaderboards
+              route just redirects to the library. Hide the button until the
+              feature is unlocked (restore the Link to /leaderboards then). */}
         </div>
       </div>
 

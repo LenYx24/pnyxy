@@ -35,7 +35,7 @@ import {
 } from "@/features/settings/ai-context/types";
 import { supabase } from "@/lib/supabase";
 
-export type FitMode = "fit-width" | "fit-page";
+export type FitMode = "fit-width" | "fit-page" | "auto";
 export type EpubFlow = "scrolled" | "paginated";
 export type AiProvider = "pnyxy" | "anthropic" | "openai" | "local";
 
@@ -45,6 +45,14 @@ export const ALL_AI_PROVIDERS: readonly AiProvider[] = [
   "openai",
   "local",
 ] as const;
+
+// Providers the user may actually select/configure right now. BYOK (own
+// Anthropic/OpenAI key) and local (Ollama/LM Studio) are disabled for the time
+// being: only the built-in Pnyxy free tier is offered. Flip entries back in to
+// re-enable them; the routing (getConfiguredProviders) and the settings UI both
+// read this list, so a hidden provider also stops being routable and a prior
+// selection falls back to Pnyxy.
+export const AI_PROVIDERS_ENABLED: readonly AiProvider[] = ["pnyxy"] as const;
 
 export interface InstalledPluginPackage {
   manifest: PluginManifest;
@@ -56,6 +64,9 @@ interface SettingsState {
   pageScrollBehavior: "smooth" | "instant";
   scrollAnimationDuration: number;
   defaultFitMode: FitMode;
+  /** Follow the bottom of the chat while a reply streams in. Off = the view
+   *  stays put during generation (jump down manually with the button). */
+  chatAutoScrollStreaming: boolean;
   epubFlow: EpubFlow;
   /** Multiplier on EPUB body font size. 1.0 = EPUB default, clamped 0.7-1.6. */
   epubFontScale: number;
@@ -151,6 +162,7 @@ interface SettingsState {
   setPageScrollBehavior: (v: "smooth" | "instant") => void;
   setScrollAnimationDuration: (v: number) => void;
   setDefaultFitMode: (v: FitMode) => void;
+  setChatAutoScrollStreaming: (v: boolean) => void;
   setEpubFlow: (v: EpubFlow) => void;
   setEpubFontScale: (v: number) => void;
   setEpubLineHeight: (v: number) => void;
@@ -234,7 +246,8 @@ export const useSettingsStore = create<SettingsState>()(
     (set, get) => ({
       pageScrollBehavior: "smooth",
       scrollAnimationDuration: 300,
-      defaultFitMode: "fit-width",
+      defaultFitMode: "auto",
+      chatAutoScrollStreaming: true,
       epubFlow: "scrolled",
       epubFontScale: 1.0,
       epubLineHeight: 1.5,
@@ -291,6 +304,7 @@ export const useSettingsStore = create<SettingsState>()(
       setScrollAnimationDuration: (v) =>
         set({ scrollAnimationDuration: Math.min(Math.max(v, 100), 1000) }),
       setDefaultFitMode: (v) => set({ defaultFitMode: v }),
+      setChatAutoScrollStreaming: (v) => set({ chatAutoScrollStreaming: v }),
       setEpubFlow: (v) => set({ epubFlow: v }),
       setEpubFontScale: (v) =>
         set({ epubFontScale: Math.min(Math.max(v, 0.7), 1.6) }),
@@ -687,7 +701,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "pnyxy-reader:settings",
-      version: 15,
+      version: 16,
       partialize: (state) => {
         // persist everything except BYOK keys: those live in memory only
         // for the session (H5 hardening) so a shared/borrowed machine, or
@@ -923,6 +937,16 @@ export const useSettingsStore = create<SettingsState>()(
           delete state.anthropicApiKey;
           delete state.openaiApiKey;
           delete state.localApiKey;
+        }
+        // v16: the reader default fit mode became "auto" (commit 267e5ab,
+        // "reader auto zoom"), but browsers seeded before that kept the old
+        // "fit-width" default in localStorage, so books opened on page-width.
+        // Flip only the old default forward; leave a deliberate
+        // fit-page/actual/custom choice untouched.
+        if (version < 16) {
+          if (state.defaultFitMode === "fit-width") {
+            state.defaultFitMode = "auto";
+          }
         }
         return state as unknown as SettingsState;
       },

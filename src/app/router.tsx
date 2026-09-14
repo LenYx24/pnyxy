@@ -248,6 +248,9 @@ const AdminUserManagementTab = lazy(() =>
 const AdminErrorsTab = lazy(() =>
   import("@/features/admin/tabs/ErrorsTab").then((m) => ({ default: m.ErrorsTab })),
 );
+const AdminModelsTab = lazy(() =>
+  import("@/features/admin/tabs/ModelsTab").then((m) => ({ default: m.ModelsTab })),
+);
 const StreaksPage = lazy(() =>
   import("@/features/streaks/StreaksPage").then((m) => ({
     default: m.StreaksPage,
@@ -320,6 +323,16 @@ const PrivacyPage = lazy(() =>
 );
 const TermsPage = lazy(() =>
   import("@/features/static/TermsPage").then((m) => ({ default: m.TermsPage })),
+);
+const NotFoundPage = lazy(() =>
+  import("@/features/static/NotFoundPage").then((m) => ({
+    default: m.NotFoundPage,
+  })),
+);
+const FeedbackPage = lazy(() =>
+  import("@/features/feedback/FeedbackPage").then((m) => ({
+    default: m.FeedbackPage,
+  })),
 );
 const HelpPage = lazy(() =>
   import("@/features/static/HelpPage").then((m) => ({ default: m.HelpPage })),
@@ -442,6 +455,7 @@ export const router = createBrowserRouter([
         ],
       },
       { path: "profile", element: <ProfilePage /> },
+      { path: "feedback", element: <FeedbackPage /> },
       {
         path: "admin",
         element: <AdminPage />,
@@ -453,6 +467,7 @@ export const router = createBrowserRouter([
           { path: "reports", element: <AdminReportsTab /> },
           { path: "catalog", element: <AdminCatalogModerationTab /> },
           { path: "users", element: <AdminUserManagementTab /> },
+          { path: "models", element: <AdminModelsTab /> },
           { path: "errors", element: <AdminErrorsTab /> },
         ],
       },
@@ -484,6 +499,9 @@ export const router = createBrowserRouter([
       // node with an optional param, so switching threads never remounts
       // the page (two separate nodes did, and raced the composer state).
       { path: "chat/:conversationId?", element: <ChatPage /> },
+      // Explicit catch-all: unknown URLs get a friendly not-found page inside
+      // the app shell (rather than only the generic RouteErrorBoundary 404).
+      { path: "*", element: <NotFoundPage /> },
     ],
   },
 ]);

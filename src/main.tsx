@@ -42,6 +42,23 @@ window.addEventListener("unhandledrejection", (event) => {
 // pilot crash/error capture (best-effort, content-free), see error-report.ts
 installGlobalErrorCapture();
 
+// Dev-only Sentry smoke test. A bare `throw` typed in the console does NOT
+// reach window.onerror (the console catches it), so it never hits our capture
+// path. `window.__pnyxyTestError()` throws from a timer, which DOES surface as
+// an uncaught error -> reportClientError -> Sentry (subject to research consent
+// not being declined).
+if (import.meta.env.DEV) {
+  (
+    window as unknown as { __pnyxyTestError?: (message?: string) => void }
+  ).__pnyxyTestError = (message = "sentry test") => {
+    // Unique suffix so repeated calls aren't swallowed by the 30s dedupe window.
+    const unique = `${message} #${Date.now()}`;
+    setTimeout(() => {
+      throw new Error(unique);
+    }, 0);
+  };
+}
+
 useAuthStore.getState().initialize();
 
 // must register handlers before the orchestrator, or a mutation drained on boot dead-letters as "no handler registered"

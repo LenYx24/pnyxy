@@ -40,8 +40,16 @@ import { usePageCitationDispatch } from "@/hooks/use-page-citation";
 import { useReadAloud, markdownToSpeech } from "@/hooks/use-read-aloud";
 import { extractRecommendations } from "@/lib/ai/extract-recommendations";
 import { extractInlineQuiz } from "@/lib/ai/extract-quiz";
+import { extractModelSuggestion } from "@/lib/ai/extract-model-suggestion";
+import { extractInlinePlot } from "@/lib/ai/extract-plot";
+import { extractInlineMatrix } from "@/lib/ai/extract-matrix";
+import { extractOpenDoc } from "@/lib/ai/extract-open-doc";
 import { RecommendationCards } from "./RecommendationsRenderer";
+import { InlineOpenDocCard } from "./InlineOpenDocCard";
 import { InlineQuizCard } from "./InlineQuizCard";
+import { InlineModelSuggestion } from "./InlineModelSuggestion";
+import { InlinePlotCard } from "./InlinePlotCard";
+import { InlineMatrixCard } from "./InlineMatrixCard";
 import { extractInlineGraph } from "@/lib/ai/extract-graph";
 import { useFeature } from "@/lib/use-features";
 import { InlineGraphCard } from "./InlineGraphCard";
@@ -631,16 +639,19 @@ export function MessageBubble({
     >
       <div className="flex min-w-0 flex-1 flex-col gap-3 text-[length:var(--chat-font-size,15px)] leading-normal text-text-primary">
         {isStreaming && !hasText ? (
-          // placeholder while waiting for the first delta: shimmering skeleton
-          // lines where the answer will appear (Gemini-style "thinking" state)
-          <div
-            className="chat-shimmer"
-            aria-label={t("chat.loading")}
-            role="status"
-          >
-            <span style={{ width: "92%" }} />
-            <span style={{ width: "78%" }} />
-            <span style={{ width: "55%" }} />
+          // placeholder while waiting for the first delta: a visible "thinking"
+          // status (the reasoning phase for thinking models) over shimmering
+          // skeleton lines where the answer will appear.
+          <div role="status" aria-label={t("chat.thinking")}>
+            <TypingIndicator
+              label={t("chat.thinking")}
+              className="mb-2 text-text-muted"
+            />
+            <div className="chat-shimmer" aria-hidden>
+              <span style={{ width: "92%" }} />
+              <span style={{ width: "78%" }} />
+              <span style={{ width: "55%" }} />
+            </div>
           </div>
         ) : (
           <>
@@ -661,6 +672,8 @@ export function MessageBubble({
                   sourceDocId={sourceDocId}
                   confirm={confirm}
                   handleCitationClick={handleCitationClick}
+                  onSwitchModel={onRegenerateWith}
+                  anyStreaming={anyStreaming}
                 />
                 {collapsed && (
                   <button
@@ -742,12 +755,19 @@ const AssistantContent = memo(function AssistantContent({
   sourceDocId,
   confirm,
   handleCitationClick,
+  onSwitchModel,
+  anyStreaming,
 }: {
   content: string;
   isStreaming: boolean;
   sourceDocId: string | null;
   confirm: BubbleConfirmFn;
   handleCitationClick: (e: React.MouseEvent<HTMLElement>) => void;
+  /** Re-run the parent user turn on a stronger Pnyxy model (cross-model
+   *  suggestion card). Absent when the message can't be regenerated. */
+  onSwitchModel?: (pnyxyModel: string) => void;
+  /** True while any turn streams; holds off the suggestion's retry. */
+  anyStreaming: boolean;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -800,10 +820,31 @@ const AssistantContent = memo(function AssistantContent({
         : { cleaned: quizExtract.cleaned },
     [graphWidgetEnabled, quizExtract.cleaned],
   );
-  const { cleaned, books, videos } = useMemo(
+  const reco = useMemo(
     () => extractRecommendations(graphExtract.cleaned),
     [graphExtract.cleaned],
   );
+  const { books, videos } = reco;
+  // cross-model suggestion fence (also strips a mid-stream open fence)
+  const suggestExtract = useMemo(
+    () => extractModelSuggestion(reco.cleaned),
+    [reco.cleaned],
+  );
+  // function-plot + matrix fences (also strip mid-stream open fences)
+  const plotExtract = useMemo(
+    () => extractInlinePlot(suggestExtract.cleaned),
+    [suggestExtract.cleaned],
+  );
+  const matrixExtract = useMemo(
+    () => extractInlineMatrix(plotExtract.cleaned),
+    [plotExtract.cleaned],
+  );
+  // "open this library file" pointer card (last in the chain)
+  const openDocExtract = useMemo(
+    () => extractOpenDoc(matrixExtract.cleaned),
+    [matrixExtract.cleaned],
+  );
+  const cleaned = openDocExtract.cleaned;
   // expensive marked.parse -> KaTeX -> DOMPurify, memoized on (cleaned, sourceDocId)
   const html = useMemo(
     () => renderMarkdown(cleaned, sourceDocId),
@@ -850,6 +891,22 @@ const AssistantContent = memo(function AssistantContent({
         </div>
       )}
       {graphExtract.graph && <InlineGraphCard graph={graphExtract.graph} />}
+      {plotExtract.pending && (
+        <div className="flex items-center gap-2 rounded-panel bg-bg-tertiary px-4 py-3 text-xs text-text-muted">
+          <TypingIndicator />
+          {t("chat.inlinePlot.incoming")}
+        </div>
+      )}
+      {plotExtract.plot && <InlinePlotCard plot={plotExtract.plot} />}
+      {matrixExtract.matrix && <InlineMatrixCard matrix={matrixExtract.matrix} />}
+      {openDocExtract.doc && <InlineOpenDocCard doc={openDocExtract.doc} />}
+      {suggestExtract.suggestion && (
+        <InlineModelSuggestion
+          suggestion={suggestExtract.suggestion}
+          onSwitch={onSwitchModel}
+          disabled={anyStreaming}
+        />
+      )}
     </>
   );
 });

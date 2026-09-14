@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeftRight, ChevronDown, Languages, Loader2 } from "lucide-react";
+import { ArrowLeftRight, Languages, Loader2 } from "lucide-react";
+import { Select, type SelectOption } from "@/components/ui";
 import { useAnnotationStore } from "@/stores/annotation-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { detectSourceLang } from "@/lib/lang-detect";
@@ -147,7 +148,7 @@ export function AnnotationMenuTranslatePanel({
         <LangSelect
           label={t("reader.annotationMenu.translateSourceLabel")}
           value={sourceLanguage}
-          onChange={(e) => setSourceLanguage(e.target.value)}
+          onChange={setSourceLanguage}
           autoLabel={t("reader.annotationMenu.translateAutoDetect")}
           autoHint={sourceLanguage === "auto" ? effectiveSource : undefined}
         />
@@ -162,17 +163,24 @@ export function AnnotationMenuTranslatePanel({
         <LangSelect
           label={t("reader.annotationMenu.translateTargetLabel")}
           value={targetLanguage}
-          onChange={(e) => setTargetLanguage(e.target.value)}
+          onChange={setTargetLanguage}
         />
       </div>
 
       {/* Source text */}
-      <div className="max-h-20 overflow-y-auto rounded bg-glass-bg/50 px-2 py-1.5 text-xs italic leading-relaxed text-text-muted">
-        {trimmed.length > 200 ? trimmed.slice(0, 200) + "…" : trimmed}
-      </div>
+      {trimmed && (
+        <div className="max-h-20 overflow-y-auto rounded bg-glass-bg/50 px-2 py-1.5 text-xs italic leading-relaxed text-text-muted">
+          {trimmed.length > 200 ? trimmed.slice(0, 200) + "…" : trimmed}
+        </div>
+      )}
 
       {/* Translation result */}
       <div className="max-h-40 min-h-[3rem] overflow-y-auto rounded bg-glass-bg px-2 py-1.5 text-xs leading-relaxed text-text-primary">
+        {!trimmed && (
+          <span className="text-text-muted-2">
+            {t("reader.annotationMenu.translateEmptyHint")}
+          </span>
+        )}
         {translating && (
           <span className="flex items-center gap-1.5 text-text-muted">
             <Loader2 size={12} className="animate-spin" />
@@ -210,8 +218,8 @@ export function AnnotationMenuTranslatePanel({
   );
 }
 
-/** A styled language `<select>` with a chevron; the source picker adds
- *  an "auto" option at the top. */
+/** A styled, searchable language picker (app `Select`, not a native
+ *  `<select>`); the source picker adds an "auto" option at the top. */
 function LangSelect({
   label,
   value,
@@ -221,38 +229,37 @@ function LangSelect({
 }: {
   label: string;
   value: string;
-  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  onChange: (value: string) => void;
   autoLabel?: string;
   autoHint?: string;
 }) {
+  const { t } = useTranslation();
+  const options: SelectOption<string>[] = [
+    ...(autoLabel
+      ? [
+          {
+            value: "auto",
+            label: autoHint ? `${autoLabel} (${autoHint})` : autoLabel,
+          },
+        ]
+      : []),
+    ...TRANSLATE_LANGUAGES.map(({ code, label }) => ({ value: code, label })),
+  ];
   return (
     <label className="flex min-w-0 flex-1 flex-col gap-1">
       <span className="text-2xs uppercase tracking-wide text-text-muted">
         {label}
       </span>
-      <div className="relative">
-        <select
-          value={value}
-          onChange={onChange}
-          className="field px-2.5 py-1.5 text-xs w-full cursor-pointer"
-        >
-          {autoLabel && (
-            <option value="auto">
-              {autoLabel}
-              {autoHint ? ` (${autoHint})` : ""}
-            </option>
-          )}
-          {TRANSLATE_LANGUAGES.map(({ code, label }) => (
-            <option key={code} value={code}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <ChevronDown
-          size={13}
-          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-text-muted"
-        />
-      </div>
+      <Select
+        value={value}
+        onChange={onChange}
+        options={options}
+        size="sm"
+        searchable
+        searchPlaceholder={t("reader.annotationMenu.translateLangSearch")}
+        noResultsLabel={t("reader.annotationMenu.translateLangNoResults")}
+        ariaLabel={label}
+      />
     </label>
   );
 }

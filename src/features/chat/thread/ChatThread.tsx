@@ -75,6 +75,9 @@ export function ChatThread({
 
   // model picker: null = default fallback chain, otherwise a strict pick
   const enabledProviders = useSettingsStore((s) => s.enabledProviders);
+  const autoScrollStreaming = useSettingsStore(
+    (s) => s.chatAutoScrollStreaming,
+  );
   const configuredProviders = useMemo(
     () => getConfiguredProviders(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -103,7 +106,13 @@ export function ChatThread({
     atBottom,
     handleScroll,
     scrollToBottom,
-  } = useThreadScroll({ activeId, activeLeafId, messages, streamingMessageId });
+  } = useThreadScroll({
+    activeId,
+    activeLeafId,
+    messages,
+    streamingMessageId,
+    autoScrollStreaming,
+  });
 
   // one shared TTS instance so reading one bubble stops another
   const tts = useReadAloud();
@@ -132,6 +141,10 @@ export function ChatThread({
   // Intent chips: each prefills the composer with a prompt that names
   // what to paste (link / subject), so the zero-setup path is obvious.
   const emptySuggestions: Array<{ label: string; prompt: string }> = [
+    {
+      label: t("chat.intents.onboarding"),
+      prompt: t("chat.intents.onboardingPrompt"),
+    },
     { label: t("chat.intents.youtube"), prompt: t("chat.intents.youtubePrompt") },
     { label: t("chat.intents.article"), prompt: t("chat.intents.articlePrompt") },
     { label: t("chat.intents.exam"), prompt: t("chat.intents.examPrompt") },
