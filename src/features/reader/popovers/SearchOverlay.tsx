@@ -3,6 +3,7 @@ import {
   ArrowDown,
   ArrowUp,
   CaseSensitive,
+  Loader2,
   Regex,
   Replace,
   ReplaceAll,
@@ -28,6 +29,7 @@ export function SearchOverlay() {
   const matches = useSearchStore((s) => s.matches);
   const currentIdx = useSearchStore((s) => s.currentIdx);
   const error = useSearchStore((s) => s.error);
+  const isSearching = useSearchStore((s) => s.isSearching);
 
   const setQuery = useSearchStore((s) => s.setQuery);
   const setReplacement = useSearchStore((s) => s.setReplacement);
@@ -134,11 +136,17 @@ export function SearchOverlay() {
         </OptionButton>
         <span
           className={cn(
-            "mx-1 min-w-[4rem] text-right font-mono text-xs",
+            "mx-1 flex min-w-[4rem] items-center justify-end font-mono text-xs",
             error ? "text-danger" : "text-text-muted",
           )}
         >
-          {error ?? counter}
+          {error ? (
+            error
+          ) : isSearching ? (
+            <Loader2 size={12} className="animate-spin" aria-label="Searching" />
+          ) : (
+            counter
+          )}
         </span>
         <IconButton label="Previous match (Shift+Enter)" onClick={prev}>
           <ArrowUp size={14} />

@@ -83,7 +83,6 @@ export const DEFAULT_LAYOUT: ToolbarLayout = {
     "zen",
     "separator:def-2",
     "highlight",
-    "theme",
     "rotate",
     "reflow",
     "inPageDraw",
