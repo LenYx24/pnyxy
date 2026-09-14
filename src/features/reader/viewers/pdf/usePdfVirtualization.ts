@@ -95,7 +95,12 @@ export function usePdfVirtualization({
       aboveFactor = 2;
       belowFactor = 2;
     } else {
-      const ahead = Math.min(6, 2 + Math.abs(velocityBucket) * 0.8);
+      // Fast scroll: mount a little ahead in the scroll direction, but keep it
+      // tight. Widening far ahead (the old up-to-6-viewports) tried to render a
+      // burst of pages mid-flick, which saturated the main thread and was the
+      // scroll jank. A small lookahead keeps the render load flat; the pages
+      // just past it fill in the moment the flick settles.
+      const ahead = 3;
       const goingDown = velocityBucket > 0;
       aboveFactor = goingDown ? 1 : ahead;
       belowFactor = goingDown ? ahead : 1;

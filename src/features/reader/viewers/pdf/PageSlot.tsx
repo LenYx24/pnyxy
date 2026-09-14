@@ -44,7 +44,7 @@ export const PageSlot = memo(function PageSlot({
   // wide, so ~1400 device px across is still ~1.7x oversampled: crisp when
   // reading at 1x, only slightly soft past ~1.7x zoom. Derived only from
   // effectiveRenderW (grow-only) so it never churns.
-  const CANVAS_BACKING_CAP = 1400;
+  const CANVAS_BACKING_CAP = 1200;
   const realDpr =
     typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
   const cappedDpr =
