@@ -38,6 +38,12 @@ interface ComposerDockProps {
   activeId: string | null;
   activeConversation: ChatConversation | null;
   scopeSource: ScopeSource;
+  /**
+   * Folder the lazily-created conversation should land in (from the ?folder=
+   * drilled view; null at the chat root -> shared quick-chats). New-chat now
+   * defers the DB insert to the first send, so the target lives here.
+   */
+  newChatFolderId: string | null;
   /** Wraps the composer so the page can focus its textarea. */
   composerWrapRef: RefObject<HTMLDivElement | null>;
 }
@@ -48,6 +54,7 @@ export function ComposerDock({
   activeId,
   activeConversation,
   scopeSource,
+  newChatFolderId,
   composerWrapRef,
 }: ComposerDockProps) {
   const { t } = useTranslation();
@@ -111,7 +118,7 @@ export function ComposerDock({
       // image mode routes to the Images API, needs a conversation first
       if (payload.mode === "image") {
         if (!activeId) {
-          const id = await createConversation("", null, scopeSource);
+          const id = await createConversation("", newChatFolderId, scopeSource);
           if (!id) return;
         }
         await sendImageMessage(text);
@@ -136,7 +143,7 @@ export function ComposerDock({
             }
           : undefined;
       if (!activeId) {
-        const id = await createConversation("", null, scopeSource);
+        const id = await createConversation("", newChatFolderId, scopeSource);
         if (!id) return;
       }
       await sendMessage(text, provider, attachments, sendOptions);
@@ -149,6 +156,7 @@ export function ComposerDock({
       sendAnonMessage,
       sendImageMessage,
       scopeSource,
+      newChatFolderId,
       user,
     ],
   );

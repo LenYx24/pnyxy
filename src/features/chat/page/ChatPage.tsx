@@ -146,6 +146,7 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
             activeId={page.activeId}
             activeConversation={page.activeConversation}
             scopeSource={page.scopeSource}
+            newChatFolderId={page.chatRootFolderId}
             composerWrapRef={page.composerWrapRef}
           />
           {/* bottom spacer, grows only in the empty state (see above) */}

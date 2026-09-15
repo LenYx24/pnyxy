@@ -272,6 +272,12 @@ export function useChatPageState(scope?: ChatPageScope) {
   const isMobile = useIsMobile();
   useEffect(() => {
     if (!user) return;
+    // Explicit "new chat" just cleared the thread: stay on the empty composer
+    // instead of snapping back to the most recent conversation.
+    if (skipAutoOpenRef.current) {
+      skipAutoOpenRef.current = false;
+      return;
+    }
     if (activeId || routeConvId) return;
     if (visibleConversations.length === 0) return;
     if (!scope && useChatStore.getState().pendingDraft !== null) return;
@@ -369,6 +375,10 @@ export function useChatPageState(scope?: ChatPageScope) {
   }, [settling, threadEmpty, user]);
 
   const composerWrapRef = useRef<HTMLDivElement>(null);
+  // Set when the user explicitly starts a new chat, so the "auto-open the most
+  // recent conversation on a fresh /chat" effect doesn't immediately pull them
+  // back into an existing thread. Consumed on the next run of that effect.
+  const skipAutoOpenRef = useRef(false);
   const focusComposer = useCallback(() => {
     requestAnimationFrame(() => {
       composerWrapRef.current?.querySelector("textarea")?.focus();
@@ -389,13 +399,23 @@ export function useChatPageState(scope?: ChatPageScope) {
       }
       return;
     }
-    // In a drilled view the new chat lands directly in that folder (same as
-    // the folder's "New conversation here"); at the root it goes to the
-    // shared quick-chats folder (createConversation handles null -> shared).
-    const target = chatRootFolderId ?? null;
-    // createConversation already sets it active with an empty thread, no need
-    // for a second openConversation round-trip (that was the visible lag).
-    await createConversation("", target, scopeSource);
+    // FAST PATH: reset to a fresh in-memory thread and focus the composer
+    // immediately, WITHOUT waiting on the DB. Creating the row here meant the
+    // caret only landed after a getUser() + (maybe) folder fetch + insert
+    // round-trip, which is the lag Leny hit. The composer creates the row
+    // lazily on the first send (see ComposerDock), passing the same target
+    // folder (chatRootFolderId) so a drilled-folder new chat still lands right.
+    if (activeId || routeConvId) {
+      // We're leaving an open thread: drop its id from the address bar (keep
+      // ?folder=) and skip the auto-open effect, so neither the URL->store
+      // restore nor the auto-open-newest pulls us back into a conversation.
+      skipAutoOpenRef.current = true;
+      navigate(
+        { pathname: "/chat", search: location.search },
+        { replace: true },
+      );
+    }
+    useChatStore.getState().clearActive();
     focusComposer();
   };
   // incognito: not listed in history, purged ~24h later
