@@ -23,6 +23,7 @@ import { useFeature } from "@/lib/use-features";
 import { useSettingsStore } from "@/stores/settings-store";
 import { ContextInspectorModal } from "../ContextInspectorModal";
 import { ChatGraphOverlay } from "./ChatGraphOverlay";
+import { ChatModelPickerContainer } from "../composer/ChatModelPickerContainer";
 
 const menuRowClass =
   "flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-secondary hover:bg-glass-hover hover:text-text-primary cursor-pointer";
@@ -83,9 +84,28 @@ export function ChatSheetHeader({
     (s) => s.setChatAutoScrollStreaming,
   );
 
-  // header overflow entries, shared by the desktop and mobile kebabs
-  const renderOverflowItems = (close: () => void) => (
+  // header overflow entries, shared by the desktop and mobile kebabs.
+  // On mobile the context-inspector (eye) lives in this menu instead of its own
+  // button, so pass includeInspector there; desktop keeps its standalone eye.
+  const renderOverflowItems = (
+    close: () => void,
+    opts?: { includeInspector?: boolean },
+  ) => (
     <>
+      {opts?.includeInspector && (
+        <button
+          type="button"
+          onClick={() => {
+            close();
+            setInspectorOpen(true);
+          }}
+          className={menuRowClass}
+          aria-haspopup="dialog"
+        >
+          <Eye size={16} strokeWidth={1.5} />
+          {t("chat.contextInspector.open")}
+        </button>
+      )}
       {graphEnabled && (
         <button
           type="button"
@@ -206,36 +226,48 @@ export function ChatSheetHeader({
         </FloatingMenu>
       </div>
 
-      {/* mobile header: the only top bar on /chat. hamburger opens the
-          conversation drawer. owns the safe-area top inset itself. */}
+      {/* mobile header: the only top bar on /chat. Gemini-style, roomy tap
+          targets. Order: hamburger (drawer) · model picker (center, replaces
+          the conversation title) · new chat · overflow (holds the context
+          inspector). Owns the safe-area top inset itself. */}
       <div
-        className="flex items-center gap-1 px-2 pb-2 sm:hidden"
+        className="flex items-center gap-0.5 px-1.5 pb-2 sm:hidden"
         style={{ paddingTop: "calc(0.5rem + var(--spacing-safe-top, 0px))" }}
       >
         <IconButton
-          size="sm"
+          size="md"
+          className="h-11 w-11"
           onClick={onOpenDrawer}
           aria-label={t("chat.title")}
         >
-          <Menu size={20} strokeWidth={1.5} />
+          <Menu size={24} strokeWidth={1.5} />
         </IconButton>
-        <span className="min-w-0 flex-1 truncate px-1 font-display text-[15px] font-semibold text-text-primary">
-          {activeTitle}
-        </span>
-        <IconButton
-          size="sm"
-          onClick={() => setInspectorOpen(true)}
-          aria-label={t("chat.contextInspector.open")}
+        <div className="flex min-w-0 flex-1 items-center justify-center">
+          <ChatModelPickerContainer />
+        </div>
+        <Tooltip
+          label={t("chat.newConversation")}
+          shortcut="chat:new"
+          side="bottom"
         >
-          <Eye size={20} strokeWidth={1.5} />
-        </IconButton>
+          <IconButton
+            size="md"
+            className="h-11 w-11"
+            onClick={onNew}
+            aria-label={t("chat.newConversation")}
+            data-tour="chat-new"
+          >
+            <SquarePen size={22} strokeWidth={1.5} />
+          </IconButton>
+        </Tooltip>
         <span ref={overflowAnchorMobileRef} className="inline-flex">
           <IconButton
-            size="sm"
+            size="md"
+            className="h-11 w-11"
             onClick={() => setOverflowOpenMobile((v) => !v)}
             aria-label={t("settings.aiSection.moreActions")}
           >
-            <MoreHorizontal size={20} strokeWidth={1.5} />
+            <MoreHorizontal size={22} strokeWidth={1.5} />
           </IconButton>
         </span>
         <FloatingMenu
@@ -243,22 +275,10 @@ export function ChatSheetHeader({
           anchorRef={overflowAnchorMobileRef}
           onClose={() => setOverflowOpenMobile(false)}
         >
-          {renderOverflowItems(() => setOverflowOpenMobile(false))}
+          {renderOverflowItems(() => setOverflowOpenMobile(false), {
+            includeInspector: true,
+          })}
         </FloatingMenu>
-        <Tooltip
-          label={t("chat.newConversation")}
-          shortcut="chat:new"
-          side="bottom"
-        >
-          <IconButton
-            size="sm"
-            onClick={onNew}
-            aria-label={t("chat.newConversation")}
-            data-tour="chat-new"
-          >
-            <SquarePen size={20} strokeWidth={1.5} />
-          </IconButton>
-        </Tooltip>
       </div>
 
       <ContextInspectorModal
