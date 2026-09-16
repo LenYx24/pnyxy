@@ -23,6 +23,7 @@ import {
 } from "@/lib/roadmap/roadmap-agent";
 import { detectRoadmapIntent } from "@/lib/roadmap/roadmap-tools";
 import { runLibraryAgenticLoop } from "@/lib/ai/library-agent";
+import { detectLibraryOrganizeIntent } from "@/lib/ai/library-tools";
 import { INLINE_GRAPH_SPEC } from "@/lib/ai/extract-graph";
 import { OPEN_DOC_SPEC } from "@/lib/ai/extract-open-doc";
 import { useLibraryStore } from "@/stores/library-store";
@@ -442,6 +443,26 @@ export async function sendOrBranch(
         if (isAbortError(roadmapErr)) throw roadmapErr;
         logError("chat:roadmapAutoDetect:fallback", roadmapErr);
         // wipe any partial roadmap/tool output and answer as a plain chat
+        acc = "";
+        patchAssistant("");
+        acc = await streamPlain();
+      }
+    } else if (detectLibraryOrganizeIntent(trimmed)) {
+      // "organize my library" skill, auto-detected from the message (create
+      // folders, move items). Same tool path + degrade-to-plain-chat as the
+      // explicit "Organize library" composer mode; every write still asks for
+      // the user's approval, so a wrong auto-detect is safe.
+      try {
+        acc = await runLibraryAgenticLoop(
+          promptMessages,
+          preferredProvider,
+          patchAssistant,
+          signal,
+          options?.libraryToolsContext,
+        );
+      } catch (libraryErr) {
+        if (isAbortError(libraryErr)) throw libraryErr;
+        logError("chat:libraryAutoDetect:fallback", libraryErr);
         acc = "";
         patchAssistant("");
         acc = await streamPlain();

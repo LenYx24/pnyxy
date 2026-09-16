@@ -19,6 +19,24 @@ const SEP = "/";
 const MAX_SNAPSHOT_ITEMS_PER_FOLDER = 12;
 const MAX_SNAPSHOT_CHARS = 12_000;
 
+// Intent detection so the library-organize skill works in a plain chat (no need
+// to switch the composer to "Organize library"). Require BOTH a folder/library
+// noun AND an organize/create/move verb, mirroring detectRoadmapIntent, so
+// ordinary chat isn't hijacked. Short stems cover HU conjugations + English.
+// A false positive is not destructive: every write still needs the user's
+// per-action approval (see dispatchLibraryTool), so a wrong guess just shows an
+// approval card the user can reject.
+const LIBRARY_NOUN_RE = /(mapp(á|a)|folder|könyvtár|könyvtar|library)/i;
+const LIBRARY_VERB_RE =
+  /(rendez|szervez|organi[sz]e|tidy|hozz\s*l[ée]tre|creat|k[ée]sz[íi]t|mozgat|mozgasd|tedd|helyezd|pakol|sort\b|categor|csoportos)/i;
+
+/** True when a plain-chat message reads as "organize my library / make a folder and move things there". */
+export function detectLibraryOrganizeIntent(text: string): boolean {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return LIBRARY_NOUN_RE.test(lower) && LIBRARY_VERB_RE.test(lower);
+}
+
 export const LIBRARY_TOOLS: ToolDef[] = [
   {
     name: "search_library",
