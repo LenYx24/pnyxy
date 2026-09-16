@@ -25,6 +25,10 @@ import { useAuthStore } from "@/stores/auth-store";
 import { showToast } from "@/stores/toast-store";
 import { isAnonChatEnabled } from "@/lib/ai/anon-chat";
 import { useChatStore, pathFromRoot } from "@/stores/chat-store";
+import {
+  useComposerDraftStore,
+  NEW_CHAT_DRAFT_KEY,
+} from "@/stores/composer-draft-store";
 
 /**
  * When set, ChatPage runs in "book-scoped" mode: the sidebar lists only this
@@ -129,7 +133,17 @@ export function useChatPageState(scope?: ChatPageScope) {
     [scope],
   );
 
-  const [input, setInput] = useState("");
+  // Composer draft is per-conversation: each open tab keeps its own unsent
+  // text, so switching tabs shows that tab's draft (empty if untouched) rather
+  // than carrying one tab's text into another. Keyed by activeId, or the
+  // new-chat key before a conversation exists.
+  const draftKey = activeId ?? NEW_CHAT_DRAFT_KEY;
+  const input = useComposerDraftStore((s) => s.drafts[draftKey] ?? "");
+  const setDraft = useComposerDraftStore((s) => s.setDraft);
+  const setInput = useCallback(
+    (value: string) => setDraft(draftKey, value),
+    [setDraft, draftKey],
+  );
   // mobile-only slide-in conversation drawer
   const [mobileListOpen, setMobileListOpen] = useState(false);
 
@@ -201,12 +215,20 @@ export function useChatPageState(scope?: ChatPageScope) {
     if (draft.folderId) setChatRootFolderId(draft.folderId);
     void (async () => {
       // createConversation already opens it (sets active + empty thread)
-      await createConversation(
+      const newId = await createConversation(
         "",
         draft.folderId ?? null,
         draft.source ?? null,
         draft.target ?? null,
       );
+      if (!draft.autoSend && newId) {
+        // the prefill above was staged under the new-chat key (no conversation
+        // existed yet); move it onto the created conversation so it stays with
+        // that tab once it becomes active.
+        const { setDraft: stageDraft } = useComposerDraftStore.getState();
+        stageDraft(newId, draft.text);
+        stageDraft(NEW_CHAT_DRAFT_KEY, "");
+      }
       if (draft.autoSend) {
         // the only autoSend producer today is the course "Start learning" seed
         await useChatStore

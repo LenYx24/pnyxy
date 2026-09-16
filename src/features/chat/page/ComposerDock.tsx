@@ -24,6 +24,7 @@ import {
   formatReadingContextPrompt,
 } from "@/lib/reading-context";
 import { useChatStore } from "@/stores/chat-store";
+import { NEW_CHAT_DRAFT_KEY } from "@/stores/composer-draft-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useUploadStore } from "@/stores/upload-store";
 import { track } from "@/lib/telemetry";
@@ -278,6 +279,7 @@ export function ComposerDock({
           onLoadReadingContext={handleLoadReadingContext}
           contextChip={sourceChip}
           onAttachPdf={handleAttachPdf}
+          draftKey={activeId ?? NEW_CHAT_DRAFT_KEY}
           edgeToEdgeOnMobile
         />
       </div>

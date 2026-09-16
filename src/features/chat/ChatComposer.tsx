@@ -45,6 +45,7 @@ import { useIsMobile } from "@/hooks/use-media-query";
 import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
 import { useAiModelConfigStore } from "@/stores/ai-model-config-store";
 import { useChatModelStore } from "@/stores/chat-model-store";
+import { useComposerDraftStore } from "@/stores/composer-draft-store";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 import { useChatStore, pathFromRoot, windowChatHistory } from "@/stores/chat-store";
 import {
@@ -168,6 +169,11 @@ interface ChatComposerProps {
    *  context-token chip, no model picker in the bottom row; the "+" menu
    *  keeps mode / reasoning / web search. */
   compact?: boolean;
+  /** When set (the /chat tabs host), the live draft is persisted per
+   *  conversation under this key: on a key change or unmount the current text
+   *  is flushed to the composer-draft store, so each tab keeps its own draft
+   *  without notifying the parent on every keystroke. */
+  draftKey?: string;
 }
 
 const menuRowClass =
@@ -187,6 +193,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
       contextChip = null,
       onAttachPdf,
       compact = false,
+      draftKey,
     },
     ref,
   ) {
@@ -202,6 +209,28 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
       setValue(valueProp);
     }, [valueProp]);
     const onChange = useCallback((next: string) => setValue(next), []);
+
+    // Per-conversation draft persistence (the /chat tabs host passes draftKey).
+    // Keystrokes stay LOCAL (no parent re-render); the live text is flushed to
+    // the shared draft store only when the key changes (tab switch) or on
+    // unmount, so switching tabs saves the outgoing draft and the incoming
+    // one arrives through `value` (the parent reads the store reactively).
+    const valueRef = useRef(value);
+    valueRef.current = value;
+    useEffect(() => {
+      if (draftKey === undefined) return;
+      // Adopt this conversation's saved draft. Loading here (not just via the
+      // `value` seed) is required because two tabs can both be empty in the
+      // store, so `value` wouldn't change on the switch and the stale local
+      // text would linger.
+      setValue(useComposerDraftStore.getState().drafts[draftKey] ?? "");
+      return () => {
+        // Flush the live text back to THIS key when leaving it (tab switch or
+        // unmount), so returning restores it. Keystrokes stay local until here,
+        // so typing never re-renders the page.
+        useComposerDraftStore.getState().setDraft(draftKey, valueRef.current);
+      };
+    }, [draftKey]);
     // keep the parent's copy in step at the points it cares about (the
     // seed it holds, so a later identical prefill still re-triggers the
     // sync effect above), without a re-render per keystroke
