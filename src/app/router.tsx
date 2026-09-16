@@ -9,12 +9,26 @@ import { RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { lazyWithRetry as lazy } from "@/lib/lazy-with-retry";
 import { FeatureGate } from "@/components/FeatureGate";
 import { setAppRouter } from "@/lib/app-router-ref";
+import { useAuthStore } from "@/stores/auth-store";
 
 /** /browse/:bookId -> /books/:bookId (element instead of a loader so the
  *  catalog FeatureGate can wrap it). */
 function BrowseBookRedirect() {
   const { bookId } = useParams();
   return <Navigate to={`/books/${bookId}`} replace />;
+}
+
+/** Root "/": signed-in users open on the AI chat (the core surface); signed-out
+ *  visitors keep the original overview/landing entry, so a cold visitor from
+ *  search still gets the front page rather than a login wall. Auth is read from
+ *  the store (not the loader) because the Supabase session restores async; we
+ *  render nothing until it settles to avoid an overview -> chat flash. */
+function RootIndex() {
+  const user = useAuthStore((s) => s.user);
+  const loading = useAuthStore((s) => s.loading);
+  if (loading) return null;
+  if (user) return <Navigate to="/chat" replace />;
+  return <HomePage />;
 }
 
 // Eager routes: on the first-paint path, keep them in the main bundle
@@ -371,13 +385,14 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <HomePage />,
-        // first-time visitors get redirected to /landing; flag is set on LandingPage mount
+        // Signed-in -> /chat, signed-out -> overview/landing (decided in the
+        // element by auth). The loader keeps the first-time-mobile /landing
+        // bounce; everything else falls through to RootIndex.
+        element: <RootIndex />,
         loader: () => {
           if (typeof window === "undefined") return null;
-          // Desktop (native app or a wide viewport) goes straight into the
-          // app; the landing stays a mobile/marketing entry. /landing is
-          // still reachable directly by URL.
+          // Desktop (native app or a wide viewport) falls through to RootIndex;
+          // the landing stays a mobile/marketing entry, still reachable by URL.
           try {
             if (isTauri || window.matchMedia("(min-width: 768px)").matches) {
               return null;
@@ -386,6 +401,7 @@ export const router = createBrowserRouter([
             return null;
           }
           try {
+            // first-time visitors get /landing once; flag set on LandingPage mount
             if (localStorage.getItem("pnyxy:has-seen-landing")) return null;
           } catch {
             return null;
@@ -393,6 +409,9 @@ export const router = createBrowserRouter([
           return redirect("/landing");
         },
       },
+      // Overview/home, also served at "/" for signed-out visitors. The sidebar
+      // logo links here so signed-in users can still reach it.
+      { path: "home", element: <HomePage /> },
       { path: "browse", element: <FeatureGate feature="catalog"><BrowsePage /></FeatureGate> },
       { path: "catalog", element: <FeatureGate feature="catalog"><BrowsePage /></FeatureGate> },
       { path: "catalog/import", element: <FeatureGate feature="catalog"><ImportCatalogPage /></FeatureGate> },
