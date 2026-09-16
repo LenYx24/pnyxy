@@ -157,7 +157,11 @@ export function ChatPage({ scope }: { scope?: ChatPageScope } = {}) {
               // no animation while settling: a corrected guess snaps
               // silently instead of visibly sliding the composer
               page.settling && "transition-none",
-              page.sheetCentered ? "grow" : "grow-0",
+              // Centered (Gemini-style) only while the keyboard is closed. On
+              // mobile the soft keyboard opening (e.g. right after "new chat"
+              // focuses the composer) would otherwise float the box mid-screen
+              // over the keyboard; dock it to the bottom instead.
+              page.sheetCentered && keyboardInset === 0 ? "grow" : "grow-0",
             )}
           />
         </div>
