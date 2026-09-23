@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import {
   BotMessageSquare,
   ChevronDown,
-  ChevronLeft,
   Download,
   Eye,
   Gauge,
@@ -42,6 +41,7 @@ import { logError } from "@/lib/logger";
 import { showToast } from "@/stores/toast-store";
 import type { IDockviewPanelProps } from "dockview";
 import type { ChatConversation, ChatMessage } from "@/types/chat";
+import { ReaderConversationList } from "./ReaderConversationList";
 import { PanelShell } from "./PanelShell";
 import { ContextSummaryPill } from "./ContextSummaryPill";
 import { InlineAiPagePicker } from "./InlineAiPagePicker";
@@ -76,6 +76,9 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const streamingMessageId = useChatStore((s) => s.streamingMessageId);
   const isChatLoading = useChatStore((s) => s.isLoading);
   const fetchConversations = useChatStore((s) => s.fetchConversations);
+  // folder names are the list's subtitles; fetched with the conversations
+  const chatFolders = useChatStore((s) => s.folders);
+  const fetchChatFolders = useChatStore((s) => s.fetchFolders);
   const createConversation = useChatStore((s) => s.createConversation);
   const openConversation = useChatStore((s) => s.openConversation);
   const deleteConversation = useChatStore((s) => s.deleteConversation);
@@ -89,11 +92,6 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
 
   const { confirm, ConfirmModalElement } = useConfirm();
   const isStreaming = streamingMessageId !== null;
-
-  const docConversations: ChatConversation[] = useMemo(
-    () => conversations.filter((c) => c.source_doc_id === activeDocumentId),
-    [conversations, activeDocumentId],
-  );
 
   // only active when source_doc_id matches the current doc, else a foreign
   // book's title/messages leak in before the auto-snap effect runs
@@ -167,11 +165,12 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
   const [titleInput, setTitleInput] = useState("");
   const titleInputRef = useRef<HTMLInputElement>(null);
 
-  // fetch the conversation list once per signed-in mount
+  // fetch the conversation list (and folder names) once per signed-in mount
   useEffect(() => {
     if (!user) return;
     void fetchConversations();
-  }, [user, fetchConversations]);
+    void fetchChatFolders();
+  }, [user, fetchConversations, fetchChatFolders]);
 
   // "Send to AI" handoff: drain the stashed draft, arm the citation.
   // handleSubmit lazily creates a doc-scoped conversation on first send.
@@ -340,6 +339,22 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
     if (!ok) return;
     await deleteConversation(activeConversationId);
   }, [activeConversationId, confirm, deleteConversation, t]);
+
+  // Delete straight from the list, so tidying up doesn't mean opening each
+  // conversation first. Same confirm as the header's delete.
+  const handleDeleteFromList = useCallback(
+    async (conversation: ChatConversation) => {
+      const ok = await confirm({
+        title: t("reader.aiChat.deleteConversationTitle"),
+        body: t("reader.aiChat.deleteConversationBody"),
+        confirmLabel: t("common.delete"),
+        danger: true,
+      });
+      if (!ok) return;
+      await deleteConversation(conversation.id);
+    },
+    [confirm, deleteConversation, t],
+  );
 
   const hasUsableProvider = useMemo(() => {
     return enabledProviders.some((p) => {
@@ -748,68 +763,27 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         </div>
       </div>
 
-      {/* Conversation list overlay. Dismissed only via its header X, no
-          tap-outside (avoids accidental mid-scroll close). */}
+      {/* Conversation list overlay. Dismissed only via its own back button,
+          no tap-outside (avoids accidental mid-scroll close). */}
       <div
         className={cn(
           "absolute inset-0 z-20 flex flex-col bg-bg-primary transition-transform duration-200",
           listOpen ? "translate-x-0" : "-translate-x-full pointer-events-none",
         )}
       >
-        <div className="flex items-center justify-between gap-1 px-2 py-1">
-          <button
-            type="button"
-            onClick={() => setListOpen(false)}
-            className="flex h-8 w-8 items-center justify-center rounded-[8px] text-text-muted-2 transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
-            aria-label={t("common.close")}
-          >
-            <ChevronLeft size={18} strokeWidth={1.5} />
-          </button>
-          <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">
-            {t("reader.aiChat.conversations")}
-          </span>
-          <button
-            type="button"
-            onClick={handleNewConversation}
-            className="flex h-8 w-8 items-center justify-center rounded-[8px] text-text-muted-2 transition-colors hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
-            title={t("reader.aiChat.newConversationForDoc")}
-            aria-label={t("reader.aiChat.newConversationForDoc")}
-          >
-            <Plus size={18} strokeWidth={1.5} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-2">
-          {docConversations.length === 0 ? (
-            <p className="px-2 py-6 text-center text-xs text-text-muted">
-              {t("reader.aiChat.noConversationsForDoc")}
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {docConversations.map((c) => (
-                <li key={c.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void openConversation(c.id);
-                      setListOpen(false);
-                    }}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-left text-sm transition-colors cursor-pointer",
-                      c.id === activeConversationId
-                        ? "bg-bg-tertiary text-text-primary"
-                        : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary",
-                    )}
-                  >
-                    <span className="min-w-0 flex-1 truncate">
-                      {c.title || t("chat.untitled")}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <ReaderConversationList
+          conversations={conversations}
+          folders={chatFolders}
+          docId={activeDocumentId ?? null}
+          activeId={activeConversationId}
+          onOpen={(id) => {
+            void openConversation(id);
+            setListOpen(false);
+          }}
+          onNew={handleNewConversation}
+          onDelete={handleDeleteFromList}
+          onClose={() => setListOpen(false)}
+        />
       </div>
 
       {ConfirmModalElement}

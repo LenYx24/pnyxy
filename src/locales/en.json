@@ -2809,6 +2809,8 @@
       "showConversations": "Show conversations",
       "newConversationForDoc": "New conversation about this book",
       "noConversationsForDoc": "No conversations about this book yet.",
+      "scopeThisDoc": "This book",
+      "scopeAll": "All chats",
       "loadingConversation": "Loading…",
       "signInRequired": "Sign in to use AI chat in the reader.",
       "deleteConversationTitle": "Delete this conversation?",

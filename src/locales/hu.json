@@ -3045,6 +3045,8 @@
       "resumeSummaryPrompt": "Foglald össze a könyv eddig elolvasott részét, a(z) {{page}}. oldalig. Emeld ki a fő gondolatokat és azok kapcsolódását, hogy folytatni tudjam ott, ahol abbahagytam.",
       "pagesContextNote": "A szövegréteg nélküli oldalak képként mennek; a szöveges oldalakon lévő ábrák nem csatolódnak automatikusan, kapcsold be a „képként küldés”-t az oldalválasztóban, ha kellenek.",
       "noConversationsForDoc": "Még nincs beszélgetés erről a könyvről.",
+      "scopeThisDoc": "Ez a könyv",
+      "scopeAll": "Összes chat",
       "loadingConversation": "Betöltés…",
       "signInRequired": "Az olvasó AI chat használatához jelentkezz be.",
       "deleteConversationTitle": "Törlöd ezt a beszélgetést?",
