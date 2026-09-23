@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { BotMessageSquare, Eye, ImagePlus, SquarePen, X } from "lucide-react";
+import {
+  BotMessageSquare,
+  Eye,
+  ImagePlus,
+  PencilRuler,
+  SquarePen,
+  X,
+} from "lucide-react";
 import { useChatStore, pathFromRoot } from "@/stores/chat-store";
 import {
   ChatComposer,
@@ -10,7 +17,9 @@ import {
 } from "@/features/chat/ChatComposer";
 import { ContextInspectorModal } from "@/features/chat/ContextInspectorModal";
 import { MessageBubble } from "@/features/chat/MessageBubble";
+import { cn } from "@/lib/cn";
 import { useAuthStore } from "@/stores/auth-store";
+import { useSettingsStore } from "@/stores/settings-store";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useReadAloud } from "@/hooks/use-read-aloud";
 import { TypingIndicator } from "@/components/ui";
@@ -29,8 +38,12 @@ interface WhiteboardChatPanelProps {
 
 /**
  * AI chat sidebar for the whiteboard. Reuses the chat store + composer, with
- * conversations scoped to the board's book. The "attach board" button snapshots
- * the canvas so the model can see the drawing (image context).
+ * conversations scoped to the board's book.
+ *
+ * Two ways for the model to see the board. With board tools on (the default),
+ * every turn carries a fresh snapshot and the model can draw back through the
+ * whiteboard tools; the toolbar toggle turns that off for a plain chat, where
+ * the "attach board" button still sends a one-off snapshot by hand.
  */
 export function WhiteboardChatPanel({
   scopeId,
@@ -40,6 +53,8 @@ export function WhiteboardChatPanel({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const boardToolsEnabled = useSettingsStore((s) => s.aiWhiteboardTools);
+  const setBoardToolsEnabled = useSettingsStore((s) => s.setAiWhiteboardTools);
 
   const conversations = useChatStore((s) => s.conversations);
   const activeConversationId = useChatStore((s) => s.activeConversationId);
@@ -132,6 +147,12 @@ export function WhiteboardChatPanel({
         payload.attachments.length > 0 ? payload.attachments : undefined,
         {
           scope: "whiteboard",
+          ...(boardToolsEnabled
+            ? {
+                whiteboardTools: true,
+                whiteboardToolsContext: `The board is titled "${scopeTitle}".`,
+              }
+            : {}),
           ...(payload.reasoning ? { reasoning: true } : {}),
           ...(payload.webSearch ? { webSearch: true } : {}),
         },
@@ -145,6 +166,7 @@ export function WhiteboardChatPanel({
       scopeId,
       scopeTitle,
       sendMessage,
+      boardToolsEnabled,
     ],
   );
 
@@ -169,7 +191,7 @@ export function WhiteboardChatPanel({
       kind: "image",
       media_type: img.media_type,
       data: img.data,
-      name: `board-${Date.now()}.png`,
+      name: `board-${Date.now()}.jpg`,
     };
     composerRef.current?.addAttachments([att]);
   }, []);
@@ -215,13 +237,32 @@ export function WhiteboardChatPanel({
         </button>
         <button
           type="button"
-          onClick={handleAttachBoard}
-          className={iconBtn}
-          title={t("whiteboard.chat.attachBoard")}
-          aria-label={t("whiteboard.chat.attachBoard")}
+          onClick={() => setBoardToolsEnabled(!boardToolsEnabled)}
+          className={cn(
+            iconBtn,
+            boardToolsEnabled && "bg-accent/15 text-accent hover:text-accent",
+          )}
+          title={
+            boardToolsEnabled
+              ? t("whiteboard.chat.boardToolsOn")
+              : t("whiteboard.chat.boardToolsOff")
+          }
+          aria-label={t("whiteboard.chat.boardToolsLabel")}
+          aria-pressed={boardToolsEnabled}
         >
-          <ImagePlus size={17} />
+          <PencilRuler size={17} />
         </button>
+        {!boardToolsEnabled && (
+          <button
+            type="button"
+            onClick={handleAttachBoard}
+            className={iconBtn}
+            title={t("whiteboard.chat.attachBoard")}
+            aria-label={t("whiteboard.chat.attachBoard")}
+          >
+            <ImagePlus size={17} />
+          </button>
+        )}
         <button
           type="button"
           onClick={handleNew}

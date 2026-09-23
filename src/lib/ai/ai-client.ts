@@ -42,7 +42,22 @@ export type ToolResultBlock = {
   content: string;
   is_error?: boolean;
 };
-export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock;
+/** Image on a tool-mode user turn, Anthropic-shaped (the proxy converts it
+ *  for the OpenAI-compat upstreams). Lets a tool loop show the model what it
+ *  is working on, e.g. the whiteboard the drawing tools edit. */
+export type ToolImageBlock = {
+  type: "image";
+  source: {
+    type: "base64";
+    media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+    data: string;
+  };
+};
+export type ContentBlock =
+  | TextBlock
+  | ToolUseBlock
+  | ToolResultBlock
+  | ToolImageBlock;
 
 export interface ToolMessage {
   role: "user" | "assistant";
@@ -1513,16 +1528,35 @@ function toOpenAiMessages(m: ToolMessage): Array<Record<string, unknown>> {
     return [msg];
   }
   // tool_result blocks become `role: "tool"` messages keyed by tool_call_id;
-  // any text goes as a user message before them
+  // any text (and image) goes as a user message before them
   const texts = m.content
     .filter((b): b is TextBlock => b.type === "text")
     .map((b) => b.text)
     .join("");
+  const images = m.content.filter(
+    (b): b is ToolImageBlock => b.type === "image",
+  );
   const toolResults = m.content.filter(
     (b): b is ToolResultBlock => b.type === "tool_result",
   );
   const out: Array<Record<string, unknown>> = [];
-  if (texts) out.push({ role: "user", content: texts });
+  if (images.length > 0) {
+    // OpenAI multimodal: image parts first, then the text prompt
+    out.push({
+      role: "user",
+      content: [
+        ...images.map((b) => ({
+          type: "image_url",
+          image_url: {
+            url: `data:${b.source.media_type};base64,${b.source.data}`,
+          },
+        })),
+        ...(texts ? [{ type: "text", text: texts }] : []),
+      ],
+    });
+  } else if (texts) {
+    out.push({ role: "user", content: texts });
+  }
   for (const r of toolResults) {
     out.push({
       role: "tool",

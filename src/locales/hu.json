@@ -1038,8 +1038,11 @@
     "chat": {
       "title": "Tábla AI",
       "attachBoard": "Pillanatkép csatolása a tábláról",
-      "empty": "Kérdezz a tábládról, a kép gombbal csatolj pillanatképet, hogy az AI lássa, mit rajzoltál.",
-      "toggle": "AI-chat"
+      "empty": "Kérdezz a tábládról. Az AI látja, amit rajzoltál, és rajzolni is tud; a vonalzó gombbal kapcsolhatod ki.",
+      "toggle": "AI-chat",
+      "boardToolsOn": "Az AI látja a táblát és rajzolhat rá (kattints a kikapcsoláshoz)",
+      "boardToolsOff": "AI-rajzolás kikapcsolva: a tábla csak csatoláskor megy el",
+      "boardToolsLabel": "Az AI rajzolhat a táblára"
     }
   },
   "catalogImport": {

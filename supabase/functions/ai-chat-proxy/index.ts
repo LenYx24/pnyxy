@@ -136,6 +136,31 @@ function estimateMessageTokens(content: string | ContentBlock[]): number {
   return total;
 }
 
+/** Tool-mode counterpart of estimateMessageTokens. Billing a tool turn by
+ *  JSON.stringify length would charge an attached image by its base64 size
+ *  (hundreds of thousands of "tokens" for one screenshot), so image blocks
+ *  are billed at the same flat rate as in plain chat. */
+function estimateToolMessagesTokens(
+  messages: NonNullable<ChatRequestBody["toolMessages"]>,
+): number {
+  let total = 0;
+  for (const m of messages) {
+    if (typeof m.content === "string") {
+      total += estimateTokens(m.content);
+      continue;
+    }
+    for (const raw of m.content) {
+      const block = raw as Record<string, unknown>;
+      if (block.type === "image") {
+        total += IMAGE_TOKEN_COST;
+      } else {
+        total += estimateTokens(JSON.stringify(block));
+      }
+    }
+  }
+  return total;
+}
+
 /** Convert an Anthropic-shape content block to OpenAI's chat-
  *  completions multimodal shape. Strings pass through unchanged. */
 function toOpenAiContent(
@@ -468,7 +493,7 @@ Deno.serve(async (req) => {
   const inputTokens = toolMode
     ? estimateTokens(body.systemPromptOverride ?? "") +
       estimateTokens(JSON.stringify(body.tools ?? [])) +
-      estimateTokens(JSON.stringify(body.toolMessages ?? []))
+      estimateToolMessagesTokens(body.toolMessages ?? [])
     : estimateTokens(body.pageContext ?? "") +
       estimateTokens(body.systemPromptOverride ?? "") +
       // estimateMessageTokens covers both plain string content
@@ -1020,7 +1045,14 @@ Deno.serve(async (req) => {
 type ToolBlock =
   | { type: "text"; text: string }
   | { type: "tool_use"; id: string; name: string; input: unknown }
-  | { type: "tool_result"; tool_use_id: string; content: string; is_error?: boolean };
+  | { type: "tool_result"; tool_use_id: string; content: string; is_error?: boolean }
+  // A tool turn can carry what the model is working on, e.g. the whiteboard
+  // snapshot the drawing tools edit. Anthropic-shaped on the wire like the
+  // plain-chat attachments.
+  | {
+      type: "image";
+      source: { type: "base64"; media_type: string; data: string };
+    };
 
 /** Anthropic-shaped tool turn → OpenAI chat messages: an assistant turn
  *  becomes one message with `tool_calls`, a user turn splits into one
@@ -1052,11 +1084,30 @@ function toOpenAiToolMessages(
     return [msg];
   }
   const texts = textOf(blocks);
+  const images = blocks.filter(
+    (b): b is Extract<ToolBlock, { type: "image" }> => b.type === "image",
+  );
   const results = blocks.filter(
     (b): b is Extract<ToolBlock, { type: "tool_result" }> => b.type === "tool_result",
   );
   const out: Array<Record<string, unknown>> = [];
-  if (texts) out.push({ role: "user", content: texts });
+  if (images.length > 0) {
+    // multimodal user turn: image parts first, then the text prompt
+    out.push({
+      role: "user",
+      content: [
+        ...images.map((b) => ({
+          type: "image_url",
+          image_url: {
+            url: `data:${b.source.media_type};base64,${b.source.data}`,
+          },
+        })),
+        ...(texts ? [{ type: "text", text: texts }] : []),
+      ],
+    });
+  } else if (texts) {
+    out.push({ role: "user", content: texts });
+  }
   for (const r of results) {
     out.push({ role: "tool", tool_call_id: r.tool_use_id, content: r.content });
   }

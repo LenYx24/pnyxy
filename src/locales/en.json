@@ -823,8 +823,11 @@
     "chat": {
       "title": "Board AI",
       "attachBoard": "Attach a snapshot of the board",
-      "empty": "Ask about your board, tap the image button to attach a snapshot so the AI can see what you drew.",
-      "toggle": "AI chat"
+      "empty": "Ask about your board. The AI sees what you drew and can draw on it too; use the ruler button to turn that off.",
+      "toggle": "AI chat",
+      "boardToolsOn": "AI can see and draw on the board (click to turn off)",
+      "boardToolsOff": "AI drawing off: the board is only sent when you attach it",
+      "boardToolsLabel": "Let the AI draw on the board"
     }
   },
   "catalogImport": {

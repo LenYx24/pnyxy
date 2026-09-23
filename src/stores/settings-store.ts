@@ -108,6 +108,9 @@ interface SettingsState {
   aiContextBindings: AiContextBindings;
   /** Book-tied chats auto-include the book's TOC in the system prompt. */
   aiAttachToc: boolean;
+  /** Whiteboard side-chat sends the board as an image and lets the model
+   *  draw back through the board tools. */
+  aiWhiteboardTools: boolean;
   /** Chat message / composer font size in px (13–18). */
   chatFontSize: number;
   /** Default N for the "select pages [current-N, current+N] around current" button. */
@@ -201,6 +204,7 @@ interface SettingsState {
     presetId: string | null,
   ) => void;
   setAiAttachToc: (v: boolean) => void;
+  setAiWhiteboardTools: (v: boolean) => void;
   setChatFontSize: (v: number) => void;
   setAiSurroundingPagesCount: (v: number) => void;
   setActiveTracker: (id: string) => void;
@@ -269,6 +273,7 @@ export const useSettingsStore = create<SettingsState>()(
       aiDefaultContextId: null,
       aiContextBindings: emptyAiContextBindings(),
       aiAttachToc: true,
+      aiWhiteboardTools: true,
       chatFontSize: 15,
       aiSurroundingPagesCount: 5,
       activeTrackerId: DEFAULT_TRACKER_ID,
@@ -429,6 +434,7 @@ export const useSettingsStore = create<SettingsState>()(
         queueSync(get);
       },
       setAiAttachToc: (v) => set({ aiAttachToc: v }),
+      setAiWhiteboardTools: (v) => set({ aiWhiteboardTools: v }),
       setChatFontSize: (v) => set({ chatFontSize: Math.min(18, Math.max(13, Math.round(v))) }),
       // clamp 0..50 so one click can't flood the prompt with pages
       setAiSurroundingPagesCount: (v) =>
