@@ -24,6 +24,8 @@ import type {
 import { BookChatTree } from "./BookChatTree";
 import { isQuickChatsFolder } from "./conversation-groups";
 import { useChatSidebarView } from "./useChatSidebarView";
+import { useContentSearch } from "./useContentSearch";
+import { useSettingsStore } from "@/stores/settings-store";
 import {
   ChatSidebarProvider,
   type ChatSidebarActions,
@@ -160,6 +162,18 @@ export function ChatSidebar({
   // names. A matching folder is shown with its whole subtree (so it can
   // be opened / browsed), a matching conversation with its ancestors.
   const [conversationSearch, setConversationSearch] = useState("");
+  // Opt-in message-content search (migration 00090's RPC). Its hits are
+  // merged into the same filter as the title matches, so a conversation
+  // found by something said inside it appears in its usual place in the tree.
+  const contentSearchEnabled = useSettingsStore((s) => s.chatSearchInMessages);
+  const setContentSearchEnabled = useSettingsStore(
+    (s) => s.setChatSearchInMessages,
+  );
+  const contentSearch = useContentSearch(
+    conversationSearch,
+    contentSearchEnabled,
+  );
+  const contentHits = contentSearch.hits;
   const filteredConversationData = useMemo(() => {
     const q = conversationSearch.trim().toLowerCase();
     if (!q) {
@@ -192,10 +206,12 @@ export function ChatSidebar({
         keepAncestors(f.id);
       }
     }
-    // conversation hits: title match, or living inside a matched folder
+    // conversation hits: title match, a message-content hit, or living
+    // inside a matched folder
     const matched = visibleConversations.filter(
       (c) =>
         (c.title || "").toLowerCase().includes(q) ||
+        contentHits.has(c.id) ||
         insideMatchedFolder(c.folder_id),
     );
     for (const c of matched) keepAncestors(c.folder_id);
@@ -203,7 +219,23 @@ export function ChatSidebar({
       conversations: matched,
       folders: folders.filter((f) => keptFolderIds.has(f.id)),
     };
-  }, [visibleConversations, folders, conversationSearch]);
+  }, [visibleConversations, folders, conversationSearch, contentHits]);
+
+  // one line under the box: searching / how many threads matched inside
+  const contentSearchStatus = useMemo(() => {
+    if (!contentSearchEnabled || conversationSearch.trim().length === 0) {
+      return undefined;
+    }
+    if (contentSearch.searching) return t("chat.searchInMessagesSearching");
+    if (contentHits.size === 0) return undefined;
+    return t("chat.searchInMessagesHits", { count: contentHits.size });
+  }, [
+    contentSearchEnabled,
+    conversationSearch,
+    contentSearch.searching,
+    contentHits,
+    t,
+  ]);
 
   const handleCollapseAll = useCallback(() => {
     setCollapsedFolders(new Set(folders.map((f) => f.id)));
@@ -386,6 +418,10 @@ export function ChatSidebar({
           showSearch={conversations.length > 0}
           search={conversationSearch}
           onSearchChange={setConversationSearch}
+          contentSearch={contentSearchEnabled}
+          onContentSearchChange={setContentSearchEnabled}
+          showContentSearchToggle={!contentSearch.unavailable}
+          contentSearchStatus={contentSearchStatus}
         />
 
         <ChatSidebarProvider value={sidebarActions}>

@@ -111,6 +111,9 @@ interface SettingsState {
   /** Whiteboard side-chat sends the board as an image and lets the model
    *  draw back through the board tools. */
   aiWhiteboardTools: boolean;
+  /** Chat sidebar search also looks inside message content (a server
+   *  round-trip, so it is opt-in). */
+  chatSearchInMessages: boolean;
   /** Chat message / composer font size in px (13–18). */
   chatFontSize: number;
   /** Default N for the "select pages [current-N, current+N] around current" button. */
@@ -205,6 +208,7 @@ interface SettingsState {
   ) => void;
   setAiAttachToc: (v: boolean) => void;
   setAiWhiteboardTools: (v: boolean) => void;
+  setChatSearchInMessages: (v: boolean) => void;
   setChatFontSize: (v: number) => void;
   setAiSurroundingPagesCount: (v: number) => void;
   setActiveTracker: (id: string) => void;
@@ -274,6 +278,7 @@ export const useSettingsStore = create<SettingsState>()(
       aiContextBindings: emptyAiContextBindings(),
       aiAttachToc: true,
       aiWhiteboardTools: true,
+      chatSearchInMessages: false,
       chatFontSize: 15,
       aiSurroundingPagesCount: 5,
       activeTrackerId: DEFAULT_TRACKER_ID,
@@ -435,6 +440,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
       setAiAttachToc: (v) => set({ aiAttachToc: v }),
       setAiWhiteboardTools: (v) => set({ aiWhiteboardTools: v }),
+      setChatSearchInMessages: (v) => set({ chatSearchInMessages: v }),
       setChatFontSize: (v) => set({ chatFontSize: Math.min(18, Math.max(13, Math.round(v))) }),
       // clamp 0..50 so one click can't flood the prompt with pages
       setAiSurroundingPagesCount: (v) =>

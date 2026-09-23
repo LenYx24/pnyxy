@@ -21,6 +21,7 @@ import {
   Zap,
 } from "lucide-react";
 import {
+  Checkbox,
   IconButton,
   Tooltip,
   chipClass,
@@ -50,6 +51,13 @@ interface SidebarToolbarProps {
   showSearch: boolean;
   search: string;
   onSearchChange: (value: string) => void;
+  /** "Search inside conversations" toggle, under the search box. Hidden
+   *  when the database has no full-text RPC (see migration 00090). */
+  contentSearch: boolean;
+  onContentSearchChange: (value: boolean) => void;
+  showContentSearchToggle: boolean;
+  /** Result line under the box: hits found, or that a search is running. */
+  contentSearchStatus?: string;
 }
 
 export function SidebarToolbar({
@@ -66,6 +74,10 @@ export function SidebarToolbar({
   showSearch,
   search,
   onSearchChange,
+  contentSearch,
+  onContentSearchChange,
+  showContentSearchToggle,
+  contentSearchStatus,
 }: SidebarToolbarProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -252,6 +264,31 @@ export function SidebarToolbar({
             <FolderPlus size={17} strokeWidth={1.5} />
           </IconButton>
         )}
+        </div>
+      )}
+
+      {/* Content search is a round-trip, so it stays opt-in and only
+          appears once there is a query worth sending. */}
+      {showSearch && showContentSearchToggle && search.trim().length > 0 && (
+        <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => onContentSearchChange(!contentSearch)}
+            className="flex items-center gap-2 rounded-control px-0.5 py-0.5 text-left text-2xs text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+          >
+            <Checkbox
+              checked={contentSearch}
+              onChange={onContentSearchChange}
+              className="h-[15px] w-[15px] rounded-[5px]"
+              aria-label={t("chat.searchInMessages")}
+            />
+            <span>{t("chat.searchInMessages")}</span>
+          </button>
+          {contentSearch && contentSearchStatus && (
+            <span className="pl-[23px] text-2xs text-text-muted-2">
+              {contentSearchStatus}
+            </span>
+          )}
         </div>
       )}
     </>
