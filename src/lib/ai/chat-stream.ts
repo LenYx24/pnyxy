@@ -23,10 +23,12 @@ import {
 } from "@/lib/roadmap/roadmap-agent";
 import { detectRoadmapIntent } from "@/lib/roadmap/roadmap-tools";
 import { runLibraryAgenticLoop } from "@/lib/ai/library-agent";
+import { runWhiteboardAgenticLoop } from "@/lib/ai/whiteboard-agent";
 import { detectLibraryOrganizeIntent } from "@/lib/ai/library-tools";
 import { INLINE_GRAPH_SPEC } from "@/lib/ai/extract-graph";
 import { OPEN_DOC_SPEC } from "@/lib/ai/extract-open-doc";
 import { useLibraryStore } from "@/stores/library-store";
+import { publishCrossTab } from "@/lib/sync/cross-tab-bus";
 import { parseChatCommands } from "@/lib/ai/chat-commands";
 import { getFeatures } from "@/lib/use-features";
 import { applyContextOverrides, useContextOverridesStore } from "@/stores/context-overrides-store";
@@ -408,6 +410,26 @@ export async function sendOrBranch(
         patchAssistant,
         signal,
       );
+    } else if (options?.whiteboardTools) {
+      // Whiteboard side-chat with drawing tools: the loop attaches a snapshot
+      // of the board to the turn, so "what did I get wrong here?" and "draw
+      // the free-body diagram" are the same conversation. Degrades to a plain
+      // answer (still with the board attached by the panel) if tools 501.
+      try {
+        acc = await runWhiteboardAgenticLoop(
+          promptMessages,
+          preferredProvider,
+          patchAssistant,
+          signal,
+          options?.whiteboardToolsContext,
+        );
+      } catch (boardErr) {
+        if (isAbortError(boardErr)) throw boardErr;
+        logError("chat:whiteboardTools:fallback", boardErr);
+        acc = "";
+        patchAssistant("");
+        acc = await streamPlain();
+      }
     } else if (options?.libraryTools) {
       // "Organize library" mode: tool loop with per-action approval cards.
       // Same degrade path as the roadmap skill when tools are unavailable.
@@ -559,6 +581,10 @@ export async function sendOrBranch(
       }
       return { messages: next, streamingMessageId: null };
     });
+    // Other tabs showing this conversation (or just its list entry) pull the
+    // new turn in; they never see the stream itself, only the finished pair.
+    publishCrossTab({ kind: "chat:thread", conversationId });
+    publishCrossTab({ kind: "chat:conversations" });
   }
 
   // fire-and-forget follow-up suggestions; the helper short-circuits on degenerate cases

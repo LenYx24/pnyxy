@@ -1,5 +1,6 @@
 import { openDB, type IDBPDatabase } from "idb";
 import { logError } from "@/lib/logger";
+import { publishCrossTab } from "@/lib/sync/cross-tab-bus";
 
 /**
  * Local-first sync queue. Mutations land in IndexedDB, the drain loop
@@ -177,6 +178,9 @@ export async function drainQueue(ctx: SyncContext): Promise<{
     }
   }
   if (processed > 0 || failed > 0) notifyChange();
+  // Rows that reached the server are visible to the other tabs now; they
+  // refetch instead of sitting on a library list that lost a book.
+  if (processed > 0) publishCrossTab({ kind: "library" });
   return { processed, failed };
 }
 

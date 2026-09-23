@@ -11,6 +11,7 @@ import { useOrgStore } from "@/stores/org-store";
 import type { ChatFolder } from "@/types/chat";
 import type { ChatGet, ChatSet, ChatState } from "./chat-types";
 import { isFolderOrDescendant } from "./chat-tree";
+import { publishCrossTab } from "@/lib/sync/cross-tab-bus";
 
 type ChatFolderSlice = Pick<
   ChatState,
@@ -80,6 +81,7 @@ export function createChatFolderSlice(
         return null;
       }
       await get().fetchFolders();
+      publishCrossTab({ kind: "chat:conversations" });
       return data.id as string;
     },
 
@@ -131,6 +133,7 @@ export function createChatFolderSlice(
           f.id === id ? { ...f, name: trimmed } : f,
         ),
       }));
+      publishCrossTab({ kind: "chat:conversations" });
     },
 
     async deleteFolder(id) {
@@ -141,6 +144,7 @@ export function createChatFolderSlice(
       }
       // server cascades subfolders + nulls conversations, refresh both
       await Promise.all([get().fetchFolders(), get().fetchConversations()]);
+      publishCrossTab({ kind: "chat:conversations" });
     },
 
     async moveFolderToParent(id, parentId, sortOrder) {
@@ -188,6 +192,7 @@ export function createChatFolderSlice(
         }));
         return;
       }
+      publishCrossTab({ kind: "chat:conversations" });
     },
 
     async reorderFolder(id, sortOrder) {
@@ -210,7 +215,9 @@ export function createChatFolderSlice(
             f.id === id ? { ...f, sort_order: previousSortOrder } : f,
           ),
         }));
+        return;
       }
+      publishCrossTab({ kind: "chat:conversations" });
     },
   };
 }

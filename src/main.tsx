@@ -8,6 +8,7 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { useReadingSessionStore } from "@/stores/reading-session-store";
 import { initLaunchedFiles } from "@/lib/launched-files";
 import { startSyncOrchestrator } from "@/lib/sync/sync-orchestrator";
+import { startCrossTabSync } from "@/lib/sync/cross-tab-sync";
 import { startServerHeartbeat } from "@/lib/sync/server-heartbeat";
 import { registerSyncEntityHandlers } from "@/lib/sync/sync-entity-handlers";
 import { loadUserCss } from "@/lib/user-css";
@@ -69,6 +70,9 @@ startSyncOrchestrator();
 
 // probes reachability instead of trusting navigator.onLine
 startServerHeartbeat();
+
+// keeps a second browser tab's chat list / open thread / library in step
+startCrossTabSync();
 
 // PWA launchQueue buffers until React mounts a listener, so register early
 initLaunchedFiles();

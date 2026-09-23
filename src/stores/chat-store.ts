@@ -19,6 +19,7 @@ import { sendImageMessageTurn } from "@/lib/ai/chat-image-message";
 import i18n from "@/lib/i18n";
 import { track } from "@/lib/telemetry";
 import { createChatFolderSlice } from "@/stores/chat/chat-folders";
+import { publishCrossTab } from "@/lib/sync/cross-tab-bus";
 import {
   newestMessage,
   pathFromRoot,
@@ -163,6 +164,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // in-flight openConversation (auto-open racing the "+" button) set
       isLoading: false,
     }));
+    publishCrossTab({ kind: "chat:conversations" });
     return data.id as string;
   },
 
@@ -234,6 +236,60 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  /**
+   * Silent re-read of the open thread, for a cross-tab notification: another
+   * tab sent a message into the conversation this tab has open. Unlike
+   * openConversation it never blanks the thread and never shows a spinner,
+   * so the view just gains the new bubbles. Skipped while this tab is the
+   * one streaming, its own optimistic state is newer than the server's.
+   */
+  async refreshActiveThread() {
+    const conversationId = get().activeConversationId;
+    if (!conversationId) return;
+    if (get().streamingMessageId !== null) return;
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .select("*")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true });
+    if (error) {
+      logError("chat:refreshActiveThread", error);
+      return;
+    }
+    // the user may have switched conversations mid-fetch
+    if (get().activeConversationId !== conversationId) return;
+
+    const local = get().messages;
+    const merged = new Map<string, ChatMessage>();
+    for (const m of data ?? []) merged.set(m.id as string, m as ChatMessage);
+    // keep messages this tab has but the server hasn't handed back yet
+    for (const [id, m] of local) {
+      if (!merged.has(id)) merged.set(id, m);
+    }
+    if (merged.size === local.size) {
+      let identical = true;
+      for (const [id, m] of merged) {
+        const prev = local.get(id);
+        if (!prev || prev.content !== m.content) {
+          identical = false;
+          break;
+        }
+      }
+      if (identical) return;
+    }
+
+    // Follow the tip only for a reader sitting on it. Someone who picked an
+    // older branch in this tab stays where they are.
+    const currentLeaf = get().activeLeafId;
+    const wasOnTip =
+      currentLeaf !== null && newestMessage(local)?.id === currentLeaf;
+    const nextLeaf =
+      wasOnTip || !currentLeaf || !merged.has(currentLeaf)
+        ? newestMessage(merged)?.id ?? null
+        : currentLeaf;
+    set({ messages: merged, activeLeafId: nextLeaf });
+  },
+
   async renameConversation(id, title) {
     const { error } = await supabase
       .from("chat_conversations")
@@ -248,6 +304,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         c.id === id ? { ...c, title } : c,
       ),
     }));
+    publishCrossTab({ kind: "chat:conversations" });
   },
 
   async deleteConversation(id) {
@@ -268,6 +325,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           : {}),
       };
     });
+    publishCrossTab({ kind: "chat:conversations" });
   },
 
   async deleteMessage(messageId) {
@@ -424,6 +482,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .update({ archived_at })
       .eq("id", id);
     if (error) logError("chat:setConversationArchived", error);
+    else publishCrossTab({ kind: "chat:conversations" });
   },
 
   clearActive() {
@@ -642,6 +701,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }));
       throw error;
     }
+    publishCrossTab({ kind: "chat:conversations" });
   },
 
   async reorderConversation(id, sortOrder) {
@@ -664,7 +724,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
           c.id === id ? { ...c, sort_order: previousSortOrder } : c,
         ),
       }));
+      return;
     }
+    publishCrossTab({ kind: "chat:conversations" });
   },
 
   reset() {

@@ -26,10 +26,38 @@ import { logError } from "@/lib/logger";
  */
 
 const POLL_INTERVAL_MS = 30_000;
+/** Web Lock name that elects the one tab allowed to drain. */
+const DRAIN_LOCK = "pnyxy-sync-drain";
 
 let draining = false;
 let wakeAgain = false;
 let started = false;
+
+/**
+ * Runs `fn` only if no other tab holds the drain lock. The queue lives in
+ * IndexedDB, which every tab of the origin shares, so two tabs draining at
+ * once would hand the same mutation to Supabase twice. Web Locks are
+ * per-origin and released automatically when a tab dies, which is exactly
+ * the leader election this needs; browsers without the API keep the old
+ * single-tab behaviour.
+ */
+async function withDrainLock(fn: () => Promise<void>): Promise<void> {
+  const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
+  if (!locks) {
+    await fn();
+    return;
+  }
+  await locks.request(
+    DRAIN_LOCK,
+    { ifAvailable: true },
+    async (lock) => {
+      // null lock = another tab is draining; it works the same shared
+      // queue, so our rows ship with its pass and we simply stand down.
+      if (!lock) return;
+      await fn();
+    },
+  );
+}
 
 async function runDrain(ctx: SyncContext): Promise<void> {
   if (draining) {
@@ -38,7 +66,7 @@ async function runDrain(ctx: SyncContext): Promise<void> {
   }
   draining = true;
   try {
-    await drainQueue(ctx);
+    await withDrainLock(() => drainQueue(ctx).then(() => {}));
   } catch (err) {
     // drainQueue is best-effort and per-row tolerant, but the
     // overall IDB read could still fail (storage quota, browser

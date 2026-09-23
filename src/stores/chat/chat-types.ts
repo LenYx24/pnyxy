@@ -64,6 +64,11 @@ export interface ChatSendOptions {
   /** Extra situational line for the library tool loop's system prompt
    *  (e.g. which resource the user is looking at). */
   libraryToolsContext?: string;
+  /** Whiteboard side-chat: route the turn through the board tool loop, so
+   *  the model sees a snapshot of the board and can draw on it. */
+  whiteboardTools?: boolean;
+  /** Extra situational line for the whiteboard tool loop's system prompt. */
+  whiteboardToolsContext?: string;
 }
 
 export interface ChatState {
@@ -102,6 +107,9 @@ export interface ChatState {
   /** Read and clear in one step so the next mount doesn't replay it. */
   consumePendingDraft: () => ChatDraft | null;
   openConversation: (conversationId: string) => Promise<void>;
+  /** Re-read the open conversation's messages without clearing the thread.
+   *  Used when another browser tab writes to the same conversation. */
+  refreshActiveThread: () => Promise<void>;
   /** Signed-out send: in-memory only (no DB), rate-limited server-side.
    *  Reuses the normal chat UI; see src/lib/ai/anon-chat.ts. */
   sendAnonMessage: (
