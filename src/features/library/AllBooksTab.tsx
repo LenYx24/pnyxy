@@ -218,6 +218,15 @@ export function AllBooksTab({
   // Distinguish "not fetched yet" from "fetched and genuinely empty" so the
   // empty state never flashes before the first library load resolves.
   const hasLoaded = booksFetchedAt !== null;
+  // Once this mount has shown real content, never fall back to the loading
+  // skeleton again: a background revalidation (or a transient store reset)
+  // must update in place, not flash a skeleton over content the user is
+  // already looking at.
+  const [hasShownContent, setHasShownContent] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (books.length > 0) setHasShownContent(true);
+  }, [books.length]);
   const navigateToFolder = useLibraryStore((s) => s.navigateToFolder);
   const createFolderPath = useLibraryStore((s) => s.createFolderPath);
   const renameFolder = useLibraryStore((s) => s.renameFolder);
@@ -1075,7 +1084,10 @@ export function AllBooksTab({
 
           {/* skeleton tiles while fetchLibrary is in flight, or before the
           first load has resolved (so the empty state never flashes first) */}
-          {isEmpty && !query && (isLoading || !hasLoaded) && (
+          {isEmpty &&
+            !query &&
+            (isLoading || !hasLoaded) &&
+            !hasShownContent && (
             <BookCardSkeleton
               viewMode={viewMode}
               count={skeletonCount}

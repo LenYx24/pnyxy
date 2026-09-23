@@ -44,6 +44,8 @@ import { useConfirm } from "@/hooks/use-confirm";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { useSettingsStore, type AiProvider } from "@/stores/settings-store";
 import { useAiModelConfigStore } from "@/stores/ai-model-config-store";
+import { useChatModelStore } from "@/stores/chat-model-store";
+import { useComposerDraftStore } from "@/stores/composer-draft-store";
 import { useReaderStore, useActiveDocument } from "@/stores/reader-store";
 import { useChatStore, pathFromRoot, windowChatHistory } from "@/stores/chat-store";
 import {
@@ -167,6 +169,11 @@ interface ChatComposerProps {
    *  context-token chip, no model picker in the bottom row; the "+" menu
    *  keeps mode / reasoning / web search. */
   compact?: boolean;
+  /** When set (the /chat tabs host), the live draft is persisted per
+   *  conversation under this key: on a key change or unmount the current text
+   *  is flushed to the composer-draft store, so each tab keeps its own draft
+   *  without notifying the parent on every keystroke. */
+  draftKey?: string;
 }
 
 const menuRowClass =
@@ -186,6 +193,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
       contextChip = null,
       onAttachPdf,
       compact = false,
+      draftKey,
     },
     ref,
   ) {
@@ -201,6 +209,28 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
       setValue(valueProp);
     }, [valueProp]);
     const onChange = useCallback((next: string) => setValue(next), []);
+
+    // Per-conversation draft persistence (the /chat tabs host passes draftKey).
+    // Keystrokes stay LOCAL (no parent re-render); the live text is flushed to
+    // the shared draft store only when the key changes (tab switch) or on
+    // unmount, so switching tabs saves the outgoing draft and the incoming
+    // one arrives through `value` (the parent reads the store reactively).
+    const valueRef = useRef(value);
+    valueRef.current = value;
+    useEffect(() => {
+      if (draftKey === undefined) return;
+      // Adopt this conversation's saved draft. Loading here (not just via the
+      // `value` seed) is required because two tabs can both be empty in the
+      // store, so `value` wouldn't change on the switch and the stale local
+      // text would linger.
+      setValue(useComposerDraftStore.getState().drafts[draftKey] ?? "");
+      return () => {
+        // Flush the live text back to THIS key when leaving it (tab switch or
+        // unmount), so returning restores it. Keystrokes stay local until here,
+        // so typing never re-renders the page.
+        useComposerDraftStore.getState().setDraft(draftKey, valueRef.current);
+      };
+    }, [draftKey]);
     // keep the parent's copy in step at the points it cares about (the
     // seed it holds, so a later identical prefill still re-triggers the
     // sync effect above), without a re-render per keystroke
@@ -257,15 +287,15 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
       selectAllAiPages();
     }, [activeDoc, confirm, selectAllAiPages, t]);
 
-    const [selectedProvider, setSelectedProvider] = useState<AiProvider | null>(
-      null,
-    );
+    // Shared with the mobile header's model picker (see useChatModelStore).
+    const selectedProvider = useChatModelStore((s) => s.selectedProvider);
+    const setSelectedProvider = useChatModelStore((s) => s.setSelectedProvider);
     // Fall back to Default if the picked provider gets disabled in Settings.
     useEffect(() => {
       if (selectedProvider && !configuredProviders.includes(selectedProvider)) {
         setSelectedProvider(null);
       }
-    }, [configuredProviders, selectedProvider]);
+    }, [configuredProviders, selectedProvider, setSelectedProvider]);
 
     // Esc stops a streaming reply (the ChatGPT/Claude convention) and, when
     // the box is empty, puts the just-sent question back so it can be
@@ -653,7 +683,10 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
         onClick={() => (speech.listening ? speech.stop() : speech.start())}
         disabled={isStreaming}
         variant={speech.listening ? "danger" : "ghost"}
-        className={cn(speech.listening && "bg-danger/15 text-danger")}
+        className={cn(
+          isMobile && "h-11 w-11",
+          speech.listening && "bg-danger/15 text-danger",
+        )}
         aria-label={
           speech.listening
             ? t("chat.composer.stopListening")
@@ -667,9 +700,9 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
         aria-pressed={speech.listening}
       >
         {speech.listening ? (
-          <MicOff size={18} strokeWidth={1.5} />
+          <MicOff size={isMobile ? 22 : 18} strokeWidth={1.5} />
         ) : (
-          <Mic size={18} strokeWidth={1.5} />
+          <Mic size={isMobile ? 22 : 18} strokeWidth={1.5} />
         )}
       </IconButton>
     );
@@ -684,16 +717,18 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
         }}
         disabled={!isStreaming && !canSend}
         className={cn(
-          "inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-text-primary text-bg-primary transition-opacity cursor-pointer",
+          "inline-flex shrink-0 items-center justify-center rounded-full bg-text-primary text-bg-primary transition-opacity cursor-pointer",
+          // bigger tap target on mobile (Gemini-style)
+          isMobile ? "h-11 w-11" : "h-[34px] w-[34px]",
           "hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30",
         )}
         aria-label={isStreaming ? t("chat.stop") : t("chat.send")}
         title={isStreaming ? t("chat.stop") : t("chat.send")}
       >
         {isStreaming ? (
-          <Square size={14} fill="currentColor" strokeWidth={1.5} />
+          <Square size={isMobile ? 16 : 14} fill="currentColor" strokeWidth={1.5} />
         ) : (
-          <ArrowUp size={16} strokeWidth={1.5} />
+          <ArrowUp size={isMobile ? 20 : 16} strokeWidth={1.5} />
         )}
       </button>
     );
@@ -788,7 +823,14 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
                 : t(placeholderKey)
             }
             rows={1}
-            className="block min-h-[1.5rem] w-full resize-none bg-transparent px-1 py-0 text-[length:var(--chat-font-size,15px)] leading-normal text-text-primary outline-none placeholder:text-text-muted-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className={cn(
+              "block min-h-[1.5rem] w-full resize-none bg-transparent px-1 py-0 leading-normal text-text-primary outline-none placeholder:text-text-muted-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              // bigger, zoom-safe (>=16px) composer text on mobile; desktop
+              // follows the user's Appearance setting
+              isMobile
+                ? "text-[17px]"
+                : "text-[length:var(--chat-font-size,15px)]",
+            )}
           />
           <input
             ref={fileInputRef}
@@ -925,9 +967,10 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
                   className={cn(
                     chipClass,
                     "shrink-0 px-2 text-text-muted transition-colors cursor-pointer hover:bg-surface-3 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40",
+                    isMobile && "h-10 px-2.5",
                   )}
                 >
-                  <Plus size={16} strokeWidth={1.5} />
+                  <Plus size={isMobile ? 20 : 16} strokeWidth={1.5} />
                 </button>
                 <FloatingMenu
                   open={plusMenuOpen}

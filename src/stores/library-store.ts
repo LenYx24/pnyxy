@@ -143,10 +143,15 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         return;
       }
 
-      // no active org: show empty rather than another org's contents (org-store sub retriggers once set)
+      // no active org: the org id resolves async, so on the very first load
+      // show empty; once we have a list keep showing it (the org-store
+      // subscription refetches when the org resolves). Wiping it here on a
+      // transient null flashed the skeleton over already-visible content.
       const orgId = useOrgStore.getState().currentOrgId;
       if (!orgId) {
-        set({ books: [], isLoading: false });
+        if (get().lastFetchedAt.books === null) {
+          set({ books: [], isLoading: false });
+        }
         return;
       }
 

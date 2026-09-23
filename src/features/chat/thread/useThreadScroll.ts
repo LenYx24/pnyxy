@@ -151,13 +151,13 @@ export function useThreadScroll({
       if (!hasPendingRestore) {
         threadEndRef.current?.scrollIntoView({ behavior: "auto" });
       }
-    } else if (followRef.current && !hasPendingRestore) {
-      // While a reply streams in, only follow the bottom if the user opted in;
-      // otherwise the view stays where they left it during generation.
-      const streaming = streamingMessageId !== null;
-      if (!streaming || autoScrollStreaming) {
-        threadEndRef.current?.scrollIntoView({ behavior: "auto" });
-      }
+    } else if (followRef.current && !hasPendingRestore && autoScrollStreaming) {
+      // Follow the bottom during generation ONLY if the user opted in. With it
+      // off, the view stays where they left it the whole time, including when
+      // the reply finishes: no snap-to-bottom on completion (that stream-end
+      // jump used to fire regardless of the setting). Send and conversation
+      // switches still jump, handled in their own branches above.
+      threadEndRef.current?.scrollIntoView({ behavior: "auto" });
     }
   }, [
     activeId,

@@ -207,10 +207,10 @@ function Rail() {
 
   return (
     <>
-      {/* logo mark, also the home link */}
+      {/* logo mark, also the home link (overview lives at /home now) */}
       <Tooltip label={t("sidebar.home")}>
         <NavLink
-          to="/"
+          to="/home"
           aria-label={t("sidebar.home")}
           className="mb-2.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center"
         >
@@ -365,7 +365,7 @@ function Drawer({ onNavigate }: { onNavigate: () => void }) {
     <>
       <div className="flex h-14 items-center px-4">
         <NavLink
-          to="/"
+          to="/home"
           aria-label={t("sidebar.home")}
           className="flex min-w-0 items-center"
           onClick={onNavigate}

@@ -42,7 +42,7 @@ export function ChatTabs() {
   if (tabs.length < 2) return null;
 
   return (
-    <div className="flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-glass-border bg-bg-secondary/40 px-2">
+    <div className="hidden h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-glass-border bg-bg-secondary/40 px-2 sm:flex">
       {tabs.map((conv) => {
         const isActive = conv.id === activeConversationId;
         const title = conv.title?.trim() || t("chat.untitled");
