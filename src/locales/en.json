@@ -1683,6 +1683,8 @@
       "viewLabel": "Sidebar view",
       "viewFolders": "Folder view",
       "viewQuick": "Quick view (all chats, newest first)",
+      "viewFoldersShort": "Folders",
+      "viewQuickShort": "Recent",
       "looseChats": "Quick chats",
       "groupToday": "Today",
       "groupWeek": "This week",

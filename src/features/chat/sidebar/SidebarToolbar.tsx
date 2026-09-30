@@ -11,14 +11,14 @@ import {
   BookOpen,
   ChevronsDownUp,
   ChevronsUpDown,
+  Clock,
+  Folder,
   FolderPlus,
-  FolderTree,
   Menu,
   Search,
   MessageSquareDashed,
   SquarePen,
   X,
-  Zap,
 } from "lucide-react";
 import {
   Checkbox,
@@ -26,7 +26,6 @@ import {
   Tooltip,
   chipClass,
   fieldClass,
-  segmentedGroupClass,
   segmentedItemActiveClass,
   segmentedItemClass,
 } from "@/components/ui";
@@ -86,10 +85,21 @@ export function SidebarToolbar({
   const sidebarViewOptions: {
     key: ChatSidebarView;
     label: string;
-    Icon: typeof FolderTree;
+    hint: string;
+    Icon: typeof Folder;
   }[] = [
-    { key: "folders", label: t("chat.sidebar.viewFolders"), Icon: FolderTree },
-    { key: "quick", label: t("chat.sidebar.viewQuick"), Icon: Zap },
+    {
+      key: "folders",
+      label: t("chat.sidebar.viewFoldersShort"),
+      hint: t("chat.sidebar.viewFolders"),
+      Icon: Folder,
+    },
+    {
+      key: "quick",
+      label: t("chat.sidebar.viewQuickShort"),
+      hint: t("chat.sidebar.viewQuick"),
+      Icon: Clock,
+    },
   ];
 
   return (
@@ -138,31 +148,6 @@ export function SidebarToolbar({
           {t("chat.sidebar.title")}
         </span>
         <div className="flex shrink-0 items-center text-text-muted">
-          {!scope && (
-            <div
-              role="group"
-              aria-label={t("chat.sidebar.viewLabel")}
-              className={cn(segmentedGroupClass, "mr-0.5")}
-            >
-              {sidebarViewOptions.map(({ key, label, Icon }) => (
-                <Tooltip key={key} label={label} side="bottom">
-                  <button
-                    type="button"
-                    onClick={() => onSidebarViewChange(key)}
-                    className={cn(
-                      segmentedItemClass,
-                      "flex items-center px-[5px] py-[3px]",
-                      sidebarView === key && segmentedItemActiveClass,
-                    )}
-                    aria-label={label}
-                    aria-pressed={sidebarView === key}
-                  >
-                    <Icon size={14} strokeWidth={1.5} />
-                  </button>
-                </Tooltip>
-              ))}
-            </div>
-          )}
           {showCollapseToggle && (
             <IconButton
               size="sm"
@@ -187,6 +172,34 @@ export function SidebarToolbar({
           )}
         </div>
       </div>
+
+      {/* view switch: full-width and labelled so it is an easy target on
+          touch; the long description stays in the tooltip */}
+      {!scope && (
+        <div
+          role="group"
+          aria-label={t("chat.sidebar.viewLabel")}
+          className="mb-1.5 grid grid-cols-2 gap-0.5 rounded-control bg-bg-tertiary p-0.5"
+        >
+          {sidebarViewOptions.map(({ key, label, hint, Icon }) => (
+            <Tooltip key={key} label={hint} side="bottom">
+              <button
+                type="button"
+                onClick={() => onSidebarViewChange(key)}
+                className={cn(
+                  segmentedItemClass,
+                  "flex h-[34px] items-center justify-center gap-1.5 text-[13px]",
+                  sidebarView === key && segmentedItemActiveClass,
+                )}
+                aria-pressed={sidebarView === key}
+              >
+                <Icon size={16} strokeWidth={1.5} className="shrink-0" />
+                <span className="truncate">{label}</span>
+              </button>
+            </Tooltip>
+          ))}
+        </div>
+      )}
 
       {/* new chat: the primary action gets a full-width button above the
           search; the dashed twin next to it starts an incognito chat */}

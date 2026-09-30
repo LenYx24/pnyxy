@@ -18,7 +18,7 @@ test.afterEach(async ({ page }, testInfo) => {
   if (testInfo.status === "skipped") return;
   await page.goto("/chat");
   await page
-    .getByRole("button", { name: "Quick view (all chats, newest first)" })
+    .getByRole("button", { name: "Recent", exact: true })
     .click();
   const kebab = page
     .getByRole("button", { name: "Conversation actions", exact: true })

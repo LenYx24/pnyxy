@@ -11,7 +11,9 @@ import {
   ChevronDown,
   ChevronRight,
   FilePlus2,
+  Folder,
   FolderInput,
+  FolderOpen,
   FolderPlus,
   Library,
   MoreHorizontal,
@@ -42,8 +44,9 @@ import {
 import type { ChatSidebarView } from "./useChatSidebarView";
 import { useChatSidebar } from "./ChatSidebarContext";
 
-/** Indent per nesting step, in px. */
-const INDENT_PX = 12;
+/** Indent per nesting step, in px: row padding + folder icon + gap, so a
+ *  child's text starts exactly under its parent folder's name. */
+const INDENT_PX = 22;
 
 export interface ChatTreeProps {
   folders: ChatFolder[];
@@ -205,6 +208,7 @@ export function ChatTree(props: ChatTreeProps) {
                   key={c.id}
                   conversation={c}
                   depth={0}
+                  inTree
                   {...props}
                 />
               ))}
@@ -390,20 +394,27 @@ const FolderRow = memo(function FolderRow({
           onClick={() => sidebar.onToggleFolder(folder.id)}
           // double-click drills into the folder (single click only toggles)
           onDoubleClick={() => sidebar.onEnterFolder?.(folder.id)}
-          // folder names read as navigation, not captions: body size,
-          // secondary text, primary on hover (Gemini-style contrast)
-          className="flex min-w-0 flex-1 items-center gap-1.5 px-3 py-2 text-left text-[13px] font-medium text-text-secondary transition-colors hover:text-text-primary cursor-pointer"
+          // folders carry an icon and primary text, chats a dot and
+          // secondary text, so the two kinds of row never read alike
+          className="flex min-w-0 flex-1 items-center gap-1.5 px-3 py-2 text-left text-[13px] font-medium text-text-primary cursor-pointer"
           title={folder.name}
           aria-expanded={expanded}
         >
           {expanded ? (
-            <ChevronDown size={12} className="shrink-0" />
+            <FolderOpen size={16} strokeWidth={1.5} className="shrink-0 text-text-muted" />
           ) : (
-            <ChevronRight size={12} className="shrink-0" />
+            <Folder size={16} strokeWidth={1.5} className="shrink-0 text-text-muted" />
           )}
           <span className="truncate">{folder.name}</span>
           {count > 0 && (
-            <span className="shrink-0 font-normal tabular-nums">{count}</span>
+            <span className="shrink-0 text-xs font-normal tabular-nums text-text-muted-2">
+              {count}
+            </span>
+          )}
+          {expanded ? (
+            <ChevronDown size={12} className="ml-auto shrink-0 text-text-muted-2" />
+          ) : (
+            <ChevronRight size={12} className="ml-auto shrink-0 text-text-muted-2" />
           )}
         </button>
         <IconButton
@@ -428,6 +439,7 @@ const FolderRow = memo(function FolderRow({
                 key={c.id}
                 conversation={c}
                 depth={depth + 1}
+                inTree
                 {...rest}
               />
             ))}
@@ -458,6 +470,9 @@ interface ConversationRowProps extends ChatTreeProps {
   depth: number;
   /** Quick view: no drag source, no drop target. */
   dndDisabled?: boolean;
+  /** Folder view: a dot in the folder-icon slot lines the title up with
+   *  folder names at the same depth. */
+  inTree?: boolean;
 }
 
 // One line = one conversation (no subtitle rows: they blurred the
@@ -466,6 +481,7 @@ const ConversationRow = memo(function ConversationRow({
   conversation,
   depth,
   dndDisabled = false,
+  inTree = false,
   activeId,
   activeDragId,
   overDragId,
@@ -606,10 +622,15 @@ const ConversationRow = memo(function ConversationRow({
           <button
             type="button"
             onClick={() => onOpen(conversation.id)}
-            className="flex min-w-0 flex-1 items-center px-3 py-[9px] text-left cursor-pointer"
+            className="flex min-w-0 flex-1 items-center gap-1.5 px-3 py-[9px] text-left cursor-pointer"
             title={conversation.title || t("chat.untitled")}
           >
-            <span className="w-full truncate text-[13px] leading-4">
+            {inTree && (
+              <span className="flex w-4 shrink-0 justify-center" aria-hidden="true">
+                <span className="h-1 w-1 rounded-full bg-text-muted-2/70" />
+              </span>
+            )}
+            <span className="min-w-0 flex-1 truncate text-[13px] leading-4">
               {conversation.title || t("chat.untitled")}
             </span>
           </button>

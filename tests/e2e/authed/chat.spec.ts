@@ -101,7 +101,7 @@ test.afterEach(async ({ page, isMobile }, testInfo) => {
   await page.goto("/chat");
   // folder view no longer lists unfoldered chats, the quick view does
   await page
-    .getByRole("button", { name: "Quick view (all chats, newest first)" })
+    .getByRole("button", { name: "Recent", exact: true })
     .click();
   await expect(firstRowKebab(page)).toBeAttached({ timeout: 15_000 });
   await deleteTopConversation(page);

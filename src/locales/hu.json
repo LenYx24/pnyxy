@@ -1924,6 +1924,8 @@
       "viewLabel": "Oldalsáv nézet",
       "viewFolders": "Mappa nézet",
       "viewQuick": "Gyors nézet (minden chat, legújabb elöl)",
+      "viewFoldersShort": "Mappák",
+      "viewQuickShort": "Legutóbbiak",
       "looseChats": "Gyors chatek",
       "groupToday": "Ma",
       "groupWeek": "Ezen a héten",
