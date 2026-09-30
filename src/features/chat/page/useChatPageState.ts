@@ -292,14 +292,16 @@ export function useChatPageState(scope?: ChatPageScope) {
   // (the conversation is created on first send), so a phone user isn't
   // dropped into an old thread; the drawer still lists everything.
   const isMobile = useIsMobile();
+  // Set when the user explicitly starts a new chat, so neither the auto-open
+  // effect nor the settling layout expects the newest thread to open.
+  const [newChatRequested, setNewChatRequested] = useState(false);
   useEffect(() => {
     if (!user) return;
-    // Explicit "new chat" just cleared the thread: stay on the empty composer
-    // instead of snapping back to the most recent conversation.
-    if (skipAutoOpenRef.current) {
-      skipAutoOpenRef.current = false;
-      return;
-    }
+    // After an explicit "new chat" the empty composer is what the user asked
+    // for, so never snap back into the newest thread on this visit. This must
+    // outlast a single run: the router applies the /chat navigation in a
+    // transition, so routeConvId clears a render after activeId does.
+    if (newChatRequested) return;
     if (activeId || routeConvId) return;
     if (visibleConversations.length === 0) return;
     if (!scope && useChatStore.getState().pendingDraft !== null) return;
@@ -313,6 +315,7 @@ export function useChatPageState(scope?: ChatPageScope) {
     openConversation,
     scope,
     isMobile,
+    newChatRequested,
   ]);
 
   const activeConversation = useMemo(
@@ -358,6 +361,7 @@ export function useChatPageState(scope?: ChatPageScope) {
   // but invisible, and the spinner is overlaid so nothing reflows.
   const autoOpenPending =
     !activeId &&
+    !newChatRequested &&
     visibleConversations.length > 0 &&
     (!!scope || pendingDraft === null);
   // Warm remount: navigating back to /chat with a thread already in the
@@ -397,10 +401,6 @@ export function useChatPageState(scope?: ChatPageScope) {
   }, [settling, threadEmpty, user]);
 
   const composerWrapRef = useRef<HTMLDivElement>(null);
-  // Set when the user explicitly starts a new chat, so the "auto-open the most
-  // recent conversation on a fresh /chat" effect doesn't immediately pull them
-  // back into an existing thread. Consumed on the next run of that effect.
-  const skipAutoOpenRef = useRef(false);
   const focusComposer = useCallback(() => {
     requestAnimationFrame(() => {
       composerWrapRef.current?.querySelector("textarea")?.focus();
@@ -427,11 +427,12 @@ export function useChatPageState(scope?: ChatPageScope) {
     // round-trip, which is the lag Leny hit. The composer creates the row
     // lazily on the first send (see ComposerDock), passing the same target
     // folder (chatRootFolderId) so a drilled-folder new chat still lands right.
+    // Even with nothing open yet (the list may still be loading), the user
+    // asked for a blank thread, so the auto-open-newest must stand down.
+    setNewChatRequested(true);
     if (activeId || routeConvId) {
       // We're leaving an open thread: drop its id from the address bar (keep
-      // ?folder=) and skip the auto-open effect, so neither the URL->store
-      // restore nor the auto-open-newest pulls us back into a conversation.
-      skipAutoOpenRef.current = true;
+      // ?folder=), so the URL->store restore doesn't reopen it.
       navigate(
         { pathname: "/chat", search: location.search },
         { replace: true },

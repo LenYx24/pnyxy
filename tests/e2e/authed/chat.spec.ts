@@ -231,3 +231,30 @@ test("Stop mid-stream keeps the partial assistant text", async ({ page }) => {
   expect(await reply.textContent()).toBe(partial);
   expect(await page.getByText(new RegExp(LAST_WORD)).count()).toBe(0);
 });
+
+test("New conversation from an open thread stays on the empty composer", async ({
+  page,
+}) => {
+  // Regression guard: the router applies the /chat navigation in a
+  // transition, a render after the store clears the thread. The auto-open
+  // effect must not treat that late URL change as a fresh /chat and snap
+  // back into the newest conversation.
+  const composer = await openFreshChat(page);
+  await composer.fill(`e2e new-chat ${Date.now()}`);
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.getByText(new RegExp(LAST_WORD)).first()).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page).toHaveURL(/\/chat\/[0-9a-f-]{36}/);
+
+  await page.getByRole("button", { name: "New conversation" }).first().click();
+  const headline = page.getByRole("heading", {
+    name: "What are we learning today?",
+  });
+  await expect(headline).toBeVisible();
+  await expect(page).toHaveURL(/\/chat\/?(\?.*)?$/);
+  // the bounce happened a beat later, so hold the state for a while
+  await page.waitForTimeout(1_500);
+  await expect(headline).toBeVisible();
+  await expect(page).toHaveURL(/\/chat\/?(\?.*)?$/);
+});
