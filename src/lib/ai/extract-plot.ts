@@ -34,13 +34,7 @@ interface ExtractPlotResult {
 const FENCE = /```pnyxy-plot\s*([\s\S]*?)```/i;
 const OPEN_FENCE = /```pnyxy-plot\s*[\s\S]*$/i;
 
-/** Prompt-side contract, appended to the default chat prompts (the proxy
- *  carries its own copy for the free route, keep in sync). */
-export const PLOT_SPEC = `When a function or a numeric trend would be clearer as a chart than as prose (plotting y = f(x), comparing curves, showing how a quantity changes), draw it as a fenced code block tagged \`pnyxy-plot\` containing ONLY JSON in this exact shape:
-\`\`\`pnyxy-plot
-{"title": "…", "xLabel": "x", "yLabel": "y", "series": [{"name": "sin(x)", "points": [{"x": 0, "y": 0}, {"x": 1.57, "y": 1}]}]}
-\`\`\`
-Sample the function YOURSELF into 20-60 ascending (x, y) points per series (there is no formula evaluation on the client); use 1-3 series. Keep numbers finite. Briefly say in the prose what the plot shows; put no other text inside the block. Only plot when it genuinely aids understanding, most replies need no plot.`;
+export { PLOT_SPEC } from "./chat-prompts";
 
 export function extractInlinePlot(content: string): ExtractPlotResult {
   const match = content.match(FENCE);

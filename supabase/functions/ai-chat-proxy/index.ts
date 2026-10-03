@@ -19,6 +19,10 @@ import {
   ipHashSalt,
 } from "../_shared/tokens.ts";
 import { TEACHER_GUARDRAIL, teacherBlock } from "../_shared/teacher-mode.ts";
+import {
+  buildChatSystemPrompt,
+  INLINE_QUIZ_SPEC,
+} from "../_shared/chat-prompts.ts";
 // @ts-expect-error Deno-only import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -261,13 +265,6 @@ interface ChatRequestBody {
   }>;
 }
 
-// keep in sync with src/lib/ai/extract-quiz.ts INLINE_QUIZ_SPEC
-const INLINE_QUIZ_SPEC = `When the user asks to be quizzed, or a quick knowledge check would clearly help, emit the quiz as a fenced code block tagged \`quiz\` containing ONLY JSON in this exact shape:
-\`\`\`quiz
-{"title": "…", "questions": [{"q": "…", "options": ["…", "…", "…", "…"], "correct": 1, "explanation": "…"}]}
-\`\`\`
-3-8 questions, 2-4 options each, "correct" is the zero-based index of the right option. Write the quiz in the user's language; when you have document context, cite pages in the explanations ([p.N]). Put no other text inside the block, and never reveal the answers in the prose around it.`;
-
 // Cross-model suggestion. Only injected on the free auto-routed tier
 // (this server-owned prompt): a cheap model answers by default and may
 // offer to redo a hard answer on a stronger Pnyxy model. The fence tag,
@@ -280,109 +277,19 @@ const MODEL_SUGGEST_SPEC = `You are answering on Pnyxy's free tier, which defaul
 \`\`\`
 "model" must be exactly one of: "claude-haiku-4-5" (highest quality, best for hard reasoning) or "gemini-3.7-flash" (newest Google model, strong all-round). "reason" is ONE short sentence, in the user's language, on why the stronger model would help. Rules: at most one such block per reply; NEVER add it for simple, factual, or short questions, most replies must have NO block; never mention the block or the suggestion in your prose; do not suggest when you are already confident your answer is complete and correct.`;
 
-// keep in sync with src/lib/ai/extract-plot.ts PLOT_SPEC
-const PLOT_SPEC = `When a function or a numeric trend would be clearer as a chart than as prose (plotting y = f(x), comparing curves, showing how a quantity changes), draw it as a fenced code block tagged \`pnyxy-plot\` containing ONLY JSON in this exact shape:
-\`\`\`pnyxy-plot
-{"title": "…", "xLabel": "x", "yLabel": "y", "series": [{"name": "sin(x)", "points": [{"x": 0, "y": 0}, {"x": 1.57, "y": 1}]}]}
-\`\`\`
-Sample the function YOURSELF into 20-60 ascending (x, y) points per series (there is no formula evaluation on the client); use 1-3 series. Keep numbers finite. Briefly say in the prose what the plot shows; put no other text inside the block. Only plot when it genuinely aids understanding, most replies need no plot.`;
-
-// keep in sync with src/lib/ai/extract-matrix.ts MATRIX_SPEC
-const MATRIX_SPEC = `When a matrix, vector, or small numeric table is the subject (linear algebra, a system of equations, a transformation), render it as a fenced code block tagged \`pnyxy-matrix\` containing ONLY JSON in this exact shape:
-\`\`\`pnyxy-matrix
-{"name": "A", "rows": [[1, 2], [3, 4]]}
-\`\`\`
-"rows" is a rectangular array of numbers (every row the same length); a single row is a row vector, a single column of one-element rows is a column vector. Keep it reasonably sized (up to ~8x8). Explain it in the prose; put no other text inside the block. Only use this when a matrix is genuinely what you're showing.`;
-
 function buildSystemPrompt(
   documentTitle: string,
   pageContext: string,
   hasImages: boolean,
   canSearchWeb = false,
 ): string {
-  // No source document → standalone /chat page brief. Mirror of the
-  // expanded prompt in `src/lib/ai-client.ts`; both branches must
-  // stay in sync so BYOK and Pnyxy-proxy users see the same
-  // conversational behavior.
-  if (!documentTitle.trim()) {
-    return `You are Pnyxy's AI chat assistant. Pnyxy is a study- and reading-focused learning app; the user is typically a student or researcher. Be helpful, conversational, and honest, talk to them like a smart, friendly tutor, not a search engine.
-
-Match the user's language: reply in Hungarian when they write in Hungarian, English otherwise, and switch fluidly if they mix. Never apologize for the language choice or comment on it.
-
-When the user attaches images, describe or reason about them directly, don't claim you can't see them.
-
-Formatting:
-- Use markdown so answers are easy to scan: **bold** the key terms, bullet or numbered lists for enumerations and steps, \`##\` / \`###\` headers when an answer has multiple genuine sections, tables for structured data, fenced \`\`\`code blocks with a language tag for code.
-- Separate paragraphs with blank lines and keep them short (2-4 sentences).
-- Don't over-structure trivial replies: a one-sentence answer stays one sentence.
-
-When you don't know something or have ambiguous context, say so and ask a clarifying question instead of guessing. If a question has multiple reasonable interpretations, name them briefly before answering. Concise > exhaustive; the user can always ask for more.
-${
-  canSearchWeb
-    ? `\nYou have Google Search available and can look things up on the web. When the user asks about current events, recent releases, prices, dates, or anything you're unsure about or that may have changed since your training, search and base your answer on the results. Never claim you can't access the internet, you can.\n`
-    : ""
-}
-When you write mathematical expressions, wrap inline math in single-dollar delimiters ($x^2$) and display equations in double-dollar delimiters ($$\\sum_{i=1}^n i$$). The chat UI renders these as proper formulas via KaTeX.
-
-${INLINE_QUIZ_SPEC}
-
-${PLOT_SPEC}
-
-${MATRIX_SPEC}
-
-${MODEL_SUGGEST_SPEC}${
-      pageContext.trim()
-        ? `\n\nContext the user attached to this chat (their profile preset and any material); follow it:\n${pageContext.trim()}`
-        : ""
-    }`;
-  }
-
-  // Every document prompt needs this too, or the (English) teacher-mode
-  // block tips replies into English for Hungarian users.
-  const langRule =
-    "Match the user's language: reply in Hungarian when they write in Hungarian, English otherwise, and switch fluidly if they mix.";
-
-  const hasText = pageContext.trim().length > 0;
-
-  // Image PDF (or user forced image mode): page content arrives as
-  // image blocks on the user message, not as text in the prompt.
-  // Frame this case explicitly so the model knows to look at the images.
-  if (!hasText && hasImages) {
-    return `You are an AI assistant helping the user understand a PDF document titled "${documentTitle}".
-
-The user has attached the relevant pages of the document as images. Read those images carefully and answer questions about their content. Reference specific page numbers (visible in the image labels) when relevant.
-
-${langRule}`;
-  }
-
-  // Plain text-extracted context: the original path.
-  if (hasText) {
-    return `You are an AI assistant helping the user understand a PDF document titled "${documentTitle}".
-
-Here is the text from the pages the user is currently viewing:
-
----
-${pageContext}
----
-
-Answer questions about this document. Be concise and helpful. Reference specific page numbers when relevant. If the answer is not in the provided text, say so.
-
-${langRule}
-
-${INLINE_QUIZ_SPEC}
-
-${PLOT_SPEC}
-
-${MATRIX_SPEC}
-
-${MODEL_SUGGEST_SPEC}`;
-  }
-
-  // Doc set but nothing selected and nothing attached: generic doc
-  // helper, no empty "Here is the text:\n---\n---" frame.
-  return `You are an AI assistant helping the user with a PDF document titled "${documentTitle}". The user hasn't selected any pages or attached images yet; answer general questions about the document or ask the user to point you at a specific section.
-
-${langRule}`;
+  return buildChatSystemPrompt({
+    documentTitle,
+    pageContext,
+    hasImages,
+    canSearchWeb,
+    extraBlocks: [MODEL_SUGGEST_SPEC],
+  });
 }
 
 // ── Anthropic prompt caching ─────────────────────────────────

@@ -29,13 +29,7 @@ interface ExtractQuizResult {
 const QUIZ_FENCE = /```quiz\s*([\s\S]*?)```/i;
 const OPEN_QUIZ_FENCE = /```quiz\s*[\s\S]*$/i;
 
-/** Prompt-side contract, appended to the default system prompts (the
- *  proxy carries its own copy, keep in sync). */
-export const INLINE_QUIZ_SPEC = `When the user asks to be quizzed, or a quick knowledge check would clearly help, emit the quiz as a fenced code block tagged \`quiz\` containing ONLY JSON in this exact shape:
-\`\`\`quiz
-{"title": "…", "questions": [{"q": "…", "options": ["…", "…", "…", "…"], "correct": 1, "explanation": "…"}]}
-\`\`\`
-3-8 questions, 2-4 options each, "correct" is the zero-based index of the right option. Write the quiz in the user's language; when you have document context, cite pages in the explanations ([p.N]). Put no other text inside the block, and never reveal the answers in the prose around it.`;
+export { INLINE_QUIZ_SPEC } from "./chat-prompts";
 
 export function extractInlineQuiz(content: string): ExtractQuizResult {
   const match = content.match(QUIZ_FENCE);

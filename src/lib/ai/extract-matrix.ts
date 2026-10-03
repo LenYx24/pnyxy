@@ -21,13 +21,7 @@ interface ExtractMatrixResult {
 const FENCE = /```pnyxy-matrix\s*([\s\S]*?)```/i;
 const OPEN_FENCE = /```pnyxy-matrix\s*[\s\S]*$/i;
 
-/** Prompt-side contract, appended to the default chat prompts (the proxy
- *  carries its own copy for the free route, keep in sync). */
-export const MATRIX_SPEC = `When a matrix, vector, or small numeric table is the subject (linear algebra, a system of equations, a transformation), render it as a fenced code block tagged \`pnyxy-matrix\` containing ONLY JSON in this exact shape:
-\`\`\`pnyxy-matrix
-{"name": "A", "rows": [[1, 2], [3, 4]]}
-\`\`\`
-"rows" is a rectangular array of numbers (every row the same length); a single row is a row vector, a single column of one-element rows is a column vector. Keep it reasonably sized (up to ~8x8). Explain it in the prose; put no other text inside the block. Only use this when a matrix is genuinely what you're showing.`;
+export { MATRIX_SPEC } from "./chat-prompts";
 
 export function extractInlineMatrix(content: string): ExtractMatrixResult {
   const match = content.match(FENCE);
