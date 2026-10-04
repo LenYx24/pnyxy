@@ -24,6 +24,7 @@ import {
 import { detectRoadmapIntent } from "@/lib/roadmap/roadmap-tools";
 import { runLibraryAgenticLoop } from "@/lib/ai/library-agent";
 import { runWhiteboardAgenticLoop } from "@/lib/ai/whiteboard-agent";
+import { runPdfDrawAgenticLoop } from "@/lib/ai/pdf-draw-agent";
 import { detectLibraryOrganizeIntent } from "@/lib/ai/library-tools";
 import { INLINE_GRAPH_SPEC } from "@/lib/ai/extract-graph";
 import { OPEN_DOC_SPEC } from "@/lib/ai/extract-open-doc";
@@ -426,6 +427,36 @@ export async function sendOrBranch(
       } catch (boardErr) {
         if (isAbortError(boardErr)) throw boardErr;
         logError("chat:whiteboardTools:fallback", boardErr);
+        acc = "";
+        patchAssistant("");
+        acc = await streamPlain();
+      }
+    } else if (options?.pdfDrawTools) {
+      // Reader in inline-draw mode: the loop attaches the current page with
+      // the user's drawings and lets the model mark the page back. The doc
+      // context the plain path would send rides along as system context.
+      // Degrades to the plain reader answer if tools are unavailable.
+      try {
+        const docContext = [
+          sourceTitle ? `The document is titled "${sourceTitle}".` : "",
+          contextPack.customContext
+            ? `[About the user]\n${contextPack.customContext}`
+            : "",
+          contextPack.pageContext,
+        ]
+          .filter(Boolean)
+          .join("\n\n");
+        acc = await runPdfDrawAgenticLoop(
+          promptMessages,
+          options.pdfDrawTools,
+          preferredProvider,
+          patchAssistant,
+          signal,
+          docContext || undefined,
+        );
+      } catch (drawErr) {
+        if (isAbortError(drawErr)) throw drawErr;
+        logError("chat:pdfDrawTools:fallback", drawErr);
         acc = "";
         patchAssistant("");
         acc = await streamPlain();

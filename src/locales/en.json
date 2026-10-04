@@ -2042,7 +2042,9 @@
       "reject": "Skip",
       "tool_create_folder": "Create folder",
       "tool_move_item": "Move item",
-      "tool_create_chat": "Start chat"
+      "tool_create_chat": "Start chat",
+      "tool_erase_elements": "Erase drawings",
+      "title_erase_elements": "The AI wants to change your drawings"
     },
     "inlineGraph": {
       "title": "Graph",
@@ -2823,6 +2825,7 @@
       "openDocument": "Open a document to start chatting.",
       "emptyPrompt": "Ask a question about this document",
       "thinking": "Thinking…",
+      "drawModeHint": "Draw mode is on: the AI sees this page with your drawings and can draw on it.",
       "placeholder": "Ask about this document…",
       "clearConfirmTitle": "Clear this conversation?",
       "clearConfirmBody": "All messages in this thread will be removed. This can't be undone.",

@@ -188,7 +188,17 @@ export interface RenderedPdfPage {
 export async function renderPdfPagesToImages(
   fileUrl: string,
   pages: readonly number[],
-  options?: { maxWidth?: number; quality?: number },
+  options?: {
+    maxWidth?: number;
+    quality?: number;
+    /** Paints on top of each rendered page before encoding (e.g. the user's
+     *  inline drawings). `baseWidth` is the page width at scale 1, so the
+     *  callback can size strokes relative to the on-screen page. */
+    overlay?: (
+      ctx: CanvasRenderingContext2D,
+      info: { page: number; width: number; height: number; baseWidth: number },
+    ) => void;
+  },
 ): Promise<RenderedPdfPage[]> {
   if (pages.length === 0) return [];
   const maxWidth = options?.maxWidth ?? 1280;
@@ -219,6 +229,12 @@ export async function renderPdfPagesToImages(
 
     // pdfjs 5.x requires `canvas` alongside canvasContext/viewport
     await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+    options?.overlay?.(ctx, {
+      page: pageNum,
+      width: canvas.width,
+      height: canvas.height,
+      baseWidth: baseViewport.width,
+    });
     const dataUrl = canvas.toDataURL("image/jpeg", quality);
     const base64 = dataUrl.replace(/^data:image\/jpeg;base64,/, "");
     results.push({ page: pageNum, base64, mediaType: "image/jpeg" });

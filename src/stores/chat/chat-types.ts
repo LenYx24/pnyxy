@@ -69,6 +69,16 @@ export interface ChatSendOptions {
   whiteboardTools?: boolean;
   /** Extra situational line for the whiteboard tool loop's system prompt. */
   whiteboardToolsContext?: string;
+  /** Reader with inline-draw mode on: route the turn through the page draw
+   *  loop, so the model sees the page with the user's drawings and can draw
+   *  on it. Absent means the plain reader chat. */
+  pdfDrawTools?: {
+    docId: string;
+    /** 1-based page the user is on. */
+    page: number;
+    fileUrl: string;
+    totalPages?: number;
+  };
 }
 
 export interface ChatState {

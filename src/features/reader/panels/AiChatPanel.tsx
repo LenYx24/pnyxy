@@ -9,13 +9,18 @@ import {
   Gauge,
   MessagesSquare,
   MoreVertical,
+  PenLine,
   Plus,
   Settings,
   Sparkles,
   Trash2,
   X,
 } from "lucide-react";
-import { useChatStore, pathFromRoot } from "@/stores/chat-store";
+import {
+  useChatStore,
+  pathFromRoot,
+  type ChatSendOptions,
+} from "@/stores/chat-store";
 import { ContextInspectorModal } from "@/features/chat/ContextInspectorModal";
 import { useSettingsStore } from "@/stores/settings-store";
 import {
@@ -47,8 +52,26 @@ import { ContextSummaryPill } from "./ContextSummaryPill";
 import { InlineAiPagePicker } from "./InlineAiPagePicker";
 import { TutorNudgeCard } from "./TutorNudgeCard";
 import { useTutorNudgeStore } from "@/stores/tutor-nudge-store";
+import { useInlineDrawStore } from "@/stores/inline-draw-store";
+import { ToolApprovalCard } from "@/features/chat/thread/ToolApprovalCard";
 
 const EMPTY_PATH: ChatMessage[] = [];
+
+/** Draw-mode routing for one send: only while inline draw is on over a PDF,
+ *  read at send time so the page is the one the user is looking at now. */
+function pdfDrawSendOptions(docId: string | null): ChatSendOptions | undefined {
+  if (!docId || !useInlineDrawStore.getState().active) return undefined;
+  const doc = useReaderStore.getState().documents.get(docId);
+  if (!doc || doc.meta.format !== "pdf" || !doc.meta.fileUrl) return undefined;
+  return {
+    pdfDrawTools: {
+      docId,
+      page: doc.currentPage,
+      fileUrl: doc.meta.fileUrl,
+      totalPages: doc.meta.totalPages,
+    },
+  };
+}
 
 interface AiChatPanelContentProps {
   /** Only the mobile slide-over passes this; dockview panels have their own header. */
@@ -129,6 +152,11 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       last: Math.max(...pages),
     };
   }, [activeDoc, aiSurroundingPagesCount]);
+
+  // inline draw on a PDF routes sends through the page draw loop
+  const inlineDrawActive = useInlineDrawStore((s) => s.active);
+  const drawModeForChat =
+    inlineDrawActive && activeDoc?.meta.format === "pdf" && !!activeDoc.meta.fileUrl;
 
   const nudge = useTutorNudgeStore((s) => s.nudge);
   const visibleNudge =
@@ -274,7 +302,9 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       // re-cited from the original passage
       const armedCitation = pendingCitationRef.current;
       pendingCitationRef.current = null;
-      const sendOptions: import("@/stores/chat-store").ChatSendOptions = {};
+      const sendOptions: ChatSendOptions = {
+        ...pdfDrawSendOptions(activeDocumentId),
+      };
       if (payload.reasoning) sendOptions.reasoning = true;
       if (payload.webSearch) sendOptions.webSearch = true;
       if (armedCitation) sendOptions.citation = armedCitation;
@@ -619,6 +649,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                     parent.content,
                     undefined,
                     parent.attachments ?? undefined,
+                    pdfDrawSendOptions(activeDocumentId),
                   );
                 }
               : undefined;
@@ -630,6 +661,7 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                     newText,
                     undefined,
                     msg.attachments ?? undefined,
+                    pdfDrawSendOptions(activeDocumentId),
                   );
                 }
               : undefined;
@@ -690,6 +722,8 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
               <TypingIndicator label={t("reader.aiChat.thinking")} />
             </div>
           )}
+        {/* erase requests from the draw-mode tools wait on this card */}
+        <ToolApprovalCard />
       </div>
 
       {/* context the next message carries. PDFs get the inline page-picker,
@@ -711,6 +745,14 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             : undefined
         }
       />
+      {drawModeForChat && (
+        <div className="flex items-center gap-1.5 px-4 pt-0.5 text-2xs text-accent">
+          <PenLine size={11} className="shrink-0" />
+          <span className="truncate" title={t("reader.aiChat.drawModeHint")}>
+            {t("reader.aiChat.drawModeHint")}
+          </span>
+        </div>
+      )}
       {pagePickerOpen && activeDoc?.meta.format === "pdf" && (
         <InlineAiPagePicker onClose={() => setPagePickerOpen(false)} />
       )}

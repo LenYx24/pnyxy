@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { FolderPlus, FolderInput, MessageSquarePlus, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Eraser, FolderPlus, FolderInput, MessageSquarePlus, ShieldCheck, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useToolApprovalStore } from "@/stores/tool-approval-store";
 
@@ -7,6 +7,7 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
   create_folder: FolderPlus,
   move_item: FolderInput,
   create_chat: MessageSquarePlus,
+  erase_elements: Eraser,
 };
 
 /**
@@ -15,7 +16,7 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
  * Skip resolve the pending promise in tool-approval-store.
  */
 export function ToolApprovalCard() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const pending = useToolApprovalStore((s) => s.pending);
   const approve = useToolApprovalStore((s) => s.approve);
   const reject = useToolApprovalStore((s) => s.reject);
@@ -35,7 +36,10 @@ export function ToolApprovalCard() {
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-2xs font-semibold uppercase tracking-wide text-text-muted">
-          {t("chat.toolApproval.title")} · {toolLabel}
+          {i18n.exists(`chat.toolApproval.title_${pending.tool}`)
+            ? t(`chat.toolApproval.title_${pending.tool}`)
+            : t("chat.toolApproval.title")}{" "}
+          · {toolLabel}
         </p>
         <p className="mt-1 text-sm font-medium text-text-primary">{pending.summary}</p>
         {pending.details && pending.details.length > 0 && (

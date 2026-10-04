@@ -2266,7 +2266,9 @@
       "reject": "Kihagy",
       "tool_create_folder": "Mappa létrehozása",
       "tool_move_item": "Elem áthelyezése",
-      "tool_create_chat": "Chat indítása"
+      "tool_create_chat": "Chat indítása",
+      "tool_erase_elements": "Rajzok törlése",
+      "title_erase_elements": "Az AI módosítana a rajzaidon"
     },
     "inlineGraph": {
       "title": "Gráf",
@@ -3055,6 +3057,7 @@
       "openDocument": "Nyiss meg egy dokumentumot a chat elindításához.",
       "emptyPrompt": "Tegyél fel kérdést a dokumentumról",
       "thinking": "Gondolkodom…",
+      "drawModeHint": "Rajzmód bekapcsolva: az AI látja ezt az oldalt a rajzaiddal együtt, és rajzolni is tud rá.",
       "placeholder": "Kérdezz a dokumentumról…",
       "clearConfirmTitle": "Törlöd ezt a beszélgetést?",
       "clearConfirmBody": "A szálban minden üzenet eltávolításra kerül. Ez nem visszavonható.",
