@@ -996,8 +996,15 @@ type ToolBlock =
 /** Anthropic-shaped tool turn → OpenAI chat messages: an assistant turn
  *  becomes one message with `tool_calls`, a user turn splits into one
  *  `tool` message per tool_result (mirrors src/lib/ai/ai-client.ts). */
+// Gemini 3 rejects a replayed function call without its thought signature.
+// The browser round-trips Anthropic-shaped tool_use blocks, which have no
+// place for it, so replayed calls carry the validator-skip value Google
+// documents for histories that come from elsewhere.
+const GEMINI_SKIP_SIGNATURE = "skip_thought_signature_validator";
+
 function toOpenAiToolMessages(
   m: NonNullable<ChatRequestBody["toolMessages"]>[number],
+  forGemini = false,
 ): Array<Record<string, unknown>> {
   if (typeof m.content === "string") return [{ role: m.role, content: m.content }];
   const blocks = m.content as unknown as ToolBlock[];
@@ -1017,6 +1024,9 @@ function toOpenAiToolMessages(
         id: b.id,
         type: "function",
         function: { name: b.name, arguments: JSON.stringify(b.input ?? {}) },
+        ...(forGemini
+          ? { extra_content: { google: { thought_signature: GEMINI_SKIP_SIGNATURE } } }
+          : {}),
       }));
     }
     if (!msg.content && !msg.tool_calls) msg.content = "";
@@ -1084,7 +1094,9 @@ async function tryOpenAiCompatibleTools(
         })),
         messages: [
           { role: "system", content: systemPrompt },
-          ...toolMessages.flatMap(toOpenAiToolMessages),
+          ...toolMessages.flatMap((m) =>
+            toOpenAiToolMessages(m, providerName.startsWith("gemini")),
+          ),
         ],
       }),
     });
@@ -1125,6 +1137,7 @@ function openAiToolsToAnthropicSse(
   let reportedOutputTokens: number | null = null;
   let emittedChars = 0;
   const slots = new Map<number, ToolCallSlot>();
+  const keyById = new Map<string, number>();
   let finishReason: string | null = null;
   const finish = () => {
     if (!onUsage) return;
@@ -1191,11 +1204,17 @@ function openAiToolsToAnthropicSse(
                 function?: { name?: string; arguments?: string };
               }> = delta?.tool_calls ?? [];
               for (const tc of tcs) {
-                if (typeof tc.index !== "number") continue;
-                let slot = slots.get(tc.index);
+                // Gemini's compat stream omits `index` and sends each call
+                // whole: key it by id, or as the next new call.
+                const key =
+                  typeof tc.index === "number"
+                    ? tc.index
+                    : ((tc.id ? keyById.get(tc.id) : undefined) ?? slots.size);
+                if (tc.id) keyById.set(tc.id, key);
+                let slot = slots.get(key);
                 if (!slot) {
-                  slot = { id: tc.id ?? `call_${tc.index}`, name: "", open: false, args: "" };
-                  slots.set(tc.index, slot);
+                  slot = { id: tc.id ?? `call_${key}`, name: "", open: false, args: "" };
+                  slots.set(key, slot);
                 }
                 if (tc.id) slot.id = tc.id;
                 if (tc.function?.name) slot.name = tc.function.name;
@@ -1205,14 +1224,14 @@ function openAiToolsToAnthropicSse(
                   if (slot.open) {
                     emit({
                       type: "content_block_delta",
-                      index: tc.index + 1,
+                      index: key + 1,
                       delta: { type: "input_json_delta", partial_json: args },
                     });
                   } else {
                     slot.args += args;
                   }
                 }
-                openBlock(tc.index, slot);
+                openBlock(key, slot);
               }
               if (typeof choice?.finish_reason === "string" && choice.finish_reason.length > 0) {
                 finishReason = choice.finish_reason;
