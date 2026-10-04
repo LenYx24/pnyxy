@@ -799,7 +799,7 @@
       "attachTocLabel": "A könyv tartalomjegyzékének küldése",
       "attachTocHint": "Ha be van kapcsolva, a tartalomjegyzék automatikusan minden könyves chathez csatolódik. Olcsó, de nagyon hasznos kontextus.",
       "surroundingLabel": "„Jelenlegi oldal körüli” oldalak száma",
-      "surroundingHint": "Hány oldalt jelöljön ki a „jelenlegi körül” gomb a TOC-ban a jelenlegi oldal körül mindkét irányba.",
+      "surroundingHint": "Az AI alapból az épp nézett oldalt és ennyi oldalt kap mindkét irányban; lapozáskor ez az ablak vele mozog. Ha kézzel választasz oldalakat, a követés kikapcsol, amíg vissza nem kapcsolod.",
       "presets": {
         "pick": "Válassz kontextust",
         "search": "Keresés a kontextusok között",
@@ -871,6 +871,17 @@
       "emptyPlugins": "Nincs bővítmény a jegyzékben.",
       "submitTheme": "Küldd be a saját témádat a GitHubon",
       "submitPlugin": "Küldd be a saját bővítményedet a GitHubon"
+    },
+    "aiProactive": {
+      "heading": "Aktív tutor",
+      "description": "Az olvasóban a tutor magától is felajánlhatja a segítségét, például ha sokáig állsz egy oldalon, vagy napok után térsz vissza egy könyvhöz. Amíg nem fogadod el, nem fut AI-hívás.",
+      "levelLabel": "Mennyire szóljon magától",
+      "off": "Kikapcsolva",
+      "low": "Visszafogott",
+      "high": "Aktív",
+      "offHint": "A tutor csak akkor szól, ha kérdezed.",
+      "lowHint": "Ritkán szól: 8 perc egy oldalon vagy 4 nap kihagyás után, naponta legfeljebb 3-szor, és két „Most nem” után aznapra elhallgat.",
+      "highHint": "Gyakrabban szól: 4 perc egy oldalon vagy egy nap kihagyás után, naponta legfeljebb 8-szor."
     }
   },
   "landing": {
@@ -2278,6 +2289,14 @@
         "label": "gráf-ábra",
         "hint": "A válasz szerkeszthető gráf-ábraként"
       }
+    },
+    "inlineSim": {
+      "title": "Interaktív szimuláció",
+      "incoming": "Szimuláció készül…",
+      "restart": "Újraindítás",
+      "code": "Kód mutatása",
+      "expand": "Nagyítás",
+      "collapse": "Kicsinyítés"
     }
   },
   "readingPlans": {
@@ -3065,7 +3084,19 @@
       "customizeContext": "Állítsd be, mely oldalak menjenek az AI-nak",
       "contextPagesEditAria": "Válaszd ki, mely oldalak menjenek az AI-nak",
       "contextPagesEmpty": "Oldalak kiválasztása",
-      "customizeContextAction": "Testreszabás"
+      "customizeContextAction": "Testreszabás",
+      "nudge": {
+        "stuck": "Már egy ideje a(z) {{page}}. oldalon jársz. Segítsek megérteni?",
+        "resume": "Rég jártál ebben a könyvben. Kérsz egy rövid összefoglalót, hol tartottál (o. {{page}})?",
+        "yes": "Igen",
+        "notNow": "Most nem",
+        "stuckPrompt": "Elakadtam a(z) {{page}}. oldalon. Segíts megérteni: kérdezd meg, mi nem világos, és vezess végig rajta lépésenként."
+      },
+      "contextFollowing": "{{center}}. oldal ±{{radius}} ({{first}}-{{last}}), követi az olvasást",
+      "contextPagesManual_one": "{{count}} kézzel választott oldal",
+      "contextPagesManual_other": "{{count}} kézzel választott oldal",
+      "contextFollow": "Kövesse az olvasást",
+      "contextFollowHint": "Az AI mindig az épp nézett oldalt és a környékét kapja"
     },
     "comments": {
       "close": "Megjegyzések bezárása",
@@ -3097,6 +3128,10 @@
       "popoverTitle": "Elküldve az AI-nak · {{count}} alkalommal",
       "untitledMessage": "(névtelen üzenet)",
       "untitledConv": "Névtelen beszélgetés"
+    },
+    "settingsModal": {
+      "title": "Beállítások",
+      "open": "Beállítások"
     }
   },
   "quizzes": {

@@ -579,7 +579,7 @@
       "attachTocLabel": "Attach the book's table of contents",
       "attachTocHint": "When enabled, the TOC is included automatically in every chat about a book. Cheap context, very high leverage for navigation questions.",
       "surroundingLabel": "“Select around current” page count",
-      "surroundingHint": "How many pages on each side of the current page the “select around current” button selects in the TOC.",
+      "surroundingHint": "By default the AI gets the page you're on plus this many pages on each side, and the window moves with you as you read. Picking pages by hand stops the following until you switch it back on.",
       "presets": {
         "pick": "Pick a context",
         "search": "Search contexts",
@@ -656,6 +656,17 @@
       "emptyPlugins": "No plugins found in the registry.",
       "submitTheme": "Submit your own theme on GitHub",
       "submitPlugin": "Submit your own plugin on GitHub"
+    },
+    "aiProactive": {
+      "heading": "Proactive tutor",
+      "description": "In the reader the tutor can offer help on its own, for example when you stay on one page for a long time or come back to a book after a few days. No AI call runs until you accept.",
+      "levelLabel": "How readily it speaks up",
+      "off": "Off",
+      "low": "Reserved",
+      "high": "Active",
+      "offHint": "The tutor only speaks when you ask.",
+      "lowHint": "Rarely: after 8 minutes on a page or a 4-day break, at most 3 times a day, and silent for the day after two \"Not now\"s.",
+      "highHint": "More often: after 4 minutes on a page or a 1-day break, at most 8 times a day."
     }
   },
   "landing": {
@@ -2054,6 +2065,14 @@
         "label": "graph diagram",
         "hint": "Draw the answer as an editable graph diagram"
       }
+    },
+    "inlineSim": {
+      "title": "Interactive simulation",
+      "incoming": "Building the simulation…",
+      "restart": "Restart",
+      "code": "Show code",
+      "expand": "Expand",
+      "collapse": "Collapse"
     }
   },
   "readingPlans": {
@@ -2833,7 +2852,19 @@
       "customizeContext": "Customize what pages get sent to the AI",
       "contextPagesEditAria": "Choose which pages get sent to the AI",
       "contextPagesEmpty": "Pick pages",
-      "customizeContextAction": "Customize"
+      "customizeContextAction": "Customize",
+      "nudge": {
+        "stuck": "You've been on page {{page}} for a while. Want help understanding it?",
+        "resume": "It's been a while since you read this book. Want a short recap of where you left off (p.{{page}})?",
+        "yes": "Yes",
+        "notNow": "Not now",
+        "stuckPrompt": "I'm stuck on page {{page}}. Help me understand it: ask what's unclear, then walk me through it step by step."
+      },
+      "contextFollowing": "p.{{center}} ±{{radius}} ({{first}}-{{last}}), follows your reading",
+      "contextPagesManual_one": "{{count}} hand-picked page",
+      "contextPagesManual_other": "{{count}} hand-picked pages",
+      "contextFollow": "Follow my reading",
+      "contextFollowHint": "The AI always gets the page you're on and the pages around it"
     },
     "comments": {
       "close": "Close comments",
@@ -2873,6 +2904,10 @@
       "popoverTitle": "Sent to AI · {{count}} times",
       "untitledMessage": "(untitled message)",
       "untitledConv": "Untitled chat"
+    },
+    "settingsModal": {
+      "title": "Settings",
+      "open": "Settings"
     }
   },
   "quizzes": {

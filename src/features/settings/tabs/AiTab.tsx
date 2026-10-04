@@ -46,7 +46,17 @@ import {
   Toggle,
   chipClass,
 } from "@/components/ui";
-import { Disclosure, SettingRow, SettingsSection, StatusLine } from "../ui";
+import {
+  Disclosure,
+  OptionChips,
+  SettingRow,
+  SettingsSection,
+  StatusLine,
+} from "../ui";
+import {
+  normalizeProactiveLevel,
+  type ProactiveLevel,
+} from "@/stores/tutor-nudge-store";
 import { AiContextPresetsPanel } from "../ai-context/AiContextPresetsPanel";
 
 interface AiUsageRow {
@@ -369,6 +379,7 @@ export function AiTab() {
       )}
 
       <AiContextSection />
+      <AiProactiveSection />
 
       <Disclosure title={t("settings.aiSection.howItWorks")}>
         <div className="space-y-5 pt-1">
@@ -1070,6 +1081,38 @@ function AiContextSection() {
           />
         }
       />
+    </SettingsSection>
+  );
+}
+
+// Proactive tutor: how readily the reader's tutor offers help on its own.
+function AiProactiveSection() {
+  const { t } = useTranslation();
+  const level = normalizeProactiveLevel(
+    useSettingsStore((s) => s.aiProactiveLevel),
+  );
+  const setLevel = useSettingsStore((s) => s.setAiProactiveLevel);
+
+  return (
+    <SettingsSection
+      title={t("settings.aiProactive.heading")}
+      description={t("settings.aiProactive.description")}
+    >
+      <SettingRow
+        label={t("settings.aiProactive.levelLabel")}
+        hint={t(`settings.aiProactive.${level}Hint`)}
+        stacked
+      >
+        <OptionChips<ProactiveLevel>
+          value={level}
+          onChange={setLevel}
+          options={[
+            { value: "off", label: t("settings.aiProactive.off") },
+            { value: "low", label: t("settings.aiProactive.low") },
+            { value: "high", label: t("settings.aiProactive.high") },
+          ]}
+        />
+      </SettingRow>
     </SettingsSection>
   );
 }

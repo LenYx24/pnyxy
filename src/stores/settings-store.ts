@@ -14,6 +14,7 @@ import {
 } from "@/lib/themes";
 import { buildDefaultPluginSettings } from "@/lib/plugins/core-registry";
 import type { PluginManifest } from "@/lib/plugins/types";
+import type { ProactiveLevel } from "@/stores/tutor-nudge-store";
 import {
   READER_THEME_IDS,
   type ReaderTheme,
@@ -111,6 +112,8 @@ interface SettingsState {
   /** Whiteboard side-chat sends the board as an image and lets the model
    *  draw back through the board tools. */
   aiWhiteboardTools: boolean;
+  /** Proactive tutor in the reader: how readily it speaks up uninvited. */
+  aiProactiveLevel: ProactiveLevel;
   /** Chat sidebar search also looks inside message content (a server
    *  round-trip, so it is opt-in). */
   chatSearchInMessages: boolean;
@@ -208,6 +211,7 @@ interface SettingsState {
   ) => void;
   setAiAttachToc: (v: boolean) => void;
   setAiWhiteboardTools: (v: boolean) => void;
+  setAiProactiveLevel: (v: ProactiveLevel) => void;
   setChatSearchInMessages: (v: boolean) => void;
   setChatFontSize: (v: number) => void;
   setAiSurroundingPagesCount: (v: number) => void;
@@ -278,6 +282,7 @@ export const useSettingsStore = create<SettingsState>()(
       aiContextBindings: emptyAiContextBindings(),
       aiAttachToc: true,
       aiWhiteboardTools: true,
+      aiProactiveLevel: "low",
       chatSearchInMessages: false,
       chatFontSize: 15,
       aiSurroundingPagesCount: 5,
@@ -440,6 +445,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
       setAiAttachToc: (v) => set({ aiAttachToc: v }),
       setAiWhiteboardTools: (v) => set({ aiWhiteboardTools: v }),
+      setAiProactiveLevel: (v) => set({ aiProactiveLevel: v }),
       setChatSearchInMessages: (v) => set({ chatSearchInMessages: v }),
       setChatFontSize: (v) => set({ chatFontSize: Math.min(18, Math.max(13, Math.round(v))) }),
       // clamp 0..50 so one click can't flood the prompt with pages

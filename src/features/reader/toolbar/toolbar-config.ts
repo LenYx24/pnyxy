@@ -28,6 +28,7 @@ import {
   PanelLeft,
   Maximize,
   BookMarked,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 
@@ -73,7 +74,7 @@ export function newSeparatorId(): string {
 export const DEFAULT_LAYOUT: ToolbarLayout = {
   left: ["back", "title"],
   center: ["search", "pageNav", "zoom", "night"],
-  right: ["aiChat"],
+  right: ["settings", "aiChat"],
   overflow: [
     "undo",
     "cropToAi",
@@ -111,6 +112,35 @@ export function cloneDefaultLayout(): ToolbarLayout {
   };
 }
 
+// Items added after a user saved a custom layout: placed once where the
+// default puts them, then left alone (removing one must stick).
+const SEEDED_KEY = "pnyxy-reader-toolbar-seeded";
+const LATE_ITEMS: Array<{ id: ToolbarItemId; zone: keyof ToolbarLayout }> = [
+  { id: "settings", zone: "right" },
+];
+
+function seedNewItems(layout: ToolbarLayout): ToolbarLayout {
+  let seeded: string[] = [];
+  try {
+    seeded = JSON.parse(localStorage.getItem(SEEDED_KEY) ?? "[]") as string[];
+  } catch {
+    // unreadable flag: treat as nothing seeded yet
+  }
+  const placed = new Set(Object.values(layout).flat());
+  const next = { ...layout };
+  for (const { id, zone } of LATE_ITEMS) {
+    if (seeded.includes(id)) continue;
+    seeded.push(id);
+    if (!placed.has(id)) next[zone] = [id, ...next[zone]];
+  }
+  try {
+    localStorage.setItem(SEEDED_KEY, JSON.stringify(seeded));
+  } catch {
+    // storage unavailable: the item is seeded again next load, harmless
+  }
+  return next;
+}
+
 function loadLayout(): ToolbarLayout {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -122,12 +152,12 @@ function loadLayout(): ToolbarLayout {
         Array.isArray(parsed.right) &&
         Array.isArray(parsed.overflow)
       ) {
-        return {
+        return seedNewItems({
           left: parsed.left,
           center: parsed.center,
           right: parsed.right,
           overflow: parsed.overflow,
-        };
+        });
       }
     }
   } catch {
@@ -270,6 +300,7 @@ export const ALL_ITEM_IDS = [
   "sidebar",
   "fullscreen",
   "bookPage",
+  "settings",
 ] as const;
 
 export type ToolbarItemId = (typeof ALL_ITEM_IDS)[number];
@@ -314,4 +345,5 @@ export const TOOLBAR_ITEM_META: Record<string, ToolbarItemMeta> = {
   sidebar: { icon: PanelLeft, labelKey: "reader.toolbar.toggleSidebar", labelDefault: "Toggle sidebar" },
   fullscreen: { icon: Maximize, labelKey: "reader.toolbar.fullscreen", labelDefault: "Fullscreen" },
   bookPage: { icon: BookMarked, labelKey: "reader.toolbar.openBookPage", labelDefault: "Open book page" },
+  settings: { icon: Settings, labelKey: "reader.settingsModal.open", labelDefault: "Settings" },
 };

@@ -8,6 +8,7 @@
  */
 
 export interface AppRouterLike {
+  state: { location: { pathname: string; search: string } };
   subscribe: (
     fn: (state: {
       location: { pathname: string; search: string };

@@ -45,6 +45,7 @@ import { useReaderShortcuts } from "./hooks/useReaderShortcuts";
 import { useReaderDrawMode } from "./hooks/useReaderDrawMode";
 import { useReaderPrint } from "./hooks/useReaderPrint";
 import { useReaderStreakTimer } from "./hooks/useReaderStreakTimer";
+import { useTutorNudges } from "./hooks/useTutorNudges";
 import { useReaderTint } from "./hooks/useReaderTint";
 
 export function ReaderPage() {
@@ -202,6 +203,7 @@ export function ReaderPage() {
   });
 
   useReaderStreakTimer(hasDocuments);
+  useTutorNudges();
 
   // 6% cover tint over the desk colour (see dockview-theme.css / .reader-shell)
   const readerTint = useReaderTint(activeDocumentId);

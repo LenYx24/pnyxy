@@ -5,6 +5,20 @@ import { getAppRouter } from "@/lib/app-router-ref";
 /** How long a navigation must hang before the bar appears; instant
  *  (cached-chunk) navigations never flash it. */
 const SHOW_DELAY_MS = 150;
+/** A real chunk load finishes well within this; past it the mismatch is a
+ *  path-normalization quirk, not a pending navigation, so the bar gives up. */
+const MAX_VISIBLE_MS = 8_000;
+
+/** "/a/b/" and "/a/b", or an encoded vs decoded segment, are the same route. */
+function normalizePath(path: string): string {
+  let p = path;
+  try {
+    p = decodeURI(p);
+  } catch {
+    // malformed escape: compare the raw string
+  }
+  return p.length > 1 ? p.replace(/\/+$/, "") : p;
+}
 
 /**
  * Gemini-style slim indeterminate bar at the top of the viewport while
@@ -21,18 +35,23 @@ export function RouteLoadingBar() {
   // navigation and must not flash the bar. Comparing the full path+search
   // made the bar fire on that churn, and any search normalization mismatch
   // kept it stuck visible.
-  const committed = location.pathname;
+  const committed = normalizePath(location.pathname);
   const [target, setTarget] = useState(committed);
 
   useEffect(() => {
     const router = getAppRouter();
     if (!router) return;
     return router.subscribe((state) => {
-      setTarget(state.location.pathname);
+      setTarget(normalizePath(state.location.pathname));
     });
   }, []);
 
-  const pending = target !== committed;
+  // Read the router's live location too: once it equals the committed one
+  // the navigation has landed, whatever a stale `target` still says.
+  const live = getAppRouter()?.state.location.pathname;
+  const pending =
+    target !== committed &&
+    (live === undefined || normalizePath(live) !== committed);
   const [visible, setVisible] = useState(false);
   // hide instantly when the navigation lands (render-time guard, not an
   // effect, so there is no extra committed frame with a stale bar)
@@ -43,8 +62,12 @@ export function RouteLoadingBar() {
   }
   useEffect(() => {
     if (!pending) return;
-    const id = setTimeout(() => setVisible(true), SHOW_DELAY_MS);
-    return () => clearTimeout(id);
+    const show = setTimeout(() => setVisible(true), SHOW_DELAY_MS);
+    const giveUp = setTimeout(() => setVisible(false), MAX_VISIBLE_MS);
+    return () => {
+      clearTimeout(show);
+      clearTimeout(giveUp);
+    };
   }, [pending]);
 
   if (!visible) return null;

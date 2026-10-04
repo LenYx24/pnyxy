@@ -13,12 +13,19 @@ export function ContextSummaryPill({
   tocAttached,
   selectedPages,
   hasPersona,
+  pageWindow,
+  onFollowPage,
   onPickPages,
 }: {
   tocAvailable: boolean;
   tocAttached: boolean;
   selectedPages: number;
   hasPersona: boolean;
+  /** Set while the selection follows the reading position (auto mode): the
+   *  page in the middle and the actual first/last selected page. */
+  pageWindow?: { center: number; radius: number; first: number; last: number } | null;
+  /** Shown for a manual selection: puts the window back on the current page. */
+  onFollowPage?: () => void;
   /** Inline page picker used by the pill body + chip (PDF docs). When
    *  omitted the sidebar editor is the only way to edit the selection. */
   onPickPages?: () => void;
@@ -88,10 +95,25 @@ export function ContextSummaryPill({
           )}
           aria-label={t("reader.aiChat.contextPagesEditAria")}
         >
-          {selectedPages > 0
-            ? t("reader.aiChat.contextPages", { count: selectedPages })
-            : t("reader.aiChat.contextPagesEmpty")}
+          {pageWindow
+            ? t("reader.aiChat.contextFollowing", pageWindow)
+            : selectedPages > 0
+              ? t("reader.aiChat.contextPagesManual", { count: selectedPages })
+              : t("reader.aiChat.contextPagesEmpty")}
         </button>
+        {!pageWindow && onFollowPage && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onFollowPage();
+            }}
+            className="shrink-0 rounded text-text-muted underline decoration-dotted underline-offset-2 transition-colors hover:text-text-primary cursor-pointer"
+            title={t("reader.aiChat.contextFollowHint")}
+          >
+            {t("reader.aiChat.contextFollow")}
+          </button>
+        )}
         {hasPersona && (
           <>
             <span className="text-text-muted/50">·</span>

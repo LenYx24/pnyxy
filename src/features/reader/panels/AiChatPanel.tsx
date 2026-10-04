@@ -45,6 +45,8 @@ import { ReaderConversationList } from "./ReaderConversationList";
 import { PanelShell } from "./PanelShell";
 import { ContextSummaryPill } from "./ContextSummaryPill";
 import { InlineAiPagePicker } from "./InlineAiPagePicker";
+import { TutorNudgeCard } from "./TutorNudgeCard";
+import { useTutorNudgeStore } from "@/stores/tutor-nudge-store";
 
 const EMPTY_PATH: ChatMessage[] = [];
 
@@ -113,20 +115,24 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
 
   const sourceDocId = activeConversation?.source_doc_id ?? null;
 
-  // "Summarize where you left off": offered when the book was opened with
-  // meaningful prior progress after a break, and there's no thread yet.
-  const resumeDaysAgo = activeDoc?.lastReadAt
-    ? (Date.now() - new Date(activeDoc.lastReadAt).getTime()) / 86_400_000
-    : null;
-  const showResume =
-    !activeIsForThisDoc &&
-    !!activeDoc &&
-    (activeDoc.currentPage ?? 1) > 5 &&
-    resumeDaysAgo !== null &&
-    resumeDaysAgo >= 4;
-  const resumePrompt = t("reader.aiChat.resumeSummaryPrompt", {
-    page: activeDoc?.currentPage ?? 1,
-  });
+  // auto mode: the selection is a ±N window that follows the reading position
+  const aiSurroundingPagesCount = useSettingsStore((s) => s.aiSurroundingPagesCount);
+  const pageWindow = useMemo(() => {
+    if (!activeDoc?.aiPagesAutoMode || activeDoc.aiSelectedPages.size === 0) {
+      return null;
+    }
+    const pages = Array.from(activeDoc.aiSelectedPages);
+    return {
+      center: activeDoc.aiSelectionAnchor ?? activeDoc.currentPage,
+      radius: aiSurroundingPagesCount,
+      first: Math.min(...pages),
+      last: Math.max(...pages),
+    };
+  }, [activeDoc, aiSurroundingPagesCount]);
+
+  const nudge = useTutorNudgeStore((s) => s.nudge);
+  const visibleNudge =
+    nudge && nudge.docId === activeDocumentId ? nudge : null;
 
   const [input, setInput] = useState("");
   const [listOpen, setListOpen] = useState(false);
@@ -599,27 +605,6 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
             <p className="text-[13px] leading-relaxed text-text-secondary">
               {t("reader.aiChat.emptyPrompt")}
             </p>
-            {showResume && (
-              <button
-                type="button"
-                onClick={() =>
-                  void handleSubmit({
-                    text: resumePrompt,
-                    provider: null,
-                    mode: "default",
-                    attachments: [],
-                    reasoning: false,
-                    webSearch: false,
-                  })
-                }
-                className="chip inline-flex w-max items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary cursor-pointer"
-              >
-                <Sparkles size={13} strokeWidth={1.5} />
-                {t("reader.aiChat.resumeSummary", {
-                  page: activeDoc?.currentPage ?? 1,
-                })}
-              </button>
-            )}
           </div>
         )}
 
@@ -714,6 +699,12 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         tocAttached={aiAttachToc}
         selectedPages={activeDoc?.aiSelectedPages.size ?? 0}
         hasPersona={aiCustomDefaultContext.trim().length > 0}
+        pageWindow={pageWindow}
+        onFollowPage={
+          activeDoc?.meta.format === "pdf" && activeDocumentId
+            ? () => useReaderStore.getState().selectAiPagesAround(activeDocumentId)
+            : undefined
+        }
         onPickPages={
           activeDoc?.meta.format === "pdf"
             ? () => setPagePickerOpen((v) => !v)
@@ -725,6 +716,26 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       )}
       {/* reading-context omitted here since the current book is the context */}
       <div className="space-y-2 px-3 pb-3 pt-1">
+        {visibleNudge && (
+          <TutorNudgeCard
+            nudge={visibleNudge}
+            onAccept={() => {
+              useTutorNudgeStore.getState().accept();
+              void handleSubmit({
+                text:
+                  visibleNudge.kind === "stuck"
+                    ? t("reader.aiChat.nudge.stuckPrompt", { page: visibleNudge.page })
+                    : t("reader.aiChat.resumeSummaryPrompt", { page: visibleNudge.page }),
+                provider: null,
+                mode: "default",
+                attachments: [],
+                reasoning: false,
+                webSearch: false,
+              });
+            }}
+            onDecline={() => useTutorNudgeStore.getState().decline()}
+          />
+        )}
         {/* branch banner: next submit branches from the picked bubble */}
         {branchFromId && messages.get(branchFromId) && (
           <div className="flex items-center justify-between gap-2 rounded-control bg-bg-tertiary px-2.5 py-1.5 text-xs text-text-secondary">

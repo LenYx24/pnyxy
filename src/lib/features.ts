@@ -1,14 +1,13 @@
-// Feature gating for the pilot: the app ships with only the core loop
-// visible (reader + AI chat + streaks + library) and every other surface
-// behind a flag that can be unlocked per user.
+// Feature gating: every surface sits behind a flag. All are on by default;
+// a local override (admin/dev toggles) can still switch one off.
 //
 // Resolution order for a key (first hit wins):
 //   1. local override from the settings store (admin/dev toggles)
 //   2. admin "show everything" switch
 //   3. server-side unlock list in profiles.preferences.features
-//   4. DEFAULT_FEATURES (all false in the pilot)
+//   4. DEFAULT_FEATURES (all on)
 //
-// Unlocking for a pilot user is a one-liner in SQL:
+// Unlocking a flag server-side (when a default is off) is one line of SQL:
 //   update profiles set preferences = preferences || '{"features":["notes"]}'
 //   where id = '...';
 
@@ -41,28 +40,27 @@ export type FeatureKey = (typeof FEATURE_KEYS)[number];
 export type FeatureSet = Readonly<Record<FeatureKey, boolean>>;
 
 export const DEFAULT_FEATURES: FeatureSet = {
-  notes: false,
-  whiteboard: false,
-  quizzes: false,
-  flashcards: false,
-  learnHub: false,
-  forum: false,
-  roadmaps: false,
-  vocabulary: false,
-  // Greenlit for the pilot: the course/spaces flow is the pilot's core.
+  notes: true,
+  whiteboard: true,
+  quizzes: true,
+  flashcards: true,
+  learnHub: true,
+  forum: true,
+  roadmaps: true,
+  vocabulary: true,
   spaces: true,
-  comments: false,
-  graph: false,
-  leaderboards: false,
-  multiDoc: false,
-  plugins: false,
-  bookmarks: false,
-  readProgress: false,
-  catalog: false,
-  readingPlans: false,
-  graphWidget: false,
-  webArticles: false,
-  chatTabs: false,
+  comments: true,
+  graph: true,
+  leaderboards: true,
+  multiDoc: true,
+  plugins: true,
+  bookmarks: true,
+  readProgress: true,
+  catalog: true,
+  readingPlans: true,
+  graphWidget: true,
+  webArticles: true,
+  chatTabs: true,
 };
 
 // TODO(library agent): gate the library empty-state "Browse catalog"

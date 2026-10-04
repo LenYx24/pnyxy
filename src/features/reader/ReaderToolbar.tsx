@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { FloatingMenu } from "@/components/ui/FloatingMenu";
+import { useTutorNudgeStore } from "@/stores/tutor-nudge-store";
 import { Toggle, Tooltip } from "@/components/ui";
 import { getZoomControls } from "./gestures/pinch-zoom-controller";
 import { useLocation, useNavigate } from "react-router";
@@ -43,8 +44,10 @@ import {
   Sparkles,
   BookMarked,
   Settings2,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
+import { ReaderSettingsModal } from "./ReaderSettingsModal";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/stores/ui-store";
 import { useInlineDrawStore } from "@/stores/inline-draw-store";
@@ -480,11 +483,14 @@ export function ReaderToolbar({
   const { layout, setLayout, resetLayout } = useToolbarLayout();
   const { style: toolbarStyle, setStyle: setToolbarStyle } = useToolbarStyle();
   const [editingToolbar, setEditingToolbar] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // desktop expands the app sidebar, mobile opens the nav drawer
   const setMobileSidebarOpen = useUIStore((s) => s.setMobileSidebarOpen);
   // the reader hides the global rail, so the app-menu button is mobile-only
   const showAppSidebarToggle = isMobile;
 
+  // the proactive tutor has something to say while the panel may be closed
+  const hasTutorNudge = useTutorNudgeStore((s) => s.nudge !== null);
   if (!activeDoc) return null;
 
   const { currentPage, totalPages, zoomMode, zoomLevel } = activeDoc;
@@ -779,11 +785,17 @@ export function ReaderToolbar({
     >
       <button
         onClick={onToggleAiChat}
-        className="inline-flex h-9 shrink-0 items-center gap-2 rounded-control bg-text-primary px-3.5 text-[13px] font-semibold text-bg-primary transition-opacity hover:opacity-90 cursor-pointer"
+        className="relative inline-flex h-9 shrink-0 items-center gap-2 rounded-control bg-text-primary px-3.5 text-[13px] font-semibold text-bg-primary transition-opacity hover:opacity-90 cursor-pointer"
         aria-label={t("reader.toolbar.aiChatTitle")}
       >
         <Sparkles size={15} strokeWidth={1.5} />
         {t("reader.tools.teacher")}
+        {hasTutorNudge && (
+          <span
+            aria-hidden
+            className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-bg-primary"
+          />
+        )}
       </button>
     </Tooltip>
   );
@@ -953,6 +965,11 @@ export function ReaderToolbar({
       icon: BookMarked,
       label: t("reader.toolbar.openBookPage"),
       onClick: goToDescription,
+    },
+    settings: {
+      icon: Settings,
+      label: t("reader.settingsModal.open"),
+      onClick: () => setSettingsOpen(true),
     },
   };
 
@@ -1208,6 +1225,16 @@ export function ReaderToolbar({
               </div>
               <button
                 onClick={() => {
+                  setSettingsOpen(true);
+                  setShowOverflowMenu(false);
+                }}
+                className={menuRowCls}
+              >
+                <Settings size={16} strokeWidth={1.5} />
+                {t("reader.settingsModal.open")}
+              </button>
+              <button
+                onClick={() => {
                   setEditingToolbar(true);
                   setShowOverflowMenu(false);
                 }}
@@ -1219,6 +1246,10 @@ export function ReaderToolbar({
             </FloatingMenu>
           </>
         )}
+        <ReaderSettingsModal
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+        />
       </div>
 
       {/* highlight-color picker, anchored to the overflow button */}
