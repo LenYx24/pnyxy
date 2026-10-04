@@ -155,24 +155,31 @@ export async function extractPdfText(
   startPage: number,
   endPage: number,
 ): Promise<string> {
-  const pdf = await pdfjs.getDocument(fileUrl).promise;
-  const pages: string[] = [];
+  // a private copy of the document: destroyed afterwards so repeated calls
+  // (one per chat turn) don't pile up parsed documents and worker state
+  const task = pdfjs.getDocument(fileUrl);
+  try {
+    const pdf = await task.promise;
+    const pages: string[] = [];
 
-  const from = Math.max(1, startPage);
-  const to = Math.min(pdf.numPages, endPage);
+    const from = Math.max(1, startPage);
+    const to = Math.min(pdf.numPages, endPage);
 
-  for (let i = from; i <= to; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const text = content.items
-      .map((item) => ("str" in item ? item.str : ""))
-      .join(" ");
-    if (text.trim()) {
-      pages.push(`[Page ${i}]\n${text}`);
+    for (let i = from; i <= to; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const text = content.items
+        .map((item) => ("str" in item ? item.str : ""))
+        .join(" ");
+      if (text.trim()) {
+        pages.push(`[Page ${i}]\n${text}`);
+      }
     }
-  }
 
-  return pages.join("\n\n");
+    return pages.join("\n\n");
+  } finally {
+    void task.destroy();
+  }
 }
 
 export interface RenderedPdfPage {
@@ -204,43 +211,48 @@ export async function renderPdfPagesToImages(
   const maxWidth = options?.maxWidth ?? 1280;
   const quality = options?.quality ?? 0.85;
 
-  const pdf = await pdfjs.getDocument(fileUrl).promise;
-  const results: RenderedPdfPage[] = [];
+  const task = pdfjs.getDocument(fileUrl);
+  try {
+    const pdf = await task.promise;
+    const results: RenderedPdfPage[] = [];
 
-  // dedupe + sort
-  const unique = Array.from(new Set(pages)).sort((a, b) => a - b);
+    // dedupe + sort
+    const unique = Array.from(new Set(pages)).sort((a, b) => a - b);
 
-  for (const pageNum of unique) {
-    if (pageNum < 1 || pageNum > pdf.numPages) continue;
-    const page = await pdf.getPage(pageNum);
-    const baseViewport = page.getViewport({ scale: 1 });
-    const scale = Math.min(maxWidth / baseViewport.width, 2);
-    const viewport = page.getViewport({ scale });
+    for (const pageNum of unique) {
+      if (pageNum < 1 || pageNum > pdf.numPages) continue;
+      const page = await pdf.getPage(pageNum);
+      const baseViewport = page.getViewport({ scale: 1 });
+      const scale = Math.min(maxWidth / baseViewport.width, 2);
+      const viewport = page.getViewport({ scale });
 
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.floor(viewport.width);
-    canvas.height = Math.floor(viewport.height);
-    const ctx = canvas.getContext("2d");
-    if (!ctx) continue;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) continue;
 
-    // transparent canvas flattens to black under JPEG, so fill white first
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // transparent canvas flattens to black under JPEG, so fill white first
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // pdfjs 5.x requires `canvas` alongside canvasContext/viewport
-    await page.render({ canvas, canvasContext: ctx, viewport }).promise;
-    options?.overlay?.(ctx, {
-      page: pageNum,
-      width: canvas.width,
-      height: canvas.height,
-      baseWidth: baseViewport.width,
-    });
-    const dataUrl = canvas.toDataURL("image/jpeg", quality);
-    const base64 = dataUrl.replace(/^data:image\/jpeg;base64,/, "");
-    results.push({ page: pageNum, base64, mediaType: "image/jpeg" });
+      // pdfjs 5.x requires `canvas` alongside canvasContext/viewport
+      await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+      options?.overlay?.(ctx, {
+        page: pageNum,
+        width: canvas.width,
+        height: canvas.height,
+        baseWidth: baseViewport.width,
+      });
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      const base64 = dataUrl.replace(/^data:image\/jpeg;base64,/, "");
+      results.push({ page: pageNum, base64, mediaType: "image/jpeg" });
+    }
+
+    return results;
+  } finally {
+    void task.destroy();
   }
-
-  return results;
 }
 
 // convert { content, attachments } into each provider's content shape

@@ -9,7 +9,13 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Code2, Maximize2, Minimize2, Play, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { isTauri } from "@/lib/tauri";
+import { IconButton } from "@/components/ui/IconButton";
 import type { InlineSim } from "@/lib/ai/extract-sim";
+
+// The desktop app serves every bundled page under its own strict CSP, which
+// would block the simulation's inline scripts, so it frames the hosted runner.
+const RUNNER_URL = isTauri ? "https://pnyxy.com/sim-runner.html" : "/sim-runner.html";
 
 export function InlineSimCard({ sim }: { sim: InlineSim }) {
   const { t } = useTranslation();
@@ -38,9 +44,6 @@ export function InlineSimCard({ sim }: { sim: InlineSim }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [expanded]);
 
-  const iconBtn =
-    "flex h-7 w-7 items-center justify-center rounded-control text-text-muted transition-colors hover:bg-glass-hover hover:text-text-primary cursor-pointer";
-
   return (
     <div
       className={cn(
@@ -53,34 +56,32 @@ export function InlineSimCard({ sim }: { sim: InlineSim }) {
         <span className="min-w-0 flex-1 truncate text-xs font-medium text-text-secondary">
           {sim.title || t("chat.inlineSim.title")}
         </span>
-        <button
-          type="button"
-          className={iconBtn}
+        <IconButton
+          size="sm"
           onClick={() => setRunKey((k) => k + 1)}
           title={t("chat.inlineSim.restart")}
           aria-label={t("chat.inlineSim.restart")}
         >
           <RotateCcw size={14} />
-        </button>
-        <button
-          type="button"
-          className={cn(iconBtn, showCode && "text-text-primary")}
+        </IconButton>
+        <IconButton
+          size="sm"
+          variant={showCode ? "active" : "ghost"}
           onClick={() => setShowCode((v) => !v)}
           title={t("chat.inlineSim.code")}
           aria-label={t("chat.inlineSim.code")}
           aria-pressed={showCode}
         >
           <Code2 size={14} />
-        </button>
-        <button
-          type="button"
-          className={iconBtn}
+        </IconButton>
+        <IconButton
+          size="sm"
           onClick={() => setExpanded((v) => !v)}
           title={t(expanded ? "chat.inlineSim.collapse" : "chat.inlineSim.expand")}
           aria-label={t(expanded ? "chat.inlineSim.collapse" : "chat.inlineSim.expand")}
         >
           {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-        </button>
+        </IconButton>
       </div>
       {showCode ? (
         <pre className="max-h-[440px] overflow-auto bg-bg-secondary px-3 py-2 text-2xs leading-relaxed text-text-secondary">
@@ -90,7 +91,7 @@ export function InlineSimCard({ sim }: { sim: InlineSim }) {
         <iframe
           key={runKey}
           ref={frameRef}
-          src="/sim-runner.html"
+          src={RUNNER_URL}
           sandbox="allow-scripts"
           title={sim.title || t("chat.inlineSim.title")}
           className={cn("w-full border-0 bg-white", expanded ? "flex-1" : "h-[440px]")}

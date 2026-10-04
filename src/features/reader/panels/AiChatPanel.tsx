@@ -302,8 +302,15 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       // re-cited from the original passage
       const armedCitation = pendingCitationRef.current;
       pendingCitationRef.current = null;
+      // the draw loop sends text + the page capture only, so turns with
+      // attachments, a cited passage or a composer toggle take the plain path
+      const plainTurn =
+        payload.attachments.length === 0 &&
+        !payload.reasoning &&
+        !payload.webSearch &&
+        !armedCitation;
       const sendOptions: ChatSendOptions = {
-        ...pdfDrawSendOptions(activeDocumentId),
+        ...(plainTurn ? pdfDrawSendOptions(activeDocumentId) : undefined),
       };
       if (payload.reasoning) sendOptions.reasoning = true;
       if (payload.webSearch) sendOptions.webSearch = true;

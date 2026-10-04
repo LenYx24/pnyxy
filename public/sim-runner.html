@@ -7,14 +7,18 @@
 <script>
 // Runs an AI-written simulation inside a sandboxed frame (opaque origin, no
 // access to the app). The parent posts the HTML once this page is ready.
+// Not `once`: an unrelated message (e.g. from an extension) must not use up
+// the listener before the real payload arrives.
+var loaded = false;
 window.addEventListener("message", function (e) {
-  if (e.source !== window.parent) return;
+  if (loaded || e.source !== window.parent) return;
   var d = e.data;
   if (!d || d.type !== "pnyxy-sim" || typeof d.html !== "string") return;
+  loaded = true;
   document.open();
   document.write(d.html);
   document.close();
-}, { once: true });
+});
 window.parent.postMessage({ type: "pnyxy-sim-ready" }, "*");
 </script>
 </head>

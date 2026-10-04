@@ -163,7 +163,8 @@ function loadLayout(): ToolbarLayout {
   } catch {
     // ignore, fall back to default
   }
-  return cloneDefaultLayout();
+  // the default already has every late item, so they count as seeded
+  return seedNewItems(cloneDefaultLayout());
 }
 
 export function saveLayout(layout: ToolbarLayout) {

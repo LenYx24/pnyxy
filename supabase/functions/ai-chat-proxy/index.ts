@@ -524,6 +524,9 @@ Deno.serve(async (req) => {
   const adminClient = createClient(supabaseUrl, serviceKey);
 
   let isAdmin = false;
+  // Models an admin request went through past an exhausted bucket: the RPC
+  // recorded nothing there, so there is nothing to refund either.
+  const unbilledModels = new Set<string>();
   if (isAuthed && userId) {
     const { data: profile } = await adminClient
       .from("profiles")
@@ -533,8 +536,9 @@ Deno.serve(async (req) => {
     isAdmin = profile?.role === "admin";
   }
   if (isAdmin) {
+    // an explicit small budget (titles, suggestions) is kept as asked
     const unlocked = Math.min(
-      Math.max(body.maxOutputTokens ?? 0, ADMIN_MAX_OUTPUT_TOKENS),
+      body.maxOutputTokens ?? ADMIN_MAX_OUTPUT_TOKENS,
       ADMIN_MAX_OUTPUT_TOKENS,
     );
     estimatedTotal += unlocked - maxOutputTokens;
@@ -560,10 +564,14 @@ Deno.serve(async (req) => {
       );
       if (error) return { ok: false, rpcError: error.message };
       const quota = data?.[0] as QuotaResult;
-      // admins are never stopped by the daily bucket (usage still shows)
-      return quota?.allowed || isAdmin
-        ? { ok: true, quota }
-        : { ok: false, quota };
+      if (quota?.allowed) return { ok: true, quota };
+      // admins are never stopped by the daily bucket; past it the turn is
+      // simply not counted
+      if (isAdmin) {
+        unbilledModels.add(model);
+        return { ok: true, quota };
+      }
+      return { ok: false, quota };
     }
     if (anonIpHash) {
       const { data, error } = await adminClient.rpc(
@@ -587,7 +595,7 @@ Deno.serve(async (req) => {
     model: string,
     tokens: number = estimatedTotal,
   ): Promise<void> {
-    if (tokens <= 0) return;
+    if (tokens <= 0 || unbilledModels.has(model)) return;
     try {
       if (isAuthed && userId) {
         const { error } = await adminClient.rpc("refund_ai_usage_user", {

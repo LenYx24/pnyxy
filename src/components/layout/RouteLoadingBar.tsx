@@ -63,12 +63,16 @@ export function RouteLoadingBar() {
   useEffect(() => {
     if (!pending) return;
     const show = setTimeout(() => setVisible(true), SHOW_DELAY_MS);
-    const giveUp = setTimeout(() => setVisible(false), MAX_VISIBLE_MS);
+    const giveUp = setTimeout(() => {
+      setVisible(false);
+      // re-sync so `pending` flips back and the next navigation shows again
+      setTarget(committed);
+    }, MAX_VISIBLE_MS);
     return () => {
       clearTimeout(show);
       clearTimeout(giveUp);
     };
-  }, [pending]);
+  }, [pending, committed]);
 
   if (!visible) return null;
   return (

@@ -11,7 +11,9 @@ export async function extractPages(
   from: number,
   to: number,
 ): Promise<{ pages: PageText[]; pageCount: number }> {
-  const task = getDocument({ data: bytes, useSystemFonts: true });
+  // pdf.js transfers (detaches) the buffer to its worker: hand it a copy so
+  // the caller's cached bytes survive for the next page range
+  const task = getDocument({ data: bytes.slice(), useSystemFonts: true });
   const doc = await task.promise;
   try {
     const first = Math.max(1, from);

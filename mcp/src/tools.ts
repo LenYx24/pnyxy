@@ -91,8 +91,10 @@ export function registerTools(server: McpServer, { db, userId }: Session): void 
       annotations: { readOnlyHint: true },
     },
     async ({ query }) => {
-      const like = `%${query.replace(/[%_]/g, "\\$&")}%`;
-      const [books, notes] = await Promise.all([
+      const like = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
+      // two plain ilike queries instead of one .or() string: a comma or
+      // parenthesis in the query would otherwise be parsed as filter syntax
+      const [books, notesByTitle, notesByText] = await Promise.all([
         db
           .from("books")
           .select("id, title, authors, format, page_count")
@@ -103,11 +105,22 @@ export function registerTools(server: McpServer, { db, userId }: Session): void 
           .from("notes")
           .select("id, title, book_id, updated_at")
           .eq("user_id", userId)
-          .or(`title.ilike.${like},content.ilike.${like}`)
+          .ilike("title", like)
+          .limit(25),
+        db
+          .from("notes")
+          .select("id, title, book_id, updated_at")
+          .eq("user_id", userId)
+          .ilike("content", like)
           .limit(25),
       ]);
-      if (books.error ?? notes.error) return fail((books.error ?? notes.error)!.message);
-      return text({ documents: books.data, notes: notes.data });
+      const err = books.error ?? notesByTitle.error ?? notesByText.error;
+      if (err) return fail(err.message);
+      const notes = new Map<string, unknown>();
+      for (const n of [...(notesByTitle.data ?? []), ...(notesByText.data ?? [])]) {
+        notes.set(n.id, n);
+      }
+      return text({ documents: books.data, notes: [...notes.values()] });
     },
   );
 
