@@ -13,9 +13,15 @@ import { isTauri } from "@/lib/tauri";
 import { IconButton } from "@/components/ui/IconButton";
 import type { InlineSim } from "@/lib/ai/extract-sim";
 
-// The desktop app serves every bundled page under its own strict CSP, which
-// would block the simulation's inline scripts, so it frames the hosted runner.
-const RUNNER_URL = isTauri ? "https://pnyxy.com/sim-runner.html" : "/sim-runner.html";
+// Cloudflare serves the page extensionless (the .html URL redirects, and the
+// redirect target is what gets the runner's CSP); Vite only knows the file.
+// The desktop app serves bundled pages under its own strict CSP, which would
+// block the simulation's inline scripts, so it frames the hosted runner.
+const RUNNER_URL = isTauri
+  ? "https://pnyxy.com/sim-runner"
+  : import.meta.env.DEV
+    ? "/sim-runner.html"
+    : "/sim-runner";
 
 export function InlineSimCard({ sim }: { sim: InlineSim }) {
   const { t } = useTranslation();
