@@ -107,6 +107,13 @@ const OPENAI_COMPATIBLE_PROVIDERS: ReadonlyArray<{
 // ~10 MCQ questions with explanations (~3k tokens). Clients that ask for
 // more are clamped to this.
 const HARD_MAX_OUTPUT_TOKENS = 8192;
+// Admins (the owner, testing the product) get the models' real ceilings:
+// long answers and long thinking, no daily quota stop. 64k is the lowest
+// common output limit of the Gemini 3 / Haiku 4.5 upstreams.
+const ADMIN_MAX_OUTPUT_TOKENS = 64_000;
+type ReasoningEffort = "low" | "medium" | "high";
+// gpt-4o-mini rejects max_tokens above this.
+const OPENAI_MAX_OUTPUT_TOKENS = 16_384;
 
 // ── helpers ──────────────────────────────────────────────────
 
@@ -386,7 +393,7 @@ Deno.serve(async (req) => {
   // Thinking turns need headroom: the thinking tokens count against
   // max_tokens, so the default 1024 would leave nothing for the answer.
   const reasoning = body.reasoning === true;
-  const maxOutputTokens = Math.min(
+  let maxOutputTokens = Math.min(
     Math.max(
       body.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
       reasoning ? 6144 : 1,
@@ -516,6 +523,30 @@ Deno.serve(async (req) => {
   // One service-role client for every quota RPC (authed and anon path).
   const adminClient = createClient(supabaseUrl, serviceKey);
 
+  let isAdmin = false;
+  if (isAuthed && userId) {
+    const { data: profile } = await adminClient
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .maybeSingle();
+    isAdmin = profile?.role === "admin";
+  }
+  if (isAdmin) {
+    const unlocked = Math.min(
+      Math.max(body.maxOutputTokens ?? 0, ADMIN_MAX_OUTPUT_TOKENS),
+      ADMIN_MAX_OUTPUT_TOKENS,
+    );
+    estimatedTotal += unlocked - maxOutputTokens;
+    maxOutputTokens = unlocked;
+  }
+  // Gemini thinking depth: admins get "high" in thinking mode.
+  const reasoningEffort: ReasoningEffort = reasoning
+    ? isAdmin
+      ? "high"
+      : "medium"
+    : "low";
+
   /** Attempt to bill `estimatedTotal` tokens against `model`'s daily
    *  bucket. Returns the QuotaResult on success / quota_exceeded, or
    *  `null` if the RPC itself errored (caller should 500). */
@@ -529,7 +560,8 @@ Deno.serve(async (req) => {
       );
       if (error) return { ok: false, rpcError: error.message };
       const quota = data?.[0] as QuotaResult;
-      return quota?.allowed
+      // admins are never stopped by the daily bucket (usage still shows)
+      return quota?.allowed || isAdmin
         ? { ok: true, quota }
         : { ok: false, quota };
     }
@@ -896,7 +928,7 @@ Deno.serve(async (req) => {
           maxOutputTokens,
           provider.name,
           false,
-          reasoning,
+          reasoningEffort,
           onUsage,
         );
     if (stream) {
@@ -1039,7 +1071,10 @@ async function tryOpenAiCompatibleTools(
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model,
-        max_tokens: maxOutputTokens,
+        max_tokens:
+          providerName === "openai"
+            ? Math.min(maxOutputTokens, OPENAI_MAX_OUTPUT_TOKENS)
+            : maxOutputTokens,
         stream: true,
         stream_options: { include_usage: true },
         ...(providerName.startsWith("gemini") ? { reasoning_effort: "low" } : {}),
@@ -1435,7 +1470,7 @@ async function tryOpenAiCompatible(
   maxOutputTokens: number,
   providerName: string,
   enableGrounding = false,
-  reasoning = false,
+  reasoningEffort: ReasoningEffort = "low",
   onUsage?: (outputTokens: number) => void,
 ): Promise<ReadableStream<Uint8Array> | null> {
   let upstream: Response;
@@ -1448,7 +1483,10 @@ async function tryOpenAiCompatible(
       },
       body: JSON.stringify({
         model,
-        max_tokens: maxOutputTokens,
+        max_tokens:
+          providerName === "openai"
+            ? Math.min(maxOutputTokens, OPENAI_MAX_OUTPUT_TOKENS)
+            : maxOutputTokens,
         stream: true,
         // Thinking mode. Gemini's compat layer maps reasoning_effort to
         // thinking_level/thinking_budget; gpt-4o-mini would reject the
@@ -1456,7 +1494,7 @@ async function tryOpenAiCompatible(
         // Without thinking mode keep Gemini's built-in thinking small:
         // faster, cheaper, and the answer gets the token budget.
         ...(providerName.startsWith("gemini")
-          ? { reasoning_effort: reasoning ? "medium" : "low" }
+          ? { reasoning_effort: reasoningEffort }
           : {}),
         // the last chunk carries usage so the pre-bill can be reconciled
         stream_options: { include_usage: true },

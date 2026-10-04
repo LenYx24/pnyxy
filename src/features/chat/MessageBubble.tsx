@@ -42,6 +42,7 @@ import { extractRecommendations } from "@/lib/ai/extract-recommendations";
 import { extractInlineQuiz } from "@/lib/ai/extract-quiz";
 import { extractModelSuggestion } from "@/lib/ai/extract-model-suggestion";
 import { extractInlinePlot } from "@/lib/ai/extract-plot";
+import { extractInlineSim } from "@/lib/ai/extract-sim";
 import { extractInlineMatrix } from "@/lib/ai/extract-matrix";
 import { extractOpenDoc } from "@/lib/ai/extract-open-doc";
 import { RecommendationCards } from "./RecommendationsRenderer";
@@ -49,6 +50,7 @@ import { InlineOpenDocCard } from "./InlineOpenDocCard";
 import { InlineQuizCard } from "./InlineQuizCard";
 import { InlineModelSuggestion } from "./InlineModelSuggestion";
 import { InlinePlotCard } from "./InlinePlotCard";
+import { InlineSimCard } from "./InlineSimCard";
 import { InlineMatrixCard } from "./InlineMatrixCard";
 import { extractInlineGraph } from "@/lib/ai/extract-graph";
 import { useFeature } from "@/lib/use-features";
@@ -839,10 +841,14 @@ const AssistantContent = memo(function AssistantContent({
     () => extractInlineMatrix(plotExtract.cleaned),
     [plotExtract.cleaned],
   );
+  const simExtract = useMemo(
+    () => extractInlineSim(matrixExtract.cleaned),
+    [matrixExtract.cleaned],
+  );
   // "open this library file" pointer card (last in the chain)
   const openDocExtract = useMemo(
-    () => extractOpenDoc(matrixExtract.cleaned),
-    [matrixExtract.cleaned],
+    () => extractOpenDoc(simExtract.cleaned),
+    [simExtract.cleaned],
   );
   const cleaned = openDocExtract.cleaned;
   // expensive marked.parse -> KaTeX -> DOMPurify, memoized on (cleaned, sourceDocId)
@@ -899,6 +905,13 @@ const AssistantContent = memo(function AssistantContent({
       )}
       {plotExtract.plot && <InlinePlotCard plot={plotExtract.plot} />}
       {matrixExtract.matrix && <InlineMatrixCard matrix={matrixExtract.matrix} />}
+      {simExtract.pending && (
+        <div className="flex items-center gap-2 rounded-panel bg-bg-tertiary px-4 py-3 text-xs text-text-muted">
+          <TypingIndicator />
+          {t("chat.inlineSim.incoming")}
+        </div>
+      )}
+      {simExtract.sim && <InlineSimCard sim={simExtract.sim} />}
       {openDocExtract.doc && <InlineOpenDocCard doc={openDocExtract.doc} />}
       {suggestExtract.suggestion && (
         <InlineModelSuggestion

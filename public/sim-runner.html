@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulation</title>
+<script>
+// Runs an AI-written simulation inside a sandboxed frame (opaque origin, no
+// access to the app). The parent posts the HTML once this page is ready.
+window.addEventListener("message", function (e) {
+  if (e.source !== window.parent) return;
+  var d = e.data;
+  if (!d || d.type !== "pnyxy-sim" || typeof d.html !== "string") return;
+  document.open();
+  document.write(d.html);
+  document.close();
+}, { once: true });
+window.parent.postMessage({ type: "pnyxy-sim-ready" }, "*");
+</script>
+</head>
+<body></body>
+</html>

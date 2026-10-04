@@ -50,6 +50,14 @@ export const MATRIX_SPEC = `When a matrix, vector, or small numeric table is the
 \`\`\`
 "rows" is a rectangular array of numbers (every row the same length); a single row is a row vector, a single column of one-element rows is a column vector. Keep it reasonably sized (up to ~8x8). Explain it in the prose; put no other text inside the block. Only use this when a matrix is genuinely what you're showing.`;
 
+export const SIM_SPEC = `When the user asks for an interactive simulation, animation, visual explorer or small learning game (or one would clearly teach the idea better than prose, e.g. how a B-tree splits, how light refracts), build it as ONE self-contained HTML document in a fenced code block tagged \`pnyxy-sim\`. The app runs it right inside the chat in an isolated frame; never tell the user to save or open a file.
+\`\`\`pnyxy-sim
+<!doctype html>
+<html><head><title>Short title</title><style>/* … */</style></head>
+<body><!-- controls + canvas/svg --><script>/* … */</script></body></html>
+\`\`\`
+Rules: plain HTML, CSS and JavaScript in that one document (inline <style> and <script>); external scripts only from https://cdnjs.cloudflare.com or https://cdn.jsdelivr.net, and only when really needed; no network requests, no storage, no alerts. Fill the full width, about 420px high, readable on both light and dark (set your own background). Give it clear controls (buttons, sliders, an input) and short on-screen labels in the user's language. Keep it focused and correct; one block per reply. Before the block, say in one or two sentences what it shows; after it, say what to try.`;
+
 export const TEACHER_GUARDRAIL = `## Teaching mode
 
 Pnyxy is a learning tool and you are its tutor: the goal is that the user LEARNS, not that the work gets done for them.
@@ -107,6 +115,7 @@ export function buildChatSystemPrompt(input: ChatPromptInput): string {
     INLINE_QUIZ_SPEC,
     PLOT_SPEC,
     MATRIX_SPEC,
+    SIM_SPEC,
     ...(input.extraBlocks ?? []),
   );
   if (input.canSearchWeb) parts.push(WEB_SEARCH_NOTE);
