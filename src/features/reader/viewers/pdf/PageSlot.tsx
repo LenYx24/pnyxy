@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { Page } from "react-pdf";
 import { HighlightLayer } from "../../layers/HighlightLayer";
 import { AiCitationLayer } from "../../layers/AiCitationLayer";
@@ -6,6 +6,7 @@ import { CitationQuoteHighlightLayer } from "../../layers/CitationQuoteHighlight
 import { SearchHighlightLayer } from "../../layers/SearchHighlightLayer";
 import { CommentMarkers } from "../../layers/CommentMarkers";
 import { InlineDrawLayer } from "../../layers/InlineDrawLayer";
+import type { RenderQueue } from "./render-queue";
 
 export interface PageSlotProps {
   pageNum: number;
@@ -15,6 +16,8 @@ export interface PageSlotProps {
   /** Rasterize width. Grow-only, so resize just CSS-scales the slot. */
   renderWidth: number;
   rotation: 0 | 90 | 180 | 270;
+  /** Gate for starting pdf.js work, see render-queue.ts. */
+  renderQueue: RenderQueue;
   onRenderSuccess: (pageNum: number) => void;
   onRenderError: (pageNum: number, error: Error) => void;
 }
@@ -28,13 +31,24 @@ export const PageSlot = memo(function PageSlot({
   pageHeight,
   renderWidth,
   rotation,
+  renderQueue,
   onRenderSuccess,
   onRenderError,
 }: PageSlotProps) {
+  // <Page> mounts only once the queue admits this page; a slot that scrolls
+  // past before that never sends anything to the worker.
+  const [admitted, setAdmitted] = useState(false);
+  const releaseRef = useRef<((finished: boolean) => void) | null>(null);
+  useEffect(() => {
+    const release = renderQueue.request(pageNum, () => setAdmitted(true));
+    releaseRef.current = release;
+    return () => release(false);
+  }, [renderQueue, pageNum]);
+  const releaseSlot = () => releaseRef.current?.(true);
+
   // Fall back to display width on the first frame before renderWidth is set.
   const effectiveRenderW = renderWidth > 0 ? renderWidth : pageWidth;
-  const slotScale =
-    effectiveRenderW > 0 ? pageWidth / effectiveRenderW : 1;
+  const slotScale = effectiveRenderW > 0 ? pageWidth / effectiveRenderW : 1;
   const useSlotTransform = Math.abs(slotScale - 1) > 0.001;
 
   // Cap the canvas backing store so a high-DPR screen doesn't rasterize a
@@ -86,43 +100,54 @@ export const PageSlot = memo(function PageSlot({
       }}
     >
       {/* Outer holds layout space; inner is the renderWidth canvas scaled down. */}
-      <div style={{ width: pageWidth, height: pageHeight, position: "relative" }}>
+      <div
+        style={{ width: pageWidth, height: pageHeight, position: "relative" }}
+      >
         <div
           style={{
             position: "absolute",
             top: 0,
             left: 0,
-            transform: useSlotTransform
-              ? `scale(${slotScale})`
-              : undefined,
+            transform: useSlotTransform ? `scale(${slotScale})` : undefined,
             transformOrigin: useSlotTransform ? "0 0" : undefined,
           }}
         >
-          <Page
-            pageNumber={pageNum}
-            rotate={rotation}
-            width={effectiveRenderW}
-            devicePixelRatio={cappedDpr}
-            onLoadSuccess={(page) => {
-              pageProxyRef.current = page;
-            }}
-            renderTextLayer={true}
-            renderAnnotationLayer={true}
-            loading={
-              <div style={{ height: pageHeight, width: effectiveRenderW }} />
-            }
-            // react-pdf Page has no default error UI, would render blank white
-            error={
-              <div
-                style={{ height: pageHeight, width: effectiveRenderW }}
-                className="flex items-center justify-center p-2 text-center text-2xs text-danger"
-              >
-                Page {pageNum} couldn't be displayed.
-              </div>
-            }
-            onRenderSuccess={() => onRenderSuccess(pageNum)}
-            onRenderError={(error) => onRenderError(pageNum, error)}
-          />
+          {!admitted ? (
+            <div style={{ height: pageHeight, width: effectiveRenderW }} />
+          ) : (
+            <Page
+              pageNumber={pageNum}
+              rotate={rotation}
+              width={effectiveRenderW}
+              devicePixelRatio={cappedDpr}
+              onLoadSuccess={(page) => {
+                pageProxyRef.current = page;
+              }}
+              renderTextLayer={true}
+              renderAnnotationLayer={true}
+              loading={
+                <div style={{ height: pageHeight, width: effectiveRenderW }} />
+              }
+              // react-pdf Page has no default error UI, would render blank white
+              error={
+                <div
+                  style={{ height: pageHeight, width: effectiveRenderW }}
+                  className="flex items-center justify-center p-2 text-center text-2xs text-danger"
+                >
+                  Page {pageNum} couldn't be displayed.
+                </div>
+              }
+              onLoadError={releaseSlot}
+              onRenderSuccess={() => {
+                releaseSlot();
+                onRenderSuccess(pageNum);
+              }}
+              onRenderError={(error) => {
+                releaseSlot();
+                onRenderError(pageNum, error);
+              }}
+            />
+          )}
           <HighlightLayer pageNum={pageNum} />
           <AiCitationLayer pageNum={pageNum} />
           <CitationQuoteHighlightLayer pageNum={pageNum} />

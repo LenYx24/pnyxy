@@ -20,6 +20,7 @@ import { usePdfProgrammaticScroll } from "./pdf/usePdfProgrammaticScroll";
 import { usePdfZoom, usePdfZoomModeSync } from "./pdf/usePdfZoom";
 import { usePdfVirtualization } from "./pdf/usePdfVirtualization";
 import { usePdfTouchAxisLock } from "./pdf/usePdfTouchAxisLock";
+import { usePdfRenderQueue } from "./pdf/usePdfRenderQueue";
 import {
   usePdfScrollAnchor,
   type ResumeTarget,
@@ -133,6 +134,8 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
     zoomBoostActive,
     scrollToPage,
   });
+
+  const renderQueue = usePdfRenderQueue(containerRef, pageOffsets, liveScaleRef);
 
   const { touchAxisLockRef, handleTouchStart, handleTouchMove, handleTouchEnd } =
     usePdfTouchAxisLock(containerRef);
@@ -311,6 +314,7 @@ export function PdfViewer({ documentId }: PdfViewerProps) {
                   pageHeight={getPageHeight(pageNum)}
                   renderWidth={renderWidth}
                   rotation={rotation}
+                  renderQueue={renderQueue}
                   onRenderSuccess={handlePageRenderSuccess}
                   onRenderError={handlePageRenderError}
                 />
