@@ -76,6 +76,14 @@ supabase secrets set ALLOWED_ORIGINS="https://pnyxy.com,https://www.pnyxy.com,ht
 - Env vars: none beyond `ALLOWED_ORIGINS` (optional).
 - Deploy: `supabase functions deploy delete-account` (required before this works; not deployed automatically by this change).
 
+### mcp
+
+- Purpose: remote MCP server (Streamable HTTP, stateless, JSON responses) so an AI agent can use the caller's Pnyxy account: claude.ai / Claude Desktop / Claude mobile as a custom connector, Claude Code with `claude mcp add --transport http pnyxy <url>`. Tools are the ones of the local stdio server: the function imports `../../../mcp/src/tools.ts` (read: `list_library`, `search_library`, `read_document`, `get_reading_state`, `list_conversations`, `read_conversation`; write: `create_note`, `update_note`, `create_quiz`, `create_folder`, `move_item`, `rename_item`; nothing deletes). npm packages resolve through the function's import map (`supabase/functions/mcp/deno.json`), pinned to the versions in `mcp/package.json`.
+- Auth: OAuth 2.1 with Supabase Auth as the authorization server (Authentication > OAuth Server, dynamic client registration on, authorization path `/oauth/consent`, the app's consent page). A call without a valid token gets `401` with `WWW-Authenticate: Bearer resource_metadata=".../functions/v1/mcp/.well-known/oauth-protected-resource"`; that document (RFC 9728) names `<SUPABASE_URL>/auth/v1` as the authorization server. Tools run with a client scoped to the user's access token, so RLS applies. `verify_jwt = false` in `config.toml` (the function issues the challenge and validates the token itself). Users see and revoke connected agents in Settings > AI.
+- Rate limit: 2000 requests/day per user via `bump_rate_limit` (migration 00073), key `mcp:<uid>`.
+- Env vars: `MCP_PUBLIC_SUPABASE_URL` only for local development (the local stack hands functions `http://kong:8000`; set it to `http://127.0.0.1:54321` in `supabase/functions/.env`). Hosted, `SUPABASE_URL` is already public.
+- Deploy: `supabase functions deploy mcp`
+
 ### send-feedback
 
 - Purpose: relays a subject + body from the browser to the feedback inbox via Resend, attaching the signed-in user's email + id (as `reply_to`) when a session is present.

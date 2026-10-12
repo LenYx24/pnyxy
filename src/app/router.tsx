@@ -37,6 +37,7 @@ import { HomePage } from "@/features/home/HomePage";
 import { AuthPage } from "@/features/auth/AuthPage";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
+import { OAuthConsentPage } from "@/features/auth/OAuthConsentPage";
 import { WelcomePage } from "@/features/auth/WelcomePage";
 import { ExtensionPanelPage } from "@/features/extension/ExtensionPanelPage";
 import { OpenUrlPage } from "@/features/resources/OpenUrlPage";
@@ -374,6 +375,8 @@ export const router = createBrowserRouter([
       { path: "/auth/forgot-password", element: <ForgotPasswordPage /> },
       { path: "/auth/reset-password", element: <ResetPasswordPage /> },
       { path: "/auth/welcome", element: <WelcomePage /> },
+      // OAuth consent for AI agents connecting through the remote MCP server
+      { path: "/oauth/consent", element: <OAuthConsentPage /> },
       // browser extension side panel (iframe); no app chrome
       { path: "/ext", element: <ExtensionPanelPage /> },
     ],

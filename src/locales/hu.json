@@ -1,4 +1,26 @@
 {
+  "oauthConsent": {
+    "title": "A(z) {{app}} használni szeretné a Pnyxy-fiókodat",
+    "account": "Bejelentkezve: {{email}}",
+    "itCan": "A(z) {{app}} ezeket teheti:",
+    "canRead": "olvashatja a könyvtáradat, dokumentumaidat, jegyzeteidet és AI-beszélgetéseidet",
+    "canReadState": "látja, mit olvasol és hol tartasz",
+    "canCreate": "jegyzeteket és kvízeket hozhat létre és szerkeszthet",
+    "canOrganize": "mappákat hozhat létre, elemeket helyezhet át és nevezhet át",
+    "cannot": "Semmit nem törölhet, és a jelszavadat sem látja.",
+    "returnTo": "A döntés után visszakerülsz ide: {{host}}.",
+    "approve": "Engedélyezem",
+    "deny": "Elutasítom",
+    "revokeHint": "A hozzáférést bármikor visszavonhatod a Beállítások > AI alatt.",
+    "redirecting": "Visszairányítás…",
+    "invalid": "Ez a bejelentkezési link hiányos. Indítsd újra a bekötést az AI-alkalmazásból.",
+    "failed": "A kérés lejárt vagy nem sikerült feldolgozni. Indítsd újra a bekötést az AI-alkalmazásból.",
+    "verified": "Ellenőrizve: {{agent}} ({{host}})",
+    "local": "Egy program a saját gépeden kér hozzáférést (például a Claude Code). Csak akkor engedélyezd, ha az előbb te indítottad a bekötést.",
+    "unknown": "Ezt az alkalmazást a Pnyxy nem ismeri fel. A neve bármi lehet, a hozzáférés ide kerülne: {{host}}. Csak akkor engedélyezd, ha te kötötted be, és megbízol benne.",
+    "trust": "Megbízom ebben az alkalmazásban",
+    "unnamedApp": "Egy AI-alkalmazás"
+  },
   "onboarding": {
     "welcome": {
       "title": "Üdv a Pnyxyben",
@@ -871,6 +893,26 @@
       "emptyPlugins": "Nincs bővítmény a jegyzékben.",
       "submitTheme": "Küldd be a saját témádat a GitHubon",
       "submitPlugin": "Küldd be a saját bővítményedet a GitHubon"
+    },
+    "agents": {
+      "heading": "Pnyxy a Claude-ból",
+      "description": "Kösd be a Claude-ot (web, asztali vagy mobil) a Pnyxy-fiókodhoz. A Claude ezután olvassa a könyvtáradat, ott folytatja, ahol abbahagytad, és ide menti a jegyzeteket és kvízeket, a saját Claude-előfizetéseden.",
+      "urlLabel": "Szerver URL",
+      "copy": "Másolás",
+      "claudeSteps": "A Claude-ban",
+      "step1": "Nyisd meg a Beállítások > Connectors részt, és válaszd az „Add custom connector” lehetőséget.",
+      "step2": "Nevezd el Pnyxy-nek, és illeszd be a fenti szerver URL-t.",
+      "step3": "Kattints a Connect gombra, majd engedélyezd a hozzáférést a megnyíló Pnyxy-oldalon.",
+      "claudeCode": "Claude Code",
+      "claudeCodeHint": "Futtasd ezt, majd jelentkezz be a /mcp paranccsal.",
+      "connected": "Bekötött alkalmazások",
+      "none": "Még nincs bekötött AI-alkalmazás.",
+      "since": "Bekötve: {{date}}",
+      "revoke": "Visszavonás",
+      "revokeTitle": "Visszavonod a(z) {{app}} hozzáférését?",
+      "revokeBody": "Többé nem használhatja a Pnyxy-fiókodat. Később újra bekötheted.",
+      "revoked": "A(z) {{app}} többé nem használhatja a fiókodat.",
+      "revokeFailed": "Nem sikerült visszavonni. Próbáld újra."
     },
     "aiProactive": {
       "heading": "Aktív tutor",

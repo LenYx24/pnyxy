@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { MeshBackground, Button } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth-store";
+import { peekPendingConsent } from "@/lib/oauth-consent";
 
 export function WelcomePage() {
   const { t } = useTranslation();
@@ -35,6 +36,13 @@ export function WelcomePage() {
         </div>
       </div>
     );
+  }
+
+  // Signed in on the way to an AI agent's consent screen (Google sign-in
+  // can't carry ?next=): finish that first. The consent page clears it.
+  const pendingConsent = peekPendingConsent();
+  if (pendingConsent) {
+    return <Navigate to={pendingConsent} replace />;
   }
 
   // Profile not hydrated yet, brief loading state to avoid a flash

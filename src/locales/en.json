@@ -1,4 +1,26 @@
 {
+  "oauthConsent": {
+    "title": "{{app}} wants to use your Pnyxy account",
+    "account": "Signed in as {{email}}",
+    "itCan": "{{app}} will be able to:",
+    "canRead": "read your library, documents, notes and AI chats",
+    "canReadState": "see what you are reading and where you stopped",
+    "canCreate": "create and edit notes and quizzes",
+    "canOrganize": "create folders, move and rename items",
+    "cannot": "It cannot delete anything or see your password.",
+    "returnTo": "After you decide you go back to {{host}}.",
+    "approve": "Allow",
+    "deny": "Deny",
+    "revokeHint": "You can revoke access any time in Settings > AI.",
+    "redirecting": "Taking you back…",
+    "invalid": "This sign-in link is incomplete. Start the connection again from the AI app.",
+    "failed": "The request expired or could not be processed. Start the connection again from the AI app.",
+    "verified": "Verified: {{agent}} ({{host}})",
+    "local": "A program on this computer (for example Claude Code) is asking. Allow it only if you just started the connection yourself.",
+    "unknown": "Pnyxy doesn't recognise this app. Its name can be anything; access would go to {{host}}. Allow it only if you connected it yourself and trust it.",
+    "trust": "I trust this app",
+    "unnamedApp": "An AI app"
+  },
   "onboarding": {
     "welcome": {
       "title": "Welcome to Pnyxy",
@@ -656,6 +678,26 @@
       "emptyPlugins": "No plugins found in the registry.",
       "submitTheme": "Submit your own theme on GitHub",
       "submitPlugin": "Submit your own plugin on GitHub"
+    },
+    "agents": {
+      "heading": "Use Pnyxy from Claude",
+      "description": "Connect Claude (web, desktop or mobile) to your Pnyxy account. Claude then reads your library, picks up where you stopped, and saves notes and quizzes here, on your own Claude subscription.",
+      "urlLabel": "Server URL",
+      "copy": "Copy",
+      "claudeSteps": "In Claude",
+      "step1": "Open Settings > Connectors and choose \"Add custom connector\".",
+      "step2": "Name it Pnyxy and paste the server URL above.",
+      "step3": "Click Connect, then allow access on the Pnyxy page that opens.",
+      "claudeCode": "Claude Code",
+      "claudeCodeHint": "Run this, then sign in from /mcp.",
+      "connected": "Connected apps",
+      "none": "No AI app is connected yet.",
+      "since": "Connected {{date}}",
+      "revoke": "Revoke",
+      "revokeTitle": "Revoke access for {{app}}?",
+      "revokeBody": "It will no longer be able to use your Pnyxy account. You can connect it again later.",
+      "revoked": "{{app}} can no longer use your account.",
+      "revokeFailed": "Couldn't revoke access. Try again."
     },
     "aiProactive": {
       "heading": "Proactive tutor",

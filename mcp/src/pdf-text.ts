@@ -1,4 +1,11 @@
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+// @ts-expect-error the worker bundle ships no type declarations
+import * as pdfjsWorker from "pdfjs-dist/legacy/build/pdf.worker.mjs";
+
+// Run pdf.js's worker code on the calling thread. Node does this on its
+// own; Deno (the remote MCP edge function) would otherwise try to spawn a
+// Worker from an unset workerSrc.
+(globalThis as { pdfjsWorker?: unknown }).pdfjsWorker ??= pdfjsWorker;
 
 export interface PageText {
   page: number;

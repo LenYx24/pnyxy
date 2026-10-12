@@ -53,6 +53,7 @@ import {
   SettingsSection,
   StatusLine,
 } from "../ui";
+import { ConnectedAgentsSection } from "./ConnectedAgentsSection";
 import {
   normalizeProactiveLevel,
   type ProactiveLevel,
@@ -378,6 +379,7 @@ export function AiTab() {
         </SettingsSection>
       )}
 
+      <ConnectedAgentsSection />
       <AiContextSection />
       <AiProactiveSection />
 

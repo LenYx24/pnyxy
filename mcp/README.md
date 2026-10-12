@@ -1,8 +1,18 @@
-# Pnyxy MCP server (local, stdio)
+# Pnyxy MCP server
 
-Lets an AI agent (Claude Code, Claude Desktop, Codex) use a Pnyxy account: read the library and
-documents page by page, see what the user is reading, read past AI chats, and save notes. It signs
-in as the user, so every query runs under that user's row-level security.
+Lets an AI agent (claude.ai, Claude Desktop, Claude Code, Codex) use a Pnyxy account: read the
+library and documents page by page, see what the user is reading, read past AI chats, and save notes
+and quizzes or organize folders. Every query runs as the user, under their row-level security.
+
+Two ways to run it, same tools (`src/tools.ts`):
+
+- **Remote (for users):** the `mcp` Supabase edge function (`supabase/functions/mcp`), OAuth sign-in
+  through the app's `/oauth/consent` page. Users connect it from Settings > AI, which shows the URL
+  and the claude.ai steps. Details in `supabase/functions/README.md`.
+- **Local stdio (development):** this package, signed in with an email and password, below.
+
+`src/tools.ts` and `src/pdf-text.ts` are loaded by both Node and Deno, so they import with `.ts`
+extensions and bare package names only (the edge function maps those in its `deno.json`).
 
 ## Setup
 
@@ -34,5 +44,8 @@ banner on stdout breaks the handshake.
 
 ## Tools
 
-`list_library`, `search_library`, `read_document` (PDF text by page range, max 30 pages per call),
-`get_reading_state`, `list_conversations`, `read_conversation`, `create_note`.
+Read: `list_library`, `search_library`, `read_document` (PDF text by page range, max 30 pages per
+call), `get_reading_state`, `list_conversations`, `read_conversation`.
+
+Write: `create_note`, `update_note` (replace or append), `create_quiz` (mcq4, multi_select,
+true_false, short_answer), `create_folder`, `move_item`, `rename_item`. No tool deletes anything.

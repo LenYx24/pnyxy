@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
+import type { Session } from "./tools.ts";
 
 // Reads KEY=VALUE lines. Values never reach stdout: on stdio the protocol owns it.
 function readEnvFile(path: string): Record<string, string> {
@@ -27,11 +28,6 @@ function loadConfig() {
     );
   }
   return { url, key, email, password };
-}
-
-export interface Session {
-  db: SupabaseClient;
-  userId: string;
 }
 
 /** Signs in as the user, so every query runs under their row-level security. */
