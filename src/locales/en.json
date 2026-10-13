@@ -1,4 +1,9 @@
 {
+  "featureGate": {
+    "off": "The “{{feature}}” feature is switched off on this device (Settings > General).",
+    "enable": "Turn it on",
+    "toLibrary": "Back to library"
+  },
   "oauthConsent": {
     "title": "{{app}} wants to use your Pnyxy account",
     "account": "Signed in as {{email}}",

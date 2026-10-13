@@ -28,6 +28,7 @@ import {
   dispatchLibraryTool,
   type ToolContext,
 } from "@/lib/ai/library-tools";
+import { getFeatures } from "@/lib/use-features";
 import { useLibraryStore } from "@/stores/library-store";
 import { useNoteStore } from "@/stores/note-store";
 import { useResourceStore } from "@/stores/resource-store";
@@ -70,6 +71,13 @@ export async function runLibraryAgenticLoop(
   const onAbort = () => approval.endTurn();
   signal.addEventListener("abort", onAbort, { once: true });
 
+  // tools for switched-off features would hand out cards that can't open
+  const features = getFeatures();
+  const tools = LIBRARY_TOOLS.filter(
+    (tool) =>
+      !(tool.name === "offer_whiteboard" && !features.whiteboard) &&
+      !(tool.name === "create_note" && !features.notes),
+  );
   const ctx: ToolContext = { conversationId, createdIds: new Set(), signal };
   const steps: AgentStep[] = [];
   const offers: AgentOffer[] = [];
@@ -100,7 +108,7 @@ export async function runLibraryAgenticLoop(
 
       for await (const event of streamChatWithTools(toolMessages, {
         systemPrompt,
-        tools: LIBRARY_TOOLS,
+        tools,
         maxOutputTokens: 4000,
         preferredProvider,
         signal,

@@ -21,6 +21,9 @@ vi.mock("@/lib/ai/library-tools", () => ({
   dispatchLibraryTool: (...args: unknown[]) => dispatch(...args),
 }));
 
+vi.mock("@/lib/use-features", () => ({
+  getFeatures: () => ({ whiteboard: true, notes: true }),
+}));
 vi.mock("@/stores/note-store", () => ({
   useNoteStore: { getState: () => ({ notes: [{}] }) },
 }));

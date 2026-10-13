@@ -1,4 +1,9 @@
 {
+  "featureGate": {
+    "off": "A(z) „{{feature}}” funkció ki van kapcsolva ezen az eszközön (Beállítások > Általános).",
+    "enable": "Bekapcsolás",
+    "toLibrary": "Vissza a könyvtárba"
+  },
   "oauthConsent": {
     "title": "A(z) {{app}} használni szeretné a Pnyxy-fiókodat",
     "account": "Bejelentkezve: {{email}}",
