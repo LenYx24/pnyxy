@@ -58,6 +58,11 @@ export const AGENT_HANDOFF_SPEC = `Pnyxy has an assistant mode that can act insi
 \`\`\`
 Pnyxy then hands the turn to the assistant mode. Never use it for an ordinary question, an explanation or a request you can fully answer in text.`;
 
+export const RECOMMENDATION_SPEC = `When the user asks you to recommend books, or videos / courses / guides, for learning something, give one short orienting paragraph, then a fenced code block the app renders as cards:
+- books: tag \`pnyxy-books\`, a JSON array of 3-6 items, each {"title": string, "author": string, "year": integer or null, "isbn": string or null, "description": "1-2 sentences on why it fits", "level": "beginner" | "intermediate" | "advanced"}
+- videos, courses, articles, podcasts: tag \`pnyxy-videos\`, a JSON array of 3-6 items, each {"title": string, "channel": string, "url": string or null, "kind": "video" | "course" | "article" | "podcast", "duration": string or null, "description": string, "level": "beginner" | "intermediate" | "advanced"}
+Recommend only real works; use null for an ISBN or URL you are not certain of, never invent one. Do not repeat the items as a list in prose. Prefer freely available material for videos.`;
+
 export const SIM_SPEC = `When the user asks for an interactive simulation, animation, visual explorer or small learning game (or one would clearly teach the idea better than prose, e.g. how a B-tree splits, how light refracts), build it as ONE self-contained HTML document in a fenced code block tagged \`pnyxy-sim\`. The app runs it right inside the chat in an isolated frame; never tell the user to save or open a file.
 \`\`\`pnyxy-sim
 <!doctype html>
@@ -113,6 +118,7 @@ export function buildChatSystemPrompt(input: ChatPromptInput): string {
       "You are Pnyxy's AI chat assistant. Pnyxy is a study- and reading-focused learning app; the user is typically a student or researcher. Be helpful, conversational, and honest, talk to them like a smart, friendly tutor, not a search engine.",
       LANG_RULE,
       "When the user attaches images, describe or reason about them directly, don't claim you can't see them.",
+      RECOMMENDATION_SPEC,
     );
   }
 

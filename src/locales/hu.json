@@ -2061,7 +2061,6 @@
         "pdfFolder": "Chat-feltöltések"
       },
       "modelHelp": "Modellek leírása",
-      "clearMode": "Vissza a chat módhoz",
       "wholeBook": {
         "chip": "Teljes könyv",
         "confirmTitle": "Elküldöd a teljes könyvet?",
@@ -2079,13 +2078,7 @@
         "hint": "Melyik mentett kontextust kapja az AI ebben a beszélgetésben. Könyvnél a könyvhöz jegyzi meg, egyébként csak erre a munkamenetre."
       },
       "pickerDirect": "Közvetlen (tartalék nélkül)",
-      "modeDefault": "Chat",
-      "modeBooks": "Könyvajánló",
-      "modeVideos": "Videóajánló",
-      "modeImage": "Kép generálása",
-      "moreActions": "Továbbiak",
-      "modeLabel": "Mód",
-      "modeLibrary": "Könyvtár rendezése"
+      "moreActions": "Továbbiak"
     },
     "folders": {
       "create": "Új mappa",

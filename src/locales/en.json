@@ -1820,7 +1820,6 @@
         "pdfFolder": "Chat uploads"
       },
       "modelHelp": "About the models",
-      "clearMode": "Back to chat mode",
       "wholeBook": {
         "chip": "Whole book",
         "confirmTitle": "Send the whole book?",
@@ -1838,13 +1837,7 @@
         "hint": "Which saved context the AI gets for this conversation. With a book it is remembered for the book, otherwise only for this session."
       },
       "pickerDirect": "Direct (no fallback)",
-      "modeDefault": "Chat",
-      "modeBooks": "Recommend books",
-      "modeVideos": "Recommend videos",
-      "modeImage": "Generate image",
-      "moreActions": "More",
-      "modeLabel": "Mode",
-      "modeLibrary": "Organize library"
+      "moreActions": "More"
     },
     "folders": {
       "create": "New folder",

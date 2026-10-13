@@ -298,13 +298,6 @@ export function ResourceChatPanel({
       setInput("");
       if (!(await ensureConversation())) return;
       const options = buildSendOptions();
-      // "+ → Organize library": route through the tool loop, telling it
-      // which item this chat is about so "move this to X" needs no ids
-      if (payload.mode === "library") {
-        options.libraryTools = true;
-        options.libraryToolsContext = `The user is currently viewing the ${resource.kind === "youtube" ? "YouTube video" : "saved web page"} "${resource.title}" (resource id: ${resource.id}). "This video" / "this page" / "this" refers to that resource; its conversations move with it.`;
-        delete options.systemPromptOverride;
-      }
       // direct video is proxy-only; the picker's choice is overridden
       const provider = mode === "video" ? "pnyxy" : (payload.provider ?? undefined);
       const attachments =

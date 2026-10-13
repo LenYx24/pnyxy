@@ -16,18 +16,14 @@ import {
   Check,
   ChevronRight,
   Eye,
-  Clapperboard,
   History,
-  Image as ImageIcon,
   Mic,
   MicOff,
   Paperclip,
   Plus,
   ScrollText,
-  Sparkles,
   Square,
   X,
-  FolderTree,
   Gauge,
 } from "lucide-react";
 import {
@@ -57,7 +53,6 @@ import {
 } from "@/lib/ai/ai-client";
 import { TEACHER_GUARDRAIL, TEACHER_MODE_ENABLED } from "@/lib/ai/teacher-mode";
 import { resolveAiContextForConversation } from "@/features/settings/ai-context/resolve-runtime";
-import type { RecommendationMode } from "@/lib/ai/recommendation-prompts";
 import { matchChatCommands } from "@/lib/ai/chat-commands";
 import { useFeatures } from "@/lib/use-features";
 import type { ChatMessageAttachment } from "@/types/chat";
@@ -80,16 +75,6 @@ const ALLOWED_IMAGE_TYPES = new Set([
   "image/gif",
   "image/webp",
 ]);
-
-// Distinct icon per composer mode so the "Recommend …" rows don't read
-// as duplicates of each other.
-const MODE_ICONS: Record<RecommendationMode, typeof Sparkles> = {
-  default: Sparkles,
-  books: BookOpen,
-  videos: Clapperboard,
-  image: ImageIcon,
-  library: FolderTree,
-};
 
 /** Compact token count for the context chip ("~6,2k"): comma decimal for
  *  Hungarian, dot otherwise, "k" from 1000 tokens up. */
@@ -120,7 +105,6 @@ function fileToBase64(file: File): Promise<string> {
 export interface ChatComposerSubmitPayload {
   text: string;
   provider: AiProvider | null;
-  mode: RecommendationMode;
   attachments: ChatMessageAttachment[];
 }
 
@@ -312,7 +296,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
       return () => window.removeEventListener("keydown", onKey);
     }, [isStreaming, onStop, value, onChange]);
 
-    const [mode, setMode] = useState<RecommendationMode>("default");
     // "+" secondary-actions menu (mode / whole-book / reading context,
     // plus attach on mobile)
     const plusBtnRef = useRef<HTMLButtonElement>(null);
@@ -401,11 +384,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
           : [],
       [commandPartial, features],
     );
-    const openAiConfigured = configuredProviders.includes("openai");
-    // Image generation needs an OpenAI key; fall back to Chat if it disappears.
-    useEffect(() => {
-      if (!openAiConfigured && mode === "image") setMode("default");
-    }, [openAiConfigured, mode]);
 
     const [pendingAttachments, setPendingAttachments] = useState<
       ChatMessageAttachment[]
@@ -626,7 +604,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
       const payload: ChatComposerSubmitPayload = {
         text,
         provider: selectedProvider,
-        mode,
         attachments: pendingAttachments,
       };
       // Clear the draft + attachments + reset mode before the await so a
@@ -635,29 +612,17 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
       notifyParent("");
       setPendingAttachments([]);
       setAttachmentError(null);
-      if (mode !== "default") setMode("default");
       await onSubmit(payload);
     }, [
       value,
       pendingAttachments,
       selectedProvider,
-      mode,
       onSubmit,
       notifyParent,
     ]);
 
     const canSend = value.trim().length > 0 || pendingAttachments.length > 0;
 
-    const modeLabels: Record<RecommendationMode, string> = {
-      default: t("chat.composer.modeDefault"),
-      books: t("chat.composer.modeBooks"),
-      videos: t("chat.composer.modeVideos"),
-      image: t("chat.composer.modeImage"),
-      library: t("chat.composer.modeLibrary"),
-    };
-    const modeOptions = openAiConfigured
-      ? (["default", "library", "books", "videos", "image"] as const)
-      : (["default", "library", "books", "videos"] as const);
     const wholeBookAvailable = !!activeDoc && activeDoc.totalPages > 0;
     const showWholeBookChip = wholeBookAvailable && allPagesAlreadySelected;
 
@@ -859,30 +824,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
                   </button>
                 </span>
               )}
-              {mode !== "default" && (
-                <span className={cn(chipActiveClass, "shrink-0 pr-1.5")}>
-                  {(() => {
-                    const ModeIcon = MODE_ICONS[mode];
-                    return (
-                      <ModeIcon
-                        size={14}
-                        strokeWidth={1.5}
-                        className="shrink-0"
-                      />
-                    );
-                  })()}
-                  {modeLabels[mode]}
-                  <button
-                    type="button"
-                    onClick={() => setMode("default")}
-                    aria-label={t("chat.composer.clearMode")}
-                    title={t("chat.composer.clearMode")}
-                    className="ml-0.5 rounded-full p-0.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
-                  >
-                    <X size={12} strokeWidth={1.5} />
-                  </button>
-                </span>
-              )}
               {commandMatches.map((c) => (
                 <button
                   key={c.id}
@@ -1078,40 +1019,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
                       {t("chat.composer.quota.remaining", { count: questionsLeft })}
                     </button>
                   )}
-                  {(isMobile ||
-                    wholeBookAvailable ||
-                    openAiConfigured ||
-                    aiContexts.length > 0 ||
-                    onLoadReadingContext) && (
-                    <div className="my-1 h-px bg-surface-3" />
-                  )}
-                  <p className="px-3 pb-1 pt-1 text-2xs font-semibold uppercase tracking-[0.06em] text-text-muted-2">
-                    {t("chat.composer.modeLabel")}
-                  </p>
-                  {modeOptions.map((m) => {
-                    const ModeIcon = MODE_ICONS[m];
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => {
-                          setMode(m);
-                          setPlusMenuOpen(false);
-                        }}
-                        className={menuRowClass}
-                      >
-                        <ModeIcon size={16} strokeWidth={1.5} />
-                        {modeLabels[m]}
-                        {mode === m && (
-                          <Check
-                            size={14}
-                            strokeWidth={1.5}
-                            className="ml-auto shrink-0"
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
                 </FloatingMenu>
               </>
             </div>

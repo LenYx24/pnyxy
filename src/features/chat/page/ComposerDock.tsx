@@ -18,7 +18,6 @@ import { useShallow } from "zustand/react/shallow";
 import { chipClass } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useFeature } from "@/lib/use-features";
-import { buildRecommendationSystemPrompt } from "@/lib/ai/recommendation-prompts";
 import {
   fetchRecentReading,
   formatReadingContextPrompt,
@@ -66,14 +65,12 @@ export function ComposerDock({
     createConversation,
     sendMessage,
     sendAnonMessage,
-    sendImageMessage,
   } = useChatStore(
     useShallow((s) => ({
       streamingMessageId: s.streamingMessageId,
       createConversation: s.createConversation,
       sendMessage: s.sendMessage,
       sendAnonMessage: s.sendAnonMessage,
-      sendImageMessage: s.sendImageMessage,
     })),
   );
   const user = useAuthStore((s) => s.user);
@@ -116,32 +113,12 @@ export function ComposerDock({
         await sendAnonMessage(text, payload.provider ?? undefined);
         return;
       }
-      // image mode routes to the Images API, needs a conversation first
-      if (payload.mode === "image") {
-        if (!activeId) {
-          const id = await createConversation("", newChatFolderId, scopeSource);
-          if (!id) return;
-        }
-        await sendImageMessage(text);
-        return;
-      }
       const provider = payload.provider ?? undefined;
-      // topic-first modes swap the system prompt for one turn
-      const sendOptions =
-        payload.mode === "default"
-          ? undefined
-          : payload.mode === "library"
-            ? { libraryTools: true, scope: "library" as const }
-            : {
-                systemPromptOverride: buildRecommendationSystemPrompt(
-                  payload.mode,
-                ),
-              };
       if (!activeId) {
         const id = await createConversation("", newChatFolderId, scopeSource);
         if (!id) return;
       }
-      await sendMessage(text, provider, attachments, sendOptions);
+      await sendMessage(text, provider, attachments);
     },
     [
       onChange,
@@ -149,7 +126,6 @@ export function ComposerDock({
       createConversation,
       sendMessage,
       sendAnonMessage,
-      sendImageMessage,
       scopeSource,
       newChatFolderId,
       user,

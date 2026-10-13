@@ -267,7 +267,6 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
     el.scrollTop = el.scrollHeight;
   }, [path.length, lastMessageContent]);
 
-  const sendImageMessage = useChatStore((s) => s.sendImageMessage);
   // creates a doc-scoped conversation lazily on first send
   const handleSubmit = useCallback(
     async (payload: ChatComposerSubmitPayload) => {
@@ -293,10 +292,6 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
         } catch {
           return;
         }
-      }
-      if (payload.mode === "image") {
-        await sendImageMessage(trimmed);
-        return;
       }
       // consume the citation on first send only, so a follow-up turn isn't
       // re-cited from the original passage
@@ -339,7 +334,6 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       activeIsForThisDoc,
       createConversation,
       sendMessage,
-      sendImageMessage,
       branchFrom,
       branchFromId,
     ],
@@ -770,7 +764,6 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                     ? t("reader.aiChat.nudge.stuckPrompt", { page: visibleNudge.page })
                     : t("reader.aiChat.resumeSummaryPrompt", { page: visibleNudge.page }),
                 provider: null,
-                mode: "default",
                 attachments: [],
               });
             }}
