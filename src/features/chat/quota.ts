@@ -26,8 +26,8 @@ export const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
 }> = [
   {
     // quality-first auto route starts here (same model as the Gemini webapp)
-    id: "gemini-3.7-flash",
-    label: "Gemini 3.7 Flash",
+    id: "gemini-3.8-flash",
+    label: "Gemini 3.8 Flash",
     costTier: "mid",
     tagline: "Newest Google model · auto-route default",
   },
@@ -35,7 +35,7 @@ export const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
     id: "gemini-3.6-flash",
     label: "Gemini 3.6 Flash",
     costTier: "cheap",
-    tagline: "Step-down when 3.7 runs dry",
+    tagline: "Step-down when 3.8 runs dry",
   },
   {
     id: "gemini-3.5-flash-lite",
@@ -58,16 +58,16 @@ export const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
 ];
 
 // Quota reference model when nothing is pinned: the quality-first auto
-// route bills 3.7 Flash first in both modes. The footer has to read
+// route bills 3.8 Flash first in both modes. The footer has to read
 // whichever row the proxy actually records or it sits permanently at 0.
-export const QUOTA_AUTO_DEFAULT_MODEL = "gemini-3.7-flash";
-export const QUOTA_AUTO_GROUNDED_MODEL = "gemini-3.7-flash";
+export const QUOTA_AUTO_DEFAULT_MODEL = "gemini-3.8-flash";
+export const QUOTA_AUTO_GROUNDED_MODEL = "gemini-3.8-flash";
 
 /** The proxy's auto-route order (OPENAI_COMPATIBLE_PROVIDERS, then the
  *  Anthropic fallback). A bucket that is exhausted is skipped to the
  *  next one, so "questions left" on the auto route has to walk it. */
 export const AUTO_ROUTE_CHAIN: ReadonlyArray<string> = [
-  "gemini-3.7-flash",
+  "gemini-3.8-flash",
   "gemini-3.6-flash",
   "gemini-3.5-flash-lite",
   "gpt-4o-mini",

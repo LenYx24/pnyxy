@@ -153,8 +153,6 @@ export function WhiteboardChatPanel({
                 whiteboardToolsContext: `The board is titled "${scopeTitle}".`,
               }
             : {}),
-          ...(payload.reasoning ? { reasoning: true } : {}),
-          ...(payload.webSearch ? { webSearch: true } : {}),
         },
       );
     },

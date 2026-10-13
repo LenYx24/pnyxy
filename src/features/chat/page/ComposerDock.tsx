@@ -126,23 +126,17 @@ export function ComposerDock({
         return;
       }
       const provider = payload.provider ?? undefined;
-      // topic-first modes swap the system prompt for one turn; reasoning is sticky
+      // topic-first modes swap the system prompt for one turn
       const sendOptions =
-        payload.mode !== "default" || payload.reasoning || payload.webSearch
-          ? {
-              ...(payload.mode === "library"
-                ? { libraryTools: true, scope: "library" as const }
-                : payload.mode !== "default"
-                  ? {
-                      systemPromptOverride: buildRecommendationSystemPrompt(
-                        payload.mode,
-                      ),
-                    }
-                  : {}),
-              ...(payload.reasoning ? { reasoning: true } : {}),
-              ...(payload.webSearch ? { webSearch: true } : {}),
-            }
-          : undefined;
+        payload.mode === "default"
+          ? undefined
+          : payload.mode === "library"
+            ? { libraryTools: true, scope: "library" as const }
+            : {
+                systemPromptOverride: buildRecommendationSystemPrompt(
+                  payload.mode,
+                ),
+              };
       if (!activeId) {
         const id = await createConversation("", newChatFolderId, scopeSource);
         if (!id) return;

@@ -72,7 +72,7 @@ interface AiUsageRow {
 const MODEL_DISPLAY_NAMES: Record<string, string> = {
   "gemini-3.5-flash-lite": "Gemini 3.5 Flash-Lite",
   "gemini-3.6-flash": "Gemini 3.6 Flash",
-  "gemini-3.7-flash": "Gemini 3.7 Flash",
+  "gemini-3.8-flash": "Gemini 3.8 Flash",
   "gpt-4o-mini": "GPT-4o mini",
   "claude-haiku-4-5": "Claude Haiku 4.5",
 };
@@ -118,8 +118,8 @@ const PNYXY_MODEL_OPTIONS: ReadonlyArray<{
     note: "fast",
   },
   {
-    id: "gemini-3.7-flash",
-    label: "Gemini 3.7 Flash",
+    id: "gemini-3.8-flash",
+    label: "Gemini 3.8 Flash",
     provider: "Google",
     note: "smart",
   },
@@ -163,7 +163,7 @@ const COMPARISON_ROWS: ComparisonRow[] = [
     status: "active",
   },
   {
-    model: "Gemini 3.7 Flash",
+    model: "Gemini 3.8 Flash",
     provider: "Pnyxy free · pin to use",
     cost: "Free (daily quota · smaller bucket)",
     bestFor: "Newest Google chat model, matches gemini.google.com",

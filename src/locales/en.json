@@ -1771,11 +1771,6 @@
       },
       "modelHelp": "About the models",
       "clearMode": "Back to chat mode",
-      "reasoning": {
-        "off": "Turn off reasoning mode",
-        "label": "Thinking mode",
-        "button": "Thinking mode: the model reasons step by step before answering. Slower and costs more tokens; best for hard math and logic."
-      },
       "wholeBook": {
         "chip": "Whole book",
         "confirmTitle": "Send the whole book?",
@@ -1799,12 +1794,7 @@
       "modeImage": "Generate image",
       "moreActions": "More",
       "modeLabel": "Mode",
-      "modeLibrary": "Organize library",
-      "webSearch": {
-        "label": "Web search",
-        "off": "Turn off web search",
-        "button": "Web search: the model looks things up on the web for this and following turns (Gemini grounding on Pnyxy, Anthropic / OpenAI search on your own key). Costs a bit more per turn."
-      }
+      "modeLibrary": "Organize library"
     },
     "folders": {
       "create": "New folder",
@@ -1933,12 +1923,11 @@
       "historyDropped_one": "The oldest {{count}} message won't reach the model. Branch the conversation if you need it.",
       "historyDropped_other": "The oldest {{count}} messages won't reach the model. Branch the conversation if you need it.",
       "searchModel": "Search and model",
-      "groundingOn": "Web search on",
+      "groundingOn": "Web search: the model decides",
       "groundingOff": "Web search off",
       "model": "Model",
       "thinking": "Thinking",
-      "thinkingOn": "On",
-      "thinkingOff": "Off",
+      "thinkingAuto": "Automatic",
       "copyPrompt": "Copy full prompt",
       "copySuccess": "Prompt copied to clipboard.",
       "copyFailed": "Couldn't copy the prompt.",

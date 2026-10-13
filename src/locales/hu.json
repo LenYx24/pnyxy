@@ -2012,11 +2012,6 @@
       },
       "modelHelp": "Modellek leírása",
       "clearMode": "Vissza a chat módhoz",
-      "reasoning": {
-        "off": "Gondolkodó mód kikapcsolása",
-        "label": "Gondolkodó mód",
-        "button": "Gondolkodó mód: a modell lépésről lépésre végiggondolja a választ. Lassabb és több tokent fogyaszt; nehéz matekhoz és logikához éri meg."
-      },
       "wholeBook": {
         "chip": "Teljes könyv",
         "confirmTitle": "Elküldöd a teljes könyvet?",
@@ -2040,12 +2035,7 @@
       "modeImage": "Kép generálása",
       "moreActions": "Továbbiak",
       "modeLabel": "Mód",
-      "modeLibrary": "Könyvtár rendezése",
-      "webSearch": {
-        "label": "Webes keresés",
-        "off": "Webes keresés kikapcsolása",
-        "button": "Webes keresés: a modell rákeres a weben ehhez és a következő kérdésekhez (Pnyxy-n Gemini grounding, saját kulccsal Anthropic / OpenAI keresés). Körönként kicsit többe kerül."
-      }
+      "modeLibrary": "Könyvtár rendezése"
     },
     "folders": {
       "create": "Új mappa",
@@ -2174,12 +2164,11 @@
       "historyDropped_one": "A legrégebbi {{count}} üzenet nem jut el a modellhez. Ágaztasd el a beszélgetést, ha kellene.",
       "historyDropped_other": "A legrégebbi {{count}} üzenet nem jut el a modellhez. Ágaztasd el a beszélgetést, ha kellenének.",
       "searchModel": "Keresés és modell",
-      "groundingOn": "Webes keresés bekapcsolva",
+      "groundingOn": "Webes keresés: a modell dönti el",
       "groundingOff": "Webes keresés kikapcsolva",
       "model": "Modell",
       "thinking": "Gondolkodás",
-      "thinkingOn": "Be",
-      "thinkingOff": "Ki",
+      "thinkingAuto": "Automatikus",
       "copyPrompt": "Teljes prompt másolása",
       "copySuccess": "A prompt a vágólapra másolva.",
       "copyFailed": "Nem sikerült a másolás.",

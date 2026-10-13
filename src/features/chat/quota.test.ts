@@ -28,8 +28,8 @@ describe("predictBilledModel", () => {
   it("pins win over the auto route", () => {
     expect(predictBilledModel("gpt-4o-mini")).toBe("gpt-4o-mini");
   });
-  it("the quality-first auto route bills 3.7 Flash by default", () => {
-    expect(predictBilledModel(null)).toBe("gemini-3.7-flash");
+  it("the quality-first auto route bills 3.8 Flash by default", () => {
+    expect(predictBilledModel(null)).toBe("gemini-3.8-flash");
   });
 });
 
@@ -92,15 +92,15 @@ describe("selectQuotaRow", () => {
   const rows = [
     row("gemini-3.5-flash-lite"),
     row("gemini-3.6-flash", { tokens_limit: 200_000, request_limit: 1000 }),
-    row("gemini-3.7-flash", { tokens_limit: 100_000, request_limit: 500 }),
+    row("gemini-3.8-flash", { tokens_limit: 100_000, request_limit: 500 }),
     row("gpt-4o-mini", { tokens_limit: 50_000, request_limit: 200 }),
     row("claude-haiku-4-5", { tokens_limit: 50_000, request_limit: 200 }),
   ];
 
   it("shows the predicted model's row on the auto route", () => {
     const s = selectQuotaRow(rows, { pinnedModel: null });
-    expect(s.model).toBe("gemini-3.7-flash");
-    expect(s.row?.model).toBe("gemini-3.7-flash");
+    expect(s.model).toBe("gemini-3.8-flash");
+    expect(s.row?.model).toBe("gemini-3.8-flash");
     expect(s.fellThrough).toBe(false);
   });
 
@@ -116,7 +116,7 @@ describe("selectQuotaRow", () => {
 
   it("follows the proxy chain when the predicted bucket is exhausted", () => {
     const exhausted = rows.map((r) =>
-      r.model === "gemini-3.7-flash" ? { ...r, request_count: 1_000_000 } : r,
+      r.model === "gemini-3.8-flash" ? { ...r, request_count: 1_000_000 } : r,
     );
     const s = selectQuotaRow(exhausted, { pinnedModel: null });
     expect(s.model).toBe("gemini-3.6-flash");
@@ -125,7 +125,7 @@ describe("selectQuotaRow", () => {
 
   it("falls through from 3.7 to the next tier down the chain", () => {
     const exhausted = rows.map((r) =>
-      r.model === "gemini-3.7-flash" ? { ...r, request_count: 500 } : r,
+      r.model === "gemini-3.8-flash" ? { ...r, request_count: 500 } : r,
     );
     const s = selectQuotaRow(exhausted, { pinnedModel: null });
     expect(s.model).toBe("gemini-3.6-flash");

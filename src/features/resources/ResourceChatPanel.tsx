@@ -305,8 +305,6 @@ export function ResourceChatPanel({
         options.libraryToolsContext = `The user is currently viewing the ${resource.kind === "youtube" ? "YouTube video" : "saved web page"} "${resource.title}" (resource id: ${resource.id}). "This video" / "this page" / "this" refers to that resource; its conversations move with it.`;
         delete options.systemPromptOverride;
       }
-      if (payload.reasoning) options.reasoning = true;
-      if (payload.webSearch) options.webSearch = true;
       // direct video is proxy-only; the picker's choice is overridden
       const provider = mode === "video" ? "pnyxy" : (payload.provider ?? undefined);
       const attachments =

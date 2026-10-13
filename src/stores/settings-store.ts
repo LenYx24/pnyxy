@@ -719,7 +719,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "pnyxy-reader:settings",
-      version: 16,
+      version: 17,
       partialize: (state) => {
         // persist everything except BYOK keys: those live in memory only
         // for the session (H5 hardening) so a shared/borrowed machine, or
@@ -964,6 +964,12 @@ export const useSettingsStore = create<SettingsState>()(
         if (version < 16) {
           if (state.defaultFitMode === "fit-width") {
             state.defaultFitMode = "auto";
+          }
+        }
+        // v17: Google retired gemini-3.7-flash, 3.8 took its place
+        if (version < 17) {
+          if (state.pnyxyModel === "gemini-3.7-flash") {
+            state.pnyxyModel = "gemini-3.8-flash";
           }
         }
         return state as unknown as SettingsState;

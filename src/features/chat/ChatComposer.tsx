@@ -13,7 +13,6 @@ import {
   ArrowUp,
   BookOpen,
   BookOpenCheck,
-  Brain,
   Check,
   ChevronRight,
   Eye,
@@ -29,7 +28,6 @@ import {
   Square,
   X,
   FolderTree,
-  Globe,
   Gauge,
 } from "lucide-react";
 import {
@@ -124,11 +122,6 @@ export interface ChatComposerSubmitPayload {
   provider: AiProvider | null;
   mode: RecommendationMode;
   attachments: ChatMessageAttachment[];
-  /** Only the OpenAI BYOK path honors this (swaps gpt-4o-mini -> o3-mini). */
-  reasoning: boolean;
-  /** Web search for this turn: Gemini grounding on Pnyxy, Anthropic
-   *  web_search tool, OpenAI search-preview model; local ignores it. */
-  webSearch: boolean;
 }
 
 /** forwardRef handle letting external surfaces (e.g. reader rect-to-AI) drop in attachments. */
@@ -167,7 +160,7 @@ interface ChatComposerProps {
   onAttachPdf?: (file: File) => Promise<void>;
   /** Narrow hosts (browser-extension side panel): no quota line, no
    *  context-token chip, no model picker in the bottom row; the "+" menu
-   *  keeps mode / reasoning / web search. */
+   *  keeps mode. */
   compact?: boolean;
   /** When set (the /chat tabs host), the live draft is persisted per
    *  conversation under this key: on a key change or unmount the current text
@@ -320,7 +313,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
     }, [isStreaming, onStop, value, onChange]);
 
     const [mode, setMode] = useState<RecommendationMode>("default");
-    // "+" secondary-actions menu (mode / reasoning / whole-book / reading context,
+    // "+" secondary-actions menu (mode / whole-book / reading context,
     // plus attach on mobile)
     const plusBtnRef = useRef<HTMLButtonElement>(null);
     const [plusMenuOpen, setPlusMenuOpen] = useState(false);
@@ -398,9 +391,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
     const questionsLeft = quotaRow ? computeQuestionsLeft(quotaRow) : null;
     const [quotaModalOpen, setQuotaModalOpen] = useState(false);
 
-    // Reasoning toggle persists across sends (unlike `mode`). Pnyxy route:
-    // the proxy turns on Gemini thinking; OpenAI BYOK swaps to o3-mini.
-    const [reasoning, setReasoning] = useState(false);
     // "/gr" at the start of an otherwise empty message: slash-command hint
     const features = useFeatures();
     const commandPartial = /^\/\S*$/.test(value) ? value : null;
@@ -411,8 +401,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
           : [],
       [commandPartial, features],
     );
-    // sticky like reasoning: stays on for follow-ups until switched off
-    const [webSearch, setWebSearch] = useState(false);
     const openAiConfigured = configuredProviders.includes("openai");
     // Image generation needs an OpenAI key; fall back to Chat if it disappears.
     useEffect(() => {
@@ -640,8 +628,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
         provider: selectedProvider,
         mode,
         attachments: pendingAttachments,
-        reasoning,
-        webSearch,
       };
       // Clear the draft + attachments + reset mode before the await so a
       // slow send doesn't leave them stuck.
@@ -656,8 +642,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
       pendingAttachments,
       selectedProvider,
       mode,
-      reasoning,
-      webSearch,
       onSubmit,
       notifyParent,
     ]);
@@ -911,36 +895,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
                   <span className="text-2xs text-text-muted">{t(`chat.commands.${c.id}.label`)}</span>
                 </button>
               ))}
-              {webSearch && (
-                <span className={cn(chipActiveClass, "shrink-0 pr-1.5")}>
-                  <Globe size={14} strokeWidth={1.5} className="shrink-0" />
-                  {t("chat.composer.webSearch.label")}
-                  <button
-                    type="button"
-                    onClick={() => setWebSearch(false)}
-                    aria-label={t("chat.composer.webSearch.off")}
-                    title={t("chat.composer.webSearch.off")}
-                    className="ml-0.5 rounded-full p-0.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
-                  >
-                    <X size={12} strokeWidth={1.5} />
-                  </button>
-                </span>
-              )}
-              {reasoning && (
-                <span className={cn(chipActiveClass, "shrink-0 pr-1.5")}>
-                  <Brain size={14} strokeWidth={1.5} className="shrink-0" />
-                  {t("chat.composer.reasoning.label")}
-                  <button
-                    type="button"
-                    onClick={() => setReasoning(false)}
-                    aria-label={t("chat.composer.reasoning.off")}
-                    title={t("chat.composer.reasoning.off")}
-                    className="ml-0.5 rounded-full p-0.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
-                  >
-                    <X size={12} strokeWidth={1.5} />
-                  </button>
-                </span>
-              )}
               {showWholeBookChip && (
                 <span
                   className={cn(chipActiveClass, "shrink-0")}
@@ -1015,44 +969,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
                       )}
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWebSearch((v) => !v);
-                      setPlusMenuOpen(false);
-                    }}
-                    className={menuRowClass}
-                    title={t("chat.composer.webSearch.button")}
-                  >
-                    <Globe size={16} strokeWidth={1.5} />
-                    {t("chat.composer.webSearch.label")}
-                    {webSearch && (
-                      <Check
-                        size={14}
-                        strokeWidth={1.5}
-                        className="ml-auto shrink-0"
-                      />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setReasoning((r) => !r);
-                      setPlusMenuOpen(false);
-                    }}
-                    className={menuRowClass}
-                    title={t("chat.composer.reasoning.button")}
-                  >
-                    <Brain size={16} strokeWidth={1.5} />
-                    {t("chat.composer.reasoning.label")}
-                    {reasoning && (
-                      <Check
-                        size={14}
-                        strokeWidth={1.5}
-                        className="ml-auto shrink-0"
-                      />
-                    )}
-                  </button>
                   {onLoadReadingContext && (
                     <>
                       {(["week", "all"] as const).map((windowMode) => (
@@ -1267,7 +1183,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
           docTitle={activeDoc?.meta.title ?? convDocTitle}
           conversationId={activeConversationId}
           attachments={pendingAttachments}
-          reasoning={reasoning}
         />
         <QuotaModal
           open={quotaModalOpen}

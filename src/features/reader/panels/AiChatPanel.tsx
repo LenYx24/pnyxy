@@ -303,17 +303,11 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
       const armedCitation = pendingCitationRef.current;
       pendingCitationRef.current = null;
       // the draw loop sends text + the page capture only, so turns with
-      // attachments, a cited passage or a composer toggle take the plain path
-      const plainTurn =
-        payload.attachments.length === 0 &&
-        !payload.reasoning &&
-        !payload.webSearch &&
-        !armedCitation;
+      // attachments or a cited passage take the plain path
+      const plainTurn = payload.attachments.length === 0 && !armedCitation;
       const sendOptions: ChatSendOptions = {
         ...(plainTurn ? pdfDrawSendOptions(activeDocumentId) : undefined),
       };
-      if (payload.reasoning) sendOptions.reasoning = true;
-      if (payload.webSearch) sendOptions.webSearch = true;
       if (armedCitation) sendOptions.citation = armedCitation;
       const finalSendOptions =
         Object.keys(sendOptions).length > 0 ? sendOptions : undefined;
@@ -778,8 +772,6 @@ export function AiChatPanelContent({ onClose }: AiChatPanelContentProps = {}) {
                 provider: null,
                 mode: "default",
                 attachments: [],
-                reasoning: false,
-                webSearch: false,
               });
             }}
             onDecline={() => useTutorNudgeStore.getState().decline()}

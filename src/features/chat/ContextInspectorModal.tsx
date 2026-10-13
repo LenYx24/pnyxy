@@ -48,8 +48,6 @@ interface ContextInspectorModalProps {
   /** Attachments staged for the next send, when the caller owns that state
    *  (only the composer does; header-only entry points omit it). */
   attachments?: ChatMessageAttachment[];
-  /** Thinking/reasoning toggle, when the caller owns it (composer only). */
-  reasoning?: boolean;
 }
 
 const SOURCE_KEY: Record<string, string> = {
@@ -356,7 +354,6 @@ export function ContextInspectorModal({
   docTitle,
   conversationId,
   attachments = [],
-  reasoning = false,
 }: ContextInspectorModalProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -448,7 +445,7 @@ export function ContextInspectorModal({
   }, [effectiveDocTitle]);
 
   const billedModel = predictBilledModel(pnyxyModel);
-  const useGrounding = !hasDoc && billedModel === QUOTA_AUTO_DEFAULT_MODEL;
+  const useGrounding = billedModel === QUOTA_AUTO_DEFAULT_MODEL;
 
   // ── token estimate + size bar (chars/4, images at a flat estimate) ──
   const instrTokens =
@@ -886,11 +883,7 @@ export function ContextInspectorModal({
               {" · "}
               {t("chat.contextInspector.thinking")}
               {": "}
-              {t(
-                reasoning
-                  ? "chat.contextInspector.thinkingOn"
-                  : "chat.contextInspector.thinkingOff",
-              )}
+              {t("chat.contextInspector.thinkingAuto")}
             </p>
           </LayerCard>
         </div>

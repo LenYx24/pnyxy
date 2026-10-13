@@ -23,6 +23,7 @@ import {
   buildChatSystemPrompt,
   INLINE_QUIZ_SPEC,
 } from "../_shared/chat-prompts.ts";
+import { wantsDeepThinking } from "../_shared/thinking.ts";
 // @ts-expect-error Deno-only import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -33,7 +34,10 @@ const ANTHROPIC_MODEL = "claude-haiku-4-5";
 // These double as quota-bucket keys; migration 00063 maps them.
 const GEMINI_FLASH_LITE_MODEL = "gemini-3.5-flash-lite";
 const GEMINI_MODEL = "gemini-3.6-flash";
-const GEMINI_3_FLASH_MODEL = "gemini-3.7-flash";
+const GEMINI_3_FLASH_MODEL = "gemini-3.8-flash";
+const RETIRED_MODEL_IDS: Record<string, string> = {
+  "gemini-3.7-flash": GEMINI_3_FLASH_MODEL,
+};
 // Gemini 3.x thinks by default and its thinking tokens count against
 // max_tokens, so the ceiling needs headroom or answers cut mid-sentence
 // (finish_reason "length"). Pre-billed worst-case, unused part refunded
@@ -83,7 +87,7 @@ const OPENAI_COMPATIBLE_PROVIDERS: ReadonlyArray<{
     model: GEMINI_3_FLASH_MODEL,
   },
   {
-    // Step-down tier when the 3.7 bucket is exhausted.
+    // Step-down tier when the 3.8 bucket is exhausted.
     name: "gemini",
     envKey: "GEMINI_API_KEY",
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
@@ -133,6 +137,16 @@ const NO_IP_SENTINEL = "no-ip";
  *  estimate on purpose, better to bill conservatively than let a
  *  multi-image message slip past the quota check. */
 const IMAGE_TOKEN_COST = 1600;
+
+/** Plain text of the newest user turn (image blocks ignored). */
+function lastUserText(messages: ChatRequestBody["messages"] | undefined): string {
+  const last = [...(messages ?? [])].reverse().find((m) => m.role === "user");
+  if (!last) return "";
+  if (typeof last.content === "string") return last.content;
+  return last.content
+    .map((b) => (b.type === "text" ? b.text : ""))
+    .join("\n");
+}
 
 function estimateMessageTokens(content: string | ContentBlock[]): number {
   if (typeof content === "string") return estimateTokens(content);
@@ -282,7 +296,7 @@ const MODEL_SUGGEST_SPEC = `You are answering on Pnyxy's free tier, which defaul
 \`\`\`pnyxy-suggest-model
 {"model": "claude-haiku-4-5", "reason": "…"}
 \`\`\`
-"model" must be exactly one of: "claude-haiku-4-5" (highest quality, best for hard reasoning) or "gemini-3.7-flash" (newest Google model, strong all-round). "reason" is ONE short sentence, in the user's language, on why the stronger model would help. Rules: at most one such block per reply; NEVER add it for simple, factual, or short questions, most replies must have NO block; never mention the block or the suggestion in your prose; do not suggest when you are already confident your answer is complete and correct.`;
+"model" must be exactly one of: "claude-haiku-4-5" (highest quality, best for hard reasoning) or "gemini-3.8-flash" (newest Google model, strong all-round). "reason" is ONE short sentence, in the user's language, on why the stronger model would help. Rules: at most one such block per reply; NEVER add it for simple, factual, or short questions, most replies must have NO block; never mention the block or the suggestion in your prose; do not suggest when you are already confident your answer is complete and correct.`;
 
 function buildSystemPrompt(
   documentTitle: string,
@@ -368,6 +382,10 @@ Deno.serve(async (req) => {
   } catch {
     return jsonError(400, "bad_request", "Invalid JSON body");
   }
+  // Pins saved by older clients point at ids Google has since retired.
+  if (body.preferredModel && RETIRED_MODEL_IDS[body.preferredModel]) {
+    body.preferredModel = RETIRED_MODEL_IDS[body.preferredModel];
+  }
 
   const toolMode =
     Array.isArray(body.tools) &&
@@ -390,9 +408,12 @@ Deno.serve(async (req) => {
     return jsonError(400, "invalid_role", "message roles must be user or assistant");
   }
 
-  // Thinking turns need headroom: the thinking tokens count against
-  // max_tokens, so the default 1024 would leave nothing for the answer.
-  const reasoning = body.reasoning === true;
+  // Thinking depth is picked per turn from the latest user message (the
+  // composer has no thinking switch). Thinking turns need headroom: the
+  // thinking tokens count against max_tokens.
+  const reasoning =
+    body.reasoning === true ||
+    (!toolMode && wantsDeepThinking(lastUserText(body.messages)));
   let maxOutputTokens = Math.min(
     Math.max(
       body.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
@@ -626,23 +647,21 @@ Deno.serve(async (req) => {
         Array.isArray(m.content) &&
         m.content.some((block) => block.type === "image"),
     );
-  // ── Web-search grounding (standalone /chat only) ───────────────
+  // ── Web-search grounding ───────────────────────────────────────
   //
   // Google Search grounding is only available on Gemini 3+ via the
   // OpenAI-compat endpoint, so enabling it forces the request onto the
-  // (pricier) Gemini-3 model. We scope it to the standalone chat,
-  // detected by an empty documentTitle, i.e. the /chat page rather than
-  // reader Q&A, so high-volume, already-context-grounded reader
-  // questions stay on the cheap Flash-Lite tier. Respect an explicit
-  // model pin: only auto-route (no pin) or an explicit Gemini-3 pin opt
-  // into grounding; a user who pinned a cheaper model keeps it.
+  // Gemini-3 model, which already heads the auto route. Respect an
+  // explicit model pin: only auto-route (no pin) or an explicit Gemini-3
+  // pin opt into grounding; a user who pinned a cheaper model keeps it.
   const preferredModel = body.preferredModel ?? null;
   const groundingModelAvailable = openAiCompatChain.some(
     (p) => p.model === GEMINI_3_FLASH_MODEL,
   );
+  // Grounding only offers the search tool; Gemini decides per turn
+  // whether to actually search, so it is on wherever the route allows.
   const autoGrounding =
-    !(body.documentTitle ?? "").trim() &&
-    (preferredModel === null || preferredModel === GEMINI_3_FLASH_MODEL);
+    preferredModel === null || preferredModel === GEMINI_3_FLASH_MODEL;
   const useGrounding =
     !toolMode &&
     groundingModelAvailable &&
