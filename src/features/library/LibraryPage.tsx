@@ -12,13 +12,13 @@ import {
   AlertTriangle,
   Plus,
   StickyNote,
-  PenLine,
+  Brush,
   FileQuestion,
   MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router";
-import { Button, FloatingMenu, Kbd } from "@/components/ui";
+import { Button, FloatingMenu, IconButton, Kbd } from "@/components/ui";
 import { modalBackdropClass, modalSurfaceClass } from "@/components/ui/classes";
 import { useContextMenu } from "@/hooks/use-context-menu";
 import { useFeatures } from "@/lib/use-features";
@@ -298,6 +298,22 @@ export function LibraryPage() {
       { replace: true },
     );
   }, [searchParams, setSearchParams, handlePasteUrl]);
+
+  // /library?folder=<id> (links from the chat's activity log) opens that
+  // folder once the tree has it, then drops the param like addUrl above.
+  useEffect(() => {
+    const folderId = searchParams.get("folder");
+    if (!folderId || !folders.some((f) => f.id === folderId)) return;
+    useLibraryStore.getState().navigateToFolder(folderId);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("folder");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams, folders]);
 
   // upload pipeline is PDF-only; other formats just open in the reader.
   // Used by the "Open from URL" modal: await the upload so a failure surfaces
@@ -787,7 +803,8 @@ export function LibraryPage() {
           {
             id: "create-whiteboard",
             label: t("library.create.whiteboard"),
-            icon: PenLine,
+            icon: Brush,
+            accent: true,
             onClick: handleCreateWhiteboard,
           },
         ]
@@ -844,15 +861,23 @@ export function LibraryPage() {
     },
   ];
 
-  // desktop right-click menu: create, then folder/upload/import actions
+  // desktop right-click menu: the three everyday creates first, the rarer
+  // ones and the import paths each behind a submenu
+  const quickCreateIds = new Set(["create-note", "create-whiteboard"]);
   const libraryMenu = useContextMenu(() => [
-    ...createEntries,
-    { id: "div-folder", divider: true },
+    ...createEntries.filter((e) => quickCreateIds.has(e.id)),
     {
       id: "new-folder",
       label: t("library.allBooks.newFolder"),
       icon: FolderPlus,
       onClick: handleNewFolder,
+    },
+    {
+      id: "create-more",
+      label: t("library.create.more"),
+      icon: Plus,
+      onClick: () => {},
+      children: createEntries.filter((e) => !quickCreateIds.has(e.id)),
     },
     { id: "div-upload", divider: true },
     {
@@ -861,7 +886,13 @@ export function LibraryPage() {
       icon: Upload,
       onClick: triggerUpload,
     },
-    ...uploadEntries,
+    {
+      id: "add-from",
+      label: t("library.actions.addFrom"),
+      icon: LinkIcon,
+      onClick: () => {},
+      children: uploadEntries,
+    },
   ]);
 
   return (
@@ -988,6 +1019,38 @@ export function LibraryPage() {
             trailing={
               <div className="flex shrink-0 items-center gap-2">
                 <StreakPill />
+                {/* one-click creates for the everyday three; the rest
+                    live in the Add menu */}
+                <div className="hidden items-center gap-1 sm:flex">
+                  {features.notes && (
+                    <IconButton
+                      variant="secondary"
+                      onClick={handleCreateNote}
+                      aria-label={t("library.create.newNote")}
+                      title={t("library.create.newNote")}
+                    >
+                      <StickyNote size={16} strokeWidth={1.5} />
+                    </IconButton>
+                  )}
+                  {features.whiteboard && (
+                    <IconButton
+                      variant="soft"
+                      onClick={handleCreateWhiteboard}
+                      aria-label={t("library.create.newWhiteboard")}
+                      title={t("library.create.newWhiteboard")}
+                    >
+                      <Brush size={16} strokeWidth={1.5} />
+                    </IconButton>
+                  )}
+                  <IconButton
+                    variant="secondary"
+                    onClick={handleNewFolder}
+                    aria-label={t("library.allBooks.newFolder")}
+                    title={t("library.allBooks.newFolder")}
+                  >
+                    <FolderPlus size={16} strokeWidth={1.5} />
+                  </IconButton>
+                </div>
                 {/* Primary "Add" dropdown: upload + the other add modes,
                     create entities and new folder, one click from the header.
                     Ctrl+U still uploads directly. */}

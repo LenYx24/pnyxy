@@ -5,9 +5,16 @@ export interface ContextMenuItem {
   id: string;
   label: string;
   icon?: LucideIcon;
+  /** Ignored when `children` is set: the row opens its submenu instead. */
   onClick: () => void;
   danger?: boolean;
   disabled?: boolean;
+  /** Keyboard hint shown on the right, e.g. "F2". */
+  shortcut?: string;
+  /** Rows of a submenu that flies out to the side. */
+  children?: ContextMenuEntry[];
+  /** Tints the icon with the accent (a featured action). */
+  accent?: boolean;
 }
 
 export interface ContextMenuDivider {

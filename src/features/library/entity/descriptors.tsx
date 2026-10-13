@@ -10,8 +10,7 @@ import {
   ListChecks,
   MessageSquare,
   Pencil,
-  PenLine,
-  Shapes,
+  Brush,
   Video,
 } from "lucide-react";
 import {
@@ -317,8 +316,8 @@ export function useWhiteboardDescriptor(
     updatedAt: new Date(whiteboard.updatedAt).toISOString(),
     open: () => navigate(`/whiteboards/${whiteboard.id}`),
     openLabel: t("library.allBooks.openWhiteboard"),
-    openIcon: PenLine,
-    openMenuIcon: Shapes,
+    openIcon: Brush,
+    openMenuIcon: Brush,
     exportAction: {
       id: "export",
       label: t("library.actions.exportJson"),
@@ -338,10 +337,10 @@ export function useWhiteboardDescriptor(
             className="absolute inset-0 h-full w-full p-2"
           />
         ) : (
-          <Shapes size={size} className="text-success/80" />
+          <Brush size={size} className="text-success/80" />
         ),
       badge: (
-        <CardTypeBadge icon={PenLine} colorClass="text-success" title={label} />
+        <CardTypeBadge icon={Brush} colorClass="text-success" title={label} />
       ),
       subtitle: label,
     },

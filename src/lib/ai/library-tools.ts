@@ -1,10 +1,14 @@
-// Library tools for the chat's "Organize library" mode: the model sees a
-// snapshot of the folder tree (paths + what lives in each) and can look
-// things up or, with the user's per-action approval, create folders, move
-// items and start conversations. Runs entirely client-side against the
-// stores; see library-agent.ts for the loop.
+// Tools for the chat's assistant mode: the model sees a snapshot of the
+// folder tree (paths + what lives in each) and can look things up, create
+// folders, notes and chats, move items, search the web and offer a
+// whiteboard card. Creating things and filing the current chat run
+// directly (each step can be undone from the activity log); moving the
+// user's existing items still asks for approval. Runs entirely
+// client-side against the stores; see library-agent.ts for the loop.
 
 import type { ToolDef } from "@/lib/roadmap/roadmap-tools";
+import type { AgentOffer, AgentRef, AgentUndo } from "@/lib/ai/agent-blocks";
+import { streamChatResponse } from "@/lib/ai/ai-client";
 import { useLibraryStore } from "@/stores/library-store";
 import { useChatStore } from "@/stores/chat-store";
 import { useNoteStore } from "@/stores/note-store";
@@ -77,6 +81,45 @@ export const LIBRARY_TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "create_note",
+    description:
+      "Create a note in a folder with Markdown content, e.g. a summary of what you found or a starter plan. Returns its id.",
+    input_schema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Folder path; \"\" for the root." },
+        title: { type: "string", description: "Short note title." },
+        markdown: { type: "string", description: "The note body in Markdown." },
+      },
+      required: ["path", "title", "markdown"],
+    },
+  },
+  {
+    name: "web_search",
+    description:
+      "Search the web and get a short factual summary back. Use it when setting up something you don't know well (a game, a course, a tool) so notes and advice are accurate.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "What to look up." },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "offer_whiteboard",
+    description:
+      "Show the user a card to create a whiteboard (drawing board) in a folder; they confirm the name with Enter. Use it when drawing would help (diagrams, production chains, mind maps) or when they ask for a board.",
+    input_schema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Folder path; \"\" for the root." },
+        title: { type: "string", description: "Suggested board name." },
+      },
+      required: ["path", "title"],
+    },
+  },
+  {
     name: "create_chat",
     description:
       "Start a new (empty) conversation in a folder so the user has a place to study a topic. Returns its id. Asks the user for approval first.",
@@ -93,11 +136,30 @@ export const LIBRARY_TOOLS: ToolDef[] = [
 
 export interface ToolOutcome {
   ok: boolean;
-  /** One line for the visible transcript (blockquote). */
+  /** One line for logs and the approval card. */
   summary: string;
   /** What the model gets back as the tool result. */
   modelOutput: string;
+  /** Path chips for the activity log. */
+  refs?: AgentRef[];
+  /** Detail shown next to the step (search query, error). */
+  detail?: string;
+  undo?: AgentUndo;
+  /** Folder whose contents changed, shown as a mini library. */
+  touchedFolderId?: string | null;
+  offer?: AgentOffer;
 }
+
+/** Per-turn state the dispatcher needs. */
+export interface ToolContext {
+  /** The conversation the user is talking in; filing it needs no approval. */
+  conversationId?: string | null;
+  /** Ids created during this turn; moving them needs no approval. */
+  createdIds: Set<string>;
+  signal?: AbortSignal;
+}
+
+const pathLabel = (path: string) => path.split(SEP).join(" / ");
 
 // ── folder path helpers ────────────────────────────────────────
 
@@ -226,6 +288,7 @@ function asString(v: unknown): string {
 export async function dispatchLibraryTool(
   name: string,
   rawInput: unknown,
+  ctx: ToolContext = { createdIds: new Set() },
 ): Promise<ToolOutcome> {
   const input = (rawInput ?? {}) as Record<string, unknown>;
   const lib = useLibraryStore.getState();
@@ -249,10 +312,16 @@ export async function dispatchLibraryTool(
               `[${it.kind}] ${it.title} (id: ${it.id}, in: ${it.folderId ? paths.get(it.folderId) ?? "?" : "root"})`,
           );
         const lines = [...folderHits, ...itemHits];
+        const refs: AgentRef[] = lib.folders
+          .filter((f) => f.name.toLowerCase().includes(q))
+          .slice(0, 3)
+          .map((f) => ({ k: "folder", id: f.id, label: pathLabel(paths.get(f.id) ?? f.name) }));
         return {
           ok: true,
           summary: `Searched the library for "${q}" (${lines.length} hits)`,
           modelOutput: lines.length ? lines.join("\n") : "No matches.",
+          detail: q,
+          refs,
         };
       }
 
@@ -261,13 +330,26 @@ export async function dispatchLibraryTool(
         if (!path) return { ok: false, summary: "create_folder: empty path", modelOutput: "Error: path is required." };
         const existing = resolvePath(lib.folders, path);
         if (existing) {
-          return { ok: true, summary: `Folder "${path}" already exists`, modelOutput: `Folder already exists (id: ${existing}).` };
+          return {
+            ok: true,
+            summary: `Folder "${path}" already exists`,
+            modelOutput: `Folder already exists (id: ${existing}).`,
+            refs: [{ k: "folder", id: existing, label: pathLabel(path) }],
+          };
         }
-        const ok = await approval.request({ tool: name, summary: `Create folder "${path}"` });
-        if (!ok) return { ok: false, summary: `Skipped creating "${path}"`, modelOutput: "The user declined this action. Do not retry it; continue without it." };
         const created = await lib.createFolderPath(path, null);
         if (!created) throw new Error("createFolderPath returned null");
-        return { ok: true, summary: `Created folder "${path}"`, modelOutput: `Created folder "${path}" (id: ${created.id}).` };
+        ctx.createdIds.add(created.id);
+        // the chat sidebar keeps its own copy of the shared folders table
+        void useChatStore.getState().fetchFolders();
+        return {
+          ok: true,
+          summary: `Created folder "${path}"`,
+          modelOutput: `Created folder "${path}" (id: ${created.id}).`,
+          refs: [{ k: "folder", id: created.id, label: pathLabel(path) }],
+          undo: { op: "delete_folder", id: created.id },
+          touchedFolderId: created.id,
+        };
       }
 
       case "move_item": {
@@ -280,12 +362,18 @@ export async function dispatchLibraryTool(
           return { ok: false, summary: `move_item: no folder "${path}"`, modelOutput: `Error: folder "${path}" does not exist. Create it first with create_folder.` };
         }
         const item = kind === "folder"
-          ? (() => { const f = lib.folders.find((x) => x.id === id); return f ? { title: f.name } : null; })()
+          ? (() => { const f = lib.folders.find((x) => x.id === id); return f ? { title: f.name, folderId: f.parent_id } : null; })()
           : collectItems().find((it) => it.kind === kind && it.id === id) ?? null;
         if (!item) return { ok: false, summary: `move_item: ${kind} ${id} not found`, modelOutput: `Error: no ${kind} with id ${id}.` };
         const dest = path || "the library root";
-        const ok = await approval.request({ tool: name, summary: `Move ${kind} "${item.title}" → ${dest}` });
-        if (!ok) return { ok: false, summary: `Skipped moving "${item.title}"`, modelOutput: "The user declined this action. Do not retry it; continue without it." };
+        // filing this chat or something made this turn is what the user
+        // asked for; moving their existing material still needs a yes
+        const needsApproval =
+          !(kind === "chat" && id === ctx.conversationId) && !ctx.createdIds.has(id);
+        if (needsApproval) {
+          const ok = await approval.request({ tool: name, summary: `Move ${kind} "${item.title}" → ${dest}` });
+          if (!ok) return { ok: false, summary: `Skipped moving "${item.title}"`, modelOutput: "The user declined this action. Do not retry it; continue without it." };
+        }
         switch (kind) {
           case "book": {
             const entry = lib.books.find((b) => b.id === id);
@@ -308,7 +396,17 @@ export async function dispatchLibraryTool(
           default:
             return { ok: false, summary: `move_item: unknown kind ${kind}`, modelOutput: `Error: unknown kind "${kind}".` };
         }
-        return { ok: true, summary: `Moved ${kind} "${item.title}" → ${dest}`, modelOutput: `Moved ${kind} "${item.title}" to ${dest}.` };
+        return {
+          ok: true,
+          summary: `Moved ${kind} "${item.title}" → ${dest}`,
+          modelOutput: `Moved ${kind} "${item.title}" to ${dest}.`,
+          refs: [
+            { k: kind, id, label: item.title },
+            ...(target ? [{ k: "folder" as const, id: target, label: pathLabel(path) }] : []),
+          ],
+          undo: { op: "move", kind, id, to: item.folderId },
+          touchedFolderId: target,
+        };
       }
 
       case "create_chat": {
@@ -319,8 +417,6 @@ export async function dispatchLibraryTool(
           return { ok: false, summary: `create_chat: no folder "${path}"`, modelOutput: `Error: folder "${path}" does not exist. Create it first with create_folder.` };
         }
         const dest = path || "the library root";
-        const ok = await approval.request({ tool: name, summary: `Start chat "${title || "(untitled)"}" in ${dest}` });
-        if (!ok) return { ok: false, summary: `Skipped creating chat "${title}"`, modelOutput: "The user declined this action. Do not retry it; continue without it." };
         const chat = useChatStore.getState();
         // keep the conversation the user is talking in active; a new chat is
         // created in the background via a direct insert-like path
@@ -330,10 +426,75 @@ export async function dispatchLibraryTool(
           await chat.openConversation(currentActive);
         }
         if (!newId) throw new Error("createConversation returned null");
+        ctx.createdIds.add(newId);
         return {
           ok: true,
           summary: `Started chat "${title}" in ${dest}`,
           modelOutput: `Created conversation "${title}" (id: ${newId}) in ${dest}. Link it for the user as [${title}](/chat/${newId}).`,
+          refs: [{ k: "chat", id: newId, label: title }],
+          touchedFolderId: target,
+        };
+      }
+
+      case "create_note": {
+        const path = normalizePath(asString(input.path));
+        const title = asString(input.title).trim().slice(0, 120);
+        const markdown = asString(input.markdown);
+        const target = resolvePath(lib.folders, path);
+        if (target === undefined) {
+          return { ok: false, summary: `create_note: no folder "${path}"`, modelOutput: `Error: folder "${path}" does not exist. Create it first with create_folder.` };
+        }
+        const notes = useNoteStore.getState();
+        const id = notes.createNote(target);
+        notes.updateNote(id, { title, content: markdown });
+        ctx.createdIds.add(id);
+        return {
+          ok: true,
+          summary: `Created note "${title}"`,
+          modelOutput: `Created note "${title}" (id: ${id}). Link it as [${title}](/notes/${id}).`,
+          refs: [{ k: "note", id, label: title }],
+          touchedFolderId: target,
+        };
+      }
+
+      case "web_search": {
+        const query = asString(input.query).trim().slice(0, 300);
+        if (!query) return { ok: false, summary: "web_search: empty query", modelOutput: "Error: query is required." };
+        let text = "";
+        for await (const chunk of streamChatResponse(
+          [{ role: "user", content: `Search the web for: ${query}\n\nReply with a compact factual summary (at most 12 bullet points) of what you found, in the language of the query. List the source page titles at the end.` }],
+          "",
+          "",
+          {
+            webSearch: true,
+            maxOutputTokens: 1500,
+            signal: ctx.signal,
+            systemPromptOverride:
+              "You are a research helper with Google Search. Search the web and report only what the results say, concisely; never invent facts.",
+          },
+        )) {
+          text += chunk.delta;
+        }
+        return {
+          ok: true,
+          summary: `Searched the web for "${query}"`,
+          modelOutput: text.trim() || "No results.",
+          detail: query,
+        };
+      }
+
+      case "offer_whiteboard": {
+        const path = normalizePath(asString(input.path));
+        const title = asString(input.title).trim().slice(0, 120);
+        const target = resolvePath(lib.folders, path);
+        if (target === undefined) {
+          return { ok: false, summary: `offer_whiteboard: no folder "${path}"`, modelOutput: `Error: folder "${path}" does not exist. Create it first with create_folder.` };
+        }
+        return {
+          ok: true,
+          summary: `Offered a whiteboard "${title}"`,
+          modelOutput: "A card is shown under your reply; the user names the board and creates it with Enter. Don't repeat it in prose beyond one short mention.",
+          offer: { kind: "whiteboard", title, folderId: target },
         };
       }
 
@@ -346,17 +507,22 @@ export async function dispatchLibraryTool(
   }
 }
 
-export function buildLibraryAgentSystemPrompt(): string {
-  return `You are Pnyxy's study assistant in "Organize library" mode. Pnyxy is a learning app: the user's library holds folders with books (PDFs/EPUBs), chats (AI conversations), notes and saved links (web pages / YouTube videos). Folders nest via slash paths like "History/WW2".
+export function buildLibraryAgentSystemPrompt(
+  conversationId?: string | null,
+): string {
+  const thisChat = conversationId
+    ? `\nThe conversation you are talking in has id ${conversationId} (kind "chat"). "This chat" / "ez a beszélgetés" means it; file it with move_item when you set up a folder for the topic.\n`
+    : "";
+  return `You are Pnyxy's study assistant in assistant mode. Pnyxy is a learning app: the user's library holds folders with books (PDFs/EPUBs), chats (AI conversations), notes, whiteboards and saved links (web pages / YouTube videos). Folders nest via slash paths like "History/WW2".
 
-Your job: help the student set up and keep a sensible structure for what they want to learn, and act on it with the tools when they ask (create folders, move things, start a chat for a topic). Typical request: "I want to learn about X" → propose a small folder structure (2–5 folders, not a taxonomy of everything), then create it and start a chat in the right folder, so the student can begin immediately.
-
+Your job: set up and keep a sensible place for what the user wants to learn or work on, and act on it with the tools. Typical request: "set up X for me" → look at the library snapshot, pick or create a fitting folder (reuse existing parents, e.g. put a game under an existing "Games" folder), move this chat there, look things up on the web when the topic is unfamiliar, save what you found as a short note, and offer a whiteboard when drawing would help. Then tell the user how to start.
+${thisChat}
 Rules:
-- Every write tool asks the user to approve; if they decline, don't retry, adapt.
-- Prefer reusing existing folders over creating near-duplicates; check the snapshot first.
+- Act, don't ask for permission for each step: the user sees every step in the activity log and can undo it. Moving the user's existing items (not this chat, not things you just made) shows them an approval card; if they decline, don't retry.
+- Prefer reusing existing folders over creating near-duplicates; check the snapshot first. Keep the structure small (1-3 new folders).
 - Keep names short and in the user's language. Reply in the user's language (Hungarian if they write Hungarian).
-- After acting, summarize what changed in 2–4 lines and link chats you created as [title](/chat/<id>).
-- Don't move things the user didn't mention unless you asked and they agreed.
+- Don't narrate tool calls in prose; the log shows them. After acting, write 2-4 short sentences: what is set up and how to begin. Link notes and chats you created as [title](/notes/<id>) or [title](/chat/<id>).
+- Don't move things the user didn't mention unless you asked and they agreed. Never claim a step happened unless its tool succeeded.
 
 Current library snapshot (paths, items and ids):
 ${formatLibrarySnapshot()}`;

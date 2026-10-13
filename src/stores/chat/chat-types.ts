@@ -130,6 +130,8 @@ export interface ChatState {
   deleteConversation: (id: string) => Promise<void>;
   /** Delete a message and its whole subtree; leaf rewinds to parent if inside it. */
   deleteMessage: (messageId: string) => Promise<void>;
+  /** Rewrites a saved message body (an agent card recording what it did). */
+  updateMessageContent: (messageId: string, content: string) => Promise<void>;
   /** Fork the conversation from `fromMessageId` (inclusive) into a new one. */
   duplicateFromMessage: (
     fromMessageId: string,

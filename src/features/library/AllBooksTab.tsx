@@ -46,7 +46,7 @@ import {
   ArrowUp,
   BookOpen,
   FileText,
-  Shapes,
+  Brush,
   ListChecks,
   MessageSquare,
   Globe,
@@ -129,7 +129,7 @@ const ITEM_TYPE_FILTERS: {
   },
   {
     value: "whiteboards",
-    icon: Shapes,
+    icon: Brush,
     labelKey: "library.typeFilter.whiteboards",
     defaultLabel: "Whiteboards",
     feature: "whiteboard",
@@ -1197,6 +1197,7 @@ export function AllBooksTab({
                             onNavigate={navigateToFolder}
                             onRename={renameFolder}
                             onDelete={handleDeleteFolder}
+                            onCreateSubfolder={handleCreateSubfolder}
                             coverHeight={coverHeight}
                             selected={selectedIds.has(`folder:${folder.id}`)}
                             selectionActive={selectionActive}

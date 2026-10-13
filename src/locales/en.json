@@ -1019,6 +1019,9 @@
       "folderNotSupported": "Folders can't be dropped here yet. Drop the files themselves (PDF), or open the folder and select the files."
     },
     "actions": {
+      "more": "More",
+      "chatAboutBook": "Chat about this book",
+      "addFrom": "Add from elsewhere",
       "scan": "Scan folder",
       "scanTitle": "Pick a folder and import its books ({{shortcut}})",
       "upload": "Upload",
@@ -1174,6 +1177,7 @@
       }
     },
     "folderCard": {
+      "newInFolder": "New in this folder",
       "folderLabel": "Folder",
       "rename": "Rename",
       "delete": "Delete",
@@ -1298,6 +1302,9 @@
       "noSearchResults": "No results for \"{{query}}\""
     },
     "create": {
+      "newWhiteboard": "New whiteboard",
+      "newNote": "New note",
+      "more": "More to create",
       "new": "New",
       "createHeading": "Create",
       "addHeading": "Add / upload",
@@ -1665,6 +1672,49 @@
     "nodeClickHint": "Tip: click a node to mark it complete"
   },
   "chat": {
+    "agent": {
+      "log": "Activity",
+      "stepCount_one": "{{count}} step",
+      "stepCount_other": "{{count}} steps",
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "undo": "Undo",
+      "undone": "undone",
+      "undoFailed": "This can't be undone anymore (the folder has content now).",
+      "emptyFolder": "Empty folder",
+      "more_one": "and {{count}} more",
+      "more_other": "and {{count}} more",
+      "openInLibrary": "Open in library",
+      "steps": {
+        "search_library": "Looked through your library",
+        "create_folder": "Created a folder",
+        "move_item": "Moved",
+        "create_chat": "Started a new chat",
+        "create_note": "Wrote a note",
+        "web_search": "Searched the web",
+        "offer_whiteboard": "Prepared a whiteboard",
+        "generic": "Step: {{op}}"
+      },
+      "kinds": {
+        "folder": "folder",
+        "book": "book",
+        "chat": "chat",
+        "note": "note",
+        "whiteboard": "whiteboard",
+        "resource": "link",
+        "url": "link"
+      },
+      "offer": {
+        "whiteboard": "Whiteboard",
+        "nameLabel": "Board name",
+        "create": "Create",
+        "into": "It goes into {{folder}}.",
+        "intoRoot": "It goes into the library root.",
+        "done": "Done:",
+        "openHere": "Open here",
+        "openNewTab": "New tab"
+      }
+    },
     "title": "Chat",
     "untitled": "Untitled conversation",
     "newConversation": "New conversation",

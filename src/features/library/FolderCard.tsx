@@ -1,3 +1,4 @@
+import { useCreateInFolderEntry } from "./use-create-in-folder";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Folder, FolderOpen, MoreVertical, Pencil, Trash2 } from "lucide-react";
@@ -21,6 +22,8 @@ interface FolderCardProps {
   selectionActive?: boolean;
   onToggleSelect?: (id: string, event: { ctrlKey: boolean; shiftKey: boolean }) => void;
   sortableId?: string;
+  /** Opens the host's "new folder" prompt with this folder as parent. */
+  onCreateSubfolder?: (parentFolderId: string) => void;
 }
 
 export function FolderCard({
@@ -33,8 +36,10 @@ export function FolderCard({
   selectionActive = false,
   onToggleSelect,
   sortableId,
+  onCreateSubfolder,
 }: FolderCardProps) {
   const { t } = useTranslation();
+  const createInFolder = useCreateInFolderEntry(onCreateSubfolder);
   const {
     attributes,
     listeners,
@@ -83,6 +88,7 @@ export function FolderCard({
       icon: FolderOpen,
       onClick: () => onNavigate(folder.id),
     },
+    createInFolder(folder.id),
     {
       id: "rename",
       label: t("library.folderCard.rename"),

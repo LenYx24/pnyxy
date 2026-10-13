@@ -1,3 +1,4 @@
+import { useCreateInFolderEntry } from "../use-create-in-folder";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FolderOpen, FolderPlus, Pencil, Trash2 } from "lucide-react";
@@ -58,6 +59,7 @@ export function FolderRow({
   sortableId,
 }: FolderRowProps) {
   const { t } = useTranslation();
+  const createInFolder = useCreateInFolderEntry(onCreateSubfolder);
 
   const {
     setNodeRef,
@@ -106,6 +108,7 @@ export function FolderRow({
         icon: FolderOpen,
         onClick: open,
       },
+      createInFolder(folder.id),
       {
         id: "rename",
         label: t("library.folderCard.rename"),
@@ -113,14 +116,6 @@ export function FolderRow({
         onClick: () => setRenameOpen(true),
       },
     ];
-    if (onCreateSubfolder) {
-      items.push({
-        id: "new-subfolder",
-        label: t("library.folderCard.newSubfolder"),
-        icon: FolderPlus,
-        onClick: () => onCreateSubfolder(folder.id),
-      });
-    }
     items.push(
       { id: "div-1", divider: true },
       {

@@ -44,6 +44,11 @@ import { extractModelSuggestion } from "@/lib/ai/extract-model-suggestion";
 import { extractInlinePlot } from "@/lib/ai/extract-plot";
 import { extractInlineSim } from "@/lib/ai/extract-sim";
 import { extractInlineMatrix } from "@/lib/ai/extract-matrix";
+import { useChatStore } from "@/stores/chat-store";
+import { extractAgentBlocks, markStepUndone, replaceOffer } from "@/lib/ai/agent-blocks";
+import { AgentLog } from "./agent/AgentLog";
+import { AgentOfferCard } from "./agent/AgentOfferCard";
+import { MiniLibrary } from "./agent/MiniLibrary";
 import { extractOpenDoc } from "@/lib/ai/extract-open-doc";
 import { RecommendationCards } from "./RecommendationsRenderer";
 import { InlineOpenDocCard } from "./InlineOpenDocCard";
@@ -669,6 +674,7 @@ export function MessageBubble({
                 )}
               >
                 <AssistantContent
+                  messageId={msg.id}
                   content={msg.content}
                   isStreaming={isStreaming}
                   sourceDocId={sourceDocId}
@@ -752,6 +758,7 @@ export function MessageBubble({
 const STREAM_RENDER_THROTTLE_MS = 50;
 
 const AssistantContent = memo(function AssistantContent({
+  messageId,
   content,
   isStreaming,
   sourceDocId,
@@ -760,6 +767,7 @@ const AssistantContent = memo(function AssistantContent({
   onSwitchModel,
   anyStreaming,
 }: {
+  messageId: string;
   content: string;
   isStreaming: boolean;
   sourceDocId: string | null;
@@ -810,9 +818,14 @@ const AssistantContent = memo(function AssistantContent({
     }
   }, [content, isStreaming, throttled]);
 
-  // quiz fence first (also strips a mid-stream open fence), then the
+  // agent blocks (activity log, mini library, action cards) come out first
+  const agentExtract = useMemo(() => extractAgentBlocks(throttled), [throttled]);
+  // then the quiz fence (also strips a mid-stream open fence), then the
   // recommendation fences on what's left
-  const quizExtract = useMemo(() => extractInlineQuiz(throttled), [throttled]);
+  const quizExtract = useMemo(
+    () => extractInlineQuiz(agentExtract.cleaned),
+    [agentExtract.cleaned],
+  );
   // graph fence (admin pilot flag): only stripped/rendered when enabled,
   // otherwise it stays a plain code block
   const graphExtract = useMemo(
@@ -856,8 +869,21 @@ const AssistantContent = memo(function AssistantContent({
     () => renderMarkdown(cleaned, sourceDocId),
     [cleaned, sourceDocId],
   );
+  // agent cards write their outcome back into the saved message
+  const rewriteMessage = (next: (current: string) => string) => {
+    const current = useChatStore.getState().messages.get(messageId)?.content;
+    if (current === undefined) return;
+    void useChatStore.getState().updateMessageContent(messageId, next(current));
+  };
   return (
     <>
+      {agentExtract.steps.length > 0 && (
+        <AgentLog
+          steps={agentExtract.steps}
+          isStreaming={isStreaming}
+          onMarkUndone={(i) => rewriteMessage((c) => markStepUndone(c, i))}
+        />
+      )}
       <div
         className={cn("ai-message break-words", CITATION_CHIP_CLASS)}
         onClick={(e) => {
@@ -913,6 +939,17 @@ const AssistantContent = memo(function AssistantContent({
       )}
       {simExtract.sim && <InlineSimCard sim={simExtract.sim} />}
       {openDocExtract.doc && <InlineOpenDocCard doc={openDocExtract.doc} />}
+      {!isStreaming &&
+        agentExtract.folderIds.map((id) => <MiniLibrary key={id} folderId={id} />)}
+      {!isStreaming &&
+        agentExtract.offers.map((o, i) => (
+          <AgentOfferCard
+            key={i}
+            offer={o}
+            disabled={anyStreaming}
+            onCreated={(next) => rewriteMessage((c) => replaceOffer(c, i, next))}
+          />
+        ))}
       {suggestExtract.suggestion && (
         <InlineModelSuggestion
           suggestion={suggestExtract.suggestion}

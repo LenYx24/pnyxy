@@ -1234,6 +1234,9 @@
       "folderNotSupported": "Mappát egyelőre nem lehet ide behúzni. Húzd be magukat a fájlokat (PDF), vagy nyisd meg a mappát és jelöld ki a fájlokat."
     },
     "actions": {
+      "more": "Továbbiak",
+      "chatAboutBook": "Chat a könyvről",
+      "addFrom": "Hozzáadás máshonnan",
       "scan": "Mappa beolvasása",
       "scanTitle": "Válassz egy mappát és importáld a könyveket ({{shortcut}})",
       "upload": "Feltöltés",
@@ -1389,6 +1392,7 @@
       }
     },
     "folderCard": {
+      "newInFolder": "Új ebben a mappában",
       "folderLabel": "Mappa",
       "rename": "Átnevezés",
       "delete": "Törlés",
@@ -1400,7 +1404,7 @@
       "all": "Mind",
       "books": "Könyvek",
       "notes": "Jegyzetek",
-      "whiteboards": "Táblák",
+      "whiteboards": "Rajztáblák",
       "quizzes": "Kvízek",
       "chats": "Beszélgetések",
       "resources": "Erőforrások",
@@ -1434,9 +1438,9 @@
       "noteLabel": "Jegyzet",
       "untitledNote": "Névtelen jegyzet",
       "openNote": "Jegyzet megnyitása",
-      "whiteboardLabel": "Tábla",
-      "untitledWhiteboard": "Névtelen tábla",
-      "openWhiteboard": "Tábla megnyitása",
+      "whiteboardLabel": "Rajztábla",
+      "untitledWhiteboard": "Névtelen rajztábla",
+      "openWhiteboard": "Rajztábla megnyitása",
       "quizLabel": "Kvíz",
       "untitledQuiz": "Névtelen kvíz",
       "openQuiz": "Kvíz megnyitása",
@@ -1448,7 +1452,7 @@
       "chatFromSource": "Forrás: {{source}}",
       "derivedTitle": {
         "note": "Jegyzet · {{date}}",
-        "whiteboard": "Tábla · {{date}}",
+        "whiteboard": "Rajztábla · {{date}}",
         "quiz": "Kvíz · {{date}}",
         "roadmap": "Útvonal · {{date}}",
         "chat": "Beszélgetés · {{date}}"
@@ -1523,11 +1527,14 @@
       "noSearchResults": "Nincs találat erre: „{{query}}”"
     },
     "create": {
+      "newWhiteboard": "Új rajztábla",
+      "newNote": "Új jegyzet",
+      "more": "Továbbiak létrehozása",
       "new": "Új",
       "createHeading": "Létrehozás",
       "addHeading": "Hozzáadás / feltöltés",
       "note": "Jegyzet",
-      "whiteboard": "Tábla",
+      "whiteboard": "Rajztábla",
       "quiz": "Kvíz",
       "chat": "Beszélgetés"
     },
@@ -1730,12 +1737,12 @@
       "emptyBody": "Írj le egy gondolatot, egy értekezleti jegyzetet vagy egy kutatási irányt - a Pnyxy két könyv között is megőrzi."
     },
     "whiteboards": {
-      "heading": "Táblák",
-      "newEmpty": "Új tábla",
+      "heading": "Rajztáblák",
+      "newEmpty": "Új rajztábla",
       "defaultTitle": "Névtelen tábla",
       "untitled": "Névtelen tábla",
       "updated": "Frissítve {{date}}",
-      "emptyTitle": "Még nincs tábla",
+      "emptyTitle": "Még nincs rajztábla",
       "emptyBody": "Hozz létre egy üres vásznat ötleteléshez vagy egy probléma vizuális megoldásához."
     }
   },
@@ -1887,6 +1894,49 @@
     "nodeClickHint": "Tipp: kattints egy csomópontra a késznek jelöléséhez"
   },
   "chat": {
+    "agent": {
+      "log": "Munkanapló",
+      "stepCount_one": "{{count}} lépés",
+      "stepCount_other": "{{count}} lépés",
+      "seconds_one": "{{count}} mp",
+      "seconds_other": "{{count}} mp",
+      "undo": "Visszavonás",
+      "undone": "visszavonva",
+      "undoFailed": "Ezt már nem lehet visszavonni (a mappában azóta van valami).",
+      "emptyFolder": "Üres mappa",
+      "more_one": "és még {{count}} elem",
+      "more_other": "és még {{count}} elem",
+      "openInLibrary": "Megnyitás a könyvtárban",
+      "steps": {
+        "search_library": "Átnéztem a könyvtárad",
+        "create_folder": "Mappát hoztam létre",
+        "move_item": "Áthelyeztem",
+        "create_chat": "Új beszélgetést indítottam",
+        "create_note": "Jegyzetbe írtam",
+        "web_search": "Rákerestem a weben",
+        "offer_whiteboard": "Rajztáblát készítettem elő",
+        "generic": "Lépés: {{op}}"
+      },
+      "kinds": {
+        "folder": "mappa",
+        "book": "könyv",
+        "chat": "chat",
+        "note": "jegyzet",
+        "whiteboard": "rajztábla",
+        "resource": "link",
+        "url": "link"
+      },
+      "offer": {
+        "whiteboard": "Rajztábla",
+        "nameLabel": "A rajztábla neve",
+        "create": "Létrehozás",
+        "into": "A(z) {{folder}} mappába kerül.",
+        "intoRoot": "A könyvtár gyökerébe kerül.",
+        "done": "Kész:",
+        "openHere": "Megnyitás itt",
+        "openNewTab": "Új lapon"
+      }
+    },
     "title": "Csevegés",
     "untitled": "Névtelen beszélgetés",
     "newConversation": "Új beszélgetés",
@@ -2460,7 +2510,7 @@
       "discuss": "Beszélgetés",
       "notes": "Jegyzetek",
       "bookmarks": "Könyvjelzők",
-      "whiteboards": "Táblák",
+      "whiteboards": "Rajztáblák",
       "resources": "Források",
       "exams": "Vizsgák",
       "reading": "Olvasás"
@@ -2472,12 +2522,12 @@
       "emptyBody": "Tegyél könyvjelzőt egy oldalra az olvasó jobb oldali menüjéből, és itt fog megjelenni."
     },
     "whiteboards": {
-      "heading": "Táblák",
+      "heading": "Rajztáblák",
       "description": "Szabadkézi vázlatfelületek ehhez a könyvhöz kötve.",
-      "newEmpty": "Új tábla",
+      "newEmpty": "Új rajztábla",
       "defaultTitle": "Tábla - {{book}}",
       "untitled": "Névtelen tábla",
-      "emptyTitle": "Még nincs tábla",
+      "emptyTitle": "Még nincs rajztábla",
       "emptyBody": "Hozz létre egy üres vásznat ötleteléshez, fogalmi térkép rajzolásához vagy egy feladat megoldásához.",
       "updated": "Frissítve {{date}}",
       "itemCount_one": "elem",
@@ -2552,7 +2602,7 @@
       "openInReader": "Megnyitás az olvasóban",
       "read": "Olvasás",
       "download": "Letöltés",
-      "newWhiteboard": "Új tábla",
+      "newWhiteboard": "Új rajztábla",
       "generate": {
         "quiz": "Kvíz generálás",
         "flashcards": "Flashcard generálás",
@@ -2838,7 +2888,7 @@
       "thumbnailsTitle": "Miniatűr nézet",
       "noDocumentOpen": "Nincs megnyitva dokumentum",
       "newNote": "Új jegyzet",
-      "newWhiteboard": "Új tábla",
+      "newWhiteboard": "Új rajztábla",
       "whiteboardsGated": "A táblák csak oldalalapú formátumoknál érhetők el",
       "tabContents": "Tartalom",
       "tabBookmarks": "Könyvjelzők",
@@ -2894,7 +2944,7 @@
       "panelNote": "Jegyzet",
       "panelNewNote": "Új jegyzet",
       "panelWhiteboard": "Tábla",
-      "panelNewWhiteboard": "Új tábla",
+      "panelNewWhiteboard": "Új rajztábla",
       "panelDocument": "Dokumentum",
       "panelPdfCanvas": "PDF vászon",
       "panelToc": "Tartalomjegyzék",

@@ -371,6 +371,8 @@ export interface StreamOptions {
    *  video to Gemini natively. Only the pnyxy route honors it; BYOK
    *  providers can't take a video by reference and throw a config error. */
   videoContext?: VideoContext;
+  /** Lets the model hand the turn to the assistant mode (Pnyxy route). */
+  agentHandoff?: boolean;
 }
 
 /** YouTube video handed to the model by URL, optionally clipped (seconds). */
@@ -541,6 +543,7 @@ async function* streamPnyxy(
     ...(options.reasoning ? { reasoning: true } : {}),
     ...(options.webSearch ? { webSearch: true } : {}),
     ...(options.videoContext ? { videoContext: options.videoContext } : {}),
+    ...(options.agentHandoff ? { agentHandoff: true } : {}),
   });
 
   // Transient failures (network blip, 5xx) retry silently with backoff

@@ -14,7 +14,7 @@ import {
   FileX2,
   Paperclip,
   Trash2,
-  PenLine,
+  Brush,
   Sparkles,
   ScrollText,
   ChevronDown,
@@ -163,7 +163,7 @@ function CreateWhiteboardButton() {
   };
   return (
     <Button variant="secondary" onClick={handle}>
-      <PenLine size={16} />
+      <Brush size={16} />
       {t("book.overview.newWhiteboard")}
     </Button>
   );

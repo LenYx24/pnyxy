@@ -328,6 +328,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
     publishCrossTab({ kind: "chat:conversations" });
   },
 
+  async updateMessageContent(messageId, content) {
+    const target = get().messages.get(messageId);
+    if (!target) return;
+    set((s) => {
+      const next = new Map(s.messages);
+      next.set(messageId, { ...target, content });
+      return { messages: next };
+    });
+    const { error } = await supabase
+      .from("chat_messages")
+      .update({ content })
+      .eq("id", messageId);
+    if (error) logError("chat:updateMessageContent", error);
+  },
+
   async deleteMessage(messageId) {
     const messages = get().messages;
     const target = messages.get(messageId);

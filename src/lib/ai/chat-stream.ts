@@ -26,6 +26,7 @@ import { runLibraryAgenticLoop } from "@/lib/ai/library-agent";
 import { runWhiteboardAgenticLoop } from "@/lib/ai/whiteboard-agent";
 import { runPdfDrawAgenticLoop } from "@/lib/ai/pdf-draw-agent";
 import { detectLibraryOrganizeIntent } from "@/lib/ai/library-tools";
+import { isHandoff, isHandoffPrefix } from "@/lib/ai/agent-blocks";
 import { INLINE_GRAPH_SPEC } from "@/lib/ai/extract-graph";
 import { OPEN_DOC_SPEC } from "@/lib/ai/extract-open-doc";
 import { useLibraryStore } from "@/stores/library-store";
@@ -349,7 +350,8 @@ export async function sendOrBranch(
     let streamDone = false;
     const pump = (async () => {
       while (!signal.aborted) {
-        if (revealed < local.length) {
+        // hold back what may be the agent hand-off block, it never shows
+        if (revealed < local.length && !isHandoffPrefix(local)) {
           // Reveal everything received so far immediately, no artificial
           // type-out: the reply should feel as fast as the model streams.
           // The rAF loop still frame-bounds the writes, and the render
@@ -384,10 +386,13 @@ export async function sendOrBranch(
           pnyxyModelOverride: options?.pnyxyModelOverride,
           // YouTube side-chat "Gemini watches the video" mode
           videoContext: options?.videoContext,
+          // standalone chat turns may be handed to the assistant mode
+          agentHandoff: !sourceTitle && !options?.systemPromptOverride,
         },
       )) {
         local += chunk.delta;
         partial = local;
+        if (isHandoff(local)) break;
       }
     } finally {
       // stop the pump and let it flush the rest of `local` before returning
@@ -471,6 +476,7 @@ export async function sendOrBranch(
           patchAssistant,
           signal,
           options?.libraryToolsContext,
+          conversationId,
         );
       } catch (libraryErr) {
         if (isAbortError(libraryErr)) throw libraryErr;
@@ -512,6 +518,7 @@ export async function sendOrBranch(
           patchAssistant,
           signal,
           options?.libraryToolsContext,
+          conversationId,
         );
       } catch (libraryErr) {
         if (isAbortError(libraryErr)) throw libraryErr;
@@ -522,6 +529,20 @@ export async function sendOrBranch(
       }
     } else {
       acc = await streamPlain();
+      // the model decided this turn needs the assistant mode (setting
+      // things up in the app), so the agent answers it instead
+      if (isHandoff(acc)) {
+        acc = "";
+        patchAssistant("");
+        acc = await runLibraryAgenticLoop(
+          promptMessages,
+          preferredProvider,
+          patchAssistant,
+          signal,
+          options?.libraryToolsContext,
+          conversationId,
+        );
+      }
     }
   } catch (err) {
     if (isAbortError(err)) {

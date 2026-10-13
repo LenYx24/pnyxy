@@ -20,6 +20,7 @@ import {
 } from "../_shared/tokens.ts";
 import { TEACHER_GUARDRAIL, teacherBlock } from "../_shared/teacher-mode.ts";
 import {
+  AGENT_HANDOFF_SPEC,
   buildChatSystemPrompt,
   INLINE_QUIZ_SPEC,
 } from "../_shared/chat-prompts.ts";
@@ -242,6 +243,8 @@ interface ChatRequestBody {
    *  user's pick from the chat composer's ModelPicker. Unknown
    *  values fall back to the full chain. Null/undefined = auto. */
   preferredModel?: string | null;
+  /** The client can take a `pnyxy-agent` hand-off (standalone chat). */
+  agentHandoff?: boolean;
   /** Thinking mode: forwarded as `reasoning_effort` to Gemini upstreams
    *  (mapped to thinking_level/thinking_budget server-side by Google).
    *  Non-Gemini upstreams ignore it (gpt-4o-mini would reject the
@@ -303,13 +306,16 @@ function buildSystemPrompt(
   pageContext: string,
   hasImages: boolean,
   canSearchWeb = false,
+  agentHandoff = false,
 ): string {
   return buildChatSystemPrompt({
     documentTitle,
     pageContext,
     hasImages,
     canSearchWeb,
-    extraBlocks: [MODEL_SUGGEST_SPEC],
+    extraBlocks: agentHandoff
+      ? [MODEL_SUGGEST_SPEC, AGENT_HANDOFF_SPEC]
+      : [MODEL_SUGGEST_SPEC],
   });
 }
 
@@ -690,6 +696,8 @@ Deno.serve(async (req) => {
           body.pageContext,
           hasImages,
           useGrounding,
+          // only clients that can run the agent ask for the hand-off
+          body.agentHandoff === true && !(body.documentTitle ?? "").trim(),
         ) + teacherBlock()
       : overrideIsChatPrompt && !override.includes(TEACHER_GUARDRAIL)
         ? override + teacherBlock()

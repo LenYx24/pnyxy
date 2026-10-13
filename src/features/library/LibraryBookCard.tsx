@@ -1,3 +1,4 @@
+import { groupBookMenu } from "./book-menu";
 import { useMemo, useRef, useState, useEffect } from "react";
 import {
   MoreVertical,
@@ -236,6 +237,14 @@ export function LibraryBookCard({
     openReader();
   };
 
+  const openChat = () => {
+    const seg =
+      entry.source === "catalog"
+        ? bookIdSegment(entry.catalog_book_id, entry.catalog_book.title)
+        : bookIdSegment(entry.book.id, entry.book.title);
+    navigate(`/books/${seg}/chat`);
+  };
+
   const openBook = () => {
     if (entry.source === "catalog") {
       navigate(
@@ -316,7 +325,7 @@ export function LibraryBookCard({
       danger: true,
       onClick: () => onRemove(entry),
     });
-    return items;
+    return groupBookMenu(items, ["open", "move", "rename"], openChat, t);
   });
 
   // content-visibility:auto skips offscreen paint; intrinsic-size keeps the

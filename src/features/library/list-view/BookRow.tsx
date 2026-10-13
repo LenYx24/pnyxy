@@ -1,3 +1,4 @@
+import { groupBookMenu } from "../book-menu";
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -176,6 +177,14 @@ export function BookRow({
       : null,
   );
 
+  const openChat = () => {
+    const seg =
+      entry.source === "catalog"
+        ? bookIdSegment(entry.catalog_book_id, entry.catalog_book.title)
+        : bookIdSegment(entry.book.id, entry.book.title);
+    navigate(`/books/${seg}/chat`);
+  };
+
   const openBookPage = () => {
     // Pre-bake slug, same reasoning as the grid card.
     if (entry.source === "catalog") {
@@ -300,7 +309,7 @@ export function BookRow({
       danger: true,
       onClick: () => onRemove(entry),
     });
-    return items;
+    return groupBookMenu(items, ["read", "move", "rename"], openChat, t);
   });
 
   return (

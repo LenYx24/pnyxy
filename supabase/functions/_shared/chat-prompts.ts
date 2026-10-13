@@ -50,6 +50,14 @@ export const MATRIX_SPEC = `When a matrix, vector, or small numeric table is the
 \`\`\`
 "rows" is a rectangular array of numbers (every row the same length); a single row is a row vector, a single column of one-element rows is a column vector. Keep it reasonably sized (up to ~8x8). Explain it in the prose; put no other text inside the block. Only use this when a matrix is genuinely what you're showing.`;
 
+export const HANDOFF_FENCE = "pnyxy-agent";
+
+export const AGENT_HANDOFF_SPEC = `Pnyxy has an assistant mode that can act inside the app: look through and organize the user's library, create folders, notes and whiteboards, move this conversation into the right folder, and search the web while setting things up. When the user asks you to DO something in Pnyxy itself (set up a place or a workflow to study or work on something, organize or create folders, notes or whiteboards, move or file this chat), do not answer in prose: reply with ONLY this block and nothing before or after it:
+\`\`\`pnyxy-agent
+{}
+\`\`\`
+Pnyxy then hands the turn to the assistant mode. Never use it for an ordinary question, an explanation or a request you can fully answer in text.`;
+
 export const SIM_SPEC = `When the user asks for an interactive simulation, animation, visual explorer or small learning game (or one would clearly teach the idea better than prose, e.g. how a B-tree splits, how light refracts), build it as ONE self-contained HTML document in a fenced code block tagged \`pnyxy-sim\`. The app runs it right inside the chat in an isolated frame; never tell the user to save or open a file.
 \`\`\`pnyxy-sim
 <!doctype html>

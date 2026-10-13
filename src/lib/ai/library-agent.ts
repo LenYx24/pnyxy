@@ -1,9 +1,11 @@
 /**
- * Library tool-calling loop for the chat's "Organize library" mode. Same
- * shape as the roadmap agent: stream with tools, dispatch each tool_call
- * (write tools await the user's approval card), feed results back until
- * the model stops or the round cap is reached. Visible content interleaves
- * model text with one blockquote line per tool call.
+ * Tool-calling loop for the chat's assistant mode (library setup, notes,
+ * whiteboards, web lookups). Same shape as the roadmap agent: stream with
+ * tools, dispatch each tool_call, feed results back until the model stops
+ * or the round cap is reached. The visible message is composed as the
+ * activity log (one `pnyxy-step` block per tool call) followed by the
+ * model's prose and then the cards (mini library, whiteboard offer), so
+ * it renders the same live and after a reload.
  */
 import {
   streamChatWithTools,
@@ -14,15 +16,25 @@ import {
   type ToolStopReason,
 } from "@/lib/ai/ai-client";
 import {
+  serializeFolder,
+  serializeOffer,
+  serializeStep,
+  type AgentOffer,
+  type AgentStep,
+} from "@/lib/ai/agent-blocks";
+import {
   LIBRARY_TOOLS,
   buildLibraryAgentSystemPrompt,
   dispatchLibraryTool,
+  type ToolContext,
 } from "@/lib/ai/library-tools";
 import { useLibraryStore } from "@/stores/library-store";
+import { useNoteStore } from "@/stores/note-store";
+import { useResourceStore } from "@/stores/resource-store";
 import { useToolApprovalStore } from "@/stores/tool-approval-store";
 import type { AiProvider } from "@/stores/settings-store";
 
-const MAX_AGENTIC_ROUNDS = 8;
+const MAX_AGENTIC_ROUNDS = 10;
 
 export async function runLibraryAgenticLoop(
   history: Array<{ role: "user" | "assistant"; content: string }>,
@@ -30,12 +42,24 @@ export async function runLibraryAgenticLoop(
   patchAssistant: (content: string) => void,
   signal: AbortSignal,
   extraContext?: string,
+  conversationId?: string | null,
 ): Promise<string> {
-  // the snapshot needs folders + books; cheap no-op when already fresh
+  // the snapshot needs folders, books and notes; the chat page loads
+  // neither notes nor links itself
   const lib = useLibraryStore.getState();
-  await Promise.all([lib.fetchFolders(), lib.fetchLibrary()]).catch(() => {});
+  await Promise.allSettled([
+    lib.fetchFolders(),
+    lib.fetchLibrary(),
+    useNoteStore.getState().notes.length === 0
+      ? useNoteStore.getState().loadNotes()
+      : null,
+    useResourceStore.getState().resources.length === 0
+      ? useResourceStore.getState().fetchResources()
+      : null,
+  ]);
   const systemPrompt =
-    buildLibraryAgentSystemPrompt() + (extraContext ? `\n\n${extraContext}` : "");
+    buildLibraryAgentSystemPrompt(conversationId) +
+    (extraContext ? `\n\n${extraContext}` : "");
 
   const toolMessages: ToolMessage[] = history.map((m) => ({
     role: m.role,
@@ -46,7 +70,21 @@ export async function runLibraryAgenticLoop(
   const onAbort = () => approval.endTurn();
   signal.addEventListener("abort", onAbort, { once: true });
 
-  let acc = "";
+  const ctx: ToolContext = { conversationId, createdIds: new Set(), signal };
+  const steps: AgentStep[] = [];
+  const offers: AgentOffer[] = [];
+  let lastFolderId: string | null = null;
+  let prose = "";
+  const compose = () =>
+    [
+      ...steps.map(serializeStep),
+      prose.trim(),
+      ...(lastFolderId ? [serializeFolder(lastFolderId)] : []),
+      ...offers.map(serializeOffer),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
   try {
     for (let round = 0; round < MAX_AGENTIC_ROUNDS; round++) {
       const turnBlocks: ContentBlock[] = [];
@@ -63,22 +101,37 @@ export async function runLibraryAgenticLoop(
       for await (const event of streamChatWithTools(toolMessages, {
         systemPrompt,
         tools: LIBRARY_TOOLS,
-        maxOutputTokens: 3000,
+        maxOutputTokens: 4000,
         preferredProvider,
         signal,
       })) {
         if (event.kind === "text_delta") {
           textBuf += event.text;
-          acc += event.text;
-          patchAssistant(acc);
+          prose += event.text;
+          patchAssistant(compose());
         } else if (event.kind === "tool_call") {
           flushText();
-          const result = await dispatchLibraryTool(event.name, event.input);
+          // a paragraph break between rounds so prose doesn't run together
+          if (prose && !prose.endsWith("\n\n")) prose += "\n\n";
+          const step: AgentStep = { op: event.name, ok: true, run: true };
+          steps.push(step);
+          patchAssistant(compose());
+          const started = performance.now();
+          const result = await dispatchLibraryTool(event.name, event.input, ctx);
           if (signal.aborted) break;
-          acc +=
-            (acc.endsWith("\n\n") || acc === "" ? "" : "\n\n") +
-            `> ${result.ok ? "✓" : "✕"} ${result.summary}\n`;
-          patchAssistant(acc);
+          Object.assign(step, {
+            ok: result.ok,
+            run: undefined,
+            ms: Math.round(performance.now() - started),
+            ...(result.refs?.length ? { refs: result.refs } : {}),
+            ...(result.detail || !result.ok
+              ? { q: result.detail ?? result.summary }
+              : {}),
+            ...(result.undo ? { undo: result.undo } : {}),
+          });
+          if (result.touchedFolderId) lastFolderId = result.touchedFolderId;
+          if (result.offer) offers.push(result.offer);
+          patchAssistant(compose());
           turnBlocks.push({
             type: "tool_use",
             id: event.id,
@@ -101,12 +154,18 @@ export async function runLibraryAgenticLoop(
       toolMessages.push({ role: "assistant", content: turnBlocks });
       if (stopReason !== "tool_use" || pendingResults.length === 0) break;
       toolMessages.push({ role: "user", content: pendingResults });
-      if (!acc.endsWith("\n")) acc += "\n";
     }
   } finally {
     signal.removeEventListener("abort", onAbort);
     useToolApprovalStore.getState().endTurn();
   }
 
-  return acc.trim() || "(no response)";
+  // a step cut off by Stop must not spin forever in the saved message
+  for (const s of steps) {
+    if (s.run) {
+      s.run = undefined;
+      s.ok = false;
+    }
+  }
+  return compose() || "(no response)";
 }
