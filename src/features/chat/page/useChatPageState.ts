@@ -407,6 +407,17 @@ export function useChatPageState(scope?: ChatPageScope) {
     });
   }, []);
 
+  // Opening the app lands in a ready-to-type composer (Gemini-style). On a
+  // phone only for the fresh empty thread: a deep-linked thread is there to
+  // be read, and the keyboard would cover it.
+  const autoFocusedRef = useRef(false);
+  useEffect(() => {
+    if (autoFocusedRef.current || !listFetched) return;
+    autoFocusedRef.current = true;
+    if (isMobile && (activeId || routeConvId)) return;
+    focusComposer();
+  }, [listFetched, isMobile, activeId, routeConvId, focusComposer]);
+
   const handleNew = async () => {
     setMobileListOpen(false);
     // Signed out: a persisted conversation needs an account. If anon chat is
