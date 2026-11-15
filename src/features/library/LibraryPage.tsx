@@ -299,21 +299,6 @@ export function LibraryPage() {
     );
   }, [searchParams, setSearchParams, handlePasteUrl]);
 
-  // /library?folder=<id> (links from the chat's activity log) opens that
-  // folder once the tree has it, then drops the param like addUrl above.
-  useEffect(() => {
-    const folderId = searchParams.get("folder");
-    if (!folderId || !folders.some((f) => f.id === folderId)) return;
-    useLibraryStore.getState().navigateToFolder(folderId);
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.delete("folder");
-        return next;
-      },
-      { replace: true },
-    );
-  }, [searchParams, setSearchParams, folders]);
 
   // upload pipeline is PDF-only; other formats just open in the reader.
   // Used by the "Open from URL" modal: await the upload so a failure surfaces
