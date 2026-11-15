@@ -666,8 +666,12 @@ Deno.serve(async (req) => {
   );
   // Grounding only offers the search tool; Gemini decides per turn
   // whether to actually search, so it is on wherever the route allows.
+  // Not next to a document: the page is the source there, and a web
+  // search adds 5-10 s before the first token (chapter-5 measurement).
+  const hasDocContext = (body.pageContext ?? "").trim().length > 0;
   const autoGrounding =
-    preferredModel === null || preferredModel === GEMINI_3_FLASH_MODEL;
+    !hasDocContext &&
+    (preferredModel === null || preferredModel === GEMINI_3_FLASH_MODEL);
   const useGrounding =
     !toolMode &&
     groundingModelAvailable &&
@@ -950,7 +954,7 @@ Deno.serve(async (req) => {
           model,
           systemPrompt,
           body.messages,
-          { grounding: true },
+          { grounding: true, thinkingLevel: reasoningEffort },
           maxOutputTokens,
           onUsage,
         )
@@ -1345,6 +1349,9 @@ async function tryGeminiNative(
     /** Google Search grounding: only the native API accepts the tool for
      *  chat models (the OpenAI-compat endpoint 400s on it). */
     grounding?: boolean;
+    /** Gemini 3 thinkingLevel. Unset = the model's default, which is
+     *  "high" on Gemini 3 and made grounded first tokens take 10-20 s. */
+    thinkingLevel?: ReasoningEffort;
   },
   maxOutputTokens: number,
   onUsage?: (outputTokens: number) => void,
@@ -1374,9 +1381,8 @@ async function tryGeminiNative(
   }));
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
-  let upstream: Response;
-  try {
-    upstream = await fetch(url, {
+  const send = (thinkingLevel?: ReasoningEffort) =>
+    fetch(url, {
       method: "POST",
       headers: {
         "x-goog-api-key": apiKey,
@@ -1390,12 +1396,20 @@ async function tryGeminiNative(
           maxOutputTokens,
           // ~100 tokens/s instead of ~300: matches VIDEO_TOKENS_PER_SECOND
           ...(clip ? { mediaResolution: "MEDIA_RESOLUTION_LOW" } : {}),
-          // no thinkingConfig on purpose: the field's shape differs per
-          // model generation (thinkingLevel vs thinkingBudget) and a bad
-          // one 400s the whole request; the model's default is fine here
+          ...(thinkingLevel ? { thinkingConfig: { thinkingLevel } } : {}),
         },
       }),
     });
+  let upstream: Response;
+  try {
+    upstream = await send(opts.thinkingLevel);
+    // a model that does not know thinkingLevel 400s the whole request:
+    // retry once with the model's default thinking
+    if (upstream.status === 400 && opts.thinkingLevel) {
+      const text = await upstream.text().catch(() => "");
+      console.warn(`gemini-native (${model}) rejected thinkingLevel: ${text}`);
+      upstream = await send(undefined);
+    }
   } catch (err) {
     console.error(`gemini-native (${model}) request failed:`, err);
     return null;
