@@ -146,29 +146,34 @@ function normalizeLatexDelimiters(text: string): string {
   );
 }
 
+// citation pre-pass, only when a source doc is attached. turns [p.42],
+// [p.15-20] (opens the first page) and [p.42:"passage"] into reader links
+// (q= carries the passage to highlight). the quote-aware regex runs first so
+// it wins on overlapping matches.
+function linkCitations(text: string, sourceDocId?: string | null): string {
+  if (!sourceDocId) return text;
+  return text
+    .replace(
+      /\[(p\.?\s?(\d+)):\s?["„“]([^"“”\n]+)["“”]\]/g,
+      (_match, label: string, page: string, quote: string) =>
+        // ( ) survive encodeURIComponent and would end the Markdown link
+        // early, leaving the rest of the URL as raw text in the answer
+        `[${label}](/reader/${sourceDocId}?page=${page}&q=${encodeURIComponent(quote).replace(/\(/g, "%28").replace(/\)/g, "%29")})`,
+    )
+    .replace(
+      // (?!\() skips the labels the quote pass already turned into links
+      /\[(p\.?\s?(\d+)(?:\s?[-–]\s?\d+)?)\](?!\()/g,
+      (_match, label: string, page: string) =>
+        `[${label}](/reader/${sourceDocId}?page=${page})`,
+    );
+}
+
 export function renderMarkdown(
   text: string,
   sourceDocId?: string | null,
 ): string {
   if (!text) return "";
-  // citation pre-pass, only when a source doc is attached. turns [p.42] and
-  // [p.42:"passage"] into reader links (q= carries the passage to highlight).
-  // quote-aware regex must run first so it wins on overlapping matches.
-  let withCitations = text;
-  if (sourceDocId) {
-    withCitations = withCitations
-      .replace(
-        /\[(p\.?\s?(\d+)):"([^"\n]+)"\]/g,
-        (_match, label: string, page: string, quote: string) =>
-          `[${label}](/reader/${sourceDocId}?page=${page}&q=${encodeURIComponent(quote)})`,
-      )
-      .replace(
-        /\[(p\.?\s?(\d+))\]/g,
-        (_match, label: string, page: string) =>
-          `[${label}](/reader/${sourceDocId}?page=${page})`,
-      );
-  }
-  const normalized = normalizeLatexDelimiters(withCitations);
+  const normalized = normalizeLatexDelimiters(linkCitations(text, sourceDocId));
   const raw = marked.parse(normalized, { async: false }) as string;
   // allowStyleAttr: KaTeX positions every glyph via inline style, drop it
   // and formulas collapse. addAttr: the copy-code button's data hooks.
@@ -176,6 +181,22 @@ export function renderMarkdown(
     allowStyleAttr: true,
     addAttr: ["data-copy-code", "data-copy-text"],
   });
+}
+
+/**
+ * Single-line variant for short UI text (quiz questions, options): inline
+ * Markdown and $...$ math, no wrapping <p>.
+ */
+export function renderInlineMarkdown(
+  text: string,
+  sourceDocId?: string | null,
+): string {
+  if (!text) return "";
+  const normalized = normalizeLatexDelimiters(linkCitations(text, sourceDocId))
+    .replace(/\n*\$\$\n([\s\S]*?)\n\$\$\n*/g, " $$$1$ ")
+    .trim();
+  const raw = marked.parseInline(normalized, { async: false }) as string;
+  return sanitizeHtml(raw, { allowStyleAttr: true });
 }
 
 /**

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
+import { tfLabels } from "./tf-labels";
 import {
   DndContext,
   closestCenter,
@@ -830,7 +831,7 @@ function SortableQuestionCard({
       {q.kind === "true_false" && (
         <div className="grid grid-cols-2 gap-2">
           {[0, 1].map((idx) => {
-            const label = idx === 0 ? "True" : "False";
+            const label = tfLabels(q.option_a, q.option_b, t)[idx];
             const isCorrect = q.correct_index === idx;
             return (
               <button

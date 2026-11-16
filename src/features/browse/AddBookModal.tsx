@@ -14,6 +14,7 @@ import type { ProviderBook } from "@/lib/book-providers";
 import { useBrowseStore } from "@/stores/browse-store";
 import { useCategoryStore } from "@/stores/category-store";
 import type { CatalogBookInsert } from "@/types/catalog";
+import i18n from "@/lib/i18n";
 
 type Tab = "search" | "url" | "manual";
 
@@ -333,7 +334,7 @@ function SearchTab({
                         {book.title}
                       </p>
                       <p className="truncate text-xs text-text-muted">
-                        {book.authors?.join(", ") || "Unknown author"}
+                        {book.authors?.join(", ") || i18n.t("book.unknownAuthor")}
                         {book.published_date && ` (${book.published_date})`}
                       </p>
                     </div>

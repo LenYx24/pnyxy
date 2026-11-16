@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
+import { tfLabels } from "./tf-labels";
 import {
   ArrowLeft,
   ArrowRight,
@@ -281,7 +282,7 @@ export function QuizReviewPage() {
       )}
       {question.kind === "true_false" && (
         <TrueFalseOptions
-          labels={[question.option_a ?? "True", question.option_b ?? "False"]}
+          labels={tfLabels(question.option_a, question.option_b, t)}
           correctIndex={question.correct_index}
           selected={pickedIndex}
           revealed={revealed}

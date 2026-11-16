@@ -915,7 +915,24 @@ const AssistantContent = memo(function AssistantContent({
           {t("chat.inlineQuiz.incoming")}
         </div>
       )}
-      {quizExtract.quiz && <InlineQuizCard quiz={quizExtract.quiz} />}
+      {quizExtract.quiz && (
+        // page citations in the quiz explanation open in the reader via the SPA router
+        <div
+          className={CITATION_CHIP_CLASS}
+          onClick={(e) => {
+            const anchor = (e.target as HTMLElement)?.closest?.("a");
+            const href = anchor?.getAttribute("href");
+            if (href && href.startsWith("/") && !href.startsWith("//")) {
+              e.preventDefault();
+              navigate(href);
+              return;
+            }
+            handleCitationClick(e);
+          }}
+        >
+          <InlineQuizCard quiz={quizExtract.quiz} sourceDocId={sourceDocId} />
+        </div>
+      )}
       {graphExtract.pending && (
         <div className="flex items-center gap-2 rounded-panel bg-bg-tertiary px-4 py-3 text-xs text-text-muted">
           <TypingIndicator />

@@ -385,7 +385,11 @@
     "title": "Visszajelzés",
     "subtitle": "Találtál egy hibát, vagy van ötleted? Küldd be itt. Az elején különösen sokat segít.",
     "kindLabel": "Típus",
-    "kind": { "bug": "Hiba", "idea": "Ötlet", "other": "Egyéb" },
+    "kind": {
+      "bug": "Hiba",
+      "idea": "Ötlet",
+      "other": "Egyéb"
+    },
     "subjectLabel": "Tárgy (opcionális)",
     "subjectPlaceholder": "Rövid összefoglaló",
     "bodyLabel": "Üzenet",
@@ -1254,7 +1258,6 @@
       "fromUrlTitle": "Fájl megnyitása URL-ről",
       "manual": "Kézi rögzítés",
       "manualTitle": "Könyv kézi hozzáadása - papíralapú vagy fájl nélküli könyvekhez",
-      "more": "Továbbiak",
       "download": "Letöltés",
       "downloadFormat": "Letöltés ({{format}})",
       "rename": "Átnevezés",
@@ -2378,6 +2381,26 @@
       "code": "Kód mutatása",
       "expand": "Nagyítás",
       "collapse": "Kicsinyítés"
+    },
+    "toolSummary": {
+      "searchedLibrary": "Keresés a könyvtárban: „{{q}}” ({{count}} találat)",
+      "folderExists": "A(z) „{{path}}” mappa már létezik",
+      "createdFolder": "Létrehoztam a(z) „{{path}}” mappát",
+      "move": "Áthelyezés: {{kind}} „{{title}}” → {{dest}}",
+      "skippedMove": "Kihagyva: „{{title}}” áthelyezése",
+      "moved": "Áthelyeztem: {{kind}} „{{title}}” → {{dest}}",
+      "startedChat": "Új beszélgetés: „{{title}}”, helye: {{dest}}",
+      "createdNote": "Létrehoztam a(z) „{{title}}” jegyzetet",
+      "searchedWeb": "Keresés a weben: „{{query}}”",
+      "offeredWhiteboard": "Rajztábla ajánlva: „{{title}}”",
+      "root": "a könyvtár gyökere",
+      "kinds": {
+        "book": "könyv",
+        "chat": "beszélgetés",
+        "note": "jegyzet",
+        "resource": "fájl",
+        "folder": "mappa"
+      }
     }
   },
   "readingPlans": {
@@ -3370,7 +3393,9 @@
       "markedIncorrect": "Helytelennek jelölve",
       "markIncorrect": "Jelöld helytelennek",
       "markCorrect": "Valójában jó volt"
-    }
+    },
+    "trueLabel": "Igaz",
+    "falseLabel": "Hamis"
   },
   "vocabulary": {
     "title": "Szótár",

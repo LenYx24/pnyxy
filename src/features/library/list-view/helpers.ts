@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import { formatAuthors } from "@/lib/library/format-authors";
+import i18n from "@/lib/i18n";
 
 /**
  * Column layout shared by the header row and every list row. Mobile
@@ -72,8 +73,8 @@ export function getTitle(entry: UnifiedLibraryItem): string {
 
 export function getAuthor(entry: UnifiedLibraryItem): string {
   return entry.source === "catalog"
-    ? formatAuthors(entry.catalog_book.authors) || "Unknown author"
-    : formatAuthors(entry.book.authors, entry.book.author) || "Unknown author";
+    ? formatAuthors(entry.catalog_book.authors) || i18n.t("book.unknownAuthor")
+    : formatAuthors(entry.book.authors, entry.book.author) || i18n.t("book.unknownAuthor");
 }
 
 export function getCoverUrl(entry: UnifiedLibraryItem): string | null {

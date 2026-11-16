@@ -170,7 +170,11 @@
     "title": "Feedback",
     "subtitle": "Found a bug or have an idea? Send it here. Especially helpful early on.",
     "kindLabel": "Type",
-    "kind": { "bug": "Bug", "idea": "Idea", "other": "Other" },
+    "kind": {
+      "bug": "Bug",
+      "idea": "Idea",
+      "other": "Other"
+    },
     "subjectLabel": "Subject (optional)",
     "subjectPlaceholder": "Short summary",
     "bodyLabel": "Message",
@@ -1039,7 +1043,6 @@
       "fromUrlTitle": "Open a file from a URL",
       "manual": "Manual entry",
       "manualTitle": "Add a book by hand - for physical copies or books without a file",
-      "more": "More",
       "download": "Download",
       "downloadFormat": "Download {{format}}",
       "rename": "Rename",
@@ -2154,6 +2157,26 @@
       "code": "Show code",
       "expand": "Expand",
       "collapse": "Collapse"
+    },
+    "toolSummary": {
+      "searchedLibrary": "Searched the library for \"{{q}}\" ({{count}} hits)",
+      "folderExists": "Folder \"{{path}}\" already exists",
+      "createdFolder": "Created folder \"{{path}}\"",
+      "move": "Move {{kind}} \"{{title}}\" → {{dest}}",
+      "skippedMove": "Skipped moving \"{{title}}\"",
+      "moved": "Moved {{kind}} \"{{title}}\" → {{dest}}",
+      "startedChat": "Started chat \"{{title}}\" in {{dest}}",
+      "createdNote": "Created note \"{{title}}\"",
+      "searchedWeb": "Searched the web for \"{{query}}\"",
+      "offeredWhiteboard": "Offered a whiteboard \"{{title}}\"",
+      "root": "the library root",
+      "kinds": {
+        "book": "book",
+        "chat": "chat",
+        "note": "note",
+        "resource": "file",
+        "folder": "folder"
+      }
     }
   },
   "readingPlans": {
@@ -3146,7 +3169,9 @@
       "markedIncorrect": "Marked incorrect",
       "markIncorrect": "Mark as incorrect",
       "markCorrect": "I was actually right"
-    }
+    },
+    "trueLabel": "True",
+    "falseLabel": "False"
   },
   "vocabulary": {
     "title": "Vocabulary",

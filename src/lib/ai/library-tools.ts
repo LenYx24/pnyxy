@@ -15,6 +15,12 @@ import { useNoteStore } from "@/stores/note-store";
 import { useResourceStore } from "@/stores/resource-store";
 import { useToolApprovalStore } from "@/stores/tool-approval-store";
 import type { Folder } from "@/types/database";
+import i18n from "@/lib/i18n";
+
+function kindLabel(kind: string): string {
+  const key = `chat.toolSummary.kinds.${kind}`;
+  return i18n.exists(key) ? i18n.t(key) : kind;
+}
 
 export type LibraryItemKind = "book" | "chat" | "note" | "resource" | "folder";
 
@@ -318,7 +324,7 @@ export async function dispatchLibraryTool(
           .map((f) => ({ k: "folder", id: f.id, label: pathLabel(paths.get(f.id) ?? f.name) }));
         return {
           ok: true,
-          summary: `Searched the library for "${q}" (${lines.length} hits)`,
+          summary: i18n.t("chat.toolSummary.searchedLibrary", { q, count: lines.length }),
           modelOutput: lines.length ? lines.join("\n") : "No matches.",
           detail: q,
           refs,
@@ -332,7 +338,7 @@ export async function dispatchLibraryTool(
         if (existing) {
           return {
             ok: true,
-            summary: `Folder "${path}" already exists`,
+            summary: i18n.t("chat.toolSummary.folderExists", { path }),
             modelOutput: `Folder already exists (id: ${existing}).`,
             refs: [{ k: "folder", id: existing, label: pathLabel(path) }],
           };
@@ -344,7 +350,7 @@ export async function dispatchLibraryTool(
         void useChatStore.getState().fetchFolders();
         return {
           ok: true,
-          summary: `Created folder "${path}"`,
+          summary: i18n.t("chat.toolSummary.createdFolder", { path }),
           modelOutput: `Created folder "${path}" (id: ${created.id}).`,
           refs: [{ k: "folder", id: created.id, label: pathLabel(path) }],
           undo: { op: "delete_folder", id: created.id },
@@ -366,13 +372,14 @@ export async function dispatchLibraryTool(
           : collectItems().find((it) => it.kind === kind && it.id === id) ?? null;
         if (!item) return { ok: false, summary: `move_item: ${kind} ${id} not found`, modelOutput: `Error: no ${kind} with id ${id}.` };
         const dest = path || "the library root";
+        const destLabel = path || i18n.t("chat.toolSummary.root");
         // filing this chat or something made this turn is what the user
         // asked for; moving their existing material still needs a yes
         const needsApproval =
           !(kind === "chat" && id === ctx.conversationId) && !ctx.createdIds.has(id);
         if (needsApproval) {
-          const ok = await approval.request({ tool: name, summary: `Move ${kind} "${item.title}" → ${dest}` });
-          if (!ok) return { ok: false, summary: `Skipped moving "${item.title}"`, modelOutput: "The user declined this action. Do not retry it; continue without it." };
+          const ok = await approval.request({ tool: name, summary: i18n.t("chat.toolSummary.move", { kind: kindLabel(kind), title: item.title, dest: destLabel }) });
+          if (!ok) return { ok: false, summary: i18n.t("chat.toolSummary.skippedMove", { title: item.title }), modelOutput: "The user declined this action. Do not retry it; continue without it." };
         }
         switch (kind) {
           case "book": {
@@ -398,7 +405,7 @@ export async function dispatchLibraryTool(
         }
         return {
           ok: true,
-          summary: `Moved ${kind} "${item.title}" → ${dest}`,
+          summary: i18n.t("chat.toolSummary.moved", { kind: kindLabel(kind), title: item.title, dest: destLabel }),
           modelOutput: `Moved ${kind} "${item.title}" to ${dest}.`,
           refs: [
             { k: kind, id, label: item.title },
@@ -429,7 +436,7 @@ export async function dispatchLibraryTool(
         ctx.createdIds.add(newId);
         return {
           ok: true,
-          summary: `Started chat "${title}" in ${dest}`,
+          summary: i18n.t("chat.toolSummary.startedChat", { title, dest: path || i18n.t("chat.toolSummary.root") }),
           modelOutput: `Created conversation "${title}" (id: ${newId}) in ${dest}. Link it for the user as [${title}](/chat/${newId}).`,
           refs: [{ k: "chat", id: newId, label: title }],
           touchedFolderId: target,
@@ -450,7 +457,7 @@ export async function dispatchLibraryTool(
         ctx.createdIds.add(id);
         return {
           ok: true,
-          summary: `Created note "${title}"`,
+          summary: i18n.t("chat.toolSummary.createdNote", { title }),
           modelOutput: `Created note "${title}" (id: ${id}). Link it as [${title}](/notes/${id}).`,
           refs: [{ k: "note", id, label: title }],
           touchedFolderId: target,
@@ -477,7 +484,7 @@ export async function dispatchLibraryTool(
         }
         return {
           ok: true,
-          summary: `Searched the web for "${query}"`,
+          summary: i18n.t("chat.toolSummary.searchedWeb", { query }),
           modelOutput: text.trim() || "No results.",
           detail: query,
         };
@@ -492,7 +499,7 @@ export async function dispatchLibraryTool(
         }
         return {
           ok: true,
-          summary: `Offered a whiteboard "${title}"`,
+          summary: i18n.t("chat.toolSummary.offeredWhiteboard", { title }),
           modelOutput: "A card is shown under your reply; the user names the board and creates it with Enter. Don't repeat it in prose beyond one short mention.",
           offer: { kind: "whiteboard", title, folderId: target },
         };

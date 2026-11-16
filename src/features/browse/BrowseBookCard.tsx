@@ -2,6 +2,7 @@ import { BookOpen, FileX2 } from "lucide-react";
 import { StarRatingDisplay } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { CatalogBook } from "@/types/catalog";
+import i18n from "@/lib/i18n";
 
 interface BrowseBookCardProps {
   book: CatalogBook;
@@ -58,7 +59,7 @@ export function BrowseBookCard({ book, onClick }: BrowseBookCardProps) {
           {book.title}
         </h3>
         <p className="truncate text-xs leading-tight text-text-muted">
-          {book.authors.join(", ") || "Unknown author"}
+          {book.authors.join(", ") || i18n.t("book.unknownAuthor")}
         </p>
         <StarRatingDisplay
           avg={book.rating_avg}

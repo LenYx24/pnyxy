@@ -15,9 +15,16 @@ import { useFeature } from "@/lib/use-features";
 import { showToast } from "@/stores/toast-store";
 import { track } from "@/lib/telemetry";
 import { cn } from "@/lib/cn";
+import { renderInlineMarkdown } from "@/lib/ai/markdown-message";
 import type { QuizQuestionDraft } from "@/types/quiz";
 
-export function InlineQuizCard({ quiz }: { quiz: InlineQuiz }) {
+export function InlineQuizCard({
+  quiz,
+  sourceDocId,
+}: {
+  quiz: InlineQuiz;
+  sourceDocId?: string | null;
+}) {
   const { t } = useTranslation();
   const quizzesEnabled = useFeature("quizzes");
   const createQuiz = useQuizStore((s) => s.createQuiz);
@@ -168,7 +175,12 @@ export function InlineQuizCard({ quiz }: { quiz: InlineQuiz }) {
           }}
         />
       </div>
-      <p className="text-sm leading-normal text-text-primary">{q.q}</p>
+      <p
+        className="text-sm leading-normal text-text-primary"
+        dangerouslySetInnerHTML={{
+          __html: renderInlineMarkdown(q.q, sourceDocId),
+        }}
+      />
       <div className="flex flex-col gap-1.5">
         {q.options.map((opt, i) => {
           const isPick = picked === i;
@@ -206,15 +218,23 @@ export function InlineQuizCard({ quiz }: { quiz: InlineQuiz }) {
                 {showGood && <Check size={10} strokeWidth={2.5} />}
                 {showBad && <X size={10} strokeWidth={2.5} />}
               </span>
-              <span className="min-w-0 flex-1">{opt}</span>
+              <span
+                className="min-w-0 flex-1"
+                dangerouslySetInnerHTML={{
+                  __html: renderInlineMarkdown(opt, sourceDocId),
+                }}
+              />
             </button>
           );
         })}
       </div>
       {answered && q.explanation && (
-        <p className="rounded-control border-l-2 border-success bg-bg-secondary px-3 py-2 text-xs leading-relaxed text-text-muted">
-          {q.explanation}
-        </p>
+        <p
+          className="rounded-control border-l-2 border-success bg-bg-secondary px-3 py-2 text-xs leading-relaxed text-text-muted"
+          dangerouslySetInnerHTML={{
+            __html: renderInlineMarkdown(q.explanation, sourceDocId),
+          }}
+        />
       )}
       {answered && (
         <div className="flex items-center gap-2 pt-0.5">

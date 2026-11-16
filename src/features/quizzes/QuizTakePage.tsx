@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
+import { tfLabels } from "./tf-labels";
 import {
   ArrowLeft,
   ArrowRight,
@@ -372,7 +373,7 @@ export function QuizTakePage() {
 
       {q.kind === "true_false" && (
         <TrueFalseOptions
-          labels={[q.option_a ?? "True", q.option_b ?? "False"]}
+          labels={tfLabels(q.option_a, q.option_b, t)}
           correctIndex={q.correct_index}
           selected={st.pickedIndex}
           revealed={st.revealed}
@@ -769,7 +770,7 @@ export function ResultCard({
       ) : (
         <div className="space-y-1">
           {(question.kind === "true_false"
-            ? [question.option_a ?? "True", question.option_b ?? "False"]
+            ? tfLabels(question.option_a, question.option_b, t)
             : [
                 question.option_a,
                 question.option_b,

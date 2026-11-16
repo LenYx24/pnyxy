@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import type { UnifiedLibraryItem } from "@/types/catalog";
 import { formatAuthors } from "@/lib/library/format-authors";
 import { modalBackdropClass, modalSurfaceClass } from "@/components/ui/classes";
+import i18n from "@/lib/i18n";
 
 interface BookInfoModalProps {
   open: boolean;
@@ -33,8 +34,8 @@ export function BookInfoModal({ open, onClose, entry }: BookInfoModalProps) {
   const isUploaded = entry.source === "uploaded";
   const title = isUploaded ? entry.book.title : entry.catalog_book.title;
   const author = isUploaded
-    ? formatAuthors(entry.book.authors, entry.book.author) || "Unknown"
-    : formatAuthors(entry.catalog_book.authors) || "Unknown";
+    ? formatAuthors(entry.book.authors, entry.book.author) || i18n.t("book.unknownAuthor")
+    : formatAuthors(entry.catalog_book.authors) || i18n.t("book.unknownAuthor");
   const pageCount = isUploaded
     ? entry.book.page_count
     : entry.catalog_book.page_count;
